@@ -1,0 +1,521 @@
+<title>Radar Face Sectors</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: full-height 3D stage on the left, control column on the right; stacks on narrow screens. */
+:root {
+  --bg: #f1f4f7;
+  --scene: #e6ebf1;
+  --panel: #fbfcfd;
+  --fg: #18222d;
+  --muted: #566475;
+  --line: #d3dae2;
+  --accent: #1f5fae;
+  --d1: #2f7fd0;
+  --d2: #e08a1e;
+  --d3: #2fa35a;
+  --d4: #d6453d;
+  --void: #8a95a3;
+  --excl: #b9854a;
+  --ship: #7b8794;
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1218; --scene: #090d12; --panel: #131b24; --fg: #e2e8ef; --muted: #93a1b2;
+    --line: #25303c; --accent: #6aa6e8; --void: #6b7685; --excl: #d0a06a; --ship: #9aa6b4;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1218; --scene: #090d12; --panel: #131b24; --fg: #e2e8ef; --muted: #93a1b2;
+  --line: #25303c; --accent: #6aa6e8; --void: #6b7685; --excl: #d0a06a; --ship: #9aa6b4;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 14px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px;
+  overflow-x: hidden;
+}
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 22.5rem; gap: 16px; height: 100%; min-height: 0; }
+.stage { position: relative; min-height: 0; min-width: 0; background: var(--scene); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; touch-action: none; }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+#gl:active { cursor: grabbing; }
+.hint { position: absolute; left: 10px; bottom: 8px; font: 11px var(--font-data); color: var(--muted); pointer-events: none; }
+.side { min-width: 0; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; padding-right: 2px; }
+h1 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.sub { color: var(--muted); font-size: 12.5px; margin: 2px 0 0; max-width: 60ch; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+h2 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 8px; }
+table { width: 100%; border-collapse: collapse; font-family: var(--font-data); font-size: 12px; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-weight: 500; color: var(--muted); font-size: 11px; padding: 0 0 4px; }
+td { padding: 3px 0; border-top: 1px solid var(--line); }
+td:not(:first-child), th:not(:first-child) { text-align: right; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 3px 0; }
+.row label { display: flex; align-items: center; gap: 7px; cursor: pointer; min-width: 0; }
+.row output { font-family: var(--font-data); font-size: 12px; min-width: 3.2em; text-align: right; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+button { font: inherit; font-size: 12.5px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 5px 10px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.note { font-size: 11.5px; color: var(--muted); margin: 6px 0 0; }
+.slide { padding: 2px 0 6px; }
+.slide .row { padding-bottom: 0; }
+@media (max-width: 860px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 62vh auto; height: auto; }
+  body { height: auto; overflow-y: auto; }
+  .side { overflow: visible; }
+}
+</style>
+
+<div class="app">
+  <div class="stage" id="stage">
+    <canvas id="gl" aria-label="Interactive 3D view of the responsibility sectors"></canvas>
+    <div class="hint">drag: rotate · wheel / pinch: zoom</div>
+  </div>
+  <div class="side">
+    <div>
+      <h1>Radar face sectors</h1>
+      <p class="sub">Direction sphere seen from the ship's nose (Z axis vertical, +Z = nose), where the four radar faces are mounted. Each direction is assigned to the face with the smallest scan angle.</p>
+    </div>
+
+    <section>
+      <h2>Result</h2>
+      <table>
+        <thead><tr><th>Face</th><th>Normal φ</th><th>Beam positions</th><th>Sphere</th></tr></thead>
+        <tbody id="stats"></tbody>
+      </table>
+      <p class="note" id="statnote"></p>
+    </section>
+
+    <section>
+      <h2>Parameters</h2>
+      <div class="slide">
+        <div class="row"><span>Face tilt (ε)</span><output id="tiltv">20°</output></div>
+        <input type="range" id="tilt" min="0" max="35" step="1" value="20">
+      </div>
+      <div class="slide">
+        <div class="row"><span>Scan limit θ</span><output id="limv">75°</output></div>
+        <input type="range" id="lim" min="55" max="80" step="1" value="75">
+      </div>
+      <div class="slide">
+        <div class="row"><span>Beam position spacing</span><output id="spv">1.04 HPBW</output></div>
+        <input type="range" id="sp" min="0.9" max="1.5" step="0.02" value="1.04">
+      </div>
+      <p class="note">Beam positions counted at 2.8 GHz (1.30° beam, 4.19 m envelope), hexagonal lattice in direction cosines.</p>
+    </section>
+
+    <section>
+      <h2>Scan zone</h2>
+      <div class="slide">
+        <div class="row"><span>Rear limit: minimum ε</span><output id="eminv">none</output></div>
+        <input type="range" id="emin" min="-90" max="60" step="1" value="-90">
+      </div>
+      <div class="slide">
+        <div class="row"><span>Front limit: maximum ε</span><output id="emaxv">none</output></div>
+        <input type="range" id="emax" min="-30" max="90" step="1" value="90">
+      </div>
+      <p class="note">Restricts the watched volume without changing the tilt or the maximum scan. The zone floor is ε = −55° at best (physical limit at θ = 75°, ε = 20°); below that, the limit has no effect.</p>
+    </section>
+
+    <section>
+      <h2>Display</h2>
+      <div class="grid2" id="dtoggles"></div>
+      <div class="grid2" style="margin-top:6px">
+        <div class="row"><label><input type="checkbox" id="tSurf" checked>Sectors</label></div>
+        <div class="row"><label><input type="checkbox" id="tPts">Beam positions</label></div>
+        <div class="row"><label><input type="checkbox" id="tBound" checked>Boundaries</label></div>
+        <div class="row"><label><input type="checkbox" id="tAxes" checked>Axes</label></div>
+        <div class="row"><label><input type="checkbox" id="tNorm" checked>Normals</label></div>
+        <div class="row"><label><input type="checkbox" id="tSpin">Auto-rotate</label></div>
+      </div>
+      <div class="slide" style="margin-top:6px">
+        <div class="row"><span>Sector opacity</span><output id="opv">0.45</output></div>
+        <input type="range" id="op" min="0.1" max="1" step="0.05" value="0.45">
+      </div>
+    </section>
+
+    <section>
+      <h2>Viewpoints</h2>
+      <div class="btns">
+        <button data-v="iso">3/4 nose</button>
+        <button data-v="top">From +Z</button>
+        <button data-v="bot">From −Z</button>
+        <button data-v="side">Side</button>
+      </div>
+      <p class="note">Frame: X (radiators), Y, Z (lighthouse axis, +Z = nose). φ = azimuth about Z from +X, ε = elevation from the XY plane.</p>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  var FACES = [
+    { name: "F1", phi: 0,   v: "--d1" },
+    { name: "F2", phi: 90,  v: "--d2" },
+    { name: "F3", phi: 180, v: "--d3" },
+    { name: "F4", phi: 270, v: "--d4" }
+  ];
+  var RAD = Math.PI / 180;
+  var H_BEAM = 0.886 * (299792458 / 2.8e9) / 4.19;   // HPBW at boresight, rad (2.8 GHz, 4.19 m envelope)
+  var NP = 576, NE = 288;                              // sphere grid resolution (phi, eps)
+  var state = { tilt: 20, lim: 75, sp: 1.04, emin: -90, emax: 90, op: 0.45, vis: [true, true, true, true] };
+
+  var $ = function (id) { return document.getElementById(id); };
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function fmt(x, d) { return x.toFixed(d); }
+
+  // ---------- three.js scene (Z is up) ----------
+  var canvas = $("gl"), stage = $("stage");
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(36, 1, 0.05, 50);
+  camera.up.set(0, 0, 1);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+  var sun = new THREE.DirectionalLight(0xffffff, 0.8); sun.position.set(2, -3, 3); scene.add(sun);
+
+  var cam = { az: -58 * RAD, el: 24 * RAD, r: 4.5 };
+  var fit = 1;
+  function placeCamera() {
+    var ce = Math.cos(cam.el), R = cam.r * fit;
+    camera.position.set(R * ce * Math.cos(cam.az), R * ce * Math.sin(cam.az), R * Math.sin(cam.el));
+    camera.lookAt(0, 0, 0.12);
+  }
+  function resize() {
+    var w = stage.clientWidth, h = stage.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    fit = Math.max(1, 0.95 / (w / h));
+  }
+  new ResizeObserver(resize).observe(stage);
+
+  // ---------- orbit controls (mouse, touch, wheel) ----------
+  var ptrs = {}, lastPinch = 0;
+  canvas.addEventListener("pointerdown", function (e) { canvas.setPointerCapture(e.pointerId); ptrs[e.pointerId] = { x: e.clientX, y: e.clientY }; });
+  canvas.addEventListener("pointerup", function (e) { delete ptrs[e.pointerId]; lastPinch = 0; });
+  canvas.addEventListener("pointercancel", function (e) { delete ptrs[e.pointerId]; lastPinch = 0; });
+  canvas.addEventListener("pointermove", function (e) {
+    var p = ptrs[e.pointerId]; if (!p) return;
+    var ids = Object.keys(ptrs);
+    if (ids.length === 1) {
+      cam.az -= (e.clientX - p.x) * 0.006;
+      cam.el = Math.max(-1.5, Math.min(1.5, cam.el + (e.clientY - p.y) * 0.006));
+      p.x = e.clientX; p.y = e.clientY;
+    } else if (ids.length === 2) {
+      p.x = e.clientX; p.y = e.clientY;
+      var a = ptrs[ids[0]], b = ptrs[ids[1]];
+      var d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (lastPinch) cam.r = Math.max(2.4, Math.min(10, cam.r * lastPinch / d));
+      lastPinch = d;
+    }
+  });
+  canvas.addEventListener("wheel", function (e) {
+    e.preventDefault();
+    cam.r = Math.max(2.4, Math.min(10, cam.r * Math.exp(e.deltaY * 0.001)));
+  }, { passive: false });
+
+  // ---------- geometry helpers ----------
+  function normalOf(phiDeg, tiltDeg) {
+    var p = phiDeg * RAD, t = tiltDeg * RAD;
+    return [Math.cos(t) * Math.cos(p), Math.cos(t) * Math.sin(p), Math.sin(t)];
+  }
+  function sph(phiR, epsR, r) {
+    var ce = Math.cos(epsR);
+    return [r * ce * Math.cos(phiR), r * ce * Math.sin(phiR), r * Math.sin(epsR)];
+  }
+
+  // ---------- groups ----------
+  var gSurf = new THREE.Group(), gPts = new THREE.Group(), gBound = new THREE.Group(), gNorm = new THREE.Group(), gAxes = new THREE.Group(), gShip = new THREE.Group(), gRef = new THREE.Group();
+  var ZN = 0.17, RP = 0.078;               // face mount height on the hull (near the nose) and radial offset of each face
+  var gDir = new THREE.Group(); gDir.position.set(0, 0, ZN);
+  gDir.add(gSurf, gPts, gBound, gNorm, gAxes, gRef);
+  scene.add(gDir, gShip);
+
+  function disposeGroup(g) {
+    while (g.children.length) {
+      var c = g.children.pop();
+      if (c.geometry) c.geometry.dispose();
+      if (c.material) { if (c.material.map) c.material.map.dispose(); c.material.dispose(); }
+    }
+  }
+
+  function label(text, color, scale) {
+    var c = document.createElement("canvas"); c.width = 256; c.height = 64;
+    var x = c.getContext("2d");
+    x.font = "600 34px 'IBM Plex Sans', system-ui, sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
+    x.fillStyle = color; x.fillText(text, 128, 34);
+    var tex = new THREE.CanvasTexture(c);
+    var s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+    s.scale.set(0.5 * (scale || 1), 0.125 * (scale || 1), 1);
+    s.renderOrder = 10;
+    return s;
+  }
+
+  // ---------- sector ownership on the sphere ----------
+  var owner = new Int8Array(NP * NE);
+  var weights = new Float64Array(NE);
+  function computeOwner() {
+    var cl = Math.cos(state.lim * RAD);
+    var ns = FACES.map(function (d) { return normalOf(d.phi, state.tilt); });
+    var tot = 0, cnt = [0, 0, 0, 0, 0, 0];
+    for (var j = 0; j < NE; j++) {
+      var e = (-90 + (j + 0.5) * 180 / NE) * RAD, ce = Math.cos(e), se = Math.sin(e);
+      weights[j] = ce;
+      for (var i = 0; i < NP; i++) {
+        var p = (i + 0.5) * 360 / NP * RAD;
+        var x = ce * Math.cos(p), y = ce * Math.sin(p), best = -2, bk = -1;
+        for (var k = 0; k < 4; k++) {
+          var dt = ns[k][0] * x + ns[k][1] * y + ns[k][2] * se;
+          if (dt > best) { best = dt; bk = k; }
+        }
+        var o = best >= cl ? bk : -1;
+        if (o >= 0 && (e / RAD < state.emin || e / RAD > state.emax)) o = -2;
+        owner[j * NP + i] = o;
+        cnt[o === -2 ? 5 : o + 1] += ce; tot += ce;
+      }
+    }
+    return { share: cnt.map(function (c) { return c / tot; }) };
+  }
+
+  function buildSurfaces() {
+    disposeGroup(gSurf);
+    var vt = [];
+    for (var j = 0; j <= NE; j++) {
+      var row = [];
+      for (var i = 0; i <= NP; i++) row.push(sph(i * 2 * Math.PI / NP, (-90 + j * 180 / NE) * RAD, 1));
+      vt.push(row);
+    }
+    for (var k = 0; k < 4; k++) {           // only scanned zones are drawn (neither out of reach -1 nor excluded -2)
+      var pos = [];
+      for (var j2 = 0; j2 < NE; j2++) for (var i2 = 0; i2 < NP; i2++) {
+        if (owner[j2 * NP + i2] !== k) continue;
+        var a = vt[j2][i2], b = vt[j2][i2 + 1], c = vt[j2 + 1][i2 + 1], d = vt[j2 + 1][i2];
+        pos.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], a[0], a[1], a[2], c[0], c[1], c[2], d[0], d[1], d[2]);
+      }
+      var g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
+      var col = k === -2 ? css("--excl") : (k < 0 ? css("--void") : css(FACES[k].v));
+      var m = new THREE.MeshBasicMaterial({ color: new THREE.Color(col), transparent: true, opacity: k < 0 ? Math.min(state.op, 0.3) : state.op, side: THREE.FrontSide, depthWrite: false });
+      var mesh = new THREE.Mesh(g, m); mesh.userData.k = k; mesh.renderOrder = 2;
+      gSurf.add(mesh);
+    }
+  }
+
+  function buildBoundaries() {
+    disposeGroup(gBound);
+    var fg = new THREE.Color(css("--fg")), rimCol = new THREE.Color(css("--muted"));
+    function addLine(pts, col, op) {
+      if (pts.length < 2) return;
+      gBound.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: op })));
+    }
+    // meridians between two sectors: drawn only where a scanned cell touches them, in separate pieces if interrupted
+    for (var q = 0; q < 4; q++) {
+      var phi = (45 + 90 * q) * RAD, i = Math.floor(((45 + 90 * q) % 360) / 360 * NP), seg = [];
+      for (var j = 0; j < NE; j++) {
+        var a = owner[j * NP + (i + NP - 1) % NP], b = owner[j * NP + i];
+        if (a >= 0 || b >= 0) seg.push(new THREE.Vector3().fromArray(sph(phi, (-90 + (j + 0.5) * 180 / NE) * RAD, 1.002)));
+        else { addLine(seg, fg, 0.75); seg = []; }
+      }
+      addLine(seg, fg, 0.75);
+    }
+    // lower and upper edge of the scanned area, per azimuth column
+    function edge(fromTop) {
+      var pts = [];
+      for (var iq = 0; iq < NP; iq++) {
+        var found = -1;
+        if (fromTop) { for (var jt = NE - 1; jt >= 0; jt--) if (owner[jt * NP + iq] >= 0) { found = jt + 1; break; } }
+        else { for (var jb = 0; jb < NE; jb++) if (owner[jb * NP + iq] >= 0) { found = jb; break; } }
+        if (found < 0 || found <= 0 || found >= NE) { addLine(pts, rimCol, 0.9); pts = []; continue; }
+        pts.push(new THREE.Vector3().fromArray(sph((iq + 0.5) * 2 * Math.PI / NP, (-90 + found * 180 / NE) * RAD, 1.002)));
+      }
+      if (pts.length > 2) pts.push(pts[0].clone());
+      addLine(pts, rimCol, 0.9);
+    }
+    edge(false);
+    if (state.emax < 90) edge(true);
+  }
+
+  // ---------- beam positions (hex lattice in face direction cosines) ----------
+  var counts = [0, 0, 0, 0], fullCount = 0;
+  function buildPoints() {
+    disposeGroup(gPts);
+    var t = state.tilt * RAD, cT = Math.cos(t), sT = Math.sin(t);
+    var s = state.sp * H_BEAM, dv = s * Math.sqrt(3) / 2, R = Math.sin(state.lim * RAD);
+    var lat = [];
+    var jm = Math.floor(R / dv) + 2, im = Math.floor(R / s) + 2;
+    for (var j = -jm; j <= jm; j++) {
+      var v = j * dv, off = (j & 1) ? 0.5 * s : 0;
+      for (var i = -im; i <= im; i++) {
+        var u = i * s + off;
+        if (u * u + v * v > R * R) continue;
+        var w = Math.sqrt(1 - u * u - v * v);
+        if (Math.abs(u) <= cT * w - sT * v) lat.push([u, v, w]);
+      }
+    }
+    var latFull = lat.length;
+    lat = lat.filter(function (L) { var ed = Math.asin(Math.max(-1, Math.min(1, L[1] * cT + L[2] * sT))) / RAD; return ed >= state.emin && ed <= state.emax; });
+    fullCount = latFull;
+    for (var k = 0; k < 4; k++) {
+      var pk = FACES[k].phi * RAD, cp = Math.cos(pk), sp = Math.sin(pk);
+      var pos = new Float32Array(lat.length * 3);
+      for (var n = 0; n < lat.length; n++) {
+        var L = lat[n];
+        // d = u*e_u + v*e_v + w*normal ; e_u = (-sin p, cos p, 0), e_v = (-sT cos p, -sT sin p, cT)
+        var x = -L[0] * sp - L[1] * sT * cp + L[2] * cT * cp;
+        var y = L[0] * cp - L[1] * sT * sp + L[2] * cT * sp;
+        var z = L[1] * cT + L[2] * sT;
+        pos[3 * n] = x * 1.004; pos[3 * n + 1] = y * 1.004; pos[3 * n + 2] = z * 1.004;
+      }
+      var g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      var pt = new THREE.Points(g, new THREE.PointsMaterial({ color: new THREE.Color(css(FACES[k].v)), size: 2.6, sizeAttenuation: false }));
+      pt.userData.k = k; gPts.add(pt);
+      counts[k] = lat.length;
+    }
+  }
+
+  // ---------- ship, axes, normals, references ----------
+  function buildShip() {
+    disposeGroup(gShip);
+    var hull = new THREE.MeshStandardMaterial({ color: new THREE.Color(css("--ship")), roughness: 0.55, metalness: 0.25 });
+    var dark = new THREE.MeshStandardMaterial({ color: 0x4a525c, roughness: 0.6 });
+    var body = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.62, 28), hull);
+    body.rotation.x = Math.PI / 2; body.position.z = -0.02; gShip.add(body);
+    var cone = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.07, 0.1, 28), hull);   // tapered nose section
+    cone.rotation.x = Math.PI / 2; cone.position.z = 0.34; gShip.add(cone);
+    var dome = new THREE.Mesh(new THREE.SphereGeometry(0.045, 20, 12), new THREE.MeshStandardMaterial({ color: 0x2c3a4a, roughness: 0.25, metalness: 0.5 }));
+    dome.position.z = 0.39; gShip.add(dome);                                               // telescope
+    var eng = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.08, 20), dark);
+    eng.rotation.x = -Math.PI / 2; eng.position.z = -0.37; gShip.add(eng);                 // thrusters side (-Z)
+    var rad = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.008, 0.11), new THREE.MeshStandardMaterial({ color: 0xd9a21b, roughness: 0.5 }));
+    rad.position.z = -0.14; gShip.add(rad);                                                // radiators (X axis)
+    // four octagonal faces, tilted toward +Z, mounted at nose level
+    FACES.forEach(function (d, k) {
+      var n = normalOf(d.phi, state.tilt), nv = new THREE.Vector3(n[0], n[1], n[2]);
+      var oct = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.058, 0.014, 8), new THREE.MeshStandardMaterial({ color: new THREE.Color(css(d.v)), roughness: 0.4, metalness: 0.2, emissive: new THREE.Color(css(d.v)), emissiveIntensity: 0.25 }));
+      oct.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), nv);
+      oct.position.set(RP * Math.cos(d.phi * RAD), RP * Math.sin(d.phi * RAD), ZN);
+      oct.userData.k = k; gShip.add(oct);
+    });
+  }
+
+  function buildAxes() {
+    disposeGroup(gAxes);
+    var fg = css("--fg"), L = 1.35;
+    function ax(dir, color, text) {
+      var g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(dir[0] * L, dir[1] * L, dir[2] * L)]);
+      gAxes.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: new THREE.Color(color) })));
+      var s = label(text, color, 1); s.position.set(dir[0] * (L + 0.14), dir[1] * (L + 0.14), dir[2] * (L + 0.14)); gAxes.add(s);
+    }
+    ax([1, 0, 0], "#d9a21b", "X"); ax([0, 1, 0], "#9a5fd0", "Y"); ax([0, 0, 1], "#d6453d", "Z (nose)");
+    var sm = label("−Z thrusters", css("--muted"), 0.9); sm.position.set(0, 0, -0.55); gAxes.add(sm);
+  }
+
+  function buildNormals() {
+    disposeGroup(gNorm);
+    FACES.forEach(function (d, k) {
+      var n = normalOf(d.phi, state.tilt), col = new THREE.Color(css(d.v));
+      var arrow = new THREE.ArrowHelper(new THREE.Vector3(n[0], n[1], n[2]), new THREE.Vector3(RP * Math.cos(d.phi * RAD), RP * Math.sin(d.phi * RAD), 0), 1.12, col.getHex(), 0.1, 0.05);
+      arrow.userData.k = k; gNorm.add(arrow);
+      var s = label(d.name, css(d.v), 0.8); s.position.set(n[0] * 1.26, n[1] * 1.26, n[2] * 1.26); s.userData.k = k; gNorm.add(s);
+    });
+  }
+
+  function buildRefs() {
+    disposeGroup(gRef);
+    var eq = [];
+    for (var i = 0; i <= 180; i++) eq.push(new THREE.Vector3().fromArray(sph(i * 2 * Math.PI / 180, 0, 1.0)));
+    gRef.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(eq), new THREE.LineBasicMaterial({ color: new THREE.Color(css("--muted")), transparent: true, opacity: 0.45 })));
+  }
+
+  // ---------- stats table ----------
+  function renderStats(res) {
+    var rows = FACES.map(function (d, k) {
+      return "<tr><td><span class='sw' style='background:var(" + d.v + ")'></span>" + d.name + "</td><td>" + d.phi + "°</td><td>" + counts[k].toLocaleString("en-US") + "</td><td>" + fmt(res.share[k + 1] * 100, 1) + " %</td></tr>";
+    });
+    var total = counts.reduce(function (a, b) { return a + b; }, 0);
+    rows.push("<tr><td><span class='sw' style='background:var(--void)'></span>Out of reach</td><td>θ &gt; " + state.lim + "°</td><td>–</td><td>" + fmt(res.share[0] * 100, 1) + " %</td></tr>");
+    if (res.share[5] > 0) rows.push("<tr><td><span class='sw' style='background:var(--excl)'></span>Excluded from scan (not shown)</td><td></td><td>–</td><td>" + fmt(res.share[5] * 100, 1) + " %</td></tr>");
+    rows.push("<tr><td><b>Total scanned</b></td><td></td><td><b>" + total.toLocaleString("en-US") + "</b></td><td><b>" + fmt((1 - res.share[0] - res.share[5]) * 100, 1) + " %</b></td></tr>");
+    $("stats").innerHTML = rows.join("");
+    var save = (Math.PI * Math.pow(Math.sin(state.lim * RAD), 2) / (Math.sqrt(3) / 2 * Math.pow(state.sp * H_BEAM, 2)));
+    var msg = "Without sector sharing, each face would scan its full cone (" + Math.round(save).toLocaleString("en-US") + " positions): saving " + fmt(100 * (1 - counts[0] / save), 1) + " % per face.";
+    if (fullCount > counts[0]) msg += " The zone limit removes " + (fullCount - counts[0]).toLocaleString("en-US") + " positions per face (" + fmt(100 * (fullCount - counts[0]) / fullCount, 1) + " % of the sector).";
+    $("statnote").textContent = msg;
+  }
+  function minEps() {
+    var m = 90;
+    for (var j = 0; j < NE; j++) for (var i = 0; i < NP; i++) if (owner[j * NP + i] >= 0) { m = Math.min(m, -90 + j * 180 / NE); }
+    return Math.round(m);
+  }
+
+  // ---------- apply state ----------
+  function applyVisibility() {
+    gSurf.visible = $("tSurf").checked; gPts.visible = $("tPts").checked; gBound.visible = $("tBound").checked;
+    gAxes.visible = $("tAxes").checked; gNorm.visible = $("tNorm").checked;
+    gSurf.children.forEach(function (m) { m.visible = m.userData.k < 0 ? true : state.vis[m.userData.k]; });
+    gPts.children.forEach(function (m) { m.visible = state.vis[m.userData.k]; });
+    gNorm.children.forEach(function (m) { m.visible = state.vis[m.userData.k]; });
+    gShip.children.forEach(function (m) { if (m.userData.k !== undefined) m.visible = state.vis[m.userData.k]; });
+  }
+  function rebuildGeom() {
+    var res = computeOwner();
+    buildSurfaces(); buildBoundaries(); buildPoints(); buildNormals(); buildShip();
+    renderStats(res); applyVisibility();
+  }
+  function rebuildTheme() {
+    buildAxes(); buildRefs(); rebuildGeom();
+  }
+
+  // ---------- UI wiring ----------
+  var tg = $("dtoggles");
+  FACES.forEach(function (d, k) {
+    var div = document.createElement("div"); div.className = "row";
+    div.innerHTML = "<label><input type='checkbox' id='dv" + k + "' checked><span class='sw' style='background:var(" + d.v + ")'></span>Face " + (k + 1) + "</label>";
+    tg.appendChild(div);
+    div.querySelector("input").addEventListener("change", function (e) { state.vis[k] = e.target.checked; applyVisibility(); });
+  });
+  ["tSurf", "tPts", "tBound", "tAxes", "tNorm"].forEach(function (id) { $(id).addEventListener("change", applyVisibility); });
+  function slider(id, outId, key, fmt, heavy) {
+    $(id).addEventListener("input", function (e) {
+      state[key] = parseFloat(e.target.value); $(outId).textContent = fmt(state[key]);
+      if (heavy) rebuildGeom(); else gSurf.children.forEach(function (m) { m.material.opacity = m.userData.k < 0 ? Math.min(state.op, 0.3) : state.op; });
+    });
+  }
+  slider("tilt", "tiltv", "tilt", function (v) { return v + "°"; }, true);
+  slider("lim", "limv", "lim", function (v) { return v + "°"; }, true);
+  slider("sp", "spv", "sp", function (v) { return fmt(v, 2) + " HPBW"; }, true);
+  slider("op", "opv", "op", function (v) { return fmt(v, 2); }, false);
+  slider("emin", "eminv", "emin", function (v) { return v <= -90 ? "none" : v + "°"; }, true);
+  slider("emax", "emaxv", "emax", function (v) { return v >= 90 ? "none" : v + "°"; }, true);
+
+  var VIEWS = { iso: [-58, 24, 4.5], top: [-90, 86, 4.3], bot: [-90, -86, 4.3], side: [0, 4, 4.5] };
+  document.querySelectorAll("button[data-v]").forEach(function (b) {
+    b.addEventListener("click", function () { var v = VIEWS[b.dataset.v]; cam.az = v[0] * RAD; cam.el = v[1] * RAD; cam.r = v[2]; });
+  });
+
+  // theme changes (system or explicit toggle)
+  var tmo = new MutationObserver(rebuildTheme);
+  tmo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () { setTimeout(rebuildTheme, 30); });
+
+  // ---------- loop ----------
+  var last = 0, reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function frame(t) {
+    if ($("tSpin").checked && !reduce) cam.az += (t - last) * 0.00025;
+    last = t; placeCamera(); renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  resize(); rebuildTheme(); requestAnimationFrame(frame);
+})();
+</script>
