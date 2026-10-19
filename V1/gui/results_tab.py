@@ -3,8 +3,8 @@
 """
 RESULTS_TAB -- optimisation result tab (closable). Same 3D view as the mission-preparation tab, but sectors are
 coloured by result (achieved RR / target RR, or % energy), with WF / range / RR / energy / flag labels; per-sector
-summary table, waveforms by scan-angle bin, per-face totals, confirmation + active tracking (PA) budget (search +
-confirmation + PA per face, confirmation mode per sector, PA cost per range bracket, what to relax); JSON/CSV export. It shows the frozen copy of the mission
+summary table, waveforms by scan-angle bin, per-face totals, confirmation + active tracking (AT) budget (search +
+confirmation + AT per face, confirmation mode per sector, AT cost per range bracket, what to relax); JSON/CSV export. It shows the frozen copy of the mission
 that was optimised.
 """
 from __future__ import annotations
@@ -108,7 +108,6 @@ class ResultsTab(QWidget):
 
         panel = QScrollArea()
         panel.setWidgetResizable(True)
-        panel.setMaximumWidth(680)
         inner = QWidget()
         panel.setWidget(inner)
         v = QVBoxLayout(inner)
@@ -167,13 +166,13 @@ class ResultsTab(QWidget):
         return box
 
     def _build_tracking_group(self) -> QGroupBox:
-        box = QGroupBox("Search + confirmation + active tracking (PA)")
+        box = QGroupBox("Search + confirmation + active tracking (AT)")
         v = QVBoxLayout(box)
         self.lbl_trk_verdict = QLabel("")
         self.lbl_trk_verdict.setWordWrap(True)
         v.addWidget(self.lbl_trk_verdict)
         self.table_trk_faces = QTableWidget()
-        cols = ["face", "search E %", "confirm E %", "PA E %", "total E %", "S time %", "Ku time %", "status"]
+        cols = ["face", "search E %", "confirm E %", "AT E %", "total E %", "S time %", "Ku time %", "status"]
         self.table_trk_faces.setColumnCount(len(cols))
         self.table_trk_faces.setHorizontalHeaderLabels(cols)
         self.table_trk_faces.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
@@ -186,19 +185,19 @@ class ResultsTab(QWidget):
         self.table_trk_sectors.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.table_trk_sectors.horizontalHeader().setStretchLastSection(True)
         v.addWidget(self.table_trk_sectors)
-        self.grp_pa = QGroupBox("PA range brackets (select a sector above)")
-        pv = QVBoxLayout(self.grp_pa)
-        self.table_pa = QTableWidget()
+        self.grp_at = QGroupBox("AT range brackets (select a sector above)")
+        pv = QVBoxLayout(self.grp_at)
+        self.table_at = QTableWidget()
         cols = ["bracket (km)", "targets", "RR (s)", "zone (deg)", "sR (m)", "sV (m/s)", "J / update", "kW",
                 "driver", "Ku waveform"]
-        self.table_pa.setColumnCount(len(cols))
-        self.table_pa.setHorizontalHeaderLabels(cols)
-        self.table_pa.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-        self.table_pa.horizontalHeader().setStretchLastSection(True)
-        self.table_pa.setToolTip("driver = term setting the SNR of a track update: DET (detection), ANG (angle zone), "
+        self.table_at.setColumnCount(len(cols))
+        self.table_at.setHorizontalHeaderLabels(cols)
+        self.table_at.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.table_at.horizontalHeader().setStretchLastSection(True)
+        self.table_at.setToolTip("driver = term setting the SNR of a track update: DET (detection), ANG (angle zone), "
                                  "DOP (velocity accuracy), RNG (range accuracy)")
-        pv.addWidget(self.table_pa)
-        v.addWidget(self.grp_pa)
+        pv.addWidget(self.table_at)
+        v.addWidget(self.grp_at)
         return box
 
     def _build_warnings_group(self) -> QGroupBox:
@@ -259,9 +258,9 @@ class ResultsTab(QWidget):
                 f" | face total energy {100 * self._face_total_energy(r):.0f} %")
         trk = self.tracking_by_id.get(sid)
         if trk:
-            n_tr = sum(b["n_targets"] for b in trk["pa"])
+            n_tr = sum(b["n_targets"] for b in trk["at"])
             text += (f"\nconfirm {trk['confirm_mode'] or '-'} ({trk['false_alarms_per_rr']:.0f} FA/RR)"
-                     + (f" | PA {n_tr:g} tracks" if trk["pa"] else ""))
+                     + (f" | AT {n_tr:g} tracks" if trk["at"] else ""))
         if r.get("flags"):
             text += f"\n! {len(r['flags'])} flag(s)"
         return text
@@ -338,12 +337,12 @@ class ResultsTab(QWidget):
 
     def _on_sector_row(self, row: int) -> None:
         self._fill_bin_table(row)
-        self._fill_pa_table(row)
+        self._fill_at_table(row)
 
     def _fill_tracking_tables(self) -> None:
         trk = self.result.get("tracking")
         if not trk:
-            self.lbl_trk_verdict.setText("No confirmation / PA budget in this result.")
+            self.lbl_trk_verdict.setText("No confirmation / AT budget in this result.")
             return
         faces = [(k, v) for k, v in sorted(trk["faces"].items(), key=lambda kv: int(kv[0]))
                  if self.result["faces_total"][k]["positions"] > 0]
@@ -353,13 +352,13 @@ class ResultsTab(QWidget):
             self.lbl_trk_verdict.setStyleSheet("color: #d6453d; font-weight: bold;")
         else:
             worst = max((v["load"] for _k, v in faces), default=0.0)
-            self.lbl_trk_verdict.setText(f"Search + confirmation + PA fit on every face (most loaded: {100 * worst:.0f} %).")
+            self.lbl_trk_verdict.setText(f"Search + confirmation + AT fit on every face (most loaded: {100 * worst:.0f} %).")
             self.lbl_trk_verdict.setStyleSheet("color: #2fa35a; font-weight: bold;")
         self.table_trk_faces.setRowCount(len(faces))
         for i, (k, v) in enumerate(faces):
             status = "OK" if v["status"] == "OK" else f"OVER x{v['load']:.2f}"
             vals = [geo.FACE_NAMES[int(k)], f"{100 * v['search_energy']:.1f}", f"{100 * v['confirm_energy']:.1f}",
-                    f"{100 * v['pa_energy']:.1f}", f"{100 * v['total_energy']:.1f}", f"{100 * v['total_s_time']:.1f}",
+                    f"{100 * v['at_energy']:.1f}", f"{100 * v['total_energy']:.1f}", f"{100 * v['total_s_time']:.1f}",
                     f"{100 * v['total_ku_time']:.1f}", f"{status} ({v['binding']})"]
             for c, val in enumerate(vals):
                 item = QTableWidgetItem(val)
@@ -382,18 +381,18 @@ class ResultsTab(QWidget):
                     item.setToolTip(alts)
                 self.table_trk_sectors.setItem(i, c, item)
 
-    def _fill_pa_table(self, row: int) -> None:
+    def _fill_at_table(self, row: int) -> None:
         secs = self.result["sectors"]
         r = secs[row] if 0 <= row < len(secs) else None
-        brackets = self.tracking_by_id[r["id"]]["pa"] if r and r["id"] in self.tracking_by_id else []
-        self.grp_pa.setTitle(f"PA range brackets -- {r['id']}" if r else "PA range brackets (select a sector above)")
-        self.table_pa.setRowCount(len(brackets))
+        brackets = self.tracking_by_id[r["id"]]["at"] if r and r["id"] in self.tracking_by_id else []
+        self.grp_at.setTitle(f"AT range brackets -- {r['id']}" if r else "AT range brackets (select a sector above)")
+        self.table_at.setRowCount(len(brackets))
         for i, b in enumerate(brackets):
             vals = [f"{b['r_min_km']:g}-{b['r_max_km']:g}", f"{b['n_targets']:g}", f"{b['rr_s']:g}",
                     f"{b['angle_zone_deg']:g}", f"{b['range_acc_m']:g}", f"{b['vr_acc_mps']:g}",
-                    f"{b['energy_per_update_J']:.0f}", f"{b['avg_power_kW']:.1f}", b["driver"], b["wf"]]
+                    f"{b['energy_per_update_J']:.3g}", f"{b['avg_power_kW']:.3g}", b["driver"], b["wf"]]
             for c, val in enumerate(vals):
-                self.table_pa.setItem(i, c, QTableWidgetItem(val))
+                self.table_at.setItem(i, c, QTableWidgetItem(val))
 
     def _fill_bin_table(self, row: int) -> None:
         secs = self.result["sectors"]
@@ -435,12 +434,12 @@ class ResultsTab(QWidget):
                 w.writerow(["id", "status", "freq_ghz", "integration", "tau_us", "n_pulses", "n_wf",
                             "energy_pct_worst_face", "time_pct_worst_face",
                             "range_worst_km", "range_best_km", "rr_target_s", "rr_alone_s",
-                            "rr_mission_s", "confirm_mode", "false_alarms_per_rr", "pa_tracks", "pa_kW", "flags"])
+                            "rr_mission_s", "confirm_mode", "false_alarms_per_rr", "at_tracks", "at_kW", "flags"])
                 for r in self.result["sectors"]:
                     if r["status"] != "OK":
                         w.writerow([r["id"], r["status"]] + [""] * 16 + [r.get("note", "")])
                         continue
-                    t_ = self.tracking_by_id.get(r["id"], {"confirm_mode": "", "false_alarms_per_rr": "", "pa": []})
+                    t_ = self.tracking_by_id.get(r["id"], {"confirm_mode": "", "false_alarms_per_rr": "", "at": []})
                     wf_, rg = r["wf"], r["range_km"]
                     w.writerow([r["id"], r["status"], wf_["freq_ghz"], wf_["integration"], wf_["tau_us"],
                                 wf_["n_pulses"], len(r.get("wf_set", [wf_])),
@@ -448,8 +447,8 @@ class ResultsTab(QWidget):
                                 rg["at_worst_scan"], rg["at_best_scan"], r["rr_target_s"],
                                 r["rr_alone_s"], r.get("rr_est_mission_s", r["rr_target_s"]),
                                 t_["confirm_mode"], t_["false_alarms_per_rr"],
-                                sum(b["n_targets"] for b in t_["pa"]),
-                                round(sum(b["avg_power_kW"] for b in t_["pa"]), 2),
+                                sum(b["n_targets"] for b in t_["at"]),
+                                round(sum(b["avg_power_kW"] for b in t_["at"]), 2),
                                 "; ".join(r.get("flags", []))])
         except Exception as exc:  # noqa: BLE001
             QMessageBox.critical(self, "Export", f"Export failed: {exc}")

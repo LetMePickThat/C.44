@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-TRACKING -- confirmation and active tracking (PA) budget, added per face to the S-band search budget of
+TRACKING -- confirmation and active tracking (AT) budget, added per face to the S-band search budget of
 core.optimizer.run() (called at its end; the result goes under the report key "tracking").
 
 Decisions of 2026-10-19 (tracking plan, steps 1-2):
@@ -229,7 +229,7 @@ def _groups(P: np.ndarray, r: dict) -> List[dict]:
 
 
 def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict:
-    """Confirmation (all modes) and PA loads per face of one sector, per second, as fractions of the face resources:
+    """Confirmation (all modes) and AT loads per face of one sector, per second, as fractions of the face resources:
     "e" = energy (shared S + Ku), "ts" = S TX time, "tk" = Ku TX time."""
     sw = int(sec.get("swerling", 1))
     tgt = rm.Target(sec["id"], sec["rcs_m2"], sw, sec["v_close_max_mps"])
@@ -324,7 +324,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict
                        "e": e / p_avg_max_w / rr, "ts": ts / rr, "tk": tk / rr}
 
     # --- active tracking per bracket
-    pa = []
+    at = []
     for b in sec.get("tracking", []):
         pack = rm.TrackingPack(b["angle_zone_deg"] / ANGLE_ZONE_SIGMAS, b["vr_acc_mps"], b["range_acc_m"])
         e_face, t_face = np.zeros(4), np.zeros(4)
@@ -350,10 +350,10 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict
                  "e": e_face / p_avg_max_w / b["rr_s"], "tk": t_face / b["rr_s"],
                  "unreachable_tracks": unreachable}
         if unreachable > 0:
-            flags.append(f"PA {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: {unreachable:.1f} track(s) out of Ku reach "
+            flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: {unreachable:.1f} track(s) out of Ku reach "
                          f"at {b['r_max_km']:.0f} km (scan limit or range)")
-        pa.append(out_b)
-    return {"faces": [k for k in range(4) if p_face[k] > 0], "false_alarms_per_rr": fa, "modes": modes, "pa": pa,
+        at.append(out_b)
+    return {"faces": [k for k in range(4) if p_face[k] > 0], "false_alarms_per_rr": fa, "modes": modes, "at": at,
             "flags": flags}
 
 
@@ -369,7 +369,7 @@ def _face_loads(base: Dict[str, np.ndarray], sbs: Dict[str, dict], choice: Dict[
         if mode is not None:
             for key in _RES:
                 tot[key] += sb["modes"][mode][key]
-        for b in sb["pa"]:
+        for b in sb["at"]:
             tot["e"] += b["e"]
             tot["tk"] += b["tk"]
     return tot
@@ -380,8 +380,8 @@ def _max_load(tot: Dict[str, np.ndarray]) -> float:
 
 
 def budget(mission: dict, res: dict) -> dict:
-    """Mission confirmation + PA budget on top of an optimizer.run() result: per sector the confirmation mode
-    (with the reason) and the PA cost per bracket, per face the search / confirmation / PA shares and the verdict,
+    """Mission confirmation + AT budget on top of an optimizer.run() result: per sector the confirmation mode
+    (with the reason) and the AT cost per bracket, per face the search / confirmation / AT shares and the verdict,
     and what to relax when a face does not fit."""
     g = res["global"]
     p_avg_max = g["face_avg_rf_kW"] * 1e3
@@ -463,9 +463,9 @@ def budget(mission: dict, res: dict) -> dict:
             "id": sid, "confirm_mode": mode, "reason": reason, "forced": forced[sid],
             "false_alarms_per_rr": round(float(sb["false_alarms_per_rr"].sum()), 1),
             "confirmation": conf, "alternatives": alts,
-            "pa": [{**{k: v for k, v in b.items() if k not in ("e", "tk")},
+            "at": [{**{k: v for k, v in b.items() if k not in ("e", "tk")},
                     "faces": {str(k): {"energy_fraction": float(b["e"][k]), "ku_time_fraction": float(b["tk"][k])}
-                              for k in sb["faces"]}} for b in sb["pa"]],
+                              for k in sb["faces"]}} for b in sb["at"]],
             "flags": sb["flags"]})
         for fl in sb["flags"]:
             warn.append(f"sector {sid}: {fl}")
@@ -474,16 +474,16 @@ def budget(mission: dict, res: dict) -> dict:
     faces, advice = {}, []
     for k in range(4):
         conf_e = sum(sbs[s]["modes"][choice[s]]["e"][k] for s in sbs if choice[s] is not None)
-        pa_e = sum(b["e"][k] for s in sbs for b in sbs[s]["pa"])
+        at_e = sum(b["e"][k] for s in sbs for b in sbs[s]["at"])
         conf_ts = sum(sbs[s]["modes"][choice[s]]["ts"][k] for s in sbs if choice[s] is not None)
         conf_tk = sum(sbs[s]["modes"][choice[s]]["tk"][k] for s in sbs if choice[s] is not None)
-        pa_tk = sum(b["tk"][k] for s in sbs for b in sbs[s]["pa"])
+        at_tk = sum(b["tk"][k] for s in sbs for b in sbs[s]["at"])
         load = {key: float(tot[key][k]) for key in _RES}
         worst = max(load, key=load.get)
-        faces[str(k)] = {"search_energy": float(base["e"][k]), "confirm_energy": float(conf_e), "pa_energy": float(pa_e),
+        faces[str(k)] = {"search_energy": float(base["e"][k]), "confirm_energy": float(conf_e), "at_energy": float(at_e),
                          "total_energy": load["e"], "search_s_time": float(base["ts"][k]),
                          "confirm_s_time": float(conf_ts), "total_s_time": load["ts"],
-                         "confirm_ku_time": float(conf_tk), "pa_ku_time": float(pa_tk), "total_ku_time": load["tk"],
+                         "confirm_ku_time": float(conf_tk), "at_ku_time": float(at_tk), "total_ku_time": load["tk"],
                          "load": load[worst], "binding": _RES_NAME[worst],
                          "status": "OK" if load[worst] <= 1.0 else "OVER-SUBSCRIBED",
                          "p_left_kW": max(0.0, 1.0 - load["e"]) * p_avg_max / 1e3}
@@ -497,7 +497,7 @@ def budget(mission: dict, res: dict) -> dict:
 
 def _relax_advice(k: int, key: str, load: float, res: dict, sbs: Dict[str, dict], choice: Dict[str, Optional[str]],
                   secs: Dict[str, dict]) -> str:
-    """Which component (search / confirmation / PA) and sub-component to relax on an over-subscribed face."""
+    """Which component (search / confirmation / AT) and sub-component to relax on an over-subscribed face."""
     items: List[Tuple[float, str, str]] = []
     if key in ("e", "ts"):
         for r in res["sectors"]:
@@ -513,11 +513,11 @@ def _relax_advice(k: int, key: str, load: float, res: dict, sbs: Dict[str, dict]
                           f"{sb['false_alarms_per_rr'].sum():.0f} false alarms / RR: coarser range cell (res_max_m) "
                           f"or another mode"))
         if key in ("e", "tk"):
-            for b in sb["pa"]:
+            for b in sb["at"]:
                 if b[key][k] > 0:
                     acc = {"ANG": f"angle zone {b['angle_zone_deg']:g} deg", "DOP": f"velocity accuracy {b['vr_acc_mps']:g} m/s",
                            "RNG": f"range accuracy {b['range_acc_m']:g} m", "DET": "nothing on accuracy (detection-limited)"}
-                    items.append((float(b[key][k]), f"PA {sid} {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km",
+                    items.append((float(b[key][k]), f"AT {sid} {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km",
                                   f"{b['n_targets']:g} targets / {b['rr_s']:g} s, {acc.get(b['driver'], b['driver'])}"))
     items.sort(reverse=True)
     excess = load - 1.0

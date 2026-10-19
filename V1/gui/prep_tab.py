@@ -27,13 +27,14 @@ from core import mission as md
 from core import optimizer as mo
 from core import radar_model as rm
 from core import redundancy as red
+from core import tracking as trk
 from gui.scene_view import SceneView, SectorDraw
 
 DEBOUNCE_MS = 200
 REDUNDANCY_DEBOUNCE_MS = 600    # the redundancy check plans sectors with the optimiser: wait for typing to settle
 ALERT_COLOR = "#c0392b"
-# PA range-bracket table: (mission field, column header, tooltip)
-PA_COLUMNS = (
+# AT range-bracket table: (mission field, column header, tooltip)
+AT_COLUMNS = (
     ("r_min_km", "Rmin\n(km)", "Near limit of the range bracket (km)"),
     ("r_max_km", "Rmax\n(km)", "Far limit of the range bracket (km); tracks are costed at this range"),
     ("n_targets", "Targets", "Number of targets in active tracking in this bracket"),
@@ -136,12 +137,12 @@ class PrepTab(QWidget):
         v.addWidget(self._build_actions_group())
         v.addStretch(1)
 
-        # no horizontal scrolling: the panel is always at least as wide as its content
+        # no horizontal scrolling: the panel is always at least as wide as its content. No maximum: the splitter
+        # handle is free to make it as wide as the user wants (bounded only by the 3D view's own minimum width).
         panel.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         min_w = (inner.minimumSizeHint().width() + panel.verticalScrollBar().sizeHint().width()
                  + 2 * panel.frameWidth())
         panel.setMinimumWidth(min_w)
-        panel.setMaximumWidth(max(460, min_w))
 
         splitter.addWidget(panel)
         splitter.setChildrenCollapsible(False)
@@ -260,9 +261,9 @@ class PrepTab(QWidget):
         return box
 
     def _build_tracking_group(self) -> QGroupBox:
-        """Confirmation mode, new targets per refresh and the active-tracking (PA) range brackets of the sector."""
-        self.grp_pa = QGroupBox("Confirmation and active tracking (PA)")
-        v = QVBoxLayout(self.grp_pa)
+        """Confirmation mode, new targets per refresh and the active-tracking (AT) range brackets of the sector."""
+        self.grp_at = QGroupBox("Confirmation and active tracking (AT)")
+        v = QVBoxLayout(self.grp_at)
         form = QFormLayout()
         self.cb_confirm = QComboBox()
         for i, mode in enumerate(md.CONFIRM_MODE_CHOICES):
@@ -277,31 +278,31 @@ class PrepTab(QWidget):
         form.addRow("New targets / RR", self.sb_new_targets)
         v.addLayout(form)
 
-        self.table_pa = QTableWidget(0, len(PA_COLUMNS))
-        self.table_pa.setHorizontalHeaderLabels([c[1] for c in PA_COLUMNS])
-        for c, (_f, _h, tip) in enumerate(PA_COLUMNS):
-            self.table_pa.horizontalHeaderItem(c).setToolTip(tip)
-        self.table_pa.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.table_pa.verticalHeader().setVisible(False)
-        self.table_pa.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table_pa.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.table_pa.setMaximumHeight(160)
-        self.table_pa.itemChanged.connect(self._on_pa_item_changed)
-        v.addWidget(self.table_pa)
+        self.table_at = QTableWidget(0, len(AT_COLUMNS))
+        self.table_at.setHorizontalHeaderLabels([c[1] for c in AT_COLUMNS])
+        for c, (_f, _h, tip) in enumerate(AT_COLUMNS):
+            self.table_at.horizontalHeaderItem(c).setToolTip(tip)
+        self.table_at.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table_at.verticalHeader().setVisible(False)
+        self.table_at.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table_at.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.table_at.setMaximumHeight(160)
+        self.table_at.itemChanged.connect(self._on_at_item_changed)
+        v.addWidget(self.table_at)
         row = QHBoxLayout()
-        self.btn_pa_add = QPushButton("+ Range bracket")
-        self.btn_pa_del = QPushButton("Remove bracket")
-        self.btn_pa_add.clicked.connect(self._add_bracket)
-        self.btn_pa_del.clicked.connect(self._remove_bracket)
-        row.addWidget(self.btn_pa_add)
-        row.addWidget(self.btn_pa_del)
+        self.btn_at_add = QPushButton("+ Range bracket")
+        self.btn_at_del = QPushButton("Remove bracket")
+        self.btn_at_add.clicked.connect(self._add_bracket)
+        self.btn_at_del.clicked.connect(self._remove_bracket)
+        row.addWidget(self.btn_at_add)
+        row.addWidget(self.btn_at_del)
         v.addLayout(row)
         note = QLabel("Zone = full width of the angular uncertainty zone at +/-2 sigma; sR and sV are 1 sigma. "
                       "Brackets stay within the required range (targets are tracked once detected).")
         note.setWordWrap(True)
         note.setStyleSheet("color: gray; font-size: 11px;")
         v.addWidget(note)
-        return self.grp_pa
+        return self.grp_at
 
     def _build_gauges_group(self) -> QGroupBox:
         box = QGroupBox("Per-face budget (fast estimate)")
@@ -321,8 +322,8 @@ class PrepTab(QWidget):
             form.addRow("Tracking margin", lbl_margin)
             v.addWidget(row_box)
             self.gauges[k] = {"energy": pb_e, "time": pb_t, "kw": lbl_kw, "margin": lbl_margin}
-        note = QLabel("Fast estimate (precomputed table): indicative while editing. "
-                       "The exact time on air comes from 'Run calculation'.")
+        note = QLabel("Fast estimate (precomputed table + one Ku look per face for active tracking): indicative "
+                       "while editing. The exact budget (incl. confirmation) comes from 'Run calculation'.")
         note.setWordWrap(True)
         note.setStyleSheet("color: gray; font-size: 11px;")
         v.addWidget(note)
@@ -485,9 +486,9 @@ class PrepTab(QWidget):
         try:
             enabled = sec is not None
             for w in (self.ed_id, self.cb_shape, self.sb_rcs, self.sb_swerling, self.sb_range,
-                      self.sb_rr, self.sb_vmin, self.sb_vmax, self.grp_box, self.grp_cap, self.grp_pa):
+                      self.sb_rr, self.sb_vmin, self.sb_vmax, self.grp_box, self.grp_cap, self.grp_at):
                 w.setEnabled(enabled)
-            self._fill_pa_table(sec)
+            self._fill_at_table(sec)
             if not sec:
                 return
             self.ed_id.setEditText(sec.get("id", ""))
@@ -513,32 +514,32 @@ class PrepTab(QWidget):
         finally:
             self._updating_form = False
 
-    # ------------------------------------------------------------------ PA range brackets
-    def _fill_pa_table(self, sec: Optional[dict]) -> None:
+    # ------------------------------------------------------------------ AT range brackets
+    def _fill_at_table(self, sec: Optional[dict]) -> None:
         brackets = sec.get("tracking", []) if sec else []
-        self.table_pa.blockSignals(True)
-        self.table_pa.setRowCount(len(brackets))
+        self.table_at.blockSignals(True)
+        self.table_at.setRowCount(len(brackets))
         for r, b in enumerate(brackets):
-            for c, (f, _h, _t) in enumerate(PA_COLUMNS):
+            for c, (f, _h, _t) in enumerate(AT_COLUMNS):
                 item = QTableWidgetItem(f"{b.get(f, md.BRACKET_DEFAULTS[f]):g}")
                 item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-                self.table_pa.setItem(r, c, item)
-        self.table_pa.blockSignals(False)
-        self.btn_pa_del.setEnabled(bool(brackets))
+                self.table_at.setItem(r, c, item)
+        self.table_at.blockSignals(False)
+        self.btn_at_del.setEnabled(bool(brackets))
 
-    def _on_pa_item_changed(self, item: QTableWidgetItem) -> None:
+    def _on_at_item_changed(self, item: QTableWidgetItem) -> None:
         if self._updating_form or self._cur_index < 0:
             return
         sec = self.mission["sectors"][self._cur_index]
         b = sec["tracking"][item.row()]
-        field = PA_COLUMNS[item.column()][0]
+        field = AT_COLUMNS[item.column()][0]
         try:
             b[field] = float(item.text().replace(",", "."))
         except ValueError:
             pass   # not a number: the cell goes back to the stored value
-        self.table_pa.blockSignals(True)
+        self.table_at.blockSignals(True)
         item.setText(f"{b[field]:g}")
-        self.table_pa.blockSignals(False)
+        self.table_at.blockSignals(False)
         self._schedule_refresh()
 
     def _add_bracket(self) -> None:
@@ -549,8 +550,8 @@ class PrepTab(QWidget):
         brackets = sec.setdefault("tracking", [])
         brackets.append(new)
         brackets.sort(key=lambda b: b["r_min_km"])
-        self._fill_pa_table(sec)
-        self.table_pa.selectRow(next(i for i, b in enumerate(brackets) if b is new))
+        self._fill_at_table(sec)
+        self.table_at.selectRow(next(i for i, b in enumerate(brackets) if b is new))
         self._schedule_refresh()
 
     def _remove_bracket(self) -> None:
@@ -558,11 +559,11 @@ class PrepTab(QWidget):
             return
         sec = self.mission["sectors"][self._cur_index]
         brackets = sec.get("tracking", [])
-        row = self.table_pa.currentRow()
+        row = self.table_at.currentRow()
         if not brackets:
             return
         brackets.pop(row if 0 <= row < len(brackets) else len(brackets) - 1)
-        self._fill_pa_table(sec)
+        self._fill_at_table(sec)
         self._schedule_refresh()
 
     def _on_id_changed(self, text: str) -> None:
@@ -642,9 +643,10 @@ class PrepTab(QWidget):
         self.view.set_scene(eps_min, eps_max, draws, hidden=self._hidden_sids())
 
     def _update_gauges(self, eps_min: float, eps_max: float) -> None:
-        totals = {k: {"energy": 0.0, "time_min": 0.0, "kw": 0.0} for k in range(4)}
+        totals = {k: {"energy": 0.0, "time_min": 0.0, "kw": 0.0, "at_kw": 0.0, "at_ku_time": 0.0} for k in range(4)}
         p_avg_max = rm.face_avg_rf_w(self.mission["global"].get("face_elec_mw", 2.0))
         self._unreachable = {}
+        self._at_unreachable = {}
         if self.cost_table is not None:
             for sec in self.mission["sectors"]:
                 try:
@@ -652,14 +654,20 @@ class PrepTab(QWidget):
                 except (KeyError, TypeError, ZeroDivisionError):
                     continue
                 worst = 0.0
+                at_unreach = 0.0
                 for k, fb in faces.items():
                     totals[k]["energy"] += fb.energy_fraction
                     totals[k]["time_min"] += fb.time_fraction_min
                     totals[k]["kw"] += fb.avg_power_kw
+                    totals[k]["at_kw"] += fb.at_avg_power_kw
+                    totals[k]["at_ku_time"] += fb.at_ku_time_fraction
                     worst = max(worst, fb.unreachable_pct)
+                    at_unreach += fb.at_unreachable_tracks
                 sid = sec.get("id")
                 if sid and worst > 0.5:
                     self._unreachable[sid] = worst
+                if sid and at_unreach > 0.05:
+                    self._at_unreachable[sid] = at_unreach
         for k in range(4):
             g = self.gauges[k]
             e_pct = 100 * totals[k]["energy"]
@@ -671,15 +679,24 @@ class PrepTab(QWidget):
             g["time"].setValue(min(100, round(t_pct)))
             g["time"].setFormat(f"time on air >= {t_pct:.0f}%")
             g["kw"].setText(f"{totals[k]['kw']:.0f} kW")
-            # tracking margin: power left for Ku after search (the arrays only share the face's power)
+            # tracking margin: power left on top of search + AT (the arrays only share the face's power)
             p_left_w = max(0.0, 1.0 - totals[k]["energy"]) * p_avg_max
-            g["margin"].setText(f"{p_left_w / 1e3:.0f} kW (Ku duty {100 * p_left_w / rm.BAND_KU.p_pk_total_w:.1f} %)")
+            at_kw = totals[k]["at_kw"]
+            at_duty_pct = 100 * totals[k]["at_ku_time"]
+            margin = f"{p_left_w / 1e3:.0f} kW left"
+            if at_kw > 0.05 or at_duty_pct > 0.5:
+                over = at_duty_pct > 100 * trk.KU_DUTY_MAX
+                margin += f" -- AT est. {at_kw:.1f} kW, Ku duty {at_duty_pct:.1f} %"
+                if over:
+                    margin += f" (> {100 * trk.KU_DUTY_MAX:.0f} % ceiling)"
+            g["margin"].setText(margin)
+            g["margin"].setStyleSheet("color: #c0392b;" if at_duty_pct > 100 * trk.KU_DUTY_MAX else "")
 
     def _update_alerts(self, eps_min: float, eps_max: float) -> None:
         self.list_alerts.clear()
         sectors = self.mission["sectors"]
         self._add_redundancy_alerts()
-        for sec in sectors:   # confirmation / PA inputs (also checked by 'Validate mission prep')
+        for sec in sectors:   # confirmation / AT inputs (also checked by 'Validate mission prep')
             for err in md.validate_tracking(sec, str(sec.get("id", "?"))):
                 self.list_alerts.addItem(err)
         masks = {}
@@ -701,8 +718,12 @@ class PrepTab(QWidget):
             if sid in self._unreachable:
                 self.list_alerts.addItem(f"{sid}: {self._unreachable[sid]:.0f} % of positions can't reach the "
                                          "required range even at full power (budget shown is a floor, not the real cost)")
-        for a, b, _ov in mo.overlaps(self.grid.d_omega, masks):
-            self.list_alerts.addItem(f"{a} / {b} overlap: budgeted twice")
+            if sid in self._at_unreachable:
+                self.list_alerts.addItem(f"{sid}: ~{self._at_unreachable[sid]:.1f} AT track(s) estimated out of Ku "
+                                         "reach at a bracket's outer range (scan limit or range)")
+        for a, b, ov in mo.overlaps(self.grid.d_omega, masks):
+            self.list_alerts.addItem(f"{a} / {b} share {ov:.3f} sr, budgeted independently -- fine for "
+                                     "intentional layered coverage, check for a duplicated requirement if not")
         for k in range(4):
             e = self.gauges[k]["energy"].value()
             if e >= 100:

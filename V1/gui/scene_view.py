@@ -411,8 +411,11 @@ class SceneView(QWidget):
             text = d.text if poly.n_points else None
             if text is not None:
                 if not (same_mesh and cached[4] == text and has_actor(self.plotter, lbl_name)):
+                    # Fixed white-on-near-opaque-black readout: text_color=d.color (the sector's own colour, e.g.
+                    # green) used to sit on a translucent grey box over the same-coloured sector mesh -- unreadable.
                     self.plotter.add_point_labels([poly.points.mean(axis=0)], [text], name=lbl_name,
-                                                  text_color=d.color, font_size=10, shape_opacity=0.6,
+                                                  text_color="white", font_size=13, bold=True,
+                                                  shape_color="black", shape_opacity=0.75,
                                                   show_points=False, render=False)
                 new_names.add(lbl_name)
             new_cache[d.sid] = (key, d.color, poly, outline, text)

@@ -28,6 +28,12 @@ commits to a single shared waveform across a whole face/sector. Cross-checking a
 run showed this makes a naive per-cell time estimate off by up to 27x (e.g. sector S03). Only a
 mathematically honest LOWER bound (average power / peak power -- you cannot transmit in less time than
 energy/peak-power) is exposed here; the exact time-on-air only comes from core.optimizer.run().
+
+Active tracking (AT): a sector's range brackets (target count + precision) used to have zero effect on these
+gauges, which could show a face as comfortably under budget while the AT load alone later over-subscribed it in
+the full calculation. _estimate_at_faces() now adds one representative Ku look per face per bracket (position-
+weighted mean scan angle, target count split like the search positions) via core.tracking.ku_look() -- same
+waveform search as the exact budget, just without its per-scan-angle-bin grouping. Still not authoritative.
 """
 from __future__ import annotations
 
@@ -41,6 +47,7 @@ import numpy as np
 
 from . import geometry as geo
 from . import radar_model as rm
+from . import tracking as trk
 
 DEFAULT_TABLE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cost_table.json")
 
@@ -185,10 +192,51 @@ def energy_profile_by_theta(table: CostTable, r_want_km: float, rcs_m2: float,
 class FaceBudgetEstimate:
     positions: float
     energy_j_per_refresh: float
-    energy_fraction: float
-    avg_power_kw: float
-    time_fraction_min: float   # LOWER bound only (avg power / peak power) -- see module docstring
-    unreachable_pct: float
+    energy_fraction: float     # TOTAL (search + AT), since both share the face's electrical power
+    avg_power_kw: float        # TOTAL (search + AT)
+    time_fraction_min: float   # search only -- LOWER bound (avg power / peak power), see module docstring
+    unreachable_pct: float     # search positions short of range, in %
+    at_avg_power_kw: float = 0.0        # active-tracking share of avg_power_kw, broken out for display
+    at_ku_time_fraction: float = 0.0    # AT Ku duty cycle (seconds of Ku TX per second), not a floor -- see below
+    at_unreachable_tracks: float = 0.0  # AT tracks (target-count units) short of their bracket's range
+
+
+def _estimate_at_faces(sec: dict, grid: geo.SphereGrid, face_sel: Dict[int, Tuple[np.ndarray, np.ndarray]],
+                        npos_all: float, p_avg_max_w: float) -> Dict[int, Tuple[float, float, float]]:
+    """Approximate per-face active-tracking (AT) power and Ku duty cycle of one sector's range brackets: one
+    representative Ku look per face per bracket (at the face's position-weighted mean scan angle), with the
+    bracket's target count split across faces in proportion to search positions -- the same convention
+    core.tracking.sector_budget uses per scan-angle bin ('share = gr["pos"] / p_all * n_targets'), just without
+    its finer per-bin grouping. Fast enough for live editing (core.tracking.ku_look() is itself cached); not the
+    authoritative number (see module docstring) -- the exact AT budget only comes from core.tracking.budget()."""
+    brackets = sec.get("tracking", [])
+    if not brackets or npos_all <= 0:
+        return {}
+    sw = int(sec.get("swerling", 1))
+    tgt = rm.Target(str(sec.get("id", "?")), sec.get("rcs_m2", 1.0), sw, sec.get("v_close_max_mps", 1000.0))
+    ku_lim = rm.BAND_KU.scan_limit_deg(trk.KU_FREQ_GHZ)
+    out: Dict[int, Tuple[float, float, float]] = {}
+    for k, (sel, w_sel) in face_sel.items():
+        npos_k = float(w_sel.sum())
+        theta_k = float(np.average(grid.theta[sel], weights=w_sel))
+        power_w, ku_time, unreachable = 0.0, 0.0, 0.0
+        for b in brackets:
+            n_tr_k = b.get("n_targets", 0.0) * npos_k / npos_all
+            if n_tr_k <= 0:
+                continue
+            rr = b.get("rr_s") or 1.0
+            if theta_k > ku_lim:
+                unreachable += n_tr_k
+                continue
+            pack = rm.TrackingPack(b["angle_zone_deg"] / trk.ANGLE_ZONE_SIGMAS, b["vr_acc_mps"], b.get("range_acc_m"))
+            look = trk.ku_look(theta_k, tgt, b["r_max_km"], p_avg_max_w, pack)
+            if look is None:
+                unreachable += n_tr_k
+                continue
+            power_w += n_tr_k * look["energy_J"] / rr
+            ku_time += n_tr_k * look["time_s"] / rr
+        out[k] = (power_w, ku_time, unreachable)
+    return out
 
 
 def estimate_sector_faces(table: CostTable, sec: dict, grid: geo.SphereGrid, eps_min: float, eps_max: float,
@@ -207,25 +255,36 @@ def estimate_sector_faces(table: CostTable, sec: dict, grid: geo.SphereGrid, eps
     v = sec.get("v_close_max_mps", 1000.0)
     th_grid = np.array(table.TH, dtype=float)
     log_e_at_th, feas_at_th = energy_profile_by_theta(table, r_want, rcs, v)
-    out: Dict[int, FaceBudgetEstimate] = {}
+
+    face_sel: Dict[int, Tuple[np.ndarray, np.ndarray]] = {}
+    npos_all = 0.0
     for k in range(4):
         sel = mask & (grid.owner == k)
-        if not sel.any():
-            continue
-        w_sel = weight[sel]
+        if sel.any():
+            face_sel[k] = (sel, weight[sel])
+            npos_all += float(weight[sel].sum())
+    at_by_face = _estimate_at_faces(sec, grid, face_sel, npos_all, p_avg_max_w)
+
+    out: Dict[int, FaceBudgetEstimate] = {}
+    for k, (sel, w_sel) in face_sel.items():
         npos_total = float(w_sel.sum())
         theta_sel = np.clip(grid.theta[sel], th_grid[0], th_grid[-1])
         e_cell = np.exp(np.interp(theta_sel, th_grid, log_e_at_th))
         e_tot = float((w_sel * e_cell).sum())
-        avg_power_w = e_tot / rr
+        search_power_w = e_tot / rr
         nearest_idx = np.argmin(np.abs(theta_sel[:, None] - th_grid[None, :]), axis=1)
         short_w = float(w_sel[~feas_at_th[nearest_idx]].sum())
+        at_power_w, at_ku_time, at_unreach = at_by_face.get(k, (0.0, 0.0, 0.0))
+        total_power_w = search_power_w + at_power_w
         out[k] = FaceBudgetEstimate(
             positions=npos_total,
             energy_j_per_refresh=e_tot,
-            energy_fraction=avg_power_w / p_avg_max_w,
-            avg_power_kw=avg_power_w / 1e3,
-            time_fraction_min=avg_power_w / table.ppk,
+            energy_fraction=total_power_w / p_avg_max_w,
+            avg_power_kw=total_power_w / 1e3,
+            time_fraction_min=search_power_w / table.ppk,
             unreachable_pct=100.0 * short_w / npos_total if npos_total > 0 else 0.0,
+            at_avg_power_kw=at_power_w / 1e3,
+            at_ku_time_fraction=at_ku_time,
+            at_unreachable_tracks=at_unreach,
         )
     return out

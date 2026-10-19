@@ -21,15 +21,17 @@ with the audit corrections):
     run time), so each candidate costs one solve() per frequency.
   - [D] Unambiguous range imposed on PRI (PRI >= 2 R / c) unless sector says "allow_ambiguous": true.
   - [D] Migration evaluated at v_close_max_mps; Pd/Pfa/loss budget are the model's locked values.
-  - [D] Sectors are independent; overlapping sectors are budgeted twice (flagged). A sector spanning several
-        faces is budgeted per face (each face has its own 2 MW).
+  - [D] Sectors are independent; overlapping sectors are each budgeted in full there (flagged, not deduplicated --
+        merging distinct RCS/range/RR needs into one search is generally costlier than paying for each separately,
+        since it has to meet the hardest of both at once). A sector spanning several faces is budgeted per face
+        (each face has its own 2 MW).
   - [D] RR is stretched proportionally when a face is over-subscribed:
         RR_est = RR_target x max(1, sum of energy fractions, sum of time fractions).
   - Tracking margin per face: the only S/Ku coupling is the face's electrical power, so the power left after search,
     (1 - sum of energy fractions) x P_avg, is reported with the equivalent Ku duty cycle (Ku peak 9.19 MW).
-  - Confirmation + active tracking (PA): core/tracking.py adds, per face, the cost of confirming every detection
-    (true targets and false alarms, mode chosen per sector) and of the PA range brackets of each sector, and says
-    whether search + confirmation + PA fit (report key "tracking").
+  - Confirmation + active tracking (AT): core/tracking.py adds, per face, the cost of confirming every detection
+    (true targets and false alarms, mode chosen per sector) and of the AT range brackets of each sector, and says
+    whether search + confirmation + AT fit (report key "tracking").
 
 Performance:
   - solve() range results are memoised per process (_range_cached), so repeated runs (e.g. re-running from the GUI
@@ -636,7 +638,9 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
             continue
         r["rr_est_mission_s"] = r["rr_target_s"] * max(dil[int(k)] for k in r["faces"])
     # overlaps (only among sectors actually computed, in case of an early cancellation)
-    warn = [f"sectors {a} / {b} overlap ({ov:.3f} sr): budgeted twice" for a, b, ov in overlaps(sph.d_omega, masks)]
+    warn = [f"sectors {a} / {b} share {ov:.3f} sr: each is budgeted independently there -- fine for intentional "
+            f"layered coverage (different RCS/range/RR on the same sky), check for a duplicated requirement if not"
+            for a, b, ov in overlaps(sph.d_omega, masks)]
     # tracking margin: power left after search (the S and Ku arrays only share the face's electrical power)
     for k, v in tot.items():
         p_avail_w = max(0.0, 1.0 - v["energy_fraction"]) * p_avg_max
@@ -680,7 +684,7 @@ def load_mission(path: str) -> dict:
                     elif k == "allow_ambiguous":
                         s[k] = v.lower() == "true"
                     elif k == "tracking":
-                        s[k] = json.loads(v)      # PA range brackets, a JSON list in one column
+                        s[k] = json.loads(v)      # AT range brackets, a JSON list in one column
                     else:
                         s[k] = float(v)
                 secs.append(s)
@@ -736,14 +740,14 @@ def print_report(res: dict) -> None:
             print(f"[{s['id']}] confirm {s['confirm_mode']} ({s['reason']}) | {s['false_alarms_per_rr']:.0f} false alarms / RR"
                   f" | P confirm {c.get('success', 0):.3f} | margin {m_txt} | Ku looks {c.get('ku_looks_true', 0):.2f} "
                   f"per target, {c.get('ku_looks_fa', 0):.0f} per false alarm")
-            for b in s["pa"]:
-                print(f"     PA {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: {b['n_targets']:g} targets / {b['rr_s']:g} s, "
+            for b in s["at"]:
+                print(f"     AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: {b['n_targets']:g} targets / {b['rr_s']:g} s, "
                       f"zone {b['angle_zone_deg']:g} deg, {b['range_acc_m']:g} m, {b['vr_acc_mps']:g} m/s -> "
                       f"{b['energy_per_update_J']:.0f} J/update, {b['avg_power_kW']:.1f} kW, driver {b['driver']} | {b['wf']}")
         for k, v in trk["faces"].items():
             if res["faces_total"][k]["positions"] > 0:
                 print(f" face {k}: energy {100 * v['total_energy']:.1f} % (search {100 * v['search_energy']:.1f} + confirm "
-                      f"{100 * v['confirm_energy']:.1f} + PA {100 * v['pa_energy']:.1f}) | S time {100 * v['total_s_time']:.1f} % "
+                      f"{100 * v['confirm_energy']:.1f} + AT {100 * v['at_energy']:.1f}) | S time {100 * v['total_s_time']:.1f} % "
                       f"| Ku time {100 * v['total_ku_time']:.1f} % -> {v['status']} (load {v['load']:.2f}, {v['binding']})")
     for wmsg in res["warnings"]:
         print(" WARNING:", wmsg)

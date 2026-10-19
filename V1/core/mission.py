@@ -5,7 +5,7 @@ MISSION -- mission preparation data model: sector templates, mission-prep valida
 and JSON/CSV load/save, kept strictly compatible with the optimiser's input format (same field names, same box/cap
 shapes) so a saved mission file runs unchanged through core.optimizer.run().
 
-Active tracking (PA) and confirmation inputs, per sector (core/tracking.py):
+Active tracking (AT) and confirmation inputs, per sector (core/tracking.py):
   "tracking": list of range brackets {r_min_km, r_max_km, n_targets, rr_s, angle_zone_deg (opening = full width at
               +/-2 sigma), range_acc_m and vr_acc_mps (1 sigma)};
   "confirm_mode": "auto" (default) or a forced mode of tracking.CONFIRM_MODES;
@@ -75,7 +75,7 @@ def duplicate_sector(sec: dict, existing_ids: List[str]) -> dict:
 
 
 def new_bracket(sec: dict) -> dict:
-    """A PA range bracket that fills the first gap of the sector's brackets: above the farthest one up to the
+    """An AT range bracket that fills the first gap of the sector's brackets: above the farthest one up to the
     required range, else below the nearest one; with no gap, the farthest bracket is split in two (the new one is
     its near half). Other values are copied from the farthest bracket (defaults if none)."""
     brackets = sec.get("tracking", [])
@@ -182,7 +182,7 @@ def validate_sector(sec: dict, index: int) -> List[str]:
 
 
 def validate_tracking(sec: dict, tag: str) -> List[str]:
-    """Confirmation mode, new targets per refresh and the PA range brackets of one sector."""
+    """Confirmation mode, new targets per refresh and the AT range brackets of one sector."""
     errs = []
     mode = sec.get("confirm_mode", "auto")
     if mode not in CONFIRM_MODE_CHOICES:
@@ -196,7 +196,7 @@ def validate_tracking(sec: dict, tag: str) -> List[str]:
     r_req = sec.get("range_km")
     spans = []
     for i, b in enumerate(brackets):
-        bt = f"{tag}, PA bracket #{i + 1}"
+        bt = f"{tag}, AT bracket #{i + 1}"
         missing = [f for f in BRACKET_FIELDS if b.get(f) is None]
         if missing:
             errs.append(f"{bt}: missing {', '.join(missing)}")
@@ -217,7 +217,7 @@ def validate_tracking(sec: dict, tag: str) -> List[str]:
     spans.sort()
     for (a0, a1, ia), (b0, b1, ib) in zip(spans, spans[1:]):
         if b0 < a1:
-            errs.append(f"{tag}: PA brackets #{ia} and #{ib} overlap ({a0:g}-{a1:g} / {b0:g}-{b1:g} km)")
+            errs.append(f"{tag}: AT brackets #{ia} and #{ib} overlap ({a0:g}-{a1:g} / {b0:g}-{b1:g} km)")
     return errs
 
 
@@ -261,7 +261,7 @@ _CSV_FIELDS = [
 def save_mission_csv(path: str, mission: dict) -> None:
     """Sector table only (global parameters have no column in mission_example.csv's format;
     they stay at the optimiser's defaults when a CSV is reloaded -- same as the provided example).
-    The PA brackets go in one column as a JSON list."""
+    The AT brackets go in one column as a JSON list."""
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=_CSV_FIELDS, extrasaction="ignore")
         w.writeheader()
