@@ -7,11 +7,13 @@ mission-prep validation, then launch of the exact calculation (mission_optimizer
 """
 from __future__ import annotations
 
+import copy
 import os
 from typing import Dict, List, Optional
 
 import numpy as np
 from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
     QAbstractItemView, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
     QLabel, QListWidget, QListWidgetItem, QMainWindow, QMessageBox, QProgressBar, QProgressDialog,
@@ -22,11 +24,14 @@ from pyvistaqt import QtInteractor
 import cost_estimate as ce
 import geometry as geo
 import mission_data as md
-from optimize_worker import OptimizeWorker
+import redundancy as red
+from optimize_worker import OptimizeWorker, RedundancyWorker
 from view_controls import DisplayBar
 
 GRID_RES_DEG = 0.5
 DEBOUNCE_MS = 200
+REDUNDANCY_DEBOUNCE_MS = 600    # the redundancy check plans sectors with the optimiser: wait for typing to settle
+ALERT_COLOR = "#c0392b"
 
 
 class MissionPrepWindow(QMainWindow):
@@ -47,6 +52,18 @@ class MissionPrepWindow(QMainWindow):
         self._worker: Optional[OptimizeWorker] = None
         self._progress_dlg: Optional[QProgressDialog] = None
         self.results_window = None
+        # redundancy check (redundancy.py): findings are valid while the mission signature they were computed for is
+        # the current one; "Keep both" acknowledgements are per sector content and covering sectors
+        self._redundancy: Dict[int, red.Finding] = {}   # id() of the redundant sector dict -> finding
+        self._redundancy_sig: Optional[str] = None      # signature the findings belong to
+        self._redundancy_requested: Optional[str] = None
+        self._redundancy_error = ""
+        self._redundancy_ack: set = set()
+        self._red_worker: Optional[RedundancyWorker] = None
+        self._red_timer = QTimer(self)
+        self._red_timer.setSingleShot(True)
+        self._red_timer.setInterval(REDUNDANCY_DEBOUNCE_MS)
+        self._red_timer.timeout.connect(self._start_redundancy_check)
 
         self._debounce = QTimer(self)
         self._debounce.setSingleShot(True)
@@ -70,6 +87,7 @@ class MissionPrepWindow(QMainWindow):
         self.display_bar.faces_changed.connect(self._apply_visibility)
         self.display_bar.show_all_sectors.connect(lambda: self._set_all_sectors_visible(True))
         self.display_bar.hide_all_sectors.connect(lambda: self._set_all_sectors_visible(False))
+        self.display_bar.scale_changed.connect(self._on_scale_changed)
         lv.addWidget(self.display_bar)
         self.plotter = QtInteractor(left)
         self.plotter.setMinimumWidth(500)
@@ -232,6 +250,7 @@ class MissionPrepWindow(QMainWindow):
         v = QVBoxLayout(box)
         self.list_alerts = QListWidget()
         self.list_alerts.setMaximumHeight(140)
+        self.list_alerts.itemDoubleClicked.connect(self._on_alert_activated)
         v.addWidget(self.list_alerts)
         return box
 
@@ -282,7 +301,8 @@ class MissionPrepWindow(QMainWindow):
         live = {id(sec) for sec in self.mission["sectors"]}
         self._hidden_sectors &= live          # forget deleted sectors (their ids may be reused)
         for sec in self.mission["sectors"]:
-            item = QListWidgetItem(self._sector_label(sec))
+            item = QListWidgetItem()
+            self._decorate_item(item, sec)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(Qt.Unchecked if id(sec) in self._hidden_sectors else Qt.Checked)
             self.list_sectors.addItem(item)
@@ -298,6 +318,26 @@ class MissionPrepWindow(QMainWindow):
     def _sector_label(sec: dict) -> str:
         shape = sec.get("shape", "box")
         return f"{sec.get('id', '?')}  [{shape}]  R={sec.get('range_km', 0):.0f} km  RCS={sec.get('rcs_m2', 0):g} m2"
+
+    def _decorate_item(self, item: QListWidgetItem, sec: dict) -> None:
+        """Sector list entry: label, plus a red 'need already met' tag while the sector is redundant."""
+        f = self._active_finding(sec)
+        if f is None:
+            item.setText(self._sector_label(sec))
+            item.setForeground(QColor())
+            item.setToolTip("")
+            return
+        met = "need met" if f.full else f"{100 * f.fraction:.0f} % of need met"
+        item.setText(f"{self._sector_label(sec)}   ! {met} by {', '.join(f.by)}")
+        item.setForeground(QColor(ALERT_COLOR))
+        item.setToolTip("Double-click the matching alert to resolve")
+
+    def _refresh_sector_items(self) -> None:
+        self.list_sectors.blockSignals(True)
+        for row, sec in enumerate(self.mission["sectors"]):
+            if row < self.list_sectors.count():
+                self._decorate_item(self.list_sectors.item(row), sec)
+        self.list_sectors.blockSignals(False)
 
     def _add_sector(self, shape: str) -> None:
         sec = md.new_sector(self._sector_ids(), shape=shape)
@@ -346,7 +386,9 @@ class MissionPrepWindow(QMainWindow):
     def _apply_visibility(self, render: bool = True) -> None:
         """Re-applied after every rebuild, since rebuilt actors come back visible."""
         for k in range(4):
-            geo.set_actors_visible(self.plotter, geo.face_actor_names(k), self.display_bar.face_visible(k))
+            geo.set_actors_visible(self.plotter, geo.face_actor_names(k),
+                                   self.display_bar.face_visible(k) and not self.display_bar.true_scale())
+        geo.set_reference_scene_visible(self.plotter, not self.display_bar.true_scale())
         for i, sec in enumerate(self.mission["sectors"]):
             sid = sec.get("id") or f"_idx{i}"
             geo.set_actors_visible(self.plotter, geo.sector_actor_names(sid), id(sec) not in self._hidden_sectors)
@@ -393,7 +435,7 @@ class MissionPrepWindow(QMainWindow):
         if self._updating_form or self._cur_index < 0:
             return
         self.mission["sectors"][self._cur_index]["id"] = text
-        self.list_sectors.item(self._cur_index).setText(self._sector_label(self.mission["sectors"][self._cur_index]))
+        self._decorate_item(self.list_sectors.item(self._cur_index), self.mission["sectors"][self._cur_index])
         self._schedule_refresh()
 
     def _on_shape_changed(self, shape: str) -> None:
@@ -432,7 +474,7 @@ class MissionPrepWindow(QMainWindow):
         sec["rr_target_s"] = self.sb_rr.value()
         sec["v_close_min_mps"] = self.sb_vmin.value()
         sec["v_close_max_mps"] = self.sb_vmax.value()
-        self.list_sectors.item(self._cur_index).setText(self._sector_label(sec))
+        self._decorate_item(self.list_sectors.item(self._cur_index), sec)
         self._schedule_refresh()
 
     def _on_global_changed(self, *_args) -> None:
@@ -451,6 +493,7 @@ class MissionPrepWindow(QMainWindow):
         self._rebuild_face_sectors(eps_min, eps_max)
         self._rebuild_sector_overlays(eps_min, eps_max)
         self._update_gauges(eps_min, eps_max)
+        self._schedule_redundancy_check()
         self._update_alerts(eps_min, eps_max)
         self._apply_visibility()
 
@@ -473,29 +516,33 @@ class MissionPrepWindow(QMainWindow):
                 self.plotter.remove_actor(f"face_outline_{k}", render=False)
 
     def _rebuild_sector_overlays(self, eps_min: float, eps_max: float) -> None:
-        """Only sectors whose geometry / colour / label changed are rebuilt (cache keyed by sector id)."""
+        """Only sectors whose geometry / colour / label changed are rebuilt (cache keyed by sector id). In 1:1 scale
+        each sector is a true-size volume in km (radar at the origin out to its required range), else a cap on the
+        unit sphere."""
+        true_scale = self.display_bar.true_scale()
         new_names = set()
         new_cache: Dict[str, tuple] = {}
         for i, sec in enumerate(self.mission["sectors"]):
             sid = sec.get("id") or f"_idx{i}"
             color = geo.sector_color(i)
             surf_name, out_name, lbl_name = geo.sector_actor_names(sid)
-            key = (geo.sector_geometry_key(sec), eps_min, eps_max)
+            key = (geo.sector_geometry_key(sec), eps_min, eps_max, sec.get("range_km") if true_scale else None)
             cached = self._overlay_cache.get(sid)
             # a duplicate id (mid-edit) shares actor names with the earlier sector: always redraw, last one wins
             same_geom = cached is not None and cached[0] == key and sid not in new_cache
             if same_geom:
                 poly, outline = cached[2], cached[3]
             else:
+                build = geo.build_sector_volume_km if true_scale else geo.build_sector_overlay
                 try:
-                    poly, outline = geo.build_sector_overlay(self.grid, sec, eps_min, eps_max)
-                except (KeyError, TypeError):
+                    poly, outline = build(self.grid, sec, eps_min, eps_max)
+                except (KeyError, TypeError, ValueError):
                     continue  # incomplete sector mid-edit: skip the 3D overlay, form stays editable
             same_mesh = same_geom and cached[1] == color
             if poly.n_points:
                 if not (same_mesh and geo.has_actor(self.plotter, surf_name)):
-                    self.plotter.add_mesh(poly, color=color, opacity=0.5, culling="back", name=surf_name,
-                                          render=False)
+                    self.plotter.add_mesh(poly, color=color, opacity=0.5, culling=None if true_scale else "back",
+                                          name=surf_name, render=False)
                 new_names.add(surf_name)
             if outline.n_points:
                 if not (same_mesh and geo.has_actor(self.plotter, out_name)):
@@ -515,6 +562,17 @@ class MissionPrepWindow(QMainWindow):
         geo.remove_actors(self.plotter, self._sector_actor_names - new_names)   # incl. the "-labels" actors
         self._sector_actor_names = new_names
         self._overlay_cache = new_cache
+
+    def _on_scale_changed(self, true_scale: bool) -> None:
+        """1:1 on: redraw the volumes in km and zoom to fit them all; off: back to the default unit-sphere view."""
+        eps_min = self.mission["global"].get("eps_min_deg", -90.0)
+        eps_max = self.mission["global"].get("eps_max_deg", 90.0)
+        self._rebuild_sector_overlays(eps_min, eps_max)
+        if true_scale:
+            geo.fit_camera_to_actors(self.plotter, [n for n in self._sector_actor_names if n.endswith("_surf")])
+        else:
+            geo.set_default_camera(self.plotter)
+        self._apply_visibility()
 
     def _update_gauges(self, eps_min: float, eps_max: float) -> None:
         totals = {k: {"energy": 0.0, "time_min": 0.0, "kw": 0.0} for k in range(4)}
@@ -543,6 +601,7 @@ class MissionPrepWindow(QMainWindow):
     def _update_alerts(self, eps_min: float, eps_max: float) -> None:
         self.list_alerts.clear()
         sectors = self.mission["sectors"]
+        self._add_redundancy_alerts()
         masks = {}
         for sec in sectors:
             sid = sec.get("id")
@@ -583,6 +642,126 @@ class MissionPrepWindow(QMainWindow):
                                          "any watch sector (unallocated)")
         if self.list_alerts.count() == 0:
             self.list_alerts.addItem("No alerts")
+
+    # ------------------------------------------------------------------ redundancy (an earlier sector already meets the need)
+    def _schedule_redundancy_check(self) -> None:
+        if red.mission_signature(self.mission) != self._redundancy_requested:
+            self._red_timer.start()
+
+    def _start_redundancy_check(self) -> None:
+        if self._red_worker is not None and self._red_worker.isRunning():
+            return  # _on_redundancy_done starts the next check if the mission changed meanwhile
+        sig = red.mission_signature(self.mission)
+        self._redundancy_requested = sig
+        token = (sig, [id(s) for s in self.mission["sectors"]])
+        self._red_worker = RedundancyWorker(copy.deepcopy(self.mission), self.grid, token, self)
+        self._red_worker.finished_ok.connect(self._on_redundancy_done)
+        self._red_worker.failed.connect(self._on_redundancy_failed)
+        self._red_worker.start()
+
+    def _on_redundancy_done(self, findings: list, token: tuple) -> None:
+        sig, ids = token
+        if sig != red.mission_signature(self.mission):
+            self._redundancy_requested = None
+            self._red_timer.start()       # stale: the mission changed while the check ran
+            return
+        self._redundancy = {ids[f.index]: f for f in findings}
+        self._redundancy_sig, self._redundancy_error = sig, ""
+        self._refresh_sector_items()
+        self._update_alerts(self.mission["global"].get("eps_min_deg", -90.0),
+                            self.mission["global"].get("eps_max_deg", 90.0))
+
+    def _on_redundancy_failed(self, message: str) -> None:
+        self._redundancy_error = message
+        self._redundancy_sig = red.mission_signature(self.mission)
+        self._redundancy = {}
+        self._schedule_refresh()
+
+    @staticmethod
+    def _ack_key(sec: dict, f: red.Finding) -> tuple:
+        return id(sec), red.sector_signature(sec), tuple(f.by)
+
+    def _active_finding(self, sec: dict) -> Optional[red.Finding]:
+        """Current finding for this sector, None if none, out of date, or acknowledged ("Keep both")."""
+        if self._redundancy_sig is None or self._redundancy_sig != red.mission_signature(self.mission):
+            return None
+        f = self._redundancy.get(id(sec))
+        return None if f is None or self._ack_key(sec, f) in self._redundancy_ack else f
+
+    def _add_redundancy_alerts(self) -> None:
+        if self._redundancy_sig != red.mission_signature(self.mission):
+            if len(self.mission["sectors"]) > 1:
+                item = QListWidgetItem("Checking whether earlier sectors already meet the later needs...")
+                item.setForeground(QColor("gray"))
+                self.list_alerts.addItem(item)
+            return
+        if self._redundancy_error:
+            self.list_alerts.addItem(self._redundancy_error)
+        for i, sec in enumerate(self.mission["sectors"]):
+            f = self._active_finding(sec)
+            if f is None:
+                continue
+            by = ", ".join(f.by)
+            if f.full:
+                text = f"{f.sid}: need already met by {by} -- double-click to keep {by} only"
+            elif f.pieces:
+                text = (f"{f.sid}: {100 * f.fraction:.0f} % of its volume already met by {by} -- "
+                        f"double-click to trim {f.sid}")
+            else:
+                text = f"{f.sid}: {100 * f.fraction:.0f} % of its volume already met by {by} -- double-click for details"
+            item = QListWidgetItem(text)
+            item.setForeground(QColor(ALERT_COLOR))
+            item.setData(Qt.UserRole, i)
+            self.list_alerts.addItem(item)
+
+    def _on_alert_activated(self, item: QListWidgetItem) -> None:
+        index = item.data(Qt.UserRole)
+        if index is None or not 0 <= index < len(self.mission["sectors"]):
+            return
+        sec = self.mission["sectors"][index]
+        f = self._active_finding(sec)
+        if f is None:
+            return
+        sid, by = sec["id"], ", ".join(f.by)
+        need = (f"RCS {sec['rcs_m2']:g} m2 SW{sec.get('swerling', 1)} at {sec['range_km']:.0f} km, "
+                f"RR {sec['rr_target_s']:.0f} s, closing up to {sec['v_close_max_mps']:.0f} m/s")
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Warning)
+        box.setWindowTitle("Redundant watch volume")
+        b_apply = None
+        if f.full:
+            box.setText(f"The need of {sid} ({need}) is already met by {by} over its whole scanned volume, "
+                        f"with the waveforms the optimiser chooses for {by}.")
+            box.setInformativeText(f"Keeping only {by} meets both needs without budgeting the same search twice."
+                                   f"\n\n{f.detail}")
+            b_apply = box.addButton(f"Keep {by} only (delete {sid})", QMessageBox.AcceptRole)
+        else:
+            box.setText(f"The need of {sid} ({need}) is already met by {by} over {100 * f.fraction:.0f} % of its "
+                        f"scanned volume, with the waveforms the optimiser chooses for {by}.")
+            if f.pieces:
+                lines = [f"  {p['id']}: phi {p['phi_min_deg']:g} -> {p['phi_max_deg']:g} deg, "
+                         f"eps {p['eps_min_deg']:g} -> {p['eps_max_deg']:g} deg" for p in f.pieces]
+                text = (f"{f.detail}\n\nProposed: restrict {sid} to the part not already covered:\n"
+                        + "\n".join(lines))
+                if f.caveat:
+                    text += f"\n\nNote: {f.caveat}."
+                box.setInformativeText(text)
+                b_apply = box.addButton(f"Trim {sid}", QMessageBox.AcceptRole)
+            else:
+                box.setInformativeText(f"{f.detail}\n\nNo automatic trim: {f.note}.")
+        b_keep = box.addButton("Keep both", QMessageBox.ActionRole)
+        box.addButton(QMessageBox.Cancel)
+        box.exec_()
+        clicked = box.clickedButton()
+        if clicked is b_keep:
+            self._redundancy_ack.add(self._ack_key(sec, f))
+            self._refresh_sector_items()
+            self._schedule_refresh()
+        elif b_apply is not None and clicked is b_apply:
+            self.mission["sectors"][index:index + 1] = [] if f.full else [dict(p) for p in f.pieces]
+            self._cur_index = min(index, len(self.mission["sectors"]) - 1)
+            self._reload_sector_list()
+            self._schedule_refresh()
 
     # ------------------------------------------------------------------ import / export / validate / run
     def _on_import(self) -> None:

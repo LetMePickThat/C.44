@@ -68,7 +68,7 @@ class ResultsWindow(QMainWindow):
         self.eps_min = result["global"]["eps_min_deg"]
         self.eps_max = result["global"]["eps_max_deg"]
         self._hidden_sectors: set = set()     # ids of the sectors whose volume is hidden in 3D
-        self._overlay_meshes: dict = {}       # sid -> (surface, outline), built once
+        self._overlay_meshes: dict = {}       # (sid, 1:1 scale) -> (surface, outline), built once
 
         self._build_ui()
         geo.add_static_scene(self.plotter)
@@ -105,6 +105,7 @@ class ResultsWindow(QMainWindow):
         self.display_bar.faces_changed.connect(self._apply_visibility)
         self.display_bar.show_all_sectors.connect(lambda: self._set_all_sectors_visible(True))
         self.display_bar.hide_all_sectors.connect(lambda: self._set_all_sectors_visible(False))
+        self.display_bar.scale_changed.connect(self._on_scale_changed)
         lv.addWidget(self.display_bar)
         self.plotter = QtInteractor(left)
         lv.addWidget(self.plotter.interactor)
@@ -227,16 +228,18 @@ class ResultsWindow(QMainWindow):
             surf_name, out_name, lbl_name = geo.sector_actor_names(sid)
             if sec is None:
                 continue
-            if sid not in self._overlay_meshes:   # geometry is fixed in this window: a metric change only recolours
-                self._overlay_meshes[sid] = geo.build_sector_overlay(self.grid, sec, self.eps_min, self.eps_max)
-            poly, outline = self._overlay_meshes[sid]
+            true_scale = self.display_bar.true_scale()
+            if (sid, true_scale) not in self._overlay_meshes:   # geometry is fixed here: a metric change only recolours
+                build = geo.build_sector_volume_km if true_scale else geo.build_sector_overlay
+                self._overlay_meshes[sid, true_scale] = build(self.grid, sec, self.eps_min, self.eps_max)
+            poly, outline = self._overlay_meshes[sid, true_scale]
             if r["status"] != "OK":
                 color = "#8a95a3"
             else:
                 color = self._sector_color(r)
             if poly.n_points:
-                self.plotter.add_mesh(poly, color=color, opacity=0.55, culling="back", name=surf_name,
-                                      render=False)
+                self.plotter.add_mesh(poly, color=color, opacity=0.55, culling=None if true_scale else "back",
+                                      name=surf_name, render=False)
             if outline.n_points:
                 self.plotter.add_mesh(outline, color=color, line_width=2, name=out_name, render=False)
             centre = poly.points.mean(axis=0) if poly.n_points else None
@@ -261,6 +264,16 @@ class ResultsWindow(QMainWindow):
                                            font_size=10, shape_opacity=0.6, show_points=False, render=False)
         self._apply_visibility()   # the one render of this rebuild
 
+    def _on_scale_changed(self, true_scale: bool) -> None:
+        """1:1 on: redraw the volumes in km (radar out to the required range) and zoom to fit them all; off: back to
+        the default unit-sphere view."""
+        self._rebuild_sector_overlays()
+        if true_scale:
+            geo.fit_camera_to_actors(self.plotter, [geo.sector_actor_names(r["id"])[0] for r in self.result["sectors"]])
+        else:
+            geo.set_default_camera(self.plotter)
+        self._apply_visibility()
+
     # ------------------------------------------------------------------ 3D visibility
     def _on_sector_check_changed(self, item: QTableWidgetItem) -> None:
         if item.column() != 0:
@@ -283,7 +296,9 @@ class ResultsWindow(QMainWindow):
     def _apply_visibility(self) -> None:
         """Re-applied after every rebuild (colour metric change), since rebuilt actors come back visible."""
         for k in range(4):
-            geo.set_actors_visible(self.plotter, geo.face_actor_names(k), self.display_bar.face_visible(k))
+            geo.set_actors_visible(self.plotter, geo.face_actor_names(k),
+                                   self.display_bar.face_visible(k) and not self.display_bar.true_scale())
+        geo.set_reference_scene_visible(self.plotter, not self.display_bar.true_scale())
         for r in self.result["sectors"]:
             geo.set_actors_visible(self.plotter, geo.sector_actor_names(r["id"]), r["id"] not in self._hidden_sectors)
         self.plotter.render()

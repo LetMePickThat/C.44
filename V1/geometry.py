@@ -252,6 +252,26 @@ def build_sector_overlay(grid: SphereGrid, sec: dict, eps_min: float = -90.0, ep
     return quads_for_mask(vgrid, mask), boundary_for_mask(vgrid, mask)
 
 
+def build_sector_volume_km(grid: SphereGrid, sec: dict, eps_min: float = -90.0,
+                           eps_max: float = 90.0) -> Tuple[pv.PolyData, pv.PolyData]:
+    """True-scale watch volume (1 scene unit = 1 km): the sector's cap at its required range sec["range_km"],
+    closed by walls down to the radar at the origin, clipped to the scanned zone. Returns (volume surface,
+    outline of the cap)."""
+    r = float(sec["range_km"])
+    vgrid = grid.vertex_grid(1.0)
+    mask = grid.sector_mask(sec) & grid.scanned(eps_min, eps_max)
+    if not mask.any():
+        return pv.PolyData(), pv.PolyData()
+    cap, outline = quads_for_mask(vgrid, mask), boundary_for_mask(vgrid, mask)
+    cap.points = cap.points * r
+    outline.points = outline.points * r
+    seg = outline.lines.reshape(-1, 3)[:, 1:]
+    origin = outline.n_points
+    tris = np.hstack([np.full((len(seg), 1), 3), np.full((len(seg), 1), origin), seg]).astype(np.int64).ravel()
+    walls = pv.PolyData(np.vstack([outline.points, [[0.0, 0.0, 0.0]]]), tris)
+    return cap.append_polydata(walls), outline
+
+
 SECTOR_GEOMETRY_FIELDS = ("shape", "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg",
                           "phi0_deg", "eps0_deg", "radius_deg")
 
@@ -333,6 +353,11 @@ def add_static_scene(plotter) -> None:
     plotter.add_mesh(pv.lines_from_points(eq_pts), color=COLORS["muted"], opacity=0.45,
                       line_width=1, name="equator", render=False)
     plotter.set_background("white")
+    set_default_camera(plotter)
+
+
+def set_default_camera(plotter) -> None:
+    """Default iso view framing the unit sphere (volumes.html's default view). No render."""
     r = 5.5
     eye = (r * math.cos(math.radians(24)) * math.cos(math.radians(-58)),
            r * math.cos(math.radians(24)) * math.sin(math.radians(-58)),
@@ -341,6 +366,18 @@ def add_static_scene(plotter) -> None:
     plotter.camera.position = eye
     plotter.camera.focal_point = (0, 0, 0.12)
     plotter.camera.clipping_range = (0.05, 50.0)
+
+
+def fit_camera_to_actors(plotter, names) -> None:
+    """Keep the view direction, re-centre and zoom so the named actors (and the radar at the origin) fit
+    the view. No render; does nothing if none of the actors exists."""
+    keys = _matching_actors(plotter, names)
+    if not keys:
+        return
+    b = np.array([plotter.actors[k].GetBounds() for k in keys])
+    bounds = (min(b[:, 0].min(), 0.0), max(b[:, 1].max(), 0.0), min(b[:, 2].min(), 0.0),
+              max(b[:, 3].max(), 0.0), min(b[:, 4].min(), 0.0), max(b[:, 5].max(), 0.0))
+    plotter.reset_camera(render=False, bounds=bounds)
 
 
 def face_actor_names(k: int) -> Tuple[str, str]:
@@ -368,6 +405,19 @@ def set_actors_visible(plotter, names, visible: bool) -> None:
 
 def has_actor(plotter, name: str) -> bool:
     return bool(_matching_actors(plotter, [name]))
+
+
+def set_reference_scene_visible(plotter, visible: bool) -> None:
+    """Show/hide the unit-scale reference scene (hull, axes, face normals, equator and their labels) -- every actor
+    that is not a face zone or a watch sector. Hidden in 1:1 scale, where it is a ~1 km speck whose labels pile up on
+    the radar; a corner orientation marker replaces it."""
+    for key, actor in plotter.actors.items():
+        if not key.startswith(("sec_", "face_")):
+            actor.SetVisibility(bool(visible))
+    if visible:
+        plotter.hide_axes()
+    else:
+        plotter.show_axes()
 
 
 def remove_actors(plotter, names) -> None:

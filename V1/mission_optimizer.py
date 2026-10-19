@@ -335,7 +335,9 @@ def _wf_dict(name: str, w, f: float, v_max: float) -> dict:
             "unamb_range_km": round(C * w.pri_s / 2e3), "doppler_max_kHz": round(2 * v_max / wf.lambda_m(f) / 1e3, 1)}
 
 
-def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float) -> dict:
+def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float):
+    """Frequency and waveform plan chosen for a sector: (f, P, unscanned, plan, cands), or a status dict
+    (NO_POSITIONS / NO_WAVEFORM) when there is none."""
     tgt = wf.Target(sec["id"], sec["rcs_m2"], int(sec.get("swerling", 1)), sec["v_close_max_mps"])
     r_want, rr = sec["range_km"], sec["rr_target_s"]
     max_wf = max(1, int(sec.get("max_wf_per_sector", MAX_WF_PER_SECTOR)))
@@ -364,6 +366,31 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float) -
     if best is None:
         return {"id": sec["id"], "status": "NO_WAVEFORM", "note": "no playable waveform in the search space"}
     _, f, P, unscanned, plan = best
+    return f, P, unscanned, plan, cands
+
+
+def sector_plan(sec: dict, eps_min: float, eps_max: float, p_avg_max_w: float) -> Optional[dict]:
+    """The waveform plan run() would choose for this sector (same code path), per 1-deg scan bin: "wf" (Waveform or
+    None where the sector has no position), "power_scale" (power fraction actually transmitted, "no excess energy"),
+    "short" (the sector's own range is not reached there, even at full power), and "freq_ghz". None if the sector
+    has no plan. Used to test whether this sector also meets another one's need."""
+    wf.SECTOR_EPS_MIN_DEG, wf.SECTOR_EPS_MAX_DEG = eps_min, eps_max
+    sph = _sphere(eps_min, eps_max)
+    best = _best_plan(sec, sph, sph.mask(sec), p_avg_max_w)
+    if isinstance(best, dict):
+        return None
+    f, _, _, plan, cands = best
+    return {"freq_ghz": f, "wf": [cands[c] if c >= 0 else None for c in plan.choice],
+            "power_scale": [float(s) for s in plan.s_bin],
+            "short": [bool(r < sec["range_km"]) for r in plan.r_bin]}   # NaN (no position) compares False
+
+
+def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float) -> dict:
+    best = _best_plan(sec, sph, m, p_avg_max_w)
+    if isinstance(best, dict):
+        return best
+    f, P, unscanned, plan, cands = best
+    r_want, rr = sec["range_km"], sec["rr_target_s"]
     v_max = sec["v_close_max_mps"]
     p_tot = P.sum(axis=0)
     populated = np.flatnonzero(p_tot > 0)
