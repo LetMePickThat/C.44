@@ -156,6 +156,8 @@ def energy_profile_by_theta(table: CostTable, r_want_km: float, rcs_m2: float,
     i_v0, i_v1, fv = _bracket(v_mps, table.V, log=False)
     rcs0, rcs1 = table.RCS[i_r0], table.RCS[i_r1]
     v0, v1 = table.V[i_v0], table.V[i_v1]
+    # bilinear weights of (rcs0,v0) (rcs0,v1) (rcs1,v0) (rcs1,v1), matching the corners loop order below
+    weights = ((1 - fr) * (1 - fv), (1 - fr) * fv, fr * (1 - fv), fr * fv)
     log_e, feas = [], []
     for th in table.TH:
         corners, corner_ok = [], []
@@ -173,7 +175,9 @@ def energy_profile_by_theta(table: CostTable, r_want_km: float, rcs_m2: float,
         e_v0 = c00 * (1 - fr) + c10 * fr
         e_v1 = c01 * (1 - fr) + c11 * fr
         log_e.append(e_v0 * (1 - fv) + e_v1 * fv)
-        feas.append(all(corner_ok))
+        # A corner at zero weight (the request sits exactly on the opposite grid node, e.g. the default RCS/speed)
+        # must not veto feasibility: only the corners actually blended in above can.
+        feas.append(all(ok for ok, wgt in zip(corner_ok, weights) if wgt > 1e-9))
     return np.array(log_e), np.array(feas)
 
 
