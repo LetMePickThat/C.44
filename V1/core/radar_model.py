@@ -9,6 +9,13 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 #
+# Changes V6.0.11 -> V6.0.12 (array tilt)
+#   - SECTOR_TILT_DEG 20 -> 25 deg [V]: updated figure for all four arrays (ship axis vertical, lighthouse
+#     model). Sector area in (u, v), the owner masks, every eps/theta formula derived from the tilt, and
+#     the 3D ship model's radar-mount cone (core/geometry.py, now reads this constant instead of a
+#     separate hardcoded angle) all follow automatically; only the self-test's locked numeric checks and
+#     mission_detection_envelope.csv needed recomputing.
+#
 # Changes V6.0.10 -> V6.0.11 (confirmation and active tracking budget, core/tracking.py)
 #   - DETECT_PFA 1e-6 -> 1e-8 per range-Doppler cell [V]: every detection is confirmed in Ku, and at 1e-6 the
 #     ~21 500 false alarms per face and refresh cost twice the search itself (search +33 %, total / 2.3).
@@ -130,7 +137,7 @@ import sys
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
-MODEL_VERSION = "6.0.11"
+MODEL_VERSION = "6.0.12"
 
 # =============================================================================
 # USER-EDITABLE PARAMETERS
@@ -352,7 +359,7 @@ def hpbw_deg(f_ghz: float, theta_deg: float = 0.0) -> float:
     return math.degrees(0.886 * lambda_m(f_ghz) / d_eff)
 
 
-SECTOR_TILT_DEG: float = 20.0   # [V] all four arrays tilted toward +Z (nose) by this angle (ship axis vertical, lighthouse model)
+SECTOR_TILT_DEG: float = 25.0   # [V] all four arrays tilted toward +Z (nose) by this angle (ship axis vertical, lighthouse model)
 # Mission-preparation inputs (sent to the scheduler), independent of tilt and scan limit:
 SECTOR_EPS_MIN_DEG: float = -90.0   # rear limit: no scan below this elevation eps (-90 = no limit; physical floor ~ -55 deg)
 SECTOR_EPS_MAX_DEG: float = 90.0    # front limit: no scan above this elevation eps (90 = no limit)
@@ -763,7 +770,7 @@ def selftest() -> int:
           BAND_S.scan_limit_deg(2.8) == 75.0 and BAND_S.scan_limit_deg(2.88) == 70.0)
     check("S core band has no edge loss; edges 1.5 dB",
           BAND_S.edge_loss_db(2.8) == 0.0 and abs(BAND_S.edge_loss_db(2.7) - 1.5) < 1e-9 and abs(BAND_S.edge_loss_db(2.9) - 1.5) < 1e-9)
-    check("Search positions at 2.8 GHz in (u, v), spacing 1.04 HPBW, about 4308", abs(n_search_positions(2.8) - 4308) < 60, f"({n_search_positions(2.8):.0f})")
+    check("Search positions at 2.8 GHz in (u, v), spacing 1.04 HPBW, about 4167 (array tilt 25 deg)", abs(n_search_positions(2.8) - 4167) < 60, f"({n_search_positions(2.8):.0f})")
     check("Chain efficiency 0.917 and avg RF 1.375 MW at 2 MW", abs(CHAIN_EFF - 0.917) < 1e-3 and abs(2e6 * CHAIN_EFF * PAE - 1.375e6) < 3e3)
 
     check("S 2.8 GHz: WF-LRS playable", [w.name for w in playable(2.8, 0.0)] == ["WF-LRS"])
@@ -809,13 +816,13 @@ def selftest() -> int:
     check("Closed-form grid loss matches Monte-Carlo over the hexagonal cell (0.1 dB)",
           abs(acc / cnt - grid_loss_db(1.4)) < 0.1, f"({acc / cnt:.2f} vs {grid_loss_db(1.4):.2f} dB)")
     check("Positions x cell area = sector area (u, v)", abs(n_search_positions(2.8) * beam_cell_area_uv(2.8) - sector_area_uv()) < 1e-9)
-    check("Sector uv area = 2.0685 (disc R=sin75 cut by the az=+/-45 planes, array tilt 20 deg)", abs(sector_area_uv() - 2.0685) < 0.002, f"({sector_area_uv():.4f})")
+    check("Sector uv area = 2.0006 (disc R=sin75 cut by the az=+/-45 planes, array tilt 25 deg)", abs(sector_area_uv() - 2.0006) < 0.002, f"({sector_area_uv():.4f})")
     _e0, _e1 = SECTOR_EPS_MIN_DEG, SECTOR_EPS_MAX_DEG
     globals()["SECTOR_EPS_MIN_DEG"] = -20.0
     _n_lim = n_search_positions(2.8)
     globals()["SECTOR_EPS_MIN_DEG"], globals()["SECTOR_EPS_MAX_DEG"] = _e0, _e1
     check("Mission rear limit eps_min = -20 deg: ~3600 positions (lattice count of the 3D viewer: 3601)", abs(_n_lim - 3601) < 30, f"({_n_lim:.0f})")
-    check("Default eps window (-90, +90) leaves the sector unchanged", abs(sector_area_uv() - 2.0685) < 0.002)
+    check("Default eps window (-90, +90) leaves the sector unchanged", abs(sector_area_uv() - 2.0006) < 0.002)
     check("uv count at small scan ~ angular count (cone 15 deg, 1 %)",
           abs(math.pi * math.sin(math.radians(15)) ** 2 / beam_cell_area_uv(2.8) /
               (math.pi * math.radians(15) ** 2 / ((math.sqrt(3) / 2) * (BEAM_SPACING_HPBW * math.radians(hpbw_deg(2.8))) ** 2)) - 1) < 0.03)

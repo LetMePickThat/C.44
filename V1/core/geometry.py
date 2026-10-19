@@ -54,8 +54,8 @@ _PX_R = (HULL_DIAMETER_M / 2.0 / SHIP_LENGTH_M * SHIP_LENGTH) / _HULL_RADIUS_PX
 _RADIATOR_SPAN_PX = 238.0
 _RADIATOR_SCALE = (SHIP_WIDTH_M / 2.0 / SHIP_LENGTH_M * SHIP_LENGTH) / (_RADIATOR_SPAN_PX * _PX_R)
 
-_Y_RADAR = 173.0                   # axial position of the four radar arrays (on the 20 deg cone behind the nose)
-_TILT = math.tan(math.radians(20.0))
+_Y_RADAR = 173.0                   # axial position of the four radar arrays (on the tilt-angle cone behind the nose)
+_TILT = math.tan(math.radians(rm.SECTOR_TILT_DEG))   # single source of truth: follows the model, never a separate figure
 RP = (24.0 + _TILT * (_Y_RADAR - 156.0) + 1.5) * _PX_R
 
 # Palette (inherited from the volumes.html viewer).
@@ -283,15 +283,15 @@ def _flat(mesh: pv.PolyData) -> pv.PolyData:
 
 def build_ship() -> dict:
     """Ship hull traced from the reference drawing and renders (reference only): laser turret in the nose, body of
-    revolution built from straight cylinder/cone segments only (neck, 20 deg radar-mount cone, long taper, fin-band
+    revolution built from straight cylinder/cone segments only (neck, tilt-angle radar-mount cone, long taper, fin-band
     cylinder, main cylinder, taper to the widest point, widest-point cylinder, taper to the engine), four hexagonal
-    radar arrays on the 20 deg cone just behind the nose (one per face), four cylindrical telescopes, four ball
+    radar arrays on the tilt-angle cone just behind the nose (one per face), four cylindrical telescopes, four ball
     turrets, four 45 deg booms, stepped radiator wings along +/-X, aerospike aft."""
     nose = [(73, 0), (75, 9), (79, 14), (86, 19), (95, 21), (100, 20), (105, 17), (112, 18)]
     body = [(112, 18),                          # nose / body junction
             (116, 24),                          # neck: cone
             (156, 24),                          # neck: cylinder
-            (190, 24 + _TILT * 34),             # 20 deg radar-mount cone
+            (190, 24 + _TILT * 34),             # radar-mount cone (slope = rm.SECTOR_TILT_DEG)
             (190, 43),                          # shoulder step
             (390, 48),                          # long cone
             (390, 50),                          # fin-band step

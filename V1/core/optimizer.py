@@ -7,7 +7,7 @@ Output : per sector -> suggested WF, achieved range, RR estimate, radar budget (
          mission totals per face; infeasibility flags with the missing power.
 
 Uses core/radar_model.py (radar equation, losses, lattice, face geometry). Ship frame: Z = nose axis (+Z radar faces),
-phi = azimuth about Z from +X toward +Y, eps = elevation from XY plane toward +Z. Faces at phi = 0/90/180/270, tilt 20 deg.
+phi = azimuth about Z from +X toward +Y, eps = elevation from XY plane toward +Z. Faces at phi = 0/90/180/270, tilt 25 deg.
 
 Design rules (flagged [D] = decision, change on request) -- optimiser v2 (AUDIT/SPEC_optimiseur_v2.md,
 with the audit corrections):
