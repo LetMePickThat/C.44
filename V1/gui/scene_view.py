@@ -8,6 +8,12 @@ PyVista plotter holding the static ship scene, the face layer and the watch-sect
 The owning tab only says WHAT to draw (set_scene: eps window + one SectorDraw per sector) and which sectors are
 hidden (set_hidden); the view builds the meshes (unit-sphere caps, or true-size volumes in km in 1:1 scale),
 caches them, and renders once per update. The camera always turns about the scene centre (lock_pivot).
+
+Sector labels can be left-dragged off their volume to de-clutter crowded scenes; a thin leader line keeps them
+tied to it, and a double-click snaps a moved label back. PyVista's label actors aren't individually pickable
+(add_point_labels always adds them non-pickable), so hit-testing estimates each label's on-screen box from its
+text instead of querying VTK -- see _label_hit. Dragged positions are in the current coordinate system (km in
+1:1 scale, unit-sphere otherwise) and are cleared on a scale-mode switch (_on_scale_changed).
 """
 from __future__ import annotations
 
@@ -23,9 +29,11 @@ from PyQt5.QtWidgets import QCheckBox, QDoubleSpinBox, QHBoxLayout, QLabel, QPus
 from pyvistaqt import QtInteractor
 
 from core import geometry as geo
+from gui.widgets import DecimalSpinBox
 
 KM_AXES_PREFIX = "km_axes_"
 KM_AXES_LINES = [f"{KM_AXES_PREFIX}{a}" for a in ("X", "Y", "Z")]   # the 3D axis meshes (labels are 2D actors)
+SECTOR_LABEL_FONT_SIZE = 13   # shared by _build_sectors (draws) and _label_hit (estimates the on-screen box)
 
 
 # ----------------------------------------------------------------------------- display bar
@@ -73,7 +81,7 @@ class DisplayBar(QWidget):
         self.cb_true_scale.toggled.connect(self.cb_background.setEnabled)
         h.addWidget(self.cb_background)
         h.addWidget(QLabel("Altitude (km):"))
-        self.sb_altitude = QDoubleSpinBox()
+        self.sb_altitude = DecimalSpinBox()
         self.sb_altitude.setRange(0.0, 1.0e7)
         self.sb_altitude.setDecimals(1)
         self.sb_altitude.setValue(100.0)
@@ -114,8 +122,8 @@ def face_actor_names(k: int) -> tuple:
 
 
 def sector_actor_names(sid: str) -> tuple:
-    """Plotter actor names of a mission watch sector (surface, outline, label)."""
-    return f"sec_{sid}_surf", f"sec_{sid}_outline", f"sec_{sid}_label"
+    """Plotter actor names of a mission watch sector (surface, outline, label, leader line to a dragged label)."""
+    return f"sec_{sid}_surf", f"sec_{sid}_outline", f"sec_{sid}_label", f"sec_{sid}_leader"
 
 
 def _matching_actors(plotter, names: Iterable[str]) -> List[str]:
@@ -182,12 +190,21 @@ def set_default_camera(plotter) -> None:
 
 def lock_pivot(plotter) -> None:
     """Keep the scene centred: the camera always turns about plotter._pivot (the scene centre set by
-    set_default_camera / fit_camera_to_actors). VTK turns about the focal point, which a pan (middle button,
-    shift + left button) moves off-centre; before every render a drifted camera is translated back so its focal point
-    is the pivot again -- orientation and distance unchanged, so rotation and zoom work and panning has no effect."""
+    set_default_camera / fit_camera_to_actors). VTK turns about the focal point, which shift + left-button pan
+    moves off-centre; before every render a drifted camera is translated back so its focal point is the pivot
+    again -- orientation and distance unchanged, so rotation and zoom work and that pan has no effect.
+
+    A middle-button pan is the deliberate exception, for manually recentring on a mission's approximate
+    barycentre (fit_camera_to_actors only fits the currently visible sectors, which is not always what's
+    wanted): recentre() is suspended for as long as the middle button is held (plotter._panning), so VTK's own
+    pan runs unopposed, and on release the pivot jumps to wherever the pan left the focal point -- later
+    rotations then turn about that new point."""
     renderer = plotter.renderer
+    plotter._panning = False
 
     def recentre(*_args) -> None:
+        if getattr(plotter, "_panning", False):
+            return
         pivot = getattr(plotter, "_pivot", None)
         if pivot is None:
             return
@@ -199,7 +216,24 @@ def lock_pivot(plotter) -> None:
         cam.SetPosition(*(np.asarray(cam.GetPosition()) + off))
         renderer.ResetCameraClippingRange()
 
+    def start_pan(*_args) -> None:
+        plotter._panning = True
+
+    def end_pan(*_args) -> None:
+        plotter._panning = False
+        plotter._pivot = tuple(renderer.GetActiveCamera().GetFocalPoint())
+
     plotter.ren_win.AddObserver("StartEvent", recentre)
+    plotter.iren.add_observer("MiddleButtonPressEvent", start_pan)
+    # Not MiddleButtonReleaseEvent: any extra observer on that specific event -- on the interactor (silently
+    # swallowed, the same wall pyvista hits for Left/Right, see add_observer()'s source) or on the interactor
+    # style (fires, but then blocks the style's own internal EndPan(), leaving its state stuck mid-pan and
+    # every later rotation/zoom dead) -- breaks one or the other. EndInteractionEvent is the style's own
+    # generic "an interaction just ended" signal (rotate, zoom or pan): observing it is the documented,
+    # unintrusive way to react to the end of any of them, so it does not fight VTK's own bookkeeping; the
+    # plotter._panning check is almost redundant here (a rotate/zoom leaves the focal point where it was, so
+    # re-syncing the pivot to it then is a harmless no-op), kept only to skip that pointless resync.
+    plotter.iren.add_observer("EndInteractionEvent", lambda *a: end_pan() if plotter._panning else None)
 
 
 def fit_camera_to_actors(plotter, names) -> None:
@@ -317,6 +351,8 @@ class SceneView(QWidget):
         v.addWidget(self.display_bar)
         self.plotter = QtInteractor(self)
         self.plotter.setMinimumWidth(500)
+        self.plotter.interactor.setToolTip("Drag a label to reposition it (a line keeps it linked to its volume); "
+                                           "double-click a moved label to snap it back.")
         v.addWidget(self.plotter.interactor)
         add_static_scene(self.plotter)
         lock_pivot(self.plotter)
@@ -328,6 +364,125 @@ class SceneView(QWidget):
         self._hidden: Set[str] = set()
         self._actor_names: Set[str] = set()
         self._cache: Dict[str, tuple] = {}            # sid -> (geometry key, colour, poly, outline, label text)
+
+        self._label_pos: Dict[str, np.ndarray] = {}   # sid -> dragged label point (world coords), only if moved
+        self._drag: Optional[dict] = None              # active drag: {"sid", "z"} while the mouse button is down
+        self._install_label_drag()
+
+    # ------------------------------------------------------------------ draggable labels
+    def _install_label_drag(self) -> None:
+        """Left-drag a sector label to reposition it (a leader line keeps it tied to its volume); double-click a
+        moved label to snap it back. Hit-testing is approximate (PyVista's label actors aren't individually
+        pickable -- see add_point_labels source -- so this estimates each label's screen footprint from its text
+        instead of querying VTK), so the box is kept generous rather than pixel-exact.
+
+        The press observer is registered directly on the interactor (not through pyvista's add_observer) at a
+        priority above the interactor style's own, and aborts the event (via GetCommand(tag).SetAbortFlag) when
+        it hits a label, so the trackball style never starts its rotate -- cheaper and much safer than swapping
+        the style out for the drag, which was tried first and left release events undeliverable: VTK only
+        relays *ButtonReleaseEvent reliably to an ATTACHED style (pyvista hits the same wall for Left/Right --
+        see add_observer()'s source -- and works around it the same way, through the style), so detaching it
+        for the drag's duration meant our own release observer, and the middle-button pan below, silently
+        stopped firing until the interactor was recreated."""
+        iren = self.plotter.iren
+        tag = iren.interactor.AddObserver("LeftButtonPressEvent", self._on_label_press, 10.0)
+        self._label_press_tag = tag
+        iren.add_observer("MouseMoveEvent", self._on_label_move)
+        iren.add_observer("LeftButtonReleaseEvent", self._on_label_release)
+        iren.add_observer("LeftButtonDoubleClickEvent", self._on_label_double_click)
+
+    def _label_anchor_and_point(self, sid: str) -> Optional[tuple]:
+        """(anchor, current label point) of sid's label in world coords, None if it has none right now."""
+        cached = self._cache.get(sid)
+        if cached is None or cached[4] is None:   # cached[4] = label text, None = no label drawn
+            return None
+        anchor = cached[2].points.mean(axis=0)
+        return anchor, self._label_pos.get(sid, anchor), cached[4]
+
+    def _label_hit(self, x: int, y: int) -> Optional[str]:
+        """sid of the topmost sector label whose estimated screen box contains (x, y), None if none does."""
+        ren = self.plotter.renderer
+        best, best_d2 = None, None
+        for d in self._sectors:
+            if d.sid in self._hidden:
+                continue
+            found = self._label_anchor_and_point(d.sid)
+            if found is None:
+                continue
+            _anchor, point, text = found
+            ren.SetWorldPoint(*point, 1.0)
+            ren.WorldToDisplay()
+            dx, dy, _dz = ren.GetDisplayPoint()
+            lines = text.split("\n")
+            w = 10 + max(len(ln) for ln in lines) * SECTOR_LABEL_FONT_SIZE * 0.56
+            h = 10 + len(lines) * SECTOR_LABEL_FONT_SIZE * 1.3
+            x0, x1 = dx - 6, dx + w
+            y0, y1 = dy - 6, dy + h
+            if x0 <= x <= x1 and y0 <= y <= y1:
+                cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+                d2 = (x - cx) ** 2 + (y - cy) ** 2
+                if best_d2 is None or d2 < best_d2:
+                    best, best_d2 = d.sid, d2
+        return best
+
+    def _on_label_press(self, obj, _event) -> None:
+        x, y = self.plotter.iren.get_event_position()
+        sid = self._label_hit(x, y)
+        if sid is None:
+            return
+        found = self._label_anchor_and_point(sid)
+        if found is None:
+            return
+        _anchor, point, _text = found
+        ren = self.plotter.renderer
+        ren.SetWorldPoint(*point, 1.0)
+        ren.WorldToDisplay()
+        z = ren.GetDisplayPoint()[2]           # depth of the drag plane: parallel to the screen, through the label
+        self._drag = {"sid": sid, "z": z}
+        obj.GetCommand(self._label_press_tag).SetAbortFlag(1)   # don't let the trackball style also start a rotate
+
+    def _on_label_move(self, _obj, _event) -> None:
+        if self._drag is None:
+            return
+        x, y = self.plotter.iren.get_event_position()
+        ren = self.plotter.renderer
+        ren.SetDisplayPoint(x, y, self._drag["z"])
+        ren.DisplayToWorld()
+        wx, wy, wz, ww = ren.GetWorldPoint()
+        self._label_pos[self._drag["sid"]] = np.array([wx, wy, wz]) / (ww if ww else 1.0)
+        self._redraw_label(self._drag["sid"])
+
+    def _on_label_release(self, _obj, _event) -> None:
+        self._drag = None
+
+    def _on_label_double_click(self, _obj, _event) -> None:
+        x, y = self.plotter.iren.get_event_position()
+        sid = self._label_hit(x, y)
+        if sid is None or self._label_pos.pop(sid, None) is None:
+            return
+        self._redraw_label(sid)
+
+    def _redraw_label(self, sid: str) -> None:
+        """Re-place sid's label actor (and its leader line, added/removed as needed) without rebuilding the
+        sector mesh -- cheap enough to call on every mouse-move while dragging."""
+        cached = self._cache.get(sid)
+        if cached is None or cached[4] is None:
+            return
+        _key, color, poly, _outline, text = cached
+        _surf_name, _out_name, lbl_name, leader_name = sector_actor_names(sid)
+        anchor = poly.points.mean(axis=0)
+        point = self._label_pos.get(sid, anchor)
+        self.plotter.add_point_labels([point], [text], name=lbl_name, text_color="white", font_size=SECTOR_LABEL_FONT_SIZE,
+                                      bold=True, shape_color="black", shape_opacity=0.75, show_points=False,
+                                      render=False)
+        self._actor_names.add(lbl_name)
+        if sid in self._label_pos:
+            self.plotter.add_mesh(pv.Line(anchor, point), color=color, line_width=1, name=leader_name, render=False)
+            self._actor_names.add(leader_name)
+        else:
+            remove_actors(self.plotter, [leader_name])
+            self._actor_names.discard(leader_name)
+        self.apply_visibility()
 
     # ------------------------------------------------------------------ public API
     def set_scene(self, eps_min: float, eps_max: float, sectors: List[SectorDraw],
@@ -385,7 +540,7 @@ class SceneView(QWidget):
         new_names: Set[str] = set()
         new_cache: Dict[str, tuple] = {}
         for d in self._sectors:
-            surf_name, out_name, lbl_name = sector_actor_names(d.sid)
+            surf_name, out_name, lbl_name, leader_name = sector_actor_names(d.sid)
             key = (geo.sector_geometry_key(d.sec), eps_min, eps_max, d.sec.get("range_km") if true_scale else None)
             cached = self._cache.get(d.sid)
             # a duplicate id (mid-edit) shares actor names with the earlier sector: always redraw, last one wins
@@ -409,23 +564,33 @@ class SceneView(QWidget):
                     self.plotter.add_mesh(outline, color=d.color, line_width=2, name=out_name, render=False)
                 new_names.add(out_name)
             text = d.text if poly.n_points else None
+            anchor = poly.points.mean(axis=0)
+            point = self._label_pos.get(d.sid, anchor)
             if text is not None:
-                if not (same_mesh and cached[4] == text and has_actor(self.plotter, lbl_name)):
+                rebuild_label = not (same_mesh and cached[4] == text and has_actor(self.plotter, lbl_name))
+                if rebuild_label:
                     # Fixed white-on-near-opaque-black readout: text_color=d.color (the sector's own colour, e.g.
                     # green) used to sit on a translucent grey box over the same-coloured sector mesh -- unreadable.
-                    self.plotter.add_point_labels([poly.points.mean(axis=0)], [text], name=lbl_name,
-                                                  text_color="white", font_size=13, bold=True,
+                    self.plotter.add_point_labels([point], [text], name=lbl_name,
+                                                  text_color="white", font_size=SECTOR_LABEL_FONT_SIZE, bold=True,
                                                   shape_color="black", shape_opacity=0.75,
                                                   show_points=False, render=False)
                 new_names.add(lbl_name)
+                if d.sid in self._label_pos:   # dragged away from its volume: show the link back to it
+                    if rebuild_label or not has_actor(self.plotter, leader_name):
+                        self.plotter.add_mesh(pv.Line(anchor, point), color=d.color, line_width=1, name=leader_name,
+                                              render=False)
+                    new_names.add(leader_name)
             new_cache[d.sid] = (key, d.color, poly, outline, text)
         remove_actors(self.plotter, self._actor_names - new_names)   # incl. the "-labels" actors
         self._actor_names, self._cache = new_names, new_cache
+        self._label_pos = {sid: p for sid, p in self._label_pos.items() if sid in new_cache}
         ranges = [d.sec.get("range_km") for d in self._sectors if isinstance(d.sec.get("range_km"), (int, float))]
         set_km_axes(self.plotter, max(ranges, default=None) if true_scale else None)
 
     def _on_scale_changed(self, true_scale: bool) -> None:
         """1:1 on: redraw the volumes in km and zoom to fit them all; off: back to the default unit-sphere view."""
+        self._label_pos.clear()   # dragged label points are in the old coordinate system (km vs. unit sphere)
         if self._eps is not None:
             self._build_sectors()
         if true_scale:

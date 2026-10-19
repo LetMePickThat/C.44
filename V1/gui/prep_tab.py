@@ -29,6 +29,7 @@ from core import radar_model as rm
 from core import redundancy as red
 from core import tracking as trk
 from gui.scene_view import SceneView, SectorDraw
+from gui.widgets import DecimalSpinBox
 
 DEBOUNCE_MS = 200
 REDUNDANCY_DEBOUNCE_MS = 600    # the redundancy check plans sectors with the optimiser: wait for typing to settle
@@ -365,7 +366,7 @@ class PrepTab(QWidget):
 
     @staticmethod
     def _spin(lo: float, hi: float, step: float, value: float) -> QDoubleSpinBox:
-        sb = QDoubleSpinBox()
+        sb = DecimalSpinBox()
         sb.setRange(lo, hi)
         sb.setSingleStep(step)
         sb.setDecimals(2)

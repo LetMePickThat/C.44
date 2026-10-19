@@ -85,6 +85,17 @@ def face_normal(phi_deg: float) -> np.ndarray:
     return np.array(mo.face_frame(phi_deg)[0])
 
 
+def array_centre(phi_deg: float) -> np.ndarray:
+    """True physical position of the face's array plate: on the hull, offset RP from the ship axis at the
+    array's axial station (scene origin) -- same point as build_ship()'s array disc centre and
+    build_face_normals()'s line start. The coverage/budget maths keeps treating the radar as a point at the
+    ship's axis (exact and scale-invariant, see core.optimizer.face_frame); this is purely cosmetic, so the
+    unit-sphere overlay visually meets the antenna instead of floating at the ship's centreline -- at 1:1 km
+    scale the same offset (a few metres) is negligible against the sector's range, so build_sector_volume_km()
+    is left at the origin."""
+    return np.array([RP * math.cos(math.radians(phi_deg)), RP * math.sin(math.radians(phi_deg)), 0.0])
+
+
 # ----------------------------------------------------------------------------- direction sphere raster
 class SphereGrid(mo.Sphere):
     """The optimiser's direction-sphere raster (core.optimizer.Sphere: same faces, same sector masks) at a resolution
@@ -190,18 +201,38 @@ def build_face_sectors(grid: SphereGrid, eps_min: float = -90.0, eps_max: float 
     surfaces, outlines = {}, {}
     for k in range(4):
         mask = scanned & (grid.owner == k)
-        surfaces[k] = quads_for_mask(vgrid, mask)
-        outlines[k] = boundary_for_mask(vgrid, mask)
+        surf, out = quads_for_mask(vgrid, mask), boundary_for_mask(vgrid, mask)
+        off = array_centre(FACE_PHI_DEG[k])   # anchor on the array's true position, not the ship's axis
+        surf.points = surf.points + off
+        out.points = out.points + off
+        surfaces[k], outlines[k] = surf, out
     return FaceSectorScene(surfaces=surfaces, outlines=outlines)
 
 
 def build_sector_overlay(grid: SphereGrid, sec: dict, eps_min: float = -90.0, eps_max: float = 90.0,
                           radius: float = 1.015) -> Tuple[pv.PolyData, pv.PolyData]:
-    """Mission watch-sector overlay (slightly above the face layer), clipped to the scanned zone.
-    Returns (surface, outline)."""
-    vgrid = grid.vertex_grid(radius)
+    """Mission watch-sector overlay (slightly above the face layer), clipped to the scanned zone and anchored,
+    per face, on that face's array (see array_centre) rather than the ship's axis -- a sector that straddles
+    two faces (box or cap spanning a face boundary) is built as one piece per face and appended, since each
+    piece has its own array offset. Returns (surface, outline)."""
     mask = grid.sector_mask(sec) & grid.scanned(eps_min, eps_max)
-    return quads_for_mask(vgrid, mask), boundary_for_mask(vgrid, mask)
+    vgrid = grid.vertex_grid(radius)
+    surfs, outs = [], []
+    for k in range(4):
+        fmask = mask & (grid.owner == k)
+        if not fmask.any():
+            continue
+        s, o = quads_for_mask(vgrid, fmask), boundary_for_mask(vgrid, fmask)
+        off = array_centre(FACE_PHI_DEG[k])
+        s.points, o.points = s.points + off, o.points + off
+        surfs.append(s)
+        outs.append(o)
+    if not surfs:
+        return pv.PolyData(), pv.PolyData()
+    surf, out = surfs[0], outs[0]
+    for s, o in zip(surfs[1:], outs[1:]):
+        surf, out = surf.append_polydata(s), out.append_polydata(o)
+    return surf, out
 
 
 def build_sector_volume_km(grid: SphereGrid, sec: dict, eps_min: float = -90.0,
@@ -245,11 +276,11 @@ def build_face_normals(length: float = 1.12) -> List[dict]:
     out = []
     for k, pk in enumerate(FACE_PHI_DEG):
         n = face_normal(pk)
-        start = np.array([RP * math.cos(math.radians(pk)), RP * math.sin(math.radians(pk)), 0.0])
+        start = array_centre(pk)
         tip = start + n * length
         arrow = pv.Line(start, tip)
         out.append({"k": k, "mesh": arrow, "color": FACE_COLORS[k], "name": FACE_NAMES[k],
-                    "label_pos": tuple(n * 1.26)})
+                    "label_pos": tuple(start + n * 1.26)})
     return out
 
 
