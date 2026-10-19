@@ -10,8 +10,10 @@ Backed by cost_table.json (built once by tools/gen_cost_table.py): for S band, 2
 that range (or None if unreachable even with the best waveform at full power).
 
 Interpolation strategy (all in log-energy space, since energy spans orders of magnitude):
-  - range       : continuous via the model's own E ~ R^4 law, anchored on the nearest FEASIBLE
-                  tabulated range (never re-snapped -- that would make the gauges jump while typing).
+  - range       : continuous, never re-snapped (that would make the gauges jump while typing) -- log-log
+                  between the two bracketing FEASIBLE tabulated ranges when the request falls inside the
+                  tabulated span (the energy(R) curve is only piecewise ~R^4 across catalogue-waveform
+                  changeovers), else the model's own E ~ R^4 law anchored on the one available neighbour.
   - RCS, speed  : bilinear (RCS log-spaced, speed linear) between the 4 bracketing grid points --
                   nearest-neighbour snapping was shown to under/over-shoot range capability by ~25 %+
                   near grid half-decades (e.g. RCS 3000 snapped to 1000 m^2).
@@ -106,8 +108,13 @@ def estimate_energy_per_position(table: CostTable, r_want_km: float, rcs_m2: flo
                                   theta_deg: float) -> PositionEnergyEstimate:
     """Energy needed for one beam-position dwell to just reach r_want_km, at the given RCS / closing
     speed / scan angle, with RCS and speed snapped to the nearest tabulated value (used as a building
-    block for the bilinear interpolation below -- call with exact grid values). Range is extrapolated
-    from the nearest FEASIBLE tabulated range via the model's E ~ R^4 law."""
+    block for the bilinear interpolation below -- call with exact grid values). Range is interpolated
+    log-log between the two bracketing FEASIBLE tabulated ranges when r_want_km falls inside the
+    tabulated span (the true energy(R) curve is only piecewise ~R^4: a different catalogue waveform can
+    win on either side of a tabulated row, so anchoring on a single neighbour and extrapolating with the
+    model's R^4 law overshoots in between -- cross-checked at up to ~30% per cell, worst around 700-4000 km).
+    Outside the tabulated span (below the shortest feasible row, or above when no 'reach' data caps it),
+    there is only one neighbour to anchor on, so the R^4 law is still used there."""
     feasible_rs = [(r, table.entry(r, rcs_m2, v_mps, theta_deg)) for r in table.R]
     feasible_rs = [(r, e) for r, e in feasible_rs if e is not None]
     # True reach of the cell (tables from gen_cost_table >= v2): at the row just above the request, so its PRI
@@ -121,16 +128,22 @@ def estimate_energy_per_position(table: CostTable, r_want_km: float, rcs_m2: flo
                                        f"range {r_want_km:.0f} km beyond capability ({reach[0]:.0f} km at full power)")
     if not feasible_rs:
         return PositionEnergyEstimate(None, False, "no waveform covers this table cell")
-    rs = [r for r, _ in feasible_rs]
-    r_max = max(rs)
+    rs = sorted(r for r, _ in feasible_rs)
+    e_at = {r: e[0] for r, e in feasible_rs}
+    r_max = rs[-1]
     if r_want_km > r_max and reach is None:
         # Old table without reach data: the longest tabulated reach falls short, and extrapolating further with
         # the same R^4 law would understate the true cost (waveform saturates well before this).
         return PositionEnergyEstimate(None, False,
                                        f"range {r_want_km:.0f} km beyond estimated capability (tabulated max {r_max:.0f} km)")
-    r_ref = min(rs, key=lambda r: abs(math.log(r) - math.log(max(r_want_km, 1e-6))))
-    e_ref = dict(feasible_rs)[r_ref][0]
-    e = e_ref * (r_want_km / r_ref) ** 4
+    r_lo = max((r for r in rs if r <= r_want_km), default=None)
+    r_hi = min((r for r in rs if r >= r_want_km), default=None)
+    if r_lo is not None and r_hi is not None and r_lo != r_hi:
+        t = (math.log(r_want_km) - math.log(r_lo)) / (math.log(r_hi) - math.log(r_lo))
+        e = math.exp(math.log(e_at[r_lo]) + t * (math.log(e_at[r_hi]) - math.log(e_at[r_lo])))
+    else:
+        r_ref = r_lo if r_lo is not None else r_hi
+        e = e_at[r_ref] * (r_want_km / r_ref) ** 4
     return PositionEnergyEstimate(e, True)
 
 

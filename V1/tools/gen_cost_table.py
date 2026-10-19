@@ -13,7 +13,7 @@ PPK = rm.BAND_S.p_pk_total_w; F = 2.8
 RS = [100, 150, 200, 300, 500, 700, 1000, 1500, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 12000, 15000, 20000]
 RCS = [0.1, 1, 10, 100, 1000, 10000]
 VS = [1000, 5000, 12000, 25000]
-TH = [0, 20, 40, 55, 65, 75]
+TH = [0, 20, 40, 55, 65, 70, 75]   # 70 added: linear interpolation under-caught the scan-loss curvature (power 3) near the limit
 def one(args):
     """Cheapest waveform of the optimiser's search space (default 2 m resolution -> 75 MHz) reaching R."""
     R, rcs, v, th = args
