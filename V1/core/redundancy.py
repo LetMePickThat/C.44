@@ -37,8 +37,7 @@ import numpy as np
 from . import geometry as geo
 from . import mission as md
 from . import optimizer as mo
-
-wf = mo.wf
+from . import radar_model as rm
 
 COVER_FULL = 0.995      # [D] fraction of B's scanned solid angle above which B is fully redundant
 COVER_MIN = 0.01        # [D] partial overlaps below this fraction are not reported
@@ -100,7 +99,7 @@ def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dic
     if plan is None:
         return np.zeros_like(cells), np.zeros_like(cells), None
     v_b = sec_b["v_close_max_mps"]
-    tgt_b = wf.Target("need", sec_b["rcs_m2"], int(sec_b.get("swerling", 1)), v_b)
+    tgt_b = rm.Target("need", sec_b["rcs_m2"], int(sec_b.get("swerling", 1)), v_b)
     g_need = (guaranteed_range_km(sec_b["range_km"], sec_b["rr_target_s"], v_b)
               - RANGE_TOL * sec_b["range_km"] + v_b * sec_a["rr_target_s"] / 1e3)   # = reach A needs
     res_b = sec_b.get("res_max_m", mo.RES_MAX_M_DEFAULT)
@@ -129,7 +128,7 @@ def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dic
 def find_redundancies(mission: dict, grid: geo.SphereGrid) -> List[Finding]:
     g = mission.get("global", {})
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
-    p_avg_max_w = g.get("face_elec_mw", wf.FACE_ELEC_POWER_MW) * 1e6 * wf.CHAIN_EFF * wf.PAE
+    p_avg_max_w = g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW) * 1e6 * rm.CHAIN_EFF * rm.PAE
     sectors = mission.get("sectors", [])
     scanned = grid.scanned(eps_min, eps_max)
     masks: List[Optional[np.ndarray]] = []

@@ -8,10 +8,10 @@ import json, math, sys
 import numpy as np
 from core import optimizer as mo
 
-wf, C = mo.wf, mo.C
+rm, C = mo.rm, mo.C
 BIN_DEG = 10.0                      # production: 5.0 (with caching of solve())
-PPK = wf.BAND_S.p_pk_total_w
-P_AVG = 2e6 * wf.CHAIN_EFF * wf.PAE
+PPK = rm.BAND_S.p_pk_total_w
+P_AVG = 2e6 * rm.CHAIN_EFF * rm.PAE
 
 
 def candidates(sec):
@@ -31,7 +31,7 @@ def candidates(sec):
 
 
 def design_sector(sph, sec, f_list=(2.7, 2.8), alphas=np.linspace(0, 1, 21)):
-    tgt = wf.Target(sec["id"], sec["rcs_m2"], int(sec.get("swerling", 1)), sec["v_close_max_mps"])
+    tgt = rm.Target(sec["id"], sec["rcs_m2"], int(sec.get("swerling", 1)), sec["v_close_max_mps"])
     R, rr = sec["range_km"], sec["rr_target_s"]
     mask = sph.mask(sec); cl = list(candidates(sec)); best = None
     for f in f_list:                                   # f_list must keep scan limit >= 75 deg (f <= 2.85)
@@ -43,11 +43,11 @@ def design_sector(sph, sec, f_list=(2.7, 2.8), alphas=np.linspace(0, 1, 21)):
         for i in range(nb):
             if P[i] <= 0:
                 table.append(None); continue
-            th = min((i + 1) * BIN_DEG, wf.SECTOR_RADIUS_DEG)        # worst angle of the bin
+            th = min((i + 1) * BIN_DEG, rm.SECTOR_RADIUS_DEG)        # worst angle of the bin
             rows = []
             for w in cl:
                 try:
-                    r = wf.solve(w, f, th, tgt, 2.0).range_km
+                    r = rm.solve(w, f, th, tgt, 2.0).range_km
                 except ValueError:
                     continue
                 s = min(1.0, (R / r) ** 4)                           # power scale that just reaches R

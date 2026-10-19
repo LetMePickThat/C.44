@@ -6,7 +6,7 @@ Input  : mission file (JSON or CSV) = global parameters + any number of watch se
 Output : per sector -> suggested WF, achieved range, RR estimate, radar budget (time, energy, average power, per face);
          mission totals per face; infeasibility flags with the missing power.
 
-Uses WF_RANGE_CALC_V6.0.10.py (radar equation, losses, lattice, face geometry). Ship frame: Z = nose axis (+Z radar faces),
+Uses core/radar_model.py (radar equation, losses, lattice, face geometry). Ship frame: Z = nose axis (+Z radar faces),
 phi = azimuth about Z from +X toward +Y, eps = elevation from XY plane toward +Z. Faces at phi = 0/90/180/270, tilt 20 deg.
 
 Design rules (flagged [D] = decision, change on request) -- optimiser v2 (AUDIT/SPEC_optimiseur_v2.md,
@@ -38,7 +38,6 @@ Performance:
 """
 import csv
 import functools
-import importlib.util
 import json
 import math
 import os
@@ -49,12 +48,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-# The radar model lives next to the core/ package (its file name is not importable as a module).
-_WF_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "WF_RANGE_CALC_V6.0.10.py")
-_spec = importlib.util.spec_from_file_location("wf", _WF_PATH)
-wf = importlib.util.module_from_spec(_spec)
-sys.modules["wf"] = wf
-_spec.loader.exec_module(wf)
+from . import radar_model as rm
 
 FACE_PHI = (0.0, 90.0, 180.0, 270.0)
 D_RES_DEG = 0.2                 # raster step (deg) on the (phi, eps) sphere
@@ -65,7 +59,7 @@ B_CAND = (1, 2, 4, 8)
 SIGBW_CAND = (10.0, 20.0, 30.0, 50.0, 75.0)
 RES_MAX_M_DEFAULT = 2.0         # [D] range resolution requested if the sector gives none (-> 75 MHz)
 THETA_BIN_DEG = 1.0
-C = wf.C_MPS
+C = rm.C_MPS
 SOLVE_CACHE_SIZE = 1 << 18      # memoised solve() ranges per process (~50 MB when full)
 PARALLEL_MIN_SECTORS = 6        # [D] below this, a sequential run (~0.2 s/sector) beats process start-up
 MAX_WORKERS = max(1, (os.cpu_count() or 2) // 2)   # ~physical cores; each worker holds a ~65 MB sphere raster
@@ -89,8 +83,8 @@ class Sphere:
         self.d_omega = np.radians(D_RES_DEG) ** 2 * np.cos(np.radians(self.eps))
         p, e = np.radians(self.phi), np.radians(self.eps)
         dx, dy, dz = np.cos(e) * np.cos(p), np.cos(e) * np.sin(p), np.sin(e)
-        t = math.radians(wf.SECTOR_TILT_DEG)
-        sin_lim = math.sin(math.radians(wf.SECTOR_RADIUS_DEG))
+        t = math.radians(rm.SECTOR_TILT_DEG)
+        sin_lim = math.sin(math.radians(rm.SECTOR_RADIUS_DEG))
         self.owner = -np.ones(self.phi.shape, dtype=np.int8)
         self.w = np.zeros(self.phi.shape)
         best_w = np.full(self.phi.shape, -1.0)
@@ -129,9 +123,9 @@ class Sphere:
 
 def positions_table(sph: Sphere, m: np.ndarray, f_ghz: float) -> Tuple[Dict[int, np.ndarray], float]:
     """Beam positions per face and per 1-deg scan bin inside mask m. Also the unscanned sector fraction (solid angle)."""
-    cell = wf.beam_cell_area_uv(f_ghz)
-    lim = wf.band_for_frequency(f_ghz).scan_limit_deg(f_ghz)
-    nb = int(math.ceil(wf.SECTOR_RADIUS_DEG / THETA_BIN_DEG)) + 1
+    cell = rm.beam_cell_area_uv(f_ghz)
+    lim = rm.band_for_frequency(f_ghz).scan_limit_deg(f_ghz)
+    nb = int(math.ceil(rm.SECTOR_RADIUS_DEG / THETA_BIN_DEG)) + 1
     out = {k: np.zeros(nb) for k in range(4)}
     tot_om = float((sph.d_omega * m).sum())
     sel = m & sph.scanned & (sph.theta <= lim)
@@ -148,7 +142,7 @@ def positions_table(sph: Sphere, m: np.ndarray, f_ghz: float) -> Tuple[Dict[int,
 
 # ----------------------------------------------------------------------------- optimiser
 def make_wf(name, tau, n, pri, bw, b, integ):
-    return wf.Waveform(name=name, role="SEARCH", band="S", tau_s=tau, n=n, pri_s=pri, sig_bw_mhz=bw,
+    return rm.Waveform(name=name, role="SEARCH", band="S", tau_s=tau, n=n, pri_s=pri, sig_bw_mhz=bw,
                        b_tx=b, integration=integ)
 
 
@@ -157,8 +151,8 @@ def _range_cached(w, f: float, theta: float, rcs_m2: float, swerling: int, v_clo
     """Keyed on everything the range depends on (Waveform is a frozen dataclass; the target name is irrelevant).
     The model's module constants are assumed fixed for the life of the process."""
     try:
-        tgt = wf.Target("cache", rcs_m2, swerling, v_close_mps)
-        return wf.solve(w, f, theta, tgt, wf.FACE_ELEC_POWER_MW).range_km
+        tgt = rm.Target("cache", rcs_m2, swerling, v_close_mps)
+        return rm.solve(w, f, theta, tgt, rm.FACE_ELEC_POWER_MW).range_km
     except ValueError:
         return None
 
@@ -191,8 +185,8 @@ def candidate_waveforms(sec: dict) -> List:
 
 def _theta_centres(f: float, nb: int) -> np.ndarray:
     """Evaluation angle of each 1-deg scan bin: its centre, clamped to the scan limit at f."""
-    lim = wf.band_for_frequency(f).scan_limit_deg(f)
-    return np.minimum((np.arange(nb) + 0.5) * THETA_BIN_DEG, min(lim, wf.SECTOR_RADIUS_DEG))
+    lim = rm.band_for_frequency(f).scan_limit_deg(f)
+    return np.minimum((np.arange(nb) + 0.5) * THETA_BIN_DEG, min(lim, rm.SECTOR_RADIUS_DEG))
 
 
 @functools.lru_cache(maxsize=64)
@@ -202,11 +196,11 @@ def _scan_factor(f: float, nb: int) -> Optional[np.ndarray]:
     theta = 0) gives its range in every bin. Checked here on two dissimilar waveforms; None if a model change ever
     breaks the property (callers then solve() every bin)."""
     th = _theta_centres(f, nb)
-    tgt = wf.Target("ref", 1.0, 1, 5000.0)
+    tgt = rm.Target("ref", 1.0, 1, 5000.0)
     hs = []
     for w in (make_wf("ref1", 50e-6, 1, 1e-3, 75.0, 1, "NONCOHERENT"), make_wf("ref2", 400e-6, 12, 4e-3, 10.0, 4, "COHERENT")):
-        r0 = wf.solve(w, f, 0.0, tgt).range_km
-        hs.append(np.array([wf.solve(w, f, float(t), tgt).range_km / r0 for t in th]))
+        r0 = rm.solve(w, f, 0.0, tgt).range_km
+        hs.append(np.array([rm.solve(w, f, float(t), tgt).range_km / r0 for t in th]))
     return hs[0] if np.allclose(hs[0], hs[1], rtol=1e-9, atol=0.0) else None
 
 
@@ -333,18 +327,18 @@ def _wf_dict(name: str, w, f: float, v_max: float) -> dict:
             "tau_us": round(w.tau_s * 1e6, 1), "n_pulses": w.n, "pri_ms": round(w.pri_s * 1e3, 3),
             "sig_bw_mhz": w.sig_bw_mhz, "b_tx": w.b_tx,
             "dwell_ms": round(w.dwell_s * 1e3, 1), "duty_pct": round(100 * w.duty, 3),
-            "unamb_range_km": round(C * w.pri_s / 2e3), "doppler_max_kHz": round(2 * v_max / wf.lambda_m(f) / 1e3, 1)}
+            "unamb_range_km": round(C * w.pri_s / 2e3), "doppler_max_kHz": round(2 * v_max / rm.lambda_m(f) / 1e3, 1)}
 
 
 def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float):
     """Frequency and waveform plan chosen for a sector: (f, P, unscanned, plan, cands), or a status dict
     (NO_POSITIONS / NO_WAVEFORM) when there is none."""
-    tgt = wf.Target(sec["id"], sec["rcs_m2"], int(sec.get("swerling", 1)), sec["v_close_max_mps"])
+    tgt = rm.Target(sec["id"], sec["rcs_m2"], int(sec.get("swerling", 1)), sec["v_close_max_mps"])
     r_want, rr = sec["range_km"], sec["rr_target_s"]
     max_wf = max(1, int(sec.get("max_wf_per_sector", MAX_WF_PER_SECTOR)))
     short_tol = sec.get("short_tol", SHORT_TOL)
     cands = candidate_waveforms(sec)
-    e_pos = np.array([wf.BAND_S.p_pk_total_w * w.n * w.tau_s / w.b_tx for w in cands])   # J per position, full power
+    e_pos = np.array([rm.BAND_S.p_pk_total_w * w.n * w.tau_s / w.b_tx for w in cands])   # J per position, full power
     t_pos = np.array([w.n * w.tau_s / w.b_tx for w in cands])                            # s of TX time per position
     per_f = []
     for f in sec.get("freq_ghz_candidates", FREQ_CANDIDATES):
@@ -375,7 +369,7 @@ def sector_plan(sec: dict, eps_min: float, eps_max: float, p_avg_max_w: float) -
     None where the sector has no position), "power_scale" (power fraction actually transmitted, "no excess energy"),
     "short" (the sector's own range is not reached there, even at full power), and "freq_ghz". None if the sector
     has no plan. Used to test whether this sector also meets another one's need."""
-    wf.SECTOR_EPS_MIN_DEG, wf.SECTOR_EPS_MAX_DEG = eps_min, eps_max
+    rm.SECTOR_EPS_MIN_DEG, rm.SECTOR_EPS_MAX_DEG = eps_min, eps_max
     sph = _sphere(eps_min, eps_max)
     best = _best_plan(sec, sph, sph.mask(sec), p_avg_max_w)
     if isinstance(best, dict):
@@ -479,7 +473,7 @@ def _sphere(eps_min: float, eps_max: float) -> Sphere:
 
 def _optimise_task(sec: dict, eps_min: float, eps_max: float, p_avg_max: float) -> dict:
     """Worker-process entry point (module level so it can be pickled)."""
-    wf.SECTOR_EPS_MIN_DEG, wf.SECTOR_EPS_MAX_DEG = eps_min, eps_max
+    rm.SECTOR_EPS_MIN_DEG, rm.SECTOR_EPS_MAX_DEG = eps_min, eps_max
     sph = _sphere(eps_min, eps_max)
     return optimise_sector(sec, sph, sph.mask(sec), p_avg_max)
 
@@ -567,9 +561,9 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
     workers: None = automatic (parallel from PARALLEL_MIN_SECTORS sectors), 1 = sequential, > 1 = parallel."""
     g = mission.get("global", {})
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
-    wf.SECTOR_EPS_MIN_DEG, wf.SECTOR_EPS_MAX_DEG = eps_min, eps_max
-    elec = g.get("face_elec_mw", wf.FACE_ELEC_POWER_MW)
-    p_avg_max = elec * 1e6 * wf.CHAIN_EFF * wf.PAE
+    rm.SECTOR_EPS_MIN_DEG, rm.SECTOR_EPS_MAX_DEG = eps_min, eps_max
+    elec = g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW)
+    p_avg_max = elec * 1e6 * rm.CHAIN_EFF * rm.PAE
     sectors = mission["sectors"]
     parallel = (len(sectors) >= PARALLEL_MIN_SECTORS) if workers is None else workers > 1
     masks: Dict[str, np.ndarray] = {}
@@ -611,7 +605,7 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
         p_avail_w = max(0.0, 1.0 - v["energy_fraction"]) * p_avg_max
         v["power_margin"] = 1.0 - v["energy_fraction"]
         v["p_available_kW"] = p_avail_w / 1e3
-        v["ku_duty_pct"] = 100.0 * p_avail_w / wf.BAND_KU.p_pk_total_w
+        v["ku_duty_pct"] = 100.0 * p_avail_w / rm.BAND_KU.p_pk_total_w
         v["time_margin_s"] = 1.0 - v["time_fraction"]      # S-band TX time only; Ku is a separate array
         if v["positions"] <= 0:
             continue

@@ -5,7 +5,7 @@ GEOMETRY -- shared ship-frame geometry and PyVista mesh builders for the radar c
 (mission-preparation and results tabs; the plotter itself is driven by gui/scene_view.py).
 
 Single source of truth for the ship frame: everything here is derived from the SAME constants and
-formulas as WF_RANGE_CALC_V6.0.10.py / core.optimizer (SECTOR_TILT_DEG, FACE_PHI, face-frame
+formulas as core.radar_model / core.optimizer (SECTOR_TILT_DEG, FACE_PHI, face-frame
 projection, scan limit) so the 3D picture never drifts from the radar model.
 
 Ship frame (confirmed by the user): Z = ship longitudinal axis, +Z = nose (radar faces + telescope),
@@ -26,9 +26,9 @@ import numpy as np
 import pyvista as pv
 
 # ----------------------------------------------------------------------------- radar model (shared)
-# The SAME module object as the optimiser's, so a setting changed on the model (tilt, eps window...) applies
+# One module object for the whole application, so a setting changed on the model (tilt, eps window...) applies
 # to the 3D view, the fast estimate and the exact calculation alike.
-from .optimizer import wf
+from . import radar_model as rm
 
 FACE_PHI_DEG: Tuple[float, float, float, float] = (0.0, 90.0, 180.0, 270.0)
 VIZ_FREQ_GHZ = 2.8   # reference frequency used for the viz-only scan limit (matches the optimiser)
@@ -58,15 +58,15 @@ def sector_color(i: int) -> str:
 
 # ----------------------------------------------------------------------------- face frame
 def face_normal(phi_deg: float, tilt_deg: Optional[float] = None) -> np.ndarray:
-    tilt_deg = wf.SECTOR_TILT_DEG if tilt_deg is None else tilt_deg
+    tilt_deg = rm.SECTOR_TILT_DEG if tilt_deg is None else tilt_deg
     p, t = math.radians(phi_deg), math.radians(tilt_deg)
     return np.array([math.cos(t) * math.cos(p), math.cos(t) * math.sin(p), math.sin(t)])
 
 
 def face_frame(phi_deg: float, tilt_deg: Optional[float] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return (n, e_u, e_v) of the face frame: d = u*e_u + v*e_v + w*n (same convention as
-    core.optimizer.Sphere / WF_RANGE_CALC header)."""
-    tilt_deg = wf.SECTOR_TILT_DEG if tilt_deg is None else tilt_deg
+    core.optimizer.Sphere / core.radar_model header)."""
+    tilt_deg = rm.SECTOR_TILT_DEG if tilt_deg is None else tilt_deg
     p, t = math.radians(phi_deg), math.radians(tilt_deg)
     c, s = math.cos(p), math.sin(p)
     n = np.array([math.cos(t) * c, math.cos(t) * s, math.sin(t)])
@@ -76,7 +76,7 @@ def face_frame(phi_deg: float, tilt_deg: Optional[float] = None) -> Tuple[np.nda
 
 
 def default_scan_limit_deg(f_ghz: float = VIZ_FREQ_GHZ) -> float:
-    band = wf.band_for_frequency(f_ghz)
+    band = rm.band_for_frequency(f_ghz)
     return band.scan_limit_deg(f_ghz)
 
 
@@ -90,7 +90,7 @@ class SphereGrid:
     def __init__(self, res_deg: float = 1.0, tilt_deg: Optional[float] = None,
                  scan_limit_deg: Optional[float] = None):
         self.res_deg = res_deg
-        self.tilt_deg = wf.SECTOR_TILT_DEG if tilt_deg is None else tilt_deg
+        self.tilt_deg = rm.SECTOR_TILT_DEG if tilt_deg is None else tilt_deg
         self.scan_limit_deg = default_scan_limit_deg() if scan_limit_deg is None else scan_limit_deg
         self.n_phi = max(4, int(round(360.0 / res_deg)))
         self.n_eps = max(2, int(round(180.0 / res_deg)))

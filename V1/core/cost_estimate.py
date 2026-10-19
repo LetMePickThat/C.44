@@ -38,6 +38,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from . import geometry as geo
+from . import radar_model as rm
 
 DEFAULT_TABLE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cost_table.json")
 
@@ -181,7 +182,7 @@ def estimate_sector_faces(table: CostTable, sec: dict, grid: geo.SphereGrid, eps
     mask = grid.sector_mask(sec) & grid.scanned(eps_min, eps_max)
     if not mask.any():
         return {}
-    cell = geo.wf.beam_cell_area_uv(f_ghz)
+    cell = rm.beam_cell_area_uv(f_ghz)
     weight = grid.w * grid.d_omega / cell  # beam positions per raster cell (same convention as the optimiser)
     rr = sec.get("rr_target_s", 1.0) or 1.0
     r_want = sec.get("range_km", 0.0)

@@ -1,5 +1,5 @@
 # SPEC — Optimiseur pré-mission v2 (à implémenter dans le repo)
-Cible : `mission_optimizer.py` (+ adaptations `cost_estimate.py`, `gen_cost_table.py`, `pm_window.py`, `results_window.py`, `optimize_worker.py`). Modèle radar : `WF_RANGE_CALC_V6.0.10.py` (inchangé). Prototype de référence : `proto_per_bin_reference.py` (une dalle, non production). Fichiers de test : `mission_veille500.json`, `report_veille500.json`.
+Cible : `mission_optimizer.py` (+ adaptations `cost_estimate.py`, `gen_cost_table.py`, `pm_window.py`, `results_window.py`, `optimize_worker.py`). Modèle radar : `core/radar_model.py` (inchangé). Prototype de référence : `proto_per_bin_reference.py` (une dalle, non production). Fichiers de test : `mission_veille500.json`, `report_veille500.json`.
 
 ## 1. Pourquoi (défauts constatés sur v1)
 1. **Une seule forme d'onde (WF) par secteur**, dimensionnée sur le dépointage le plus défavorable, puis puissance réduite aux autres angles. L'énergie est bonne mais le **temps d'émission est surestimé** : veille KV 500 km, RR 20 s → 65 % énergie / **102 %** temps. Avec une WF par tranche de dépointage : 75 % énergie / **13 %** temps.
@@ -56,7 +56,7 @@ Ajouter par secteur : `wf_by_bin: [{theta_lo_deg, theta_hi_deg, positions, wf:{f
 ## 5. Performance / robustesse
 - Précalculer **une fois par secteur** la table `(candidate × tranche)` de `R_w` (~3 000 candidates × 8–15 tranches ≈ 40 k `solve`, quelques s) ; la réutiliser pour tous les α et toutes les fréquences ; `functools.lru_cache` sur `(paramètres WF, f, θ, rcs, swerling, v)`.
 - `multiprocessing` par secteur (compatible `OptimizeWorker` : progression par secteur terminé, annulation entre secteurs).
-- Un seul chargement de `WF_RANGE_CALC_V6.0.10.py` partagé par `geometry.py` et `mission_optimizer.py` (aujourd'hui deux instances).
+- Un seul chargement de `core/radar_model.py` partagé par `geometry.py` et `mission_optimizer.py` (aujourd'hui deux instances).
 - Ne pas modifier les formules du modèle radar.
 
 ## 6. Tests d'acceptation (valeurs de référence, tolérance ±5 % relatif sauf mention)

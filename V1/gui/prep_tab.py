@@ -23,6 +23,7 @@ from PyQt5.QtWidgets import (
 from core import cost_estimate as ce
 from core import geometry as geo
 from core import mission as md
+from core import radar_model as rm
 from core import redundancy as red
 from gui.scene_view import SceneView, SectorDraw
 
@@ -520,7 +521,7 @@ class PrepTab(QWidget):
 
     def _update_gauges(self, eps_min: float, eps_max: float) -> None:
         totals = {k: {"energy": 0.0, "time_min": 0.0, "kw": 0.0} for k in range(4)}
-        p_avg_max = self.mission["global"].get("face_elec_mw", 2.0) * 1e6 * geo.wf.CHAIN_EFF * geo.wf.PAE
+        p_avg_max = self.mission["global"].get("face_elec_mw", 2.0) * 1e6 * rm.CHAIN_EFF * rm.PAE
         if self.cost_table is not None:
             for sec in self.mission["sectors"]:
                 try:
@@ -540,7 +541,7 @@ class PrepTab(QWidget):
             g["kw"].setText(f"{totals[k]['kw']:.0f} kW")
             # tracking margin: power left for Ku after search (the arrays only share the face's power)
             p_left_w = max(0.0, 1.0 - totals[k]["energy"]) * p_avg_max
-            g["margin"].setText(f"{p_left_w / 1e3:.0f} kW (Ku duty {100 * p_left_w / geo.wf.BAND_KU.p_pk_total_w:.1f} %)")
+            g["margin"].setText(f"{p_left_w / 1e3:.0f} kW (Ku duty {100 * p_left_w / rm.BAND_KU.p_pk_total_w:.1f} %)")
 
     def _update_alerts(self, eps_min: float, eps_max: float) -> None:
         self.list_alerts.clear()
