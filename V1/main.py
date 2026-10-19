@@ -20,6 +20,45 @@ import mission_data as md
 from mission_prep_window import MissionPrepWindow
 
 
+def prefer_high_performance_gpu() -> None:
+    """Ask Windows to run this Python on the discrete GPU (Settings > Graphics > "High performance"), so the
+    VTK OpenGL view does not land on the integrated GPU of a hybrid laptop. Must run before the first OpenGL
+    context is created; takes effect for the current process. The preference is keyed by the application id
+    for a Microsoft Store Python (the exe path is ignored for packaged apps) and by the exe path otherwise.
+    An existing GpuPreference (user's explicit choice) is left alone. Best effort: never blocks the start."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        import winreg
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32")
+        n = wintypes.UINT(1024)
+        buf = ctypes.create_unicode_buffer(n.value)
+        kernel32.GetCurrentApplicationUserModelId.argtypes = [ctypes.POINTER(wintypes.UINT), wintypes.LPWSTR]
+        if kernel32.GetCurrentApplicationUserModelId(ctypes.byref(n), buf) == 0:
+            app_key = buf.value                       # packaged (Store) Python
+        else:
+            n = wintypes.DWORD(32768)
+            buf = ctypes.create_unicode_buffer(n.value)
+            kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+            kernel32.QueryFullProcessImageNameW.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR,
+                                                            ctypes.POINTER(wintypes.DWORD)]
+            if not kernel32.QueryFullProcessImageNameW(kernel32.GetCurrentProcess(), 0, buf, ctypes.byref(n)):
+                return
+            app_key = buf.value                       # real image (python3.x.exe), not a launcher alias
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\DirectX\UserGpuPreferences") as key:
+            try:
+                current = winreg.QueryValueEx(key, app_key)[0]
+            except FileNotFoundError:
+                current = ""
+            if "GpuPreference=" not in current:
+                winreg.SetValueEx(key, app_key, 0, winreg.REG_SZ, current + "GpuPreference=2;")
+    except Exception:  # noqa: BLE001 -- a missing preference only costs speed
+        pass
+
+
 def load_mission_file(path: str) -> dict:
     mission = md.load_mission(path)
     mission.setdefault("global", dict(md.GLOBAL_DEFAULTS))
@@ -85,6 +124,7 @@ class LauncherWindow(QMainWindow):
 
 
 def main() -> int:
+    prefer_high_performance_gpu()
     app = QApplication(sys.argv)
     arg = sys.argv[1] if len(sys.argv) > 1 else None
     win: QMainWindow

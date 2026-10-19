@@ -143,41 +143,80 @@ class SphereGrid:
         return mphi & (self.eps >= sec["eps_min_deg"]) & (self.eps <= sec["eps_max_deg"])
 
     def vertex_grid(self, radius: float = 1.0) -> np.ndarray:
-        """Grid-line vertices (n_phi+1, n_eps+1, 3) bracketing the cell-centred samples above."""
-        phi_e = np.linspace(0.0, 360.0, self.n_phi + 1)
-        eps_e = np.linspace(-90.0, 90.0, self.n_eps + 1)
-        P, E = np.meshgrid(np.radians(phi_e), np.radians(eps_e), indexing="ij")
-        ce = np.cos(E)
-        x = radius * ce * np.cos(P)
-        y = radius * ce * np.sin(P)
-        z = radius * np.sin(E)
-        return np.stack([x, y, z], axis=-1)
+        """Grid-line vertices (n_phi+1, n_eps+1, 3) bracketing the cell-centred samples above.
+        Cached per radius (the grid is fixed): callers must not modify the returned array."""
+        cache = self.__dict__.setdefault("_vgrid_cache", {})
+        if radius not in cache:
+            phi_e = np.linspace(0.0, 360.0, self.n_phi + 1)
+            eps_e = np.linspace(-90.0, 90.0, self.n_eps + 1)
+            P, E = np.meshgrid(np.radians(phi_e), np.radians(eps_e), indexing="ij")
+            ce = np.cos(E)
+            x = radius * ce * np.cos(P)
+            y = radius * ce * np.sin(P)
+            z = radius * np.sin(E)
+            cache[radius] = np.stack([x, y, z], axis=-1)
+        return cache[radius]
+
+
+def _vertex_ids(n_phi: int, n_eps: int) -> np.ndarray:
+    """Vertex index grid (n_phi+1, n_eps+1) with the topology of the sphere: the phi=360 column is the
+    phi=0 one (seam) and each pole row collapses to a single vertex."""
+    idx = np.arange((n_phi + 1) * (n_eps + 1)).reshape(n_phi + 1, n_eps + 1)
+    idx[n_phi, :] = idx[0, :]
+    idx[:, 0] = idx[0, 0]
+    idx[:, n_eps] = idx[0, n_eps]
+    return idx
+
+
+def _compact(vgrid: np.ndarray, cells: np.ndarray, n_per_cell: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Keep only the vertices used by `cells` (n, n_per_cell); returns (points, VTK cell array)."""
+    used, inv = np.unique(cells, return_inverse=True)
+    conn = inv.reshape(-1, n_per_cell).astype(np.int64)
+    flat = np.hstack([np.full((conn.shape[0], 1), n_per_cell, dtype=np.int64), conn]).ravel()
+    return vgrid.reshape(-1, 3)[used], flat
 
 
 def quads_for_mask(vgrid: np.ndarray, mask: np.ndarray) -> pv.PolyData:
-    """Build a quad PolyData covering the True cells of `mask` (shape n_phi x n_eps), using the
-    (n_phi+1, n_eps+1, 3) vertex grid from SphereGrid.vertex_grid()."""
-    n_phi, n_eps = mask.shape
-    idx = np.arange((n_phi + 1) * (n_eps + 1)).reshape(n_phi + 1, n_eps + 1)
-    i0, i1, i2, i3 = idx[:-1, :-1], idx[1:, :-1], idx[1:, 1:], idx[:-1, 1:]
+    """Build a PolyData covering the True cells of `mask` (shape n_phi x n_eps), using the
+    (n_phi+1, n_eps+1, 3) vertex grid from SphereGrid.vertex_grid(). Quads, except triangles on the
+    pole rows; seam and pole vertices are shared, so the surface is closed where the mask is."""
     if not mask.any():
         return pv.PolyData()
-    quads = np.stack([i0[mask], i1[mask], i2[mask], i3[mask]], axis=1)
-    pts = vgrid.reshape(-1, 3)
-    n_quads = quads.shape[0]
-    faces = np.hstack([np.full((n_quads, 1), 4, dtype=np.int64), quads.astype(np.int64)]).ravel()
-    poly = pv.PolyData(pts, faces)
-    poly.clean(inplace=True)
-    return poly
+    n_phi, n_eps = mask.shape
+    idx = _vertex_ids(n_phi, n_eps)
+    i0, i1, i2, i3 = idx[:-1, :-1], idx[1:, :-1], idx[1:, 1:], idx[:-1, 1:]
+    body = mask.copy()
+    body[:, 0] = body[:, -1] = False
+    south, north = np.zeros_like(mask), np.zeros_like(mask)
+    south[:, 0], north[:, -1] = mask[:, 0], mask[:, -1]
+    quads = np.stack([i0[body], i1[body], i2[body], i3[body]], axis=1)
+    tris = np.concatenate([np.stack([i0[south], i2[south], i3[south]], axis=1),    # i0 == i1 = south pole
+                           np.stack([i0[north], i1[north], i2[north]], axis=1)])   # i2 == i3 = north pole
+    used, inv = np.unique(np.concatenate([quads.ravel(), tris.ravel()]), return_inverse=True)
+    q, t = inv[:quads.size].reshape(-1, 4), inv[quads.size:].reshape(-1, 3)
+    faces = np.concatenate([np.hstack([np.full((len(q), 1), 4), q]).ravel(),
+                            np.hstack([np.full((len(t), 1), 3), t]).ravel()]).astype(np.int64)
+    return pv.PolyData(vgrid.reshape(-1, 3)[used], faces)
 
 
-def sector_boundary(poly: pv.PolyData) -> pv.PolyData:
-    """Outline (meridian + top/bottom edge) of a sector surface, via VTK feature-edge extraction --
-    equivalent in effect to the hand-rolled edge walk in volumes.html, far less code."""
-    if poly.n_points == 0:
+def boundary_for_mask(vgrid: np.ndarray, mask: np.ndarray) -> pv.PolyData:
+    """Outline of the True cells of `mask`: every grid edge between a True cell and a False one (phi wraps
+    around, pole edges have zero length and are skipped). Same result as a VTK boundary-edge extraction on
+    quads_for_mask(), computed directly on the raster -- equivalent in effect to the edge walk in volumes.html."""
+    if not mask.any():
         return pv.PolyData()
-    return poly.extract_feature_edges(boundary_edges=True, feature_edges=False,
-                                       manifold_edges=False, non_manifold_edges=False)
+    n_phi, n_eps = mask.shape
+    idx = _vertex_ids(n_phi, n_eps)
+    # meridian edges: vertex column i lies between cells i-1 and i (wrapping)
+    mer = mask != np.roll(mask, 1, axis=0)
+    ii, jj = np.nonzero(mer)
+    edges = [np.stack([idx[ii, jj], idx[ii, jj + 1]], axis=1)]
+    # parallel edges: vertex row j (1..n_eps-1) lies between cells j-1 and j
+    par = mask[:, 1:] != mask[:, :-1]
+    ii, jj = np.nonzero(par)
+    edges.append(np.stack([idx[ii, jj + 1], idx[ii + 1, jj + 1]], axis=1))
+    pts, lines = _compact(vgrid, np.concatenate(edges), 2)
+    return pv.PolyData(pts, lines=lines)
 
 
 # ----------------------------------------------------------------------------- scene builders
@@ -196,9 +235,8 @@ def build_face_sectors(grid: SphereGrid, eps_min: float = -90.0, eps_max: float 
     surfaces, outlines = {}, {}
     for k in range(4):
         mask = scanned & (grid.owner == k)
-        poly = quads_for_mask(vgrid, mask)
-        surfaces[k] = poly
-        outlines[k] = sector_boundary(poly)
+        surfaces[k] = quads_for_mask(vgrid, mask)
+        outlines[k] = boundary_for_mask(vgrid, mask)
     ang = np.linspace(0, 2 * math.pi, 181)
     eq_pts = np.stack([radius * np.cos(ang), radius * np.sin(ang), np.zeros_like(ang)], axis=1)
     equator = pv.lines_from_points(eq_pts)
@@ -211,8 +249,16 @@ def build_sector_overlay(grid: SphereGrid, sec: dict, eps_min: float = -90.0, ep
     Returns (surface, outline)."""
     vgrid = grid.vertex_grid(radius)
     mask = grid.sector_mask(sec) & grid.scanned(eps_min, eps_max)
-    poly = quads_for_mask(vgrid, mask)
-    return poly, sector_boundary(poly)
+    return quads_for_mask(vgrid, mask), boundary_for_mask(vgrid, mask)
+
+
+SECTOR_GEOMETRY_FIELDS = ("shape", "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg",
+                          "phi0_deg", "eps0_deg", "radius_deg")
+
+
+def sector_geometry_key(sec: dict) -> tuple:
+    """Everything build_sector_overlay() depends on in a sector (cache key for its meshes)."""
+    return tuple(sec.get(f) for f in SECTOR_GEOMETRY_FIELDS)
 
 
 def build_axes(length: float = 1.35) -> List[dict]:
@@ -264,28 +310,28 @@ def build_ship() -> dict:
 def add_static_scene(plotter) -> None:
     """Add the parts of the scene that never change (axes, hull, face normals, equator) and set the
     default iso camera (matches volumes.html's default view). `plotter` is any pyvista Plotter-like
-    object (a pyvistaqt QtInteractor qualifies) -- this function has no Qt dependency of its own."""
+    object (a pyvistaqt QtInteractor qualifies) -- this function has no Qt dependency of its own. Does not render: the caller renders once."""
     for ax in build_axes():
         if ax.get("no_line"):
             plotter.add_point_labels([ax["label_pos"]], [ax["text"]], text_color=ax["color"],
-                                      font_size=12, shape=None, show_points=False)
+                                      font_size=12, shape=None, show_points=False, render=False)
             continue
-        plotter.add_mesh(ax["line"], color=ax["color"], line_width=2, name=f"axis_{ax['text']}")
+        plotter.add_mesh(ax["line"], color=ax["color"], line_width=2, name=f"axis_{ax['text']}", render=False)
         plotter.add_point_labels([ax["label_pos"]], [ax["text"]], text_color=ax["color"],
-                                  font_size=12, shape=None, show_points=False)
+                                  font_size=12, shape=None, show_points=False, render=False)
     ship = build_ship()
     for i, part in enumerate(ship["hull"]):
-        plotter.add_mesh(part["mesh"], color=part["color"], smooth_shading=True, name=f"hull_{i}")
+        plotter.add_mesh(part["mesh"], color=part["color"], smooth_shading=True, name=f"hull_{i}", render=False)
     for d in ship["arrays"]:
-        plotter.add_mesh(d["mesh"], color=d["color"], name=f"hull_array_{d['k']}")
+        plotter.add_mesh(d["mesh"], color=d["color"], name=f"hull_array_{d['k']}", render=False)
     for n in build_face_normals():
-        plotter.add_mesh(n["mesh"], color=n["color"], line_width=3, name=f"normal_{n['k']}")
+        plotter.add_mesh(n["mesh"], color=n["color"], line_width=3, name=f"normal_{n['k']}", render=False)
         plotter.add_point_labels([n["label_pos"]], [n["name"]], text_color=n["color"],
-                                  font_size=14, shape=None, show_points=False)
+                                  font_size=14, shape=None, show_points=False, render=False)
     ang = np.linspace(0, 2 * math.pi, 181)
     eq_pts = np.stack([np.cos(ang), np.sin(ang), np.zeros_like(ang)], axis=1)
     plotter.add_mesh(pv.lines_from_points(eq_pts), color=COLORS["muted"], opacity=0.45,
-                      line_width=1, name="equator")
+                      line_width=1, name="equator", render=False)
     plotter.set_background("white")
     r = 5.5
     eye = (r * math.cos(math.radians(24)) * math.cos(math.radians(-58)),
@@ -320,9 +366,14 @@ def set_actors_visible(plotter, names, visible: bool) -> None:
         plotter.actors[key].SetVisibility(bool(visible))
 
 
+def has_actor(plotter, name: str) -> bool:
+    return bool(_matching_actors(plotter, [name]))
+
+
 def remove_actors(plotter, names) -> None:
+    """No render: the caller renders once after its batch of scene changes."""
     for key in _matching_actors(plotter, names):
-        plotter.remove_actor(key)
+        plotter.remove_actor(key, render=False)
 
 
 def n_cells_owned(grid: SphereGrid, eps_min: float = -90.0, eps_max: float = 90.0) -> Dict[int, int]:

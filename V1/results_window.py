@@ -68,6 +68,7 @@ class ResultsWindow(QMainWindow):
         self.eps_min = result["global"]["eps_min_deg"]
         self.eps_max = result["global"]["eps_max_deg"]
         self._hidden_sectors: set = set()     # ids of the sectors whose volume is hidden in 3D
+        self._overlay_meshes: dict = {}       # sid -> (surface, outline), built once
 
         self._build_ui()
         geo.add_static_scene(self.plotter)
@@ -192,10 +193,10 @@ class ResultsWindow(QMainWindow):
         for k in range(4):
             if scene.surfaces[k].n_points:
                 self.plotter.add_mesh(scene.surfaces[k], color=geo.FACE_COLORS[k], opacity=0.18,
-                                       culling="back", name=f"face_surf_{k}")
+                                       culling="back", name=f"face_surf_{k}", render=False)
             if scene.outlines[k].n_points:
                 self.plotter.add_mesh(scene.outlines[k], color=geo.COLORS["fg"], line_width=1,
-                                       name=f"face_outline_{k}")
+                                       name=f"face_outline_{k}", render=False)
 
     def _sector_energy(self, r: dict) -> float:
         """Worst energy fraction of this sector alone, over the faces it uses."""
@@ -226,15 +227,18 @@ class ResultsWindow(QMainWindow):
             surf_name, out_name, lbl_name = geo.sector_actor_names(sid)
             if sec is None:
                 continue
-            poly, outline = geo.build_sector_overlay(self.grid, sec, self.eps_min, self.eps_max)
+            if sid not in self._overlay_meshes:   # geometry is fixed in this window: a metric change only recolours
+                self._overlay_meshes[sid] = geo.build_sector_overlay(self.grid, sec, self.eps_min, self.eps_max)
+            poly, outline = self._overlay_meshes[sid]
             if r["status"] != "OK":
                 color = "#8a95a3"
             else:
                 color = self._sector_color(r)
             if poly.n_points:
-                self.plotter.add_mesh(poly, color=color, opacity=0.55, culling="back", name=surf_name)
+                self.plotter.add_mesh(poly, color=color, opacity=0.55, culling="back", name=surf_name,
+                                      render=False)
             if outline.n_points:
-                self.plotter.add_mesh(outline, color=color, line_width=2, name=out_name)
+                self.plotter.add_mesh(outline, color=color, line_width=2, name=out_name, render=False)
             centre = poly.points.mean(axis=0) if poly.n_points else None
             if centre is None:
                 continue
@@ -254,8 +258,8 @@ class ResultsWindow(QMainWindow):
                 if r.get("flags"):
                     text += f"\n! {len(r['flags'])} flag(s)"
             self.plotter.add_point_labels([centre], [text], name=lbl_name, text_color=color,
-                                           font_size=10, shape_opacity=0.6, show_points=False)
-        self._apply_visibility()
+                                           font_size=10, shape_opacity=0.6, show_points=False, render=False)
+        self._apply_visibility()   # the one render of this rebuild
 
     # ------------------------------------------------------------------ 3D visibility
     def _on_sector_check_changed(self, item: QTableWidgetItem) -> None:

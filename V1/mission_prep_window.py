@@ -41,6 +41,8 @@ class MissionPrepWindow(QMainWindow):
         self._cur_index: int = -1
         self._updating_form = False
         self._sector_actor_names: set = set()
+        self._face_scene_key: Optional[tuple] = None   # (eps_min, eps_max) of the face layer on screen
+        self._overlay_cache: Dict[str, tuple] = {}     # sid -> (geometry key, colour, poly, outline, label text)
         self._hidden_sectors: set = set()     # id() of the sector dicts whose volume is hidden in 3D
         self._worker: Optional[OptimizeWorker] = None
         self._progress_dlg: Optional[QProgressDialog] = None
@@ -89,7 +91,15 @@ class MissionPrepWindow(QMainWindow):
         v.addWidget(self._build_actions_group())
         v.addStretch(1)
 
+        # no horizontal scrolling: the panel is always at least as wide as its content
+        panel.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        min_w = (inner.minimumSizeHint().width() + panel.verticalScrollBar().sizeHint().width()
+                 + 2 * panel.frameWidth())
+        panel.setMinimumWidth(min_w)
+        panel.setMaximumWidth(max(460, min_w))
+
         splitter.addWidget(panel)
+        splitter.setChildrenCollapsible(False)
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 2)
 
@@ -444,46 +454,67 @@ class MissionPrepWindow(QMainWindow):
         self._update_alerts(eps_min, eps_max)
         self._apply_visibility()
 
+    # Scene changes below never render (render=False): _refresh_all renders once, in _apply_visibility.
     def _rebuild_face_sectors(self, eps_min: float, eps_max: float) -> None:
+        if self._face_scene_key == (eps_min, eps_max):
+            return  # the face layer only depends on the eps window, not on the watch sectors
+        self._face_scene_key = (eps_min, eps_max)
         scene = geo.build_face_sectors(self.grid, eps_min, eps_max)
         for k in range(4):
             if scene.surfaces[k].n_points:
                 self.plotter.add_mesh(scene.surfaces[k], color=geo.FACE_COLORS[k], opacity=0.28,
-                                       culling="back", name=f"face_surf_{k}")
+                                       culling="back", name=f"face_surf_{k}", render=False)
             else:
-                self.plotter.remove_actor(f"face_surf_{k}")
+                self.plotter.remove_actor(f"face_surf_{k}", render=False)
             if scene.outlines[k].n_points:
                 self.plotter.add_mesh(scene.outlines[k], color=geo.COLORS["fg"], line_width=1,
-                                       name=f"face_outline_{k}")
+                                       name=f"face_outline_{k}", render=False)
             else:
-                self.plotter.remove_actor(f"face_outline_{k}")
+                self.plotter.remove_actor(f"face_outline_{k}", render=False)
 
     def _rebuild_sector_overlays(self, eps_min: float, eps_max: float) -> None:
+        """Only sectors whose geometry / colour / label changed are rebuilt (cache keyed by sector id)."""
         new_names = set()
+        new_cache: Dict[str, tuple] = {}
         for i, sec in enumerate(self.mission["sectors"]):
             sid = sec.get("id") or f"_idx{i}"
-            try:
-                poly, outline = geo.build_sector_overlay(self.grid, sec, eps_min, eps_max)
-            except (KeyError, TypeError):
-                continue  # incomplete sector mid-edit: skip the 3D overlay, form stays editable
             color = geo.sector_color(i)
             surf_name, out_name, lbl_name = geo.sector_actor_names(sid)
+            key = (geo.sector_geometry_key(sec), eps_min, eps_max)
+            cached = self._overlay_cache.get(sid)
+            # a duplicate id (mid-edit) shares actor names with the earlier sector: always redraw, last one wins
+            same_geom = cached is not None and cached[0] == key and sid not in new_cache
+            if same_geom:
+                poly, outline = cached[2], cached[3]
+            else:
+                try:
+                    poly, outline = geo.build_sector_overlay(self.grid, sec, eps_min, eps_max)
+                except (KeyError, TypeError):
+                    continue  # incomplete sector mid-edit: skip the 3D overlay, form stays editable
+            same_mesh = same_geom and cached[1] == color
             if poly.n_points:
-                self.plotter.add_mesh(poly, color=color, opacity=0.5, culling="back", name=surf_name)
+                if not (same_mesh and geo.has_actor(self.plotter, surf_name)):
+                    self.plotter.add_mesh(poly, color=color, opacity=0.5, culling="back", name=surf_name,
+                                          render=False)
                 new_names.add(surf_name)
             if outline.n_points:
-                self.plotter.add_mesh(outline, color=color, line_width=2, name=out_name)
+                if not (same_mesh and geo.has_actor(self.plotter, out_name)):
+                    self.plotter.add_mesh(outline, color=color, line_width=2, name=out_name, render=False)
                 new_names.add(out_name)
-            centre = poly.points.mean(axis=0) if poly.n_points else None
-            if centre is not None:
+            text = None
+            if poly.n_points:
                 text = (f"{sid}\nR={sec.get('range_km', 0):.0f} km  RCS={sec.get('rcs_m2', 0):g} m2\n"
                         f"RR={sec.get('rr_target_s', 0):.0f} s  V={sec.get('v_close_min_mps', 0):.0f}"
                         f"-{sec.get('v_close_max_mps', 0):.0f} m/s")
-                self.plotter.add_point_labels([centre], [text], name=lbl_name, text_color=color,
-                                               font_size=10, shape_opacity=0.6, show_points=False)
+                if not (same_mesh and cached[4] == text and geo.has_actor(self.plotter, lbl_name)):
+                    self.plotter.add_point_labels([poly.points.mean(axis=0)], [text], name=lbl_name,
+                                                   text_color=color, font_size=10, shape_opacity=0.6,
+                                                   show_points=False, render=False)
                 new_names.add(lbl_name)
+            new_cache[sid] = (key, color, poly, outline, text)
         geo.remove_actors(self.plotter, self._sector_actor_names - new_names)   # incl. the "-labels" actors
         self._sector_actor_names = new_names
+        self._overlay_cache = new_cache
 
     def _update_gauges(self, eps_min: float, eps_max: float) -> None:
         totals = {k: {"energy": 0.0, "time_min": 0.0, "kw": 0.0} for k in range(4)}
