@@ -5,10 +5,17 @@ MISSION -- mission preparation data model: sector templates, mission-prep valida
 and JSON/CSV load/save, kept strictly compatible with the optimiser's input format (same field names, same box/cap
 shapes) so a saved mission file runs unchanged through core.optimizer.run().
 
+Active tracking (PA) and confirmation inputs, per sector (core/tracking.py):
+  "tracking": list of range brackets {r_min_km, r_max_km, n_targets, rr_s, angle_zone_deg (opening = full width at
+              +/-2 sigma), range_acc_m and vr_acc_mps (1 sigma)};
+  "confirm_mode": "auto" (default) or a forced mode of tracking.CONFIRM_MODES;
+  "new_targets_per_rr": true targets newly detected per refresh (confirmed like the false alarms).
+
 Validation messages are operator-facing.
 """
 from __future__ import annotations
 
+import copy
 import csv
 import json
 import math
@@ -20,16 +27,24 @@ from . import optimizer as mo
 
 GLOBAL_DEFAULTS: Dict[str, float] = {"eps_min_deg": -90.0, "eps_max_deg": 90.0, "face_elec_mw": 2.0}
 
+_SECTOR_DEFAULTS_NEED: Dict[str, object] = {
+    "rcs_m2": 1000.0, "swerling": 1, "range_km": 2000.0, "rr_target_s": 30.0,
+    "v_close_min_mps": 1000.0, "v_close_max_mps": 5000.0,
+    "confirm_mode": "auto", "new_targets_per_rr": 1.0, "tracking": [],
+}
 SECTOR_DEFAULTS_BOX: Dict[str, object] = {
     "shape": "box", "phi_min_deg": 0.0, "phi_max_deg": 90.0, "eps_min_deg": 0.0, "eps_max_deg": 60.0,
-    "rcs_m2": 1000.0, "swerling": 1, "range_km": 2000.0, "rr_target_s": 30.0,
-    "v_close_min_mps": 1000.0, "v_close_max_mps": 5000.0,
+    **_SECTOR_DEFAULTS_NEED,
 }
 SECTOR_DEFAULTS_CAP: Dict[str, object] = {
-    "shape": "cap", "phi0_deg": 0.0, "eps0_deg": 20.0, "radius_deg": 15.0,
-    "rcs_m2": 1000.0, "swerling": 1, "range_km": 2000.0, "rr_target_s": 30.0,
-    "v_close_min_mps": 1000.0, "v_close_max_mps": 5000.0,
+    "shape": "cap", "phi0_deg": 0.0, "eps0_deg": 20.0, "radius_deg": 15.0, **_SECTOR_DEFAULTS_NEED,
 }
+BRACKET_DEFAULTS: Dict[str, float] = {
+    "r_min_km": 0.0, "r_max_km": 1000.0, "n_targets": 5.0, "rr_s": 2.0,
+    "angle_zone_deg": 0.2, "range_acc_m": 10.0, "vr_acc_mps": 5.0,
+}
+BRACKET_FIELDS = tuple(BRACKET_DEFAULTS)
+CONFIRM_MODE_CHOICES = ("auto", "KU1+7", "KU7", "S2")   # = tracking.CONFIRM_MODES, plus automatic selection
 
 _ID_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
 
@@ -48,15 +63,37 @@ def new_sector_id(existing: List[str]) -> str:
 
 def new_sector(existing_ids: List[str], shape: str = "box") -> dict:
     template = SECTOR_DEFAULTS_BOX if shape == "box" else SECTOR_DEFAULTS_CAP
-    sec = dict(template)
+    sec = copy.deepcopy(template)
     sec["id"] = new_sector_id(existing_ids)
     return sec
 
 
 def duplicate_sector(sec: dict, existing_ids: List[str]) -> dict:
-    dup = dict(sec)
+    dup = copy.deepcopy(sec)
     dup["id"] = new_sector_id(existing_ids)
     return dup
+
+
+def new_bracket(sec: dict) -> dict:
+    """A PA range bracket that fills the first gap of the sector's brackets: above the farthest one up to the
+    required range, else below the nearest one; with no gap, the farthest bracket is split in two (the new one is
+    its near half). Other values are copied from the farthest bracket (defaults if none)."""
+    brackets = sec.get("tracking", [])
+    r_req = float(sec.get("range_km", BRACKET_DEFAULTS["r_max_km"]))
+    if not brackets:
+        return {**BRACKET_DEFAULTS, "r_min_km": 0.0, "r_max_km": r_req}
+    far = max(brackets, key=lambda b: b["r_max_km"])
+    near = min(brackets, key=lambda b: b["r_min_km"])
+    b = dict(far)
+    if far["r_max_km"] < r_req:
+        b["r_min_km"], b["r_max_km"] = far["r_max_km"], r_req
+    elif near["r_min_km"] > 0:
+        b["r_min_km"], b["r_max_km"] = 0.0, near["r_min_km"]
+    else:
+        mid = round((far["r_min_km"] + far["r_max_km"]) / 2.0)
+        b["r_min_km"], b["r_max_km"] = far["r_min_km"], mid
+        far["r_min_km"] = mid
+    return b
 
 
 # ----------------------------------------------------------------------------- validation
@@ -140,6 +177,47 @@ def validate_sector(sec: dict, index: int) -> List[str]:
     res_max = sec.get("res_max_m")
     if res_max is not None and res_max <= 0:
         errs.append(f"{tag}: res_max_m must be > 0")
+    errs.extend(validate_tracking(sec, tag))
+    return errs
+
+
+def validate_tracking(sec: dict, tag: str) -> List[str]:
+    """Confirmation mode, new targets per refresh and the PA range brackets of one sector."""
+    errs = []
+    mode = sec.get("confirm_mode", "auto")
+    if mode not in CONFIRM_MODE_CHOICES:
+        errs.append(f"{tag}: unknown confirmation mode '{mode}' (expected {', '.join(CONFIRM_MODE_CHOICES)})")
+    n_new = sec.get("new_targets_per_rr", 1.0)
+    if n_new is None or n_new < 0:
+        errs.append(f"{tag}: new_targets_per_rr must be >= 0")
+    brackets = sec.get("tracking", [])
+    if not isinstance(brackets, list):
+        return errs + [f"{tag}: tracking must be a list of range brackets"]
+    r_req = sec.get("range_km")
+    spans = []
+    for i, b in enumerate(brackets):
+        bt = f"{tag}, PA bracket #{i + 1}"
+        missing = [f for f in BRACKET_FIELDS if b.get(f) is None]
+        if missing:
+            errs.append(f"{bt}: missing {', '.join(missing)}")
+            continue
+        if b["r_min_km"] < 0 or b["r_max_km"] <= b["r_min_km"]:
+            errs.append(f"{bt}: needs 0 <= r_min_km < r_max_km ({b['r_min_km']:g} -> {b['r_max_km']:g} km)")
+        elif r_req is not None and b["r_max_km"] > r_req:
+            errs.append(f"{bt}: r_max_km ({b['r_max_km']:g}) beyond the required detection range ({r_req:g} km): "
+                        f"targets are tracked only once detected")
+        else:
+            spans.append((b["r_min_km"], b["r_max_km"], i + 1))
+        if b["n_targets"] < 0:
+            errs.append(f"{bt}: number of targets must be >= 0")
+        for f, label in (("rr_s", "update period"), ("angle_zone_deg", "angular zone opening"),
+                         ("range_acc_m", "range accuracy"), ("vr_acc_mps", "velocity accuracy")):
+            if b[f] <= 0:
+                errs.append(f"{bt}: {label} ({f}) must be > 0")
+    spans.sort()
+    for (a0, a1, ia), (b0, b1, ib) in zip(spans, spans[1:]):
+        if b0 < a1:
+            errs.append(f"{tag}: PA brackets #{ia} and #{ib} overlap ({a0:g}-{a1:g} / {b0:g}-{b1:g} km)")
     return errs
 
 
@@ -176,14 +254,18 @@ _CSV_FIELDS = [
     "id", "shape", "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg",
     "phi0_deg", "eps0_deg", "radius_deg", "rcs_m2", "swerling", "range_km", "rr_target_s",
     "v_close_min_mps", "v_close_max_mps", "res_max_m", "allow_ambiguous",
+    "confirm_mode", "new_targets_per_rr", "tracking",
 ]
 
 
 def save_mission_csv(path: str, mission: dict) -> None:
     """Sector table only (global parameters have no column in mission_example.csv's format;
-    they stay at the optimiser's defaults when a CSV is reloaded -- same as the provided example)."""
+    they stay at the optimiser's defaults when a CSV is reloaded -- same as the provided example).
+    The PA brackets go in one column as a JSON list."""
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=_CSV_FIELDS, extrasaction="ignore")
         w.writeheader()
         for sec in mission.get("sectors", []):
-            w.writerow(sec)
+            row = dict(sec)
+            row["tracking"] = json.dumps(sec["tracking"]) if sec.get("tracking") else ""
+            w.writerow(row)

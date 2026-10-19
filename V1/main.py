@@ -5,10 +5,16 @@ MAIN -- entry point: opens the main window (gui/main_window.py) on an empty miss
 the command line. The mission-preparation tab imports / exports missions itself; a results tab opens once a
 calculation finishes.
 Usage: python main.py [mission.json | mission.csv]   (--new, kept for old shortcuts, is the same as no argument)
+Without a terminal: double-click "Radar mission prep.bat" (installs the packages on first start, then runs this file
+with pythonw, i.e. without a console window).
 """
 from __future__ import annotations
 
+import datetime
+import os
 import sys
+import tempfile
+import traceback
 
 from PyQt5.QtWidgets import QApplication, QMessageBox
 
@@ -55,7 +61,30 @@ def prefer_high_performance_gpu() -> None:
         pass
 
 
+ERROR_LOG = os.path.join(tempfile.gettempdir(), "radar_mission_prep_error.log")
+
+
+def install_error_dialog() -> None:
+    """Started without a console (pythonw, double-click), an uncaught error would be silent: show it in a dialog
+    and append the traceback to ERROR_LOG. With a hook installed, PyQt also no longer aborts the whole application
+    on an error raised inside a Qt slot: the action fails, the window stays open."""
+    def hook(exc_type, exc, tb) -> None:
+        text = "".join(traceback.format_exception(exc_type, exc, tb))
+        try:
+            with open(ERROR_LOG, "a", encoding="utf-8") as fh:
+                fh.write(f"--- {datetime.datetime.now():%Y-%m-%d %H:%M:%S}\n{text}\n")
+        except OSError:
+            pass
+        if sys.stderr is not None:
+            sys.__excepthook__(exc_type, exc, tb)
+        if QApplication.instance() is not None:
+            QMessageBox.critical(None, "Radar mission preparation -- unexpected error",
+                                 f"{exc_type.__name__}: {exc}\n\nThe details were written to:\n{ERROR_LOG}")
+    sys.excepthook = hook
+
+
 def main() -> int:
+    install_error_dialog()
     prefer_high_performance_gpu()
     app = QApplication(sys.argv)
     arg = sys.argv[1] if len(sys.argv) > 1 else None

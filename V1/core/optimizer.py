@@ -27,6 +27,9 @@ with the audit corrections):
         RR_est = RR_target x max(1, sum of energy fractions, sum of time fractions).
   - Tracking margin per face: the only S/Ku coupling is the face's electrical power, so the power left after search,
     (1 - sum of energy fractions) x P_avg, is reported with the equivalent Ku duty cycle (Ku peak 9.19 MW).
+  - Confirmation + active tracking (PA): core/tracking.py adds, per face, the cost of confirming every detection
+    (true targets and false alarms, mode chosen per sector) and of the PA range brackets of each sector, and says
+    whether search + confirmation + PA fit (report key "tracking").
 
 Performance:
   - solve() range results are memoised per process (_range_cached), so repeated runs (e.g. re-running from the GUI
@@ -72,39 +75,72 @@ TRACK_MARGIN_WARN = 0.10        # [D] warn when a face keeps less than this frac
 
 
 # ----------------------------------------------------------------------------- geometry
-class Sphere:
-    """Raster of the sphere with, for each direction, its owner face (responsibility), w = cos(theta), theta."""
+SECTOR_GEOMETRY_FIELDS = ("shape", "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg",
+                          "phi0_deg", "eps0_deg", "radius_deg")
+MASK_CACHE_SIZE = 64             # sector masks kept per sphere raster (the same sector is masked several times per run)
 
-    def __init__(self, eps_min: float, eps_max: float):
-        n_phi, n_eps = int(360 / D_RES_DEG), int(180 / D_RES_DEG)
-        phi = (np.arange(n_phi) + 0.5) * D_RES_DEG                     # 0..360
-        eps = -90.0 + (np.arange(n_eps) + 0.5) * D_RES_DEG
+
+def sector_geometry_key(sec: dict) -> tuple:
+    """Everything a sector's mask depends on (cache key of masks and 3D meshes)."""
+    return tuple(sec.get(f) for f in SECTOR_GEOMETRY_FIELDS)
+
+
+def face_frame(phi_deg: float) -> Tuple[Tuple[float, float, float], ...]:
+    """(n, e_u, e_v) of the face at azimuth phi_deg, tilted by SECTOR_TILT_DEG toward +Z:
+    direction d = u e_u + v e_v + w n."""
+    t = math.radians(rm.SECTOR_TILT_DEG)
+    c, s = math.cos(math.radians(phi_deg)), math.sin(math.radians(phi_deg))
+    return ((math.cos(t) * c, math.cos(t) * s, math.sin(t)), (-s, c, 0.0),
+            (-math.sin(t) * c, -math.sin(t) * s, math.cos(t)))
+
+
+class Sphere:
+    """Raster of the direction sphere (phi, eps), cell-centred, with for each direction its owner face (zone of
+    minimal scan: boundaries = the az = +/-45 deg meridian planes, cut by the scan-limit cone), w = cos(theta) and
+    theta. The optimiser uses it at D_RES_DEG; the 3D views and the fast estimate use a coarser one
+    (core.geometry.SphereGrid), so every part of the tool sees the same faces and sectors."""
+
+    def __init__(self, eps_min: float = -90.0, eps_max: float = 90.0, res_deg: float = D_RES_DEG):
+        self.n_phi, self.n_eps = int(round(360.0 / res_deg)), int(round(180.0 / res_deg))
+        phi = (np.arange(self.n_phi) + 0.5) * (360.0 / self.n_phi)
+        eps = -90.0 + (np.arange(self.n_eps) + 0.5) * (180.0 / self.n_eps)
         self.phi, self.eps = np.meshgrid(phi, eps, indexing="ij")
-        self.d_omega = np.radians(D_RES_DEG) ** 2 * np.cos(np.radians(self.eps))
+        self.d_omega = math.radians(360.0 / self.n_phi) * math.radians(180.0 / self.n_eps) * np.cos(np.radians(self.eps))
         p, e = np.radians(self.phi), np.radians(self.eps)
         dx, dy, dz = np.cos(e) * np.cos(p), np.cos(e) * np.sin(p), np.sin(e)
         t = math.radians(rm.SECTOR_TILT_DEG)
         sin_lim = math.sin(math.radians(rm.SECTOR_RADIUS_DEG))
         self.owner = -np.ones(self.phi.shape, dtype=np.int8)
         self.w = np.zeros(self.phi.shape)
-        best_w = np.full(self.phi.shape, -1.0)
         for k, pk in enumerate(FACE_PHI):
-            c, s = math.cos(math.radians(pk)), math.sin(math.radians(pk))
-            n = (math.cos(t) * c, math.cos(t) * s, math.sin(t))
-            eu = (-s, c, 0.0)
-            ev = (-math.sin(t) * c, -math.sin(t) * s, math.cos(t))
+            n, eu, ev = face_frame(pk)
             w = dx * n[0] + dy * n[1] + dz * n[2]
             u = dx * eu[0] + dy * eu[1]
             v = dx * ev[0] + dy * ev[1] + dz * ev[2]
             ok = (w > 0) & (np.abs(u) <= w * math.cos(t) - v * math.sin(t) + 1e-12) & \
-                 (np.sqrt(u * u + v * v) <= sin_lim) & (w > best_w)
+                 (np.sqrt(u * u + v * v) <= sin_lim) & (w > self.w)
             self.owner[ok] = k
             self.w[ok] = w[ok]
-            best_w[ok] = w[ok]
         self.theta = np.degrees(np.arccos(np.clip(self.w, 0.0, 1.0)))
-        self.scanned = (self.owner >= 0) & (self.eps >= eps_min) & (self.eps <= eps_max)
+        self.scan_zone = self.scanned(eps_min, eps_max)
+        self._masks: Dict[tuple, np.ndarray] = {}
+
+    def scanned(self, eps_min: float = -90.0, eps_max: float = 90.0) -> np.ndarray:
+        """Directions owned by a face AND inside the mission eps window."""
+        return (self.owner >= 0) & (self.eps >= eps_min) & (self.eps <= eps_max)
 
     def mask(self, sec: dict) -> np.ndarray:
+        """Directions inside a watch sector (box or cap). Cached per sector geometry: read-only array."""
+        key = sector_geometry_key(sec)
+        m = self._masks.get(key)
+        if m is None:
+            if len(self._masks) >= MASK_CACHE_SIZE:
+                self._masks.clear()
+            m = self._masks[key] = self._mask(sec)
+            m.setflags(write=False)
+        return m
+
+    def _mask(self, sec: dict) -> np.ndarray:
         shape = sec.get("shape", "box")
         if shape == "cap":
             p0, e0, rad = math.radians(sec["phi0_deg"]), math.radians(sec["eps0_deg"]), sec["radius_deg"]
@@ -128,7 +164,7 @@ def positions_table(sph: Sphere, m: np.ndarray, f_ghz: float) -> Tuple[Dict[int,
     nb = int(math.ceil(rm.SECTOR_RADIUS_DEG / THETA_BIN_DEG)) + 1
     out = {k: np.zeros(nb) for k in range(4)}
     tot_om = float((sph.d_omega * m).sum())
-    sel = m & sph.scanned & (sph.theta <= lim)
+    sel = m & sph.scan_zone & (sph.theta <= lim)
     for k in range(4):
         s = sel & (sph.owner == k)
         if not s.any():
@@ -534,11 +570,12 @@ def _mask_box(m: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
     return int(rows[0]), int(rows[-1]) + 1, int(cols[0]), int(cols[-1]) + 1
 
 
-def _overlap_warnings(sph: Sphere, masks: Dict[str, np.ndarray]) -> List[str]:
-    """Pairwise sector overlaps. Each pair is evaluated only on the intersection of the two bounding boxes, so
-    disjoint sectors cost nothing and the n^2 pair loop stays cheap as the sector count grows."""
+def overlaps(d_omega: np.ndarray, masks: Dict[str, np.ndarray], min_sr: float = 1e-4) -> List[Tuple[str, str, float]]:
+    """Pairwise sector overlaps (a, b, solid angle in sr) above min_sr. Each pair is evaluated only on the
+    intersection of the two bounding boxes, so disjoint sectors cost nothing and the n^2 pair loop stays cheap as
+    the sector count grows."""
     boxes = {sid: _mask_box(m) for sid, m in masks.items()}
-    ids, warn = list(masks), []
+    ids, out = list(masks), []
     for i, a in enumerate(ids):
         for b in ids[i + 1:]:
             ba, bb = boxes[a], boxes[b]
@@ -548,10 +585,10 @@ def _overlap_warnings(sph: Sphere, masks: Dict[str, np.ndarray]) -> List[str]:
             if r0 >= r1 or c0 >= c1:
                 continue
             sl = (slice(r0, r1), slice(c0, c1))
-            ov = float((sph.d_omega[sl] * (masks[a][sl] & masks[b][sl])).sum())
-            if ov > 1e-4:
-                warn.append(f"sectors {a} / {b} overlap ({ov:.3f} sr): budgeted twice")
-    return warn
+            ov = float((d_omega[sl] * (masks[a][sl] & masks[b][sl])).sum())
+            if ov > min_sr:
+                out.append((a, b, ov))
+    return out
 
 
 def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] = None) -> dict:
@@ -563,7 +600,7 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
     rm.SECTOR_EPS_MIN_DEG, rm.SECTOR_EPS_MAX_DEG = eps_min, eps_max
     elec = g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW)
-    p_avg_max = elec * 1e6 * rm.CHAIN_EFF * rm.PAE
+    p_avg_max = rm.face_avg_rf_w(elec)
     sectors = mission["sectors"]
     parallel = (len(sectors) >= PARALLEL_MIN_SECTORS) if workers is None else workers > 1
     masks: Dict[str, np.ndarray] = {}
@@ -599,7 +636,7 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
             continue
         r["rr_est_mission_s"] = r["rr_target_s"] * max(dil[int(k)] for k in r["faces"])
     # overlaps (only among sectors actually computed, in case of an early cancellation)
-    warn = _overlap_warnings(sph, masks)
+    warn = [f"sectors {a} / {b} overlap ({ov:.3f} sr): budgeted twice" for a, b, ov in overlaps(sph.d_omega, masks)]
     # tracking margin: power left after search (the S and Ku arrays only share the face's electrical power)
     for k, v in tot.items():
         p_avail_w = max(0.0, 1.0 - v["energy_fraction"]) * p_avg_max
@@ -615,13 +652,17 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
         elif v["power_margin"] < TRACK_MARGIN_WARN:
             warn.append(f"face F{k + 1} tracking margin < {100 * TRACK_MARGIN_WARN:.0f} % "
                         f"({v['p_available_kW']:.0f} kW left for Ku)")
-    return {"global": {"eps_min_deg": eps_min, "eps_max_deg": eps_max, "face_elec_mw": elec,
-                       "face_avg_rf_kW": p_avg_max / 1e3, "objective": "max(energy,time)",
-                       "bin_deg": BIN_DEG, "max_wf_per_sector": MAX_WF_PER_SECTOR},
-            "cancelled": cancelled,
-            "sectors": results,
-            "faces_total": {str(k): {kk: round(vv, 4) for kk, vv in v.items()} for k, v in tot.items()},
-            "warnings": warn}
+    out = {"global": {"eps_min_deg": eps_min, "eps_max_deg": eps_max, "face_elec_mw": elec,
+                      "face_avg_rf_kW": p_avg_max / 1e3, "objective": "max(energy,time)",
+                      "bin_deg": BIN_DEG, "max_wf_per_sector": MAX_WF_PER_SECTOR},
+           "cancelled": cancelled,
+           "sectors": results,
+           "faces_total": {str(k): {kk: round(vv, 4) for kk, vv in v.items()} for k, v in tot.items()},
+           "warnings": warn}
+    from . import tracking   # imported here: core.tracking imports this module
+    out["tracking"] = tracking.budget(mission, out)
+    warn.extend(out["tracking"].pop("warnings"))
+    return out
 
 
 # ----------------------------------------------------------------------------- I/O
@@ -634,7 +675,14 @@ def load_mission(path: str) -> dict:
                 for k, v in row.items():
                     if v is None or v == "":
                         continue
-                    s[k] = v if k in ("id", "shape") else (v.lower() == "true" if k == "allow_ambiguous" else float(v))
+                    if k in ("id", "shape", "confirm_mode"):
+                        s[k] = v
+                    elif k == "allow_ambiguous":
+                        s[k] = v.lower() == "true"
+                    elif k == "tracking":
+                        s[k] = json.loads(v)      # PA range brackets, a JSON list in one column
+                    else:
+                        s[k] = float(v)
                 secs.append(s)
         return {"global": {}, "sectors": secs}
     with open(path, encoding="utf-8") as fh:
@@ -676,6 +724,27 @@ def print_report(res: dict) -> None:
             print(f" face {k}: {v['positions']:.0f} pos | energy {100*v['energy_fraction']:.1f} % | avg {v['avg_power_kW']:.0f} kW "
                   f"| time on air {100*v['time_fraction']:.1f} % -> {st} | tracking margin {v['p_available_kW']:.0f} kW "
                   f"(Ku duty {v['ku_duty_pct']:.1f} %)")
+    trk = res.get("tracking")
+    if trk:
+        print("-" * 100)
+        print(f" CONFIRMATION + ACTIVE TRACKING (Ku {trk['ku_freq_ghz']} GHz, Pfa {trk['pfa']:g}, "
+              f"P confirm >= {trk['confirm_p_min']})")
+        for s in trk["sectors"]:
+            c = s["confirmation"]
+            m = c.get("margin_db")
+            m_txt = "-" if m is None else (f"S {m[0]:g} dB / Ku {m[1]:g} dB" if isinstance(m, list) else f"{m:g} dB")
+            print(f"[{s['id']}] confirm {s['confirm_mode']} ({s['reason']}) | {s['false_alarms_per_rr']:.0f} false alarms / RR"
+                  f" | P confirm {c.get('success', 0):.3f} | margin {m_txt} | Ku looks {c.get('ku_looks_true', 0):.2f} "
+                  f"per target, {c.get('ku_looks_fa', 0):.0f} per false alarm")
+            for b in s["pa"]:
+                print(f"     PA {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: {b['n_targets']:g} targets / {b['rr_s']:g} s, "
+                      f"zone {b['angle_zone_deg']:g} deg, {b['range_acc_m']:g} m, {b['vr_acc_mps']:g} m/s -> "
+                      f"{b['energy_per_update_J']:.0f} J/update, {b['avg_power_kW']:.1f} kW, driver {b['driver']} | {b['wf']}")
+        for k, v in trk["faces"].items():
+            if res["faces_total"][k]["positions"] > 0:
+                print(f" face {k}: energy {100 * v['total_energy']:.1f} % (search {100 * v['search_energy']:.1f} + confirm "
+                      f"{100 * v['confirm_energy']:.1f} + PA {100 * v['pa_energy']:.1f}) | S time {100 * v['total_s_time']:.1f} % "
+                      f"| Ku time {100 * v['total_ku_time']:.1f} % -> {v['status']} (load {v['load']:.2f}, {v['binding']})")
     for wmsg in res["warnings"]:
         print(" WARNING:", wmsg)
 

@@ -13,12 +13,13 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Dict, Iterable, List, Optional, Set
 
 import numpy as np
 import pyvista as pv
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QCheckBox, QDoubleSpinBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 from pyvistaqt import QtInteractor
 
 from core import geometry as geo
@@ -34,6 +35,8 @@ class DisplayBar(QWidget):
     hide_all_sectors = pyqtSignal()
     scale_changed = pyqtSignal(bool)
     scale_axes_changed = pyqtSignal(bool)
+    background_changed = pyqtSignal(bool)
+    altitude_changed = pyqtSignal(float)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -62,6 +65,21 @@ class DisplayBar(QWidget):
                                       "default view of the unit sphere.")
         self.cb_true_scale.toggled.connect(self.scale_changed)
         h.addWidget(self.cb_true_scale)
+        self.cb_background = QCheckBox("Background")
+        self.cb_background.setEnabled(False)   # only meaningful in 1:1 scale
+        self.cb_background.setToolTip("Show a background sphere the size of the Moon (1:1 scale only), at its "
+                                      "true distance: Moon radius + the altitude box, along -Z.")
+        self.cb_background.toggled.connect(self.background_changed)
+        self.cb_true_scale.toggled.connect(self.cb_background.setEnabled)
+        h.addWidget(self.cb_background)
+        h.addWidget(QLabel("Altitude (km):"))
+        self.sb_altitude = QDoubleSpinBox()
+        self.sb_altitude.setRange(0.0, 1.0e7)
+        self.sb_altitude.setDecimals(1)
+        self.sb_altitude.setValue(100.0)
+        self.sb_altitude.setMaximumWidth(90)
+        self.sb_altitude.valueChanged.connect(self.altitude_changed)
+        h.addWidget(self.sb_altitude)
         self.cb_scale_axes = QCheckBox("Scale axes")
         self.cb_scale_axes.setChecked(True)
         self.cb_scale_axes.setEnabled(False)   # only meaningful in 1:1 scale
@@ -80,6 +98,13 @@ class DisplayBar(QWidget):
     def scale_axes_visible(self) -> bool:
         """Graduated km axes shown: 1:1 scale on and the "Scale axes" box ticked."""
         return self.cb_true_scale.isChecked() and self.cb_scale_axes.isChecked()
+
+    def background_visible(self) -> bool:
+        """Background (Moon-size) sphere shown: 1:1 scale on and the "Background" box ticked."""
+        return self.cb_true_scale.isChecked() and self.cb_background.isChecked()
+
+    def altitude_km(self) -> float:
+        return self.sb_altitude.value()
 
 
 # ----------------------------------------------------------------------------- plotter helpers (no render)
@@ -127,7 +152,8 @@ def add_static_scene(plotter) -> None:
                                  font_size=12, shape=None, show_points=False, render=False)
     ship = geo.build_ship()
     for i, part in enumerate(ship["hull"]):
-        plotter.add_mesh(part["mesh"], color=part["color"], smooth_shading=True, name=f"hull_{i}", render=False)
+        plotter.add_mesh(part["mesh"], color=part["color"], smooth_shading=True, name=f"hull_{i}", render=False,
+                         silhouette={"color": "#7b8794", "line_width": 1})   # off-white hull on the white background
     for d in ship["arrays"]:
         plotter.add_mesh(d["mesh"], color=d["color"], name=f"hull_array_{d['k']}", render=False)
     for n in geo.build_face_normals():
@@ -222,12 +248,39 @@ def set_km_axes(plotter, max_range_km: Optional[float]) -> None:
                                  shape=None, show_points=False, name=f"{KM_AXES_PREFIX}name_{tag}", render=False)
 
 
+BACKGROUND_ACTOR = "background_sphere"
+
+
+@lru_cache(maxsize=1)
+def _moon_texture() -> pv.Texture:
+    tex = pv.Texture(geo.moon_texture())
+    tex.interpolate = True
+    tex.mipmap = True   # the real texture can be a few k pixels across; mipmaps avoid shimmering at a distance
+    return tex
+
+
+def set_background_sphere(plotter, visible: bool, altitude_km: Optional[float]) -> None:
+    """The Moon-textured background sphere (1:1 scale only): added/updated when visible, removed otherwise.
+    Rebuilt only when the altitude changes."""
+    if not visible:
+        remove_actors(plotter, [BACKGROUND_ACTOR])
+        plotter._background_key = None
+        return
+    key = round(altitude_km, 3)
+    if key != getattr(plotter, "_background_key", None):
+        plotter._background_key = key
+        plotter.add_mesh(geo.build_background_sphere(altitude_km), texture=_moon_texture(),
+                         name=BACKGROUND_ACTOR, render=False)
+    plotter.actors[BACKGROUND_ACTOR].SetVisibility(True)
+    plotter.renderer.ResetCameraClippingRange()
+
+
 def set_reference_scene_visible(plotter, visible: bool) -> None:
     """Show/hide the unit-scale reference scene (hull, axes, face normals, equator and their labels) -- every actor
-    that is not a face zone, a watch sector or the km axes. Hidden in 1:1 scale, where it is a ~1 km speck whose
-    labels pile up on the radar; the graduated km axes replace it."""
+    that is not a face zone, a watch sector, the km axes or the background sphere. Hidden in 1:1 scale, where it is
+    a ~1 km speck whose labels pile up on the radar; the graduated km axes (and the background sphere) replace it."""
     for key, actor in plotter.actors.items():
-        if not key.startswith(("sec_", "face_", KM_AXES_PREFIX)):
+        if not key.startswith(("sec_", "face_", KM_AXES_PREFIX, BACKGROUND_ACTOR)):
             actor.SetVisibility(bool(visible))
 
 
@@ -259,6 +312,8 @@ class SceneView(QWidget):
         self.display_bar.hide_all_sectors.connect(self.hide_all_sectors)
         self.display_bar.scale_changed.connect(self._on_scale_changed)
         self.display_bar.scale_axes_changed.connect(lambda _on: self.apply_visibility())
+        self.display_bar.background_changed.connect(lambda _on: self._update_background())
+        self.display_bar.altitude_changed.connect(lambda _v: self._update_background())
         v.addWidget(self.display_bar)
         self.plotter = QtInteractor(self)
         self.plotter.setMinimumWidth(500)
@@ -375,4 +430,10 @@ class SceneView(QWidget):
                                  + (KM_AXES_LINES if self.display_bar.scale_axes_visible() else []))
         else:
             set_default_camera(self.plotter)
+        self._update_background()
         self.apply_visibility()
+
+    def _update_background(self) -> None:
+        bar = self.display_bar
+        set_background_sphere(self.plotter, bar.background_visible(), bar.altitude_km())
+        self.plotter.render()

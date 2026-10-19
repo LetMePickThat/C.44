@@ -4,9 +4,9 @@
 GEOMETRY -- shared ship-frame geometry and PyVista mesh builders for the radar coverage 3D views
 (mission-preparation and results tabs; the plotter itself is driven by gui/scene_view.py).
 
-Single source of truth for the ship frame: everything here is derived from the SAME constants and
-formulas as core.radar_model / core.optimizer (SECTOR_TILT_DEG, FACE_PHI, face-frame
-projection, scan limit) so the 3D picture never drifts from the radar model.
+Single source of truth for the ship frame: the direction raster IS the optimiser's (SphereGrid subclasses
+core.optimizer.Sphere: same face frame, ownership and sector masks), so the 3D picture never drifts from the
+radar model.
 
 Ship frame (confirmed by the user): Z = ship longitudinal axis, +Z = nose (radar faces + telescope),
 -Z = aft (thrusters, behind the radiators); X = radiator axis; Y = third axis; phi = azimuth about Z
@@ -20,7 +20,9 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from functools import lru_cache
+from pathlib import Path
+from typing import Dict, List, Tuple
 
 import numpy as np
 import pyvista as pv
@@ -28,14 +30,33 @@ import pyvista as pv
 # ----------------------------------------------------------------------------- radar model (shared)
 # One module object for the whole application, so a setting changed on the model (tilt, eps window...) applies
 # to the 3D view, the fast estimate and the exact calculation alike.
+from . import optimizer as mo
 from . import radar_model as rm
 
-FACE_PHI_DEG: Tuple[float, float, float, float] = (0.0, 90.0, 180.0, 270.0)
+FACE_PHI_DEG: Tuple[float, float, float, float] = mo.FACE_PHI
 VIZ_FREQ_GHZ = 2.8   # reference frequency used for the viz-only scan limit (matches the optimiser)
 
-# Ship-model cosmetic constants: face mount height on the hull and radial offset.
-ZN = 0.17
-RP = 0.078
+# Ship model (cosmetic): traced from the reference side / front drawing, in drawing pixels (axial y downward from
+# the nose tip, radial r from the ship axis), scaled to SHIP_LENGTH and placed so the centre of the radar arrays sits at
+# the direction-sphere origin. RP = radial position of the face arrays.
+SHIP_LENGTH = 1.1
+_PX = SHIP_LENGTH / 950.0          # axial (Z) scale: nose tip y = 73 px, aft end y = 1023 px
+
+# Real hull proportions (locked spec): length 136.4 m; max hull diameter 16.8 m (the hull tapers along its
+# length, this is its widest point, y = 910/940 px in the drawing); max overall width 76.5 m, at the widest
+# point of the radiator wings (not the hull), y = 659-780 px tier. The drawing's own radial proportions are
+# only approximate, so the radial (X/Y) scale is recalibrated on the hull diameter rather than inherited
+# from _PX, and the radiator panels get a further, separate stretch recalibrated on the overall width;
+# everything else (telescopes, booms, rails, arrays) stays tied to the hull's radial scale.
+SHIP_LENGTH_M, HULL_DIAMETER_M, SHIP_WIDTH_M = 136.4, 16.8, 76.5
+_HULL_RADIUS_PX = 57.0
+_PX_R = (HULL_DIAMETER_M / 2.0 / SHIP_LENGTH_M * SHIP_LENGTH) / _HULL_RADIUS_PX
+_RADIATOR_SPAN_PX = 238.0
+_RADIATOR_SCALE = (SHIP_WIDTH_M / 2.0 / SHIP_LENGTH_M * SHIP_LENGTH) / (_RADIATOR_SPAN_PX * _PX_R)
+
+_Y_RADAR = 173.0                   # axial position of the four radar arrays (on the 20 deg cone behind the nose)
+_TILT = math.tan(math.radians(20.0))
+RP = (24.0 + _TILT * (_Y_RADAR - 156.0) + 1.5) * _PX_R
 
 # Palette (inherited from the volumes.html viewer).
 COLORS: Dict[str, str] = {
@@ -44,6 +65,9 @@ COLORS: Dict[str, str] = {
     "axis_x": "#d9a21b", "axis_y": "#9a5fd0", "axis_z": "#d6453d",
     "muted": "#93a1b2", "fg": "#18222d",
 }
+# Ship-model colour: a single off-white dominant colour for the whole hull; the only accents kept outside of
+# it are the per-face rim (FACE_COLORS) on the radar array plates.
+SHIP_COLORS: Dict[str, str] = {"hull": "#e2e0da"}
 FACE_COLORS: Tuple[str, str, str, str] = (COLORS["F1"], COLORS["F2"], COLORS["F3"], COLORS["F4"])
 FACE_NAMES: Tuple[str, str, str, str] = ("F1", "F2", "F3", "F4")
 
@@ -57,91 +81,22 @@ def sector_color(i: int) -> str:
 
 
 # ----------------------------------------------------------------------------- face frame
-def face_normal(phi_deg: float, tilt_deg: Optional[float] = None) -> np.ndarray:
-    tilt_deg = rm.SECTOR_TILT_DEG if tilt_deg is None else tilt_deg
-    p, t = math.radians(phi_deg), math.radians(tilt_deg)
-    return np.array([math.cos(t) * math.cos(p), math.cos(t) * math.sin(p), math.sin(t)])
-
-
-def face_frame(phi_deg: float, tilt_deg: Optional[float] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return (n, e_u, e_v) of the face frame: d = u*e_u + v*e_v + w*n (same convention as
-    core.optimizer.Sphere / core.radar_model header)."""
-    tilt_deg = rm.SECTOR_TILT_DEG if tilt_deg is None else tilt_deg
-    p, t = math.radians(phi_deg), math.radians(tilt_deg)
-    c, s = math.cos(p), math.sin(p)
-    n = np.array([math.cos(t) * c, math.cos(t) * s, math.sin(t)])
-    e_u = np.array([-s, c, 0.0])
-    e_v = np.array([-math.sin(t) * c, -math.sin(t) * s, math.cos(t)])
-    return n, e_u, e_v
-
-
-def default_scan_limit_deg(f_ghz: float = VIZ_FREQ_GHZ) -> float:
-    band = rm.band_for_frequency(f_ghz)
-    return band.scan_limit_deg(f_ghz)
+def face_normal(phi_deg: float) -> np.ndarray:
+    return np.array(mo.face_frame(phi_deg)[0])
 
 
 # ----------------------------------------------------------------------------- direction sphere raster
-class SphereGrid:
-    """Raster of the unit direction sphere (phi, eps), cell-centred, with per-cell face ownership
-    (zone of minimal scan: boundaries = the az = +/-45 deg meridian planes, cut by the scan-limit cone).
-    Same math as core.optimizer.Sphere, vectorised; resolution is tunable for interactive 3D views.
-    """
+class SphereGrid(mo.Sphere):
+    """The optimiser's direction-sphere raster (core.optimizer.Sphere: same faces, same sector masks) at a resolution
+    suited to interactive 3D views, plus the grid-line vertices the mesh builders need."""
 
-    def __init__(self, res_deg: float = 1.0, tilt_deg: Optional[float] = None,
-                 scan_limit_deg: Optional[float] = None):
+    def __init__(self, res_deg: float = 1.0):
+        super().__init__(res_deg=res_deg)
         self.res_deg = res_deg
-        self.tilt_deg = rm.SECTOR_TILT_DEG if tilt_deg is None else tilt_deg
-        self.scan_limit_deg = default_scan_limit_deg() if scan_limit_deg is None else scan_limit_deg
-        self.n_phi = max(4, int(round(360.0 / res_deg)))
-        self.n_eps = max(2, int(round(180.0 / res_deg)))
-        phi = (np.arange(self.n_phi) + 0.5) * (360.0 / self.n_phi)
-        eps = -90.0 + (np.arange(self.n_eps) + 0.5) * (180.0 / self.n_eps)
-        self.phi, self.eps = np.meshgrid(phi, eps, indexing="ij")  # shape (n_phi, n_eps), cell centres
-        p, e = np.radians(self.phi), np.radians(self.eps)
-        self.dx = np.cos(e) * np.cos(p)
-        self.dy = np.cos(e) * np.sin(p)
-        self.dz = np.sin(e)
-        self.d_omega = math.radians(360.0 / self.n_phi) * math.radians(180.0 / self.n_eps) * np.cos(e)
-        self._compute_ownership()
-
-    def _compute_ownership(self) -> None:
-        t = math.radians(self.tilt_deg)
-        sin_lim = math.sin(math.radians(self.scan_limit_deg))
-        self.owner = -np.ones(self.phi.shape, dtype=np.int8)
-        best_w = np.full(self.phi.shape, -1.0)
-        for k, pk in enumerate(FACE_PHI_DEG):
-            n, e_u, e_v = face_frame(pk, self.tilt_deg)
-            w = self.dx * n[0] + self.dy * n[1] + self.dz * n[2]
-            u = self.dx * e_u[0] + self.dy * e_u[1]
-            v = self.dx * e_v[0] + self.dy * e_v[1] + self.dz * e_v[2]
-            ok = ((w > 0) & (np.abs(u) <= w * math.cos(t) - v * math.sin(t) + 1e-12) &
-                  (u * u + v * v <= sin_lim * sin_lim) & (w > best_w))
-            self.owner[ok] = k
-            best_w[ok] = w[ok]
-        self.w = np.clip(best_w, 0.0, 1.0)
-        self.theta = np.degrees(np.arccos(self.w))
-
-    def scanned(self, eps_min: float = -90.0, eps_max: float = 90.0) -> np.ndarray:
-        """Cells owned by a face AND inside the mission eps window (SECTOR_EPS_MIN/MAX_DEG)."""
-        return (self.owner >= 0) & (self.eps >= eps_min) & (self.eps <= eps_max)
 
     def sector_mask(self, sec: dict) -> np.ndarray:
-        """Boolean mask of a mission watch sector (box or cap), identical semantics to
-        core.optimizer.Sphere.mask -- kept in sync deliberately (same formulas, numpy dtypes)."""
-        shape = sec.get("shape", "box")
-        if shape == "cap":
-            p0, e0, rad = math.radians(sec["phi0_deg"]), math.radians(sec["eps0_deg"]), sec["radius_deg"]
-            p, e = np.radians(self.phi), np.radians(self.eps)
-            cosang = np.sin(e) * math.sin(e0) + np.cos(e) * math.cos(e0) * np.cos(p - p0)
-            return np.degrees(np.arccos(np.clip(cosang, -1, 1))) <= rad
-        p1, p2 = sec["phi_min_deg"] % 360.0, sec["phi_max_deg"] % 360.0
-        if sec["phi_max_deg"] - sec["phi_min_deg"] >= 360.0:
-            mphi = np.ones(self.phi.shape, bool)
-        elif p1 <= p2:
-            mphi = (self.phi >= p1) & (self.phi <= p2)
-        else:
-            mphi = (self.phi >= p1) | (self.phi <= p2)
-        return mphi & (self.eps >= sec["eps_min_deg"]) & (self.eps <= sec["eps_max_deg"])
+        """Boolean mask of a mission watch sector (box or cap); cached, read-only."""
+        return self.mask(sec)
 
     def vertex_grid(self, radius: float = 1.0) -> np.ndarray:
         """Grid-line vertices (n_phi+1, n_eps+1, 3) bracketing the cell-centred samples above.
@@ -269,13 +224,8 @@ def build_sector_volume_km(grid: SphereGrid, sec: dict, eps_min: float = -90.0,
     return cap.append_polydata(walls), outline
 
 
-SECTOR_GEOMETRY_FIELDS = ("shape", "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg",
-                          "phi0_deg", "eps0_deg", "radius_deg")
-
-
-def sector_geometry_key(sec: dict) -> tuple:
-    """Everything build_sector_overlay() depends on in a sector (cache key for its meshes)."""
-    return tuple(sec.get(f) for f in SECTOR_GEOMETRY_FIELDS)
+SECTOR_GEOMETRY_FIELDS = mo.SECTOR_GEOMETRY_FIELDS
+sector_geometry_key = mo.sector_geometry_key   # everything build_sector_overlay() depends on (mesh cache key)
 
 
 def build_axes(length: float = 1.35) -> List[dict]:
@@ -287,14 +237,14 @@ def build_axes(length: float = 1.35) -> List[dict]:
         {"line": pv.Line((0, 0, 0), (0, 0, length)), "color": COLORS["axis_z"], "text": "Z (nose)",
          "label_pos": (0, 0, length * 1.1)},
         {"line": None, "color": COLORS["muted"], "text": "-Z thrusters",
-         "label_pos": (0, 0, -0.55), "no_line": True},
+         "label_pos": (0, 0, _z(1023) - 0.08), "no_line": True},
     ]
 
 
-def build_face_normals(tilt_deg: Optional[float] = None, length: float = 1.12) -> List[dict]:
+def build_face_normals(length: float = 1.12) -> List[dict]:
     out = []
     for k, pk in enumerate(FACE_PHI_DEG):
-        n = face_normal(pk, tilt_deg)
+        n = face_normal(pk)
         start = np.array([RP * math.cos(math.radians(pk)), RP * math.sin(math.radians(pk)), 0.0])
         tip = start + n * length
         arrow = pv.Line(start, tip)
@@ -303,24 +253,108 @@ def build_face_normals(tilt_deg: Optional[float] = None, length: float = 1.12) -
     return out
 
 
+def _z(y_px: float) -> float:
+    return (_Y_RADAR - y_px) * _PX
+
+
+def _lathe(profile: List[Tuple[float, float]], n_theta: int = 48) -> pv.PolyData:
+    """Surface of revolution about Z of a (y_px, r_px) profile (repeat a y for a step, r = 0 closes an end)."""
+    y, r = np.array(profile, dtype=float).T
+    t = np.linspace(0.0, 2 * math.pi, n_theta + 1)
+    R = r[:, None] * _PX_R
+    x, yy = R * np.cos(t), R * np.sin(t)
+    z = np.repeat([[_z(v)] for v in y], n_theta + 1, axis=1)
+    return pv.StructuredGrid(x, yy, z).extract_surface(algorithm="dataset_surface").clean()
+
+
+def _local_box(frame, lo, hi) -> pv.PolyData:
+    """Box with bounds lo..hi (px) in a local (e1, e2, e3) frame centred on the ship axis; e1/e2 (radial) use
+    the hull's radial scale, e3 (axial, always ez) uses the length scale."""
+    box = pv.Box(bounds=(lo[0] * _PX_R, hi[0] * _PX_R, lo[1] * _PX_R, hi[1] * _PX_R, lo[2] * _PX, hi[2] * _PX))
+    m = np.eye(4)
+    m[:3, :3] = np.array(frame).T
+    return _flat(box.transform(m, inplace=False))
+
+
+def _flat(mesh: pv.PolyData) -> pv.PolyData:
+    """Per-face normals, so smooth shading keeps flat panels flat."""
+    return mesh.compute_normals(split_vertices=True, feature_angle=30.0)
+
+
 def build_ship() -> dict:
-    """Simple schematic hull (reference only), offset so the face-mount point sits at the
-    direction-sphere origin (0,0,0)."""
-    z0 = -ZN
-    body = pv.Cylinder(center=(0, 0, -0.02 + z0), direction=(0, 0, 1), radius=0.07, height=0.62)
-    nose = pv.Cone(center=(0, 0, 0.34 + z0), direction=(0, 0, 1), radius=0.07, height=0.1, resolution=28)
-    dome = pv.Sphere(center=(0, 0, 0.39 + z0), radius=0.045)
-    engine = pv.Cone(center=(0, 0, -0.37 + z0), direction=(0, 0, -1), radius=0.05, height=0.08, resolution=20)
-    radiator = pv.Box(bounds=(-0.33, 0.33, -0.004, 0.004, -0.14 + z0 - 0.055, -0.14 + z0 + 0.055))
+    """Ship hull traced from the reference drawing and renders (reference only): laser turret in the nose, body of
+    revolution built from straight cylinder/cone segments only (neck, 20 deg radar-mount cone, long taper, fin-band
+    cylinder, main cylinder, taper to the widest point, widest-point cylinder, taper to the engine), four hexagonal
+    radar arrays on the 20 deg cone just behind the nose (one per face), four cylindrical telescopes, four ball
+    turrets, four 45 deg booms, stepped radiator wings along +/-X, aerospike aft."""
+    nose = [(73, 0), (75, 9), (79, 14), (86, 19), (95, 21), (100, 20), (105, 17), (112, 18)]
+    body = [(112, 18),                          # nose / body junction
+            (116, 24),                          # neck: cone
+            (156, 24),                          # neck: cylinder
+            (190, 24 + _TILT * 34),             # 20 deg radar-mount cone
+            (190, 43),                          # shoulder step
+            (390, 48),                          # long cone
+            (390, 50),                          # fin-band step
+            (490, 50),                          # fin-band cylinder
+            (590, 52),                          # cone
+            (905, 52),                          # main cylinder (long, spans the radiator roots)
+            (910, 57),                          # cone to the widest point
+            (940, 57),                          # widest-point cylinder
+            (995, 40)]                          # cone down to the engine
+    engine = [(995, 40), (1023, 17), (1023, 12)]     # aerospike: annular throat around a recessed central plug
+    plug = [(1023, 12), (1012, 9), (1012, 0)]
+    hull = [{"mesh": _lathe([(112, 0)] + body + [(995, 0)]), "color": SHIP_COLORS["hull"]},
+            {"mesh": _lathe(nose + [(112, 0)]), "color": SHIP_COLORS["hull"]},
+            {"mesh": _lathe([(995, 0)] + engine), "color": SHIP_COLORS["hull"]},
+            {"mesh": _lathe(plug), "color": SHIP_COLORS["hull"]}]
+    z_tank = _z(565)
+    for k in range(4):
+        c, s_ = math.cos(k * math.pi / 2), math.sin(k * math.pi / 2)
+        er, et, ez = (c, s_, 0.0), (-s_, c, 0.0), (0.0, 0.0, 1.0)
+        # telescope: cylinder along the ship axis, objective facing the nose
+        hull.append({"mesh": pv.Cylinder(center=(58 * _PX_R * c, 58 * _PX_R * s_, _z(310)), direction=ez,
+                                         radius=12.5 * _PX_R, height=44 * _PX), "color": SHIP_COLORS["hull"]})
+        # ribbed band (fins) and laser turret on its arm: a half-pill (shaft + hemisphere cap, no stripe/disc),
+        # flush with the hull surface at z_tank (hull radius 51.5 px there)
+        hull.append({"mesh": _local_box((er, et, ez), (48, -3, _Y_RADAR - 490), (67, 3, _Y_RADAR - 390)),
+                     "color": SHIP_COLORS["hull"]})
+        hull.append({"mesh": pv.Cylinder(center=(60.5 * _PX_R * c, 60.5 * _PX_R * s_, z_tank), direction=er,
+                                         radius=14 * _PX_R, height=18 * _PX_R), "color": SHIP_COLORS["hull"]})
+        hull.append({"mesh": pv.Sphere(center=(69.5 * _PX_R * c, 69.5 * _PX_R * s_, z_tank), radius=14 * _PX_R,
+                                       direction=er, end_phi=90), "color": SHIP_COLORS["hull"]})
+        # 45 deg boom with its root fitting
+        cb, sb = math.cos(k * math.pi / 2 + math.pi / 4), math.sin(k * math.pi / 2 + math.pi / 4)
+        hull.append({"mesh": pv.Cylinder(center=(97 * _PX_R * cb, 97 * _PX_R * sb, z_tank), direction=(cb, sb, 0.0),
+                                         radius=1.5 * _PX_R, height=66 * _PX_R), "color": SHIP_COLORS["hull"]})
+        hull.append({"mesh": pv.Sphere(center=(58 * _PX_R * cb, 58 * _PX_R * sb, z_tank), radius=8 * _PX_R),
+                     "color": SHIP_COLORS["hull"]})
+    # radiator root rails along +/-X (the wide section of the side view; the body itself stays narrow, front view)
+    for sgn in (-1, 1):
+        hull.append({"mesh": _local_box(((sgn, 0, 0), (0, sgn, 0), (0, 0, 1)), (48, -20, _Y_RADAR - 905),
+                                        (66, 20, _Y_RADAR - 590)), "color": SHIP_COLORS["hull"]})
+    # radiator wings in the XZ plane: stepped tiers (y_top, y_bottom, half span), split into their panel rows;
+    # the root (60 px, near the hull) keeps the hull's radial scale, the tip (span) gets the extra stretch that
+    # recalibrates the panel on the real overall width (see _RADIATOR_SCALE above).
+    for y0, y1, span, rows in ((597, 657, 193, 3), (659, 780, 238, 2), (782, 843, 187, 1), (845, 905, 136, 1)):
+        for i in range(rows):
+            ya = y0 + (y1 - y0) * i / rows + 0.8
+            yb = y0 + (y1 - y0) * (i + 1) / rows - 0.8
+            for sgn in (-1, 1):
+                xa, xb = sorted((sgn * 60 * _PX_R, sgn * span * _PX_R * _RADIATOR_SCALE))
+                hull.append({"mesh": _flat(pv.Box(bounds=(xa, xb, -1.5 * _PX_R, 1.5 * _PX_R, _z(yb), _z(ya)))),
+                             "color": SHIP_COLORS["hull"]})
     arrays = []
     for k, pk in enumerate(FACE_PHI_DEG):
         n = face_normal(pk)
-        center = (RP * math.cos(math.radians(pk)), RP * math.sin(math.radians(pk)), 0.0)
-        array_disc = pv.Cylinder(center=center, direction=n, radius=0.058, height=0.014)
-        arrays.append({"k": k, "mesh": array_disc, "color": FACE_COLORS[k]})
-    hull = [{"mesh": body, "color": COLORS["ship"]}, {"mesh": nose, "color": COLORS["ship"]},
-            {"mesh": dome, "color": "#2c3a4a"}, {"mesh": engine, "color": "#4a525c"},
-            {"mesh": radiator, "color": "#d9a21b"}]
+        c, s_ = math.cos(math.radians(pk)), math.sin(math.radians(pk))
+        er, et, ez = (c, s_, 0.0), (-s_, c, 0.0), (0.0, 0.0, 1.0)
+        center = (RP * c, RP * s_, 0.0)
+        # hull-coloured array plate, on a slightly larger plate in the face colour (F1..F4 rim) -- the only
+        # accent kept outside of the ship's dominant colour
+        arrays.append({"k": k, "mesh": pv.Cylinder(center=center, direction=n, radius=18.5 * _PX_R, height=2 * _PX_R,
+                                                   resolution=6), "color": FACE_COLORS[k]})
+        hull.append({"mesh": pv.Cylinder(center=np.array(center) + n * 1.2 * _PX_R, direction=n, radius=16 * _PX_R,
+                                         height=1 * _PX_R, resolution=6), "color": SHIP_COLORS["hull"]})
     return {"hull": hull, "arrays": arrays}
 
 
@@ -331,3 +365,51 @@ def km_axes_step(max_range_km: float) -> Tuple[float, int]:
     base = 10.0 ** math.floor(math.log10(target))
     step = max(m * base for m in (1.0, 2.0, 5.0) if m * base <= target)
     return step, int(math.ceil(max_range_km / step - 1e-9))
+
+
+MOON_RADIUS_KM = 1737.4
+
+
+def build_background_sphere(altitude_km: float, radius_km: float = MOON_RADIUS_KM) -> pv.PolyData:
+    """Background reference sphere for the 1:1 km view (e.g. the Moon): radius_km, centred radius_km + altitude_km
+    away along -Z, so the radar sits altitude_km above its surface. Textured (moon_texture())."""
+    return pv.Sphere(radius=radius_km, center=(0.0, 0.0, -(radius_km + altitude_km)),
+                     theta_resolution=96, phi_resolution=96, texture_coordinates=True)
+
+
+MOON_TEXTURE_PATH = Path(__file__).resolve().parent.parent / "assets" / "textures" / "moon.jpg"
+
+
+@lru_cache(maxsize=1)
+def moon_texture() -> np.ndarray:
+    """Moon surface texture (equirectangular, 2:1): the real photo at MOON_TEXTURE_PATH when present (drop a
+    higher- or lower-res equirectangular JPG/PNG there to change it -- 8k (Solar System Scope, CC BY 4.0) as of
+    writing), else a low-res procedural fallback so the app still runs without that asset."""
+    if MOON_TEXTURE_PATH.exists():
+        return pv.Texture(str(MOON_TEXTURE_PATH)).to_array()
+    return _procedural_moon_texture()
+
+
+@lru_cache(maxsize=1)
+def _procedural_moon_texture(width: int = 256, height: int = 128) -> np.ndarray:
+    """Fallback used only when MOON_TEXTURE_PATH is missing: a low-res procedural Moon surface (equirectangular
+    grey, mare patches and craters), no network access or bundled image asset needed."""
+    rng = np.random.default_rng(1)
+    u = np.linspace(0.0, 1.0, width, endpoint=False)
+    v = np.linspace(0.0, 1.0, height, endpoint=False)
+    uu, vv = np.meshgrid(u, v)
+
+    def du(cu):   # longitude distance, wrapped
+        return np.minimum(np.abs(uu - cu), 1.0 - np.abs(uu - cu))
+
+    grey = np.full((height, width), 0.62)
+    for cu, cv, r, depth in zip(rng.uniform(0, 1, 6), rng.uniform(0.2, 0.8, 6),
+                                rng.uniform(0.08, 0.18, 6), rng.uniform(0.08, 0.16, 6)):
+        grey -= depth * np.exp(-(du(cu) ** 2 + (vv - cv) ** 2) / (2 * r ** 2))   # dark mare patches
+    for cu, cv, r in zip(rng.uniform(0, 1, 140), rng.uniform(0.05, 0.95, 140), rng.uniform(0.01, 0.05, 140)):
+        d = np.sqrt(du(cu) ** 2 + (vv - cv) ** 2) / r
+        grey -= 0.12 * np.exp(-d ** 2 / (2 * 0.35 ** 2)) * (d < 1.0)            # crater floor
+        grey += 0.10 * np.exp(-(d - 1.0) ** 2 / (2 * 0.12 ** 2))                # crater rim
+    grey = np.clip(grey + rng.normal(0.0, 0.015, size=grey.shape), 0.0, 1.0)
+    rgb = np.stack([grey, grey, grey * 0.98], axis=-1)   # the faintest warm-grey tint
+    return (rgb * 255).astype(np.uint8)

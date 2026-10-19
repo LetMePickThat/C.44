@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-PREP_TAB -- mission-preparation tab: watch-sector form + real-time 3D view + fast cost estimate (per-face gauges) +
+PREP_TAB -- mission-preparation tab: watch-sector form (incl. confirmation mode and active-tracking range brackets) +
+real-time 3D view + fast cost estimate (per-face gauges) +
 alerts (incl. redundant watch volumes, core/redundancy.py) + mission-prep validation. "Run calculation" hands a frozen
 copy of the mission to the main window, which runs the optimiser and opens the results tab; while a results tab is
 open the mission is locked (set_locked), so the results always describe the mission on screen.
@@ -15,14 +16,15 @@ import numpy as np
 from PyQt5.QtCore import QThread, Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
-    QAbstractItemView, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel,
-    QListWidget, QListWidgetItem, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSpinBox, QSplitter,
-    QVBoxLayout, QWidget,
+    QAbstractItemView, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView,
+    QLabel, QListWidget, QListWidgetItem, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSpinBox, QSplitter,
+    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from core import cost_estimate as ce
 from core import geometry as geo
 from core import mission as md
+from core import optimizer as mo
 from core import radar_model as rm
 from core import redundancy as red
 from gui.scene_view import SceneView, SectorDraw
@@ -30,6 +32,23 @@ from gui.scene_view import SceneView, SectorDraw
 DEBOUNCE_MS = 200
 REDUNDANCY_DEBOUNCE_MS = 600    # the redundancy check plans sectors with the optimiser: wait for typing to settle
 ALERT_COLOR = "#c0392b"
+# PA range-bracket table: (mission field, column header, tooltip)
+PA_COLUMNS = (
+    ("r_min_km", "Rmin\n(km)", "Near limit of the range bracket (km)"),
+    ("r_max_km", "Rmax\n(km)", "Far limit of the range bracket (km); tracks are costed at this range"),
+    ("n_targets", "Targets", "Number of targets in active tracking in this bracket"),
+    ("rr_s", "RR\n(s)", "Track update period (s)"),
+    ("angle_zone_deg", "Zone\n(deg)", "Opening of the angular uncertainty zone = full width at +/-2 sigma "
+                                       "(sigma = zone / 4), per axis"),
+    ("range_acc_m", "sR\n(m)", "Range accuracy, 1 sigma (m)"),
+    ("vr_acc_mps", "sV\n(m/s)", "Radial-velocity accuracy, 1 sigma (m/s)"),
+)
+CONFIRM_TIPS = {
+    "auto": "Chosen per sector by the calculation: lowest load of the most loaded face, P confirm >= 0.98",
+    "KU1+7": "One Ku look on the S estimate, then a 7-beam Ku cluster if it fails",
+    "KU7": "7-beam Ku cluster at once (one round trip)",
+    "S2": "Immediate pointed S touch (rejects false alarms in S), then Ku look(s) to start the track",
+}
 
 
 class RedundancyWorker(QThread):
@@ -70,6 +89,7 @@ class PrepTab(QWidget):
         self._redundancy_requested: Optional[str] = None
         self._redundancy_error = ""
         self._redundancy_ack: set = set()
+        self._unreachable: Dict[str, float] = {}   # sector id -> worst % of positions short of range at full power
         self._red_worker: Optional[RedundancyWorker] = None
         self._red_timer = QTimer(self)
         self._red_timer.setSingleShot(True)
@@ -228,6 +248,7 @@ class PrepTab(QWidget):
         common.addRow("Closing speed min (m/s)", self.sb_vmin)
         common.addRow("Closing speed max (m/s)", self.sb_vmax)
         v.addLayout(common)
+        v.addWidget(self._build_tracking_group())
 
         for sb in (self.sb_phi_min, self.sb_phi_max, self.sb_box_eps_min, self.sb_box_eps_max,
                    self.sb_phi0, self.sb_eps0, self.sb_radius, self.sb_rcs, self.sb_range,
@@ -237,6 +258,50 @@ class PrepTab(QWidget):
         self.grp_box.setVisible(True)
         self.grp_cap.setVisible(False)
         return box
+
+    def _build_tracking_group(self) -> QGroupBox:
+        """Confirmation mode, new targets per refresh and the active-tracking (PA) range brackets of the sector."""
+        self.grp_pa = QGroupBox("Confirmation and active tracking (PA)")
+        v = QVBoxLayout(self.grp_pa)
+        form = QFormLayout()
+        self.cb_confirm = QComboBox()
+        for i, mode in enumerate(md.CONFIRM_MODE_CHOICES):
+            self.cb_confirm.addItem(mode)
+            self.cb_confirm.setItemData(i, CONFIRM_TIPS[mode], Qt.ToolTipRole)
+        self.cb_confirm.setToolTip("Confirmation of every detection (true targets and false alarms)")
+        self.cb_confirm.currentTextChanged.connect(self._on_field_changed)
+        self.sb_new_targets = self._spin(0, 10000, 1, 1.0)
+        self.sb_new_targets.setToolTip("True targets newly detected per refresh (confirmed like the false alarms)")
+        self.sb_new_targets.valueChanged.connect(self._on_field_changed)
+        form.addRow("Confirmation mode", self.cb_confirm)
+        form.addRow("New targets / RR", self.sb_new_targets)
+        v.addLayout(form)
+
+        self.table_pa = QTableWidget(0, len(PA_COLUMNS))
+        self.table_pa.setHorizontalHeaderLabels([c[1] for c in PA_COLUMNS])
+        for c, (_f, _h, tip) in enumerate(PA_COLUMNS):
+            self.table_pa.horizontalHeaderItem(c).setToolTip(tip)
+        self.table_pa.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table_pa.verticalHeader().setVisible(False)
+        self.table_pa.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table_pa.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.table_pa.setMaximumHeight(160)
+        self.table_pa.itemChanged.connect(self._on_pa_item_changed)
+        v.addWidget(self.table_pa)
+        row = QHBoxLayout()
+        self.btn_pa_add = QPushButton("+ Range bracket")
+        self.btn_pa_del = QPushButton("Remove bracket")
+        self.btn_pa_add.clicked.connect(self._add_bracket)
+        self.btn_pa_del.clicked.connect(self._remove_bracket)
+        row.addWidget(self.btn_pa_add)
+        row.addWidget(self.btn_pa_del)
+        v.addLayout(row)
+        note = QLabel("Zone = full width of the angular uncertainty zone at +/-2 sigma; sR and sV are 1 sigma. "
+                      "Brackets stay within the required range (targets are tracked once detected).")
+        note.setWordWrap(True)
+        note.setStyleSheet("color: gray; font-size: 11px;")
+        v.addWidget(note)
+        return self.grp_pa
 
     def _build_gauges_group(self) -> QGroupBox:
         box = QGroupBox("Per-face budget (fast estimate)")
@@ -420,8 +485,9 @@ class PrepTab(QWidget):
         try:
             enabled = sec is not None
             for w in (self.ed_id, self.cb_shape, self.sb_rcs, self.sb_swerling, self.sb_range,
-                      self.sb_rr, self.sb_vmin, self.sb_vmax, self.grp_box, self.grp_cap):
+                      self.sb_rr, self.sb_vmin, self.sb_vmax, self.grp_box, self.grp_cap, self.grp_pa):
                 w.setEnabled(enabled)
+            self._fill_pa_table(sec)
             if not sec:
                 return
             self.ed_id.setEditText(sec.get("id", ""))
@@ -442,8 +508,62 @@ class PrepTab(QWidget):
             self.sb_rr.setValue(sec.get("rr_target_s", 30.0))
             self.sb_vmin.setValue(sec.get("v_close_min_mps", 1000.0))
             self.sb_vmax.setValue(sec.get("v_close_max_mps", 5000.0))
+            self.cb_confirm.setCurrentText(sec.get("confirm_mode", "auto"))
+            self.sb_new_targets.setValue(sec.get("new_targets_per_rr", 1.0))
         finally:
             self._updating_form = False
+
+    # ------------------------------------------------------------------ PA range brackets
+    def _fill_pa_table(self, sec: Optional[dict]) -> None:
+        brackets = sec.get("tracking", []) if sec else []
+        self.table_pa.blockSignals(True)
+        self.table_pa.setRowCount(len(brackets))
+        for r, b in enumerate(brackets):
+            for c, (f, _h, _t) in enumerate(PA_COLUMNS):
+                item = QTableWidgetItem(f"{b.get(f, md.BRACKET_DEFAULTS[f]):g}")
+                item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                self.table_pa.setItem(r, c, item)
+        self.table_pa.blockSignals(False)
+        self.btn_pa_del.setEnabled(bool(brackets))
+
+    def _on_pa_item_changed(self, item: QTableWidgetItem) -> None:
+        if self._updating_form or self._cur_index < 0:
+            return
+        sec = self.mission["sectors"][self._cur_index]
+        b = sec["tracking"][item.row()]
+        field = PA_COLUMNS[item.column()][0]
+        try:
+            b[field] = float(item.text().replace(",", "."))
+        except ValueError:
+            pass   # not a number: the cell goes back to the stored value
+        self.table_pa.blockSignals(True)
+        item.setText(f"{b[field]:g}")
+        self.table_pa.blockSignals(False)
+        self._schedule_refresh()
+
+    def _add_bracket(self) -> None:
+        if self._cur_index < 0:
+            return
+        sec = self.mission["sectors"][self._cur_index]
+        new = md.new_bracket(sec)
+        brackets = sec.setdefault("tracking", [])
+        brackets.append(new)
+        brackets.sort(key=lambda b: b["r_min_km"])
+        self._fill_pa_table(sec)
+        self.table_pa.selectRow(next(i for i, b in enumerate(brackets) if b is new))
+        self._schedule_refresh()
+
+    def _remove_bracket(self) -> None:
+        if self._cur_index < 0:
+            return
+        sec = self.mission["sectors"][self._cur_index]
+        brackets = sec.get("tracking", [])
+        row = self.table_pa.currentRow()
+        if not brackets:
+            return
+        brackets.pop(row if 0 <= row < len(brackets) else len(brackets) - 1)
+        self._fill_pa_table(sec)
+        self._schedule_refresh()
 
     def _on_id_changed(self, text: str) -> None:
         if self._updating_form or self._cur_index < 0:
@@ -488,6 +608,8 @@ class PrepTab(QWidget):
         sec["rr_target_s"] = self.sb_rr.value()
         sec["v_close_min_mps"] = self.sb_vmin.value()
         sec["v_close_max_mps"] = self.sb_vmax.value()
+        sec["confirm_mode"] = self.cb_confirm.currentText()
+        sec["new_targets_per_rr"] = self.sb_new_targets.value()
         self._decorate_item(self.list_sectors.item(self._cur_index), sec)
         self._schedule_refresh()
 
@@ -521,23 +643,33 @@ class PrepTab(QWidget):
 
     def _update_gauges(self, eps_min: float, eps_max: float) -> None:
         totals = {k: {"energy": 0.0, "time_min": 0.0, "kw": 0.0} for k in range(4)}
-        p_avg_max = self.mission["global"].get("face_elec_mw", 2.0) * 1e6 * rm.CHAIN_EFF * rm.PAE
+        p_avg_max = rm.face_avg_rf_w(self.mission["global"].get("face_elec_mw", 2.0))
+        self._unreachable = {}
         if self.cost_table is not None:
             for sec in self.mission["sectors"]:
                 try:
                     faces = ce.estimate_sector_faces(self.cost_table, sec, self.grid, eps_min, eps_max, p_avg_max)
                 except (KeyError, TypeError, ZeroDivisionError):
                     continue
+                worst = 0.0
                 for k, fb in faces.items():
                     totals[k]["energy"] += fb.energy_fraction
                     totals[k]["time_min"] += fb.time_fraction_min
                     totals[k]["kw"] += fb.avg_power_kw
+                    worst = max(worst, fb.unreachable_pct)
+                sid = sec.get("id")
+                if sid and worst > 0.5:
+                    self._unreachable[sid] = worst
         for k in range(4):
             g = self.gauges[k]
-            g["energy"].setValue(min(100, round(100 * totals[k]["energy"])))
+            e_pct = 100 * totals[k]["energy"]
+            g["energy"].setValue(min(100, round(e_pct)))
+            g["energy"].setFormat(f"energy {e_pct:.0f}%")   # exact value even past 100 -- the bar fill still clips
             over_e = totals[k]["energy"] > 1.0
             g["energy"].setStyleSheet("QProgressBar::chunk { background-color: #c0392b; }" if over_e else "")
-            g["time"].setValue(min(100, round(100 * totals[k]["time_min"])))
+            t_pct = 100 * totals[k]["time_min"]
+            g["time"].setValue(min(100, round(t_pct)))
+            g["time"].setFormat(f"time on air >= {t_pct:.0f}%")
             g["kw"].setText(f"{totals[k]['kw']:.0f} kW")
             # tracking margin: power left for Ku after search (the arrays only share the face's power)
             p_left_w = max(0.0, 1.0 - totals[k]["energy"]) * p_avg_max
@@ -547,7 +679,11 @@ class PrepTab(QWidget):
         self.list_alerts.clear()
         sectors = self.mission["sectors"]
         self._add_redundancy_alerts()
+        for sec in sectors:   # confirmation / PA inputs (also checked by 'Validate mission prep')
+            for err in md.validate_tracking(sec, str(sec.get("id", "?"))):
+                self.list_alerts.addItem(err)
         masks = {}
+        scanned_all = self.grid.scanned(eps_min, eps_max)
         for sec in sectors:
             sid = sec.get("id")
             if not sid:
@@ -556,19 +692,17 @@ class PrepTab(QWidget):
                 m = self.grid.sector_mask(sec)
             except (KeyError, TypeError):
                 continue
-            scanned = m & self.grid.scanned(eps_min, eps_max)
             masks[sid] = m
             tot_om = float((self.grid.d_omega * m).sum())
-            scanned_om = float((self.grid.d_omega * scanned).sum())
+            scanned_om = float((self.grid.d_omega * (m & scanned_all)).sum())
             if tot_om > 0 and scanned_om / tot_om < 0.995:
                 pct = 100 * (1 - scanned_om / tot_om)
                 self.list_alerts.addItem(f"{sid}: {pct:.0f} % outside the scanned zone (scan limit or eps window)")
-        ids = list(masks.keys())
-        for i in range(len(ids)):
-            for j in range(i + 1, len(ids)):
-                ov = float((self.grid.d_omega * (masks[ids[i]] & masks[ids[j]])).sum())
-                if ov > 1e-4:
-                    self.list_alerts.addItem(f"{ids[i]} / {ids[j]} overlap: budgeted twice")
+            if sid in self._unreachable:
+                self.list_alerts.addItem(f"{sid}: {self._unreachable[sid]:.0f} % of positions can't reach the "
+                                         "required range even at full power (budget shown is a floor, not the real cost)")
+        for a, b, _ov in mo.overlaps(self.grid.d_omega, masks):
+            self.list_alerts.addItem(f"{a} / {b} overlap: budgeted twice")
         for k in range(4):
             e = self.gauges[k]["energy"].value()
             if e >= 100:
@@ -576,7 +710,6 @@ class PrepTab(QWidget):
             elif e > 90:
                 self.list_alerts.addItem(f"{geo.FACE_NAMES[k]}: estimated tracking margin < 10 % of the face power")
         if masks:
-            scanned_all = self.grid.scanned(eps_min, eps_max)
             covered = np.zeros_like(scanned_all)
             for m in masks.values():
                 covered |= m
@@ -742,19 +875,17 @@ class PrepTab(QWidget):
         except Exception as exc:  # noqa: BLE001
             QMessageBox.critical(self, "Export", f"Export failed: {exc}")
 
-    def _on_validate(self) -> bool:
+    def _check_mission(self) -> bool:
+        """Mission-prep validation; lists the errors in a dialog when there are some."""
         errs = md.validate_mission(self.mission)
         if errs:
-            QMessageBox.warning(self, "Invalid mission preparation",
-                                 "\n".join(f"- {e}" for e in errs))
-            return False
-        QMessageBox.information(self, "Mission preparation", "Mission preparation is valid.")
-        return True
+            QMessageBox.warning(self, "Invalid mission preparation", "\n".join(f"- {e}" for e in errs))
+        return not errs
+
+    def _on_validate(self) -> None:
+        if self._check_mission():
+            QMessageBox.information(self, "Mission preparation", "Mission preparation is valid.")
 
     def _on_run(self) -> None:
-        errs = md.validate_mission(self.mission)
-        if errs:
-            QMessageBox.warning(self, "Invalid mission preparation",
-                                "\n".join(f"- {e}" for e in errs))
-            return
-        self.run_requested.emit(copy.deepcopy(self.mission))
+        if self._check_mission():
+            self.run_requested.emit(copy.deepcopy(self.mission))

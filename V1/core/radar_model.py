@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.0.10
+# Radar Performance Model - V6.0.11
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
 #
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
+#
+# Changes V6.0.10 -> V6.0.11 (confirmation and active tracking budget, core/tracking.py)
+#   - DETECT_PFA 1e-6 -> 1e-8 per range-Doppler cell [V]: every detection is confirmed in Ku, and at 1e-6 the
+#     ~21 500 false alarms per face and refresh cost twice the search itself (search +33 %, total / 2.3).
+#   - K_THETA 0.7 -> 0.5 [V]: ML angle estimator on the full digital aperture (Cramer-Rao ~0.44 plus margin).
+#   - Tracking Doppler term: observation time = the dwell (N - 1) PRI + tau, not N x PRI (a single 10 us pulse was
+#     credited with a whole PRI of Doppler observation).
 #
 # Changes V6.0.9 -> V6.0.10
 #   - Mission inputs SECTOR_EPS_MIN_DEG / SECTOR_EPS_MAX_DEG (rear/front limits of the scan zone, eps from the XY plane):
@@ -123,7 +130,7 @@ import sys
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
-MODEL_VERSION = "6.0.10"
+MODEL_VERSION = "6.0.11"
 
 # =============================================================================
 # USER-EDITABLE PARAMETERS
@@ -136,7 +143,8 @@ FACE_ELEC_POWER_MW: float = 2.0  # [V] electrical power allocated to this face (
 
 # --- Detection ---
 DETECT_PD: float = 0.9           # [V]
-DETECT_PFA: float = 1e-6         # [V] per range-Doppler cell, single-step detection
+DETECT_PFA: float = 1e-8         # [V] per range-Doppler cell, single-step detection (1e-6 until 2026-10-19: false-alarm
+                                 #     confirmations then cost twice the search; 1e-8 divides search + confirmation by 2.3)
 
 # --- Power chain [V] ---
 PAE: float = 0.75                                  # [V] chain PAE (replaces 65 %)
@@ -185,11 +193,10 @@ ARRAY_ENVELOPE_M: float = 16 * 0.260 + 15 * 0.002   # 4.19 m (square envelope, u
 
 # --- Surveillance sector (per face) [V] ---
 SECTOR_RADIUS_DEG: float = 75.0
-SECTOR_AZ_HALF_DEG: float = 45.0
 REFRESH_S: float = 120.0
 
-# --- Tracking estimator constants (kept from V5.4.0, used by Ku TRACK waveforms) ---
-K_THETA: float = 0.7
+# --- Tracking estimator constants (V5.4.0, K_THETA revised; used by Ku TRACK waveforms, core/tracking.py) ---
+K_THETA: float = 0.5            # [V 2026-10-19] ML estimator on the full digital aperture (0.7 = classic sum/difference)
 K_F: float = 0.5
 RANGE_CRLB_KR: float = 1.3
 # =============================================================================
@@ -298,6 +305,11 @@ BAND_KU = BandConfig(
 BANDS: Dict[str, BandConfig] = {"S": BAND_S, "Ku": BAND_KU}
 
 
+def face_avg_rf_w(elec_mw: float) -> float:
+    """Average RF power a face can transmit (W) from its electrical power (MW): PSU, distribution, overhead, PAE."""
+    return elec_mw * 1e6 * CHAIN_EFF * PAE
+
+
 def band_for_frequency(f_ghz: float) -> Optional[BandConfig]:
     for b in BANDS.values():
         if b.contains(f_ghz):
@@ -391,12 +403,6 @@ def _sector_area_uv() -> float:
         if hi > lo:
             tot += 2.0 * (hi - lo) * dv
     return tot
-
-
-def sector_area_deg2() -> float:
-    r, d = SECTOR_RADIUS_DEG, SECTOR_AZ_HALF_DEG
-    cap = r * r * math.acos(d / r) - d * math.sqrt(r * r - d * d)
-    return math.pi * r * r - 2.0 * cap
 
 
 def beam_cell_area_uv(f_ghz: float) -> float:
@@ -502,13 +508,15 @@ class TrackingPack:
     sigma_r_m: Optional[float] = None
 
 
-def tracking_snr_req(pack: TrackingPack, f_ghz: float, theta_deg: float, n: int, pri_s: float,
+def tracking_snr_req(pack: TrackingPack, f_ghz: float, theta_deg: float, t_obs_s: float,
                      sig_bw_mhz: float) -> Tuple[float, str]:
+    """SNR (linear) a track update needs for the pack's accuracies, and the dominant term (ANG / DOP / RNG).
+    t_obs_s = coherent observation time of the Doppler measurement (the dwell, (N - 1) PRI + tau)."""
     lam = lambda_m(f_ghz)
     hp = math.radians(hpbw_deg(f_ghz, theta_deg))
     ang = (K_THETA * hp / math.radians(pack.sigma_theta_deg)) ** 2
     sigma_f = 2.0 * pack.sigma_vr_mps / lam
-    dop = 0.5 * (K_F / (n * pri_s * sigma_f)) ** 2
+    dop = 0.5 * (K_F / (t_obs_s * sigma_f)) ** 2
     rng = 0.0
     if pack.sigma_r_m is not None:
         rng = 0.5 * ((RANGE_CRLB_KR * C_MPS) / (2.0 * sig_bw_mhz * 1e6 * pack.sigma_r_m)) ** 2
@@ -622,7 +630,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
         snr_db = detect_snr_req_db(wf.integration, wf.n, sw)
         driver = "Detect-" + wf.integration[:4]
     else:
-        snr_lin, dom = tracking_snr_req(wf.tracking_pack, f_ghz, theta_deg, wf.n, wf.pri_s, wf.sig_bw_mhz)
+        snr_lin, dom = tracking_snr_req(wf.tracking_pack, f_ghz, theta_deg, wf.dwell_s, wf.sig_bw_mhz)
         snr_db, driver = lin_to_db(snr_lin), "Track-" + dom
 
     t_span = wf.dwell_s
@@ -653,7 +661,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     r_km = (num / den) ** 0.25 / 1000.0
 
     p_avg_used = band.p_pk_total_w * wf.duty
-    p_avg_max = elec_mw * 1e6 * CHAIN_EFF * PAE
+    p_avg_max = face_avg_rf_w(elec_mw)
 
     frame = None
     if wf.role == "SEARCH":
@@ -688,7 +696,7 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
     print(f"Gain TX {lin_to_db(gain_lin(band.eta_illum_tx, f_ghz, theta_deg)):.2f} dBi | "
           f"RX {lin_to_db(gain_lin(band.eta_illum_rx, f_ghz, theta_deg)):.2f} dBi | "
           f"HPBW {hpbw_deg(f_ghz, theta_deg):.2f} deg | "
-          f"avg RF available {elec_mw*1e6*CHAIN_EFF*PAE/1e6:.3f} MW")
+          f"avg RF available {face_avg_rf_w(elec_mw)/1e6:.3f} MW")
     if abs(theta_deg) > lim:
         print(f"-> scan angle {theta_deg} deg exceeds the {lim:.0f} deg limit at {f_ghz} GHz. Nothing playable.")
         return
@@ -733,7 +741,7 @@ def selftest() -> int:
         print(f"[{'PASS' if cond else 'FAIL'}] {label} {detail}")
         fails += 0 if cond else 1
 
-    pd, pfa = DETECT_PD, DETECT_PFA
+    pd, pfa = DETECT_PD, 1e-6   # reference values of the formula checks below (published at Pfa 1e-6)
     alb1 = albersheim_total_snr_db(pd, pfa, 1)
     check("Albersheim steady N=1 = 13.11 dB", abs(alb1 - 13.11) < 0.05, f"({alb1:.2f})")
     sh0 = shnidman_total_snr_db(pd, pfa, 1, 0)
@@ -745,7 +753,7 @@ def selftest() -> int:
         a, s = albersheim_total_snr_db(pd, pfa, n), shnidman_total_snr_db(pd, pfa, n, 0)
         check(f"Shnidman steady N={n} within 0.5 dB of Albersheim (total energy)", abs(a - s) < 0.5, f"({s:.2f} vs {a:.2f})")
     check("Coherent SW1 requirement independent of N (regression of V5.4.0 double count)",
-          abs(detect_snr_req_db("COHERENT", 128, 1) - sh1) < 1e-9)
+          abs(detect_snr_req_db("COHERENT", 128, 1) - shnidman_total_snr_db(DETECT_PD, DETECT_PFA, 1, 1)) < 1e-9)
     check("SW1 penalty about 8 dB over steady at N=1", abs((sh1 - sh0) - 8.0) < 0.5, f"({sh1 - sh0:.2f})")
 
     check("Scan loss 0 dB at 25 deg", scan_loss_db(25.0) == 0.0)

@@ -128,7 +128,7 @@ def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dic
 def find_redundancies(mission: dict, grid: geo.SphereGrid) -> List[Finding]:
     g = mission.get("global", {})
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
-    p_avg_max_w = g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW) * 1e6 * rm.CHAIN_EFF * rm.PAE
+    p_avg_max_w = rm.face_avg_rf_w(g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW))
     sectors = mission.get("sectors", [])
     scanned = grid.scanned(eps_min, eps_max)
     masks: List[Optional[np.ndarray]] = []
