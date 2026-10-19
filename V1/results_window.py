@@ -106,6 +106,7 @@ class ResultsWindow(QMainWindow):
         self.display_bar.show_all_sectors.connect(lambda: self._set_all_sectors_visible(True))
         self.display_bar.hide_all_sectors.connect(lambda: self._set_all_sectors_visible(False))
         self.display_bar.scale_changed.connect(self._on_scale_changed)
+        self.display_bar.scale_axes_changed.connect(lambda _on: self._apply_visibility())
         lv.addWidget(self.display_bar)
         self.plotter = QtInteractor(left)
         lv.addWidget(self.plotter.interactor)
@@ -262,6 +263,8 @@ class ResultsWindow(QMainWindow):
                     text += f"\n! {len(r['flags'])} flag(s)"
             self.plotter.add_point_labels([centre], [text], name=lbl_name, text_color=color,
                                            font_size=10, shape_opacity=0.6, show_points=False, render=False)
+        ranges = [self.sectors_by_id[r["id"]]["range_km"] for r in self.result["sectors"] if r["id"] in self.sectors_by_id]
+        geo.set_km_axes(self.plotter, max(ranges, default=None) if self.display_bar.true_scale() else None)
         self._apply_visibility()   # the one render of this rebuild
 
     def _on_scale_changed(self, true_scale: bool) -> None:
@@ -269,7 +272,8 @@ class ResultsWindow(QMainWindow):
         the default unit-sphere view."""
         self._rebuild_sector_overlays()
         if true_scale:
-            geo.fit_camera_to_actors(self.plotter, [geo.sector_actor_names(r["id"])[0] for r in self.result["sectors"]])
+            geo.fit_camera_to_actors(self.plotter, [geo.sector_actor_names(r["id"])[0] for r in self.result["sectors"]]
+                                     + (geo.KM_AXES_LINES if self.display_bar.scale_axes_visible() else []))
         else:
             geo.set_default_camera(self.plotter)
         self._apply_visibility()
@@ -299,6 +303,7 @@ class ResultsWindow(QMainWindow):
             geo.set_actors_visible(self.plotter, geo.face_actor_names(k),
                                    self.display_bar.face_visible(k) and not self.display_bar.true_scale())
         geo.set_reference_scene_visible(self.plotter, not self.display_bar.true_scale())
+        geo.set_km_axes_visible(self.plotter, self.display_bar.scale_axes_visible())
         for r in self.result["sectors"]:
             geo.set_actors_visible(self.plotter, geo.sector_actor_names(r["id"]), r["id"] not in self._hidden_sectors)
         self.plotter.render()

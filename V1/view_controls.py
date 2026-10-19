@@ -18,6 +18,7 @@ class DisplayBar(QWidget):
     show_all_sectors = pyqtSignal()
     hide_all_sectors = pyqtSignal()
     scale_changed = pyqtSignal(bool)
+    scale_axes_changed = pyqtSignal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -46,10 +47,21 @@ class DisplayBar(QWidget):
                                       "default view of the unit sphere.")
         self.cb_true_scale.toggled.connect(self.scale_changed)
         h.addWidget(self.cb_true_scale)
+        self.cb_scale_axes = QCheckBox("Scale axes")
+        self.cb_scale_axes.setChecked(True)
+        self.cb_scale_axes.setEnabled(False)   # only meaningful in 1:1 scale
+        self.cb_scale_axes.setToolTip("Show / hide the X, Y, Z axes graduated in km (1:1 scale only)")
+        self.cb_scale_axes.toggled.connect(self.scale_axes_changed)
+        self.cb_true_scale.toggled.connect(self.cb_scale_axes.setEnabled)
+        h.addWidget(self.cb_scale_axes)
         h.addStretch(1)
 
     def face_visible(self, k: int) -> bool:
         return self.cb_faces[k].isChecked()
+
+    def scale_axes_visible(self) -> bool:
+        """Graduated km axes shown: 1:1 scale on and the "Scale axes" box ticked."""
+        return self.cb_true_scale.isChecked() and self.cb_scale_axes.isChecked()
 
     def true_scale(self) -> bool:
         return self.cb_true_scale.isChecked()

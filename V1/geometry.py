@@ -353,6 +353,7 @@ def add_static_scene(plotter) -> None:
     plotter.add_mesh(pv.lines_from_points(eq_pts), color=COLORS["muted"], opacity=0.45,
                       line_width=1, name="equator", render=False)
     plotter.set_background("white")
+    lock_pivot(plotter)
     set_default_camera(plotter)
 
 
@@ -366,11 +367,34 @@ def set_default_camera(plotter) -> None:
     plotter.camera.position = eye
     plotter.camera.focal_point = (0, 0, 0.12)
     plotter.camera.clipping_range = (0.05, 50.0)
+    plotter._pivot = (0.0, 0.0, 0.12)
+
+
+def lock_pivot(plotter) -> None:
+    """Keep the scene centred: the camera always turns about plotter._pivot (the scene centre set by
+    set_default_camera / fit_camera_to_actors). VTK turns about the focal point, which a pan (middle button,
+    shift + left button) moves off-centre; before every render a drifted camera is translated back so its focal point
+    is the pivot again -- orientation and distance unchanged, so rotation and zoom work and panning has no effect."""
+    renderer = plotter.renderer
+
+    def recentre(*_args) -> None:
+        pivot = getattr(plotter, "_pivot", None)
+        if pivot is None:
+            return
+        cam = renderer.GetActiveCamera()
+        off = np.asarray(pivot) - np.asarray(cam.GetFocalPoint())
+        if np.abs(off).max() <= 1e-9 * max(1.0, cam.GetDistance()):
+            return
+        cam.SetFocalPoint(*pivot)
+        cam.SetPosition(*(np.asarray(cam.GetPosition()) + off))
+        renderer.ResetCameraClippingRange()
+
+    plotter.ren_win.AddObserver("StartEvent", recentre)
 
 
 def fit_camera_to_actors(plotter, names) -> None:
     """Keep the view direction, re-centre and zoom so the named actors (and the radar at the origin) fit
-    the view. No render; does nothing if none of the actors exists."""
+    the view; their centre becomes the rotation pivot. No render; does nothing if none of the actors exists."""
     keys = _matching_actors(plotter, names)
     if not keys:
         return
@@ -378,6 +402,7 @@ def fit_camera_to_actors(plotter, names) -> None:
     bounds = (min(b[:, 0].min(), 0.0), max(b[:, 1].max(), 0.0), min(b[:, 2].min(), 0.0),
               max(b[:, 3].max(), 0.0), min(b[:, 4].min(), 0.0), max(b[:, 5].max(), 0.0))
     plotter.reset_camera(render=False, bounds=bounds)
+    plotter._pivot = tuple(plotter.camera.GetFocalPoint())   # rotations now turn about the centre of the volumes
 
 
 def face_actor_names(k: int) -> Tuple[str, str]:
@@ -407,17 +432,65 @@ def has_actor(plotter, name: str) -> bool:
     return bool(_matching_actors(plotter, [name]))
 
 
+KM_AXES_PREFIX = "km_axes_"
+KM_AXES_LINES = [f"{KM_AXES_PREFIX}{a}" for a in ("X", "Y", "Z")]   # the 3D axis meshes (labels are 2D actors)
+
+
+def km_axes_step(max_range_km: float) -> Tuple[float, int]:
+    """(graduation step, number of graduations) of the 1:1 km axes: a round step (1-2-5 x 10^n) giving about 4 to 6
+    graduations, the last one at or beyond max_range_km."""
+    target = max_range_km / 4.0
+    base = 10.0 ** math.floor(math.log10(target))
+    step = max(m * base for m in (1.0, 2.0, 5.0) if m * base <= target)
+    return step, int(math.ceil(max_range_km / step - 1e-9))
+
+
+def set_km_axes(plotter, max_range_km: Optional[float]) -> None:
+    """1:1 scale reference: the ship-frame X, Y, Z axes drawn from the radar in km, graduated every round step and
+    labelled in km, so the scale turns with the view and holds at any angle. None removes them. Rebuilt only when
+    the graduation changes. No render."""
+    key = km_axes_step(max_range_km) if max_range_km and max_range_km > 0 else None
+    if key == getattr(plotter, "_km_axes_key", None):
+        return
+    remove_actors(plotter, [k for k in plotter.actors if k.startswith(KM_AXES_PREFIX)])
+    plotter._km_axes_key = key
+    if key is None:
+        return
+    step, n = key
+    length = step * n
+    tick = 0.025 * length
+    axes = (("X", np.array([1.0, 0, 0]), np.array([0, 0, 1.0]), COLORS["axis_x"]),
+            ("Y", np.array([0, 1.0, 0]), np.array([0, 0, 1.0]), COLORS["axis_y"]),
+            ("Z (nose)", np.array([0, 0, 1.0]), np.array([1.0, 0, 0]), COLORS["axis_z"]))
+    for name, d, t, color in axes:
+        pts = [np.zeros(3), d * length]
+        for k in range(1, n + 1):
+            pts += [d * k * step - t * tick, d * k * step + t * tick]
+        lines = np.hstack([[2, 2 * i, 2 * i + 1] for i in range(n + 1)])
+        tag = name.split()[0]
+        plotter.add_mesh(pv.PolyData(np.array(pts), lines=lines), color=color, line_width=2,
+                         name=f"{KM_AXES_PREFIX}{tag}", render=False)
+        plotter.add_point_labels([d * k * step + t * tick for k in range(1, n + 1)],
+                                 [f"{k * step:g} km" if k == n else f"{k * step:g}" for k in range(1, n + 1)],
+                                 text_color=color, font_size=10, shape=None, show_points=False,
+                                 name=f"{KM_AXES_PREFIX}ticks_{tag}", render=False)
+        plotter.add_point_labels([d * length * 1.08], [name], text_color=color, font_size=13, bold=True,
+                                 shape=None, show_points=False, name=f"{KM_AXES_PREFIX}name_{tag}", render=False)
+
+
+def set_km_axes_visible(plotter, visible: bool) -> None:
+    for key, actor in plotter.actors.items():
+        if key.startswith(KM_AXES_PREFIX):
+            actor.SetVisibility(bool(visible))
+
+
 def set_reference_scene_visible(plotter, visible: bool) -> None:
     """Show/hide the unit-scale reference scene (hull, axes, face normals, equator and their labels) -- every actor
-    that is not a face zone or a watch sector. Hidden in 1:1 scale, where it is a ~1 km speck whose labels pile up on
-    the radar; a corner orientation marker replaces it."""
+    that is not a face zone, a watch sector or the km axes. Hidden in 1:1 scale, where it is a ~1 km speck whose
+    labels pile up on the radar; the graduated km axes (set_km_axes) replace it."""
     for key, actor in plotter.actors.items():
-        if not key.startswith(("sec_", "face_")):
+        if not key.startswith(("sec_", "face_", KM_AXES_PREFIX)):
             actor.SetVisibility(bool(visible))
-    if visible:
-        plotter.hide_axes()
-    else:
-        plotter.show_axes()
 
 
 def remove_actors(plotter, names) -> None:

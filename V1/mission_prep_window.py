@@ -88,6 +88,7 @@ class MissionPrepWindow(QMainWindow):
         self.display_bar.show_all_sectors.connect(lambda: self._set_all_sectors_visible(True))
         self.display_bar.hide_all_sectors.connect(lambda: self._set_all_sectors_visible(False))
         self.display_bar.scale_changed.connect(self._on_scale_changed)
+        self.display_bar.scale_axes_changed.connect(lambda _on: self._apply_visibility())
         lv.addWidget(self.display_bar)
         self.plotter = QtInteractor(left)
         self.plotter.setMinimumWidth(500)
@@ -389,6 +390,7 @@ class MissionPrepWindow(QMainWindow):
             geo.set_actors_visible(self.plotter, geo.face_actor_names(k),
                                    self.display_bar.face_visible(k) and not self.display_bar.true_scale())
         geo.set_reference_scene_visible(self.plotter, not self.display_bar.true_scale())
+        geo.set_km_axes_visible(self.plotter, self.display_bar.scale_axes_visible())
         for i, sec in enumerate(self.mission["sectors"]):
             sid = sec.get("id") or f"_idx{i}"
             geo.set_actors_visible(self.plotter, geo.sector_actor_names(sid), id(sec) not in self._hidden_sectors)
@@ -562,6 +564,8 @@ class MissionPrepWindow(QMainWindow):
         geo.remove_actors(self.plotter, self._sector_actor_names - new_names)   # incl. the "-labels" actors
         self._sector_actor_names = new_names
         self._overlay_cache = new_cache
+        ranges = [s.get("range_km") for s in self.mission["sectors"] if isinstance(s.get("range_km"), (int, float))]
+        geo.set_km_axes(self.plotter, max(ranges, default=None) if true_scale else None)
 
     def _on_scale_changed(self, true_scale: bool) -> None:
         """1:1 on: redraw the volumes in km and zoom to fit them all; off: back to the default unit-sphere view."""
@@ -569,7 +573,8 @@ class MissionPrepWindow(QMainWindow):
         eps_max = self.mission["global"].get("eps_max_deg", 90.0)
         self._rebuild_sector_overlays(eps_min, eps_max)
         if true_scale:
-            geo.fit_camera_to_actors(self.plotter, [n for n in self._sector_actor_names if n.endswith("_surf")])
+            geo.fit_camera_to_actors(self.plotter, [n for n in self._sector_actor_names if n.endswith("_surf")]
+                                     + (geo.KM_AXES_LINES if self.display_bar.scale_axes_visible() else []))
         else:
             geo.set_default_camera(self.plotter)
         self._apply_visibility()
