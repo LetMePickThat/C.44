@@ -2,41 +2,42 @@
 # -*- coding: utf-8 -*-
 """
 GEOMETRY -- shared ship-frame geometry and PyVista mesh builders for the radar coverage 3D views
-(mission-prep window and results window).
+(mission-preparation and results tabs; the plotter itself is driven by gui/scene_view.py).
 
 Single source of truth for the ship frame: everything here is derived from the SAME constants and
-formulas as WF_RANGE_CALC_V6.0.10.py / mission_optimizer.py (SECTOR_TILT_DEG, FACE_PHI, face-frame
+formulas as WF_RANGE_CALC_V6.0.10.py / core.optimizer (SECTOR_TILT_DEG, FACE_PHI, face-frame
 projection, scan limit) so the 3D picture never drifts from the radar model.
 
 Ship frame (confirmed by the user): Z = ship longitudinal axis, +Z = nose (radar faces + telescope),
 -Z = aft (thrusters, behind the radiators); X = radiator axis; Y = third axis; phi = azimuth about Z
-from +X toward +Y; eps = elevation from the XY plane toward +Z. Visual reference: volumes.html.
+from +X toward +Y; eps = elevation from the XY plane toward +Z. Look and default view inherited from the
+earlier volumes.html viewer.
 
 This module only builds geometry (numpy / pyvista). It has no Qt / Plotter dependency so it can be
-unit-tested headlessly and reused by both GUI windows.
+unit-tested headlessly.
 """
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pyvista as pv
 
 # ----------------------------------------------------------------------------- radar model (shared)
-# The SAME module object as mission_optimizer's, so a setting changed on the model (tilt, eps window...) applies
+# The SAME module object as the optimiser's, so a setting changed on the model (tilt, eps window...) applies
 # to the 3D view, the fast estimate and the exact calculation alike.
-from mission_optimizer import wf  # noqa: E402
+from .optimizer import wf
 
 FACE_PHI_DEG: Tuple[float, float, float, float] = (0.0, 90.0, 180.0, 270.0)
-VIZ_FREQ_GHZ = 2.8   # reference frequency used for the viz-only scan limit (matches mission_optimizer)
+VIZ_FREQ_GHZ = 2.8   # reference frequency used for the viz-only scan limit (matches the optimiser)
 
-# Ship-model cosmetic constants (volumes.html): face mount height on the hull and radial offset.
+# Ship-model cosmetic constants: face mount height on the hull and radial offset.
 ZN = 0.17
 RP = 0.078
 
-# Palette (matches volumes.html CSS variables so the look stays consistent across both tools).
+# Palette (inherited from the volumes.html viewer).
 COLORS: Dict[str, str] = {
     "F1": "#2f7fd0", "F2": "#e08a1e", "F3": "#2fa35a", "F4": "#d6453d",
     "void": "#8a95a3", "excl": "#b9854a", "ship": "#7b8794",
@@ -64,7 +65,7 @@ def face_normal(phi_deg: float, tilt_deg: Optional[float] = None) -> np.ndarray:
 
 def face_frame(phi_deg: float, tilt_deg: Optional[float] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return (n, e_u, e_v) of the face frame: d = u*e_u + v*e_v + w*n (same convention as
-    mission_optimizer.Sphere / WF_RANGE_CALC header)."""
+    core.optimizer.Sphere / WF_RANGE_CALC header)."""
     tilt_deg = wf.SECTOR_TILT_DEG if tilt_deg is None else tilt_deg
     p, t = math.radians(phi_deg), math.radians(tilt_deg)
     c, s = math.cos(p), math.sin(p)
@@ -83,7 +84,7 @@ def default_scan_limit_deg(f_ghz: float = VIZ_FREQ_GHZ) -> float:
 class SphereGrid:
     """Raster of the unit direction sphere (phi, eps), cell-centred, with per-cell face ownership
     (zone of minimal scan: boundaries = the az = +/-45 deg meridian planes, cut by the scan-limit cone).
-    Same math as mission_optimizer.Sphere, vectorised; resolution is tunable for interactive 3D views.
+    Same math as core.optimizer.Sphere, vectorised; resolution is tunable for interactive 3D views.
     """
 
     def __init__(self, res_deg: float = 1.0, tilt_deg: Optional[float] = None,
@@ -126,7 +127,7 @@ class SphereGrid:
 
     def sector_mask(self, sec: dict) -> np.ndarray:
         """Boolean mask of a mission watch sector (box or cap), identical semantics to
-        mission_optimizer.Sphere.mask -- kept in sync deliberately (same formulas, numpy dtypes)."""
+        core.optimizer.Sphere.mask -- kept in sync deliberately (same formulas, numpy dtypes)."""
         shape = sec.get("shape", "box")
         if shape == "cap":
             p0, e0, rad = math.radians(sec["phi0_deg"]), math.radians(sec["eps0_deg"]), sec["radius_deg"]
@@ -202,7 +203,7 @@ def quads_for_mask(vgrid: np.ndarray, mask: np.ndarray) -> pv.PolyData:
 def boundary_for_mask(vgrid: np.ndarray, mask: np.ndarray) -> pv.PolyData:
     """Outline of the True cells of `mask`: every grid edge between a True cell and a False one (phi wraps
     around, pole edges have zero length and are skipped). Same result as a VTK boundary-edge extraction on
-    quads_for_mask(), computed directly on the raster -- equivalent in effect to the edge walk in volumes.html."""
+    quads_for_mask(), computed directly on the raster."""
     if not mask.any():
         return pv.PolyData()
     n_phi, n_eps = mask.shape
@@ -225,7 +226,6 @@ class FaceSectorScene:
     """The 4 face-responsibility sectors (base layer), coloured by face, plus their outlines."""
     surfaces: Dict[int, pv.PolyData]
     outlines: Dict[int, pv.PolyData]
-    equator: pv.PolyData
 
 
 def build_face_sectors(grid: SphereGrid, eps_min: float = -90.0, eps_max: float = 90.0,
@@ -237,10 +237,7 @@ def build_face_sectors(grid: SphereGrid, eps_min: float = -90.0, eps_max: float 
         mask = scanned & (grid.owner == k)
         surfaces[k] = quads_for_mask(vgrid, mask)
         outlines[k] = boundary_for_mask(vgrid, mask)
-    ang = np.linspace(0, 2 * math.pi, 181)
-    eq_pts = np.stack([radius * np.cos(ang), radius * np.sin(ang), np.zeros_like(ang)], axis=1)
-    equator = pv.lines_from_points(eq_pts)
-    return FaceSectorScene(surfaces=surfaces, outlines=outlines, equator=equator)
+    return FaceSectorScene(surfaces=surfaces, outlines=outlines)
 
 
 def build_sector_overlay(grid: SphereGrid, sec: dict, eps_min: float = -90.0, eps_max: float = 90.0,
@@ -308,7 +305,7 @@ def build_face_normals(tilt_deg: Optional[float] = None, length: float = 1.12) -
 
 def build_ship() -> dict:
     """Simple schematic hull (reference only), offset so the face-mount point sits at the
-    direction-sphere origin (0,0,0), matching volumes.html's gDir/gShip offset."""
+    direction-sphere origin (0,0,0)."""
     z0 = -ZN
     body = pv.Cylinder(center=(0, 0, -0.02 + z0), direction=(0, 0, 1), radius=0.07, height=0.62)
     nose = pv.Cone(center=(0, 0, 0.34 + z0), direction=(0, 0, 1), radius=0.07, height=0.1, resolution=28)
@@ -327,115 +324,6 @@ def build_ship() -> dict:
     return {"hull": hull, "arrays": arrays}
 
 
-def add_static_scene(plotter) -> None:
-    """Add the parts of the scene that never change (axes, hull, face normals, equator) and set the
-    default iso camera (matches volumes.html's default view). `plotter` is any pyvista Plotter-like
-    object (a pyvistaqt QtInteractor qualifies) -- this function has no Qt dependency of its own. Does not render: the caller renders once."""
-    for ax in build_axes():
-        if ax.get("no_line"):
-            plotter.add_point_labels([ax["label_pos"]], [ax["text"]], text_color=ax["color"],
-                                      font_size=12, shape=None, show_points=False, render=False)
-            continue
-        plotter.add_mesh(ax["line"], color=ax["color"], line_width=2, name=f"axis_{ax['text']}", render=False)
-        plotter.add_point_labels([ax["label_pos"]], [ax["text"]], text_color=ax["color"],
-                                  font_size=12, shape=None, show_points=False, render=False)
-    ship = build_ship()
-    for i, part in enumerate(ship["hull"]):
-        plotter.add_mesh(part["mesh"], color=part["color"], smooth_shading=True, name=f"hull_{i}", render=False)
-    for d in ship["arrays"]:
-        plotter.add_mesh(d["mesh"], color=d["color"], name=f"hull_array_{d['k']}", render=False)
-    for n in build_face_normals():
-        plotter.add_mesh(n["mesh"], color=n["color"], line_width=3, name=f"normal_{n['k']}", render=False)
-        plotter.add_point_labels([n["label_pos"]], [n["name"]], text_color=n["color"],
-                                  font_size=14, shape=None, show_points=False, render=False)
-    ang = np.linspace(0, 2 * math.pi, 181)
-    eq_pts = np.stack([np.cos(ang), np.sin(ang), np.zeros_like(ang)], axis=1)
-    plotter.add_mesh(pv.lines_from_points(eq_pts), color=COLORS["muted"], opacity=0.45,
-                      line_width=1, name="equator", render=False)
-    plotter.set_background("white")
-    lock_pivot(plotter)
-    set_default_camera(plotter)
-
-
-def set_default_camera(plotter) -> None:
-    """Default iso view framing the unit sphere (volumes.html's default view). No render."""
-    r = 5.5
-    eye = (r * math.cos(math.radians(24)) * math.cos(math.radians(-58)),
-           r * math.cos(math.radians(24)) * math.sin(math.radians(-58)),
-           r * math.sin(math.radians(24)))
-    plotter.camera.up = (0, 0, 1)
-    plotter.camera.position = eye
-    plotter.camera.focal_point = (0, 0, 0.12)
-    plotter.camera.clipping_range = (0.05, 50.0)
-    plotter._pivot = (0.0, 0.0, 0.12)
-
-
-def lock_pivot(plotter) -> None:
-    """Keep the scene centred: the camera always turns about plotter._pivot (the scene centre set by
-    set_default_camera / fit_camera_to_actors). VTK turns about the focal point, which a pan (middle button,
-    shift + left button) moves off-centre; before every render a drifted camera is translated back so its focal point
-    is the pivot again -- orientation and distance unchanged, so rotation and zoom work and panning has no effect."""
-    renderer = plotter.renderer
-
-    def recentre(*_args) -> None:
-        pivot = getattr(plotter, "_pivot", None)
-        if pivot is None:
-            return
-        cam = renderer.GetActiveCamera()
-        off = np.asarray(pivot) - np.asarray(cam.GetFocalPoint())
-        if np.abs(off).max() <= 1e-9 * max(1.0, cam.GetDistance()):
-            return
-        cam.SetFocalPoint(*pivot)
-        cam.SetPosition(*(np.asarray(cam.GetPosition()) + off))
-        renderer.ResetCameraClippingRange()
-
-    plotter.ren_win.AddObserver("StartEvent", recentre)
-
-
-def fit_camera_to_actors(plotter, names) -> None:
-    """Keep the view direction, re-centre and zoom so the named actors (and the radar at the origin) fit
-    the view; their centre becomes the rotation pivot. No render; does nothing if none of the actors exists."""
-    keys = _matching_actors(plotter, names)
-    if not keys:
-        return
-    b = np.array([plotter.actors[k].GetBounds() for k in keys])
-    bounds = (min(b[:, 0].min(), 0.0), max(b[:, 1].max(), 0.0), min(b[:, 2].min(), 0.0),
-              max(b[:, 3].max(), 0.0), min(b[:, 4].min(), 0.0), max(b[:, 5].max(), 0.0))
-    plotter.reset_camera(render=False, bounds=bounds)
-    plotter._pivot = tuple(plotter.camera.GetFocalPoint())   # rotations now turn about the centre of the volumes
-
-
-def face_actor_names(k: int) -> Tuple[str, str]:
-    """Plotter actor names of face k's responsibility zone (surface, outline)."""
-    return f"face_surf_{k}", f"face_outline_{k}"
-
-
-def sector_actor_names(sid: str) -> Tuple[str, str, str]:
-    """Plotter actor names of a mission watch sector (surface, outline, label)."""
-    return f"sec_{sid}_surf", f"sec_{sid}_outline", f"sec_{sid}_label"
-
-
-def _matching_actors(plotter, names) -> List[str]:
-    """Actor keys for the given names. add_point_labels(name=X) registers its actor as "X-labels", hence the
-    prefix match."""
-    wanted = tuple(names)
-    return [key for key in plotter.actors if key in wanted or key.startswith(tuple(n + "-" for n in wanted))]
-
-
-def set_actors_visible(plotter, names, visible: bool) -> None:
-    """Show/hide named actors without rebuilding them (missing names are ignored)."""
-    for key in _matching_actors(plotter, names):
-        plotter.actors[key].SetVisibility(bool(visible))
-
-
-def has_actor(plotter, name: str) -> bool:
-    return bool(_matching_actors(plotter, [name]))
-
-
-KM_AXES_PREFIX = "km_axes_"
-KM_AXES_LINES = [f"{KM_AXES_PREFIX}{a}" for a in ("X", "Y", "Z")]   # the 3D axis meshes (labels are 2D actors)
-
-
 def km_axes_step(max_range_km: float) -> Tuple[float, int]:
     """(graduation step, number of graduations) of the 1:1 km axes: a round step (1-2-5 x 10^n) giving about 4 to 6
     graduations, the last one at or beyond max_range_km."""
@@ -443,64 +331,3 @@ def km_axes_step(max_range_km: float) -> Tuple[float, int]:
     base = 10.0 ** math.floor(math.log10(target))
     step = max(m * base for m in (1.0, 2.0, 5.0) if m * base <= target)
     return step, int(math.ceil(max_range_km / step - 1e-9))
-
-
-def set_km_axes(plotter, max_range_km: Optional[float]) -> None:
-    """1:1 scale reference: the ship-frame X, Y, Z axes drawn from the radar in km, graduated every round step and
-    labelled in km, so the scale turns with the view and holds at any angle. None removes them. Rebuilt only when
-    the graduation changes. No render."""
-    key = km_axes_step(max_range_km) if max_range_km and max_range_km > 0 else None
-    if key == getattr(plotter, "_km_axes_key", None):
-        return
-    remove_actors(plotter, [k for k in plotter.actors if k.startswith(KM_AXES_PREFIX)])
-    plotter._km_axes_key = key
-    if key is None:
-        return
-    step, n = key
-    length = step * n
-    tick = 0.025 * length
-    axes = (("X", np.array([1.0, 0, 0]), np.array([0, 0, 1.0]), COLORS["axis_x"]),
-            ("Y", np.array([0, 1.0, 0]), np.array([0, 0, 1.0]), COLORS["axis_y"]),
-            ("Z (nose)", np.array([0, 0, 1.0]), np.array([1.0, 0, 0]), COLORS["axis_z"]))
-    for name, d, t, color in axes:
-        pts = [np.zeros(3), d * length]
-        for k in range(1, n + 1):
-            pts += [d * k * step - t * tick, d * k * step + t * tick]
-        lines = np.hstack([[2, 2 * i, 2 * i + 1] for i in range(n + 1)])
-        tag = name.split()[0]
-        plotter.add_mesh(pv.PolyData(np.array(pts), lines=lines), color=color, line_width=2,
-                         name=f"{KM_AXES_PREFIX}{tag}", render=False)
-        plotter.add_point_labels([d * k * step + t * tick for k in range(1, n + 1)],
-                                 [f"{k * step:g} km" if k == n else f"{k * step:g}" for k in range(1, n + 1)],
-                                 text_color=color, font_size=10, shape=None, show_points=False,
-                                 name=f"{KM_AXES_PREFIX}ticks_{tag}", render=False)
-        plotter.add_point_labels([d * length * 1.08], [name], text_color=color, font_size=13, bold=True,
-                                 shape=None, show_points=False, name=f"{KM_AXES_PREFIX}name_{tag}", render=False)
-
-
-def set_km_axes_visible(plotter, visible: bool) -> None:
-    for key, actor in plotter.actors.items():
-        if key.startswith(KM_AXES_PREFIX):
-            actor.SetVisibility(bool(visible))
-
-
-def set_reference_scene_visible(plotter, visible: bool) -> None:
-    """Show/hide the unit-scale reference scene (hull, axes, face normals, equator and their labels) -- every actor
-    that is not a face zone, a watch sector or the km axes. Hidden in 1:1 scale, where it is a ~1 km speck whose
-    labels pile up on the radar; the graduated km axes (set_km_axes) replace it."""
-    for key, actor in plotter.actors.items():
-        if not key.startswith(("sec_", "face_", KM_AXES_PREFIX)):
-            actor.SetVisibility(bool(visible))
-
-
-def remove_actors(plotter, names) -> None:
-    """No render: the caller renders once after its batch of scene changes."""
-    for key in _matching_actors(plotter, names):
-        plotter.remove_actor(key, render=False)
-
-
-def n_cells_owned(grid: SphereGrid, eps_min: float = -90.0, eps_max: float = 90.0) -> Dict[int, int]:
-    """Diagnostic: raster-cell count per face (sanity check against n_search_positions, not a
-    substitute for it -- the raster resolution here is for the 3D view, not the radar budget)."""
-    scanned = grid.scanned(eps_min, eps_max)
-    return {k: int((scanned & (grid.owner == k)).sum()) for k in range(4)}

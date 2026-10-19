@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-MAIN -- entry point: opens the mission-preparation window (window 1) on an empty mission, or on the mission file given
-on the command line; window 1 imports / exports missions itself and chains to the results window (window 2) once a
+MAIN -- entry point: opens the main window (gui/main_window.py) on an empty mission, or on the mission file given on
+the command line. The mission-preparation tab imports / exports missions itself; a results tab opens once a
 calculation finishes.
 Usage: python main.py [mission.json | mission.csv]   (--new, kept for old shortcuts, is the same as no argument)
 """
 from __future__ import annotations
 
 import sys
+
 from PyQt5.QtWidgets import QApplication, QMessageBox
 
-import mission_data as md
-from mission_prep_window import MissionPrepWindow
+from core import mission as md
+from gui.main_window import MainWindow
 
 
 def prefer_high_performance_gpu() -> None:
@@ -54,12 +55,6 @@ def prefer_high_performance_gpu() -> None:
         pass
 
 
-def load_mission_file(path: str) -> dict:
-    mission = md.load_mission(path)
-    mission.setdefault("global", dict(md.GLOBAL_DEFAULTS))
-    return mission
-
-
 def main() -> int:
     prefer_high_performance_gpu()
     app = QApplication(sys.argv)
@@ -67,10 +62,10 @@ def main() -> int:
     mission = md.empty_mission()
     if arg and arg != "--new":
         try:
-            mission = load_mission_file(arg)
+            mission = md.load_mission(arg)
         except Exception as exc:  # noqa: BLE001 -- bad path / file: say so and start on an empty mission
             QMessageBox.critical(None, "Open", f"Could not open {arg}: {exc}")
-    win = MissionPrepWindow(mission)
+    win = MainWindow(mission)
     win.show()
     return app.exec_()
 

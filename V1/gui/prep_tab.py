@@ -1,59 +1,69 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-MISSION_PREP_WINDOW -- Window 1: mission preparation. Watch-sector form + real-time 3D view
-(same rendering as volumes.html) + fast cost estimate (per-face gauges) + alerts +
-mission-prep validation, then launch of the exact calculation (mission_optimizer, background thread).
+PREP_TAB -- mission-preparation tab: watch-sector form + real-time 3D view + fast cost estimate (per-face gauges) +
+alerts (incl. redundant watch volumes, core/redundancy.py) + mission-prep validation. "Run calculation" hands a frozen
+copy of the mission to the main window, which runs the optimiser and opens the results tab; while a results tab is
+open the mission is locked (set_locked), so the results always describe the mission on screen.
 """
 from __future__ import annotations
 
 import copy
-import os
 from typing import Dict, List, Optional
 
 import numpy as np
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import QThread, Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
-    QAbstractItemView, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
-    QLabel, QListWidget, QListWidgetItem, QMainWindow, QMessageBox, QProgressBar, QProgressDialog,
-    QPushButton, QScrollArea, QSizePolicy, QSpinBox, QSplitter, QVBoxLayout, QWidget,
+    QAbstractItemView, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel,
+    QListWidget, QListWidgetItem, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSpinBox, QSplitter,
+    QVBoxLayout, QWidget,
 )
-from pyvistaqt import QtInteractor
 
-import cost_estimate as ce
-import geometry as geo
-import mission_data as md
-import redundancy as red
-from optimize_worker import OptimizeWorker, RedundancyWorker
-from view_controls import DisplayBar
+from core import cost_estimate as ce
+from core import geometry as geo
+from core import mission as md
+from core import redundancy as red
+from gui.scene_view import SceneView, SectorDraw
 
-GRID_RES_DEG = 0.5
 DEBOUNCE_MS = 200
 REDUNDANCY_DEBOUNCE_MS = 600    # the redundancy check plans sectors with the optimiser: wait for typing to settle
 ALERT_COLOR = "#c0392b"
 
 
-class MissionPrepWindow(QMainWindow):
-    def __init__(self, mission: Optional[dict] = None):
-        super().__init__()
-        self.setWindowTitle("Radar mission preparation")
-        self.resize(1400, 860)
+class RedundancyWorker(QThread):
+    """Runs core.redundancy.find_redundancies() off the UI thread (it plans the earlier sectors with the optimiser).
+    `token` is handed back untouched so the caller can tell whether the result is still current."""
+    finished_ok = pyqtSignal(object, object)   # list of redundancy.Finding, token
+    failed = pyqtSignal(str)
 
-        self.mission: dict = mission if mission is not None else md.empty_mission()
-        self.grid = geo.SphereGrid(res_deg=GRID_RES_DEG)
+    def __init__(self, mission: dict, grid, token, parent=None):
+        super().__init__(parent)
+        self.mission, self.grid, self.token = mission, grid, token
+
+    def run(self) -> None:
+        try:
+            findings = red.find_redundancies(self.mission, self.grid)
+        except Exception as exc:  # noqa: BLE001 -- a failed check must not take the window down
+            self.failed.emit(f"redundancy check failed: {exc}")
+            return
+        self.finished_ok.emit(findings, self.token)
+
+
+class PrepTab(QWidget):
+    run_requested = pyqtSignal(dict)   # frozen (deep) copy of a valid mission to optimise
+
+    def __init__(self, mission: dict, grid: geo.SphereGrid, parent=None):
+        super().__init__(parent)
+        self.mission: dict = mission
+        self.grid = grid
         self.cost_table = ce.load_table()
+        self.locked = False
         self._cur_index: int = -1
         self._updating_form = False
-        self._sector_actor_names: set = set()
-        self._face_scene_key: Optional[tuple] = None   # (eps_min, eps_max) of the face layer on screen
-        self._overlay_cache: Dict[str, tuple] = {}     # sid -> (geometry key, colour, poly, outline, label text)
         self._hidden_sectors: set = set()     # id() of the sector dicts whose volume is hidden in 3D
-        self._worker: Optional[OptimizeWorker] = None
-        self._progress_dlg: Optional[QProgressDialog] = None
-        self.results_window = None
-        # redundancy check (redundancy.py): findings are valid while the mission signature they were computed for is
-        # the current one; "Keep both" acknowledgements are per sector content and covering sectors
+        # redundancy check (core/redundancy.py): findings are valid while the mission signature they were computed
+        # for is the current one; "Keep both" acknowledgements are per sector content and covering sectors
         self._redundancy: Dict[int, red.Finding] = {}   # id() of the redundant sector dict -> finding
         self._redundancy_sig: Optional[str] = None      # signature the findings belong to
         self._redundancy_requested: Optional[str] = None
@@ -71,37 +81,32 @@ class MissionPrepWindow(QMainWindow):
         self._debounce.timeout.connect(self._refresh_all)
 
         self._build_ui()
-        self._init_static_scene()
         self._reload_sector_list()
         self._schedule_refresh()
 
     # ------------------------------------------------------------------ UI construction
     def _build_ui(self) -> None:
+        outer = QHBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
         splitter = QSplitter(Qt.Horizontal)
-        self.setCentralWidget(splitter)
+        outer.addWidget(splitter)
 
-        left = QWidget()
-        lv = QVBoxLayout(left)
-        lv.setContentsMargins(0, 0, 0, 0)
-        self.display_bar = DisplayBar()
-        self.display_bar.faces_changed.connect(self._apply_visibility)
-        self.display_bar.show_all_sectors.connect(lambda: self._set_all_sectors_visible(True))
-        self.display_bar.hide_all_sectors.connect(lambda: self._set_all_sectors_visible(False))
-        self.display_bar.scale_changed.connect(self._on_scale_changed)
-        self.display_bar.scale_axes_changed.connect(lambda _on: self._apply_visibility())
-        lv.addWidget(self.display_bar)
-        self.plotter = QtInteractor(left)
-        self.plotter.setMinimumWidth(500)
-        lv.addWidget(self.plotter.interactor)
-        splitter.addWidget(left)
+        self.view = SceneView(self.grid, face_opacity=0.28, sector_opacity=0.5)
+        self.view.show_all_sectors.connect(lambda: self._set_all_sectors_visible(True))
+        self.view.hide_all_sectors.connect(lambda: self._set_all_sectors_visible(False))
+        splitter.addWidget(self.view)
 
         panel = QScrollArea()
         panel.setWidgetResizable(True)
-        panel.setMaximumWidth(460)
         inner = QWidget()
         panel.setWidget(inner)
         v = QVBoxLayout(inner)
 
+        self.lbl_locked = QLabel("Mission locked while the results tab is open: close it to edit the mission.")
+        self.lbl_locked.setWordWrap(True)
+        self.lbl_locked.setStyleSheet("background: #e08a1e; color: white; font-weight: bold; padding: 6px;")
+        self.lbl_locked.setVisible(False)
+        v.addWidget(self.lbl_locked)
         v.addWidget(self._build_global_group())
         v.addWidget(self._build_sector_list_group())
         v.addWidget(self._build_sector_form_group())
@@ -122,8 +127,17 @@ class MissionPrepWindow(QMainWindow):
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 2)
 
+    def set_locked(self, locked: bool) -> None:
+        """Read-only mission while a results tab is open: every editing control is disabled (selecting a sector,
+        showing / hiding volumes, the 3D view, validation and mission export stay available)."""
+        self.locked = locked
+        self.lbl_locked.setVisible(locked)
+        for w in self._edit_widgets:
+            w.setEnabled(not locked)
+
     def _build_global_group(self) -> QGroupBox:
         box = QGroupBox("Global scan zone")
+        self._edit_widgets: List[QWidget] = [box]
         form = QFormLayout(box)
         self.sb_eps_min = self._spin(-90, 90, 1, self.mission["global"].get("eps_min_deg", -90.0))
         self.sb_eps_max = self._spin(-90, 90, 1, self.mission["global"].get("eps_max_deg", 90.0))
@@ -155,11 +169,13 @@ class MissionPrepWindow(QMainWindow):
         btn_del.clicked.connect(self._delete_sector)
         for b in (btn_add_box, btn_add_cap, btn_dup, btn_del):
             row.addWidget(b)
+            self._edit_widgets.append(b)
         v.addLayout(row)
         return box
 
     def _build_sector_form_group(self) -> QGroupBox:
         box = QGroupBox("Selected sector")
+        self._edit_widgets.append(box)
         v = QVBoxLayout(box)
         top = QFormLayout()
         self.ed_id = QComboBox()  # editable combo used as a simple validated text field
@@ -277,6 +293,7 @@ class MissionPrepWindow(QMainWindow):
         b_run.setStyleSheet("font-weight: bold;")
         b_run.clicked.connect(self._on_run)
         v.addWidget(b_run)
+        self._edit_widgets += [b_imp, b_run]
         return box
 
     @staticmethod
@@ -287,10 +304,6 @@ class MissionPrepWindow(QMainWindow):
         sb.setDecimals(2)
         sb.setValue(value)
         return sb
-
-    # ------------------------------------------------------------------ static 3D scene (built once)
-    def _init_static_scene(self) -> None:
-        geo.add_static_scene(self.plotter)
 
     # ------------------------------------------------------------------ sector list helpers
     def _sector_ids(self) -> List[str]:
@@ -374,7 +387,7 @@ class MissionPrepWindow(QMainWindow):
             self._hidden_sectors.discard(key)
         else:
             self._hidden_sectors.add(key)
-        self._apply_visibility()
+        self._push_hidden()
 
     def _set_all_sectors_visible(self, visible: bool) -> None:
         self._hidden_sectors = set() if visible else {id(s) for s in self.mission["sectors"]}
@@ -382,20 +395,18 @@ class MissionPrepWindow(QMainWindow):
         for row in range(self.list_sectors.count()):
             self.list_sectors.item(row).setCheckState(Qt.Checked if visible else Qt.Unchecked)
         self.list_sectors.blockSignals(False)
-        self._apply_visibility()
+        self._push_hidden()
 
-    def _apply_visibility(self, render: bool = True) -> None:
-        """Re-applied after every rebuild, since rebuilt actors come back visible."""
-        for k in range(4):
-            geo.set_actors_visible(self.plotter, geo.face_actor_names(k),
-                                   self.display_bar.face_visible(k) and not self.display_bar.true_scale())
-        geo.set_reference_scene_visible(self.plotter, not self.display_bar.true_scale())
-        geo.set_km_axes_visible(self.plotter, self.display_bar.scale_axes_visible())
-        for i, sec in enumerate(self.mission["sectors"]):
-            sid = sec.get("id") or f"_idx{i}"
-            geo.set_actors_visible(self.plotter, geo.sector_actor_names(sid), id(sec) not in self._hidden_sectors)
-        if render:
-            self.plotter.render()
+    @staticmethod
+    def _draw_sid(i: int, sec: dict) -> str:
+        return sec.get("id") or f"_idx{i}"
+
+    def _hidden_sids(self) -> set:
+        return {self._draw_sid(i, sec) for i, sec in enumerate(self.mission["sectors"])
+                if id(sec) in self._hidden_sectors}
+
+    def _push_hidden(self) -> None:
+        self.view.set_hidden(self._hidden_sids())
 
     # ------------------------------------------------------------------ form <-> model
     def _on_select_sector(self, row: int) -> None:
@@ -492,92 +503,20 @@ class MissionPrepWindow(QMainWindow):
     def _refresh_all(self) -> None:
         eps_min = self.mission["global"].get("eps_min_deg", -90.0)
         eps_max = self.mission["global"].get("eps_max_deg", 90.0)
-        self._rebuild_face_sectors(eps_min, eps_max)
-        self._rebuild_sector_overlays(eps_min, eps_max)
         self._update_gauges(eps_min, eps_max)
         self._schedule_redundancy_check()
         self._update_alerts(eps_min, eps_max)
-        self._apply_visibility()
+        self._update_scene(eps_min, eps_max)
 
-    # Scene changes below never render (render=False): _refresh_all renders once, in _apply_visibility.
-    def _rebuild_face_sectors(self, eps_min: float, eps_max: float) -> None:
-        if self._face_scene_key == (eps_min, eps_max):
-            return  # the face layer only depends on the eps window, not on the watch sectors
-        self._face_scene_key = (eps_min, eps_max)
-        scene = geo.build_face_sectors(self.grid, eps_min, eps_max)
-        for k in range(4):
-            if scene.surfaces[k].n_points:
-                self.plotter.add_mesh(scene.surfaces[k], color=geo.FACE_COLORS[k], opacity=0.28,
-                                       culling="back", name=f"face_surf_{k}", render=False)
-            else:
-                self.plotter.remove_actor(f"face_surf_{k}", render=False)
-            if scene.outlines[k].n_points:
-                self.plotter.add_mesh(scene.outlines[k], color=geo.COLORS["fg"], line_width=1,
-                                       name=f"face_outline_{k}", render=False)
-            else:
-                self.plotter.remove_actor(f"face_outline_{k}", render=False)
-
-    def _rebuild_sector_overlays(self, eps_min: float, eps_max: float) -> None:
-        """Only sectors whose geometry / colour / label changed are rebuilt (cache keyed by sector id). In 1:1 scale
-        each sector is a true-size volume in km (radar at the origin out to its required range), else a cap on the
-        unit sphere."""
-        true_scale = self.display_bar.true_scale()
-        new_names = set()
-        new_cache: Dict[str, tuple] = {}
+    def _update_scene(self, eps_min: float, eps_max: float) -> None:
+        draws = []
         for i, sec in enumerate(self.mission["sectors"]):
-            sid = sec.get("id") or f"_idx{i}"
-            color = geo.sector_color(i)
-            surf_name, out_name, lbl_name = geo.sector_actor_names(sid)
-            key = (geo.sector_geometry_key(sec), eps_min, eps_max, sec.get("range_km") if true_scale else None)
-            cached = self._overlay_cache.get(sid)
-            # a duplicate id (mid-edit) shares actor names with the earlier sector: always redraw, last one wins
-            same_geom = cached is not None and cached[0] == key and sid not in new_cache
-            if same_geom:
-                poly, outline = cached[2], cached[3]
-            else:
-                build = geo.build_sector_volume_km if true_scale else geo.build_sector_overlay
-                try:
-                    poly, outline = build(self.grid, sec, eps_min, eps_max)
-                except (KeyError, TypeError, ValueError):
-                    continue  # incomplete sector mid-edit: skip the 3D overlay, form stays editable
-            same_mesh = same_geom and cached[1] == color
-            if poly.n_points:
-                if not (same_mesh and geo.has_actor(self.plotter, surf_name)):
-                    self.plotter.add_mesh(poly, color=color, opacity=0.5, culling=None if true_scale else "back",
-                                          name=surf_name, render=False)
-                new_names.add(surf_name)
-            if outline.n_points:
-                if not (same_mesh and geo.has_actor(self.plotter, out_name)):
-                    self.plotter.add_mesh(outline, color=color, line_width=2, name=out_name, render=False)
-                new_names.add(out_name)
-            text = None
-            if poly.n_points:
-                text = (f"{sid}\nR={sec.get('range_km', 0):.0f} km  RCS={sec.get('rcs_m2', 0):g} m2\n"
-                        f"RR={sec.get('rr_target_s', 0):.0f} s  V={sec.get('v_close_min_mps', 0):.0f}"
-                        f"-{sec.get('v_close_max_mps', 0):.0f} m/s")
-                if not (same_mesh and cached[4] == text and geo.has_actor(self.plotter, lbl_name)):
-                    self.plotter.add_point_labels([poly.points.mean(axis=0)], [text], name=lbl_name,
-                                                   text_color=color, font_size=10, shape_opacity=0.6,
-                                                   show_points=False, render=False)
-                new_names.add(lbl_name)
-            new_cache[sid] = (key, color, poly, outline, text)
-        geo.remove_actors(self.plotter, self._sector_actor_names - new_names)   # incl. the "-labels" actors
-        self._sector_actor_names = new_names
-        self._overlay_cache = new_cache
-        ranges = [s.get("range_km") for s in self.mission["sectors"] if isinstance(s.get("range_km"), (int, float))]
-        geo.set_km_axes(self.plotter, max(ranges, default=None) if true_scale else None)
-
-    def _on_scale_changed(self, true_scale: bool) -> None:
-        """1:1 on: redraw the volumes in km and zoom to fit them all; off: back to the default unit-sphere view."""
-        eps_min = self.mission["global"].get("eps_min_deg", -90.0)
-        eps_max = self.mission["global"].get("eps_max_deg", 90.0)
-        self._rebuild_sector_overlays(eps_min, eps_max)
-        if true_scale:
-            geo.fit_camera_to_actors(self.plotter, [n for n in self._sector_actor_names if n.endswith("_surf")]
-                                     + (geo.KM_AXES_LINES if self.display_bar.scale_axes_visible() else []))
-        else:
-            geo.set_default_camera(self.plotter)
-        self._apply_visibility()
+            sid = self._draw_sid(i, sec)
+            text = (f"{sid}\nR={sec.get('range_km', 0):.0f} km  RCS={sec.get('rcs_m2', 0):g} m2\n"
+                    f"RR={sec.get('rr_target_s', 0):.0f} s  V={sec.get('v_close_min_mps', 0):.0f}"
+                    f"-{sec.get('v_close_max_mps', 0):.0f} m/s")
+            draws.append(SectorDraw(sid, sec, geo.sector_color(i), text))
+        self.view.set_scene(eps_min, eps_max, draws, hidden=self._hidden_sids())
 
     def _update_gauges(self, eps_min: float, eps_max: float) -> None:
         totals = {k: {"energy": 0.0, "time_min": 0.0, "kw": 0.0} for k in range(4)}
@@ -720,6 +659,8 @@ class MissionPrepWindow(QMainWindow):
             self.list_alerts.addItem(item)
 
     def _on_alert_activated(self, item: QListWidgetItem) -> None:
+        if self.locked:
+            return
         index = item.data(Qt.UserRole)
         if index is None or not 0 <= index < len(self.mission["sectors"]):
             return
@@ -776,7 +717,6 @@ class MissionPrepWindow(QMainWindow):
             return
         try:
             self.mission = md.load_mission(path)
-            self.mission.setdefault("global", dict(md.GLOBAL_DEFAULTS))
         except Exception as exc:  # noqa: BLE001
             QMessageBox.critical(self, "Import", f"Import failed: {exc}")
             return
@@ -814,45 +754,6 @@ class MissionPrepWindow(QMainWindow):
         errs = md.validate_mission(self.mission)
         if errs:
             QMessageBox.warning(self, "Invalid mission preparation",
-                                 "\n".join(f"- {e}" for e in errs))
+                                "\n".join(f"- {e}" for e in errs))
             return
-        self._progress_dlg = QProgressDialog("Calculating...", "Cancel", 0,
-                                              len(self.mission["sectors"]), self)
-        self._progress_dlg.setWindowModality(Qt.WindowModal)
-        self._progress_dlg.setMinimumDuration(0)
-        self._worker = OptimizeWorker(dict(self.mission))
-        self._worker.progress.connect(self._on_worker_progress)
-        self._worker.finished_ok.connect(self._on_worker_finished)
-        self._worker.failed.connect(self._on_worker_failed)
-        self._progress_dlg.canceled.connect(self._worker.cancel)
-        self._worker.start()
-        self._progress_dlg.show()
-
-    def _on_worker_progress(self, done: int, total: int, sector_id: str) -> None:
-        if self._progress_dlg:
-            self._progress_dlg.setLabelText(f"Sector {sector_id} done ({done}/{total})")
-            self._progress_dlg.setValue(done)
-
-    def _on_worker_finished(self, result: dict) -> None:
-        if self._progress_dlg:
-            self._progress_dlg.close()
-        if result.get("cancelled"):
-            n_done, n_total = len(result["sectors"]), len(self.mission["sectors"])
-            if n_done == 0:
-                QMessageBox.information(self, "Calculation", "Calculation cancelled before any sector was computed.")
-                return
-            answer = QMessageBox.question(
-                self, "Calculation cancelled",
-                f"Calculation cancelled after {n_done} of {n_total} sectors.\n"
-                "Open the PARTIAL result (per-face totals will only include the computed sectors)?",
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if answer != QMessageBox.Yes:
-                return
-        from results_window import ResultsWindow
-        self.results_window = ResultsWindow(self.mission, result)
-        self.results_window.show()
-
-    def _on_worker_failed(self, message: str) -> None:
-        if self._progress_dlg:
-            self._progress_dlg.close()
-        QMessageBox.critical(self, "Calculation", message)
+        self.run_requested.emit(copy.deepcopy(self.mission))

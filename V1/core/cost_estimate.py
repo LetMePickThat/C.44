@@ -3,9 +3,9 @@
 """
 COST_ESTIMATE -- fast, approximate per-sector radar budget for real-time feedback while the operator
 is editing the mission preparation (sliders / form fields). NOT the authoritative result: the exact
-numbers come from mission_optimizer.run() (full waveform search), called on "Run calculation".
+numbers come from core.optimizer.run() (full waveform search), called on "Run calculation".
 
-Backed by cost_table.json (built once by gen_cost_table.py): for S band, 2.8 GHz, a grid of
+Backed by cost_table.json (built once by tools/gen_cost_table.py): for S band, 2.8 GHz, a grid of
 (range_km, rcs_m2, v_close_mps, scan_theta_deg) -> cheapest energy per beam position that just reaches
 that range (or None if unreachable even with the best waveform at full power).
 
@@ -17,15 +17,15 @@ Interpolation strategy (all in log-energy space, since energy spans orders of ma
                   near grid half-decades (e.g. RCS 3000 snapped to 1000 m^2).
   - scan angle  : linear between the 2 bracketing tabulated angles, evaluated per raster cell.
 
-Energy is the quantity this module estimates well (validated against mission_optimizer.run() on the
+Energy is the quantity this module estimates well (validated against core.optimizer.run() on the
 3 example sectors and mission_veille500: within -1 % / +4 % of the v2 optimiser, which also picks the cheapest waveform per scan angle). Time-on-air
 is deliberately NOT estimated the same way: the table picks, independently at each (range, RCS, speed,
 angle) cell, whichever (N, tau, Btx) combo is cheapest in ENERGY, but many combos tie on energy while
-differing wildly in N*tau (time-on-air is under-determined there); mission_optimizer, in contrast,
+differing wildly in N*tau (time-on-air is under-determined there); the optimiser, in contrast,
 commits to a single shared waveform across a whole face/sector. Cross-checking against the reference
 run showed this makes a naive per-cell time estimate off by up to 27x (e.g. sector S03). Only a
 mathematically honest LOWER bound (average power / peak power -- you cannot transmit in less time than
-energy/peak-power) is exposed here; the exact time-on-air only comes from mission_optimizer.run().
+energy/peak-power) is exposed here; the exact time-on-air only comes from core.optimizer.run().
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-import geometry as geo
+from . import geometry as geo
 
 DEFAULT_TABLE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cost_table.json")
 
@@ -182,7 +182,7 @@ def estimate_sector_faces(table: CostTable, sec: dict, grid: geo.SphereGrid, eps
     if not mask.any():
         return {}
     cell = geo.wf.beam_cell_area_uv(f_ghz)
-    weight = grid.w * grid.d_omega / cell  # beam positions per raster cell (same convention as mission_optimizer)
+    weight = grid.w * grid.d_omega / cell  # beam positions per raster cell (same convention as the optimiser)
     rr = sec.get("rr_target_s", 1.0) or 1.0
     r_want = sec.get("range_km", 0.0)
     rcs = sec.get("rcs_m2", 1.0)

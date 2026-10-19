@@ -1,27 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-RESULTS_WINDOW -- Window 2: optimisation result. Same 3D rendering as the mission-preparation
-window, but sectors are coloured by result (achieved RR / target RR, or % energy), with
-WF / range / RR / energy / flag labels; per-sector summary table and per-face totals; JSON/CSV export.
+RESULTS_TAB -- optimisation result tab (closable). Same 3D view as the mission-preparation tab, but sectors are
+coloured by result (achieved RR / target RR, or % energy), with WF / range / RR / energy / flag labels; per-sector
+summary table, waveforms by scan-angle bin, per-face totals; JSON/CSV export. It shows the frozen copy of the mission
+that was optimised.
 """
 from __future__ import annotations
 
 import csv
 import json
-from typing import Dict, Optional
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
-    QAbstractItemView, QComboBox, QFileDialog, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QMainWindow, QMessageBox,
+    QAbstractItemView, QComboBox, QFileDialog, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QMessageBox,
     QPushButton, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
-from pyvistaqt import QtInteractor
 
-import geometry as geo
-from view_controls import DisplayBar
-
-GRID_RES_DEG = 0.5
+from core import geometry as geo
+from gui.scene_view import SceneView, SectorDraw
 
 
 def _metric_color(ratio: float) -> str:
@@ -55,35 +52,34 @@ def _lerp_color(c0: str, c1: str, t: float) -> str:
     return f"#{m[0]:02x}{m[1]:02x}{m[2]:02x}"
 
 
-class ResultsWindow(QMainWindow):
-    def __init__(self, mission: dict, result: dict):
-        super().__init__()
+class ResultsTab(QWidget):
+    def __init__(self, mission: dict, result: dict, grid: geo.SphereGrid, parent=None):
+        super().__init__(parent)
         self.mission = mission
         self.result = result
         self.partial = bool(result.get("cancelled"))
-        self.setWindowTitle("Optimisation result" + (" -- PARTIAL (calculation cancelled)" if self.partial else ""))
-        self.resize(1400, 860)
+        self.exported = False                 # set once the result has been exported (closing asks otherwise)
         self.sectors_by_id = {s["id"]: s for s in mission["sectors"]}
-        self.grid = geo.SphereGrid(res_deg=GRID_RES_DEG)
+        self.grid = grid
         self.eps_min = result["global"]["eps_min_deg"]
         self.eps_max = result["global"]["eps_max_deg"]
         self._hidden_sectors: set = set()     # ids of the sectors whose volume is hidden in 3D
-        self._overlay_meshes: dict = {}       # (sid, 1:1 scale) -> (surface, outline), built once
 
         self._build_ui()
-        geo.add_static_scene(self.plotter)
-        self._rebuild_face_sectors()
-        self._rebuild_sector_overlays()
+        self._update_scene()
         self._fill_tables()
         self.table_sectors.itemChanged.connect(self._on_sector_check_changed)
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self) -> None:
+        outer = QHBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
         splitter = QSplitter(Qt.Horizontal)
-        self.setCentralWidget(splitter)
+        outer.addWidget(splitter)
 
         left = QWidget()
         lv = QVBoxLayout(left)
+        lv.setContentsMargins(0, 0, 0, 0)
         if self.partial:
             n_done, n_total = len(self.result["sectors"]), len(self.mission["sectors"])
             banner = QLabel(f"PARTIAL RESULT: calculation cancelled after {n_done} of {n_total} sectors. "
@@ -97,19 +93,14 @@ class ResultsWindow(QMainWindow):
         self.cb_metric = QComboBox()
         self.cb_metric.addItems(["Achieved RR / target RR", "Energy % of this sector (worst face)",
                                  "Energy % of the face total (most loaded face)"])
-        self.cb_metric.currentIndexChanged.connect(self._rebuild_sector_overlays)
+        self.cb_metric.currentIndexChanged.connect(lambda _i: self._update_scene())
         top.addWidget(self.cb_metric)
         top.addStretch(1)
         lv.addLayout(top)
-        self.display_bar = DisplayBar()
-        self.display_bar.faces_changed.connect(self._apply_visibility)
-        self.display_bar.show_all_sectors.connect(lambda: self._set_all_sectors_visible(True))
-        self.display_bar.hide_all_sectors.connect(lambda: self._set_all_sectors_visible(False))
-        self.display_bar.scale_changed.connect(self._on_scale_changed)
-        self.display_bar.scale_axes_changed.connect(lambda _on: self._apply_visibility())
-        lv.addWidget(self.display_bar)
-        self.plotter = QtInteractor(left)
-        lv.addWidget(self.plotter.interactor)
+        self.view = SceneView(self.grid, face_opacity=0.18, sector_opacity=0.55)
+        self.view.show_all_sectors.connect(lambda: self._set_all_sectors_visible(True))
+        self.view.hide_all_sectors.connect(lambda: self._set_all_sectors_visible(False))
+        lv.addWidget(self.view)
         splitter.addWidget(left)
 
         panel = QScrollArea()
@@ -126,6 +117,7 @@ class ResultsWindow(QMainWindow):
         v.addWidget(self._build_export_group())
         v.addStretch(1)
         splitter.addWidget(panel)
+        splitter.setChildrenCollapsible(False)
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 2)
 
@@ -183,23 +175,13 @@ class ResultsWindow(QMainWindow):
         h = QHBoxLayout(box)
         b_json = QPushButton("Export JSON (full result)")
         b_csv = QPushButton("Export CSV (summary)")
-        b_json.clicked.connect(self._export_json)
+        b_json.clicked.connect(self.export_json)
         b_csv.clicked.connect(self._export_csv)
         h.addWidget(b_json)
         h.addWidget(b_csv)
         return box
 
     # ------------------------------------------------------------------ 3D scene
-    def _rebuild_face_sectors(self) -> None:
-        scene = geo.build_face_sectors(self.grid, self.eps_min, self.eps_max)
-        for k in range(4):
-            if scene.surfaces[k].n_points:
-                self.plotter.add_mesh(scene.surfaces[k], color=geo.FACE_COLORS[k], opacity=0.18,
-                                       culling="back", name=f"face_surf_{k}", render=False)
-            if scene.outlines[k].n_points:
-                self.plotter.add_mesh(scene.outlines[k], color=geo.COLORS["fg"], line_width=1,
-                                       name=f"face_outline_{k}", render=False)
-
     def _sector_energy(self, r: dict) -> float:
         """Worst energy fraction of this sector alone, over the faces it uses."""
         return max((fc["energy_fraction"] for fc in r.get("faces", {}).values()), default=0.0)
@@ -222,61 +204,29 @@ class ResultsWindow(QMainWindow):
             return _energy_color(self._sector_energy(r))
         return _energy_color(self._face_total_energy(r))
 
-    def _rebuild_sector_overlays(self, *_args) -> None:
-        for r in self.result["sectors"]:
-            sid = r["id"]
-            sec = self.sectors_by_id.get(sid)
-            surf_name, out_name, lbl_name = geo.sector_actor_names(sid)
-            if sec is None:
-                continue
-            true_scale = self.display_bar.true_scale()
-            if (sid, true_scale) not in self._overlay_meshes:   # geometry is fixed here: a metric change only recolours
-                build = geo.build_sector_volume_km if true_scale else geo.build_sector_overlay
-                self._overlay_meshes[sid, true_scale] = build(self.grid, sec, self.eps_min, self.eps_max)
-            poly, outline = self._overlay_meshes[sid, true_scale]
-            if r["status"] != "OK":
-                color = "#8a95a3"
-            else:
-                color = self._sector_color(r)
-            if poly.n_points:
-                self.plotter.add_mesh(poly, color=color, opacity=0.55, culling=None if true_scale else "back",
-                                      name=surf_name, render=False)
-            if outline.n_points:
-                self.plotter.add_mesh(outline, color=color, line_width=2, name=out_name, render=False)
-            centre = poly.points.mean(axis=0) if poly.n_points else None
-            if centre is None:
-                continue
-            if r["status"] != "OK":
-                text = f"{sid}\n{r['status']}"
-            else:
-                w = r["wf"]
-                rg = r["range_km"]
-                n_wf = len(r.get("wf_set", [w]))
-                text = (f"{sid}  {w['freq_ghz']} GHz, " +
-                        (f"{n_wf} WFs" if n_wf > 1 else w["integration"][:4]) + "\n"
-                        f"range: worst {rg['at_worst_scan']} / best {rg['at_best_scan']} km\n"
-                        f"RR: target {r['rr_target_s']:.0f}s alone {r['rr_alone_s']:.0f}s "
-                        f"mission {r.get('rr_est_mission_s', r['rr_target_s']):.0f}s\n"
-                        f"sector: energy {100 * self._sector_energy(r):.0f} % / time {100 * self._sector_time(r):.0f} %"
-                        f" | face total energy {100 * self._face_total_energy(r):.0f} %")
-                if r.get("flags"):
-                    text += f"\n! {len(r['flags'])} flag(s)"
-            self.plotter.add_point_labels([centre], [text], name=lbl_name, text_color=color,
-                                           font_size=10, shape_opacity=0.6, show_points=False, render=False)
-        ranges = [self.sectors_by_id[r["id"]]["range_km"] for r in self.result["sectors"] if r["id"] in self.sectors_by_id]
-        geo.set_km_axes(self.plotter, max(ranges, default=None) if self.display_bar.true_scale() else None)
-        self._apply_visibility()   # the one render of this rebuild
+    def _sector_text(self, r: dict) -> str:
+        sid = r["id"]
+        if r["status"] != "OK":
+            return f"{sid}\n{r['status']}"
+        w = r["wf"]
+        rg = r["range_km"]
+        n_wf = len(r.get("wf_set", [w]))
+        text = (f"{sid}  {w['freq_ghz']} GHz, " +
+                (f"{n_wf} WFs" if n_wf > 1 else w["integration"][:4]) + "\n"
+                f"range: worst {rg['at_worst_scan']} / best {rg['at_best_scan']} km\n"
+                f"RR: target {r['rr_target_s']:.0f}s alone {r['rr_alone_s']:.0f}s "
+                f"mission {r.get('rr_est_mission_s', r['rr_target_s']):.0f}s\n"
+                f"sector: energy {100 * self._sector_energy(r):.0f} % / time {100 * self._sector_time(r):.0f} %"
+                f" | face total energy {100 * self._face_total_energy(r):.0f} %")
+        if r.get("flags"):
+            text += f"\n! {len(r['flags'])} flag(s)"
+        return text
 
-    def _on_scale_changed(self, true_scale: bool) -> None:
-        """1:1 on: redraw the volumes in km (radar out to the required range) and zoom to fit them all; off: back to
-        the default unit-sphere view."""
-        self._rebuild_sector_overlays()
-        if true_scale:
-            geo.fit_camera_to_actors(self.plotter, [geo.sector_actor_names(r["id"])[0] for r in self.result["sectors"]]
-                                     + (geo.KM_AXES_LINES if self.display_bar.scale_axes_visible() else []))
-        else:
-            geo.set_default_camera(self.plotter)
-        self._apply_visibility()
+    def _update_scene(self) -> None:
+        draws = [SectorDraw(r["id"], self.sectors_by_id[r["id"]],
+                            self._sector_color(r) if r["status"] == "OK" else "#8a95a3", self._sector_text(r))
+                 for r in self.result["sectors"] if r["id"] in self.sectors_by_id]
+        self.view.set_scene(self.eps_min, self.eps_max, draws, hidden=self._hidden_sectors)
 
     # ------------------------------------------------------------------ 3D visibility
     def _on_sector_check_changed(self, item: QTableWidgetItem) -> None:
@@ -287,7 +237,7 @@ class ResultsWindow(QMainWindow):
             self._hidden_sectors.discard(sid)
         else:
             self._hidden_sectors.add(sid)
-        self._apply_visibility()
+        self.view.set_hidden(self._hidden_sectors)
 
     def _set_all_sectors_visible(self, visible: bool) -> None:
         self._hidden_sectors = set() if visible else {r["id"] for r in self.result["sectors"]}
@@ -295,18 +245,7 @@ class ResultsWindow(QMainWindow):
         for row in range(self.table_sectors.rowCount()):
             self.table_sectors.item(row, 0).setCheckState(Qt.Checked if visible else Qt.Unchecked)
         self.table_sectors.blockSignals(False)
-        self._apply_visibility()
-
-    def _apply_visibility(self) -> None:
-        """Re-applied after every rebuild (colour metric change), since rebuilt actors come back visible."""
-        for k in range(4):
-            geo.set_actors_visible(self.plotter, geo.face_actor_names(k),
-                                   self.display_bar.face_visible(k) and not self.display_bar.true_scale())
-        geo.set_reference_scene_visible(self.plotter, not self.display_bar.true_scale())
-        geo.set_km_axes_visible(self.plotter, self.display_bar.scale_axes_visible())
-        for r in self.result["sectors"]:
-            geo.set_actors_visible(self.plotter, geo.sector_actor_names(r["id"]), r["id"] not in self._hidden_sectors)
-        self.plotter.render()
+        self.view.set_hidden(self._hidden_sectors)
 
     # ------------------------------------------------------------------ tables
     def _fill_tables(self) -> None:
@@ -368,7 +307,7 @@ class ResultsWindow(QMainWindow):
                 self.table_bins.setItem(i, c, QTableWidgetItem(str(val)))
 
     # ------------------------------------------------------------------ export
-    def _export_json(self) -> None:
+    def export_json(self) -> None:
         path, _ = QFileDialog.getSaveFileName(self, "Export the result", "mission_report.json",
                                                "JSON (*.json)")
         if not path:
@@ -378,6 +317,8 @@ class ResultsWindow(QMainWindow):
                 json.dump(self.result, fh, indent=2, ensure_ascii=False)
         except Exception as exc:  # noqa: BLE001
             QMessageBox.critical(self, "Export", f"Export failed: {exc}")
+            return
+        self.exported = True
 
     def _export_csv(self) -> None:
         path, _ = QFileDialog.getSaveFileName(self, "Export the summary", "mission_report.csv",
@@ -404,3 +345,5 @@ class ResultsWindow(QMainWindow):
                                 "; ".join(r.get("flags", []))])
         except Exception as exc:  # noqa: BLE001
             QMessageBox.critical(self, "Export", f"Export failed: {exc}")
+            return
+        self.exported = True

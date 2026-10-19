@@ -1,6 +1,10 @@
-import importlib.util, os, sys, math, json, itertools
+"""Builds core/cost_table.json, the table behind the fast cost estimate (core/cost_estimate.py).
+Run from anywhere: python tools/gen_cost_table.py"""
+import importlib.util, os, sys, json, itertools
 from multiprocessing import Pool
-_WF_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "WF_RANGE_CALC_V6.0.10.py")
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_WF_PATH = os.path.join(_ROOT, "WF_RANGE_CALC_V6.0.10.py")
+_OUT = os.path.join(_ROOT, "core", "cost_table.json")
 spec = importlib.util.spec_from_file_location("wf", _WF_PATH)
 wf = importlib.util.module_from_spec(spec); sys.modules["wf"] = wf; spec.loader.exec_module(wf)
 C = wf.C_MPS; PPK = wf.BAND_S.p_pk_total_w; F = 2.8
@@ -43,5 +47,5 @@ if __name__ == "__main__":
         tab[key] = None if best is None else [best[0], best[1], best[2], round(best[3], 1), round(best[4], 2), best[5]]
         reach[key] = [round(rmax, 1), e_rmax]     # max range of the cell (full power) and that waveform's energy (J)
     json.dump({"R": RS, "RCS": RCS, "V": VS, "TH": TH, "ppk": PPK, "pavg": 2e6 * wf.CHAIN_EFF * wf.PAE, "t": tab,
-               "reach": reach}, open("cost_table.json", "w"))
+               "reach": reach}, open(_OUT, "w"))
     print(len(tab), sum(1 for x in tab.values() if x is None), "infeasible")

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-MISSION_DATA -- mission preparation data model: sector templates, mission-prep validation ("Validate mission prep"),
-and JSON/CSV load/save, kept strictly compatible with mission_optimizer.py's input format (same field
-names, same box/cap shapes) so a saved mission file runs unchanged through mission_optimizer.run().
+MISSION -- mission preparation data model: sector templates, mission-prep validation ("Validate mission prep"),
+and JSON/CSV load/save, kept strictly compatible with the optimiser's input format (same field names, same box/cap
+shapes) so a saved mission file runs unchanged through core.optimizer.run().
 
 Validation messages are operator-facing.
 """
@@ -13,10 +13,10 @@ import csv
 import json
 import math
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-# Re-use mission_optimizer's loader so JSON/CSV parsing never diverges from what run() expects.
-import mission_optimizer as mo
+# Re-use the optimiser's loader so JSON/CSV parsing never diverges from what run() expects.
+from . import optimizer as mo
 
 GLOBAL_DEFAULTS: Dict[str, float] = {"eps_min_deg": -90.0, "eps_max_deg": 90.0, "face_elec_mw": 2.0}
 
@@ -161,7 +161,10 @@ def validate_mission(mission: dict) -> List[str]:
 
 # ----------------------------------------------------------------------------- I/O
 def load_mission(path: str) -> dict:
-    return mo.load_mission(path)
+    """Mission file (JSON or CSV) with its global parameters completed by the defaults (a CSV has none)."""
+    mission = mo.load_mission(path)
+    mission.setdefault("global", dict(GLOBAL_DEFAULTS))
+    return mission
 
 
 def save_mission_json(path: str, mission: dict) -> None:
@@ -178,7 +181,7 @@ _CSV_FIELDS = [
 
 def save_mission_csv(path: str, mission: dict) -> None:
     """Sector table only (global parameters have no column in mission_example.csv's format;
-    they stay at mission_optimizer's defaults when a CSV is reloaded -- same as the provided example)."""
+    they stay at the optimiser's defaults when a CSV is reloaded -- same as the provided example)."""
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=_CSV_FIELDS, extrasaction="ignore")
         w.writeheader()

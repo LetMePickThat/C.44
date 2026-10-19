@@ -4,7 +4,7 @@
 REDUNDANCY -- does an earlier watch sector already meet the need of a later one?
 
 Sector A meets sector B's need in a direction when, with the waveform plan the optimiser chooses for A (same code
-path as run(): mission_optimizer.sector_plan), A's search in that direction:
+path as run(): core.optimizer.sector_plan), A's search in that direction:
   - guarantees at least the same detection range on B's target (RCS, Swerling, migration at v_close_max) as B's own
     spec, initial search only (one detection, the model's Pd). A target closing at v can cross the detection range
     just after a look and is seen one revisit later, so a search reaching R with revisit RR guarantees R - v RR:
@@ -24,7 +24,7 @@ when those shapes are boxes (the difference involving a cap is neither a box nor
 judged on the rest of the overlap: that shortfall is A's to fix. The proposal then reports the share of the removed
 part where A is short, since B's need is not met there until A is fixed.
 
-No Qt dependency: optimize_worker.RedundancyWorker runs find_redundancies() on a background thread.
+No Qt dependency: gui.prep_tab.RedundancyWorker runs find_redundancies() on a background thread.
 """
 from __future__ import annotations
 
@@ -34,9 +34,9 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-import geometry as geo
-import mission_data as md
-import mission_optimizer as mo
+from . import geometry as geo
+from . import mission as md
+from . import optimizer as mo
 
 wf = mo.wf
 

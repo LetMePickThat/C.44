@@ -123,7 +123,7 @@ import sys
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
-MODEL_VERSION = "6.0.9"
+MODEL_VERSION = "6.0.10"
 
 # =============================================================================
 # USER-EDITABLE PARAMETERS

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MISSION_OPTIMIZER V1.0 -- pre-mission waveform / budget optimiser for the S-band surveillance (search) function.
+OPTIMIZER (core/optimizer.py, ex mission_optimizer.py) V1.0 -- pre-mission waveform / budget optimiser for the S-band surveillance (search) function.
 
 Input  : mission file (JSON or CSV) = global parameters + any number of watch sectors.
 Output : per sector -> suggested WF, achieved range, RR estimate, radar budget (time, energy, average power, per face);
@@ -41,6 +41,7 @@ import functools
 import importlib.util
 import json
 import math
+import os
 import sys
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from concurrent.futures.process import BrokenProcessPool
@@ -48,8 +49,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-import os
-_WF_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "WF_RANGE_CALC_V6.0.10.py")
+# The radar model lives next to the core/ package (its file name is not importable as a module).
+_WF_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "WF_RANGE_CALC_V6.0.10.py")
 _spec = importlib.util.spec_from_file_location("wf", _WF_PATH)
 wf = importlib.util.module_from_spec(_spec)
 sys.modules["wf"] = wf
@@ -687,7 +688,7 @@ def print_report(res: dict) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("usage: mission_optimizer.py mission.json|mission.csv [report.json]")
+        print("usage: python -m core.optimizer mission.json|mission.csv [report.json]")
         sys.exit(1)
     result = run(load_mission(sys.argv[1]))
     print_report(result)
