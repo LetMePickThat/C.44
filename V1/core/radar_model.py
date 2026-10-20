@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.2.0
+# Radar Performance Model - V6.3.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,18 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.2.0 -> V6.3.0 (roadmap step 1.3: TRM and transmit chain, GaN-on-diamond with microchannel cooling)
+#   - ELECTRICAL face budget: a face has face_elec_mw x CHAIN_EFF for transmission (face_elec_avail_w, was the RF
+#     power x one PAE 0.75 shared by S and Ku) and every look costs its RF energy / PAE. solve() reports the PAE, the
+#     electrical average power of the dwell and the TRM dissipation; the optimiser and tracking add the heat per face.
+#   - Variable PAE per band: pae_sat x tau / (tau + t_edge) x min(1, 1 - a (d - d_ref)), d = tau / PRI of a train,
+#     d_ref 0.10: S 0.80 / 0.2 us / a 0.05, Ku 0.65 / 0.1 us / a 0.08 (optimistic 2050-60).
+#   - duty_max 0.65 (S, Ku) checked on trains (Waveform); TRM buffer S 5 -> 25 J, Ku 0 -> 1.2 J, max fraction
+#     0.5 -> 0.2: tau_max = frac E PAE_sat / P_pk - t_edge = S 2.0 ms, Ku 2.08 ms. The pulse electrical energy
+#     includes the edges. In-train recharge / TRM feed moved to step 4.1 with the face bus and storage.
+#   - Power back-off ("no excess energy" power scale, Ku look back-off) keeps the PAE: optimistic until the PAE vs
+#     back-off law of step 3.1.
 #
 # Changes V6.1.0 -> V6.2.0 (roadmap step 1.2: active mismatch, grating lobes, far sidelobes, polarisation)
 #   - ONE active-mismatch model for S and Ku, on TX and on RX (loss "scan_mismatch" = 2 x the per-pass loss), separate
@@ -209,7 +221,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import antenna
     from params import P
 
-MODEL_VERSION = "6.2.0"
+MODEL_VERSION = "6.3.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -225,8 +237,9 @@ FACE_ELEC_POWER_MW: float = P.get("power.face_elec_mw")    # electrical power al
 DETECT_PD: float = P.get("detection.pd")
 DETECT_PFA: float = P.get("detection.pfa")                 # per range-Doppler cell, single-step detection
 
-# --- Power chain ---
-PAE: float = P.get("power.pae")
+# --- Power chain (electrical budget since step 1.3; the PAE is per band and per waveform: pae()) ---
+PAE_DUTY_REF: float = P.get("power.pae_duty_ref")
+TRM_TECHNOLOGY: str = P.get("power.trm_technology")
 CHAIN_EFF: float = P.get("power.psu_eff") * P.get("power.distribution_eff") * (1.0 - P.get("power.overhead_frac"))
 
 # --- Range migration ---
@@ -354,6 +367,9 @@ class BandConfig:
     waim_match_deg: float        # scan angle where the WAIM matches the array (active-mismatch model, step 1.2)
     n_trm: int
     p_pk_trm_w: float
+    pae_sat: float               # saturated PAE at PAE_DUTY_REF (step 1.3)
+    pae_t_edge_s: float          # DC-on time per pulse without full RF (edges, bias / phase settling)
+    pae_duty_slope: float        # relative PAE loss per unit duty above PAE_DUTY_REF (channel heating)
     eta_illum_tx: float          # (eta_illum_rx is derived from the volume's RX weighting: rx_beam())
     t_sys_k: float
     losses_db: Dict[str, float]  # fixed implementation losses (summed)
@@ -362,7 +378,7 @@ class BandConfig:
     e_buf_trm_j: float = 0.0      # per-TRM energy buffer, J (0 = droop not modelled)
     buffer_max_fraction: float = 0.5   # solve() refuses a pulse drawing more than this fraction of the buffer
     bi_max_mhz: float = 0.0       # instantaneous bandwidth ceiling, MHz (0 = not defined)
-    duty_max: float = 0.0         # TRM duty ceiling (0 = not defined; not used by solve() yet)
+    duty_max: float = 0.0         # TRM duty ceiling on pulse trains (0 = not defined), checked by Waveform
 
     def contains(self, f_ghz: float) -> bool:
         return self.usable_lo_ghz <= f_ghz <= self.usable_hi_ghz
@@ -427,7 +443,8 @@ def _band(name: str) -> BandConfig:
         edge_derating_db=P.get(b + "edge_derating_db"),
         scan_max_deg=P.get(b + "scan_max_deg"), scan_break_ghz=P.get(b + "scan_break_ghz"),
         scan_max_hi_deg=P.get(b + "scan_max_hi_deg"), waim_match_deg=P.get(b + "waim_match_deg"),
-        n_trm=N_TRM[name], p_pk_trm_w=P.get(b + "p_pk_trm_w"),
+        n_trm=N_TRM[name], p_pk_trm_w=P.get(b + "p_pk_trm_w"), pae_sat=P.get(b + "pae_sat"),
+        pae_t_edge_s=P.get(b + "pae_t_edge_s"), pae_duty_slope=P.get(b + "pae_duty_slope"),
         eta_illum_tx=P.get(b + "eta_illum_tx"),
         t_sys_k=t_sys_cascade(P.section(b + "rx")),
         losses_db={**P.section(b + "losses_db"), "TX_chain": tx_chain_loss_db(P.section(b + "tx"), P.section(b + "rx"))},
@@ -446,17 +463,42 @@ BANDS: Dict[str, BandConfig] = {"S": BAND_S, "Ku": BAND_KU}
 SECTOR_RADIUS_DEG: float = max(max(b.scan_max_deg, b.scan_max_hi_deg) for b in BANDS.values())
 
 
+def pae(band: BandConfig, tau_s: float, duty: Optional[float] = None) -> float:
+    """PAE of a pulse of the band (step 1.3): pae_sat x tau / (tau + t_edge) x min(1, 1 - a (d - d_ref)). duty = tau / PRI
+    of a train; None (single pulse, no train) = PAE_DUTY_REF. Capped at pae_sat below d_ref (prudent)."""
+    d = PAE_DUTY_REF if duty is None else duty
+    derate = min(1.0, 1.0 - band.pae_duty_slope * (d - PAE_DUTY_REF))
+    return band.pae_sat * tau_s / (tau_s + band.pae_t_edge_s) * derate
+
+
+def pae_wf(wf: "Waveform") -> float:
+    """PAE of a waveform: its train duty if N > 1, the reference duty for a single pulse."""
+    return pae(BANDS[wf.band], wf.tau_s, wf.duty if wf.n > 1 else None)
+
+
+def pulse_elec_energy_trm_j(wf: "Waveform") -> float:
+    """Electrical energy one TRM draws from its buffer for one pulse (edges included): P_pk x tau / PAE."""
+    return BANDS[wf.band].p_pk_trm_w * wf.tau_s / pae_wf(wf)
+
+
 def tau_max_s(band: BandConfig) -> float:
-    """Longest pulse the TRM energy buffer allows (solve() refuses more): buffer_max_fraction x E_buf x PAE / P_pk per
-    TRM. Infinite when the buffer is not modelled (e_buf_trm_j = 0). Derived, so waveform spaces follow the architecture."""
+    """Longest pulse the TRM energy buffer allows (solve() refuses more): buffer_max_fraction x E_buf x pae_sat / P_pk
+    minus the edge time, per TRM (exact for a single pulse or a train at d <= d_ref). Infinite when the buffer is not
+    modelled (e_buf_trm_j = 0). Derived, so waveform spaces follow the architecture."""
     if band.e_buf_trm_j <= 0.0:
         return math.inf
-    return band.buffer_max_fraction * band.e_buf_trm_j * PAE / band.p_pk_trm_w
+    return band.buffer_max_fraction * band.e_buf_trm_j * band.pae_sat / band.p_pk_trm_w - band.pae_t_edge_s
 
 
-def face_avg_rf_w(elec_mw: float) -> float:
-    """Average RF power a face can transmit (W) from its electrical power (MW): PSU, distribution, overhead, PAE."""
-    return elec_mw * 1e6 * CHAIN_EFF * PAE
+def face_elec_avail_w(elec_mw: float) -> float:
+    """Electrical power a face can spend on transmission (W) from its allocation (MW): PSU, distribution, overhead.
+    Every look costs its RF energy / PAE (electrical budget, step 1.3)."""
+    return elec_mw * 1e6 * CHAIN_EFF
+
+
+def trm_dissipation_w(wf: "Waveform") -> float:
+    """Heat one TRM dissipates on average during the dwell (W): P_pk x duty x (1 / PAE - 1). Output for step 4.2."""
+    return BANDS[wf.band].p_pk_trm_w * wf.duty * (1.0 / pae_wf(wf) - 1.0)
 
 
 def band_for_frequency(f_ghz: float) -> Optional[BandConfig]:
@@ -795,6 +837,9 @@ class Waveform:
         if self.role not in BANDS[self.band].allowed_roles:
             raise ValueError(f"{self.name}: role {self.role} is not allowed in {self.band} band "
                              f"(allowed: {BANDS[self.band].allowed_roles})")
+        dmax = BANDS[self.band].duty_max
+        if dmax > 0 and self.n > 1 and self.tau_s / self.pri_s > dmax * (1.0 + 1e-12):
+            raise ValueError(f"{self.name}: duty {self.tau_s / self.pri_s:.3f} exceeds the {self.band} TRM ceiling {dmax:g}")
         bi = BANDS[self.band].bi_max_mhz
         if bi > 0 and self.sig_bw_mhz > bi:
             raise ValueError(f"{self.name}: signal bandwidth {self.sig_bw_mhz} MHz exceeds the {self.band} "
@@ -853,11 +898,13 @@ class Result:
     range_km: float
     losses: Dict[str, float]
     l_tot_db: float
-    p_avg_used_w: float
-    p_avg_max_w: float
+    p_avg_used_w: float          # electrical average power of the dwell, whole face (step 1.3)
+    p_avg_max_w: float           # electrical power available for transmission (face_elec_avail_w)
     r_unamb_km: float
     n_cells: float
     frame: Optional[Dict[str, float]]
+    pae: float = 0.0             # PAE of the waveform
+    p_diss_trm_w: float = 0.0    # heat per TRM during the dwell
 
 
 def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
@@ -884,7 +931,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     if band.pol_loss_db > 0:
         losses["polarisation"] = band.pol_loss_db
     if band.e_buf_trm_j > 0:
-        x_buf = band.p_pk_trm_w / PAE * wf.tau_s / band.e_buf_trm_j
+        x_buf = pulse_elec_energy_trm_j(wf) / band.e_buf_trm_j
         if x_buf > band.buffer_max_fraction * (1.0 + 1e-12):     # tolerance: tau_max_s() sits exactly on the limit
             raise ValueError(f"{wf.name}: pulse needs {x_buf:.2f} of the TRM buffer (max {band.buffer_max_fraction:g}): "
                              f"droop too large")
@@ -907,8 +954,9 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     den = (4.0 * math.pi) ** 3 * K_BOLTZ * band.t_sys_k * db_to_lin(l_tot) * db_to_lin(snr_db)
     r_km = (num / den) ** 0.25 / 1000.0
 
-    p_avg_used = band.p_pk_total_w * wf.duty
-    p_avg_max = face_avg_rf_w(elec_mw)
+    eta = pae_wf(wf)
+    p_avg_used = band.p_pk_total_w * wf.duty / eta
+    p_avg_max = face_elec_avail_w(elec_mw)
 
     frame = None
     if wf.role == "SEARCH":
@@ -920,7 +968,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
                  "rx_beams_per_position": rx_beams_per_position(f_ghz, rx_sll_db)}
 
     return Result(wf, target, snr_db, driver, r_km, losses, l_tot, p_avg_used, p_avg_max,
-                  C_MPS * wf.pri_s / 2.0 / 1000.0, n_cells, frame)
+                  C_MPS * wf.pri_s / 2.0 / 1000.0, n_cells, frame, eta, trm_dissipation_w(wf))
 
 
 # -----------------------------------------------------------------------------
@@ -943,13 +991,15 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
           f"{S_TRM_PER_TRSA_SIDE} S TRM) | emissive {PHYS_AREA_M2:.4f} m2, total {TOTAL_AREA_M2:.4f} m2, fill "
           f"{100 * FILL_FACTOR:.2f} % | envelope {ARRAY_ENVELOPE_M:.3f} m | pitch S {1e3 * S_TRM_PITCH_M:.1f} mm, "
           f"Ku {1e3 * KU_TRM_PITCH_M:.1f} mm")
+    print(f"TRM: {TRM_TECHNOLOGY} | PAE sat {band.pae_sat:g} at duty {PAE_DUTY_REF:g} | buffer {band.e_buf_trm_j:g} J "
+          f"(max {band.buffer_max_fraction:g} per pulse -> tau max {1e3 * tau_max_s(band):.2f} ms) | duty max {band.duty_max:g}")
     print(f"Band {band.name}: {band.n_trm} TRM x {band.p_pk_trm_w:.0f} W = {band.p_pk_total_w/1e6:.2f} MW peak/face | "
           f"scan limit {lim:.0f} deg | T_sys {band.t_sys_k:.1f} K | fixed losses {band.l_fixed_db:.2f} dB")
     rx = rx_beam(band.name)
     print(f"Gain TX {lin_to_db(gain_lin(band.eta_illum_tx, f_ghz, theta_deg)):.2f} dBi | "
           f"RX {lin_to_db(gain_lin(rx.eta, f_ghz, theta_deg)):.2f} dBi (sidelobes {RX_SLL_DEFAULT_DB:g} dB, eta "
           f"{rx.eta:.3f}) | HPBW TX {hpbw_deg(f_ghz, theta_deg):.2f} / RX {hpbw_deg(f_ghz, theta_deg, 'rx'):.2f} deg | "
-          f"avg RF available {face_avg_rf_w(elec_mw)/1e6:.3f} MW")
+          f"electrical available for TX {face_elec_avail_w(elec_mw)/1e6:.3f} MW")
     if abs(theta_deg) <= lim:
         am = active_mismatch(f_ghz, theta_deg)
         pp = pol_purity(theta_deg, 45.0)
@@ -978,8 +1028,9 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
         ls = ", ".join(f"{k} {v:.2f}" for k, v in r.losses.items() if v)
         print(f"  Losses (dB): {ls} | total {r.l_tot_db:.2f}")
         print(f"  Migration: {r.n_cells:.0f} range cells crossed over the dwell ({MIGRATION_MODE.lower()})")
-        print(f"  Average power: {r.p_avg_used_w/1e3:.1f} kW used of {r.p_avg_max_w/1e3:.0f} kW available "
-              f"({100*r.p_avg_used_w/r.p_avg_max_w:.1f} %) | duty {100*w.duty:.2f} %")
+        print(f"  Electrical power: {r.p_avg_used_w/1e3:.1f} kW used of {r.p_avg_max_w/1e3:.0f} kW available "
+              f"({100*r.p_avg_used_w/r.p_avg_max_w:.1f} %) | duty {100*w.duty:.2f} % | PAE {r.pae:.3f} | "
+              f"TRM heat {r.p_diss_trm_w:.1f} W during the dwell")
         flag = "  <-- RANGE AMBIGUOUS (needs staggered PRI / ambiguity resolution)" if r.range_km > r.r_unamb_km else ""
         print(f"  Unambiguous range (nominal PRI): {r.r_unamb_km:,.0f} km{flag}")
         if r.frame:
@@ -1036,7 +1087,15 @@ def selftest() -> int:
           and abs(active_mismatch(2.9, 75.0)["loss_db_per_pass"] - 1.82) < 0.05)
     check("Angle CRLB x margin = 1.13 x 0.436 TX beamwidths / sqrt(SNR)", abs(angle_k_tx("S") - 0.4927) < 0.003,
           f"({angle_k_tx('S'):.4f})")
-    check("Chain efficiency 0.917 and avg RF 1.375 MW at 2 MW", abs(CHAIN_EFF - 0.917) < 1e-3 and abs(2e6 * CHAIN_EFF * PAE - 1.375e6) < 3e3)
+    check("Chain efficiency 0.917 and 1.834 MW electrical for TX at 2 MW", abs(CHAIN_EFF - 0.917) < 1e-3
+          and abs(face_elec_avail_w(2.0) - 1.834e6) < 1e3)
+    check("PAE: S 0.80 at d_ref, edges -1 % on 20 us, duty derating -2.75 % at d = 0.65; Ku 0.65",
+          abs(pae(BAND_S, 1e-3) - 0.8 * 1e-3 / (1e-3 + 0.2e-6)) < 1e-12
+          and abs(pae(BAND_S, 20e-6) / 0.8 - 20 / 20.2) < 1e-12
+          and abs(pae(BAND_S, 1e-3, 0.65) / pae(BAND_S, 1e-3) - (1 - 0.05 * 0.55)) < 1e-12
+          and abs(pae(BAND_KU, 1e-3) - 0.65 * 1e-3 / (1e-3 + 0.1e-6)) < 1e-12)
+    check("tau_max from the buffer: S 2.0 ms, Ku 2.08 ms", abs(tau_max_s(BAND_S) - (2.0e-3 - 0.2e-6)) < 1e-12
+          and abs(tau_max_s(BAND_KU) - (2.08e-3 - 0.1e-6)) < 1e-12)
 
     check("S 2.8 GHz: WF-LRS playable", [w.name for w in playable(2.8, 0.0)] == ["WF-LRS"])
     check("Ku 14.0 GHz: nothing playable (no Ku waveform in catalogue, no search in Ku)", playable(14.0, 0.0) == [])
@@ -1060,7 +1119,7 @@ def selftest() -> int:
     gr = 4 * math.pi * PHYS_AREA_M2 * PATTERNS["S"].rx[-25.0].eta * ETA_OHMIC / lam ** 2
     l_db = (2.0 + 0.5 + 0.5 + 0.2 + 0.6 + 0.5)      # DSP CFAR calibration Ku_blockage TX_chain pol (pre-LNA is in T_sys)
     l_db += -20 * math.log10(1 - ((1 - math.cos(math.radians(45))) / (1 + math.cos(math.radians(45)))) ** 2)   # WAIM
-    l_db += -10 * math.log10(1 - (2000 / 0.75 * 200e-6 / 5.0) / 2) + MB_L8_DB * (2.0 / 3.0) ** MB_P + MIGRATION_RESIDUAL_DB + 1.672 * (BEAM_SPACING_HPBW ** 2 + 0.5 ** 2)
+    l_db += -10 * math.log10(1 - (2000 * 200.2e-6 / 0.8 / 25.0) / 2) + MB_L8_DB * (2.0 / 3.0) ** MB_P + MIGRATION_RESIDUAL_DB + 1.672 * (BEAM_SPACING_HPBW ** 2 + 0.5 ** 2)
     snr = db_to_lin(shnidman_total_snr_db(DETECT_PD, DETECT_PFA, 24, 1))
     r_hand = ((9.8e6 / 4) * gt * gr * lam ** 2 * 1000.0 * 200e-6 * 24
               / ((4 * math.pi) ** 3 * K_BOLTZ * BAND_S.t_sys_k * db_to_lin(l_db) * snr)) ** 0.25 / 1000.0

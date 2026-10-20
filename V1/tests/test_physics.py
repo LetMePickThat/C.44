@@ -80,7 +80,7 @@ def test_range_scales_as_peak_power_quarter_power(tmp_path):
     """16x the S TRM peak power -> 2x the range (R ~ P^(1/4)), and the change reaches solve() from the parameter file.
     The TRM buffer is scaled with it, so the buffer droop (pulse energy / buffer) stays the same."""
     text = _replace_value(_default_toml(), "band.S", "p_pk_trm_w ", "2000.0", "32000.0")
-    text = _replace_value(text, "band.S", "e_buf_trm_j ", "5.0", "80.0")
+    text = _replace_value(text, "band.S", "e_buf_trm_j ", "25.0", "400.0")
     out = _run_with_params(text, "from core import radar_model as rm\n"
                                  "print(rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS['ST']).range_km)", tmp_path)
     assert float(out) / rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"]).range_km == pytest.approx(2.0, rel=1e-12)
@@ -243,7 +243,7 @@ def test_fast_estimate_follows_the_rx_setting():
     from core import geometry as geo
     grid = geo.SphereGrid(res_deg=tb.GRID_RES_DEG)
     sec = md.new_sector([])
-    p = rm.face_avg_rf_w(2.0)
+    p = rm.face_elec_avail_w(2.0)
     a = ce.estimate_sector_faces(table, sec, grid, -90.0, 90.0, p)
     b = ce.estimate_sector_faces(table, dict(sec, rx_sll_db=-35.0), grid, -90.0, 90.0, p)
     ea, eb = (sum(f.energy_j_per_refresh for f in x.values()) for x in (a, b))
@@ -438,18 +438,73 @@ def runs():
 def test_time_on_air_at_least_energy_over_peak_power(runs):
     """f_t >= f_e x P_avg / P_pk: a face cannot radiate its energy faster than at full peak power."""
     for n, res in runs.items():
-        p_avg = res["global"]["face_avg_rf_kW"] * 1e3
+        p_avg = res["global"]["face_elec_avail_kW"] * 1e3
         for k, f in res["faces_total"].items():
-            assert f["time_fraction"] >= f["energy_fraction"] * p_avg / rm.BAND_S.p_pk_total_w * (1 - 1e-9), (n, k)
+            # electrical budget (step 1.3): RF energy >= electrical x the lowest PAE of the S search space
+            pae_min = rm.pae(rm.BAND_S, min(mo.TAU_CAND), rm.BAND_S.duty_max)
+            assert f["time_fraction"] >= f["energy_fraction"] * p_avg * pae_min / rm.BAND_S.p_pk_total_w * (1 - 1e-9), (n, k)
 
 
 def test_longest_pulse_follows_the_trm_buffer(tmp_path):
-    """The longest S candidate pulse is derived from the buffer (frac x E x PAE / P_pk), and solve() accepts it."""
-    assert max(mo.TAU_CAND) == pytest.approx(0.5 * 5.0 * 0.75 / 2000.0) == rm.tau_max_s(rm.BAND_S)
-    rm.solve(mo.make_wf("t", max(mo.TAU_CAND), 1, 1e-3, 75.0, 1, "NONCOHERENT"), 2.8, 0.0, rm.TARGETS["ST"])
-    text = _replace_value(_default_toml(), "band.S", "e_buf_trm_j ", "5.0", "2.0")
+    """The longest S candidate pulse is derived from the buffer (frac x E x pae_sat / P_pk - t_edge), and solve()
+    accepts it."""
+    assert max(mo.TAU_CAND) == pytest.approx(0.2 * 25.0 * 0.8 / 2000.0 - 0.2e-6) == rm.tau_max_s(rm.BAND_S)
+    rm.solve(mo.make_wf("t", max(mo.TAU_CAND), 1, 3e-3, 75.0, 1, "NONCOHERENT"), 2.8, 0.0, rm.TARGETS["ST"])
+    text = _replace_value(_default_toml(), "band.S", "e_buf_trm_j ", "25.0", "10.0")
     out = _run_with_params(text, "from core import optimizer as mo\nprint(max(mo.TAU_CAND))", tmp_path)
-    assert float(out) == pytest.approx(0.5 * 2.0 * 0.75 / 2000.0)
+    assert float(out) == pytest.approx(0.2 * 10.0 * 0.8 / 2000.0 - 0.2e-6)
+
+
+# ----------------------------------------------------------------------------- TRM and transmit chain (step 1.3)
+def test_pae_law_per_band():
+    """pae_sat x tau / (tau + t_edge) x min(1, 1 - a (d - d_ref)); single pulse at d_ref; capped below d_ref."""
+    for b, sat, edge, a in ((rm.BAND_S, 0.80, 0.2e-6, 0.05), (rm.BAND_KU, 0.65, 0.1e-6, 0.08)):
+        assert (b.pae_sat, b.pae_t_edge_s, b.pae_duty_slope) == (sat, edge, a)
+        for tau in (10e-6, 1e-3):
+            for d in (0.3, 0.65):
+                assert rm.pae(b, tau, d) == pytest.approx(sat * tau / (tau + edge) * (1 - a * (d - 0.10)))
+            assert rm.pae(b, tau, 0.01) == rm.pae(b, tau) == pytest.approx(sat * tau / (tau + edge))
+    w = rm.Waveform("t", "SEARCH", "S", 100e-6, 8, 400e-6, 10.0)
+    assert rm.pae_wf(w) == rm.pae(rm.BAND_S, 100e-6, 0.25)
+    assert rm.pae_wf(rm.Waveform("t", "SEARCH", "S", 100e-6, 1, 1e-3, 10.0)) == rm.pae(rm.BAND_S, 100e-6)
+
+
+def test_duty_ceiling_on_trains_only():
+    assert rm.BAND_S.duty_max == rm.BAND_KU.duty_max == 0.65
+    rm.Waveform("ok", "SEARCH", "S", 650e-6, 4, 1e-3, 10.0)
+    with pytest.raises(ValueError, match="duty"):
+        rm.Waveform("hot", "SEARCH", "S", 700e-6, 4, 1e-3, 10.0)
+    rm.Waveform("single", "SEARCH", "S", 900e-6, 1, 1e-3, 10.0)     # one pulse: no train, no duty limit
+    assert all(w.n == 1 or w.duty <= 0.65 + 1e-12 for w in mo.candidate_waveforms({"range_km": 150.0}))
+
+
+def test_buffer_droop_and_tau_max_from_the_buffer():
+    """x = P_pk tau / PAE / E_buf; -10 log(1 - x / 2); the longest pulse sits on buffer_max_fraction = 0.2."""
+    w = rm.WF_LRS
+    x = 2000.0 * w.tau_s / rm.pae_wf(w) / 25.0
+    assert rm.solve(w, 2.8, 0.0, rm.TARGETS["ST"]).losses["buffer_droop"] == pytest.approx(-10 * math.log10(1 - x / 2))
+    for b in (rm.BAND_S, rm.BAND_KU):
+        tmax = rm.tau_max_s(b)
+        e = b.p_pk_trm_w * tmax / rm.pae(b, tmax)
+        assert e / b.e_buf_trm_j == pytest.approx(0.2)
+    assert rm.tau_max_s(rm.BAND_S) == pytest.approx(2.0e-3, abs=1e-6) and rm.tau_max_s(rm.BAND_KU) == pytest.approx(2.08e-3, abs=1e-6)
+
+
+def test_electrical_budget_and_dissipation(runs):
+    """The face has P_elec x CHAIN_EFF; each look costs RF / PAE; the heat is electrical - RF (> 0, < electrical)."""
+    assert rm.face_elec_avail_w(2.0) == pytest.approx(2e6 * rm.CHAIN_EFF)
+    r = rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"])
+    assert r.p_avg_used_w == pytest.approx(rm.BAND_S.p_pk_total_w * rm.WF_LRS.duty / r.pae)
+    assert r.p_diss_trm_w == pytest.approx(2000.0 * rm.WF_LRS.duty * (1 / r.pae - 1))
+    res = runs["mission_example.json"]
+    for k, fc in res["tracking"]["faces"].items():
+        if res["faces_total"][k]["positions"] > 0:
+            elec_kw = fc["total_energy"] * res["global"]["face_elec_avail_kW"]
+            assert 0.0 < fc["dissipation_kW"] < elec_kw
+            assert fc["dissipation_kW_m2"] == pytest.approx(fc["dissipation_kW"] / rm.TOTAL_AREA_M2)
+    look = trk.ku_look(30.0, rm.TARGETS["KKV"], 500.0, rm.face_elec_avail_w(2.0))
+    assert look["energy_J"] == pytest.approx(look["energy_rf_J"] / look["pae"]) and look["pae"] < rm.BAND_KU.pae_sat + 1e-12
+
 
 
 def test_no_coherent_dwell_beyond_the_coherence_floor():
@@ -554,7 +609,7 @@ def test_cost_table_matches_the_parameter_file():
                                        params.P.get(g + "v_mps"), params.P.get(g + "theta_deg"))
     assert t.is_current, "radar_system.toml changed since cost_table.json was built: python tools/gen_cost_table.py"
     assert t.ppk == rm.BAND_S.p_pk_total_w
-    assert t.pavg_ref_w == pytest.approx(rm.face_avg_rf_w(params.P.get("power.face_elec_mw")), rel=1e-12)
+    assert t.pavg_ref_w == pytest.approx(rm.face_elec_avail_w(params.P.get("power.face_elec_mw")), rel=1e-12)
 
 
 # ----------------------------------------------------------------------------- mission validation

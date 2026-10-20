@@ -193,7 +193,7 @@ def ku_look(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: float,
     """Cheapest Ku look reaching r_km at scan theta (power backed off to just reach it), for detection only
     (pack None) or for a track update (SNR = max(detection, accuracy)). Cost = max(energy / face average power,
     Ku TX time), as the search objective. None when no candidate reaches r_km. rx_sll_db: RX weighting of the
-    volume (None = default option)."""
+    volume (None = default option). energy_J is electrical (RF / PAE), energy_rf_J the radiated energy."""
     sll = rm.RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
     best = None
     for det, trk in _ku_candidates(_ku_integration(tgt.swerling), pack):
@@ -206,11 +206,14 @@ def ku_look(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: float,
                 driver = "DET"
         if r_eff < r_km or r_eff <= 0:
             continue
-        e = rm.BAND_KU.p_pk_total_w * det.n * det.tau_s * (r_km / r_eff) ** 4
+        e_rf = rm.BAND_KU.p_pk_total_w * det.n * det.tau_s * (r_km / r_eff) ** 4
+        eta = rm.pae_wf(det)
+        e = e_rf / eta                                       # electrical (step 1.3); PAE kept under back-off (3.1)
         t = det.n * det.tau_s
         cost = max(e / p_avg_max_w, t)
         if best is None or cost < best["cost"]:
-            best = {"cost": cost, "energy_J": e, "time_s": t, "driver": driver, "wf": det}
+            best = {"cost": cost, "energy_J": e, "energy_rf_J": e_rf, "pae": eta, "time_s": t, "driver": driver,
+                    "wf": det}
     return best
 
 
@@ -266,8 +269,8 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict
         look = ku_look(gr["theta"], tgt, r_det, p_avg_max_w, rx_sll_db=sll) if gr["theta"] <= ku_lim else None
         if look is None:
             ku_missing += float(gr["pos"].sum())
-        cg.append({"true": n_new * gr["pos"] / p_all, "fa": fa_g,
-                   "e_s": rm.BAND_S.p_pk_total_w * w["n_pulses"] * w["tau_us"] * 1e-6 / w["b_tx"] * gr["power_scale"],
+        e_s_rf = rm.BAND_S.p_pk_total_w * w["n_pulses"] * w["tau_us"] * 1e-6 / w["b_tx"] * gr["power_scale"]
+        cg.append({"true": n_new * gr["pos"] / p_all, "fa": fa_g, "e_s_rf": e_s_rf, "e_s": e_s_rf / w["pae"],
                    "ku": look})
     if ku_missing > 0:
         flags.append(f"{100 * ku_missing / p_all:.1f} % of the positions are out of Ku reach (scan limit or range): "
@@ -279,21 +282,25 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict
                      f"visible sidelobe {rm.sidelobe_visible_db(KU_FREQ_GHZ, th_ku, 'rx', sll):.1f} dB at {th_ku:g} deg: "
                      f"TRSA gap lobes)")
 
-    def ku_cost(looks_true: float, looks_fa: float, m: float) -> Tuple[np.ndarray, np.ndarray]:
-        e, t = np.zeros(4), np.zeros(4)
+    def ku_cost(looks_true: float, looks_fa: float, m: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Electrical energy, Ku TX time and heat (electrical - RF energy) per face, per refresh."""
+        e, t, q = np.zeros(4), np.zeros(4), np.zeros(4)
         for c in cg:
             lk = c["ku"]
             if lk is None:
                 continue
-            bo = lk["energy_J"] / (rm.BAND_KU.p_pk_total_w * lk["time_s"])       # power back-off of the look
+            bo = lk["energy_rf_J"] / (rm.BAND_KU.p_pk_total_w * lk["time_s"])    # power back-off of the look
             n_eq = c["true"] * looks_true + c["fa"] * looks_fa * FA_R4_MEAN     # looks, in design-range equivalents
             e += n_eq * lk["energy_J"] * m
+            q += n_eq * (lk["energy_J"] - lk["energy_rf_J"]) * m
             t += (c["true"] * looks_true * max(1.0, bo * m) + c["fa"] * looks_fa * max(1.0, bo * m * FA_R4_MEAN)) * lk["time_s"]
-        return e, t
+        return e, t, q
 
-    def s_touch_cost(m: float) -> Tuple[np.ndarray, np.ndarray]:
-        e = sum(((c["true"] + c["fa"] * FA_R4_MEAN) * c["e_s"] * m for c in cg), np.zeros(4))
-        return e, e / rm.BAND_S.p_pk_total_w                                     # one beam at full peak power
+    def s_touch_cost(m: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        n_c = [(c["true"] + c["fa"] * FA_R4_MEAN) * m for c in cg]
+        e = sum((n * c["e_s"] for n, c in zip(n_c, cg)), np.zeros(4))
+        e_rf = sum((n * c["e_s_rf"] for n, c in zip(n_c, cg)), np.zeros(4))
+        return e, e_rf / rm.BAND_S.p_pk_total_w, e - e_rf                         # one beam at full peak power
 
     tables = confirm_tables(sw, f_s)
     m_lin = 10.0 ** (MARGIN_DB / 10.0)
@@ -312,32 +319,32 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict
         for ij in ok:
             if mode == "S2":
                 i, j = ij
-                e_s, ts = s_touch_cost(m_lin[i])
-                e_k, tk = ku_cost(float(looks[i, j]), 0.0, m_lin[j])
-                e = e_s + e_k
+                e_s, ts, q_s = s_touch_cost(m_lin[i])
+                e_k, tk, q_k = ku_cost(float(looks[i, j]), 0.0, m_lin[j])
+                e, q = e_s + e_k, q_s + q_k
                 info = {"margin_db": [float(MARGIN_DB[i]), float(MARGIN_DB[j])], "success": float(succ[i, j]),
                         "ku_looks_true": float(looks[i, j]), "ku_looks_fa": 0.0}
             else:
                 j = int(ij[0])
                 l_fa = float(CLUSTER_N + (1 if mode == "KU1+7" else 0))
-                e, tk = ku_cost(float(looks[j]), l_fa, m_lin[j])
+                e, tk, q = ku_cost(float(looks[j]), l_fa, m_lin[j])
                 ts = np.zeros(4)
                 info = {"margin_db": float(MARGIN_DB[j]), "success": float(succ[j]),
                         "ku_looks_true": float(looks[j]), "ku_looks_fa": l_fa}
             load = max(float((e / p_avg_max_w).max()), float(ts.max()), float(tk.max()))
             if best is None or load < best[0]:
-                best = (load, info, e, ts, tk)
+                best = (load, info, e, ts, tk, q)
             if mode != "S2":
                 break                                      # smallest margin meeting the probability
-        _, info, e, ts, tk = best
+        _, info, e, ts, tk, q = best
         modes[mode] = {**info, "admissible": not why, "why_not": "; ".join(why),
-                       "e": e / p_avg_max_w / rr, "ts": ts / rr, "tk": tk / rr}
+                       "e": e / p_avg_max_w / rr, "ts": ts / rr, "tk": tk / rr, "q_w": q / rr}
 
     # --- active tracking per bracket
     at = []
     for b in sec.get("tracking", []):
         pack = rm.TrackingPack(b["angle_zone_deg"] / ANGLE_ZONE_SIGMAS, b["vr_acc_mps"], b["range_acc_m"])
-        e_face, t_face = np.zeros(4), np.zeros(4)
+        e_face, t_face, q_face = np.zeros(4), np.zeros(4), np.zeros(4)
         drivers: Dict[str, float] = {}
         wf_main, pos_main, unreachable = None, -1.0, 0.0
         for gr in groups:
@@ -348,6 +355,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict
                 continue
             e_face += share * look["energy_J"]
             t_face += share * look["time_s"]
+            q_face += share * (look["energy_J"] - look["energy_rf_J"])
             drivers[look["driver"]] = drivers.get(look["driver"], 0.0) + float(share.sum())
             if gr["pos"].sum() > pos_main:
                 wf_main, pos_main = look["wf"], float(gr["pos"].sum())
@@ -357,7 +365,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict
                  "energy_per_update_J": float(e_face.sum() / n_tr) if n_tr > 0 else 0.0,
                  "avg_power_kW": float(e_face.sum() / b["rr_s"] / 1e3),
                  "wf": _wf_label(wf_main) if wf_main is not None else "-",
-                 "e": e_face / p_avg_max_w / b["rr_s"], "tk": t_face / b["rr_s"],
+                 "e": e_face / p_avg_max_w / b["rr_s"], "tk": t_face / b["rr_s"], "q_w": q_face / b["rr_s"],
                  "unreachable_tracks": unreachable}
         if unreachable > 0:
             flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: {unreachable:.1f} track(s) out of Ku reach "
@@ -394,7 +402,7 @@ def budget(mission: dict, res: dict) -> dict:
     (with the reason) and the AT cost per bracket, per face the search / confirmation / AT shares and the verdict,
     and what to relax when a face does not fit."""
     g = res["global"]
-    p_avg_max = g["face_avg_rf_kW"] * 1e3
+    p_avg_max = g["face_elec_avail_kW"] * 1e3
     sph = mo._sphere(g["eps_min_deg"], g["eps_max_deg"])
     secs = {s["id"]: s for s in mission["sectors"]}
     base = {"e": np.zeros(4), "ts": np.zeros(4), "tk": np.zeros(4)}
@@ -466,14 +474,14 @@ def budget(mission: dict, res: dict) -> dict:
         conf = {}
         if mode is not None:
             md_ = sb["modes"][mode]
-            conf = {k: v for k, v in md_.items() if k not in _RES}
+            conf = {k: v for k, v in md_.items() if k not in _RES + ("q_w",)}
             conf.update({"faces": {str(k): {"energy_fraction": float(md_["e"][k]), "s_time_fraction": float(md_["ts"][k]),
                                             "ku_time_fraction": float(md_["tk"][k])} for k in sb["faces"]}})
         out_secs.append({
             "id": sid, "confirm_mode": mode, "reason": reason, "forced": forced[sid],
             "false_alarms_per_rr": round(float(sb["false_alarms_per_rr"].sum()), 1),
             "confirmation": conf, "alternatives": alts,
-            "at": [{**{k: v for k, v in b.items() if k not in ("e", "tk")},
+            "at": [{**{k: v for k, v in b.items() if k not in ("e", "tk", "q_w")},
                     "faces": {str(k): {"energy_fraction": float(b["e"][k]), "ku_time_fraction": float(b["tk"][k])}
                               for k in sb["faces"]}} for b in sb["at"]],
             "flags": sb["flags"]})
@@ -488,6 +496,9 @@ def budget(mission: dict, res: dict) -> dict:
         conf_ts = sum(sbs[s]["modes"][choice[s]]["ts"][k] for s in sbs if choice[s] is not None)
         conf_tk = sum(sbs[s]["modes"][choice[s]]["tk"][k] for s in sbs if choice[s] is not None)
         at_tk = sum(b["tk"][k] for s in sbs for b in sbs[s]["at"])
+        heat = float(res["faces_total"][str(k)].get("dissipation_kW", 0.0) * 1e3
+                     + sum(sbs[s]["modes"][choice[s]]["q_w"][k] for s in sbs if choice[s] is not None)
+                     + sum(b["q_w"][k] for s in sbs for b in sbs[s]["at"]))
         load = {key: float(tot[key][k]) for key in _RES}
         worst = max(load, key=load.get)
         faces[str(k)] = {"search_energy": float(base["e"][k]), "confirm_energy": float(conf_e), "at_energy": float(at_e),
@@ -496,7 +507,8 @@ def budget(mission: dict, res: dict) -> dict:
                          "confirm_ku_time": float(conf_tk), "at_ku_time": float(at_tk), "total_ku_time": load["tk"],
                          "load": load[worst], "binding": _RES_NAME[worst],
                          "status": "OK" if load[worst] <= 1.0 else "OVER-SUBSCRIBED",
-                         "p_left_kW": max(0.0, 1.0 - load["e"]) * p_avg_max / 1e3}
+                         "p_left_kW": max(0.0, 1.0 - load["e"]) * p_avg_max / 1e3,
+                         "dissipation_kW": heat / 1e3, "dissipation_kW_m2": heat / 1e3 / rm.TOTAL_AREA_M2}
         if load[worst] > 1.0:
             advice.append(_relax_advice(k, worst, load[worst], res, sbs, choice, secs))
     for a in advice:

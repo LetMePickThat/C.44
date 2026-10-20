@@ -663,7 +663,7 @@ class PrepTab(QWidget):
 
     def _update_gauges(self, eps_min: float, eps_max: float) -> None:
         totals = {k: {"energy": 0.0, "time_min": 0.0, "kw": 0.0, "at_kw": 0.0, "at_ku_time": 0.0} for k in range(4)}
-        p_avg_max = rm.face_avg_rf_w(self.mission["global"].get("face_elec_mw", md.GLOBAL_DEFAULTS["face_elec_mw"]))
+        p_avg_max = rm.face_elec_avail_w(self.mission["global"].get("face_elec_mw", md.GLOBAL_DEFAULTS["face_elec_mw"]))
         self._unreachable = {}
         self._at_unreachable = {}
         if self.cost_table is not None:

@@ -31,8 +31,10 @@ with the audit corrections):
         (each face has its own 2 MW).
   - [D] RR is stretched proportionally when a face is over-subscribed:
         RR_est = RR_target x max(1, sum of energy fractions, sum of time fractions).
+  - Energy = ELECTRICAL (step 1.3): a position costs P_pk n tau / B_tx / PAE(waveform), the face has
+    radar_model.face_elec_avail_w(face_elec_mw); the face heat (electrical - RF) is reported for step 4.2.
   - Tracking margin per face: the only S/Ku coupling is the face's electrical power, so the power left after search,
-    (1 - sum of energy fractions) x P_avg, is reported with the equivalent Ku duty cycle (Ku peak 9.19 MW).
+    (1 - sum of energy fractions) x P_elec, is reported with the equivalent Ku duty cycle (x Ku pae_sat / Ku peak).
   - Confirmation + active tracking (AT): core/tracking.py adds, per face, the cost of confirming every detection
     (true targets and false alarms, mode chosen per sector) and of the AT range brackets of each sector, and says
     whether search + confirmation + AT fit (report key "tracking").
@@ -65,8 +67,8 @@ _T = "tool.optimizer."
 FACE_PHI = tuple(P.get("geometry.face_phi_deg"))
 D_RES_DEG = P.get(_T + "sphere_res_deg")             # raster step (deg) on the (phi, eps) sphere
 FREQ_CANDIDATES = tuple(P.get(_T + "freq_candidates_ghz"))
-# Pulse lengths of the file below the TRM buffer limit, plus the limit itself (derived: 937.5 us today, follows the
-# buffer, the PAE and the TRM peak power)
+# Pulse lengths of the file below the TRM buffer limit, plus the limit itself (derived: 2.0 ms since step 1.3, follows
+# the buffer, the PAE and the TRM peak power)
 TAU_CAND = tuple(sorted({t for t in P.get(_T + "tau_s") if t < rm.tau_max_s(rm.BAND_S)}
                         | ({rm.tau_max_s(rm.BAND_S)} if math.isfinite(rm.tau_max_s(rm.BAND_S)) else set())))
 N_CAND = tuple(P.get(_T + "n_pulses"))
@@ -386,7 +388,7 @@ def _wf_dict(name: str, w, f: float, v_max: float) -> dict:
     return {"name": name, "band": "S", "freq_ghz": f, "integration": w.integration,
             "tau_us": round(w.tau_s * 1e6, 1), "n_pulses": w.n, "pri_ms": round(w.pri_s * 1e3, 3),
             "sig_bw_mhz": w.sig_bw_mhz, "b_tx": w.b_tx,
-            "dwell_ms": round(w.dwell_s * 1e3, 1), "duty_pct": round(100 * w.duty, 3),
+            "dwell_ms": round(w.dwell_s * 1e3, 1), "duty_pct": round(100 * w.duty, 3), "pae": rm.pae_wf(w),
             "unamb_range_km": round(C * w.pri_s / 2e3), "doppler_max_kHz": round(2 * v_max / rm.lambda_m(f) / 1e3, 1)}
 
 
@@ -398,7 +400,8 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float):
     max_wf = max(1, int(sec.get("max_wf_per_sector", MAX_WF_PER_SECTOR)))
     short_tol = sec.get("short_tol", SHORT_TOL)
     cands = candidate_waveforms(sec)
-    e_pos = np.array([rm.BAND_S.p_pk_total_w * w.n * w.tau_s / w.b_tx for w in cands])   # J per position, full power
+    pae = np.array([rm.pae_wf(w) for w in cands])
+    e_pos = np.array([rm.BAND_S.p_pk_total_w * w.n * w.tau_s / w.b_tx for w in cands]) / pae   # electrical J / position
     t_pos = np.array([w.n * w.tau_s / w.b_tx for w in cands])                            # s of TX time per position
     per_f = []
     for f in sec.get("freq_ghz_candidates", FREQ_CANDIDATES):
@@ -421,6 +424,7 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float):
     if best is None:
         return {"id": sec["id"], "status": "NO_WAVEFORM", "note": "no playable waveform in the search space"}
     _, f, P, unscanned, plan = best
+    plan.pae = pae
     return f, P, unscanned, plan, cands
 
 
@@ -475,11 +479,14 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float) -
                           "power_scale": round(float(plan.s_bin[worst]), 3)})
 
     faces = {}
+    pae_bin = np.where(plan.choice >= 0, plan.pae[np.maximum(plan.choice, 0)], 1.0)
     for k in range(4):
         if P[k].sum() <= 0:
             continue
         e_tot = float(plan.fe[k]) * p_avg_max_w * rr
+        heat = float((P[k] * plan.e_bin * (1.0 - pae_bin)).sum()) / rr
         faces[k] = {"positions": round(float(P[k].sum()), 1), "energy_J_per_refresh": e_tot,
+                    "dissipation_kW": heat / 1e3, "dissipation_kW_m2": heat / 1e3 / rm.TOTAL_AREA_M2,
                     "energy_fraction": float(plan.fe[k]), "time_fraction": float(plan.ft[k]),
                     "avg_power_kW": e_tot / rr / 1e3,
                     "theta_max_deg": float(np.flatnonzero(P[k] > 0).max() + 1) * THETA_BIN_DEG}
@@ -637,7 +644,7 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
     g = mission.get("global", {})
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
     elec = g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW)
-    p_avg_max = rm.face_avg_rf_w(elec)
+    p_avg_max = rm.face_elec_avail_w(elec)
     sectors = mission["sectors"]
     parallel = (len(sectors) >= PARALLEL_MIN_SECTORS) if workers is None else workers > 1
     masks: Dict[str, np.ndarray] = {}
@@ -662,7 +669,8 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
             masks[sec["id"]] = sph.mask(sec)
     masks = {sec["id"]: masks[sec["id"]] for sec in sectors if sec["id"] in done_ids}   # mission order
     # mission totals per face
-    tot = {k: {"energy_fraction": 0.0, "time_fraction": 0.0, "avg_power_kW": 0.0, "positions": 0.0} for k in range(4)}
+    tot = {k: {"energy_fraction": 0.0, "time_fraction": 0.0, "avg_power_kW": 0.0, "positions": 0.0,
+               "dissipation_kW": 0.0} for k in range(4)}
     for r in results:
         for k, fc in r.get("faces", {}).items():
             for key in tot[int(k)]:
@@ -681,7 +689,7 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
         p_avail_w = max(0.0, 1.0 - v["energy_fraction"]) * p_avg_max
         v["power_margin"] = 1.0 - v["energy_fraction"]
         v["p_available_kW"] = p_avail_w / 1e3
-        v["ku_duty_pct"] = 100.0 * p_avail_w / rm.BAND_KU.p_pk_total_w
+        v["ku_duty_pct"] = 100.0 * p_avail_w * rm.BAND_KU.pae_sat / rm.BAND_KU.p_pk_total_w
         v["time_margin_s"] = 1.0 - v["time_fraction"]      # S-band TX time only; Ku is a separate array
         if v["positions"] <= 0:
             continue
@@ -692,7 +700,7 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
             warn.append(f"face F{k + 1} tracking margin < {100 * TRACK_MARGIN_WARN:.0f} % "
                         f"({v['p_available_kW']:.0f} kW left for Ku)")
     out = {"global": {"eps_min_deg": eps_min, "eps_max_deg": eps_max, "face_elec_mw": elec,
-                      "face_avg_rf_kW": p_avg_max / 1e3, "objective": "max(energy,time)",
+                      "face_elec_avail_kW": p_avg_max / 1e3, "objective": "max(energy,time)",
                       "bin_deg": BIN_DEG, "max_wf_per_sector": MAX_WF_PER_SECTOR},
            "cancelled": cancelled,
            "sectors": results,
@@ -732,7 +740,7 @@ def print_report(res: dict) -> None:
     g = res["global"]
     print("=" * 100)
     print(f" MISSION PRE-OPTIMISATION | eps window [{g['eps_min_deg']:.0f}, {g['eps_max_deg']:.0f}] deg | "
-          f"per face: {g['face_elec_mw']} MW elec -> {g['face_avg_rf_kW']:.0f} kW avg RF")
+          f"per face: {g['face_elec_mw']} MW elec -> {g['face_elec_avail_kW']:.0f} kW for transmission (electrical)")
     print("=" * 100)
     for r in res["sectors"]:
         if r["status"] != "OK":
@@ -750,7 +758,8 @@ def print_report(res: dict) -> None:
               f"{r['rx_beams_per_position']:.1f} RX beams / position")
         for k, fc in r["faces"].items():
             print(f"     face {k}: {fc['positions']:.0f} pos, theta<={fc['theta_max_deg']:.0f} deg | energy {100*fc['energy_fraction']:.1f} % "
-                  f"| avg {fc['avg_power_kW']:.0f} kW | time on air {100*fc['time_fraction']:.2f} %")
+                  f"| avg {fc['avg_power_kW']:.0f} kW elec | heat {fc['dissipation_kW']:.0f} kW | time on air "
+                  f"{100*fc['time_fraction']:.2f} %")
         tti = r["time_to_impact_at_detection_s"]
         print(f"     RR: target {r['rr_target_s']:.0f} s | alone {r['rr_alone_s']:.0f} s | in mission {r['rr_est_mission_s']:.0f} s"
               f" | time to impact after detection (vmax) {'n/a' if tti is None else f'{tti:.0f} s'}")

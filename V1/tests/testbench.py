@@ -108,10 +108,13 @@ def model_case() -> dict:
     out["positions"] = {f"{f} GHz | eps {lo}..{hi}": rm.n_search_positions(f, lo, hi)
                         for f in (2.7, 2.8, 2.9) for lo, hi in ((-90.0, 90.0), (-20.0, 90.0), (-90.0, 30.0))}
     out["terms"] = {
-        "grid_loss_db": rm.grid_loss_db(), "chain_eff": rm.CHAIN_EFF, "face_avg_rf_w_2MW": rm.face_avg_rf_w(2.0),
+        "grid_loss_db": rm.grid_loss_db(), "chain_eff": rm.CHAIN_EFF, "face_elec_avail_w_2MW": rm.face_elec_avail_w(2.0),
         "array_envelope_m": rm.ARRAY_ENVELOPE_M, "sector_area_uv": rm.sector_area_uv(),
         "hpbw_deg": {f"{f} GHz | {th} deg": rm.hpbw_deg(f, th) for f in (2.8, 14.0) for th in (0.0, 40.0, 70.0)},
         "patterns": rm.PATTERNS, "grid_rx_loss_db": rm.grid_rx_loss_db(),
+        "pae": {f"{b} | tau {t * 1e6:g} us | d {d}": rm.pae(rm.BANDS[b], t, d)
+                for b in ("S", "Ku") for t in (10e-6, 100e-6, 2e-3) for d in (None, 0.05, 0.3, 0.65)},
+        "tau_max_s": {b: rm.tau_max_s(rm.BANDS[b]) for b in rm.BANDS},
         "active_mismatch": {f"{f} GHz | {th} deg": rm.active_mismatch(f, th)
                             for f in (2.7, 2.8, 2.85, 2.9, 13.5, 14.0, 14.5) for th in (0.0, 30.0, 45.0, 60.0, 70.0, 75.0)},
         "pol_purity": {f"{th} deg | phi {p}": rm.pol_purity(th, p) for th in (0.0, 45.0, 70.0) for p in (0.0, 22.5, 45.0)},
@@ -133,7 +136,7 @@ def model_case() -> dict:
     }
     out["confirmation_tables"] = {f"SW{sw}": trk.confirm_tables(sw, 2.8) for sw in (1, 3)}
     out["ku_look"] = {f"{th} deg | {r} km | {'track' if pack else 'detect'}":
-                      trk.ku_look(th, rm.TARGETS["KKV"], r, rm.face_avg_rf_w(2.0), pack)
+                      trk.ku_look(th, rm.TARGETS["KKV"], r, rm.face_elec_avail_w(2.0), pack)
                       for th in (0.0, 60.0) for r in (300.0, 800.0)
                       for pack in (None, rm.TrackingPack(0.05, 5.0, 10.0))}
     for v in out["ku_look"].values():
@@ -151,7 +154,7 @@ def mission_case(name: str, grid: "geo.SphereGrid", table) -> dict:
     findings, notes = red.find_redundancies(m, grid)
     out["redundancy"] = {"findings": findings, "pair_notes": {f"{a} > {b}": t for (a, b), t in notes.items()}}
     out["fast_estimate"] = {s["id"]: ce.estimate_sector_faces(table, s, grid, g["eps_min_deg"], g["eps_max_deg"],
-                                                              rm.face_avg_rf_w(g["face_elec_mw"]))
+                                                              rm.face_elec_avail_w(g["face_elec_mw"]))
                             for s in m["sectors"]}
     return to_plain(out)
 

@@ -60,7 +60,7 @@ class CostTable:
     V: List[float]
     TH: List[float]
     ppk: float
-    pavg_ref_w: float
+    pavg_ref_w: float          # electrical power for transmission the table was built at (step 1.3)
     t: Dict[str, Optional[list]]
     reach: Optional[Dict[str, list]] = None   # per cell: [max range km at full power, that waveform's energy J]
     params_fingerprint: Optional[str] = None  # fingerprint of radar_system.toml the table was built from
@@ -203,7 +203,7 @@ class FaceBudgetEstimate:
     energy_j_per_refresh: float
     energy_fraction: float     # TOTAL (search + AT), since both share the face's electrical power
     avg_power_kw: float        # TOTAL (search + AT)
-    time_fraction_min: float   # search only -- LOWER bound (avg power / peak power), see module docstring
+    time_fraction_min: float   # search only -- ~LOWER bound (RF avg power / peak power, RF <= elec x pae_sat)
     unreachable_pct: float     # search positions short of range, in %
     at_avg_power_kw: float = 0.0        # active-tracking share of avg_power_kw, broken out for display
     at_ku_time_fraction: float = 0.0    # AT Ku duty cycle (seconds of Ku TX per second), not a floor -- see below
@@ -293,7 +293,7 @@ def estimate_sector_faces(table: CostTable, sec: dict, grid: geo.SphereGrid, eps
             energy_j_per_refresh=e_tot,
             energy_fraction=total_power_w / p_avg_max_w,
             avg_power_kw=total_power_w / 1e3,
-            time_fraction_min=search_power_w / table.ppk,
+            time_fraction_min=search_power_w * rm.BAND_S.pae_sat / table.ppk,   # RF <= electrical x pae_sat
             unreachable_pct=100.0 * short_w / npos_total if npos_total > 0 else 0.0,
             at_avg_power_kw=at_power_w / 1e3,
             at_ku_time_fraction=at_ku_time,

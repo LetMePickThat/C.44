@@ -137,3 +137,24 @@ Model changes (radar_model V6.2.0, see its header):
   0 to -4.9 %, S time 0 to -1.4 %, Ku time -0.1 to -1.1 %. No waveform-set or confirmation-mode change. Gap lobes
   Ku -16.6 -> -25.3 dB: S options held over the whole sector, Ku -25 dB everywhere (no more step-1.2 flag in the
   test missions); Ku -30 / -35 dB held to 68.5 / 58.5 deg at 14.25 GHz. Mismatch at 2.9 GHz / 75 deg 4.1 -> 1.8 dB.
+
+## 2026-10-20 -- roadmap step 1.3 (TRM and transmit chain, GaN-on-diamond with microchannel cooling)
+
+Model changes (radar_model V6.3.0, see its header):
+- ELECTRICAL face budget: P_elec x CHAIN_EFF for transmission, each look costs RF / PAE(band, pulse, duty);
+  PAE S 0.80 / Ku 0.65 at duty 0.10 (was 0.75 shared), edges 0.2 / 0.1 us, duty derating 0.05 / 0.08.
+- TRM buffer S 5 -> 25 J, Ku 0 -> 1.2 J, max fraction 0.5 -> 0.2: tau_max S 937.5 us -> 2.0 ms, Ku 2.08 ms;
+  WF-LRS buffer droop 0.24 -> 0.04 dB: WF-LRS ranges +1.12 % (ST 6813 -> 6890 km at 0 deg). duty_max 0.65 on trains.
+- Test missions: energy per face -5 to -26 % (PAE S, lower droop, 2 ms pulses), S time -20 to +66 %, Ku time -48 to
+  +80 % (Ku PAE 0.65, duty ceiling 0.25 -> 0.65 opens denser Ku looks). Confirmation mode KU7 -> KU1+7:
+  mission_example (and _csv) / S02, mission_synthetic_mix / KV.
+- Waveform sets that changed (S search, "COHE/NONC tau x N"): the new 2 ms pulse (1999.8 us) is used by
+  mission_example / S03 (NONC 800us x1 | NONC 2ms x1 | COHE 2ms x2 | NONC 2ms x6), mission_veille500 / CONE_D1..D4
+  (COHE 2ms x2 | COHE 2ms x3 | NONC 2ms x4, were NONC 600-800us x6..x16) and mission_synthetic_mix / FWD; single
+  pulses for mission_example / S01 (NONC 200us x1 | 400us x1, were COHE x2); shorter coherent trains for S02,
+  VEILLE_KV, A5_SHORT, KV; A2_VEILLE, B5_LONG and A3_HIBAND drop one waveform.
+- New outputs: PAE per waveform, electrical average power, TRM heat in solve(); face heat (kW, kW/m2) in the
+  optimiser (search) and the tracking budget (search + confirmation + AT).
+- Optimistic until 3.1: the PAE is kept under power back-off (power scale, Ku look back-off). Until 2.1: blind range
+  of the 2 ms pulses (300 km) and eclipsing at high duty not checked.
+- core/cost_table.json regenerated (energies now electrical).

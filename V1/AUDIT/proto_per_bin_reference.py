@@ -11,7 +11,7 @@ from core import optimizer as mo
 rm, C = mo.rm, mo.C
 BIN_DEG = 10.0                      # production: 5.0 (with caching of solve())
 PPK = rm.BAND_S.p_pk_total_w
-P_AVG = 2e6 * rm.CHAIN_EFF * rm.PAE
+P_AVG = 2e6 * rm.CHAIN_EFF * rm.BAND_S.pae_sat   # RF-budget prototype (pre step 1.3): one PAE
 
 
 def candidates(sec):

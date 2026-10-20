@@ -196,7 +196,7 @@ def _pair_note(sa_id: str, sb_id: str, om_met: float, om_inter: float, reason_ce
 def find_redundancies(mission: dict, grid: geo.SphereGrid) -> Tuple[List[Finding], Dict[Tuple[str, str], str]]:
     g = mission.get("global", {})
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
-    p_avg_max_w = rm.face_avg_rf_w(g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW))
+    p_avg_max_w = rm.face_elec_avail_w(g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW))
     sectors = mission.get("sectors", [])
     scanned = grid.scanned(eps_min, eps_max)
     masks: List[Optional[np.ndarray]] = []

@@ -1,6 +1,6 @@
 # Outil de préparation de mission radar : choix architecturaux
 
-Ce document recense tous les choix d'architecture faits jusqu'ici : organisation du logiciel, modèle du radar, et pour chaque variable sa définition, sa valeur, son statut et la raison de cette valeur. Il décrit l'état du dépôt après l'étape 1.2 de la feuille de route (modèle V6.2.0, 20 octobre 2026).
+Ce document recense tous les choix d'architecture faits jusqu'ici : organisation du logiciel, modèle du radar, et pour chaque variable sa définition, sa valeur, son statut et la raison de cette valeur. Il décrit l'état du dépôt après l'étape 1.3 de la feuille de route (modèle V6.3.0, 20 octobre 2026).
 
 > **Avertissement.** Les missions de `tests/missions/` sont des **missions de test**. Les valeurs figées de `tests/snapshots/` sont des **valeurs figées de test**. Elles servent seulement à détecter les régressions du code. Ce ne sont ni des exigences ni des performances du radar, dont les capacités réelles ne sont pas établies.
 
@@ -58,7 +58,7 @@ Construire un outil dans lequel l'opérateur prépare sa mission. Cette mission 
 | Module | Rôle |
 |---|---|
 | `core/params.py` | Charge `radar_system.toml`, une seule fois par processus. Expose `P.get`, `P.meta`, `P.section` et l'empreinte des paramètres (`fingerprint`). La variable d'environnement `RADAR_PARAMS` permet de désigner un autre fichier. |
-| `core/radar_model.py` | Modèle radar V6.2.0 : désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
+| `core/radar_model.py` | Modèle radar V6.3.0 : bilan électrique et PAE variable par bande (étape 1.3), désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
 | `core/antenna.py` | **Étapes 1.1 et 1.2.** Diagramme de rayonnement calculé à partir de la composition des TRSA : faisceau d'émission uniforme, pondération de réception par niveau de lobes, étendue RMS de l'ouverture, profil des lobes lointains sur tout l'espace visible (lobes de jeu compris). Résultat mis en cache dans `core/antenna_cache.json`. |
 | `core/optimizer.py` | Optimiseur de la veille S. Choisit pour chaque secteur la fréquence et les formes d'onde par tranche d'angle de dépointage, et établit le bilan énergie et temps par face. |
 | `core/tracking.py` | Confirmation (modes KU1+7, KU7 et S2) et poursuite active (AT) en Ku, ajoutées au bilan par face. |
@@ -103,7 +103,7 @@ Construire un outil dans lequel l'opérateur prépare sa mission. Cette mission 
 | Autre fichier | Variable d'environnement `RADAR_PARAMS=<chemin>`, héritée par les processus de l'optimiseur. |
 | Revue | Toutes les valeurs ont été validées une par une lors de la revue 0.3. Les ajouts de l'étape 1.1 ont été validés pendant cette étape. |
 
-**Bilan actuel : 126 entrées système, dont 82 V, 41 D et 3 ?.** Les trois entrées « ? » sont `multibeam.l8_db`, `multibeam.p` et `band.S.e_buf_trm_j`.
+**Bilan actuel : 133 entrées système, dont 82 V, 49 D et 2 ?.** Les deux entrées « ? » sont `multibeam.l8_db` et `multibeam.p`.
 
 ---
 
@@ -117,7 +117,7 @@ Construire un outil dans lequel l'opérateur prépare sa mission. Cette mission 
 | Missions de test | `mission_example` (en JSON et en CSV), `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`. Les deux premières ont été récupérées dans l'historique git. |
 | Rapport d'impact | `python tests/impact_report.py`, à chaque étape, avant de régénérer les valeurs figées. |
 | Régénération | `python tests/update_snapshots.py`. Chaque régénération est consignée dans `tests/snapshots/JOURNAL.md`, avec sa cause et les formes d'onde ou modes qui ont changé. |
-| État | 77 tests passent après l'étape 1.2. |
+| État | 81 tests passent après l'étape 1.3. |
 
 ---
 
@@ -185,14 +185,15 @@ Retraits faits lors de la revue 0.3 et de l'étape 1.1 :
 
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
-| `pae` | Rendement en puissance ajoutée de la chaîne d'émission, commun à S et Ku. | 0,75 | V | Remplace 65 %. Valeur constante pour l'instant ; une **PAE variable** par bande, longueur d'impulsion et facteur de forme est demandée pour l'étape 1.3. |
+| `trm_technology` | Technologie des TRM. | « GaN-on-diamond, microchannel cooling » | V | Description de V5.6.0 : GaN sur diamant et refroidissement par microcanaux, pour une forte densité de puissance et une bonne évacuation de la chaleur en fonctionnement soutenu à forte charge crête et moyenne. Les valeurs des TRM sont des hypothèses **crédibles mais optimistes pour 2050-2060** (choix de l'utilisateur, étape 1.3). |
+| `pae_duty_ref` | Facteur de forme auquel la PAE en saturation est spécifiée. | 0,10 | D | Condition habituelle des fiches techniques en impulsions (étape 1.3, Q2 bis). Remplace la constante `pae` = 0,75 commune à S et Ku, désormais retirée. |
 | `psu_eff` | Rendement de l'alimentation. | 0,95 | V | Verrouillé lors de la revue 0.3. |
 | `distribution_eff` | Rendement de la distribution. | 0,995 | V | Verrouillé lors de la revue 0.3. |
 | `overhead_frac` | Part de la consommation hors émission. | 0,03 | V | Valeur conservée. Elle sera remplacée par un vrai bilan (réception numérique et CAN, environ 130 kW par face, contrôle, refroidissement) aux étapes 4.1 et 4.4. |
 | `face_elec_mw` | Puissance électrique allouée à une face. C'est la valeur par défaut d'une mission. | 2,0 MW | V | Verrouillé lors de la revue 0.3. |
 | `ship_elec_total_mw` | Puissance totale du vaisseau disponible pour le radar. | 8,0 MW | V | **Répartissable à la demande entre les faces**, par exemple 3 MW sur F1 et 5 MW sur F2 à F4. Le logiciel radar gère cette répartition avec les autres paramètres (étapes 4.1 et 5.2). Aujourd'hui, la validation vérifie seulement qu'une face ne dépasse pas 8 MW : c'est temporaire, sur décision de l'utilisateur. |
 
-Valeur dérivée : CHAIN_EFF = 0,95 × 0,995 × (1 − 0,03) = 0,917. La puissance RF moyenne disponible pour 2 MW électriques vaut 2 MW × 0,917 × 0,75 = 1,375 MW.
+Valeur dérivée : CHAIN_EFF = 0,95 × 0,995 × (1 − 0,03) = 0,917. **Depuis l'étape 1.3, le bilan de la face est électrique** (Q1) : pour 2 MW alloués, la face dispose de 2 MW × 0,917 = 1,834 MW pour l'émission, et chaque observation coûte son énergie RF divisée par la PAE de sa bande et de sa forme d'onde. Auparavant, la conversion se faisait une fois par face avec une PAE unique (1,375 MW RF).
 
 ### 5.7 `[migration]` : migration en distance
 
@@ -248,10 +249,13 @@ Retiré : `k_theta` = 0,5, remplacé par `angle_crlb_margin` à l'étape 1.1.
 | `waim_match_deg` | Angle de dépointage où la couche WAIM adapte le réseau (modèle de la feuille de courant). | 45° | V | **Étape 1.2, Q2.** Perte par passage : 0,13 dB dans l'axe, 0 à 45°, 0,56 dB à 70°, 1,05 dB à 75°. C'est l'équilibre entre l'axe et les grands dépointages (40° favoriserait l'axe, 50° les grands angles). |
 | `pol_loss_dual_db` | Perte de polarisation avec la réception bipolarisation. | 0,5 dB | D | **Étape 1.2, Q8.** Valeur provisoire pour la recombinaison des deux voies de polarisation, jusqu'à l'étape 1.5. Les deux voies étant captées, la pureté de l'antenne ne coûte pas de SNR ; elle est calculée en sortie (`pol_purity`). |
 | `pol_loss_single_db` | Perte avec une réception monopolarisation sur une cible qui dépolarise. | 3,0 dB | V | Gardée pour étudier un récepteur monopolarisation. Utilisée seulement si `pol_rx_dual` est faux. |
-| `e_buf_trm_j` | Réserve d'énergie par TRM. | 5,0 J | ? | Sans source. Affaissement de 0,24 dB sur WF-LRS. Étape 1.3. |
-| `buffer_max_fraction` | Fraction maximale de la réserve qu'une impulsion peut consommer. | 0,5 | D | `solve()` refuse une impulsion qui la dépasse. Étape 1.3. |
+| `pae_sat` | PAE du PA en saturation, au facteur de forme de référence. | 0,80 | D | **Étape 1.3, Q3.** Le GaN actuel en S de forte puissance atteint environ 55 à 65 % sur la bande, les meilleurs résultats de laboratoire environ 75 à 80 %. 0,80 est une hypothèse optimiste pour 2050-2060. |
+| `pae_t_edge_s` | Temps par impulsion pendant lequel le PA consomme sans délivrer sa pleine puissance (fronts, mise en place de la polarisation et de la phase). | 0,2 µs | D | **Q4.** Aujourd'hui 0,5 à 2 µs ; 0,2 µs suppose des commutateurs intégrés et une alimentation locale. −1 % de PAE sur une impulsion de 20 µs. |
+| `pae_duty_slope` | Perte relative de PAE par unité de facteur de forme au-dessus de la référence (échauffement du canal). | 0,05 | D | **Q2 bis.** Faible grâce au diamant et aux microcanaux : −2,75 % à d = 0,65. |
+| `e_buf_trm_j` | Réserve d'énergie par TRM (banc de condensateurs local qui fournit l'impulsion). | 25 J | D | **Q7.** Ancienne valeur 5 J, sans source. Choisie pour permettre des impulsions de 2 ms en veille très longue portée, où une zone aveugle de 300 km est sans importance et où le temps d'observation dépend du nombre d'impulsions à la PRI longue. 5 cm³ à 5 J/cm³ ; masse des réserves en point ouvert. |
+| `buffer_max_fraction` | Fraction maximale de la réserve qu'une impulsion peut consommer. | 0,2 | D | **Q7.** La puissance du PA suit l'énergie stockée : l'impulsion la plus longue finit à −0,97 dB (perte moyenne 0,46 dB). L'ancienne valeur 0,5 donnait −3 dB, trop pour un radar cohérent. Fixe τ_max. |
 | `bi_max_mhz` | Plafond de bande instantanée. | 200 MHz | D | Toute la bande S « pour l'instant ». Retard vrai numérique par TRM, donc pas de dépointage avec la fréquence. Sans retard vrai, le plafond serait d'environ 74 MHz à 75°. |
-| `duty_max` | Plafond du facteur de forme d'un TRM. | 0 (non défini) | D | Étape 1.3. |
+| `duty_max` | Plafond du facteur de forme d'un TRM, sur les trains d'impulsions. | 0,65 | D | **Q5.** Contrôlé à la création de la forme d'onde. Avec le GaN sur diamant et les microcanaux, l'échauffement du canal n'est plus limitant ; l'optimiseur ne s'en sert que si c'est utile. L'éclipse (récepteur sourd 65 % du temps) n'est modélisée qu'à l'étape 2.1 : les choix à fort facteur de forme sont optimistes d'ici là. |
 
 Retirés : `eta_illum_rx` (0,88), désormais **dérivé** de la pondération du volume (§6), et `t_sys_k`, désormais **dérivé** de la chaîne de réception.
 
@@ -305,16 +309,19 @@ TX_chain = filtre d'harmoniques + circulateur (traversée en émission) + couple
 | `scan_break_ghz` | Seuil de fréquence de la limite. | 14,25 GHz | V | Cinq fois le seuil S. |
 | `scan_max_hi_deg` | Limite au-dessus du seuil. | 70° | V | Confirmé. |
 | `p_pk_trm_w` | Puissance crête par TRM Ku, en sortie de PA. | 75 W | V | Même convention qu'en S. |
+| `pae_sat` | PAE en saturation au facteur de forme de référence. | 0,65 | D | **Étape 1.3, Q3.** Le GaN actuel en Ku atteint environ 30 à 45 %, le laboratoire environ 50 à 55 % ; 0,65 est le choix de l'utilisateur pour 2050-2060. |
+| `pae_t_edge_s` | Temps de front par impulsion. | 0,1 µs | D | **Q4.** Puces plus petites qu'en S. |
+| `pae_duty_slope` | Perte relative de PAE par unité de facteur de forme. | 0,08 | D | **Q2 bis.** Densité de puissance plus forte qu'en S : −4,4 % à d = 0,65. |
 | `eta_illum_tx` | Illumination en émission. | 1,0 | V | Uniforme comme en S. L'ancienne valeur 0,88 de V5.6.0 réduisait le gain mais pas la puissance rayonnée. Le contrôle des lobes passe par la pondération de réception de chaque volume. Portée Ku +3,25 %. |
 | `allowed_roles` | Rôles permis en Ku. | ["CONFIRM", "PROMOTE", "TRACK"] | D | Politique du logiciel radar (étapes 3.x et 4.3). Les rôles TWS et PROMOTE existent mais aucune forme d'onde ne les utilise. |
 | `pol_rx_dual` | Réception bipolarisation. | vrai | V | Comme en S. |
 | `waim_match_deg` | Angle d'adaptation de la couche WAIM. | 45° | V | Le même qu'en S (étape 1.2). |
 | `pol_loss_dual_db` | Perte de polarisation. | 0,5 dB | D | Comme en S : valeur provisoire pour la recombinaison, jusqu'à l'étape 1.5. L'ancienne valeur 0 venait des 8 dB forfaitaires de V5.6.0, qui ne couvraient que le traitement. |
 | `pol_loss_single_db` | Réception monopolarisation. | 3,0 dB | V | Comme en S. |
-| `e_buf_trm_j` | Réserve d'énergie par TRM Ku. | 0 (non modélisée) | D | Étape 1.3. |
-| `buffer_max_fraction` | Inutilisé tant que la réserve vaut 0. | 0,5 | D | Étape 1.3. |
+| `e_buf_trm_j` | Réserve d'énergie par TRM Ku. | 1,2 J | D | **Q7.** Elle n'était pas modélisée. τ_max = 0,2 × 1,2 × 0,65 / 75 W = 2,08 ms, même raison qu'en S. |
+| `buffer_max_fraction` | Fraction maximale par impulsion. | 0,2 | D | Comme en S. |
 | `bi_max_mhz` | Bande instantanée. | 200 MHz | V | Plafond matériel. Retard vrai numérique par TRM. |
-| `duty_max` | Plafond du facteur de forme. | 0,25 | D | Appliqué à l'espace de recherche des observations Ku, pas encore dans le modèle (étape 1.3). |
+| `duty_max` | Plafond du facteur de forme sur les trains. | 0,65 | D | Comme en S (ancienne valeur 0,25) ; borne aussi l'espace de recherche des observations Ku. |
 
 L'ouverture Ku est **partagée** avec la bande S : mêmes TRSA bi-bandes et même octogone. C'est une conséquence directe de la composition des TRSA, validée à l'étape 1.1.
 
@@ -427,7 +434,10 @@ Ces valeurs ne servent aujourd'hui qu'à la vue 3D. Le masquage des champs de vu
 | Rayon du secteur | plus large limite de balayage | 75° |
 | Surface du secteur en (u, v) | disque sin 75° découpé par les plans ±45°, inclinaison 25° | 2,0006 |
 | Pointages par face à 2,8 GHz | surface / cellule | 3 016 (4 167 avant l'étape 1.1, 3 050 avec 2 mm de jeu) |
-| Plus longue impulsion S | 0,5 × 5 J × 0,75 / 2000 W | 937,5 µs |
+| Plus longue impulsion (τ_max) | fraction × E_réserve × PAE_sat / P_crête − t_front | S 2,0 ms, Ku 2,08 ms (937,5 µs en S avant l'étape 1.3) |
+| PAE à d = 0,65, impulsion longue | η_sat (1 − a × 0,55) | S 0,778, Ku 0,621 |
+| Puissance électrique disponible pour l'émission, 2 MW | 2 MW × CHAIN_EFF | 1,834 MW par face |
+| Dissipation d'un TRM à d = 0,65 | P_crête × d × (1/PAE − 1) | S ≈ 370 W, Ku ≈ 30 W pendant l'observation (exigence pour les microcanaux, étape 4.2) |
 | Durée cohérente maximale (provisoire) | t₀ (−ln η_min)^(1/p) | 149 ms |
 
 Pour l'ensemble de l'octogone, le facteur en λ/D ne dépend pas de la fréquence au voisinage de l'axe. Les bandes S et Ku échantillonnent la même ouverture, et leurs résultats s'accordent à 0,1 % près. Un seul calcul par bande suffit donc (étape 1.1, décision Q7).
@@ -444,7 +454,17 @@ R⁴ = P_faisceau · G_TX · G_RX · λ² · σ · τ · N / ((4π)³ · k · T_
 - G = 4π · A_émissive · η · η_ohmic · cos θ / λ². La désadaptation active est comptée à part, dans L (§7.3 bis).
 - **η_RX** est celui de la pondération du volume (`rx_sll_db`).
 - SNR_req est le SNR sur l'**énergie totale** intégrée, d'après l'ajustement de Shnidman, pour les cas Swerling 0 à 4 et une intégration cohérente ou non cohérente. La formule d'Albersheim de V5.4.0 était mal implémentée et comptait l'intégration deux fois.
+- Le coût d'une observation est électrique (étape 1.3) : E = P_crête · N · τ / B_TX / PAE(bande, τ, τ/PRI), comparé à P_élec × CHAIN_EFF × période de revisite. La chaleur vaut E_élec − E_RF.
 - L regroupe : pertes fixes, TX_chain, bord de bande, polarisation, affaissement de la réserve (−10 log(1 − x/2)), multifaisceau, **désadaptation active à l'émission et à la réception** (étape 1.2), grille d'émission et grille de réception (veille seulement), cohérence (intégration cohérente), migration.
+
+### 7.1 bis TRM et chaîne d'émission (étape 1.3)
+
+- PAE d'une impulsion : η = η_sat · τ / (τ + t_front) · min(1, 1 − a (d − d_ref)), avec d = τ/PRI d'un train (d_ref pour une impulsion seule).
+- Énergie électrique d'une impulsion par TRM : P_crête · τ / η, fronts compris. Elle est prélevée sur la réserve : x = E / E_réserve, perte moyenne −10 log(1 − x/2), refus si x > 0,2.
+- τ_max = 0,2 · E_réserve · η_sat / P_crête − t_front.
+- Facteur de forme des trains plafonné à 0,65.
+- Sorties : PAE, puissance électrique moyenne de l'observation et chaleur par TRM dans `solve()` ; chaleur par face (kW et kW/m²) dans l'optimiseur et le bilan de poursuite.
+- Disposition provisoire : la PAE reste constante quand la puissance est réduite (« pas d'énergie en trop », recul des observations Ku) ; c'est optimiste jusqu'à la loi PAE / recul de l'étape 3.1.
 
 ### 7.2 Diagramme (étape 1.1, `core/antenna.py`)
 
@@ -517,7 +537,7 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 |---|---|---|---|
 | `tool.cli` | `refresh_s`, `frequency_ghz`, `scan_angle_deg`, `target` | 120 s, 2,8 GHz, 0°, "ST" | Valeurs par défaut de `python core/radar_model.py`. |
 | `tool.optimizer` | `freq_candidates_ghz` | [2,7, 2,8, 2,9] | À remplacer à l'étape 3.1 par une grille fine au pas de **5 ou 10 MHz**, restreinte au spectre utilisable. Le but est d'éviter les brouilleurs étroits de forte puissance tout en gardant plus de cases fréquence qu'un masquage par multiples de 25 MHz. |
-| | `tau_s` | 20 à 800 µs, plus la limite de la réserve (937,5 µs) | La plus longue impulsion est **calculée** à partir de la réserve d'énergie. |
+| | `tau_s` | 20 à 800 µs, plus la limite de la réserve (2,0 ms depuis l'étape 1.3) | La plus longue impulsion est **calculée** à partir de la réserve d'énergie. |
 | | `n_pulses`, `b_tx`, `sig_bw_mhz` | {1 … 32}, {1, 2, 4, 8}, {10 … 75} MHz | Bandes au-delà de 75 MHz possibles (bi_max 200) : à traiter à l'étape 3.1, avec l'étape 2.1. |
 | | `pri_min_s` | 1 ms | PRI des candidats mono-impulsion et ambigus. |
 | | `theta_bin_deg`, `bin_deg`, `max_wf_per_sector`, `short_tol`, `n_alphas`, `short_penalty` | 1°, 5, 4, 0,01, 21, 1e6 | Règles de l'optimiseur, revues à l'étape 3.1. |
@@ -578,7 +598,7 @@ La feuille de route complète, avec le contenu détaillé de chaque étape, se t
 | Phase | Étapes |
 |---|---|
 | 0, fondations | 0.1 fichier unique ✔ ; 0.2 banc de tests ✔ ; 0.3 revue des valeurs ✔ |
-| 1, antenne et RF | 1.1 géométrie et diagramme réel ✔ ; **1.2 diagramme : lobes de réseau, désadaptation active \|Γ(θ, f)\|, polarisation ✔** ; 1.3 TRM et chaîne d'émission (PAE variable, réserve, facteur de forme) ; 1.4 bande (table de bord, bande instantanée) ; 1.5 réception (T_sys selon la direction, CAN, isolation, bruit de phase de l'oscillateur, deux voies de polarisation) |
+| 1, antenne et RF | 1.1 géométrie et diagramme réel ✔ ; **1.2 diagramme : lobes de réseau, désadaptation active \|Γ(θ, f)\|, polarisation ✔** ; **1.3 TRM et chaîne d'émission ✔** ; 1.4 bande (table de bord, bande instantanée) ; 1.5 réception (T_sys selon la direction, CAN, isolation, bruit de phase de l'oscillateur, deux voies de polarisation) |
 | 2, signal et détection | 2.1 formes d'onde paramétriques ; 2.2 traitement (bancs de vitesse, CFAR, modèle de cohérence) ; 2.3 critère de détection ; 2.4 modèles de cibles ; 2.5 environnement (masquage par le vaisseau, Faraday, brouillage) |
 | 3, fonctions radar | 3.1 veille S (multifaisceau, grille de fréquences fine) ; 3.2 confirmation Ku (fréquence Ku choisie, connaissance du spectre) ; 3.3 poursuite (Kalman ou IMM) ; 3.4 fonctions annexes |
 | 4, ressources | 4.1 puissance (bus de 8 MW, répartition entre faces) ; 4.2 thermique ; 4.3 ordonnanceur et latence ; 4.4 calcul et données |
@@ -592,9 +612,11 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 |---|---|---|
 | Polarisation | Linéaire selon e_v (D) ; 0,5 dB provisoire pour la recombinaison des voies. Commutation e_u / e_v à rappeler en 3.3. | 1.5, 2.4, 2.5, 3.2-3.3 |
 | Élément rayonnant | Éléments isotropes dans le calcul du facteur de réseau ; seule la projection cos θ et la désadaptation interviennent. | à placer |
-| PAE | Constante à 0,75, commune à S et Ku. | 1.3 |
-| Réserve d'énergie et facteur de forme | 5 J (statut ?), 0,5, facteur de forme non défini. | 1.3 |
-| Densité de puissance | Environ 104 kW/m² de RF moyenne. | 1.3, 4.2 |
+| Zone aveugle et éclipse | Non vérifiées : impulsions de 2 ms (300 km aveugles), facteur de forme jusqu'à 0,65. La zone aveugle sera jugée par rapport au besoin du secteur ; migration et Doppler dans l'impulsion (50 m à 25 km/s). | 2.1, 2.2 |
+| PAE en fonction du recul du PA | PAE constante sous réduction de puissance ; loi nécessaire au multifaisceau par superposition. | 3.1 |
+| Espaces de recherche | Rien entre 0,8 et 2 ms en S, rien au-delà de 400 µs en Ku. | 3.1, 3.2 |
+| Alimentation des TRM | Recharge de la réserve pendant un train, capacité d'alimentation d'un TRM, et **puissance instantanée de la face** pendant une observation (4 900 TRM S en même temps : environ 8,2 MW à d = 0,65, contre 2 MW alloués) ; seule la moyenne sur la période de revisite est vérifiée. | 4.1 |
+| Thermique | Chaleur calculée (≈ 370 W par TRM S en pointe) ; capacité des microcanaux et constantes de temps non modélisées. Densité de puissance d'environ 104 kW/m² de RF moyenne. | 4.2 |
 | Table de bord de bande | Fraction de bande copiée de l'ancienne bande Ku. | 1.4 |
 | Plafond de cohérence | Provisoire, 149 ms ; t₀ et p sans source. | 2.2 |
 | Bruit de phase de l'oscillateur sur l'aller-retour | Non modélisé (53 ms à 8 000 km). | 1.5, 2.2 |
@@ -616,6 +638,8 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 - **(e)** La table de l'estimation rapide n'est calculée qu'à 2,8 GHz (étape 5.5).
 - **(f)** **Lobes de jeu des TRSA (étape 1.2), traité en grande partie.** Le jeu est passé de 2 mm à 0,5 mm. Restent en Ku, au haut de la bande : −30 dB tenu jusqu'à 68,5° (14,25 GHz) et 64° (14,5 GHz), −35 dB jusqu'à 62° (14 GHz), 58,5° et 55° ; signalé par secteur. Si la mécanique impose un jeu plus grand, la variante est une maille d'éléments uniforme à travers les jeux (TRM Ku de 10,32 mm ou éléments décalés), qui demande de séparer le pas des éléments de la taille des TRM dans `[aperture]`. Les effets de bord de tuile (couplage mutuel au bord d'un jeu) ne sont pas modélisés.
 - **(g)** `rx_taper_edge` = "inscribed" (statut D) à confirmer.
+- **(h)** **Masse des réserves d'énergie** (étape 1.3) : 122 kJ par face en S et 147 kJ en Ku, soit environ 270 kg par face à 1 J/g (hypothèse 2050), environ 1,1 t pour les 4 faces ; aucun bilan de masse n'est prévu dans la feuille de route.
+- **(i)** Le jeu de 0,5 mm suppose des matériaux appariés en dilatation (étape 4.2).
 
 ---
 
@@ -690,3 +714,26 @@ Effet sur les missions de test (valeurs de test seulement) :
 - portée de WF-LRS −1,48 % dans l'axe et −6,25 % à 70° (6 916 → 6 813 km sur ST dans l'axe) ;
 - énergie par face de +0,2 à +9,5 %, temps S de 0 à +19 %, temps Ku de −6 à +61 % ;
 - puis, avec le jeu de 0,5 mm : pointages −1,1 %, énergie par face de 0 à −4,9 %, portées inchangées.
+
+### Étape 1.3 : TRM et chaîne d'émission (20 octobre 2026)
+| Question | Décision de l'utilisateur |
+|---|---|
+| Technologie | **GaN sur diamant, refroidissement par microcanaux** (description de V5.6.0) ; valeurs crédibles mais optimistes pour 2050-2060. |
+| Q1, bilan | **Électrique** : chaque observation coûte E_RF / PAE ; la face dispose de P_élec × CHAIN_EFF. |
+| Q2, loi de PAE | **(b)** η_sat × τ/(τ + t_front) × [1 − a (d − d_ref)], d = τ/PRI, d_ref = 0,10, plafonnée à η_sat. |
+| Q2 bis, baisse avec le facteur de forme | a = **0,05 en S, 0,08 en Ku**. |
+| Q3, PAE en saturation | **0,80 en S, 0,65 en Ku.** |
+| Q4, temps de front | **0,2 µs en S, 0,1 µs en Ku.** |
+| Q5, facteur de forme maximal | **0,65** dans les deux bandes, « quitte à ne pas l'utiliser ». |
+| Q6, impulsion maximale | **(a)** La réserve seule : 2,0 ms en S, 2,08 ms en Ku. Zone aveugle renvoyée à 2.1. |
+| Q7, réserve | **Fraction 0,2 ; 25 J en S, 1,2 J en Ku** (proposition de l'utilisateur, pour des impulsions très longues en veille très longue portée). |
+| Q8, recharge pendant un train et alimentation des TRM | **Option A** : tout le sujet passe à l'étape 4.1, avec le bus, le stockage et la répartition des 8 MW. |
+| Q9, dissipation | Calculée en sortie (par TRM, par face, par m²). |
+| Q10, PAE en fonction du recul | Renvoyée à l'étape 3.1. |
+
+Règle de méthode fixée pendant cette étape : tout ce qui touche un même sujet est traité au même endroit, et une valeur dépendante se fixe après celles dont elle dépend.
+
+Effet sur les missions de test (valeurs de test seulement) :
+- portée de WF-LRS +1,12 % (6 813 → 6 890 km sur ST), par la baisse de l'affaissement de la réserve (0,24 → 0,04 dB) ;
+- énergie électrique par face de −5 à −26 %, temps S de −20 à +66 %, temps Ku de −48 à +80 % ;
+- l'impulsion de 2 ms est retenue par plusieurs secteurs à longue portée.

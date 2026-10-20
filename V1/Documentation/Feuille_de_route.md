@@ -21,7 +21,8 @@ Règles appliquées à chaque étape :
 | 0.3 | ✔ fait (commits f205a23 et 7f6bd35) |
 | 1.1 | ✔ fait (commit 5b3df06) |
 | 1.2 | ✔ fait |
-| 1.3 et suivantes | à faire, la prochaine étant 1.3 |
+| 1.3 | ✔ fait |
+| 1.4 et suivantes | à faire, la prochaine étant 1.4 |
 
 ---
 
@@ -66,7 +67,15 @@ Règles appliquées à chaque étape :
   - Marge de lobe de réseau de 1,1 % à 2,9 GHz pour 75°.
   - Lobes du réseau périodique de jeux entre TRSA (hors de la fenêtre de 8 λ/D évaluée à l'étape 1.1).
 
-- **1.3 TRM et chaîne d'émission S et Ku.**
+- **1.3 TRM et chaîne d'émission S et Ku.** ✔
+
+  Décisions prises :
+  - TRM GaN sur diamant avec microcanaux ; valeurs crédibles mais optimistes pour 2050-2060 ;
+  - bilan de face **électrique** ; PAE variable : S 0,80, Ku 0,65 à d = 0,10, fronts 0,2 / 0,1 µs, baisse 0,05 / 0,08 par unité de facteur de forme ;
+  - facteur de forme maximal 0,65 sur les trains ; réserve 25 J / 1,2 J, fraction 0,2, d'où τ_max 2,0 / 2,08 ms ;
+  - dissipation calculée en sortie ; recharge pendant le train et alimentation des TRM déplacées en 4.1 ; PAE en fonction du recul renvoyée en 3.1.
+
+  Contenu prévu à l'origine :
   - PAE en fonction de l'impulsion et du facteur de forme, facteur de forme maximal, impulsion maximale, réserve d'énergie dans les deux bandes, dissipation.
   - (D) Données des TRM Ku.
   - **Doit remplacer** la constante `power.pae` = 0,75 (commune à S et Ku) par une **PAE variable** par bande, en fonction de la longueur d'impulsion et du facteur de forme.
@@ -89,6 +98,7 @@ Règles appliquées à chaque étape :
 ## Phase 2 : signal et détection
 
 - **2.1 Formes d'onde paramétriques.**
+  - **Renvois de l'étape 1.3** : zone aveugle c·τ/2 à vérifier **par rapport au besoin du secteur** (300 km pour les impulsions de 2 ms, sans importance à 10 000 km) ; éclipse au facteur de forme élevé (jusqu'à 0,65) ; migration et Doppler dans l'impulsion (50 m à 25 km/s sur 2 ms) ; dérive de phase et d'amplitude dans l'impulsion.
   - Modulation, compression, lobes en distance, tolérance au Doppler, couplage distance-Doppler.
   - Éclipsage, ambiguïté en distance et en Doppler, PRF échelonnée.
   - Pondération de Taylor déduite de la modulation réelle (pour k_r).
@@ -128,6 +138,7 @@ Règles appliquées à chaque étape :
 ## Phase 3 : fonctions radar
 
 - **3.1 Veille S reconstruite sur les nouveaux modèles** (optimizer.py).
+  - **Renvois de l'étape 1.3** : loi de PAE en fonction du recul du PA (multifaisceau par superposition, et réduction de puissance « pas d'énergie en trop », aujourd'hui à PAE constante) ; impulsions candidates entre 0,8 et 2 ms.
   - **Multifaisceau en émission** : tous les modes de formation sont possibles, et l'optimiseur doit les évaluer et choisir selon le contexte :
     - (a) superposition de B faisceaux par TRM : enveloppe non constante, donc recul du PA, qui demande le modèle de PA de l'étape 1.3 ;
     - (b) partition de l'ouverture : gain divisé par B, faisceau plus large, d'après le diagramme de l'étape 1.1 ;
@@ -142,6 +153,7 @@ Règles appliquées à chaque étape :
   - Le pas des faisceaux de réception (0,5) pourra être réglé par l'optimiseur.
 
 - **3.2 Confirmation Ku reconstruite** (tracking.py).
+  - **Renvoi de l'étape 1.3** : impulsions Ku au-delà de 400 µs (τ_max Ku = 2,08 ms).
   - Passage de S à Ku, biais S/Ku, étalonnage.
   - Élargir l'espace des observations Ku (`ku_tau`, `ku_n`, `ku_pri`, `ku_sig_bw` : 2 bandes et 3 PRI aujourd'hui) et revoir `margin_db_step` = 0,5 dB, qui crée des sauts.
   - **L'optimiseur doit choisir la fréquence Ku**, comme il le fait déjà pour la S. Aujourd'hui `confirmation.ku_freq_ghz` est fixée à 14,0 GHz, à titre provisoire.
@@ -158,11 +170,13 @@ Règles appliquées à chaque étape :
 ## Phase 4 : ressources du système
 
 - **4.1 Puissance électrique** (D).
+  - **Venu de l'étape 1.3 (option A)** : tout le sujet de l'alimentation des TRM est traité ici : recharge de la réserve pendant un train, capacité d'alimentation continue d'un TRM (propositions de 1 700 W en S et 80 W en Ku pour d = 0,65), et **puissance instantanée de la face** pendant une observation (tous les TRM en même temps : environ 8,2 MW à d = 0,65, contre 2 MW alloués), avec le stockage de face. Aujourd'hui, seule la moyenne sur la période de revisite est vérifiée.
   - Bus de 8 MW, stockage, transitoires.
   - Les 8 MW du vaisseau sont **répartissables à la demande entre les faces**, par exemple 3 MW sur F1 et 5 MW sur F2 à F4. Le logiciel radar doit gérer cette répartition avec les autres paramètres pour tenir la mission (aussi en 5.2). Aujourd'hui, une mission a une seule valeur `face_elec_mw` appliquée aux 4 faces, et la validation vérifie seulement qu'une face ne dépasse pas 8 MW.
   - Remplacer `overhead_frac` = 3 % par un vrai bilan de consommation hors émission (réception numérique et CAN par TRM, environ 130 kW par face, contrôle, refroidissement), avec 4.4.
 
 - **4.2 Thermique** (D) : dissipation, capacité de refroidissement, constantes de temps, régime permanent face au régime crête.
+  - Entrées de l'étape 1.3 : chaleur calculée par TRM et par face (≈ 370 W par TRM S en pointe à d = 0,65) ; capacité des microcanaux à vérifier ; matériaux appariés en dilatation exigés par le jeu de 0,5 mm.
 
 - **4.3 Ordonnanceur** (D). C'est l'étape la plus structurante : il faut décider tôt entre un bilan statistique et une simulation.
   - Modèle des tâches, priorités, entrelacement contraint par les allers-retours, chronologies S et Ku par face, latence, politique de surcharge.
@@ -208,7 +222,8 @@ Règles appliquées à chaque étape :
 |---|---|
 | Égalités exactes de l'optimiseur départagées par le bruit d'arrondi (candidats cohérents au plancher de cohérence) : il faut un critère secondaire. | 3.1 (ou plus tôt si l'utilisateur le souhaite) |
 | Le nombre de faces (4) est écrit en dur dans le code. | à placer |
-| Densité de puissance d'environ 104 kW/m² de RF moyenne. | 1.3, 4.2 |
+| Densité de puissance d'environ 104 kW/m² de RF moyenne. | 4.2 |
+| Masse des réserves d'énergie des TRM : environ 270 kg par face à 1 J/g (hypothèse 2050), 1,1 t pour les 4 faces. | à placer (pas de bilan de masse dans la feuille de route) |
 | `power_scale` arrondi à 3 décimales dans la sortie de l'optimiseur. | 5.5 |
 | `rx_taper_edge` = "inscribed" (statut D) à confirmer. | à placer |
 | **Lobes de jeu des TRSA** (étape 1.2) : traité en grande partie en ramenant le jeu à 0,5 mm. Restent en Ku au haut de la bande −30 dB tenu jusqu'à 64-68,5° et −35 dB jusqu'à 55-62°. Variante si la mécanique impose plus de jeu : maille d'éléments uniforme à travers les jeux. | lien avec 2.5 |

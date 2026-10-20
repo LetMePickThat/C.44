@@ -28,10 +28,11 @@ def one(args):
         except ValueError:
             continue
         n, tau, b = w.n, w.tau_s, w.b_tx
+        eta = rm.pae_wf(w)                           # electrical energies (step 1.3)
         if r > rmax:
-            rmax, e_rmax = r, PPK * n * tau / b      # longest-reach waveform, at full power
+            rmax, e_rmax = r, PPK * n * tau / b / eta    # longest-reach waveform, at full power
         if r < R: continue
-        e = PPK * n * tau / b * (R / r) ** 4
+        e = PPK * n * tau / b / eta * (R / r) ** 4
         if best is None or e < best[0]:
             best = (e, w.integration[0], n, tau * 1e6, w.pri_s * 1e3, b)
     return [args, best, rmax, e_rmax]
@@ -43,7 +44,7 @@ if __name__ == "__main__":
         key = f"{R}|{rcs}|{v}|{th}"
         tab[key] = None if best is None else [best[0], best[1], best[2], round(best[3], 1), round(best[4], 2), best[5]]
         reach[key] = [round(rmax, 1), e_rmax]     # max range of the cell (full power) and that waveform's energy (J)
-    json.dump({"R": RS, "RCS": RCS, "V": VS, "TH": TH, "ppk": PPK, "pavg": rm.face_avg_rf_w(ELEC), "t": tab,
+    json.dump({"R": RS, "RCS": RCS, "V": VS, "TH": TH, "ppk": PPK, "pavg": rm.face_elec_avail_w(ELEC), "t": tab,
                "reach": reach, "params_fingerprint": params.fingerprint(P), "rx_sll_db": rm.RX_SLL_DEFAULT_DB},
               open(_OUT, "w"))
     print(len(tab), sum(1 for x in tab.values() if x is None), "infeasible")
