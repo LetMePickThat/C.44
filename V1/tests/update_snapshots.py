@@ -4,8 +4,8 @@
     python tests/update_snapshots.py model      one case (see testbench.case_names())
 
 Run it ONLY when a change of the outputs is intended (a roadmap step that changes values), after reading the impact
-report (python tests/impact_report.py); commit the new snapshots with that step. The snapshots are test values,
-not radar performance.
+report (python tests/impact_report.py); add an entry to tests/snapshots/JOURNAL.md (what changed, which waveforms or
+modes moved) and commit the new snapshots with that step. The snapshots are test values, not radar performance.
 """
 import sys
 

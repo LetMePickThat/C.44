@@ -220,9 +220,12 @@ def candidate_waveforms(sec: dict) -> List:
                         if n == 1:
                             pri = max(tau, PRI_MIN_S)
                         try:
-                            out.append(make_wf("c", tau, n, pri, bw, b, integ))
+                            w = make_wf("c", tau, n, pri, bw, b, integ)
                         except ValueError:
                             continue
+                        if integ == "COHERENT" and w.dwell_s > rm.COH_T_MAX_S:
+                            continue      # INTERIM until step 2.2: beyond the coherence floor (radar_model.COH_T_MAX_S)
+                        out.append(w)
     return out
 
 

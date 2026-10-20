@@ -77,6 +77,12 @@ def _try(fn: Callable[[], Any]) -> Any:
 
 
 # ----------------------------------------------------------------------------- cases
+def lin_to_db_gain(f: float, th: float) -> list:
+    """TX and RX gain (dBi) of the band containing f at scan th."""
+    b = rm.band_for_frequency(f)
+    return [rm.lin_to_db(rm.gain_lin(b.eta_illum_tx, f, th)), rm.lin_to_db(rm.gain_lin(b.eta_illum_rx, f, th))]
+
+
 def model_case() -> dict:
     """Radar model alone: solve() over a grid of frequencies / scan angles / targets, positions, loss terms."""
     out: Dict[str, Any] = {}
@@ -100,7 +106,7 @@ def model_case() -> dict:
         "grid_loss_db": rm.grid_loss_db(), "chain_eff": rm.CHAIN_EFF, "face_avg_rf_w_2MW": rm.face_avg_rf_w(2.0),
         "array_envelope_m": rm.ARRAY_ENVELOPE_M, "sector_area_uv": rm.sector_area_uv(),
         "hpbw_deg": {f"{f} GHz | {th} deg": rm.hpbw_deg(f, th) for f in (2.8, 14.0) for th in (0.0, 40.0, 70.0)},
-        "scan_loss_db": {str(th): rm.scan_loss_db(th) for th in (0.0, 30.0, 50.0, 70.0, 75.0)},
+        "gain_dbi": {f"{f} GHz | {th} deg": lin_to_db_gain(f, th) for f in (2.8, 14.0) for th in (0.0, 30.0, 50.0, 70.0, 75.0)},
         "multibeam_tx_loss_db": {str(b): rm.multibeam_tx_loss_db(b) for b in (1, 2, 4, 8)},
         "coherence_loss_db": {str(t): rm.coherence_loss_db(14.0, t) for t in (1e-3, 0.064, 0.3)},
         "edge_loss_db": {str(f): rm.BAND_S.edge_loss_db(f) for f in (2.7, 2.72, 2.8, 2.88, 2.9)},

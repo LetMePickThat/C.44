@@ -13,7 +13,7 @@
 # [tool.*] sections are the tool's own numerical settings (search grids, rasters, caches, GUI defaults), not the radar:
 # they take a bare value or the same table.
 #
-# Sections: geometry, aperture, search_grid, detection, power, migration, multibeam, scan_loss, coherence, estimation,
+# Sections: geometry, aperture, search_grid, detection, power, migration, multibeam, coherence, estimation,
 #           band.S, band.Ku (+ losses_db), targets.*, confirmation, tracking, ship  |  tool.*
 # =====================================================================================================================
 
@@ -22,80 +22,81 @@ file_version = { value = "1.0", unit = "", status = "D", source = "step 0.1: con
 
 # ------------------------------------------------------------------------------------------------------- system
 [geometry]
-face_phi_deg     = { value = [0.0, 90.0, 180.0, 270.0], unit = "deg", status = "V", source = "4 faces x 90 deg about the ship axis (Z = nose)", date = "" }
-tilt_deg         = { value = 25.0, unit = "deg", status = "V", source = "all four arrays tilted toward +Z (nose), lighthouse model; was 20 deg (V6.0.12)", date = "2026-10-19" }
-scan_radius_deg  = { value = 75.0, unit = "deg", status = "V", source = "surveillance sector per face: scan-limit disc radius (SECTOR_RADIUS_DEG)", date = "" }
+face_phi_deg     = { value = [0.0, 90.0, 180.0, 270.0], unit = "deg", status = "V", source = "4 faces x 90 deg about the ship axis (Z = nose); confirmed in review 0.3", date = "2026-10-20" }
+tilt_deg         = { value = 25.0, unit = "deg", status = "V", source = "all four arrays tilted toward +Z (nose), lighthouse model; was 20 deg (V6.0.12); confirmed in review 0.3", date = "2026-10-19" }
+# The face sector radius is not an entry: it is derived, = the widest scan limit of the bands (scan_max_deg /
+# scan_max_hi_deg of [band.*]), so the face geometry always follows the scan limits (review 0.3, 2026-10-20).
 
+# Array build-up (review 0.3): bi-band TRSA tiles of 25 x 25 Ku TRMs and 5 x 5 S TRMs, 196 TRSAs in an approximate
+# octagon. DERIVED by the code (no entries): TRSA side 260 mm, 196 TRSAs, n_trm S 4900 / Ku 122500, emissive area
+# 13.2496 m2, total area with the gaps 13.4368 m2 (fill 98.61 %), envelope 4.190 m (16 TRSAs + 15 gaps), element
+# pitch S 52 mm / Ku 10.4 mm. The inter-TRSA gaps are a dead (non-radiating) region: the gain uses the emissive area.
+# Beamwidth: no entry. The model uses 0.886 lambda / D_env TEMPORARILY (V5.6.0; 0.886 is the rectangular-aperture
+# value, not circular); step 1.1 replaces it by the pattern computed from this build-up (TX uniform ~1.04, RX taper).
+# Scan dependence: no entry. The gain follows the geometric projection cos(theta) only (review 0.3, 2026-10-20):
+# the V5.6.0 element exponent 1.1 (cos^0.1 = active mismatch / WAIM) and the V5.4.0 scan-loss law (0.6 dB at
+# 70 deg) were removed as a probable double count. NO active-mismatch loss is modelled until step 1.2 brings a
+# single |Gamma(theta, f)| model: results are OPTIMISTIC at large scan (about +9 % range at 70 deg, +12 % at 75 deg).
 [aperture]
-phys_area_m2          = { value = 13.25, unit = "m2", status = "V", source = "emissive area per face", date = "" }
-eta_ohmic             = { value = 0.96, unit = "-", status = "D", source = "ohmic efficiency (V5.x)", date = "" }
-scan_exponent         = { value = 1.1, unit = "-", status = "D", source = "element factor cos^n (Ku value of V5.6.0, kept for S)", date = "" }
-envelope_tiles        = { value = 16, unit = "-", status = "D", source = "tiles per side of the square envelope (used for the beamwidth only)", date = "" }
-envelope_tile_pitch_m = { value = 0.260, unit = "m", status = "D", source = "tile pitch; envelope = tiles x pitch + (tiles - 1) x gap = 4.19 m", date = "" }
-envelope_tile_gap_m   = { value = 0.002, unit = "m", status = "D", source = "gap between tiles", date = "" }
-hpbw_factor           = { value = 0.886, unit = "-", status = "D", source = "HPBW = factor x lambda / D (uniform illumination)", date = "" }
+ku_trm_pitch_m       = { value = 0.0104, unit = "m", status = "V", source = "emissive face of a Ku TRM, 10.4 x 10.4 mm", date = "2026-10-20" }
+ku_trm_per_trsa_side = { value = 25, unit = "-", status = "V", source = "25 x 25 Ku TRMs (625) per TRSA", date = "2026-10-20" }
+s_trm_per_trsa_side  = { value = 5, unit = "-", status = "V", source = "5 x 5 S TRMs per TRSA (52 mm pitch, ~lambda/2; only divisor of 25 near lambda/2); recalled design discussion", date = "2026-10-20" }
+trsa_rows            = { value = [6, 8, 10, 12, 14, 16, 16, 16, 16, 16, 16, 14, 12, 10, 8, 6], unit = "-", status = "V", source = "TRSAs per grid row, approximate octagon, rows centred (196 TRSAs)", date = "2026-10-20" }
+trsa_gap_m           = { value = 0.002, unit = "m", status = "V", source = "clear mechanical gap between adjacent TRSAs (structure, thermal expansion, isolation): dead region", date = "2026-10-20" }
+eta_ohmic            = { value = 1.0, unit = "-", status = "V", source = "radiating-element efficiency, no feed in the digital V6 (local TX / pre-LNA paths are in band losses TX_chain, pre_LNA); was 0.96 = V5.6.0 low-loss feed (sec. 5.1.7); can carry extra losses later", date = "2026-10-20" }
 
 [search_grid]
-beam_spacing_hpbw = { value = 1.04, unit = "HPBW", status = "V", source = "hexagonal TX beam lattice, worst-case optimum (V6.0.10): drives positions and mean grid loss", date = "" }
-enable_grid_loss  = { value = true, unit = "", status = "V", source = "mean TX grid loss on (V6.0.1)", date = "" }
-frame_interleaved = { value = true, unit = "", status = "D", source = "echo wait hidden by interleaving positions (digital RX); false = dwell + 2R/c", date = "" }
-refresh_s         = { value = 120.0, unit = "s", status = "V", source = "surveillance refresh of the model's frame-feasibility check", date = "" }
+beam_spacing_hpbw = { value = 1.04, unit = "HPBW", status = "V", source = "hexagonal TX beam lattice, worst-case optimum (V6.0.10): drives positions and mean grid loss; revisit at 1.1 (beamwidth) and 2.3 (detection criterion)", date = "2026-10-20" }
+enable_grid_loss  = { value = true, unit = "", status = "V", source = "mean TX grid loss over the cell (V6.0.1); mean vs worst point revisited at 2.3", date = "2026-10-20" }
+frame_interleaved = { value = true, unit = "", status = "D", source = "echo wait hidden by interleaving positions (digital RX); false = dwell + 2R/c; scheduler assumption, to check at 4.3", date = "" }
 
 [detection]
-pd  = { value = 0.9, unit = "-", status = "V", source = "probability of detection", date = "" }
-pfa = { value = 1e-8, unit = "-", status = "V", source = "per range-Doppler cell; 1e-6 until then (false-alarm confirmations cost twice the search)", date = "2026-10-19" }
+pd  = { value = 0.9, unit = "-", status = "V", source = "single-look probability of detection, all sectors; cumulative Pd / per-sector value at 2.3 (5.1)", date = "2026-10-20" }
+pfa = { value = 1e-8, unit = "-", status = "V", source = "per range-Doppler cell; 1e-6 until then (false-alarm confirmations cost twice the search); Shnidman fit valid down to 1e-9; real cell count at 2.2", date = "2026-10-19" }
 
 [power]
-pae                = { value = 0.75, unit = "-", status = "V", source = "TX chain power-added efficiency (replaces 65 %)", date = "" }
-psu_eff            = { value = 0.95, unit = "-", status = "V", source = "power supply efficiency (CHAIN_EFF factor)", date = "" }
-distribution_eff   = { value = 0.995, unit = "-", status = "V", source = "distribution efficiency (CHAIN_EFF factor)", date = "" }
-overhead_frac      = { value = 0.03, unit = "-", status = "V", source = "overhead fraction (CHAIN_EFF = psu x distribution x (1 - overhead) = 0.917)", date = "" }
-face_elec_mw       = { value = 2.0, unit = "MW", status = "V", source = "electrical power allocated per face (default of a mission)", date = "" }
-ship_elec_total_mw = { value = 8.0, unit = "MW", status = "V", source = "ship total for the radar (4 faces x 2 MW); upper bound of a face's allocation", date = "" }
+pae                = { value = 0.75, unit = "-", status = "V", source = "TX chain power-added efficiency (replaces 65 %); constant, same for S and Ku for now: a variable PAE (band, pulse length, duty) comes at roadmap step 1.3", date = "" }
+psu_eff            = { value = 0.95, unit = "-", status = "V", source = "power supply efficiency (CHAIN_EFF factor)", date = "2026-10-20" }
+distribution_eff   = { value = 0.995, unit = "-", status = "V", source = "distribution efficiency (CHAIN_EFF factor)", date = "2026-10-20" }
+overhead_frac      = { value = 0.03, unit = "-", status = "V", source = "overhead fraction (CHAIN_EFF = psu x distribution x (1 - overhead) = 0.917); non-TX consumption (digital RX / ADC per TRM, control, cooling) to be budgeted at 4.1 and 4.4", date = "" }
+face_elec_mw       = { value = 2.0, unit = "MW", status = "V", source = "electrical power allocated per face (default of a mission)", date = "2026-10-20" }
+ship_elec_total_mw = { value = 8.0, unit = "MW", status = "V", source = "ship total for the radar, distributable on demand among the faces (e.g. 3 MW on F1 and 5 MW over F2-F4); per-face allocation managed by the radar software with the other parameters at 4.1 / 5.2", date = "2026-10-20" }
 
 [migration]
-mode        = { value = "COMPENSATED", unit = "", status = "V", source = "COMPENSATED (residual loss) | UNCOMPENSATED", date = "" }
-residual_db = { value = 1.0, unit = "dB", status = "V", source = "residual loss when compensated (keystone / Radon-type processing)", date = "" }
+mode        = { value = "COMPENSATED", unit = "", status = "V", source = "COMPENSATED (residual loss) | UNCOMPENSATED; velocity-bank processing cost at 2.2 / 4.4", date = "2026-10-20" }
+residual_db = { value = 1.0, unit = "dB", status = "V", source = "residual loss when compensated (keystone / Radon-type processing); flat, also applied to single pulses (intra-pulse = Doppler mismatch, not migration): loss vs cells crossed at 2.2, range-Doppler coupling at 2.1", date = "2026-10-20" }
 
 [multibeam]
-l8_db = { value = 0.8, unit = "dB", status = "V", source = "TX multibeam loss at 8 beams (exact V5.6.0 definition unknown); RX loss 0 (digital)", date = "" }
-p     = { value = 1.1, unit = "-", status = "V", source = "exponent of the multibeam law L8 x (log2 B / 3)^p", date = "" }
-
-[scan_loss]
-enable      = { value = true, unit = "", status = "V", source = "scan loss law of V5.4.0, extrapolated beyond 70 deg", date = "" }
-theta_ref_deg = { value = 70.0, unit = "deg", status = "V", source = "angle where the loss equals lmax_db", date = "" }
-theta0_deg  = { value = 25.0, unit = "deg", status = "V", source = "no scan loss below this angle", date = "" }
-lmax_db     = { value = 0.6, unit = "dB", status = "V", source = "loss at theta_ref (0.82 dB at 75 deg by extrapolation)", date = "" }
-power_p     = { value = 3.0, unit = "-", status = "V", source = "exponent of the law", date = "" }
+l8_db = { value = 0.8, unit = "dB", status = "?", source = "TX multibeam loss at 8 beams, one law for every mode (V5.6.0, definition unknown); RX loss 0 (digital). To be replaced by per-mode models (superposition + PA back-off 1.3, aperture partition 1.1, time/frequency multiplex 2.1), mode chosen by the optimiser per context (3.1 / 5.2)", date = "2026-10-20" }
+p     = { value = 1.1, unit = "-", status = "?", source = "exponent of the multibeam law L8 x (log2 B / 3)^p (0.24 / 0.51 / 0.80 dB at 2 / 4 / 8 beams); replaced with l8_db by the per-mode models", date = "2026-10-20" }
 
 [coherence]
-enable    = { value = true, unit = "", status = "D", source = "phase-noise / coherence loss (V5.4.0), coherent integration only", date = "" }
-t0_s      = { value = 0.25, unit = "s", status = "D", source = "LO coherence time constant", date = "" }
-p         = { value = 2.0, unit = "-", status = "D", source = "exponent of the LO term", date = "" }
-sigma_t_s = { value = 20e-15, unit = "s", status = "D", source = "clock jitter (rms)", date = "" }
-eta_min   = { value = 0.70, unit = "-", status = "D", source = "floor of the coherence efficiency (caps the loss at 1.55 dB)", date = "" }
+enable    = { value = true, unit = "", status = "D", source = "phase-noise / coherence loss (V5.4.0), coherent integration only; no known source (review 0.3)", date = "" }
+t0_s      = { value = 0.25, unit = "s", status = "D", source = "coherence time constant (V5.4.0); NO known source (review 0.3): LO, platform or target decorrelation undetermined", date = "" }
+p         = { value = 2.0, unit = "-", status = "D", source = "exponent of the coherence term (V5.4.0); no known source (review 0.3)", date = "" }
+eta_min   = { value = 0.70, unit = "-", status = "D", source = "floor of the coherence efficiency (caps the loss at 1.55 dB); reached at T = t0 (-ln eta_min)^(1/p) = 149 ms. INTERIM (review 0.3): the waveform generators drop coherent dwells longer than that, so the floor is never used; replaced at 2.2 (coherent blocks <= T_coh, noncoherent beyond)", date = "" }
 
 [estimation]
-k_theta       = { value = 0.5, unit = "-", status = "V", source = "angle estimator constant: ML on the full digital aperture (0.7 = classic sum/difference)", date = "2026-10-19" }
-k_f           = { value = 0.5, unit = "-", status = "D", source = "Doppler estimator constant (V5.4.0)", date = "" }
-range_crlb_kr = { value = 1.3, unit = "-", status = "D", source = "range CRLB constant (V5.4.0)", date = "" }
+k_theta       = { value = 0.5, unit = "-", status = "V", source = "angle estimator constant: ML on the full digital aperture (0.7 = classic sum/difference); confirmed in review 0.3", date = "2026-10-19" }
+k_f           = { value = 0.6, unit = "-", status = "V", source = "Doppler estimator constant = single-tone CRLB 0.551 x 1.13 (same margin as k_theta: 0.5 / 0.44); was 0.5 (V5.4.0), below the bound", date = "2026-10-20" }
+range_crlb_kr = { value = 0.6, unit = "-", status = "V", source = "range estimator constant = CRLB of a rectangular spectrum (total bandwidth) 0.551 x 1.13 (same margin as k_theta); was 1.3 (V5.4.0, no source); Taylor weighting derived from the real modulation at 2.1", date = "2026-10-20" }
 
 # --- bands --------------------------------------------------------------------------------------------------------
 [band.S]
-usable_lo_ghz       = { value = 2.7, unit = "GHz", status = "V", source = "S band", date = "" }
-usable_hi_ghz       = { value = 2.9, unit = "GHz", status = "V", source = "S band", date = "" }
+usable_lo_ghz       = { value = 2.7, unit = "GHz", status = "V", source = "S band", date = "2026-10-20" }
+usable_hi_ghz       = { value = 2.9, unit = "GHz", status = "V", source = "S band", date = "2026-10-20" }
 core_inset_divisor  = { value = 6.0, unit = "-", status = "?", source = "core band = usable band minus 1/divisor of its width each side (V5.4.0 proportions); to be replaced by the rf_layer_s.py table", date = "" }
 edge_derating_db    = { value = 1.5, unit = "dB", status = "D", source = "raised-cosine derating at the usable band edges", date = "" }
-scan_max_deg        = { value = 75.0, unit = "deg", status = "V", source = "scan limit up to scan_break_ghz", date = "" }
-scan_break_ghz      = { value = 2.85, unit = "GHz", status = "V", source = "above this frequency the scan limit is scan_max_hi_deg", date = "" }
-scan_max_hi_deg     = { value = 70.0, unit = "deg", status = "V", source = "scan limit above scan_break_ghz", date = "" }
-n_trm               = { value = 4900, unit = "-", status = "V", source = "TRMs per face (9.8 MW peak per face)", date = "" }
-p_pk_trm_w          = { value = 2000.0, unit = "W", status = "V", source = "peak power per TRM", date = "" }
-eta_illum_tx        = { value = 1.0, unit = "-", status = "V", source = "TX illumination efficiency", date = "" }
-eta_illum_rx        = { value = 0.88, unit = "-", status = "V", source = "RX illumination efficiency", date = "" }
+scan_max_deg        = { value = 75.0, unit = "deg", status = "V", source = "scan limit up to scan_break_ghz", date = "2026-10-20" }
+scan_break_ghz      = { value = 2.85, unit = "GHz", status = "V", source = "above this frequency the scan limit is scan_max_hi_deg", date = "2026-10-20" }
+scan_max_hi_deg     = { value = 70.0, unit = "deg", status = "V", source = "scan limit above scan_break_ghz", date = "2026-10-20" }
+# n_trm is derived from [aperture] (4900 S TRMs per face, 9.8 MW peak)
+p_pk_trm_w          = { value = 2000.0, unit = "W", status = "V", source = "peak power per TRM", date = "2026-10-20" }
+eta_illum_tx        = { value = 1.0, unit = "-", status = "V", source = "TX illumination efficiency", date = "2026-10-20" }
+eta_illum_rx        = { value = 0.88, unit = "-", status = "V", source = "RX illumination efficiency", date = "2026-10-20" }
 t_sys_k             = { value = 346.5, unit = "K", status = "V", source = "S-band system temperature (deep-space value, replaces 400 K)", date = "" }
-allowed_roles       = { value = ["SEARCH", "TWS"], unit = "", status = "V", source = "S = search / TWS only", date = "" }
-pol_rx_dual         = { value = true, unit = "", status = "V", source = "dual-polarised digital RX (per-TRM ADC)", date = "" }
+allowed_roles       = { value = ["SEARCH", "TWS"], unit = "", status = "V", source = "S = search / TWS only", date = "2026-10-20" }
+pol_rx_dual         = { value = true, unit = "", status = "V", source = "dual-polarised digital RX (per-TRM ADC)", date = "2026-10-20" }
 pol_loss_dual_db    = { value = 0.5, unit = "dB", status = "?", source = "single TX pol, dual-pol RX recombined: axial-ratio / cross-pol with scan", date = "" }
 pol_loss_single_db  = { value = 3.0, unit = "dB", status = "D", source = "single-pol RX on a depolarising target", date = "" }
 e_buf_trm_j         = { value = 5.0, unit = "J", status = "?", source = "per-TRM energy buffer (0 = droop not modelled); WF-LRS droop 0.24 dB", date = "" }
@@ -105,11 +106,11 @@ duty_max            = { value = 0.0, unit = "-", status = "D", source = "TRM dut
 
 # Fixed implementation losses, summed in this order.
 [band.S.losses_db]
-DSP         = { value = 2.0, unit = "dB", status = "V", source = "weighting/mismatch ~1.0 + range/Doppler straddle ~0.7 + finite precision ~0.3 (2050 deep-space)", date = "" }
-CFAR        = { value = 0.5, unit = "dB", status = "V", source = "homogeneous, known noise floor, no clutter, large reference window", date = "" }
-calibration = { value = 0.5, unit = "dB", status = "V", source = "calibration residual", date = "" }
+DSP         = { value = 2.0, unit = "dB", status = "V", source = "weighting/mismatch ~1.0 + range/Doppler straddle ~0.7 + finite precision ~0.3 (2050 deep-space)", date = "2026-10-20" }
+CFAR        = { value = 0.5, unit = "dB", status = "V", source = "homogeneous, known noise floor, no clutter, large reference window", date = "2026-10-20" }
+calibration = { value = 0.5, unit = "dB", status = "V", source = "calibration residual", date = "2026-10-20" }
 pre_LNA     = { value = 0.3, unit = "dB", status = "V", source = "element -> LNA path", date = "" }
-Ku_blockage = { value = 0.2, unit = "dB", status = "V", source = "blockage of the S aperture by the Ku array", date = "" }
+Ku_blockage = { value = 0.2, unit = "dB", status = "V", source = "blockage of the S aperture by the Ku array", date = "2026-10-20" }
 TX_chain    = { value = 0.3, unit = "dB", status = "?", source = "PA output -> element inside the TRM (0 dB if the 2 kW is specified at the radiating port)", date = "" }
 
 [band.Ku]
@@ -120,7 +121,7 @@ edge_derating_db    = { value = 1.5, unit = "dB", status = "D", source = "raised
 scan_max_deg        = { value = 75.0, unit = "deg", status = "V", source = "scan limit up to scan_break_ghz", date = "" }
 scan_break_ghz      = { value = 14.25, unit = "GHz", status = "V", source = "5x the S threshold", date = "" }
 scan_max_hi_deg     = { value = 70.0, unit = "deg", status = "V", source = "scan limit above scan_break_ghz", date = "" }
-n_trm               = { value = 122500, unit = "-", status = "V", source = "TRMs per face (9.19 MW peak per face)", date = "" }
+# n_trm is derived from [aperture] (122500 Ku TRMs per face, 9.19 MW peak)
 p_pk_trm_w          = { value = 75.0, unit = "W", status = "V", source = "peak power per TRM", date = "" }
 eta_illum_tx        = { value = 0.88, unit = "-", status = "V", source = "TX illumination efficiency", date = "" }
 eta_illum_rx        = { value = 0.88, unit = "-", status = "V", source = "RX illumination efficiency", date = "" }
@@ -172,6 +173,7 @@ width_m         = { value = 76.5, unit = "m", status = "V", source = "max overal
 
 # ------------------------------------------------------------------------------------------------------- tool
 [tool.cli]                    # defaults of: python core/radar_model.py
+refresh_s = 120.0               # refresh of the CLI report's frame-feasibility check (WF-LRS benchmark); missions use their sector RR
 frequency_ghz = 2.8
 scan_angle_deg = 0.0
 target = "ST"

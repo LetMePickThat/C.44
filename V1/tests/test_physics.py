@@ -75,8 +75,10 @@ def test_range_scales_as_rcs_quarter_power(wf, f, th):
 
 
 def test_range_scales_as_peak_power_quarter_power(tmp_path):
-    """16x the S TRMs -> 2x the range (R ~ P^(1/4)), and the change reaches solve() from the parameter file."""
-    text = _replace_value(_default_toml(), "band.S", "n_trm ", "4900", "78400")
+    """16x the S TRM peak power -> 2x the range (R ~ P^(1/4)), and the change reaches solve() from the parameter file.
+    The TRM buffer is scaled with it, so the buffer droop (pulse energy / buffer) stays the same."""
+    text = _replace_value(_default_toml(), "band.S", "p_pk_trm_w ", "2000.0", "32000.0")
+    text = _replace_value(text, "band.S", "e_buf_trm_j ", "5.0", "80.0")
     out = _run_with_params(text, "from core import radar_model as rm\n"
                                  "print(rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS['ST']).range_km)", tmp_path)
     assert float(out) / rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"]).range_km == pytest.approx(2.0, rel=1e-12)
@@ -110,6 +112,27 @@ def test_nothing_playable_outside_the_bands_or_beyond_scan_limit():
         assert band.edge_loss_db(band.usable_lo_ghz - 1e-6) >= 100.0
 
 
+# ----------------------------------------------------------------------------- aperture build-up
+def test_aperture_derived_from_trsa_build_up():
+    """196 bi-band TRSAs (25 x 25 Ku, 5 x 5 S) in an octagon, 2 mm dead gaps (array design note, review 0.3)."""
+    assert rm.N_TRSA == 196 and rm.N_TRSA_GAPS == 2 * 180
+    assert rm.BAND_S.n_trm == 4900 and rm.BAND_KU.n_trm == 122500
+    assert rm.TRSA_SIDE_M == pytest.approx(0.260) and rm.S_TRM_PITCH_M == pytest.approx(0.052)
+    assert rm.PHYS_AREA_M2 == pytest.approx(13.2496, rel=1e-9)
+    assert rm.TOTAL_AREA_M2 == pytest.approx(13.4368, rel=1e-9)
+    assert rm.FILL_FACTOR == pytest.approx(0.9861, abs=5e-5)
+    assert rm.ARRAY_ENVELOPE_M == pytest.approx(4.190, rel=1e-9)
+
+
+def test_s_trm_block_must_divide_the_ku_block(tmp_path):
+    text = _replace_value(_default_toml(), "aperture", "s_trm_per_trsa_side ", "5", "4")
+    path = tmp_path / "radar_system.toml"
+    path.write_text(text, encoding="utf-8")
+    res = subprocess.run([PYTHON, "-c", "import core.radar_model"], cwd=tb.ROOT, capture_output=True, text=True,
+                         env={**os.environ, params.PARAMS_ENV: str(path)}, timeout=120)
+    assert res.returncode != 0 and "must divide" in res.stderr
+
+
 # ----------------------------------------------------------------------------- beam grid / geometry
 def test_positions_times_cell_area_is_sector_area():
     for f in (2.7, 2.8, 2.9):
@@ -127,6 +150,13 @@ def test_eps_window_is_not_written_into_the_model():
     before = (rm.SECTOR_EPS_MIN_DEG, rm.SECTOR_EPS_MAX_DEG)
     mo.run(md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_synthetic_mix.json")), workers=1)
     assert (rm.SECTOR_EPS_MIN_DEG, rm.SECTOR_EPS_MAX_DEG) == before
+
+
+def test_face_sector_radius_follows_band_scan_limits(tmp_path):
+    """The face sector radius is derived from the band scan limits (review 0.3), not a separate figure."""
+    text = _replace_value(_default_toml(), "band.S", "scan_max_deg ", "75.0", "78.0")
+    out = _run_with_params(text, "from core import radar_model as rm\nprint(rm.SECTOR_RADIUS_DEG)", tmp_path)
+    assert float(out) == 78.0 and rm.SECTOR_RADIUS_DEG == max(rm.BAND_S.scan_max_deg, rm.BAND_KU.scan_max_deg)
 
 
 def test_faces_partition_the_scanned_sphere():
@@ -160,6 +190,23 @@ def test_time_on_air_at_least_energy_over_peak_power(runs):
         p_avg = res["global"]["face_avg_rf_kW"] * 1e3
         for k, f in res["faces_total"].items():
             assert f["time_fraction"] >= f["energy_fraction"] * p_avg / rm.BAND_S.p_pk_total_w * (1 - 1e-9), (n, k)
+
+
+def test_no_coherent_dwell_beyond_the_coherence_floor():
+    """INTERIM until step 2.2: past COH_T_MAX_S the eta_min floor would credit N tau without limit."""
+    assert rm.COH_T_MAX_S == pytest.approx(rm.COH_T0_S * (-math.log(rm.COH_ETA_MIN)) ** (1 / rm.COH_P))
+    assert rm.coherence_loss_db(2.8, rm.COH_T_MAX_S * 0.999) < rm.coherence_loss_db(2.8, rm.COH_T_MAX_S * 1.5)
+    for w in mo.candidate_waveforms({"range_km": 8000.0}) + mo.candidate_waveforms({"range_km": 500.0}):
+        assert w.integration != "COHERENT" or w.dwell_s <= rm.COH_T_MAX_S
+    for det, _ in trk._ku_candidates("COHERENT", None):
+        assert det.dwell_s <= rm.COH_T_MAX_S
+
+
+def test_estimator_constants_share_one_margin_over_the_bounds():
+    """k_theta, k_f, k_r = Cramer-Rao bound x the same 1.13 margin (review 0.3)."""
+    margin = rm.K_THETA / 0.44
+    assert rm.K_F == pytest.approx(0.551 * margin, abs=0.03) and rm.RANGE_CRLB_KR == pytest.approx(0.551 * margin, abs=0.03)
+    assert rm.K_F > 0.551 and rm.RANGE_CRLB_KR > 0.551           # never below the bound
 
 
 def test_power_scale_never_above_full_power(runs):

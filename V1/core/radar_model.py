@@ -16,6 +16,22 @@
 #     became the parameters aperture.hpbw_factor and band.<b>.buffer_max_fraction.
 #   - The mission scan window is passed explicitly (sector_area_uv / n_search_positions take eps_min_deg,
 #     eps_max_deg) instead of callers overwriting SECTOR_EPS_MIN_DEG / SECTOR_EPS_MAX_DEG in this module.
+#   - Review 0.3: SECTOR_RADIUS_DEG (face sector radius) is no longer an entry; it is derived as the widest band scan
+#     limit (75 deg today, unchanged), so it cannot drift from band.<b>.scan_max_deg.
+#   - Review 0.3: the aperture is derived from the array build-up -- bi-band TRSA tiles of 25 x 25 Ku TRMs (10.4 mm)
+#     and 5 x 5 S TRMs, 196 TRSAs in an approximate octagon (rows 6..16..6), 2 mm dead gaps between TRSAs. Emissive
+#     area 13.2496 m2 (was the rounded 13.25 entered by hand: ranges -0.0008 %), n_trm S 4900 / Ku 122500, envelope
+#     4.190 m (unchanged), fill factor 98.61 %. The envelope stays the beamwidth width (octagon taper: step 1.1).
+#   - Review 0.3: eta_ohmic 0.96 -> 1.0 (no feed in the digital V6; TX_chain / pre_LNA hold the local paths):
+#     ranges +2.1 %. hpbw_factor removed from the parameter file (0.886 kept in code until step 1.1).
+#   - Review 0.3: scan dependence of the gain = geometric projection cos(theta) only. Removed as a probable double
+#     count: element exponent n = 1.1 (cos^0.1 = active mismatch, V5.6.0) and the V5.4.0 scan-loss law (0.6 dB at
+#     70 deg). TEMPORARY and OPTIMISTIC at large scan (1.53 dB round trip at 70 deg: range +9.2 %) until roadmap
+#     step 1.2 brings a single active-reflection model |Gamma(theta, f)| (WAIM, grating-lobe approach).
+#   - Review 0.3: clock-jitter term of the coherence loss removed (sigma_t 20 fs: 1e-7 at 2.8 GHz, negligible).
+#   - Review 0.3: K_F 0.5 -> 0.6 and RANGE_CRLB_KR 1.3 -> 0.6 (Cramer-Rao bound 0.551 x the 1.13 margin of K_THETA).
+#   - Review 0.3, INTERIM: COH_T_MAX_S = t0 (-ln eta_min)^(1/p) = 149 ms; coherent dwells beyond it are no longer
+#     generated (the eta_min floor credited them N tau without limit and made exact energy ties). Until step 2.2.
 #
 # Changes V6.0.11 -> V6.0.12 (array tilt)
 #   - SECTOR_TILT_DEG 20 -> 25 deg [V]: updated figure for all four arrays (ship axis vertical, lighthouse
@@ -188,35 +204,49 @@ FRAME_INTERLEAVED: bool = P.get("search_grid.frame_interleaved")   # else the fr
 MB_L8_DB: float = P.get("multibeam.l8_db")
 MB_P: float = P.get("multibeam.p")
 
-# --- Scan loss (law from V5.4.0; extrapolated beyond theta_ref) and S-band RX polarisation / energy buffer ---
+# --- S-band RX polarisation / energy buffer ---
 POL_RX_DUAL: bool = P.get("band.S.pol_rx_dual")
 _POL_DUAL_DB, _POL_SINGLE_DB = P.get("band.S.pol_loss_dual_db"), P.get("band.S.pol_loss_single_db")
 POL_LOSS_DB: float = _POL_DUAL_DB if POL_RX_DUAL else _POL_SINGLE_DB
 E_BUF_TRM_J: float = P.get("band.S.e_buf_trm_j")
-ENABLE_SCAN_LOSS: bool = P.get("scan_loss.enable")
-SCAN_LOSS_THETA_REF_DEG: float = P.get("scan_loss.theta_ref_deg")
-SCAN_LOSS_THETA0_DEG: float = P.get("scan_loss.theta0_deg")
-SCAN_LOSS_LMAX_DB: float = P.get("scan_loss.lmax_db")
-SCAN_LOSS_POWER_P: float = P.get("scan_loss.power_p")
 
 # --- Coherence / phase noise (V5.4.0 model, applied to COHERENT integration only) ---
 ENABLE_COH_LOSS: bool = P.get("coherence.enable")
 COH_T0_S: float = P.get("coherence.t0_s")
 COH_P: float = P.get("coherence.p")
-COH_SIGMA_T_S: float = P.get("coherence.sigma_t_s")
 COH_ETA_MIN: float = P.get("coherence.eta_min")
+# Longest coherent span before the loss reaches its floor (149 ms). INTERIM (review 0.3): the waveform generators
+# (optimizer.candidate_waveforms, tracking._ku_candidates) drop coherent dwells beyond it, since past the floor the
+# model credits N tau without limit (range ~ N^(1/4)). Roadmap step 2.2 replaces it (coherent blocks + noncoherent).
+COH_T_MAX_S: float = COH_T0_S * (-math.log(COH_ETA_MIN)) ** (1.0 / COH_P) if ENABLE_COH_LOSS else math.inf
 
-# --- Aperture physics ---
-PHYS_AREA_M2: float = P.get("aperture.phys_area_m2")       # emissive area per face
+# --- Aperture physics: derived from the array build-up (bi-band TRSA tiles in an approximate octagon) ---
+KU_TRM_PITCH_M: float = P.get("aperture.ku_trm_pitch_m")
+KU_TRM_PER_TRSA_SIDE: int = P.get("aperture.ku_trm_per_trsa_side")
+S_TRM_PER_TRSA_SIDE: int = P.get("aperture.s_trm_per_trsa_side")
+TRSA_ROWS: Tuple[int, ...] = tuple(P.get("aperture.trsa_rows"))
+TRSA_GAP_M: float = P.get("aperture.trsa_gap_m")
+if KU_TRM_PER_TRSA_SIDE % S_TRM_PER_TRSA_SIDE:
+    raise ValueError(f"{P.path}: aperture.s_trm_per_trsa_side ({S_TRM_PER_TRSA_SIDE}) must divide "
+                     f"ku_trm_per_trsa_side ({KU_TRM_PER_TRSA_SIDE}): each S TRM covers a whole block of Ku TRMs")
+TRSA_SIDE_M: float = KU_TRM_PER_TRSA_SIDE * KU_TRM_PITCH_M
+S_TRM_PITCH_M: float = TRSA_SIDE_M / S_TRM_PER_TRSA_SIDE
+N_TRSA: int = sum(TRSA_ROWS)
+# Gap segments between adjacent TRSAs (rows centred): within the rows, and between consecutive rows
+N_TRSA_GAPS: int = sum(n - 1 for n in TRSA_ROWS) + sum(min(a, b) for a, b in zip(TRSA_ROWS, TRSA_ROWS[1:]))
+PHYS_AREA_M2: float = N_TRSA * TRSA_SIDE_M ** 2            # emissive area per face (the gaps are dead area)
+TOTAL_AREA_M2: float = PHYS_AREA_M2 + N_TRSA_GAPS * TRSA_GAP_M * TRSA_SIDE_M
+FILL_FACTOR: float = PHYS_AREA_M2 / TOTAL_AREA_M2
+ARRAY_ENVELOPE_M: float = max(TRSA_ROWS) * TRSA_SIDE_M + (max(TRSA_ROWS) - 1) * TRSA_GAP_M   # widest row, beamwidth only
+N_TRM: Dict[str, int] = {"S": N_TRSA * S_TRM_PER_TRSA_SIDE ** 2, "Ku": N_TRSA * KU_TRM_PER_TRSA_SIDE ** 2}
 ETA_OHMIC: float = P.get("aperture.eta_ohmic")
-SCAN_EXPONENT: float = P.get("aperture.scan_exponent")     # element factor cos^n
-_TILES = P.get("aperture.envelope_tiles")
-ARRAY_ENVELOPE_M: float = _TILES * P.get("aperture.envelope_tile_pitch_m") + (_TILES - 1) * P.get("aperture.envelope_tile_gap_m")
-HPBW_FACTOR: float = P.get("aperture.hpbw_factor")         # HPBW = factor x lambda / D
+# HPBW = factor x lambda / D_env. TEMPORARY (review 0.3: removed from the parameter file): 0.886 is the V5.6.0 value,
+# that of a uniform RECTANGULAR aperture. The real pattern of the octagon (computed 2026-10-20: TX uniform 1.04,
+# RX taper eta 0.88 1.18) replaces it at roadmap step 1.1 -- do not move it back into the parameter file.
+HPBW_FACTOR: float = 0.886
 
-# --- Surveillance sector (per face) ---
-SECTOR_RADIUS_DEG: float = P.get("geometry.scan_radius_deg")
-REFRESH_S: float = P.get("search_grid.refresh_s")
+# --- Surveillance sector (per face); its radius SECTOR_RADIUS_DEG is derived from the band scan limits below ---
+REFRESH_S: float = P.get("tool.cli.refresh_s")   # frame check of the CLI report only (missions: sector RR)
 
 # --- Tracking estimator constants (used by Ku TRACK waveforms, core/tracking.py) ---
 K_THETA: float = P.get("estimation.k_theta")
@@ -307,7 +337,7 @@ def _band(name: str) -> BandConfig:
         edge_derating_db=P.get(b + "edge_derating_db"),
         scan_max_deg=P.get(b + "scan_max_deg"), scan_break_ghz=P.get(b + "scan_break_ghz"),
         scan_max_hi_deg=P.get(b + "scan_max_hi_deg"),
-        n_trm=P.get(b + "n_trm"), p_pk_trm_w=P.get(b + "p_pk_trm_w"),
+        n_trm=N_TRM[name], p_pk_trm_w=P.get(b + "p_pk_trm_w"),
         eta_illum_tx=P.get(b + "eta_illum_tx"), eta_illum_rx=P.get(b + "eta_illum_rx"),
         t_sys_k=P.get(b + "t_sys_k"),
         losses_db=dict(P.section(b + "losses_db")),
@@ -322,6 +352,8 @@ BAND_KU = _band("Ku")
 _S_LO, _S_HI = BAND_S.usable_lo_ghz, BAND_S.usable_hi_ghz
 _KU_LO, _KU_HI = BAND_KU.usable_lo_ghz, BAND_KU.usable_hi_ghz
 BANDS: Dict[str, BandConfig] = {"S": BAND_S, "Ku": BAND_KU}
+# Face surveillance sector radius = the widest scan limit of any band (derived, no entry of its own: review 0.3)
+SECTOR_RADIUS_DEG: float = max(max(b.scan_max_deg, b.scan_max_hi_deg) for b in BANDS.values())
 
 
 def face_avg_rf_w(elec_mw: float) -> float:
@@ -358,7 +390,8 @@ TARGETS: Dict[str, Target] = {
 # Gain / geometry
 # -----------------------------------------------------------------------------
 def aperture_m2(eta_illum: float, theta_deg: float) -> float:
-    ef = max(math.cos(math.radians(theta_deg)) ** SCAN_EXPONENT, 1e-6)
+    # Geometric projection only. TEMPORARY: no active-mismatch (|Gamma|, WAIM) loss until roadmap step 1.2 (review 0.3).
+    ef = max(math.cos(math.radians(theta_deg)), 1e-6)
     return PHYS_AREA_M2 * eta_illum * ETA_OHMIC * ef
 
 
@@ -447,16 +480,6 @@ def grid_loss_db(spacing_hpbw: Optional[float] = None) -> float:
 # -----------------------------------------------------------------------------
 # Loss terms
 # -----------------------------------------------------------------------------
-def scan_loss_db(theta_deg: float) -> float:
-    if not ENABLE_SCAN_LOSS:
-        return 0.0
-    th = abs(theta_deg)
-    if th <= SCAN_LOSS_THETA0_DEG:
-        return 0.0
-    u = (th - SCAN_LOSS_THETA0_DEG) / (SCAN_LOSS_THETA_REF_DEG - SCAN_LOSS_THETA0_DEG)
-    return SCAN_LOSS_LMAX_DB * u ** SCAN_LOSS_POWER_P   # not clamped: 0.6 dB at 70 deg, ~0.82 dB at 75 deg
-
-
 def multibeam_tx_loss_db(b_tx: int) -> float:
     if b_tx <= 1:
         return 0.0
@@ -467,8 +490,7 @@ def coherence_loss_db(f_ghz: float, t_cpi_s: float) -> float:
     if not ENABLE_COH_LOSS or t_cpi_s <= 0.0:
         return 0.0
     s_lo2 = (t_cpi_s / COH_T0_S) ** COH_P
-    s_jit2 = (2.0 * math.pi * f_ghz * 1e9 * COH_SIGMA_T_S) ** 2
-    eta = max(math.exp(-(s_lo2 + s_jit2)), COH_ETA_MIN)
+    eta = max(math.exp(-s_lo2), COH_ETA_MIN)   # clock-jitter term removed (review 0.3): 3e-6 at 14 GHz, negligible
     return -10.0 * math.log10(eta)
 
 
@@ -657,7 +679,6 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     t_span = wf.dwell_s
     losses: Dict[str, float] = dict(band.losses_db)
     losses["edge"] = band.edge_loss_db(f_ghz)
-    losses["scan"] = scan_loss_db(theta_deg)
     if band.pol_loss_db > 0:
         losses["polarisation"] = band.pol_loss_db
     if band.e_buf_trm_j > 0:
@@ -713,6 +734,10 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
         print(f"-> {f_ghz} GHz is outside every band (S {_S_LO}-{_S_HI}, Ku {_KU_LO}-{_KU_HI} GHz). Nothing playable.")
         return
     lim = band.scan_limit_deg(f_ghz)
+    print(f"Aperture: {N_TRSA} TRSA ({KU_TRM_PER_TRSA_SIDE}x{KU_TRM_PER_TRSA_SIDE} Ku, {S_TRM_PER_TRSA_SIDE}x"
+          f"{S_TRM_PER_TRSA_SIDE} S TRM) | emissive {PHYS_AREA_M2:.4f} m2, total {TOTAL_AREA_M2:.4f} m2, fill "
+          f"{100 * FILL_FACTOR:.2f} % | envelope {ARRAY_ENVELOPE_M:.3f} m | pitch S {1e3 * S_TRM_PITCH_M:.1f} mm, "
+          f"Ku {1e3 * KU_TRM_PITCH_M:.1f} mm")
     print(f"Band {band.name}: {band.n_trm} TRM x {band.p_pk_trm_w:.0f} W = {band.p_pk_total_w/1e6:.2f} MW peak/face | "
           f"scan limit {lim:.0f} deg | T_sys {band.t_sys_k:.1f} K | fixed losses {band.l_fixed_db:.2f} dB")
     print(f"Gain TX {lin_to_db(gain_lin(band.eta_illum_tx, f_ghz, theta_deg)):.2f} dBi | "
@@ -778,9 +803,6 @@ def selftest() -> int:
           abs(detect_snr_req_db("COHERENT", 128, 1) - shnidman_total_snr_db(DETECT_PD, DETECT_PFA, 1, 1)) < 1e-9)
     check("SW1 penalty about 8 dB over steady at N=1", abs((sh1 - sh0) - 8.0) < 0.5, f"({sh1 - sh0:.2f})")
 
-    check("Scan loss 0 dB at 25 deg", scan_loss_db(25.0) == 0.0)
-    check("Scan loss 0.6 dB at 70 deg", abs(scan_loss_db(70.0) - 0.6) < 1e-9)
-    check("Scan loss ~0.82 dB at 75 deg", abs(scan_loss_db(75.0) - 0.823) < 0.01, f"({scan_loss_db(75.0):.3f})")
     check("S scan limit 75 deg at 2.8 GHz, 70 deg at 2.88 GHz",
           BAND_S.scan_limit_deg(2.8) == 75.0 and BAND_S.scan_limit_deg(2.88) == 70.0)
     check("S core band has no edge loss; edges 1.5 dB",

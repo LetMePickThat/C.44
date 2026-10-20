@@ -172,6 +172,8 @@ def _ku_candidates(integ: str, pack: Optional[rm.TrackingPack]) -> Tuple[Tuple[r
                                                                     tracking_pack=pack)
                     except ValueError:
                         continue
+                    if integ == "COHERENT" and det.dwell_s > rm.COH_T_MAX_S:
+                        continue          # INTERIM until step 2.2: beyond the coherence floor (radar_model.COH_T_MAX_S)
                     out.append((det, trk))
     return tuple(out)
 

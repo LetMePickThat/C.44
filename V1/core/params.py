@@ -3,7 +3,7 @@
 """
 PARAMS -- loader of radar_system.toml, the single source of every radar-system value and tool setting.
 
-Every module reads its values here (P.get("band.S.n_trm")) instead of holding its own constants, so a change of the
+Every module reads its values here (P.get("band.S.p_pk_trm_w")) instead of holding its own constants, so a change of the
 radar architecture is one edit in the file. The file is read once per process, at the first import; worker processes
 of the optimiser read the same file (RADAR_PARAMS is inherited from the parent environment).
 
