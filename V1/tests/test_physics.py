@@ -108,6 +108,64 @@ def test_coherent_requirement_independent_of_pulse_count():
     assert rm.detect_snr_req_db("COHERENT", 1, 1) == rm.detect_snr_req_db("COHERENT", 256, 1)
 
 
+# ----------------------------------------------------------------------------- the band (step 1.4)
+def test_edge_law_from_the_band_entries():
+    """Raised cosine between the core and usable edges (no loss in the core), max edge_derating_db at the edges,
+    averaged over the occupied spectrum (exact integral = numerical mean)."""
+    for b in rm.BANDS.values():
+        assert b.usable_lo_ghz < b.core_lo_ghz < b.core_hi_ghz < b.usable_hi_ghz
+        mid = 0.5 * (b.core_lo_ghz + b.core_hi_ghz)
+        assert b.edge_loss_db(mid) == 0.0
+        assert b.edge_loss_db(b.usable_lo_ghz) == pytest.approx(b.edge_derating_db)
+        assert b.edge_loss_db(b.usable_hi_ghz) == pytest.approx(b.edge_derating_db)
+        f = 0.5 * (b.usable_lo_ghz + b.core_lo_ghz)
+        assert b.edge_loss_db(f) == pytest.approx(b.edge_derating_db / 2)
+        for f0, bw in ((f, 20.0), (b.core_hi_ghz, 40.0), (mid, 50.0)):
+            pts = [f0 + (k + 0.5 - 2000) * bw * 1e-3 / 4000 for k in range(4000)]
+            assert b.edge_loss_db(f0, bw) == pytest.approx(sum(b.edge_loss_db(p) for p in pts) / 4000, abs=1e-6)
+
+
+def test_signal_must_fit_in_the_usable_band():
+    s = rm.BAND_S
+    assert s.fits(s.usable_lo_ghz + 0.005, 10.0) and not s.fits(s.usable_lo_ghz + 0.004, 10.0)
+    assert s.fits(0.5 * (s.usable_lo_ghz + s.usable_hi_ghz), s.bi_max_mhz)
+    w = rm.Waveform("w", "SEARCH", "S", 100e-6, 1, 1e-3, 75.0)
+    with pytest.raises(ValueError, match="leaves the usable"):
+        rm.solve(w, s.usable_lo_ghz, 0.0, rm.TARGETS["ST"])
+    rm.solve(w, s.usable_lo_ghz + 0.0375, 0.0, rm.TARGETS["ST"])
+    assert rm.solve(w, 2.8, 0.0, rm.TARGETS["ST"]).losses["edge"] == 0.0
+
+
+def test_true_time_delay_entry_and_phase_steering_limit(tmp_path):
+    """Digital TTD: no bandwidth limit with scan; 'none' limits B to c / (D_env sin theta)."""
+    assert rm.BAND_S.true_time_delay == rm.BAND_KU.true_time_delay == "digital_per_trm"
+    text = _replace_value(_default_toml(), "band.S", "true_time_delay ", '"digital_per_trm"', '"none"')
+    code = ("from core import radar_model as rm\n"
+            "w = rm.Waveform('w', 'SEARCH', 'S', 100e-6, 1, 1e-3, 75.0)\n"
+            "rm.solve(w, 2.8, 60.0, rm.TARGETS['ST'])\n"
+            "try:\n    rm.solve(w, 2.8, 75.0, rm.TARGETS['ST']); print('accepted')\n"
+            "except ValueError as e:\n    print('refused', 'aperture-fill' in str(e))")
+    assert _run_with_params(text, code, tmp_path).split() == ["refused", "True"]
+
+
+def test_band_can_be_redefined_in_the_file(tmp_path):
+    """A wider S band (better TRMs) in the parameter file alone: the model, the optimiser and the search run, and an
+    inconsistent band is refused at load time with a clear message."""
+    text = _replace_value(_default_toml(), "band.S", "usable_lo_ghz ", "2.7", "2.6")
+    text = _replace_value(text, "band.S", "usable_hi_ghz ", "2.9", "3.0")
+    code = ("from core import radar_model as rm, optimizer as mo, mission as md\n"
+            "print(rm.BAND_S.fits(2.7, 75.0), rm.BAND_S.edge_loss_db(2.6))\n"
+            "m = md.empty_mission(); m['sectors'].append(md.new_sector([]))\n"
+            "r = mo.run(m, workers=1); print(r['sectors'][0]['status'])")
+    assert _run_with_params(text, code, tmp_path).split() == ["True", "0.5", "OK"]
+    bad = _replace_value(_default_toml(), "band.S", "core_lo_ghz ", "2.74", "2.65")
+    path = tmp_path / "bad.toml"
+    path.write_text(bad, encoding="utf-8")
+    res = subprocess.run([PYTHON, "-c", "import core.radar_model"], cwd=tb.ROOT, capture_output=True, text=True,
+                         env={**os.environ, params.PARAMS_ENV: str(path)}, timeout=120)
+    assert res.returncode != 0 and "core band" in res.stderr
+
+
 def test_nothing_playable_outside_the_bands_or_beyond_scan_limit():
     assert rm.playable(5.0, 0.0) == [] and rm.playable(2.8, rm.BAND_S.scan_limit_deg(2.8) + 0.1) == []
     for band in rm.BANDS.values():

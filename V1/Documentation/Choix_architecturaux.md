@@ -1,6 +1,6 @@
 # Outil de préparation de mission radar : choix architecturaux
 
-Ce document recense tous les choix d'architecture faits jusqu'ici : organisation du logiciel, modèle du radar, et pour chaque variable sa définition, sa valeur, son statut et la raison de cette valeur. Il décrit l'état du dépôt après l'étape 1.3 de la feuille de route (modèle V6.3.0, 20 octobre 2026).
+Ce document recense tous les choix d'architecture faits jusqu'ici : organisation du logiciel, modèle du radar, et pour chaque variable sa définition, sa valeur, son statut et la raison de cette valeur. Il décrit l'état du dépôt après l'étape 1.4 de la feuille de route (modèle V6.4.0, 20 octobre 2026).
 
 > **Avertissement.** Les missions de `tests/missions/` sont des **missions de test**. Les valeurs figées de `tests/snapshots/` sont des **valeurs figées de test**. Elles servent seulement à détecter les régressions du code. Ce ne sont ni des exigences ni des performances du radar, dont les capacités réelles ne sont pas établies.
 
@@ -49,6 +49,8 @@ Construire un outil dans lequel l'opérateur prépare sa mission. Cette mission 
 | Valeurs de test | Les missions de test et les valeurs figées ne sont jamais présentées comme des références ou des performances. |
 | Regrouper par sujet | Tout ce qui touche un même sujet est traité au même endroit (même étape, même bloc de questions) ; une valeur qui en dépend d'une autre se fixe après celle-ci (règle fixée à l'étape 1.3). |
 | Valeurs technologiques | Hypothèses **crédibles mais optimistes pour 2050-2060** (règle fixée à l'étape 1.3). |
+| Valeurs ajustables | Les valeurs peuvent encore changer (par exemple une bande jouable plus large si les TRM progressent) : tout ce qui en dépend est **calculé** à partir du fichier, et le chargeur refuse une combinaison incohérente avec un message clair (règle fixée à l'étape 1.4). |
+| Sources | Le dossier `RADARv5` est **obsolète** : il ne sert pas de source de valeurs ni de modèles (règle fixée à l'étape 1.4). |
 | Commits | Un commit par étape, et seulement sur demande (« c, p » = commit et push). |
 
 ### 1.4 Reprendre le travail dans une nouvelle session
@@ -83,7 +85,7 @@ Procédure d'une étape :
 | Module | Rôle |
 |---|---|
 | `core/params.py` | Charge `radar_system.toml`, une seule fois par processus. Expose `P.get`, `P.meta`, `P.section` et l'empreinte des paramètres (`fingerprint`). La variable d'environnement `RADAR_PARAMS` permet de désigner un autre fichier. |
-| `core/radar_model.py` | Modèle radar V6.3.0 : bilan électrique et PAE variable par bande (étape 1.3), désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
+| `core/radar_model.py` | Modèle radar V6.4.0 : bande (loi de bord par bande, occupation du spectre, retard vrai, contrôles de cohérence au chargement ; étape 1.4), bilan électrique et PAE variable par bande (étape 1.3), désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
 | `core/antenna.py` | **Étapes 1.1 et 1.2.** Diagramme de rayonnement calculé à partir de la composition des TRSA : faisceau d'émission uniforme, pondération de réception par niveau de lobes, étendue RMS de l'ouverture, profil des lobes lointains sur tout l'espace visible (lobes de jeu compris). Résultat mis en cache dans `core/antenna_cache.json`. |
 | `core/optimizer.py` | Optimiseur de la veille S. Choisit pour chaque secteur la fréquence et les formes d'onde par tranche d'angle de dépointage, et établit le bilan énergie et temps par face. |
 | `core/tracking.py` | Confirmation (modes KU1+7, KU7 et S2) et poursuite active (AT) en Ku, ajoutées au bilan par face. |
@@ -128,7 +130,7 @@ Procédure d'une étape :
 | Autre fichier | Variable d'environnement `RADAR_PARAMS=<chemin>`, héritée par les processus de l'optimiseur. |
 | Revue | Toutes les valeurs ont été validées une par une lors de la revue 0.3. Les ajouts des étapes 1.1, 1.2 et 1.3 ont été validés pendant chacune de ces étapes. |
 
-**Bilan actuel : 133 entrées système, dont 82 V, 49 D et 2 ?.** Les deux entrées « ? » sont `multibeam.l8_db` et `multibeam.p`.
+**Bilan actuel : 137 entrées système, dont 85 V, 50 D et 2 ?.** Les deux entrées « ? » sont `multibeam.l8_db` et `multibeam.p`.
 
 ---
 
@@ -142,7 +144,7 @@ Procédure d'une étape :
 | Missions de test | `mission_example` (en JSON et en CSV), `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`. Les deux premières ont été récupérées dans l'historique git. |
 | Rapport d'impact | `python tests/impact_report.py`, à chaque étape, avant de régénérer les valeurs figées : chiffres clés, et pour chaque mission de test les formes d'onde de veille et les modes de confirmation qui changent. |
 | Régénération | `python tests/update_snapshots.py`. Chaque régénération est consignée dans `tests/snapshots/JOURNAL.md`, avec sa cause et les formes d'onde ou modes qui ont changé. |
-| État | 81 tests passent après l'étape 1.3. |
+| État | 85 tests passent après l'étape 1.4. |
 
 ---
 
@@ -262,11 +264,11 @@ Retiré : `k_theta` = 0,5, remplacé par `angle_crlb_margin` à l'étape 1.1.
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
 | `usable_lo_ghz` / `usable_hi_ghz` | Bande utile. | 2,7 à 2,9 GHz | V | Confirmé lors de la revue 0.3. |
-| `core_inset_divisor` | La bande centrale est la bande utile amputée de 1/6 de sa largeur de chaque côté. | 6,0 | D | La loi de bord de V5.6.0 (§5.2.3) avait été établie sur l'ancienne bande Ku de 14,8 à 17,2 GHz. Elle est gardée **en fraction de bande** (option a). Une table propre à chaque bande viendra à l'étape 1.4. |
-| `edge_derating_db` | Dégradation maximale aux bords de la bande utile, en cosinus surélevé. | 1,5 dB | D | Même origine ; la bande S copie la bande Ku (étape 1.4). |
+| `core_lo_ghz` / `core_hi_ghz` | Bande centrale, sans perte de bord. | 2,74 à 2,86 GHz | D | **Étape 1.4, A1-A2.** Donnée en GHz pour chaque bande. Remplace `core_inset_divisor` = 6 (bande utile amputée d'un sixième de chaque côté), une proportion copiée de l'ancienne bande Ku de 14,8 à 17,2 GHz. Valeur optimiste 2050-2060 pour une bande relative de 7 %. |
+| `edge_derating_db` | Perte **totale** (aller-retour) aux bords de la bande utile ; cosinus surélevé entre la bande centrale et les bords. | 0,5 dB | D | **Étape 1.4, A2-A4.** Rendement des PA et LNA, filtres et WAIM désaccordée hors de la bande centrale. Elle est **moyennée sur le spectre occupé** [f − B/2, f + B/2]. Ancienne valeur 1,5 dB, copiée de l'ancienne bande Ku. |
 | `scan_max_deg` | Limite de balayage jusqu'à `scan_break_ghz`. | 75° | V | Confirmé. |
 | `scan_break_ghz` | Fréquence au-dessus de laquelle la limite de balayage baisse. | 2,85 GHz | V | Avec le pas moyen réel (étape 1.2), la marge de lobe de réseau à 2,9 GHz et 75° valait 0,35 % avec 2 mm de jeu (désadaptation 4,1 dB par passage), d'où les 70° au-dessus. Avec 0,5 mm, elle vaut 0,9 % (1,8 dB par passage, sous le seuil d'alerte). Les limites restent verrouillées (Q5) ; les relâcher au-dessus de 2,85 GHz serait une décision à prendre. |
-| `scan_max_hi_deg` | Limite de balayage au-dessus de `scan_break_ghz`. | 70° | V | Idem. |
+| `scan_max_hi_deg` | Limite de balayage au-dessus de `scan_break_ghz`. | 70° | V | **Gardée à l'étape 1.4 (E1, option a).** Au haut de bande et à 75°, la désadaptation n'est plus que de 1,8 dB par passage, mais le flanc du lobe de réseau atteint l'horizon, et le diagramme de l'élément, qui l'atténuerait, n'est pas modélisé. À revoir quand il le sera. |
 | `p_pk_trm_w` | Puissance crête par TRM, **en sortie de PA** (plan de référence 1, là où la PAE est définie). | 2000 W | V | Convention verrouillée lors de la revue 0.3. Le chemin du PA à l'élément est la perte dérivée TX_chain. |
 | `eta_illum_tx` | Rendement d'illumination en émission. | 1,0 | V | Émission uniforme, PA en saturation. |
 | `allowed_roles` | Rôles permis en bande S. | ["SEARCH", "TWS"] | D | Politique d'usage des bandes du logiciel radar (étapes 3.x et 4.3). Le « toucher » S2 de confirmation sort de cette règle (noté pour l'étape 3.2). |
@@ -279,7 +281,8 @@ Retiré : `k_theta` = 0,5, remplacé par `angle_crlb_margin` à l'étape 1.1.
 | `pae_duty_slope` | Perte relative de PAE par unité de facteur de forme au-dessus de la référence (échauffement du canal). | 0,05 | D | **Q2 bis.** Faible grâce au diamant et aux microcanaux : −2,75 % à d = 0,65. |
 | `e_buf_trm_j` | Réserve d'énergie par TRM (banc de condensateurs local qui fournit l'impulsion). | 25 J | D | **Q7.** Ancienne valeur 5 J, sans source. Choisie pour permettre des impulsions de 2 ms en veille très longue portée, où une zone aveugle de 300 km est sans importance et où le temps d'observation dépend du nombre d'impulsions à la PRI longue. 5 cm³ à 5 J/cm³ ; masse des réserves en point ouvert. |
 | `buffer_max_fraction` | Fraction maximale de la réserve qu'une impulsion peut consommer. | 0,2 | D | **Q7.** La puissance du PA suit l'énergie stockée : l'impulsion la plus longue finit à −0,97 dB (perte moyenne 0,46 dB). L'ancienne valeur 0,5 donnait −3 dB, trop pour un radar cohérent. Fixe τ_max. |
-| `bi_max_mhz` | Plafond de bande instantanée. | 200 MHz | D | Toute la bande S « pour l'instant ». Retard vrai numérique par TRM, donc pas de dépointage avec la fréquence. Sans retard vrai, le plafond serait d'environ 74 MHz à 75°. |
+| `bi_max_mhz` | Plafond de bande instantanée. | 200 MHz | V | **Confirmé à l'étape 1.4 (C1)** : toute la bande S. Avec le retard vrai numérique, la limite vient des convertisseurs et filtres des TRM (débit des CAN : étape 4.4). |
+| `true_time_delay` | Mode de dépointage. | "digital_per_trm" | V | **Étape 1.4, D1.** Retard vrai numérique dans chaque TRM : pas de dépointage avec la fréquence, pas de limite de remplissage de l'ouverture. L'autre valeur possible, "none" (dépointage par la phase), limiterait la bande du signal à c / (D_env sin θ), environ 75 MHz à 75°. |
 | `duty_max` | Plafond du facteur de forme d'un TRM, sur les trains d'impulsions. | 0,65 | D | **Q5.** Contrôlé à la création de la forme d'onde. Avec le GaN sur diamant et les microcanaux, l'échauffement du canal n'est plus limitant ; l'optimiseur ne s'en sert que si c'est utile. L'éclipse (récepteur sourd 65 % du temps) n'est modélisée qu'à l'étape 2.1 : les choix à fort facteur de forme sont optimistes d'ici là. |
 
 Retirés : `eta_illum_rx` (0,88), désormais **dérivé** de la pondération du volume (§6), et `t_sys_k`, désormais **dérivé** de la chaîne de réception.
@@ -328,11 +331,11 @@ TX_chain = filtre d'harmoniques + circulateur (traversée en émission) + couple
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
 | `usable_lo_ghz` / `usable_hi_ghz` | Bande utile. | 13,5 à 14,5 GHz | V | Confirmé lors de la revue 0.3. |
-| `core_inset_divisor` | Comme en S. | 6,0 | D | Fraction de bande (étape 1.4). |
-| `edge_derating_db` | Comme en S. | 1,5 dB | D | Étape 1.4. |
+| `core_lo_ghz` / `core_hi_ghz` | Bande centrale. | 13,7 à 14,3 GHz | D | **Étape 1.4**, comme en S (bande relative de 7 %). |
+| `edge_derating_db` | Perte totale aux bords, moyennée sur le spectre occupé. | 0,5 dB | D | **Étape 1.4**, comme en S. |
 | `scan_max_deg` | Limite de balayage jusqu'à `scan_break_ghz`. | 75° | V | Confirmé. |
 | `scan_break_ghz` | Seuil de fréquence de la limite. | 14,25 GHz | V | Cinq fois le seuil S. |
-| `scan_max_hi_deg` | Limite au-dessus du seuil. | 70° | V | Confirmé. |
+| `scan_max_hi_deg` | Limite au-dessus du seuil. | 70° | V | Gardée à l'étape 1.4, comme en S. |
 | `p_pk_trm_w` | Puissance crête par TRM Ku, en sortie de PA. | 75 W | V | Même convention qu'en S. |
 | `pae_sat` | PAE en saturation au facteur de forme de référence. | 0,65 | D | **Étape 1.3, Q3.** Le GaN actuel en Ku atteint environ 30 à 45 %, le laboratoire environ 50 à 55 % ; 0,65 est le choix de l'utilisateur pour 2050-2060. |
 | `pae_t_edge_s` | Temps de front par impulsion. | 0,1 µs | D | **Q4.** Puces plus petites qu'en S. |
@@ -346,6 +349,7 @@ TX_chain = filtre d'harmoniques + circulateur (traversée en émission) + couple
 | `e_buf_trm_j` | Réserve d'énergie par TRM Ku. | 1,2 J | D | **Q7.** Elle n'était pas modélisée. τ_max = 0,2 × 1,2 × 0,65 / 75 W = 2,08 ms, même raison qu'en S. |
 | `buffer_max_fraction` | Fraction maximale par impulsion. | 0,2 | D | Comme en S. |
 | `bi_max_mhz` | Bande instantanée. | 200 MHz | V | Plafond matériel. Retard vrai numérique par TRM. |
+| `true_time_delay` | Mode de dépointage. | "digital_per_trm" | V | Comme en S (étape 1.4). |
 | `duty_max` | Plafond du facteur de forme sur les trains. | 0,65 | D | Comme en S (ancienne valeur 0,25) ; borne aussi l'espace de recherche des observations Ku. |
 
 L'ouverture Ku est **partagée** avec la bande S : mêmes TRSA bi-bandes et même octogone. C'est une conséquence directe de la composition des TRSA, validée à l'étape 1.1.
@@ -479,6 +483,7 @@ R⁴ = P_faisceau · G_TX · G_RX · λ² · σ · τ · N / ((4π)³ · k · T_
 - G = 4π · A_émissive · η · η_ohmic · cos θ / λ². La désadaptation active est comptée à part, dans L (§7.3 bis).
 - **η_RX** est celui de la pondération du volume (`rx_sll_db`).
 - SNR_req est le SNR sur l'**énergie totale** intégrée, d'après l'ajustement de Shnidman, pour les cas Swerling 0 à 4 et une intégration cohérente ou non cohérente. La formule d'Albersheim de V5.4.0 était mal implémentée et comptait l'intégration deux fois.
+- Bande (étape 1.4) : le spectre du signal [f − B/2, f + B/2] doit tenir dans la bande utile, sinon la forme d'onde n'est pas jouable à cette fréquence ; la perte de bord est l'intégrale exacte du cosinus surélevé sur ce spectre, divisée par B ; sans retard vrai, B ≤ c / (D_env sin θ). Au chargement, le modèle vérifie que la bande centrale et la fréquence de rupture sont dans la bande utile.
 - Le coût d'une observation est électrique (étape 1.3) : E = P_crête · N · τ / B_TX / PAE(bande, τ, τ/PRI), comparé à P_élec × CHAIN_EFF × période de revisite. La chaleur vaut E_élec − E_RF.
 - L regroupe : pertes fixes, TX_chain, bord de bande, polarisation, affaissement de la réserve (−10 log(1 − x/2)), multifaisceau, **désadaptation active à l'émission et à la réception** (étape 1.2), grille d'émission et grille de réception (veille seulement), cohérence (intégration cohérente), migration.
 
@@ -623,7 +628,7 @@ La feuille de route complète, avec le contenu détaillé de chaque étape, se t
 | Phase | Étapes |
 |---|---|
 | 0, fondations | 0.1 fichier unique ✔ ; 0.2 banc de tests ✔ ; 0.3 revue des valeurs ✔ |
-| 1, antenne et RF | 1.1 géométrie et diagramme réel ✔ ; **1.2 diagramme : lobes de réseau, désadaptation active \|Γ(θ, f)\|, polarisation ✔** ; **1.3 TRM et chaîne d'émission ✔** ; 1.4 bande (table de bord, bande instantanée) ; 1.5 réception (T_sys selon la direction, CAN, isolation, bruit de phase de l'oscillateur, deux voies de polarisation) |
+| 1, antenne et RF | 1.1 géométrie et diagramme réel ✔ ; **1.2 diagramme : lobes de réseau, désadaptation active \|Γ(θ, f)\|, polarisation ✔** ; **1.3 TRM et chaîne d'émission ✔** ; **1.4 bande ✔** ; 1.5 réception (T_sys selon la direction, CAN, isolation, bruit de phase de l'oscillateur, deux voies de polarisation) |
 | 2, signal et détection | 2.1 formes d'onde paramétriques ; 2.2 traitement (bancs de vitesse, CFAR, modèle de cohérence) ; 2.3 critère de détection ; 2.4 modèles de cibles ; 2.5 environnement (masquage par le vaisseau, Faraday, brouillage) |
 | 3, fonctions radar | 3.1 veille S (multifaisceau, grille de fréquences fine) ; 3.2 confirmation Ku (fréquence Ku choisie, connaissance du spectre) ; 3.3 poursuite (Kalman ou IMM) ; 3.4 fonctions annexes |
 | 4, ressources | 4.1 puissance (bus de 8 MW, répartition entre faces) ; 4.2 thermique ; 4.3 ordonnanceur et latence ; 4.4 calcul et données |
@@ -642,8 +647,8 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 | Espaces de recherche | Rien entre 0,8 et 2 ms en S, rien au-delà de 400 µs en Ku. | 3.1, 3.2 |
 | Alimentation des TRM | Recharge de la réserve pendant un train, capacité d'alimentation d'un TRM, et **puissance instantanée de la face** pendant une observation (4 900 TRM S en même temps : environ 8,2 MW à d = 0,65, contre 2 MW alloués) ; seule la moyenne sur la période de revisite est vérifiée. | 4.1 |
 | Thermique | Chaleur calculée (≈ 370 W par TRM S en pointe) ; capacité des microcanaux et constantes de temps non modélisées. Densité de puissance d'environ 104 kW/m² de RF moyenne. | 4.2 |
-| Table de bord de bande | Fraction de bande copiée de l'ancienne bande Ku. | 1.4 |
-| Limite de 70° au-dessus de 2,85 GHz | Verrouillée ; avec le jeu de 0,5 mm, la désadaptation à 2,9 GHz et 75° n'est plus que de 1,8 dB par passage. La relâcher serait une décision de l'utilisateur. | 1.4 (proposé) |
+| Limite de 70° au-dessus de la fréquence de rupture | Gardée à l'étape 1.4 tant que le diagramme de l'élément n'est pas modélisé (flanc du lobe de réseau à l'horizon). | avec le diagramme de l'élément (à placer) |
+| Fréquences candidates de la veille S | 2,7 / 2,8 / 2,9 GHz : depuis l'étape 1.4, aucun signal ne tient aux bords de bande (2,7 et 2,9 GHz), seule 2,8 GHz est jouable. | 3.1 (grille fine dans la bande) |
 | Plafond de cohérence | Provisoire, 149 ms ; t₀ et p sans source. | 2.2 |
 | Bruit de phase de l'oscillateur sur l'aller-retour | Non modélisé (53 ms à 8 000 km). | 1.5, 2.2 |
 | Multifaisceau | Loi unique, statut ?. Modes à évaluer par l'optimiseur. | 3.1, 5.2 |
@@ -765,3 +770,20 @@ Effet sur les missions de test (valeurs de test seulement) :
 - portée de WF-LRS +1,12 % (6 813 → 6 890 km sur ST), par la baisse de l'affaissement de la réserve (0,24 → 0,04 dB) ;
 - énergie électrique par face de −5 à −26 %, temps S de −20 à +66 %, temps Ku de −48 à +80 % ;
 - l'impulsion de 2 ms est retenue par plusieurs secteurs à longue portée.
+
+### Étape 1.4 : la bande (20 octobre 2026)
+| Question | Décision de l'utilisateur |
+|---|---|
+| A1, loi de bord | **(a)** Cosinus surélevé, bande centrale en GHz pour chaque bande. (L'ancienne table `rf_layer_s` de RADARv5, une ancienne bande S de 3,0 à 3,75 GHz, est écartée : RADARv5 est obsolète.) |
+| A2, valeurs | **S : 2,74 à 2,86 GHz, 0,5 dB ; Ku : 13,7 à 14,3 GHz, 0,5 dB.** |
+| A3, sens de la perte | **(a)** Perte totale aller-retour. |
+| A4, fréquence d'évaluation | **Moyennée sur le spectre occupé.** |
+| B1, occupation du spectre | **(a)** Règle stricte : le signal doit tenir dans la bande utile. |
+| C1, bande instantanée S | **200 MHz confirmés (V).** |
+| D1, retard vrai | **Entrée explicite**, numérique par TRM (V). |
+| E1, limite de 70° | **(a)** Gardée. |
+| Principe | Les valeurs restent ajustables (par exemple une bande plus large si les TRM progressent) : le code doit l'encaisser. Tout découle du fichier, le chargeur vérifie la cohérence, et un test élargit la bande S à 2,6-3,0 GHz par le seul fichier. |
+
+Effet sur les missions de test (valeurs de test seulement) :
+- l'optimiseur garde 2,8 GHz (bande centrale, sans perte de bord) : énergie par face de 0 à −1,5 %, temps S de −2,0 à +0,5 %, temps Ku de 0 à −7 % ;
+- le secteur A3_HIBAND de `mission_redundancy_demo`, qui impose 2,9 GHz (le bord haut), n'a plus de forme d'onde jouable : il est conservé tel quel et exerce ce cas.

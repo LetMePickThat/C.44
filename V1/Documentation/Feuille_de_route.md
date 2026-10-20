@@ -26,7 +26,8 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 1.1 | ✔ fait (commit 5b3df06) |
 | 1.2 | ✔ fait (commit e6ce750) |
 | 1.3 | ✔ fait (commit e242519) |
-| 1.4 et suivantes | à faire, la prochaine étant 1.4 |
+| 1.4 | ✔ fait |
+| 1.5 et suivantes | à faire, la prochaine étant 1.5 |
 
 ---
 
@@ -87,11 +88,18 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - Densité de puissance d'environ 104 kW/m² de RF moyenne (avec l'étape 4.2).
   - Recul du PA en multifaisceau par superposition (pour l'étape 3.1).
 
-- **1.4 Bande.**
-  - Table de dégradation aux bords (rf_layer_s), propre à chaque bande, au lieu de la fraction de bande copiée de l'ancienne bande Ku.
+- **1.4 Bande.** ✔
+
+  Décisions prises :
+  - loi de bord en cosinus surélevé, bande centrale en GHz par bande (S 2,74 à 2,86 GHz, Ku 13,7 à 14,3 GHz), 0,5 dB au bord, perte totale moyennée sur le spectre occupé ;
+  - le signal doit tenir dans la bande utile ; bande instantanée S 200 MHz confirmée ; retard vrai numérique explicite ; limite de 70° gardée ;
+  - principe : les valeurs restent ajustables (bande plus large si les TRM progressent), le code l'encaisse (tout calculé, contrôles au chargement).
+
+  Contenu prévu à l'origine :
+  - Loi de dégradation aux bords propre à chaque bande, au lieu de la fraction de bande copiée de l'ancienne bande Ku (l'ancienne table `rf_layer_s` de RADARv5 est obsolète et ne sert pas de source).
   - Bande instantanée en S (aujourd'hui 200 MHz, « pour l'instant »).
   - Retard vrai (numérique par TRM en S et en Ku, décidé lors de la revue 0.3).
-  - Question proposée : relâcher ou non la limite de 70° au-dessus de 2,85 GHz. Avec le jeu de 0,5 mm, la désadaptation à 2,9 GHz et 75° n'est plus que de 1,8 dB par passage (décision de l'utilisateur).
+  - Question : relâcher ou non la limite de 70° au-dessus de 2,85 GHz (tranchée : gardée).
 
 - **1.5 Réception.**
   - T_sys selon la direction (Terre, Lune, Soleil, plan galactique).
@@ -150,7 +158,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
     - (c) multiplexage en temps ou en fréquence dans l'impulsion : énergie par faisceau, résolution, Doppler (étape 2.1).
 
     Cela remplace la loi unique `multibeam.l8_db` / `p` (statut ?). À reprendre aussi à l'étape 5.2.
-  - **Grille de fréquences S** : remplacer `freq_candidates_ghz` (2,7, 2,8 et 2,9 GHz) par une grille fine au pas de 5 ou 10 MHz. Le but est d'éviter les brouilleurs étroits de forte puissance tout en gardant plus de cases fréquence qu'un masquage par multiples de 25 MHz. La grille est restreinte au spectre utilisable (connaissance du spectre, voir 3.2).
+  - **Grille de fréquences S** : remplacer `freq_candidates_ghz` (2,7, 2,8 et 2,9 GHz) par une grille fine au pas de 5 ou 10 MHz. Depuis l'étape 1.4, aucun signal ne tient à 2,7 ni à 2,9 GHz (bords de bande) : la grille doit se placer dans la bande, en tenant compte de la largeur du signal. Le but est d'éviter les brouilleurs étroits de forte puissance tout en gardant plus de cases fréquence qu'un masquage par multiples de 25 MHz. La grille est restreinte au spectre utilisable (connaissance du spectre, voir 3.2).
   - Bandes de signal au-delà de 75 MHz (bi_max 200 MHz) : plus de cases, donc plus de fausses alarmes (avec 2.1).
   - Règles de l'optimiseur (`bin_deg`, `max_wf`, `short_tol`, `n_alphas`, `short_penalty`) et défaut des égalités exactes : il faut un critère secondaire (ici et en 5.2).
   - La table de coût n'est calculée qu'à 2,8 GHz (optimiste pour les secteurs à 2,7 ou 2,9 GHz) : à recaler à l'étape 5.5. `track_margin_warn` → 5.3.
@@ -233,5 +241,5 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | `rx_taper_edge` = "inscribed" (statut D) à confirmer. | à placer |
 | **Lobes de jeu des TRSA** (étape 1.2) : traité en grande partie en ramenant le jeu à 0,5 mm. Restent en Ku au haut de la bande −30 dB tenu jusqu'à 64-68,5° et −35 dB jusqu'à 55-62°. Variante si la mécanique impose plus de jeu : maille d'éléments uniforme à travers les jeux. | lien avec 2.5 |
 | Matériaux appariés en dilatation, exigés par le jeu de 0,5 mm (à confirmer en mécanique). | 4.2 |
-| Limite de 70° au-dessus de 2,85 GHz : avec 0,5 mm, la désadaptation à 2,9 GHz et 75° n'est plus que de 1,8 dB par passage ; la relâcher serait une décision. | 1.4 (proposé) |
+| Limite de 70° au-dessus de la fréquence de rupture : gardée à l'étape 1.4 tant que le diagramme de l'élément n'est pas modélisé. | avec le diagramme de l'élément (à placer) |
 | Couplage mutuel au bord des tuiles et diagramme réel de l'élément rayonnant non modélisés. | à placer |

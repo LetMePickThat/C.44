@@ -21,6 +21,8 @@ with the audit corrections):
     run time), so each candidate costs one solve() per frequency.
   - [D] Unambiguous range imposed on PRI (PRI >= 2 R / c) unless sector says "allow_ambiguous": true.
   - [D] Migration evaluated at v_close_max_mps; Pd/Pfa/loss budget are the model's locked values.
+  - Step 1.4: a candidate frequency outside the S band is skipped, and a waveform whose spectrum f +/- B/2 leaves the
+    band is not playable there (at the band edges, e.g. 2.7 / 2.9 GHz today, no signal fits).
   - RX weighting per sector (key "rx_sll_db", an option of radar_model.RX_SLL_OPTIONS_DB, default -25 dB): sets
     eta_illum_rx, so the range of every candidate; the report gives the RX beams formed per position (step 4.4).
   - Step 1.2 alerts per sector (flags): active-mismatch loss above tool.alerts.mismatch_db_per_pass in a populated
@@ -260,9 +262,12 @@ def _scan_factor(f: float, nb: int) -> Optional[np.ndarray]:
     th = _theta_centres(f, nb)
     tgt = rm.Target("ref", 1.0, 1, 5000.0)
     hs = []
-    for w in (make_wf("ref1", 50e-6, 1, 1e-3, 75.0, 1, "NONCOHERENT"), make_wf("ref2", 400e-6, 12, 4e-3, 10.0, 4, "COHERENT")):
-        r0 = rm.solve(w, f, 0.0, tgt).range_km
-        hs.append(np.array([rm.solve(w, f, float(t), tgt).range_km / r0 for t in th]))
+    for w in (make_wf("ref1", 50e-6, 1, 1e-3, 1.0, 1, "NONCOHERENT"), make_wf("ref2", 400e-6, 12, 4e-3, 0.5, 4, "COHERENT")):
+        try:
+            r0 = rm.solve(w, f, 0.0, tgt).range_km
+            hs.append(np.array([rm.solve(w, f, float(t), tgt).range_km / r0 for t in th]))
+        except ValueError:                             # e.g. a frequency at the band edge: no signal fits there
+            return None
     return hs[0] if np.allclose(hs[0], hs[1], rtol=1e-9, atol=0.0) else None
 
 
@@ -405,6 +410,8 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float):
     t_pos = np.array([w.n * w.tau_s / w.b_tx for w in cands])                            # s of TX time per position
     per_f = []
     for f in sec.get("freq_ghz_candidates", FREQ_CANDIDATES):
+        if rm.band_for_frequency(f) is not rm.BAND_S:
+            continue                                   # outside the (possibly redefined) S band
         pos, unscanned = positions_table(sph, m, f)
         P = np.array([pos[k] for k in range(4)])
         if P.sum() > 0 and cands:

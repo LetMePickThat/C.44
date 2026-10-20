@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.3.0
+# Radar Performance Model - V6.4.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,18 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.3.0 -> V6.4.0 (roadmap step 1.4: the band)
+#   - Edge derating per band: raised cosine between the core band (core_lo_ghz / core_hi_ghz, in GHz: S 2.74-2.86,
+#     Ku 13.7-14.3) and the usable edges, edge_derating_db 0.5 dB (was 1.5 dB with a core = band minus 1/6, copied
+#     from the former Ku band); total (round-trip) loss, AVERAGED over the occupied spectrum [f - B/2, f + B/2]
+#     (exact integral of the law).
+#   - Spectrum occupancy: solve() refuses a signal that does not fit in the usable band (f +/- B/2): an S signal can
+#     no longer sit at 2.7 or 2.9 GHz; the optimiser skips frequencies outside the band.
+#   - True-time delay is an explicit entry (digital per TRM, S and Ku): no squint; 'none' would limit the signal
+#     bandwidth to c / (D_env sin theta). S instantaneous bandwidth 200 MHz confirmed. Scan limits kept.
+#   - Load-time consistency checks of the band entries (core inside usable, break inside the band, ...), so the band
+#     can be widened or moved in radar_system.toml alone.
 #
 # Changes V6.2.0 -> V6.3.0 (roadmap step 1.3: TRM and transmit chain, GaN-on-diamond with microchannel cooling)
 #   - ELECTRICAL face budget: a face has face_elec_mw x CHAIN_EFF for transmission (face_elec_avail_w, was the RF
@@ -221,7 +233,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import antenna
     from params import P
 
-MODEL_VERSION = "6.3.0"
+MODEL_VERSION = "6.4.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -360,9 +372,9 @@ class BandConfig:
     name: str
     usable_lo_ghz: float
     usable_hi_ghz: float
-    core_lo_ghz: float
+    core_lo_ghz: float           # core band: no edge loss inside (step 1.4)
     core_hi_ghz: float
-    edge_derating_db: float
+    edge_derating_db: float      # total (round-trip) loss at the usable edges, raised cosine from the core edges
     scan_max_deg: float          # scan limit up to scan_break_ghz
     scan_break_ghz: float
     scan_max_hi_deg: float       # scan limit above scan_break_ghz
@@ -380,6 +392,7 @@ class BandConfig:
     e_buf_trm_j: float = 0.0      # per-TRM energy buffer, J (0 = droop not modelled)
     buffer_max_fraction: float = 0.5   # solve() refuses a pulse drawing more than this fraction of the buffer
     bi_max_mhz: float = 0.0       # instantaneous bandwidth ceiling, MHz (0 = not defined)
+    true_time_delay: str = "digital_per_trm"   # or "none": phase steering, bandwidth limited by the aperture fill time
     duty_max: float = 0.0         # TRM duty ceiling on pulse trains (0 = not defined), checked by Waveform
 
     def contains(self, f_ghz: float) -> bool:
@@ -388,18 +401,36 @@ class BandConfig:
     def scan_limit_deg(self, f_ghz: float) -> float:
         return self.scan_max_deg if f_ghz <= self.scan_break_ghz else self.scan_max_hi_deg
 
-    def edge_loss_db(self, f_ghz: float) -> float:
-        """Raised-cosine derating outside the core band (shape of V5.4.0, scaled to the band)."""
-        if not self.contains(f_ghz):
+    def fits(self, f_ghz: float, sig_bw_mhz: float = 0.0) -> bool:
+        """The occupied spectrum [f - B/2, f + B/2] lies inside the usable band (step 1.4)."""
+        half = sig_bw_mhz * 1e-3 / 2.0
+        return self.usable_lo_ghz - 1e-12 <= f_ghz - half and f_ghz + half <= self.usable_hi_ghz + 1e-12
+
+    def _edge_integral(self, f_ghz: float) -> float:
+        """Integral of the edge law from usable_lo_ghz to f (dB x GHz), exact for the raised cosine."""
+        w1, w2 = self.core_lo_ghz - self.usable_lo_ghz, self.usable_hi_ghz - self.core_hi_ghz
+        x = min(max((f_ghz - self.usable_lo_ghz) / w1, 0.0), 1.0) if w1 > 0 else 1.0
+        y = min(max((f_ghz - self.core_hi_ghz) / w2, 0.0), 1.0) if w2 > 0 else 0.0
+        low = 0.5 * w1 * (x + math.sin(math.pi * x) / math.pi)
+        high = 0.5 * w2 * (y - math.sin(math.pi * y) / math.pi)
+        return self.edge_derating_db * (low + high)
+
+    def edge_loss_db(self, f_ghz: float, sig_bw_mhz: float = 0.0) -> float:
+        """Raised-cosine derating outside the core band, max edge_derating_db at the usable edges, averaged over the
+        occupied spectrum [f - B/2, f + B/2] (B = 0: at f). 100 dB when the spectrum leaves the usable band."""
+        if not self.fits(f_ghz, sig_bw_mhz):
             return 100.0
-        if self.core_lo_ghz <= f_ghz <= self.core_hi_ghz:
-            return 0.0
-        lmax = self.edge_derating_db
-        if f_ghz < self.core_lo_ghz:
-            x = (f_ghz - self.usable_lo_ghz) / (self.core_lo_ghz - self.usable_lo_ghz)
-            return lmax * 0.5 * (1.0 + math.cos(math.pi * x))
-        x = (f_ghz - self.core_hi_ghz) / (self.usable_hi_ghz - self.core_hi_ghz)
-        return lmax * 0.5 * (1.0 - math.cos(math.pi * x))
+        half = sig_bw_mhz * 1e-3 / 2.0
+        if half <= 0.0:
+            if self.core_lo_ghz <= f_ghz <= self.core_hi_ghz:
+                return 0.0
+            lmax = self.edge_derating_db
+            if f_ghz < self.core_lo_ghz:
+                x = (f_ghz - self.usable_lo_ghz) / (self.core_lo_ghz - self.usable_lo_ghz)
+                return lmax * 0.5 * (1.0 + math.cos(math.pi * x))
+            x = (f_ghz - self.core_hi_ghz) / (self.usable_hi_ghz - self.core_hi_ghz)
+            return lmax * 0.5 * (1.0 - math.cos(math.pi * x))
+        return (self._edge_integral(f_ghz + half) - self._edge_integral(f_ghz - half)) / (2.0 * half)
 
     @property
     def p_pk_total_w(self) -> float:
@@ -433,17 +464,33 @@ def tx_chain_loss_db(tx: Dict[str, float], rx: Dict[str, float]) -> float:
     return tx["harmonic_filter_db"] + rx["circulator_loss_db"] + tx["cal_coupler_db"] + tx["line_to_element_db"]
 
 
+TTD_MODES = ("digital_per_trm", "none")
+
+
 def _band(name: str) -> BandConfig:
-    """Band [band.<name>] of radar_system.toml. Core band = usable band minus 1/core_inset_divisor of its width on
-    each side (V5.4.0 proportions, to be replaced by the rf_layer_s.py edge-derating table)."""
+    """Band [band.<name>] of radar_system.toml, with load-time consistency checks so that the band (usable, core,
+    break frequency) can be changed in the file alone (step 1.4)."""
     b = f"band.{name}."
-    lo, hi, div = P.get(b + "usable_lo_ghz"), P.get(b + "usable_hi_ghz"), P.get(b + "core_inset_divisor")
+    lo, hi = P.get(b + "usable_lo_ghz"), P.get(b + "usable_hi_ghz")
+    clo, chi, brk = P.get(b + "core_lo_ghz"), P.get(b + "core_hi_ghz"), P.get(b + "scan_break_ghz")
+    ttd = P.get(b + "true_time_delay")
+    errs = []
+    if not lo < hi:
+        errs.append(f"usable_lo_ghz ({lo}) must be below usable_hi_ghz ({hi})")
+    if not lo <= clo <= chi <= hi:
+        errs.append(f"core band {clo}-{chi} GHz must lie inside the usable band {lo}-{hi} GHz")
+    if not lo <= brk <= hi:
+        errs.append(f"scan_break_ghz ({brk}) must lie inside the usable band {lo}-{hi} GHz")
+    if ttd not in TTD_MODES:
+        errs.append(f"true_time_delay '{ttd}' must be one of {TTD_MODES}")
+    if errs:
+        raise ValueError(f"{P.path}: [band.{name}] " + "; ".join(errs))
     pol_dual, pol_single = P.get(b + "pol_loss_dual_db"), P.get(b + "pol_loss_single_db")
     pol = pol_dual if P.get(b + "pol_rx_dual") else pol_single
     return BandConfig(
-        name=name, usable_lo_ghz=lo, usable_hi_ghz=hi, core_lo_ghz=lo + (hi - lo) / div, core_hi_ghz=hi - (hi - lo) / div,
+        name=name, usable_lo_ghz=lo, usable_hi_ghz=hi, core_lo_ghz=clo, core_hi_ghz=chi,
         edge_derating_db=P.get(b + "edge_derating_db"),
-        scan_max_deg=P.get(b + "scan_max_deg"), scan_break_ghz=P.get(b + "scan_break_ghz"),
+        scan_max_deg=P.get(b + "scan_max_deg"), scan_break_ghz=brk,
         scan_max_hi_deg=P.get(b + "scan_max_hi_deg"), waim_match_deg=P.get(b + "waim_match_deg"),
         n_trm=N_TRM[name], p_pk_trm_w=P.get(b + "p_pk_trm_w"), pae_sat=P.get(b + "pae_sat"),
         pae_t_edge_s=P.get(b + "pae_t_edge_s"), pae_duty_slope=P.get(b + "pae_duty_slope"),
@@ -452,7 +499,7 @@ def _band(name: str) -> BandConfig:
         losses_db={**P.section(b + "losses_db"), "TX_chain": tx_chain_loss_db(P.section(b + "tx"), P.section(b + "rx"))},
         allowed_roles=tuple(P.get(b + "allowed_roles")),
         pol_loss_db=pol, e_buf_trm_j=P.get(b + "e_buf_trm_j"), buffer_max_fraction=P.get(b + "buffer_max_fraction"),
-        bi_max_mhz=P.get(b + "bi_max_mhz"), duty_max=P.get(b + "duty_max"),
+        bi_max_mhz=P.get(b + "bi_max_mhz"), duty_max=P.get(b + "duty_max"), true_time_delay=ttd,
     )
 
 
@@ -885,7 +932,7 @@ def playable(f_ghz: float, theta_deg: float, catalogue: Optional[List[Waveform]]
     if band is None or abs(theta_deg) > band.scan_limit_deg(f_ghz):
         return []
     return [w for w in (catalogue if catalogue is not None else CATALOGUE)
-            if w.band == band.name and w.role in band.allowed_roles]
+            if w.band == band.name and w.role in band.allowed_roles and band.fits(f_ghz, w.sig_bw_mhz)]
 
 
 # -----------------------------------------------------------------------------
@@ -918,6 +965,14 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     if abs(theta_deg) > band.scan_limit_deg(f_ghz):
         raise ValueError(f"{wf.name}: scan {theta_deg} deg exceeds the {band.scan_limit_deg(f_ghz):.0f} deg "
                          f"limit at {f_ghz} GHz")
+    if not band.fits(f_ghz, wf.sig_bw_mhz):
+        raise ValueError(f"{wf.name}: {wf.sig_bw_mhz:g} MHz at {f_ghz} GHz leaves the usable {band.name} band "
+                         f"{band.usable_lo_ghz}-{band.usable_hi_ghz} GHz")
+    if band.true_time_delay == "none" and abs(theta_deg) > 0:
+        b_fill = C_MPS / (ARRAY_ENVELOPE_M * math.sin(math.radians(abs(theta_deg)))) / 1e6
+        if wf.sig_bw_mhz > b_fill:
+            raise ValueError(f"{wf.name}: {wf.sig_bw_mhz:g} MHz exceeds the aperture-fill bandwidth {b_fill:.0f} MHz "
+                             f"at {theta_deg} deg (no true-time delay)")
     sw = wf.swerling if wf.swerling is not None else target.swerling
 
     if wf.role in DETECT_ROLES:
@@ -929,7 +984,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
 
     t_span = wf.dwell_s
     losses: Dict[str, float] = dict(band.losses_db)
-    losses["edge"] = band.edge_loss_db(f_ghz)
+    losses["edge"] = band.edge_loss_db(f_ghz, wf.sig_bw_mhz)
     if band.pol_loss_db > 0:
         losses["polarisation"] = band.pol_loss_db
     if band.e_buf_trm_j > 0:
@@ -1016,8 +1071,9 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
         return
     wfs = playable(f_ghz, theta_deg)
     if not wfs:
-        print(f"-> No waveform in the catalogue is playable in {band.name} band "
-              f"(roles allowed: {', '.join(band.allowed_roles)}).")
+        print(f"-> No waveform in the catalogue is playable in {band.name} band at {f_ghz} GHz "
+              f"(roles allowed: {', '.join(band.allowed_roles)}; the signal f +/- B/2 must fit in "
+              f"{band.usable_lo_ghz}-{band.usable_hi_ghz} GHz).")
         return
 
     print("-" * 100)
@@ -1073,8 +1129,10 @@ def selftest() -> int:
 
     check("S scan limit 75 deg at 2.8 GHz, 70 deg at 2.88 GHz",
           BAND_S.scan_limit_deg(2.8) == 75.0 and BAND_S.scan_limit_deg(2.88) == 70.0)
-    check("S core band has no edge loss; edges 1.5 dB",
-          BAND_S.edge_loss_db(2.8) == 0.0 and abs(BAND_S.edge_loss_db(2.7) - 1.5) < 1e-9 and abs(BAND_S.edge_loss_db(2.9) - 1.5) < 1e-9)
+    check("S core band has no edge loss; edges 0.5 dB; a 10 MHz signal averages the law; nothing outside the band",
+          BAND_S.edge_loss_db(2.8) == 0.0 and abs(BAND_S.edge_loss_db(2.7) - 0.5) < 1e-9
+          and abs(BAND_S.edge_loss_db(2.9) - 0.5) < 1e-9 and 0.0 < BAND_S.edge_loss_db(2.71, 10.0) < 0.5
+          and BAND_S.edge_loss_db(2.7, 10.0) == 100.0 and BAND_S.fits(2.8, 200.0) and not BAND_S.fits(2.8, 201.0))
     check("Search positions at 2.8 GHz in (u, v), spacing 1.04 HPBW_TX (real pattern), about 3016 (array tilt 25 deg)",
           abs(n_search_positions(2.8) - 3016) < 45, f"({n_search_positions(2.8):.0f})")
     check("TX beam of the uniform octagon 1.035 lambda / D_env (rectangular 0.886 replaced, step 1.1)",

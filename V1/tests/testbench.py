@@ -128,7 +128,9 @@ def model_case() -> dict:
         "gain_dbi": {f"{f} GHz | {th} deg": lin_to_db_gain(f, th) for f in (2.8, 14.0) for th in (0.0, 30.0, 50.0, 70.0, 75.0)},
         "multibeam_tx_loss_db": {str(b): rm.multibeam_tx_loss_db(b) for b in (1, 2, 4, 8)},
         "coherence_loss_db": {str(t): rm.coherence_loss_db(14.0, t) for t in (1e-3, 0.064, 0.3)},
-        "edge_loss_db": {str(f): rm.BAND_S.edge_loss_db(f) for f in (2.7, 2.72, 2.8, 2.88, 2.9)},
+        "edge_loss_db": {f"{f} GHz | B {b:g} MHz": rm.BANDS[n].edge_loss_db(f, b)
+                         for n, fs in (("S", (2.7, 2.72, 2.75, 2.8, 2.88, 2.9)), ("Ku", (13.5, 13.6, 14.0, 14.4, 14.5)))
+                         for f in fs for b in (0.0, 10.0, 75.0)},
         "shnidman_db": {f"N {n} SW{s}": rm.shnidman_total_snr_db(rm.DETECT_PD, rm.DETECT_PFA, n, s)
                         for n in (1, 8, 24, 128) for s in (0, 1, 2, 3, 4)},
         "bands": {b.name: b for b in rm.BANDS.values()}, "targets": rm.TARGETS,

@@ -158,3 +158,17 @@ Model changes (radar_model V6.3.0, see its header):
 - Optimistic until 3.1: the PAE is kept under power back-off (power scale, Ku look back-off). Until 2.1: blind range
   of the 2 ms pulses (300 km) and eclipsing at high duty not checked.
 - core/cost_table.json regenerated (energies now electrical).
+
+## 2026-10-20 -- roadmap step 1.4 (the band)
+
+Model changes (radar_model V6.4.0, see its header):
+- Edge derating per band: core band in GHz (S 2.74-2.86, Ku 13.7-14.3), raised cosine to the usable edges, 0.5 dB
+  at the edges (was 1.5 dB, core = band minus 1/6), total loss averaged over the occupied spectrum f +/- B/2.
+- Spectrum occupancy: a signal must fit in the usable band; frequencies outside the band are skipped by the
+  optimiser. True-time delay explicit (digital per TRM); S instantaneous bandwidth 200 MHz confirmed; scan limits kept.
+- Test missions: the optimiser keeps 2.8 GHz (core band, no edge loss), so ranges and waveforms barely move: energy
+  per face 0 to -1.5 %, S time -2.0 to +0.5 %, Ku time 0 to -7 %.
+- mission_redundancy_demo / A3_HIBAND forces freq_ghz_candidates [2.9] (the upper band edge): no signal fits there any
+  more, the sector is now NO_WAVEFORM ("no playable waveform in the search space"). Kept as is (it now exercises that
+  path); move it inside the band (e.g. 2.86 GHz) if a playable high-band sector is wanted.
+- core/cost_table.json regenerated.
