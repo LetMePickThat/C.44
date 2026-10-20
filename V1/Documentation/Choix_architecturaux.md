@@ -666,7 +666,7 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 - **(g)** `rx_taper_edge` = "inscribed" (statut D) à confirmer.
 - **(h)** **Masse des réserves d'énergie** (étape 1.3) : 122 kJ par face en S et 147 kJ en Ku, soit environ 270 kg par face à 1 J/g (hypothèse 2050), environ 1,1 t pour les 4 faces ; aucun bilan de masse n'est prévu dans la feuille de route.
 - **(i)** Le jeu de 0,5 mm suppose des matériaux appariés en dilatation (étape 4.2).
-- **(j)** `mission_detection_envelope.csv` (racine de `V1`) est un **artefact périmé** d'avant la feuille de route (modèle V6.0.12, inclinaison 25°) : aucun code ne le lit et le dépôt ne contient pas l'outil qui le produisait. À régénérer avec un outil à écrire, ou à supprimer : décision de l'utilisateur.
+- **(j)** `mission_detection_envelope.csv` (racine de `V1`), artefact périmé d'avant la feuille de route (modèle V6.0.12), lu par aucun code et sans outil de génération : **supprimé** sur décision de l'utilisateur (20 octobre 2026). Il reste dans l'historique git.
 - **(k)** Le couplage mutuel au bord des tuiles et le diagramme réel de l'élément rayonnant ne sont pas modélisés (éléments isotropes dans le facteur de réseau).
 
 ---

@@ -234,5 +234,4 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | **Lobes de jeu des TRSA** (étape 1.2) : traité en grande partie en ramenant le jeu à 0,5 mm. Restent en Ku au haut de la bande −30 dB tenu jusqu'à 64-68,5° et −35 dB jusqu'à 55-62°. Variante si la mécanique impose plus de jeu : maille d'éléments uniforme à travers les jeux. | lien avec 2.5 |
 | Matériaux appariés en dilatation, exigés par le jeu de 0,5 mm (à confirmer en mécanique). | 4.2 |
 | Limite de 70° au-dessus de 2,85 GHz : avec 0,5 mm, la désadaptation à 2,9 GHz et 75° n'est plus que de 1,8 dB par passage ; la relâcher serait une décision. | 1.4 (proposé) |
-| `mission_detection_envelope.csv` : artefact périmé d'avant la feuille de route (V6.0.12), lu par aucun code, sans outil de génération dans le dépôt. | décision de l'utilisateur (régénérer ou supprimer) |
 | Couplage mutuel au bord des tuiles et diagramme réel de l'élément rayonnant non modélisés. | à placer |
