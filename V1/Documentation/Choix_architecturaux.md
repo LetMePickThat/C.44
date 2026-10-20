@@ -47,7 +47,32 @@ Construire un outil dans lequel l'opérateur prépare sa mission. Cette mission 
 | Demander chaque variable | Pour chaque étape, la valeur de chaque variable est demandée à l'utilisateur. Aucune n'est choisie en silence. |
 | Fichier global | Toutes les variables système vivent dans un seul fichier, modifiable rapidement (§3). |
 | Valeurs de test | Les missions de test et les valeurs figées ne sont jamais présentées comme des références ou des performances. |
-| Commits | Un commit par étape, et seulement sur demande. |
+| Regrouper par sujet | Tout ce qui touche un même sujet est traité au même endroit (même étape, même bloc de questions) ; une valeur qui en dépend d'une autre se fixe après celle-ci (règle fixée à l'étape 1.3). |
+| Valeurs technologiques | Hypothèses **crédibles mais optimistes pour 2050-2060** (règle fixée à l'étape 1.3). |
+| Commits | Un commit par étape, et seulement sur demande (« c, p » = commit et push). |
+
+### 1.4 Reprendre le travail dans une nouvelle session
+
+Rien de ce qui a été décidé ne vit seulement dans une conversation :
+
+| Où | Quoi |
+|---|---|
+| `Documentation/Choix_architecturaux.md` (ce document) | Toutes les variables, leurs valeurs et leurs raisons, les formules, les dispositions provisoires, les points ouverts et l'historique des décisions, question par question. |
+| `Documentation/Feuille_de_route.md` | La feuille de route, l'état d'avancement et, pour chaque étape, les décisions prises et les renvois reçus d'autres étapes. |
+| `radar_system.toml` | Les valeurs elles-mêmes ; le champ `source` de chaque entrée résume sa justification. |
+| En-tête de `core/radar_model.py` | Le journal des versions du modèle (V6.0.0 à V6.3.0) et ce que chaque version a changé. |
+| `tests/snapshots/JOURNAL.md` | Chaque régénération des valeurs figées de test et ses causes. |
+| Mémoire de l'assistant (hors dépôt) | Un index de la feuille de route, l'état courant, les règles de méthode et la procédure ; en cas d'écart, le dépôt fait foi. |
+
+Procédure d'une étape :
+1. Rappeler la raison d'être, les entrées et les sorties de l'étape.
+2. Poser les questions variable par variable, regroupées par sujet, et attendre les décisions.
+3. Coder : entrées dans `radar_system.toml` (valeur, unité, statut, source, date), version du modèle et journal en tête de `core/radar_model.py`, self-test et `tests/test_physics.py`.
+4. Régénérer la table de l'estimation rapide : `python tools/gen_cost_table.py` (le cache du diagramme se reconstruit seul).
+5. Lire le rapport d'impact, `python tests/impact_report.py` (chiffres clés, formes d'onde et modes de confirmation qui changent), et l'inscrire dans `tests/snapshots/JOURNAL.md`.
+6. Régénérer les valeurs figées, `python tests/update_snapshots.py`, puis lancer `python -m pytest -q`.
+7. Mettre à jour ce document et `Feuille_de_route.md`.
+8. Commiter et pousser sur demande.
 
 ---
 
@@ -101,7 +126,7 @@ Construire un outil dans lequel l'opérateur prépare sa mission. Cette mission 
 | Réglages `[tool.*]` | Valeur seule ou table complète. Ils ne décrivent pas le radar : ce sont des grilles de recherche, des trames, des caches et des valeurs par défaut de l'interface. |
 | Modification | À la main dans le fichier pour l'instant. Un onglet de l'interface est prévu à l'étape 5.5. |
 | Autre fichier | Variable d'environnement `RADAR_PARAMS=<chemin>`, héritée par les processus de l'optimiseur. |
-| Revue | Toutes les valeurs ont été validées une par une lors de la revue 0.3. Les ajouts de l'étape 1.1 ont été validés pendant cette étape. |
+| Revue | Toutes les valeurs ont été validées une par une lors de la revue 0.3. Les ajouts des étapes 1.1, 1.2 et 1.3 ont été validés pendant chacune de ces étapes. |
 
 **Bilan actuel : 133 entrées système, dont 82 V, 49 D et 2 ?.** Les deux entrées « ? » sont `multibeam.l8_db` et `multibeam.p`.
 
@@ -115,7 +140,7 @@ Construire un outil dans lequel l'opérateur prépare sa mission. Cette mission 
 | Famille 1 : valeurs figées | `tests/test_snapshots.py`. Toutes les sorties numériques de l'outil sont comparées avec une **tolérance relative de 1e-9**. |
 | Famille 2 : physique et invariants | `tests/test_physics.py`. Lois qui doivent tenir quelles que soient les valeurs : R ∝ σ^¼, R ∝ P^¼, cohérence du nombre de pointages, du cache, de la borne de Cramér-Rao, des options de lobes, etc. Le self-test du modèle est conservé. |
 | Missions de test | `mission_example` (en JSON et en CSV), `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`. Les deux premières ont été récupérées dans l'historique git. |
-| Rapport d'impact | `python tests/impact_report.py`, à chaque étape, avant de régénérer les valeurs figées. |
+| Rapport d'impact | `python tests/impact_report.py`, à chaque étape, avant de régénérer les valeurs figées : chiffres clés, et pour chaque mission de test les formes d'onde de veille et les modes de confirmation qui changent. |
 | Régénération | `python tests/update_snapshots.py`. Chaque régénération est consignée dans `tests/snapshots/JOURNAL.md`, avec sa cause et les formes d'onde ou modes qui ont changé. |
 | État | 81 tests passent après l'étape 1.3. |
 
@@ -149,10 +174,10 @@ Le **rayon du secteur d'une face** n'a pas d'entrée. Il est calculé comme la p
 | `s_trm_per_trsa_side` | TRM S par côté de TRSA. | 5, soit 25 par TRSA | V | Pas de 52 mm, proche de λ/2 en S. C'est le seul diviseur de 25 proche de λ/2 : chaque TRM S recouvre exactement un bloc de 5 × 5 TRM Ku, et le code vérifie cette divisibilité. |
 | `trsa_rows` | Nombre de TRSA par rangée de la grille. Les rangées sont centrées et la liste doit être un palindrome (symétrie). | [6, 8, 10, 12, 14, 16, 16, 16, 16, 16, 16, 14, 12, 10, 8, 6], soit 196 TRSA | V | Octogone approché (revue 0.3). |
 | `trsa_gap_m` | Jeu mécanique libre entre TRSA voisines, qui forme une zone morte. | 0,0005 m | V | **Ramené de 2 mm à 0,5 mm à l'étape 1.2** (décision de l'utilisateur). Avec 2 mm, la rupture du pas entre TRSA créait des lobes de jeu voisins du lobe de réseau (−16,6 dB en Ku) qui ne tenaient pas les options de réception aux grands dépointages. 0,5 mm est le plus petit écart qui libère presque tout. Il **suppose des matériaux appariés en dilatation** entre TRSA et plaque de fond : environ 0,08 mm d'excursion sur 100 K, contre environ 0,6 mm pour de l'aluminium sur fibre de carbone (estimation à confirmer par un mécanicien). Le gain utilise la surface émissive seule. |
-| `rx_sll_options_db` | Niveaux de crête des lobes secondaires de la **pondération de réception** offerts à l'opérateur pour chaque volume de veille. | [−25, −30, −35] dB | V | **Étape 1.1.** Le réglage est fait par volume dans la préparation de mission (clé `rx_sll_db`), avec un seul réglage pour S et Ku et −25 dB par défaut. Descendre en niveau rejette mieux les échos forts hors de l'axe (cible brillante, Lune ou Terre, brouilleur) au prix du gain en réception : −0,56 dB à −30, −1,04 dB à −35. |
+| `rx_sll_options_db` | Niveaux de crête des lobes secondaires de la **pondération de réception** offerts à l'opérateur pour chaque volume de veille. | [−25, −30, −35] dB | V | **Étape 1.1.** Le réglage est fait par volume dans la préparation de mission (clé `rx_sll_db`), avec un seul réglage pour S et Ku et −25 dB par défaut. Descendre en niveau rejette mieux les échos forts hors de l'axe (cible brillante, Lune ou Terre, brouilleur) au prix du gain en réception : par rapport à l'option −25 dB, −0,53 dB à −30 et −1,00 dB à −35. |
 | `rx_taper_nbar` | Paramètre n̄ de la loi de Taylor circulaire de réception. | 5 | V | Étape 1.1. Loi standard ; son niveau de conception est **calé numériquement** pour que le niveau **atteint** sur l'octogone réel égale l'option demandée. |
 | `rx_taper_edge` | Rayon où la loi de Taylor atteint sa valeur de bord. | "inscribed", soit D_env/2 | D | Exploration de l'étape 1.1 : à niveau atteint égal, le cercle inscrit donne un meilleur rendement que le cercle circonscrit. Les éléments des coins gardent la valeur de bord. L'autre valeur possible est "circumscribed". |
-| `grating_lobe_g0` | Largeur, en u, de la remontée de \|Γ\| quand le premier lobe de réseau approche de l'espace visible : \|Γ_LR\| = exp(−g/g₀). | 0,02 | V | **Étape 1.2, Q3.** Ce terme seul coûte environ 3,0 dB par passage à 2,9 GHz et 75° (4,1 dB avec le terme WAIM), 0,07 dB à 2,85 GHz et 75°, et presque rien à 2,8 GHz. Il explique ainsi la limite de 70° au-dessus de 2,85 GHz sans pénaliser le reste de la bande. |
+| `grating_lobe_g0` | Largeur, en u, de la remontée de \|Γ\| quand le premier lobe de réseau approche de l'espace visible : \|Γ_LR\| = exp(−g/g₀). | 0,02 | V | **Étape 1.2, Q3.** Avec le jeu de 2 mm, ce terme seul coûtait environ 3,0 dB par passage à 2,9 GHz et 75° (4,1 dB avec le terme WAIM), ce qui expliquait la limite de 70° au-dessus de 2,85 GHz. Avec le jeu de 0,5 mm, le pas moyen est plus petit : 0,76 dB à 2,9 GHz et 75° (1,8 dB avec le terme WAIM), 0,02 dB à 2,85 GHz et 75°, presque rien à 2,8 GHz. |
 | `tx_polarisation` | Polarisation d'émission. | "linear_ev" | D | **Étape 1.2, Q7.** Linéaire selon e_v, l'axe de la face contenu dans le plan de l'axe du vaisseau. Un seul PA par TRM. Elle ne change pas le bilan, puisque la réception bipolarisation capte les deux composantes ; elle sert de référence pour Faraday (2.5) et la polarimétrie (3.3). **À rappeler à l'étape 3.3** : la commutation e_u / e_v à chaque observation (un PA et un commutateur, environ 0,1 à 0,2 dB) reste une option. |
 | `eta_ohmic` | Rendement de l'élément rayonnant. | 1,0 | V | Pas de réseau d'alimentation dans l'architecture numérique V6 ; les chemins locaux sont comptés dans TX_chain et T_sys. L'ancienne valeur 0,96 venait de l'alimentation à faibles pertes de V5.6.0. Ce paramètre pourra porter des pertes supplémentaires plus tard. Portée +2,06 %. |
 
@@ -209,7 +234,7 @@ Valeur dérivée : CHAIN_EFF = 0,95 × 0,995 × (1 − 0,03) = 0,917. **Depuis l
 | `l8_db` | Perte en émission avec 8 faisceaux, selon une loi unique. | 0,8 dB | ? | Vient de V5.6.0, sa définition est inconnue. La perte en réception vaut 0 (réception numérique). |
 | `p` | Exposant de la loi L8 × (log₂B / 3)^p. | 1,1 | ? | Donne 0,24, 0,51 et 0,80 dB pour 2, 4 et 8 faisceaux. |
 
-Décision : « tous les modes sont possibles et sont à évaluer par l'optimiseur » (étape 3.1). Trois modes sont à modéliser : (a) superposition de faisceaux dans chaque TRM, avec le recul du PA qui en découle (étape 1.3) ; (b) partition de l'ouverture, à partir du diagramme de l'étape 1.1 ; (c) multiplexage en temps ou en fréquence (étape 2.1).
+Décision : « tous les modes sont possibles et sont à évaluer par l'optimiseur » (étape 3.1). Trois modes sont à modéliser : (a) superposition de faisceaux dans chaque TRM, avec le recul du PA qui en découle (loi PAE / recul renvoyée de l'étape 1.3 à l'étape 3.1) ; (b) partition de l'ouverture, à partir du diagramme de l'étape 1.1 ; (c) multiplexage en temps ou en fréquence (étape 2.1).
 
 ### 5.9 `[coherence]` : cohérence et bruit de phase
 
@@ -411,11 +436,11 @@ Ces valeurs ne servent aujourd'hui qu'à la vue 3D. Le masquage des champs de vu
 | Surface émissive | 196 × 0,26² | 13,2496 m² |
 | Surface totale (avec les jeux) | + 360 × 0,0005 × 0,26 | 13,2964 m² (remplissage 99,65 %) ; 13,4368 m² avec 2 mm |
 | Enveloppe D_env | 16 TRSA + 15 jeux | 4,1675 m (4,190 m avec 2 mm) |
-| **Lobe d'émission (uniforme)** | diagramme calculé, plus petite coupe | **1,035 λ/D_env** (axe x 1,041), soit 1,525° à 2,8 GHz et 0,305° à 14 GHz ; 1ᵉʳ lobe secondaire −15,6 dB |
-| **Pondération de réception à −25 dB** | Taylor n̄ = 5, conception 29,5 dB | η = 0,873, HPBW 1,172 λ/D (1,72° à 2,8 GHz), niveau atteint −25,0 dB |
+| **Lobe d'émission (uniforme)** | diagramme calculé, plus petite coupe | **1,036 λ/D_env** (axe x 1,041), soit 1,525° à 2,8 GHz et 0,305° à 14 GHz ; 1ᵉʳ lobe secondaire −15,6 dB |
+| **Pondération de réception à −25 dB** | Taylor n̄ = 5, conception 29,5 dB | η = 0,873, HPBW 1,173 λ/D (1,73° à 2,8 GHz), niveau atteint −25,0 dB |
 | **Pondération de réception à −30 dB** | conception 35,7 dB | η = 0,773, HPBW 1,255 λ/D |
 | **Pondération de réception à −35 dB** | conception 41,7 dB | η = 0,693, HPBW 1,325 λ/D |
-| x_rms (étendue RMS de l'ouverture) | moyenne de x² sur les éléments | 1,039 m = 0,248 D |
+| x_rms (étendue RMS de l'ouverture) | moyenne de x² sur les éléments | 1,033 m = 0,248 D |
 | Précision angulaire × √SNR | 1,13 × borne / HPBW_TX | 0,495 largeur de lobe d'émission, en S comme en Ku |
 | Faisceaux de réception par pointage | (1,04·HPBW_TX / (0,5·HPBW_RX))² | 3,38 (−25), 2,95 (−30), 2,64 (−35) |
 | Perte de grille d'émission | 1,672 × 1,04² | 1,81 dB |
@@ -426,7 +451,7 @@ Ces valeurs ne servent aujourd'hui qu'à la vue 3D. Le masquage des champs de vu
 | TX_chain | somme des composants | S 0,6 dB, Ku 0,95 dB |
 | Pertes fixes (hors polarisation) | somme | S 3,80 dB, Ku 4,55 dB |
 | Pas moyen des éléments | pas des TRSA / TRM par côté | S 52,1 mm, Ku 10,42 mm (52,5 et 10,9 mm de part et d'autre d'un jeu) |
-| Désadaptation aller-retour (2,8 GHz) | 2 × perte par passage | 0,26 dB dans l'axe, 0 à 45°, 1,12 dB à 70°, 2,11 dB à 75° ; 2,24 dB à 2,85 GHz et 75° |
+| Désadaptation aller-retour (2,8 GHz) | 2 × perte par passage | 0,26 dB dans l'axe, 0 à 45°, 1,12 dB à 70°, 2,11 dB à 75° ; 2,15 dB à 2,85 GHz et 75° |
 | Lobe lointain le plus fort (lobes de jeu compris) | grille 2D sur l'espace visible | Ku −25,3 dB, S −30,7 dB en uniforme (−16,6 et −26,8 dB avec 2 mm) ; la pondération ne réduit pas les lobes de jeu |
 | Dépointage jusqu'où l'option de réception est tenue | `rx_sll_held_up_to_deg` | S : les trois options sur tout le secteur. Ku : −25 dB partout ; −30 / −35 dB jusqu'à 75° / 62° à 14 GHz, 68,5° / 58,5° à 14,25 GHz, 64° / 55° à 14,5 GHz |
 | Pureté de polarisation (Ludwig 3, plan à 45°) | (1 + cos θ) / (1 − cos θ) | 15,3 dB à 45°, 6,2 dB à 70° ; infinie dans les plans principaux |
@@ -618,6 +643,7 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 | Alimentation des TRM | Recharge de la réserve pendant un train, capacité d'alimentation d'un TRM, et **puissance instantanée de la face** pendant une observation (4 900 TRM S en même temps : environ 8,2 MW à d = 0,65, contre 2 MW alloués) ; seule la moyenne sur la période de revisite est vérifiée. | 4.1 |
 | Thermique | Chaleur calculée (≈ 370 W par TRM S en pointe) ; capacité des microcanaux et constantes de temps non modélisées. Densité de puissance d'environ 104 kW/m² de RF moyenne. | 4.2 |
 | Table de bord de bande | Fraction de bande copiée de l'ancienne bande Ku. | 1.4 |
+| Limite de 70° au-dessus de 2,85 GHz | Verrouillée ; avec le jeu de 0,5 mm, la désadaptation à 2,9 GHz et 75° n'est plus que de 1,8 dB par passage. La relâcher serait une décision de l'utilisateur. | 1.4 (proposé) |
 | Plafond de cohérence | Provisoire, 149 ms ; t₀ et p sans source. | 2.2 |
 | Bruit de phase de l'oscillateur sur l'aller-retour | Non modélisé (53 ms à 8 000 km). | 1.5, 2.2 |
 | Multifaisceau | Loi unique, statut ?. Modes à évaluer par l'optimiseur. | 3.1, 5.2 |
@@ -640,6 +666,8 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 - **(g)** `rx_taper_edge` = "inscribed" (statut D) à confirmer.
 - **(h)** **Masse des réserves d'énergie** (étape 1.3) : 122 kJ par face en S et 147 kJ en Ku, soit environ 270 kg par face à 1 J/g (hypothèse 2050), environ 1,1 t pour les 4 faces ; aucun bilan de masse n'est prévu dans la feuille de route.
 - **(i)** Le jeu de 0,5 mm suppose des matériaux appariés en dilatation (étape 4.2).
+- **(j)** `mission_detection_envelope.csv` (racine de `V1`) est un **artefact périmé** d'avant la feuille de route (modèle V6.0.12, inclinaison 25°) : aucun code ne le lit et le dépôt ne contient pas l'outil qui le produisait. À régénérer avec un outil à écrire, ou à supprimer : décision de l'utilisateur.
+- **(k)** Le couplage mutuel au bord des tuiles et le diagramme réel de l'élément rayonnant ne sont pas modélisés (éléments isotropes dans le facteur de réseau).
 
 ---
 

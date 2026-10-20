@@ -2,7 +2,9 @@
 # RADAR SYSTEM PARAMETERS -- single source of every value the tool uses (core/params.py loads it).
 #
 # Edit a value here, restart the tool: every module (model, optimiser, tracking, fast estimate, 3D view, GUI) follows.
-# Derived files must then be rebuilt:  python tools/gen_cost_table.py   (core/cost_table.json, fast estimate).
+# Derived files must then be rebuilt:  python tools/gen_cost_table.py   (core/cost_table.json, fast estimate); the
+# radiation-pattern cache core/antenna_cache.json rebuilds itself (~8 s at the next start).
+# The rationale of every value is in the source field and in Documentation/Choix_architecturaux.md (French).
 # Another file can be used without touching this one: set the environment variable RADAR_PARAMS=<path>.
 #
 # Entry format (system sections):
@@ -14,7 +16,7 @@
 # they take a bare value or the same table.
 #
 # Sections: geometry, aperture, search_grid, detection, power, migration, multibeam, coherence, estimation,
-#           band.S, band.Ku (+ losses_db), targets.*, confirmation, tracking, ship  |  tool.*
+#           band.S, band.Ku (+ losses_db, rx, tx), targets.*, confirmation, tracking, ship  |  tool.*
 # =====================================================================================================================
 
 [meta]
@@ -30,7 +32,8 @@ tilt_deg         = { value = 25.0, unit = "deg", status = "V", source = "all fou
 # Array build-up (review 0.3): bi-band TRSA tiles of 25 x 25 Ku TRMs and 5 x 5 S TRMs, 196 TRSAs in an approximate
 # octagon. DERIVED by the code (no entries): TRSA side 260 mm, 196 TRSAs, n_trm S 4900 / Ku 122500, emissive area
 # 13.2496 m2, total area with the gaps 13.2964 m2 (fill 99.65 %), envelope 4.1675 m (16 TRSAs + 15 gaps), element
-# pitch S 52 mm / Ku 10.4 mm inside a TRSA (gap 0.5 mm since step 1.2, was 2 mm). The inter-TRSA gaps are a dead (non-radiating) region: the gain uses the emissive area.
+# pitch S 52 mm / Ku 10.4 mm inside a TRSA (gap 0.5 mm since step 1.2, was 2 mm). The inter-TRSA gaps are a dead
+# (non-radiating) region: the gain uses the emissive area.
 # Radiation pattern (step 1.1): COMPUTED from this build-up by core/antenna.py (isotropic elements, near boresight, in
 # lambda / D_env): TX uniform HPBW ~1.04 lambda / D_env (was 0.886 = rectangular aperture, V5.6.0); RX circular Taylor
 # fitted so that the achieved peak sidelobe level is the volume's option -> eta_illum_rx and the RX beamwidth are
@@ -248,7 +251,7 @@ angle_zone_sigmas = { value = 4.0, unit = "sigma", status = "V", source = "angul
 # --- ship (3D view) -----------------------------------------------------------------------------------------------
 [ship]
 # 3D view only today. Possible later use: masking of the antenna fields of view by the ship (radiator wings, hull)
-# for the coverage computation (1.1 / 2.5); the rear elevation floor (~ -55 deg) is the only masking modelled.
+# for the coverage computation (step 2.5); the rear elevation floor (~ -55 deg) is the only masking modelled.
 length_m        = { value = 136.4, unit = "m", status = "V", source = "hull length (locked spec)", date = "2026-10-20" }
 hull_diameter_m = { value = 16.8, unit = "m", status = "V", source = "max hull diameter", date = "2026-10-20" }
 width_m         = { value = 76.5, unit = "m", status = "V", source = "max overall width (radiator wings)", date = "2026-10-20" }

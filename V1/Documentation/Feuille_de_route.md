@@ -8,7 +8,11 @@ Règles appliquées à chaque étape :
 - rappeler la raison d'être de l'étape, ses entrées et ses sorties, puis obtenir l'accord avant de coder ;
 - demander à l'utilisateur la valeur de **chaque** variable, sans jamais en choisir une en silence ;
 - garder toutes les variables système dans le fichier unique `radar_system.toml` ;
-- ne jamais présenter les missions de test et les valeurs figées comme des références ou des performances.
+- ne jamais présenter les missions de test et les valeurs figées comme des références ou des performances ;
+- traiter au même endroit tout ce qui touche un même sujet, et fixer une valeur dépendante après celles dont elle dépend ;
+- pour les technologies, retenir des valeurs crédibles mais optimistes pour 2050-2060.
+
+La procédure détaillée d'une étape et la manière de reprendre le travail dans une nouvelle session sont décrites au §1.4 de `Choix_architecturaux.md`.
 
 (D) signale une étape qui demande une décision ou des données de l'utilisateur. Le détail des choix déjà faits est dans `Choix_architecturaux.md`.
 
@@ -20,8 +24,8 @@ Règles appliquées à chaque étape :
 | 0.2 | ✔ fait (commit c776688) |
 | 0.3 | ✔ fait (commits f205a23 et 7f6bd35) |
 | 1.1 | ✔ fait (commit 5b3df06) |
-| 1.2 | ✔ fait |
-| 1.3 | ✔ fait |
+| 1.2 | ✔ fait (commit e6ce750) |
+| 1.3 | ✔ fait (commit e242519) |
 | 1.4 et suivantes | à faire, la prochaine étant 1.4 |
 
 ---
@@ -46,7 +50,7 @@ Règles appliquées à chaque étape :
   - grappe de faisceaux de réception au pas de 0,5 largeur de lobe ;
   - ouverture Ku partagée.
 
-- **1.2 Diagramme de rayonnement.** ✔
+- **1.2 Diagramme de rayonnement.** ✔ (commit e6ce750)
 
   Décisions prises :
   - feuille de courant avec WAIM adaptée à 45° (S et Ku), plus un terme de lobe de réseau exp(−g/0,02) dans le pire azimut ;
@@ -67,7 +71,7 @@ Règles appliquées à chaque étape :
   - Marge de lobe de réseau de 1,1 % à 2,9 GHz pour 75°.
   - Lobes du réseau périodique de jeux entre TRSA (hors de la fenêtre de 8 λ/D évaluée à l'étape 1.1).
 
-- **1.3 TRM et chaîne d'émission S et Ku.** ✔
+- **1.3 TRM et chaîne d'émission S et Ku.** ✔ (commit e242519)
 
   Décisions prises :
   - TRM GaN sur diamant avec microcanaux ; valeurs crédibles mais optimistes pour 2050-2060 ;
@@ -86,7 +90,8 @@ Règles appliquées à chaque étape :
 - **1.4 Bande.**
   - Table de dégradation aux bords (rf_layer_s), propre à chaque bande, au lieu de la fraction de bande copiée de l'ancienne bande Ku.
   - Bande instantanée en S (aujourd'hui 200 MHz, « pour l'instant »).
-  - Retard vrai.
+  - Retard vrai (numérique par TRM en S et en Ku, décidé lors de la revue 0.3).
+  - Question proposée : relâcher ou non la limite de 70° au-dessus de 2,85 GHz. Avec le jeu de 0,5 mm, la désadaptation à 2,9 GHz et 75° n'est plus que de 1,8 dB par passage (décision de l'utilisateur).
 
 - **1.5 Réception.**
   - T_sys selon la direction (Terre, Lune, Soleil, plan galactique).
@@ -228,4 +233,6 @@ Règles appliquées à chaque étape :
 | `rx_taper_edge` = "inscribed" (statut D) à confirmer. | à placer |
 | **Lobes de jeu des TRSA** (étape 1.2) : traité en grande partie en ramenant le jeu à 0,5 mm. Restent en Ku au haut de la bande −30 dB tenu jusqu'à 64-68,5° et −35 dB jusqu'à 55-62°. Variante si la mécanique impose plus de jeu : maille d'éléments uniforme à travers les jeux. | lien avec 2.5 |
 | Matériaux appariés en dilatation, exigés par le jeu de 0,5 mm (à confirmer en mécanique). | 4.2 |
-| Limite de 70° au-dessus de 2,85 GHz : avec 0,5 mm, la désadaptation à 2,9 GHz et 75° n'est plus que de 1,8 dB par passage ; la relâcher serait une décision. | à placer |
+| Limite de 70° au-dessus de 2,85 GHz : avec 0,5 mm, la désadaptation à 2,9 GHz et 75° n'est plus que de 1,8 dB par passage ; la relâcher serait une décision. | 1.4 (proposé) |
+| `mission_detection_envelope.csv` : artefact périmé d'avant la feuille de route (V6.0.12), lu par aucun code, sans outil de génération dans le dépôt. | décision de l'utilisateur (régénérer ou supprimer) |
+| Couplage mutuel au bord des tuiles et diagramme réel de l'élément rayonnant non modélisés. | à placer |

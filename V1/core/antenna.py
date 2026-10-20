@@ -18,7 +18,8 @@ frequency, only on the element layout, so one computation per band holds for its
             (cumulative maximum, step FAR_PROFILE_STEP). A lobe at distance r is visible once scanned to theta with
             r lambda / D <= 1 + sin(theta) (worst azimuth), so radar_model.sidelobe_visible_db() gives the worst
             sidelobe of a scan direction. Includes the gap lobes of the TRSA lattice (k lambda / TRSA pitch, weighted
-            by the subarray factor of one TRSA: the ones next to the grating lobe reach about -17 dB in Ku, -27 dB in S);
+            by the subarray factor of one TRSA: the ones next to the grating lobe reached about -17 dB in Ku with the former
+            2 mm gaps, about -25 dB with the 0.5 mm gaps of step 1.2);
             the grating lobes (multiples of D / d_mean, d_mean = TRSA pitch / TRMs per side) and their near skirts
             are left to the mismatch model
 

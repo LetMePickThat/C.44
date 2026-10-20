@@ -6,7 +6,7 @@ is editing the mission preparation (sliders / form fields). NOT the authoritativ
 numbers come from core.optimizer.run() (full waveform search), called on "Run calculation".
 
 Backed by cost_table.json (built once by tools/gen_cost_table.py): for S band, 2.8 GHz, a grid of
-(range_km, rcs_m2, v_close_mps, scan_theta_deg) -> cheapest energy per beam position that just reaches
+(range_km, rcs_m2, v_close_mps, scan_theta_deg) -> cheapest ELECTRICAL energy (RF / PAE, step 1.3) per beam position that just reaches
 that range (or None if unreachable even with the best waveform at full power).
 
 Interpolation strategy (all in log-energy space, since energy spans orders of magnitude):

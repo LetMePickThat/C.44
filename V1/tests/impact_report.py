@@ -4,6 +4,9 @@
     python tests/impact_report.py --all         every row
     python tests/impact_report.py -o FILE.md    also write the report to a file
 
+Each mission case also lists the S search waveform sets and the confirmation modes that changed (what the snapshot
+journal tests/snapshots/JOURNAL.md records for each refreeze).
+
 Test missions and test values only: the figures show what a code change does, not what the radar achieves.
 """
 import argparse
@@ -25,6 +28,29 @@ def _delta(a, b) -> str:
             return ""
         return f"{100 * (b - a) / a:+.2f} %" if a else "new"
     return "" if a == b else "changed"
+
+
+def _wf_label(sector: dict) -> str:
+    """S search waveform set of one optimised sector: "COHE/NONC tau x N, B_tx, dwell" per waveform."""
+    return " | ".join(f"{w['integration'][:4]} {w['tau_us']:g}us x{w['n_pulses']} B{w['b_tx']} {w['dwell_ms']:g}ms"
+                      for w in sector.get("wf_set", []))
+
+
+def waveform_changes(before: dict, after: dict) -> list:
+    """Lines describing the waveform sets and confirmation modes that differ between two mission-case outputs."""
+    if "run" not in before or "run" not in after:
+        return []
+    out = []
+    old = {s["id"]: s for s in before["run"]["sectors"]}
+    for s in after["run"]["sectors"]:
+        o = old.get(s["id"])
+        if o is not None and _wf_label(o) != _wf_label(s):
+            out += [f"- {s['id']}: before {_wf_label(o)}", f"  after  {_wf_label(s)}"]
+    old_c = {s["id"]: s["confirm_mode"] for s in before["run"].get("tracking", {}).get("sectors", [])}
+    for s in after["run"].get("tracking", {}).get("sectors", []):
+        if s["id"] in old_c and old_c[s["id"]] != s["confirm_mode"]:
+            out.append(f"- {s['id']}: confirmation mode {old_c[s['id']]} -> {s['confirm_mode']}")
+    return out
 
 
 def report(show_all: bool) -> str:
@@ -49,6 +75,9 @@ def report(show_all: bool) -> str:
             lines += ["| Figure | Before | After | Change |", "|---|---|---|---|", *rows]
         else:
             lines.append("_no key figure changed_")
+        changes = waveform_changes(before, after)
+        if changes:
+            lines += ["", "Waveform sets / confirmation modes that changed:", "", *changes]
         lines.append("")
     lines.insert(2, f"**{total} output value(s) differ in all.**\n")
     return "\n".join(lines)

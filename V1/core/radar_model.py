@@ -250,6 +250,8 @@ MIGRATION_RESIDUAL_DB: float = P.get("migration.residual_db")
 # Hexagonal lattice of TX beam positions, spacing = BEAM_SPACING_HPBW x HPBW_TX. The SAME spacing drives the number
 # of positions (frame time) and the mean TX grid loss. In each position the digital RX forms a lattice of RX beams
 # (spacing RX_BEAM_SPACING_HPBW x HPBW_RX): residual RX grid loss, RX beam count (step 1.1).
+# Spacing history (position counts of V6.0.9 / V6.0.10, with the former 0.886 lambda / D beam and a 20 deg tilt; 3016
+# positions at 1.04 since step 1.2):
 #   1.1  -> ~4590 positions, mean loss ~2.0 dB, worst -4.9 dB (V6.0.9) ; 1.04 -> ~5130, mean 1.81 dB, worst -4.3 dB (locked, V6.0.10)
 #   1.4  -> ~2830 positions, mean loss ~3.3 dB, worst point -7.9 dB (best mean range per energy)
 #   0.92 -> ~10200 positions, mean loss 1.41 dB (the value quoted in the notes)
@@ -262,7 +264,7 @@ FRAME_INTERLEAVED: bool = P.get("search_grid.frame_interleaved")   # else the fr
 MB_L8_DB: float = P.get("multibeam.l8_db")
 MB_P: float = P.get("multibeam.p")
 
-# --- S-band RX polarisation / energy buffer ---
+# --- S-band RX polarisation / energy buffer: legacy S-only aliases (V6.0.x); the model uses the BandConfig values ---
 POL_RX_DUAL: bool = P.get("band.S.pol_rx_dual")
 _POL_DUAL_DB, _POL_SINGLE_DB = P.get("band.S.pol_loss_dual_db"), P.get("band.S.pol_loss_single_db")
 POL_LOSS_DB: float = _POL_DUAL_DB if POL_RX_DUAL else _POL_SINGLE_DB
@@ -1131,7 +1133,7 @@ def selftest() -> int:
     check("Radar equation matches an independent hand derivation (0.5 %)", abs(lrs.range_km / r_hand - 1) < 0.005,
           f"({lrs.range_km:.1f} vs {r_hand:.1f} km)")
     # coarse plausibility bracket (test value): 5682 km with T_sys 346.5 K, 7099 km after review 0.3, 6916 km at 1.1,
-    # 6814 km at 1.2 (active mismatch 0.26 dB round trip at broadside)
+    # 6814 km at 1.2 (active mismatch 0.26 dB round trip at broadside), 6890 km at 1.3 (buffer droop 0.24 -> 0.04 dB)
     check("Benchmark WF-LRS on ST at 2.8 GHz in [5000, 9000] km", 5000 < lrs.range_km < 9000, f"({lrs.range_km:.0f} km)")
     check("Grid loss at spacing 0.92 reproduces the 1.41 dB of the notes", abs(grid_loss_db(0.92) - 1.41) < 0.02,
           f"({grid_loss_db(0.92):.3f} dB)")
