@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-REDUNDANCY -- does an earlier watch sector already meet the need of a later one?
+REDUNDANCY -- does another watch sector already meet the need of this one?
 
 Sector A meets sector B's need in a direction when, with the waveform plan the optimiser chooses for A (same code
 path as run(): core.optimizer.sector_plan), A's search in that direction:
@@ -16,13 +16,32 @@ path as run(): core.optimizer.sector_plan), A's search in that direction:
     least as finely (B's res_max_m).
 v_close_min_mps plays no part: the model evaluates migration at v_close_max only.
 
-List order is seniority: sector j is only tested against sectors 0..j-1. The part of B whose need is met is the union
-over those sectors; B is fully redundant above COVER_FULL of its scanned solid angle. A partial overlap comes with a
-trim proposal -- B's box minus the boxes of the earlier sectors that meet its need over their whole overlap with B --
-when those shapes are boxes (the difference involving a cap is neither a box nor a cap, so no proposal then).
+Every sector is tested against every OTHER sector that geometrically overlaps it, in both directions, regardless of
+mission list order -- a sector built first is not assumed "senior": a sector calibrated for 5000 km necessarily also
+sees at 2000 km, so it can make an earlier, shorter-range sector redundant just as well as the other way round (the
+two directions are independent tests, need_met(A covers B) and need_met(B covers A), and either, both or neither can
+hold -- e.g. the long-range one here needs no fast revisit, so no v_close penalty stands in its way, while the
+short-range one is simply too slow/short to reciprocate: see REASON_RANGE). For each sector B, the part of its need
+met is the union over every OTHER sector A that covers some of it; B is fully redundant above COVER_FULL of its
+scanned solid angle. A partial overlap comes with a trim proposal -- B's box minus the boxes of the covering sectors
+that meet its need over their whole overlap with B -- when those shapes are boxes (the difference involving a cap is
+neither a box nor a cap, so no proposal then). A mutual case (A covers B AND B covers A over the same volume, e.g.
+near-identical sectors) yields two independent Findings, one per sector, each proposing to trim/drop the other --
+not a conflict: applying either one is a valid fix, and the other's Finding is simply recomputed away on the next
+check once the mission has changed.
 [D] Where A is short of its OWN range (high scan angles, flagged by the optimiser for A), A meeting B's need is
 judged on the rest of the overlap: that shortfall is A's to fix. The proposal then reports the share of the removed
 part where A is short, since B's need is not met there until A is fixed.
+
+find_redundancies() also returns pair_notes: one line per tested ordered (A, B) direction (regardless of whether B
+ends up counting as redundant), naming the dominant REASON_* this module's physics test found in the part of the
+overlap A does not cover for B -- e.g. a long-range/slow-revisit watch sector and a short-range/fast-closing
+self-defence one can geometrically overlap and never be redundant either way (REASON_RANGE never closes in the
+slow-revisit direction, and the short-range side simply cannot reach the other's need). Since both directions of a
+geometric overlap are tested, a pair can carry up to two notes, one per direction -- gui.prep_tab looks up both.
+core.optimizer.overlaps() flags every geometric overlap on its own, independently of this module and without
+planning any waveform; gui.prep_tab uses pair_notes to turn that generic "budgeted independently, check for a
+duplicated requirement if not" into the actual reason(s), instead of running a second, duplicate physics check.
 
 No Qt dependency: gui.prep_tab.RedundancyWorker runs find_redundancies() on a background thread.
 """
@@ -43,6 +62,23 @@ COVER_FULL = 0.995      # [D] fraction of B's scanned solid angle above which B 
 COVER_MIN = 0.01        # [D] partial overlaps below this fraction are not reported
 RANGE_TOL = 0.01        # [D] same 1 % tolerance as the optimiser's "short of range"
 MIN_PIECE_DEG = 1.0     # [D] trimmed boxes thinner than this (phi or eps) are dropped
+
+# Why a cell of an A/B overlap is NOT met by A's plan (REASON_NONE where it is). A geometric overlap
+# (core.optimizer.overlaps, reported independently of this module) is not necessarily a duplicated requirement --
+# e.g. a long-range/slow-revisit watch sector overlapping a short-range/fast-closing self-defence one are
+# physically different missions, since REASON_RANGE's revisit-compensation term will not close for them. The
+# codes let find_redundancies() name the dominant reason instead of leaving the overlap unexplained.
+REASON_NONE = 0
+REASON_NO_WAVEFORM = 1
+REASON_RESOLUTION = 2
+REASON_AMBIGUITY = 3
+REASON_RANGE = 4
+REASON_TEXT = {
+    REASON_NO_WAVEFORM: "{a} has no waveform planned in that direction (outside its own reach)",
+    REASON_RESOLUTION: "{a}'s range resolution is coarser than {b} requires",
+    REASON_AMBIGUITY: "{a}'s waveform would leave {b}'s range ambiguous, which {b} disallows",
+    REASON_RANGE: "{a}'s guaranteed range (after its own revisit rate) falls short of {b}'s requirement",
+}
 
 # every sector field the optimiser's plan, the need test or the shape depends on
 PLAN_FIELDS = geo.SECTOR_GEOMETRY_FIELDS + (
@@ -93,11 +129,13 @@ def guaranteed_range_km(range_km: float, rr_s: float, v_mps: float) -> float:
 
 
 def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dict,
-             cells: np.ndarray) -> Tuple[np.ndarray, np.ndarray, Optional[float]]:
+             cells: np.ndarray) -> Tuple[np.ndarray, np.ndarray, Optional[float], np.ndarray]:
     """Subsets of `cells` (directions inside both sectors) where sector A, as planned, (1) meets sector B's need and
-    (2) falls short of its own range; (3) A's worst reach on B's target where it meets the need (km, None if nowhere)."""
+    (2) falls short of its own range; (3) A's worst reach on B's target where it meets the need (km, None if
+    nowhere); (4) per cell, which REASON_* code explains why it is not met (REASON_NONE where it is)."""
     if plan is None:
-        return np.zeros_like(cells), np.zeros_like(cells), None
+        z = np.zeros_like(cells)
+        return z, z, None, np.where(cells, REASON_NO_WAVEFORM, REASON_NONE).astype(np.int8)
     v_b = sec_b["v_close_max_mps"]
     tgt_b = rm.Target("need", sec_b["rcs_m2"], int(sec_b.get("swerling", 1)), v_b)
     g_need = (guaranteed_range_km(sec_b["range_km"], sec_b["rr_target_s"], v_b)
@@ -108,24 +146,51 @@ def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dic
     theta = mo._theta_centres(f, nb)
     ok = np.zeros(nb, dtype=bool)
     reach = np.full(nb, np.inf)
+    reason = np.full(nb, REASON_NO_WAVEFORM, dtype=np.int8)
     for i, w in enumerate(plan["wf"]):
         if w is None:
             continue
         if mo.C / (2 * w.sig_bw_mhz * 1e6) > res_b + 1e-9:
+            reason[i] = REASON_RESOLUTION
             continue
         if w.n > 1 and not sec_b.get("allow_ambiguous") and mo.C * w.pri_s / 2e3 < sec_b["range_km"]:
+            reason[i] = REASON_AMBIGUITY
             continue
         r = mo.range_at(w, f, float(theta[i]), tgt_b)
         if r is not None:
             reach[i] = r * plan["power_scale"][i] ** 0.25
             ok[i] = reach[i] >= g_need
+        reason[i] = REASON_NONE if ok[i] else REASON_RANGE
     bins = np.minimum((grid.theta / mo.THETA_BIN_DEG).astype(int), nb - 1)
     met = cells & ok[bins]
     worst = float(reach[np.unique(bins[met])].min()) if met.any() else None
-    return met, cells & np.asarray(plan["short"])[bins], worst
+    return met, cells & np.asarray(plan["short"])[bins], worst, np.where(cells, reason[bins], REASON_NONE)
 
 
-def find_redundancies(mission: dict, grid: geo.SphereGrid) -> List[Finding]:
+def _dominant_reason(grid: geo.SphereGrid, reason_cells: np.ndarray, unmet: np.ndarray) -> int:
+    """The REASON_* code covering the most solid angle of `unmet` (REASON_RANGE if nothing is set, e.g. an
+    empty mask -- the most common case, so it is the least surprising fallback)."""
+    weights = {code: float((grid.d_omega * unmet * (reason_cells == code)).sum())
+              for code in (REASON_RESOLUTION, REASON_AMBIGUITY, REASON_RANGE, REASON_NO_WAVEFORM)}
+    weights = {c: w for c, w in weights.items() if w > 0.0}
+    return max(weights, key=weights.get) if weights else REASON_RANGE
+
+
+def _pair_note(sa_id: str, sb_id: str, om_met: float, om_inter: float, reason_cells: np.ndarray,
+               unmet: np.ndarray, grid: geo.SphereGrid) -> str:
+    """One line on why an A/B geometric overlap (core.optimizer.overlaps, reported independently of this module)
+    is, or is not, a duplicated requirement -- the dominant REASON_* over the part still unmet, so an operator
+    does not have to guess between 'checked and fine' and 'never checked'."""
+    frac = om_met / om_inter if om_inter > 0.0 else 0.0
+    if frac >= COVER_FULL:
+        return f"{sa_id} meets {sb_id}'s need over their whole shared volume (see the redundancy alert below)"
+    reason = REASON_TEXT[_dominant_reason(grid, reason_cells, unmet)].format(a=sa_id, b=sb_id)
+    if frac >= COVER_MIN:
+        return f"{sa_id} covers only {100 * frac:.0f} % of the shared volume for {sb_id}'s need -- {reason} elsewhere"
+    return f"{reason} -- not a duplicated requirement"
+
+
+def find_redundancies(mission: dict, grid: geo.SphereGrid) -> Tuple[List[Finding], Dict[Tuple[str, str], str]]:
     g = mission.get("global", {})
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
     p_avg_max_w = rm.face_avg_rf_w(g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW))
@@ -136,6 +201,7 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid) -> List[Finding]:
         masks.append(grid.sector_mask(sec) & scanned if not md.validate_sector(sec, i) else None)
     ids = [s.get("id") for s in sectors]
     out = []
+    pair_notes: Dict[Tuple[str, str], str] = {}
     for j, sb in enumerate(sectors):
         mb = masks[j]
         if mb is None or not mb.any():
@@ -145,15 +211,20 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid) -> List[Finding]:
         by, clean, short_notes, details = [], [], [], []
         v_b = sb["v_close_max_mps"]
         g_b = guaranteed_range_km(sb["range_km"], sb["rr_target_s"], v_b)
-        for i in range(j):
-            sa, ma = sectors[i], masks[i]
+        for i, sa in enumerate(sectors):
+            if i == j:
+                continue
+            ma = masks[i]
             if ma is None:
                 continue
             inter = ma & mb
             if not inter.any():
                 continue
-            met, short, worst = need_met(grid, sa, _plan(sa, eps_min, eps_max, p_avg_max_w), sb, inter)
+            met, short, worst, reason_cells = need_met(grid, sa, _plan(sa, eps_min, eps_max, p_avg_max_w), sb, inter)
             om_met = float((grid.d_omega * met).sum())
+            om_inter = float((grid.d_omega * inter).sum())
+            pair_notes[(sa["id"], sb["id"])] = _pair_note(sa["id"], sb["id"], om_met, om_inter, reason_cells,
+                                                           inter & ~met, grid)
             if om_met <= 0.0:
                 continue
             by.append(sa["id"])
@@ -176,7 +247,7 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid) -> List[Finding]:
         pieces, note = (None, "") if full else trim_proposal(sb, clean, grid, scanned, ids)
         out.append(Finding(index=j, sid=sb["id"], by=by, fraction=frac, full=full, pieces=pieces, note=note,
                            caveat="; ".join(short_notes) if pieces else "", detail="\n".join(details)))
-    return out
+    return out, pair_notes
 
 
 # ----------------------------------------------------------------------------- trim proposal (box algebra)

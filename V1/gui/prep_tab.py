@@ -56,7 +56,7 @@ CONFIRM_TIPS = {
 class RedundancyWorker(QThread):
     """Runs core.redundancy.find_redundancies() off the UI thread (it plans the earlier sectors with the optimiser).
     `token` is handed back untouched so the caller can tell whether the result is still current."""
-    finished_ok = pyqtSignal(object, object)   # list of redundancy.Finding, token
+    finished_ok = pyqtSignal(object, object)   # (list of redundancy.Finding, pair_notes dict), token
     failed = pyqtSignal(str)
 
     def __init__(self, mission: dict, grid, token, parent=None):
@@ -65,11 +65,11 @@ class RedundancyWorker(QThread):
 
     def run(self) -> None:
         try:
-            findings = red.find_redundancies(self.mission, self.grid)
+            result = red.find_redundancies(self.mission, self.grid)
         except Exception as exc:  # noqa: BLE001 -- a failed check must not take the window down
             self.failed.emit(f"redundancy check failed: {exc}")
             return
-        self.finished_ok.emit(findings, self.token)
+        self.finished_ok.emit(result, self.token)
 
 
 class PrepTab(QWidget):
@@ -87,6 +87,7 @@ class PrepTab(QWidget):
         # redundancy check (core/redundancy.py): findings are valid while the mission signature they were computed
         # for is the current one; "Keep both" acknowledgements are per sector content and covering sectors
         self._redundancy: Dict[int, red.Finding] = {}   # id() of the redundant sector dict -> finding
+        self._redundancy_notes: Dict[tuple, str] = {}    # (earlier id, later id) -> why overlapping isn't redundant
         self._redundancy_sig: Optional[str] = None      # signature the findings belong to
         self._redundancy_requested: Optional[str] = None
         self._redundancy_error = ""
@@ -722,9 +723,18 @@ class PrepTab(QWidget):
             if sid in self._at_unreachable:
                 self.list_alerts.addItem(f"{sid}: ~{self._at_unreachable[sid]:.1f} AT track(s) estimated out of Ku "
                                          "reach at a bracket's outer range (scan limit or range)")
+        notes_current = self._redundancy_notes if self._redundancy_sig == red.mission_signature(self.mission) else {}
         for a, b, ov in mo.overlaps(self.grid.d_omega, masks):
-            self.list_alerts.addItem(f"{a} / {b} share {ov:.3f} sr, budgeted independently -- fine for "
-                                     "intentional layered coverage, check for a duplicated requirement if not")
+            # both directions were tested (a covering b, and b covering a) -- show whichever apply, independently
+            note_ab, note_ba = notes_current.get((a, b)), notes_current.get((b, a))
+            if note_ab and note_ba:
+                text = f"{a} / {b} share {ov:.3f} sr -- {note_ab} | {note_ba}"
+            elif note_ab or note_ba:
+                text = f"{a} / {b} share {ov:.3f} sr: {note_ab or note_ba}"
+            else:
+                text = (f"{a} / {b} share {ov:.3f} sr, budgeted independently -- fine for intentional layered "
+                        "coverage, check for a duplicated requirement if not")
+            self.list_alerts.addItem(text)
         for k in range(4):
             e = self.gauges[k]["energy"].value()
             if e >= 100:
@@ -759,13 +769,15 @@ class PrepTab(QWidget):
         self._red_worker.failed.connect(self._on_redundancy_failed)
         self._red_worker.start()
 
-    def _on_redundancy_done(self, findings: list, token: tuple) -> None:
+    def _on_redundancy_done(self, result: tuple, token: tuple) -> None:
+        findings, notes = result
         sig, ids = token
         if sig != red.mission_signature(self.mission):
             self._redundancy_requested = None
             self._red_timer.start()       # stale: the mission changed while the check ran
             return
         self._redundancy = {ids[f.index]: f for f in findings}
+        self._redundancy_notes = notes
         self._redundancy_sig, self._redundancy_error = sig, ""
         self._refresh_sector_items()
         self._update_alerts(self.mission["global"].get("eps_min_deg", -90.0),
@@ -775,6 +787,7 @@ class PrepTab(QWidget):
         self._redundancy_error = message
         self._redundancy_sig = red.mission_signature(self.mission)
         self._redundancy = {}
+        self._redundancy_notes = {}
         self._schedule_refresh()
 
     @staticmethod
