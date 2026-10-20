@@ -16,10 +16,11 @@ from PyQt5.QtWidgets import QMainWindow, QMessageBox, QProgressDialog, QTabBar, 
 
 from core import geometry as geo
 from core import optimizer as mo
+from core.params import P
 from gui.prep_tab import PrepTab
 from gui.results_tab import ResultsTab
 
-GRID_RES_DEG = 0.5   # direction-sphere raster of the 3D views and the fast estimate (shared by both tabs)
+GRID_RES_DEG = P.get("tool.display.grid_res_deg")   # direction-sphere raster of the 3D views and the fast estimate (shared by both tabs)
 
 
 class OptimizeWorker(QThread):

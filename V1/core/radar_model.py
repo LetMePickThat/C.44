@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.0.11
+# Radar Performance Model - V6.0.13
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
 #
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
+# Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.0.12 -> V6.0.13 (roadmap step 0.1: single parameter file, no value changed)
+#   - All constants moved to radar_system.toml (loaded by core/params.py); module constant names kept. Bands and
+#     targets are built from the file. The literals left in formulas (0.886 beamwidth factor, 0.5 buffer ceiling)
+#     became the parameters aperture.hpbw_factor and band.<b>.buffer_max_fraction.
+#   - The mission scan window is passed explicitly (sector_area_uv / n_search_positions take eps_min_deg,
+#     eps_max_deg) instead of callers overwriting SECTOR_EPS_MIN_DEG / SECTOR_EPS_MAX_DEG in this module.
 #
 # Changes V6.0.11 -> V6.0.12 (array tilt)
 #   - SECTOR_TILT_DEG 20 -> 25 deg [V]: updated figure for all four arrays (ship axis vertical, lighthouse
@@ -137,75 +145,82 @@ import sys
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
-MODEL_VERSION = "6.0.12"
+try:
+    from .params import P
+except ImportError:            # run as a script: python core/radar_model.py
+    from params import P
+
+MODEL_VERSION = "6.0.13"
 
 # =============================================================================
-# USER-EDITABLE PARAMETERS
+# PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
+# Names kept as module constants so callers (optimizer, tracking, GUI, ...) are unchanged.
 # =============================================================================
-# --- Scenario ---
-FREQUENCY_GHZ: float = 2.8       # Operating frequency (GHz); selects the band and playable waveforms
-SCAN_ANGLE_DEG: float = 0.0      # Scan angle off boresight (deg)
-TARGET_NAME: str = "ST"          # "ST" | "KKV" | "SHIP"
-FACE_ELEC_POWER_MW: float = 2.0  # [V] electrical power allocated to this face (total 8 MW over 4 faces)
+# --- Scenario (CLI defaults) ---
+FREQUENCY_GHZ: float = P.get("tool.cli.frequency_ghz")     # selects the band and playable waveforms
+SCAN_ANGLE_DEG: float = P.get("tool.cli.scan_angle_deg")
+TARGET_NAME: str = P.get("tool.cli.target")                # "ST" | "KKV" | "SHIP"
+FACE_ELEC_POWER_MW: float = P.get("power.face_elec_mw")    # electrical power allocated to one face
 
 # --- Detection ---
-DETECT_PD: float = 0.9           # [V]
-DETECT_PFA: float = 1e-8         # [V] per range-Doppler cell, single-step detection (1e-6 until 2026-10-19: false-alarm
-                                 #     confirmations then cost twice the search; 1e-8 divides search + confirmation by 2.3)
+DETECT_PD: float = P.get("detection.pd")
+DETECT_PFA: float = P.get("detection.pfa")                 # per range-Doppler cell, single-step detection
 
-# --- Power chain [V] ---
-PAE: float = 0.75                                  # [V] chain PAE (replaces 65 %)
-CHAIN_EFF: float = 0.95 * 0.995 * (1.0 - 0.03)     # [V] PSU x distribution x (1 - overhead) = 0.917
+# --- Power chain ---
+PAE: float = P.get("power.pae")
+CHAIN_EFF: float = P.get("power.psu_eff") * P.get("power.distribution_eff") * (1.0 - P.get("power.overhead_frac"))
 
-# --- Range migration [V] ---
-MIGRATION_MODE: str = "COMPENSATED"   # "COMPENSATED" (residual loss) | "UNCOMPENSATED"
-MIGRATION_RESIDUAL_DB: float = 1.0    # residual loss when compensated (keystone/Radon-type processing)
+# --- Range migration ---
+MIGRATION_MODE: str = P.get("migration.mode")              # "COMPENSATED" (residual loss) | "UNCOMPENSATED"
+MIGRATION_RESIDUAL_DB: float = P.get("migration.residual_db")
 
-# --- Search beam grid [V] (spacing 1.1 HPBW locked) ---
+# --- Search beam grid ---
 # Hexagonal lattice of TX beam positions, spacing = BEAM_SPACING_HPBW x HPBW. The SAME spacing drives the number
 # of positions (frame time) and the mean TX grid loss (RX is digital and pointed on the target: TX only).
 #   1.1  -> ~4590 positions, mean loss ~2.0 dB, worst -4.9 dB (V6.0.9) ; 1.04 -> ~5130, mean 1.81 dB, worst -4.3 dB (locked, V6.0.10)
 #   1.4  -> ~2830 positions, mean loss ~3.3 dB, worst point -7.9 dB (best mean range per energy)
 #   0.92 -> ~10200 positions, mean loss 1.41 dB (the value quoted in the notes)
-BEAM_SPACING_HPBW: float = 1.04
-ENABLE_GRID_LOSS: bool = True
-FRAME_INTERLEAVED: bool = True   # [D] echo wait hidden by interleaving positions (digital RX); else dwell + 2R/c
+BEAM_SPACING_HPBW: float = P.get("search_grid.beam_spacing_hpbw")
+ENABLE_GRID_LOSS: bool = P.get("search_grid.enable_grid_loss")
+FRAME_INTERLEAVED: bool = P.get("search_grid.frame_interleaved")   # else the frame adds the echo wait 2R/c
 
-# --- Multibeam (TX) [V]: exact V5.6.0 definition unknown; RX loss = 0 (digital beamforming) ---
-MB_L8_DB: float = 0.8
-MB_P: float = 1.1
+# --- Multibeam (TX); RX loss = 0 (digital beamforming) ---
+MB_L8_DB: float = P.get("multibeam.l8_db")
+MB_P: float = P.get("multibeam.p")
 
-# --- Scan loss (law from V5.4.0, [V] 0.6 dB at 70 deg; extrapolated beyond) ---
-POL_RX_DUAL: bool = True         # [V] dual-polarised digital RX (per-TRM ADC)
-POL_LOSS_DB: float = 0.5 if POL_RX_DUAL else 3.0
-E_BUF_TRM_J: float = 5.0         # [V] S-band per-TRM energy buffer (J)
-ENABLE_SCAN_LOSS: bool = True
-SCAN_LOSS_THETA_REF_DEG: float = 70.0
-SCAN_LOSS_THETA0_DEG: float = 25.0
-SCAN_LOSS_LMAX_DB: float = 0.6
-SCAN_LOSS_POWER_P: float = 3.0
+# --- Scan loss (law from V5.4.0; extrapolated beyond theta_ref) and S-band RX polarisation / energy buffer ---
+POL_RX_DUAL: bool = P.get("band.S.pol_rx_dual")
+POL_LOSS_DB: float = P.get("band.S.pol_loss_dual_db") if POL_RX_DUAL else P.get("band.S.pol_loss_single_db")
+E_BUF_TRM_J: float = P.get("band.S.e_buf_trm_j")
+ENABLE_SCAN_LOSS: bool = P.get("scan_loss.enable")
+SCAN_LOSS_THETA_REF_DEG: float = P.get("scan_loss.theta_ref_deg")
+SCAN_LOSS_THETA0_DEG: float = P.get("scan_loss.theta0_deg")
+SCAN_LOSS_LMAX_DB: float = P.get("scan_loss.lmax_db")
+SCAN_LOSS_POWER_P: float = P.get("scan_loss.power_p")
 
 # --- Coherence / phase noise (V5.4.0 model, applied to COHERENT integration only) ---
-ENABLE_COH_LOSS: bool = True
-COH_T0_S: float = 0.25
-COH_P: float = 2.0
-COH_SIGMA_T_S: float = 20e-15
-COH_ETA_MIN: float = 0.70
+ENABLE_COH_LOSS: bool = P.get("coherence.enable")
+COH_T0_S: float = P.get("coherence.t0_s")
+COH_P: float = P.get("coherence.p")
+COH_SIGMA_T_S: float = P.get("coherence.sigma_t_s")
+COH_ETA_MIN: float = P.get("coherence.eta_min")
 
 # --- Aperture physics ---
-PHYS_AREA_M2: float = 13.25   # [V] emissive area per face
-ETA_OHMIC: float = 0.96
-SCAN_EXPONENT: float = 1.1    # element factor cos^n (Ku value of V5.6.0, kept for S) [D]
-ARRAY_ENVELOPE_M: float = 16 * 0.260 + 15 * 0.002   # 4.19 m (square envelope, used for HPBW only)
+PHYS_AREA_M2: float = P.get("aperture.phys_area_m2")       # emissive area per face
+ETA_OHMIC: float = P.get("aperture.eta_ohmic")
+SCAN_EXPONENT: float = P.get("aperture.scan_exponent")     # element factor cos^n
+_TILES = P.get("aperture.envelope_tiles")
+ARRAY_ENVELOPE_M: float = _TILES * P.get("aperture.envelope_tile_pitch_m") + (_TILES - 1) * P.get("aperture.envelope_tile_gap_m")
+HPBW_FACTOR: float = P.get("aperture.hpbw_factor")         # HPBW = factor x lambda / D
 
-# --- Surveillance sector (per face) [V] ---
-SECTOR_RADIUS_DEG: float = 75.0
-REFRESH_S: float = 120.0
+# --- Surveillance sector (per face) ---
+SECTOR_RADIUS_DEG: float = P.get("geometry.scan_radius_deg")
+REFRESH_S: float = P.get("search_grid.refresh_s")
 
-# --- Tracking estimator constants (V5.4.0, K_THETA revised; used by Ku TRACK waveforms, core/tracking.py) ---
-K_THETA: float = 0.5            # [V 2026-10-19] ML estimator on the full digital aperture (0.7 = classic sum/difference)
-K_F: float = 0.5
-RANGE_CRLB_KR: float = 1.3
+# --- Tracking estimator constants (used by Ku TRACK waveforms, core/tracking.py) ---
+K_THETA: float = P.get("estimation.k_theta")
+K_F: float = P.get("estimation.k_f")
+RANGE_CRLB_KR: float = P.get("estimation.range_crlb_kr")
 # =============================================================================
 
 C_MPS = 299_792_458.0
@@ -247,7 +262,9 @@ class BandConfig:
     allowed_roles: Tuple[str, ...]
     pol_loss_db: float = 0.0      # polarisation mismatch (0 = included in the lumped losses)
     e_buf_trm_j: float = 0.0      # per-TRM energy buffer, J (0 = droop not modelled)
+    buffer_max_fraction: float = 0.5   # solve() refuses a pulse drawing more than this fraction of the buffer
     bi_max_mhz: float = 0.0       # instantaneous bandwidth ceiling, MHz (0 = not defined)
+    duty_max: float = 0.0         # TRM duty ceiling (0 = not defined; not used by solve() yet)
 
     def contains(self, f_ghz: float) -> bool:
         return self.usable_lo_ghz <= f_ghz <= self.usable_hi_ghz
@@ -277,38 +294,31 @@ class BandConfig:
         return sum(self.losses_db.values())
 
 
-# Core band = V5.4.0 proportions (1/6 of the usable width on each side) [D];
-# to be replaced by the rf_layer_s.py edge-derating table when available [?].
-_S_LO, _S_HI = 2.7, 2.9
-_KU_LO, _KU_HI = 13.5, 14.5   # [V] Ku band locked
+def _band(name: str) -> BandConfig:
+    """Band [band.<name>] of radar_system.toml. Core band = usable band minus 1/core_inset_divisor of its width on
+    each side (V5.4.0 proportions, to be replaced by the rf_layer_s.py edge-derating table)."""
+    b = f"band.{name}."
+    lo, hi, div = P.get(b + "usable_lo_ghz"), P.get(b + "usable_hi_ghz"), P.get(b + "core_inset_divisor")
+    pol = P.get(b + "pol_loss_dual_db") if P.get(b + "pol_rx_dual") else P.get(b + "pol_loss_single_db")
+    return BandConfig(
+        name=name, usable_lo_ghz=lo, usable_hi_ghz=hi, core_lo_ghz=lo + (hi - lo) / div, core_hi_ghz=hi - (hi - lo) / div,
+        edge_derating_db=P.get(b + "edge_derating_db"),
+        scan_max_deg=P.get(b + "scan_max_deg"), scan_break_ghz=P.get(b + "scan_break_ghz"),
+        scan_max_hi_deg=P.get(b + "scan_max_hi_deg"),
+        n_trm=P.get(b + "n_trm"), p_pk_trm_w=P.get(b + "p_pk_trm_w"),
+        eta_illum_tx=P.get(b + "eta_illum_tx"), eta_illum_rx=P.get(b + "eta_illum_rx"),
+        t_sys_k=P.get(b + "t_sys_k"),
+        losses_db=dict(P.section(b + "losses_db")),
+        allowed_roles=tuple(P.get(b + "allowed_roles")),
+        pol_loss_db=pol, e_buf_trm_j=P.get(b + "e_buf_trm_j"), buffer_max_fraction=P.get(b + "buffer_max_fraction"),
+        bi_max_mhz=P.get(b + "bi_max_mhz"), duty_max=P.get(b + "duty_max"),
+    )
 
-BAND_S = BandConfig(
-    name="S", usable_lo_ghz=_S_LO, usable_hi_ghz=_S_HI,
-    core_lo_ghz=_S_LO + (_S_HI - _S_LO) / 6.0, core_hi_ghz=_S_HI - (_S_HI - _S_LO) / 6.0,
-    edge_derating_db=1.5,
-    scan_max_deg=75.0, scan_break_ghz=2.85, scan_max_hi_deg=70.0,           # [V]
-    n_trm=4900, p_pk_trm_w=2000.0,                                          # [V] 9.8 MW peak / face
-    eta_illum_tx=1.0, eta_illum_rx=0.88,                                    # [V]
-    t_sys_k=346.5,                                                          # [V] S-band value (replaces 400 K)
-    losses_db={"DSP": 2.0, "CFAR": 0.5, "calibration": 0.5,                # [V] 2050 deep-space values
-               "pre_LNA": 0.3, "Ku_blockage": 0.2,
-               "TX_chain": 0.3},                        # [V] PA output -> element, see header V6.0.3
-    allowed_roles=("SEARCH", "TWS"),
-    pol_loss_db=POL_LOSS_DB, e_buf_trm_j=E_BUF_TRM_J,
-)
 
-BAND_KU = BandConfig(
-    name="Ku", usable_lo_ghz=_KU_LO, usable_hi_ghz=_KU_HI,
-    core_lo_ghz=_KU_LO + (_KU_HI - _KU_LO) / 6.0, core_hi_ghz=_KU_HI - (_KU_HI - _KU_LO) / 6.0,
-    edge_derating_db=1.5,
-    scan_max_deg=75.0, scan_break_ghz=14.25, scan_max_hi_deg=70.0,          # [V] 5x the S thresholds
-    n_trm=122500, p_pk_trm_w=75.0,                                          # [V] 9.19 MW peak / face
-    eta_illum_tx=0.88, eta_illum_rx=0.88,                                   # [V]
-    t_sys_k=400.0,                                                          # [V] V5.6.0
-    losses_db={"lumped_impl": 8.0},                                         # [V] V5.6.0
-    allowed_roles=("CONFIRM", "PROMOTE", "TRACK"),
-    bi_max_mhz=200.0,                                                       # [V] Ku instantaneous bandwidth
-)
+BAND_S = _band("S")
+BAND_KU = _band("Ku")
+_S_LO, _S_HI = BAND_S.usable_lo_ghz, BAND_S.usable_hi_ghz
+_KU_LO, _KU_HI = BAND_KU.usable_lo_ghz, BAND_KU.usable_hi_ghz
 BANDS: Dict[str, BandConfig] = {"S": BAND_S, "Ku": BAND_KU}
 
 
@@ -336,9 +346,9 @@ class Target:
 
 
 TARGETS: Dict[str, Target] = {
-    "ST": Target("ST", 1000.0, 1, 5000.0),     # [V] Standard Target
-    "KKV": Target("KKV", 0.135, 1, 25000.0),   # [V] RCS 0.12-0.15 m2 (mid), 25 km/s closing; SW1 assumed [D]
-    "SHIP": Target("SHIP", 3000.0, 1, 5000.0), # [V] lateral RCS; SW1 and 5 km/s assumed [D]
+    name: Target(name, P.get(f"targets.{name}.rcs_m2"), P.get(f"targets.{name}.swerling"),
+                 P.get(f"targets.{name}.v_close_mps"))
+    for name in dict.fromkeys(p.path.split(".")[1] for p in P if p.path.startswith("targets."))
 }
 
 
@@ -356,27 +366,29 @@ def gain_lin(eta_illum: float, f_ghz: float, theta_deg: float) -> float:
 
 def hpbw_deg(f_ghz: float, theta_deg: float = 0.0) -> float:
     d_eff = ARRAY_ENVELOPE_M * max(math.cos(math.radians(theta_deg)), 1e-6)
-    return math.degrees(0.886 * lambda_m(f_ghz) / d_eff)
+    return math.degrees(HPBW_FACTOR * lambda_m(f_ghz) / d_eff)
 
 
-SECTOR_TILT_DEG: float = 25.0   # [V] all four arrays tilted toward +Z (nose) by this angle (ship axis vertical, lighthouse model)
-# Mission-preparation inputs (sent to the scheduler), independent of tilt and scan limit:
-SECTOR_EPS_MIN_DEG: float = -90.0   # rear limit: no scan below this elevation eps (-90 = no limit; physical floor ~ -55 deg)
-SECTOR_EPS_MAX_DEG: float = 90.0    # front limit: no scan above this elevation eps (90 = no limit)
+SECTOR_TILT_DEG: float = P.get("geometry.tilt_deg")   # all four arrays tilted toward +Z (nose) (ship axis vertical, lighthouse model)
+# Default of the mission-preparation scan window (a mission input sent to the scheduler, independent of tilt and scan
+# limit; passed explicitly by the callers that have a mission):
+SECTOR_EPS_MIN_DEG: float = P.get("tool.mission_defaults.eps_min_deg")   # rear limit (-90 = no limit; physical floor ~ -55 deg)
+SECTOR_EPS_MAX_DEG: float = P.get("tool.mission_defaults.eps_max_deg")   # front limit (90 = no limit)
 
 
-_SECTOR_AREA_CACHE: Dict[Tuple[float, float, float, float], float] = {}
+_SECTOR_AREA_CACHE: Dict[Tuple[float, float], float] = {}
 
 
-def sector_area_uv() -> float:
-    """Cached on the module parameters it depends on (solve() calls it for every SEARCH waveform)."""
-    key = (SECTOR_RADIUS_DEG, SECTOR_TILT_DEG, SECTOR_EPS_MIN_DEG, SECTOR_EPS_MAX_DEG)
+def sector_area_uv(eps_min_deg: Optional[float] = None, eps_max_deg: Optional[float] = None) -> float:
+    """Cached per eps window (solve() calls it for every SEARCH waveform); None = the default window."""
+    key = (SECTOR_EPS_MIN_DEG if eps_min_deg is None else eps_min_deg,
+           SECTOR_EPS_MAX_DEG if eps_max_deg is None else eps_max_deg)
     if key not in _SECTOR_AREA_CACHE:
-        _SECTOR_AREA_CACHE[key] = _sector_area_uv()
+        _SECTOR_AREA_CACHE[key] = _sector_area_uv(*key)
     return _SECTOR_AREA_CACHE[key]
 
 
-def _sector_area_uv() -> float:
+def _sector_area_uv(eps_min_deg: float, eps_max_deg: float) -> float:
     """Area of the face sector in direction cosines (u, v) of the (tilted) face frame: disk of radius sin(R) (scan
     limit) cut by (i) the two PLANES phi = +/-45 deg between adjacent faces, (ii) the mission elevation window
     [SECTOR_EPS_MIN_DEG, SECTOR_EPS_MAX_DEG] (eps measured from the plane XY toward +Z).
@@ -386,7 +398,7 @@ def _sector_area_uv() -> float:
     [u_lo, u_hi] on |u|."""
     r = math.sin(math.radians(SECTOR_RADIUS_DEG))
     c, sn = math.cos(math.radians(SECTOR_TILT_DEG)), math.sin(math.radians(SECTOR_TILT_DEG))
-    zmin, zmax = math.sin(math.radians(SECTOR_EPS_MIN_DEG)), math.sin(math.radians(SECTOR_EPS_MAX_DEG))
+    zmin, zmax = math.sin(math.radians(eps_min_deg)), math.sin(math.radians(eps_max_deg))
     n = 20000
     tot = 0.0
     dv = 2.0 * r / n
@@ -414,13 +426,13 @@ def _sector_area_uv() -> float:
 
 def beam_cell_area_uv(f_ghz: float) -> float:
     """Area of one hexagonal cell of the beam lattice in (u, v): spacing = BEAM_SPACING_HPBW x 0.886 lambda / D."""
-    h = 0.886 * lambda_m(f_ghz) / ARRAY_ENVELOPE_M
+    h = HPBW_FACTOR * lambda_m(f_ghz) / ARRAY_ENVELOPE_M
     return (math.sqrt(3.0) / 2.0) * (BEAM_SPACING_HPBW * h) ** 2
 
 
-def n_search_positions(f_ghz: float) -> float:
+def n_search_positions(f_ghz: float, eps_min_deg: Optional[float] = None, eps_max_deg: Optional[float] = None) -> float:
     """Positions per face in the surveillance sector, counted in (u, v) (beam broadening with scan included)."""
-    return sector_area_uv() / beam_cell_area_uv(f_ghz)
+    return sector_area_uv(eps_min_deg, eps_max_deg) / beam_cell_area_uv(f_ghz)
 
 
 def grid_loss_db(spacing_hpbw: Optional[float] = None) -> float:
@@ -648,8 +660,9 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
         losses["polarisation"] = band.pol_loss_db
     if band.e_buf_trm_j > 0:
         x_buf = band.p_pk_trm_w / PAE * wf.tau_s / band.e_buf_trm_j
-        if x_buf > 0.5:
-            raise ValueError(f"{wf.name}: pulse needs {x_buf:.2f} of the TRM buffer (max 0.5): droop too large")
+        if x_buf > band.buffer_max_fraction:
+            raise ValueError(f"{wf.name}: pulse needs {x_buf:.2f} of the TRM buffer (max {band.buffer_max_fraction:g}): "
+                             f"droop too large")
         losses["buffer_droop"] = -10.0 * math.log10(1.0 - x_buf / 2.0)
     losses["multibeam_tx"] = multibeam_tx_loss_db(wf.b_tx)
     if ENABLE_GRID_LOSS and wf.role in ("SEARCH", "TWS"):
@@ -817,10 +830,7 @@ def selftest() -> int:
           abs(acc / cnt - grid_loss_db(1.4)) < 0.1, f"({acc / cnt:.2f} vs {grid_loss_db(1.4):.2f} dB)")
     check("Positions x cell area = sector area (u, v)", abs(n_search_positions(2.8) * beam_cell_area_uv(2.8) - sector_area_uv()) < 1e-9)
     check("Sector uv area = 2.0006 (disc R=sin75 cut by the az=+/-45 planes, array tilt 25 deg)", abs(sector_area_uv() - 2.0006) < 0.002, f"({sector_area_uv():.4f})")
-    _e0, _e1 = SECTOR_EPS_MIN_DEG, SECTOR_EPS_MAX_DEG
-    globals()["SECTOR_EPS_MIN_DEG"] = -20.0
-    _n_lim = n_search_positions(2.8)
-    globals()["SECTOR_EPS_MIN_DEG"], globals()["SECTOR_EPS_MAX_DEG"] = _e0, _e1
+    _n_lim = n_search_positions(2.8, eps_min_deg=-20.0)
     check("Mission rear limit eps_min = -20 deg: ~3600 positions (lattice count of the 3D viewer: 3601)", abs(_n_lim - 3601) < 30, f"({_n_lim:.0f})")
     check("Default eps window (-90, +90) leaves the sector unchanged", abs(sector_area_uv() - 2.0006) < 0.002)
     check("uv count at small scan ~ angular count (cone 15 deg, 1 %)",

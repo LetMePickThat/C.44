@@ -57,11 +57,13 @@ from . import geometry as geo
 from . import mission as md
 from . import optimizer as mo
 from . import radar_model as rm
+from .params import P
 
-COVER_FULL = 0.995      # [D] fraction of B's scanned solid angle above which B is fully redundant
-COVER_MIN = 0.01        # [D] partial overlaps below this fraction are not reported
-RANGE_TOL = 0.01        # [D] same 1 % tolerance as the optimiser's "short of range"
-MIN_PIECE_DEG = 1.0     # [D] trimmed boxes thinner than this (phi or eps) are dropped
+# Values from radar_system.toml [tool.redundancy].
+COVER_FULL = P.get("tool.redundancy.cover_full")        # fraction of B's scanned solid angle above which B is fully redundant
+COVER_MIN = P.get("tool.redundancy.cover_min")          # partial overlaps below this fraction are not reported
+RANGE_TOL = P.get("tool.redundancy.range_tol")          # same tolerance as the optimiser's "short of range"
+MIN_PIECE_DEG = P.get("tool.redundancy.min_piece_deg")  # trimmed boxes thinner than this (phi or eps) are dropped
 
 # Why a cell of an A/B overlap is NOT met by A's plan (REASON_NONE where it is). A geometric overlap
 # (core.optimizer.overlaps, reported independently of this module) is not necessarily a duplicated requirement --
@@ -86,7 +88,7 @@ PLAN_FIELDS = geo.SECTOR_GEOMETRY_FIELDS + (
     "max_wf_per_sector", "short_tol", "freq_ghz_candidates")
 
 _PLANS: Dict[str, Optional[dict]] = {}
-_PLAN_CACHE_MAX = 256
+_PLAN_CACHE_MAX = P.get("tool.redundancy.plan_cache_max")
 
 
 @dataclass

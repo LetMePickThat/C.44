@@ -163,9 +163,9 @@ class PrepTab(QWidget):
         box = QGroupBox("Global scan zone")
         self._edit_widgets: List[QWidget] = [box]
         form = QFormLayout(box)
-        self.sb_eps_min = self._spin(-90, 90, 1, self.mission["global"].get("eps_min_deg", -90.0))
-        self.sb_eps_max = self._spin(-90, 90, 1, self.mission["global"].get("eps_max_deg", 90.0))
-        self.sb_elec = self._spin(0.1, 8.0, 0.1, self.mission["global"].get("face_elec_mw", 2.0))
+        self.sb_eps_min = self._spin(-90, 90, 1, self.mission["global"].get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"]))
+        self.sb_eps_max = self._spin(-90, 90, 1, self.mission["global"].get("eps_max_deg", md.GLOBAL_DEFAULTS["eps_max_deg"]))
+        self.sb_elec = self._spin(0.1, md.SHIP_ELEC_TOTAL_MW, 0.1, self.mission["global"].get("face_elec_mw", md.GLOBAL_DEFAULTS["face_elec_mw"]))
         form.addRow("Rear limit eps_min (deg)", self.sb_eps_min)
         form.addRow("Front limit eps_max (deg)", self.sb_eps_max)
         form.addRow("Electrical power / face (MW)", self.sb_elec)
@@ -214,10 +214,10 @@ class PrepTab(QWidget):
 
         self.grp_box = QGroupBox("Zone (box)")
         fb = QFormLayout(self.grp_box)
-        self.sb_phi_min = self._spin(0, 360, 1, 0.0)
-        self.sb_phi_max = self._spin(0, 360, 1, 90.0)
-        self.sb_box_eps_min = self._spin(-90, 90, 1, 0.0)
-        self.sb_box_eps_max = self._spin(-90, 90, 1, 60.0)
+        self.sb_phi_min = self._spin(0, 360, 1, md.SECTOR_DEFAULTS_BOX["phi_min_deg"])
+        self.sb_phi_max = self._spin(0, 360, 1, md.SECTOR_DEFAULTS_BOX["phi_max_deg"])
+        self.sb_box_eps_min = self._spin(-90, 90, 1, md.SECTOR_DEFAULTS_BOX["eps_min_deg"])
+        self.sb_box_eps_max = self._spin(-90, 90, 1, md.SECTOR_DEFAULTS_BOX["eps_max_deg"])
         fb.addRow("phi_min (deg)", self.sb_phi_min)
         fb.addRow("phi_max (deg)", self.sb_phi_max)
         fb.addRow("eps_min (deg)", self.sb_box_eps_min)
@@ -226,24 +226,24 @@ class PrepTab(QWidget):
 
         self.grp_cap = QGroupBox("Zone (cap)")
         fc = QFormLayout(self.grp_cap)
-        self.sb_phi0 = self._spin(0, 360, 1, 90.0)
-        self.sb_eps0 = self._spin(-90, 90, 1, 20.0)
-        self.sb_radius = self._spin(0.1, 180, 1, 15.0)
+        self.sb_phi0 = self._spin(0, 360, 1, md.SECTOR_DEFAULTS_CAP["phi0_deg"])
+        self.sb_eps0 = self._spin(-90, 90, 1, md.SECTOR_DEFAULTS_CAP["eps0_deg"])
+        self.sb_radius = self._spin(0.1, 180, 1, md.SECTOR_DEFAULTS_CAP["radius_deg"])
         fc.addRow("phi0 (deg)", self.sb_phi0)
         fc.addRow("eps0 (deg)", self.sb_eps0)
         fc.addRow("radius (deg)", self.sb_radius)
         v.addWidget(self.grp_cap)
 
         common = QFormLayout()
-        self.sb_rcs = self._spin(0.01, 1_000_000, 1, 1000.0)
+        self.sb_rcs = self._spin(0.01, 1_000_000, 1, md.SECTOR_DEFAULTS_BOX["rcs_m2"])
         self.sb_swerling = QSpinBox()
         self.sb_swerling.setRange(0, 4)
-        self.sb_swerling.setValue(1)
+        self.sb_swerling.setValue(md.SECTOR_DEFAULTS_BOX["swerling"])
         self.sb_swerling.valueChanged.connect(self._on_field_changed)
-        self.sb_range = self._spin(1, 50000, 10, 2000.0)
-        self.sb_rr = self._spin(0.1, 600, 1, 30.0)
-        self.sb_vmin = self._spin(0, 40000, 100, 1000.0)
-        self.sb_vmax = self._spin(0, 40000, 100, 5000.0)
+        self.sb_range = self._spin(1, 50000, 10, md.SECTOR_DEFAULTS_BOX["range_km"])
+        self.sb_rr = self._spin(0.1, 600, 1, md.SECTOR_DEFAULTS_BOX["rr_target_s"])
+        self.sb_vmin = self._spin(0, 40000, 100, md.SECTOR_DEFAULTS_BOX["v_close_min_mps"])
+        self.sb_vmax = self._spin(0, 40000, 100, md.SECTOR_DEFAULTS_BOX["v_close_max_mps"])
         common.addRow("RCS (m2)", self.sb_rcs)
         common.addRow("Swerling", self.sb_swerling)
         common.addRow("Required range (km)", self.sb_range)
@@ -273,7 +273,7 @@ class PrepTab(QWidget):
             self.cb_confirm.setItemData(i, CONFIRM_TIPS[mode], Qt.ToolTipRole)
         self.cb_confirm.setToolTip("Confirmation of every detection (true targets and false alarms)")
         self.cb_confirm.currentTextChanged.connect(self._on_field_changed)
-        self.sb_new_targets = self._spin(0, 10000, 1, 1.0)
+        self.sb_new_targets = self._spin(0, 10000, 1, md.SECTOR_DEFAULTS_BOX["new_targets_per_rr"])
         self.sb_new_targets.setToolTip("True targets newly detected per refresh (confirmed like the false alarms)")
         self.sb_new_targets.valueChanged.connect(self._on_field_changed)
         form.addRow("Confirmation mode", self.cb_confirm)
@@ -498,21 +498,21 @@ class PrepTab(QWidget):
             self.cb_shape.setCurrentText(shape)
             self.grp_box.setVisible(shape == "box")
             self.grp_cap.setVisible(shape == "cap")
-            self.sb_phi_min.setValue(sec.get("phi_min_deg", 0.0))
-            self.sb_phi_max.setValue(sec.get("phi_max_deg", 90.0))
-            self.sb_box_eps_min.setValue(sec.get("eps_min_deg", 0.0))
-            self.sb_box_eps_max.setValue(sec.get("eps_max_deg", 60.0))
-            self.sb_phi0.setValue(sec.get("phi0_deg", 90.0))
-            self.sb_eps0.setValue(sec.get("eps0_deg", 20.0))
-            self.sb_radius.setValue(sec.get("radius_deg", 15.0))
-            self.sb_rcs.setValue(sec.get("rcs_m2", 1000.0))
-            self.sb_swerling.setValue(int(sec.get("swerling", 1)))
-            self.sb_range.setValue(sec.get("range_km", 2000.0))
-            self.sb_rr.setValue(sec.get("rr_target_s", 30.0))
-            self.sb_vmin.setValue(sec.get("v_close_min_mps", 1000.0))
-            self.sb_vmax.setValue(sec.get("v_close_max_mps", 5000.0))
+            self.sb_phi_min.setValue(sec.get("phi_min_deg", md.SECTOR_DEFAULTS_BOX["phi_min_deg"]))
+            self.sb_phi_max.setValue(sec.get("phi_max_deg", md.SECTOR_DEFAULTS_BOX["phi_max_deg"]))
+            self.sb_box_eps_min.setValue(sec.get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"]))
+            self.sb_box_eps_max.setValue(sec.get("eps_max_deg", md.GLOBAL_DEFAULTS["eps_max_deg"]))
+            self.sb_phi0.setValue(sec.get("phi0_deg", md.SECTOR_DEFAULTS_CAP["phi0_deg"]))
+            self.sb_eps0.setValue(sec.get("eps0_deg", md.SECTOR_DEFAULTS_CAP["eps0_deg"]))
+            self.sb_radius.setValue(sec.get("radius_deg", md.SECTOR_DEFAULTS_CAP["radius_deg"]))
+            self.sb_rcs.setValue(sec.get("rcs_m2", md.SECTOR_DEFAULTS_BOX["rcs_m2"]))
+            self.sb_swerling.setValue(int(sec.get("swerling", md.SECTOR_DEFAULTS_BOX["swerling"])))
+            self.sb_range.setValue(sec.get("range_km", md.SECTOR_DEFAULTS_BOX["range_km"]))
+            self.sb_rr.setValue(sec.get("rr_target_s", md.SECTOR_DEFAULTS_BOX["rr_target_s"]))
+            self.sb_vmin.setValue(sec.get("v_close_min_mps", md.SECTOR_DEFAULTS_BOX["v_close_min_mps"]))
+            self.sb_vmax.setValue(sec.get("v_close_max_mps", md.SECTOR_DEFAULTS_BOX["v_close_max_mps"]))
             self.cb_confirm.setCurrentText(sec.get("confirm_mode", "auto"))
-            self.sb_new_targets.setValue(sec.get("new_targets_per_rr", 1.0))
+            self.sb_new_targets.setValue(sec.get("new_targets_per_rr", md.SECTOR_DEFAULTS_BOX["new_targets_per_rr"]))
         finally:
             self._updating_form = False
 
@@ -627,8 +627,8 @@ class PrepTab(QWidget):
         self._debounce.start()
 
     def _refresh_all(self) -> None:
-        eps_min = self.mission["global"].get("eps_min_deg", -90.0)
-        eps_max = self.mission["global"].get("eps_max_deg", 90.0)
+        eps_min = self.mission["global"].get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"])
+        eps_max = self.mission["global"].get("eps_max_deg", md.GLOBAL_DEFAULTS["eps_max_deg"])
         self._update_gauges(eps_min, eps_max)
         self._schedule_redundancy_check()
         self._update_alerts(eps_min, eps_max)
@@ -646,7 +646,7 @@ class PrepTab(QWidget):
 
     def _update_gauges(self, eps_min: float, eps_max: float) -> None:
         totals = {k: {"energy": 0.0, "time_min": 0.0, "kw": 0.0, "at_kw": 0.0, "at_ku_time": 0.0} for k in range(4)}
-        p_avg_max = rm.face_avg_rf_w(self.mission["global"].get("face_elec_mw", 2.0))
+        p_avg_max = rm.face_avg_rf_w(self.mission["global"].get("face_elec_mw", md.GLOBAL_DEFAULTS["face_elec_mw"]))
         self._unreachable = {}
         self._at_unreachable = {}
         if self.cost_table is not None:
@@ -780,8 +780,8 @@ class PrepTab(QWidget):
         self._redundancy_notes = notes
         self._redundancy_sig, self._redundancy_error = sig, ""
         self._refresh_sector_items()
-        self._update_alerts(self.mission["global"].get("eps_min_deg", -90.0),
-                            self.mission["global"].get("eps_max_deg", 90.0))
+        self._update_alerts(self.mission["global"].get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"]),
+                            self.mission["global"].get("eps_max_deg", md.GLOBAL_DEFAULTS["eps_max_deg"]))
 
     def _on_redundancy_failed(self, message: str) -> None:
         self._redundancy_error = message
@@ -889,9 +889,9 @@ class PrepTab(QWidget):
         except Exception as exc:  # noqa: BLE001
             QMessageBox.critical(self, "Import", f"Import failed: {exc}")
             return
-        self.sb_eps_min.setValue(self.mission["global"].get("eps_min_deg", -90.0))
-        self.sb_eps_max.setValue(self.mission["global"].get("eps_max_deg", 90.0))
-        self.sb_elec.setValue(self.mission["global"].get("face_elec_mw", 2.0))
+        self.sb_eps_min.setValue(self.mission["global"].get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"]))
+        self.sb_eps_max.setValue(self.mission["global"].get("eps_max_deg", md.GLOBAL_DEFAULTS["eps_max_deg"]))
+        self.sb_elec.setValue(self.mission["global"].get("face_elec_mw", md.GLOBAL_DEFAULTS["face_elec_mw"]))
         self._cur_index = 0
         self._reload_sector_list()
         self._schedule_refresh()

@@ -32,9 +32,10 @@ import pyvista as pv
 # to the 3D view, the fast estimate and the exact calculation alike.
 from . import optimizer as mo
 from . import radar_model as rm
+from .params import P
 
 FACE_PHI_DEG: Tuple[float, float, float, float] = mo.FACE_PHI
-VIZ_FREQ_GHZ = 2.8   # reference frequency used for the viz-only scan limit (matches the optimiser)
+VIZ_FREQ_GHZ = P.get("tool.display.viz_freq_ghz")   # reference frequency used for the viz-only scan limit
 
 # Ship model (cosmetic): traced from the reference side / front drawing, in drawing pixels (axial y downward from
 # the nose tip, radial r from the ship axis), scaled to SHIP_LENGTH and placed so the centre of the radar arrays sits at
@@ -48,7 +49,7 @@ _PX = SHIP_LENGTH / 950.0          # axial (Z) scale: nose tip y = 73 px, aft en
 # only approximate, so the radial (X/Y) scale is recalibrated on the hull diameter rather than inherited
 # from _PX, and the radiator panels get a further, separate stretch recalibrated on the overall width;
 # everything else (telescopes, booms, rails, arrays) stays tied to the hull's radial scale.
-SHIP_LENGTH_M, HULL_DIAMETER_M, SHIP_WIDTH_M = 136.4, 16.8, 76.5
+SHIP_LENGTH_M, HULL_DIAMETER_M, SHIP_WIDTH_M = P.get("ship.length_m"), P.get("ship.hull_diameter_m"), P.get("ship.width_m")
 _HULL_RADIUS_PX = 57.0
 _PX_R = (HULL_DIAMETER_M / 2.0 / SHIP_LENGTH_M * SHIP_LENGTH) / _HULL_RADIUS_PX
 _RADIATOR_SPAN_PX = 238.0

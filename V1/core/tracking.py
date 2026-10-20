@@ -37,26 +37,30 @@ import numpy as np
 
 from . import optimizer as mo
 from . import radar_model as rm
+from .params import P
 
-KU_FREQ_GHZ = 14.0              # [D] Ku confirmation / tracking frequency: core band, below the 14.25 GHz scan break (75 deg)
-K_ML = rm.K_THETA               # [V 2026-10-19] 0.5: angle estimator constant, ML on the full digital aperture
-BIAS_S_HPBW = 1.0 / 20.0        # [V 2026-10-19] residual S/Ku alignment bias per axis, in S beamwidths
-CONFIRM_P_MIN = 0.98            # [V 2026-10-19] minimum probability of confirming a true target
+# Values from radar_system.toml ([confirmation], [tracking], [band.Ku], [tool.confirmation]).
+_T = "tool.confirmation."
+KU_FREQ_GHZ = P.get("confirmation.ku_freq_ghz")      # Ku confirmation / tracking frequency
+K_ML = rm.K_THETA                                    # angle estimator constant, ML on the full digital aperture
+BIAS_S_HPBW = P.get("confirmation.bias_s_hpbw")      # residual S/Ku alignment bias per axis, in S beamwidths
+CONFIRM_P_MIN = P.get("confirmation.p_min")          # minimum probability of confirming a true target
 CONFIRM_MODES = ("KU1+7", "KU7", "S2")
 CLUSTER_N = 7                   # hexagonal cluster: centre + first ring, spacing rm.BEAM_SPACING_HPBW
-LATENCY_MAX_FRAC = 0.01         # [D] confirmation latency must stay below this fraction of the time to impact
-ANGLE_ZONE_SIGMAS = 4.0         # [V 2026-10-19] angular zone opening = full width at +/-2 sigma
-MARGIN_DB = np.arange(0.0, 12.01, 0.5)   # power margins tried on confirmation looks
-FA_R4_MEAN = 0.2                # [D] a false alarm's Ku look is sized for the threat at the declared range:
-                                #     mean of (R / R_det)^4 over a range uniform in [0, R_det]
-# Ku look search space (confirmation and tracking) [D]
-KU_TAU = (10e-6, 20e-6, 50e-6, 100e-6, 200e-6, 400e-6)
-KU_N = (1, 2, 4, 8, 16, 32, 64)
-KU_PRI = (0.5e-3, 1e-3, 2e-3)
-KU_BW = (50.0, 200.0)
-KU_DUTY_MAX = 0.25              # [D] Ku TRM duty ceiling (not in the model yet)
-N_SNR_Q = 32                    # quantiles of the detected-echo SNR
-GH_NODES, GH_WEIGHTS = np.polynomial.hermite_e.hermegauss(12)
+LATENCY_MAX_FRAC = P.get("confirmation.latency_max_frac")   # confirmation latency / time to impact ceiling
+ANGLE_ZONE_SIGMAS = P.get("tracking.angle_zone_sigmas")     # angular zone opening = full width at +/-2 sigma
+MARGIN_DB = np.arange(0.0, P.get(_T + "margin_db_max") + P.get(_T + "margin_db_step") / 2.0,
+                      P.get(_T + "margin_db_step"))  # power margins tried on confirmation looks
+FA_R4_MEAN = P.get("confirmation.fa_r4_mean")        # a false alarm's Ku look is sized for the threat at the declared
+                                                     # range: mean of (R / R_det)^4 over a range uniform in [0, R_det]
+# Ku look search space (confirmation and tracking)
+KU_TAU = tuple(P.get(_T + "ku_tau_s"))
+KU_N = tuple(P.get(_T + "ku_n_pulses"))
+KU_PRI = tuple(P.get(_T + "ku_pri_s"))
+KU_BW = tuple(P.get(_T + "ku_sig_bw_mhz"))
+KU_DUTY_MAX = rm.BAND_KU.duty_max                    # Ku TRM duty ceiling (not in the model yet)
+N_SNR_Q = P.get(_T + "n_snr_quantiles")              # quantiles of the detected-echo SNR
+GH_NODES, GH_WEIGHTS = np.polynomial.hermite_e.hermegauss(P.get(_T + "gh_nodes"))
 GH_WEIGHTS = GH_WEIGHTS / GH_WEIGHTS.sum()
 _TX_LOSS_DB_PER_HPBW2 = 10.0 * math.log10(math.e) * 4.0 * math.log(2.0)   # 12.04 dB at 1 HPBW (radar_model.grid_loss_db)
 _CLUSTER_XY = np.array([(0.0, 0.0)] + [(rm.BEAM_SPACING_HPBW * math.cos(math.radians(60 * j)),

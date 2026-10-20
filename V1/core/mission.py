@@ -24,25 +24,18 @@ from typing import Dict, List
 
 # Re-use the optimiser's loader so JSON/CSV parsing never diverges from what run() expects.
 from . import optimizer as mo
+from .params import P
 
-GLOBAL_DEFAULTS: Dict[str, float] = {"eps_min_deg": -90.0, "eps_max_deg": 90.0, "face_elec_mw": 2.0}
+# Defaults of a new mission / sector / AT bracket: radar_system.toml [tool.mission_defaults] and [power].
+_MD = "tool.mission_defaults"
+GLOBAL_DEFAULTS: Dict[str, float] = {"eps_min_deg": P.get(_MD + ".eps_min_deg"), "eps_max_deg": P.get(_MD + ".eps_max_deg"),
+                                     "face_elec_mw": P.get("power.face_elec_mw")}
+SHIP_ELEC_TOTAL_MW: float = P.get("power.ship_elec_total_mw")   # upper bound of one face's allocation
 
-_SECTOR_DEFAULTS_NEED: Dict[str, object] = {
-    "rcs_m2": 1000.0, "swerling": 1, "range_km": 2000.0, "rr_target_s": 30.0,
-    "v_close_min_mps": 1000.0, "v_close_max_mps": 5000.0,
-    "confirm_mode": "auto", "new_targets_per_rr": 1.0, "tracking": [],
-}
-SECTOR_DEFAULTS_BOX: Dict[str, object] = {
-    "shape": "box", "phi_min_deg": 0.0, "phi_max_deg": 90.0, "eps_min_deg": 0.0, "eps_max_deg": 60.0,
-    **_SECTOR_DEFAULTS_NEED,
-}
-SECTOR_DEFAULTS_CAP: Dict[str, object] = {
-    "shape": "cap", "phi0_deg": 0.0, "eps0_deg": 20.0, "radius_deg": 15.0, **_SECTOR_DEFAULTS_NEED,
-}
-BRACKET_DEFAULTS: Dict[str, float] = {
-    "r_min_km": 0.0, "r_max_km": 1000.0, "n_targets": 5.0, "rr_s": 2.0,
-    "angle_zone_deg": 0.2, "range_acc_m": 10.0, "vr_acc_mps": 5.0,
-}
+_SECTOR_DEFAULTS_NEED: Dict[str, object] = {**P.section(_MD + ".sector"), "tracking": []}
+SECTOR_DEFAULTS_BOX: Dict[str, object] = {"shape": "box", **P.section(_MD + ".box"), **_SECTOR_DEFAULTS_NEED}
+SECTOR_DEFAULTS_CAP: Dict[str, object] = {"shape": "cap", **P.section(_MD + ".cap"), **_SECTOR_DEFAULTS_NEED}
+BRACKET_DEFAULTS: Dict[str, float] = dict(P.section(_MD + ".bracket"))
 BRACKET_FIELDS = tuple(BRACKET_DEFAULTS)
 CONFIRM_MODE_CHOICES = ("auto", "KU1+7", "KU7", "S2")   # = tracking.CONFIRM_MODES, plus automatic selection
 
@@ -107,11 +100,11 @@ def validate_global(g: dict) -> List[str]:
         errs.append(f"front limit eps_max ({eps_max}) outside [-90, 90] deg")
     if eps_min > eps_max:
         errs.append(f"eps_min ({eps_min}) > eps_max ({eps_max}): empty scan window")
-    elec = g.get("face_elec_mw", 2.0)
+    elec = g.get("face_elec_mw", GLOBAL_DEFAULTS["face_elec_mw"])
     if elec <= 0:
         errs.append(f"electrical power per face ({elec} MW) must be > 0")
-    elif elec > 8.0:
-        errs.append(f"electrical power per face ({elec} MW) exceeds the ship total budget (8 MW)")
+    elif elec > SHIP_ELEC_TOTAL_MW:
+        errs.append(f"electrical power per face ({elec} MW) exceeds the ship total budget ({SHIP_ELEC_TOTAL_MW:g} MW)")
     return errs
 
 

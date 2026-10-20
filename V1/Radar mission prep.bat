@@ -9,10 +9,10 @@ set "TITLE=Radar mission preparation"
 rem 1. A working Python 3 (python on PATH or Microsoft Store first, else the py launcher of python.org installs).
 set "PY="
 set "PYW="
-python -c "import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)" >nul 2>&1 && (set "PY=python" & set "PYW=pythonw")
-if not defined PY py -3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)" >nul 2>&1 && (set "PY=py -3" & set "PYW=pyw -3")
+python -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1 && (set "PY=python" & set "PYW=pythonw")
+if not defined PY py -3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1 && (set "PY=py -3" & set "PYW=pyw -3")
 if not defined PY (
-    powershell -NoProfile -Command "Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show('Python 3.9 or later is needed and was not found.' + [Environment]::NewLine + [Environment]::NewLine + 'Install it from the Microsoft Store (search Python) or from python.org (tick Add python.exe to PATH), then start again.', '%TITLE%', 'OK', 'Error')" >nul
+    powershell -NoProfile -Command "Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show('Python 3.11 or later is needed and was not found.' + [Environment]::NewLine + [Environment]::NewLine + 'Install it from the Microsoft Store (search Python) or from python.org (tick Add python.exe to PATH), then start again.', '%TITLE%', 'OK', 'Error')" >nul
     exit /b 1
 )
 

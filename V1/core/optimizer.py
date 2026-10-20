@@ -54,32 +54,37 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from . import radar_model as rm
+from .params import P
 
-FACE_PHI = (0.0, 90.0, 180.0, 270.0)
-D_RES_DEG = 0.2                 # raster step (deg) on the (phi, eps) sphere
-FREQ_CANDIDATES = (2.7, 2.8, 2.9)
-TAU_CAND = (20e-6, 50e-6, 100e-6, 200e-6, 400e-6, 600e-6, 800e-6, 937.5e-6)
-N_CAND = (1, 2, 3, 4, 6, 8, 12, 16, 24, 32)
-B_CAND = (1, 2, 4, 8)
-SIGBW_CAND = (10.0, 20.0, 30.0, 50.0, 75.0)
-RES_MAX_M_DEFAULT = 2.0         # [D] range resolution requested if the sector gives none (-> 75 MHz)
-THETA_BIN_DEG = 1.0
+# Values from radar_system.toml ([geometry], [tool.optimizer], [tool.mission_defaults]).
+_T = "tool.optimizer."
+FACE_PHI = tuple(P.get("geometry.face_phi_deg"))
+D_RES_DEG = P.get(_T + "sphere_res_deg")             # raster step (deg) on the (phi, eps) sphere
+FREQ_CANDIDATES = tuple(P.get(_T + "freq_candidates_ghz"))
+TAU_CAND = tuple(P.get(_T + "tau_s"))
+N_CAND = tuple(P.get(_T + "n_pulses"))
+B_CAND = tuple(P.get(_T + "b_tx"))
+SIGBW_CAND = tuple(P.get(_T + "sig_bw_mhz"))
+PRI_MIN_S = P.get(_T + "pri_min_s")                  # PRI of single-pulse and range-ambiguous candidates
+RES_MAX_M_DEFAULT = P.get("tool.mission_defaults.res_max_m")   # range resolution requested if the sector gives none
+THETA_BIN_DEG = P.get(_T + "theta_bin_deg")
 C = rm.C_MPS
-SOLVE_CACHE_SIZE = 1 << 18      # memoised solve() ranges per process (~50 MB when full)
-PARALLEL_MIN_SECTORS = 6        # [D] below this, a sequential run (~0.2 s/sector) beats process start-up
-MAX_WORKERS = max(1, (os.cpu_count() or 2) // 2)   # ~physical cores; each worker holds a ~65 MB sphere raster
-BIN_DEG = 5                     # [D] scan-angle bins (in 1-deg bins) sharing one waveform
-MAX_WF_PER_SECTOR = 4           # [D] default cap on distinct waveforms per sector (sector key "max_wf_per_sector")
-SHORT_TOL = 0.01                # [D] positions-short-of-range fractions within 1 % rank equal (sector key "short_tol")
-ALPHAS = np.linspace(0.0, 1.0, 21)   # energy weight of the scalarised energy/time cost
-SHORT_PENALTY = 1e6             # DP penalty per fraction of positions short of range (ranks range before cost)
-TRACK_MARGIN_WARN = 0.10        # [D] warn when a face keeps less than this fraction of its power for tracking
+SOLVE_CACHE_SIZE = P.get(_T + "solve_cache_size")    # memoised solve() ranges per process (~50 MB when full)
+PARALLEL_MIN_SECTORS = P.get(_T + "parallel_min_sectors")   # below this, a sequential run (~0.2 s/sector) beats start-up
+# 0 = automatic: ~physical cores; each worker holds a ~65 MB sphere raster
+MAX_WORKERS = P.get(_T + "max_workers") or max(1, (os.cpu_count() or 2) // 2)
+BIN_DEG = P.get(_T + "bin_deg")                      # scan-angle bins (in 1-deg bins) sharing one waveform
+MAX_WF_PER_SECTOR = P.get(_T + "max_wf_per_sector")  # default cap on distinct waveforms per sector (sector key "max_wf_per_sector")
+SHORT_TOL = P.get(_T + "short_tol")                  # positions-short-of-range fractions within it rank equal (sector key "short_tol")
+ALPHAS = np.linspace(0.0, 1.0, P.get(_T + "n_alphas"))   # energy weight of the scalarised energy/time cost
+SHORT_PENALTY = P.get(_T + "short_penalty")          # DP penalty per fraction of positions short of range (ranks range before cost)
+TRACK_MARGIN_WARN = P.get(_T + "track_margin_warn")  # warn when a face keeps less than this fraction of its power for tracking
 
 
 # ----------------------------------------------------------------------------- geometry
 SECTOR_GEOMETRY_FIELDS = ("shape", "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg",
                           "phi0_deg", "eps0_deg", "radius_deg")
-MASK_CACHE_SIZE = 64             # sector masks kept per sphere raster (the same sector is masked several times per run)
+MASK_CACHE_SIZE = P.get(_T + "mask_cache_size")   # sector masks kept per sphere raster (the same sector is masked several times per run)
 
 
 def sector_geometry_key(sec: dict) -> tuple:
@@ -211,9 +216,9 @@ def candidate_waveforms(sec: dict) -> List:
             for bw in bws:
                 for n in N_CAND:
                     for tau in TAU_CAND:
-                        pri = max(tau, pri_unamb) if not sec.get("allow_ambiguous") else max(tau, 1e-3)
+                        pri = max(tau, pri_unamb) if not sec.get("allow_ambiguous") else max(tau, PRI_MIN_S)
                         if n == 1:
-                            pri = max(tau, 1e-3)
+                            pri = max(tau, PRI_MIN_S)
                         try:
                             out.append(make_wf("c", tau, n, pri, bw, b, integ))
                         except ValueError:
@@ -407,7 +412,6 @@ def sector_plan(sec: dict, eps_min: float, eps_max: float, p_avg_max_w: float) -
     None where the sector has no position), "power_scale" (power fraction actually transmitted, "no excess energy"),
     "short" (the sector's own range is not reached there, even at full power), and "freq_ghz". None if the sector
     has no plan. Used to test whether this sector also meets another one's need."""
-    rm.SECTOR_EPS_MIN_DEG, rm.SECTOR_EPS_MAX_DEG = eps_min, eps_max
     sph = _sphere(eps_min, eps_max)
     best = _best_plan(sec, sph, sph.mask(sec), p_avg_max_w)
     if isinstance(best, dict):
@@ -511,7 +515,6 @@ def _sphere(eps_min: float, eps_max: float) -> Sphere:
 
 def _optimise_task(sec: dict, eps_min: float, eps_max: float, p_avg_max: float) -> dict:
     """Worker-process entry point (module level so it can be pickled)."""
-    rm.SECTOR_EPS_MIN_DEG, rm.SECTOR_EPS_MAX_DEG = eps_min, eps_max
     sph = _sphere(eps_min, eps_max)
     return optimise_sector(sec, sph, sph.mask(sec), p_avg_max)
 
@@ -600,7 +603,6 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
     workers: None = automatic (parallel from PARALLEL_MIN_SECTORS sectors), 1 = sequential, > 1 = parallel."""
     g = mission.get("global", {})
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
-    rm.SECTOR_EPS_MIN_DEG, rm.SECTOR_EPS_MAX_DEG = eps_min, eps_max
     elec = g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW)
     p_avg_max = rm.face_avg_rf_w(elec)
     sectors = mission["sectors"]
