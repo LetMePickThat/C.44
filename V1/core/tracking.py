@@ -272,6 +272,12 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict
     if ku_missing > 0:
         flags.append(f"{100 * ku_missing / p_all:.1f} % of the positions are out of Ku reach (scan limit or range): "
                      f"no Ku confirmation or track there")
+    th_ku = max((gr["theta"] for gr in groups if gr["theta"] <= ku_lim), default=0.0)
+    held = rm.rx_sll_held_up_to_deg(KU_FREQ_GHZ, sll, th_ku)
+    if held < th_ku:
+        flags.append(f"Ku RX sidelobes {sll:g} dB held only up to {held:g} deg scan at {KU_FREQ_GHZ} GHz (worst "
+                     f"visible sidelobe {rm.sidelobe_visible_db(KU_FREQ_GHZ, th_ku, 'rx', sll):.1f} dB at {th_ku:g} deg: "
+                     f"TRSA gap lobes)")
 
     def ku_cost(looks_true: float, looks_fa: float, m: float) -> Tuple[np.ndarray, np.ndarray]:
         e, t = np.zeros(4), np.zeros(4)

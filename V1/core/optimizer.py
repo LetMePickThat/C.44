@@ -23,6 +23,8 @@ with the audit corrections):
   - [D] Migration evaluated at v_close_max_mps; Pd/Pfa/loss budget are the model's locked values.
   - RX weighting per sector (key "rx_sll_db", an option of radar_model.RX_SLL_OPTIONS_DB, default -25 dB): sets
     eta_illum_rx, so the range of every candidate; the report gives the RX beams formed per position (step 4.4).
+  - Step 1.2 alerts per sector (flags): active-mismatch loss above tool.alerts.mismatch_db_per_pass in a populated
+    scan bin, and RX sidelobe option not held up to the sector's widest scan (far / gap lobes of the visible region).
   - [D] Sectors are independent; overlapping sectors are each budgeted in full there (flagged, not deduplicated --
         merging distinct RCS/range/RR needs into one search is generally costlier than paying for each separately,
         since it has to meet the hardest of both at once). A sector spanning several faces is budgeted per face
@@ -485,6 +487,11 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float) -
     f_e_max = max(fc["energy_fraction"] for fc in faces.values())
     f_t_max = max(fc["time_fraction"] for fc in faces.values())
     r_worst, r_best = float(plan.r_bin[populated[-1]]), float(plan.r_bin[populated[0]])
+    th_max = min(float(populated[-1] + 1) * THETA_BIN_DEG, rm.band_for_frequency(f).scan_limit_deg(f))
+    sll = rx_sll_db(sec)
+    sll_held = rm.rx_sll_held_up_to_deg(f, sll, th_max)
+    mismatch_max = max(rm.active_mismatch(f, float(t))["loss_db_per_pass"]
+                       for t in _theta_centres(f, len(p_tot))[populated])
     main = max(wf_set, key=lambda d: d["positions"])
     out = {
         "id": sec["id"], "status": "OK",
@@ -495,8 +502,10 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float) -
                      "positions_short_of_range_pct": round(100 * plan.short_frac, 1)},
         "unscanned_pct": round(100 * unscanned, 1),
         "positions_total": round(float(p_tot.sum()), 1),
-        "rx_sll_db": rx_sll_db(sec),
-        "rx_beams_per_position": rm.rx_beams_per_position(f, rx_sll_db(sec)),
+        "rx_sll_db": sll,
+        "rx_beams_per_position": rm.rx_beams_per_position(f, sll),
+        "rx_sll_held_up_to_deg": sll_held,
+        "mismatch_db_per_pass_max": mismatch_max,
         "faces": {str(k): v for k, v in faces.items()},
         "rr_target_s": rr,
         "rr_alone_s": rr * load,                               # RR if this sector had the face to itself (energy and time)
@@ -513,6 +522,13 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float) -
         out["flags"].append(f"RR target {rr:.0f} s needs {100 * f_t_max:.0f} % time on air; best RR alone = {rr * load:.0f} s")
     if unscanned > 0.005:
         out["flags"].append(f"{100 * unscanned:.1f} % of the sector is outside the scanned zone (scan limit / eps window)")
+    if mismatch_max > rm.MISMATCH_ALERT_DB:
+        out["flags"].append(f"active-mismatch loss up to {mismatch_max:.2f} dB per pass at {f} GHz "
+                            f"(alert above {rm.MISMATCH_ALERT_DB:g} dB)")
+    if sll_held < th_max:
+        out["flags"].append(f"S RX sidelobes {sll:g} dB held only up to {sll_held:g} deg scan at {f} GHz (worst visible "
+                            f"sidelobe {rm.sidelobe_visible_db(f, th_max, 'rx', sll):.1f} dB at {th_max:g} deg: TRSA "
+                            f"gap lobes)")
     return out
 
 

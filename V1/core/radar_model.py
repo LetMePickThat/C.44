@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.1.0
+# Radar Performance Model - V6.2.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,25 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.1.0 -> V6.2.0 (roadmap step 1.2: active mismatch, grating lobes, far sidelobes, polarisation)
+#   - ONE active-mismatch model for S and Ku, on TX and on RX (loss "scan_mismatch" = 2 x the per-pass loss), separate
+#     from the band-edge derating: current sheet matched at band.<b>.waim_match_deg = 45 deg by a WAIM,
+#     |G_waim| = |cos t - cos t_m| / (cos t + cos t_m), combined in power with the grating-lobe term
+#     |G_gl| = exp(-g / aperture.grating_lobe_g0), g = lambda / d_mean - sin t - 1 (worst azimuth), g0 = 0.02.
+#     Round trip: 0.26 dB at broadside, 1.12 dB at 70 deg, 2.24 dB at 75 deg / 2.85 GHz; ends the optimism left by
+#     review 0.3 (gain = cos(theta) projection only). Scan limits stay locked; the margin and the loss are reported,
+#     and the optimiser warns above tool.alerts.mismatch_db_per_pass (3 dB) per pass.
+#   - Real mean element pitch for the grating lobes (TRSA pitch / TRMs per side): with 2 mm gaps S 52.4 mm, margin at
+#     2.9 GHz / 75 deg 0.35 % (1.1 % with the nominal 52 mm).
+#   - TRSA gap 2 -> 0.5 mm (user, step 1.2): the pitch break between TRSAs made gap lobes next to the grating lobe
+#     (Ku -16.6 dB, S -27 dB) that broke the RX options at large scan; with 0.5 mm the S options hold over the whole
+#     sector and Ku -25 dB everywhere (-30 / -35 dB to 68.5 / 58.5 deg at 14.25 GHz). Total area 13.2964 m2, envelope
+#     4.1675 m, mean pitch S 52.1 / Ku 10.42 mm; positions -1.1 %, ranges unchanged (emissive area unchanged).
+#   - Far sidelobes over the visible region (core/antenna.py, gap lobes of the TRSA lattice included): warning when
+#     an RX option is not held there.
+#   - TX polarisation linear along e_v (D); pol_purity(): Ludwig-3 cross-polar discrimination of the element, output
+#     only (dual-pol RX: no SNR cost; pol_loss_dual_db 0.5 dB kept as the recombination placeholder until step 1.5).
 #
 # Changes V6.0.13 -> V6.1.0 (roadmap step 1.1: real radiation pattern of the octagonal TRSA array)
 #   - The pattern is COMPUTED from the array build-up (core/antenna.py, cached in core/antenna_cache.json) instead of
@@ -190,7 +209,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import antenna
     from params import P
 
-MODEL_VERSION = "6.1.0"
+MODEL_VERSION = "6.2.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -273,9 +292,25 @@ RX_SLL_DEFAULT_DB: float = float(P.get("tool.mission_defaults.sector.rx_sll_db")
 if RX_SLL_DEFAULT_DB not in RX_SLL_OPTIONS_DB:
     raise ValueError(f"{P.path}: tool.mission_defaults.sector.rx_sll_db ({RX_SLL_DEFAULT_DB:g}) is not one of "
                      f"aperture.rx_sll_options_db {list(RX_SLL_OPTIONS_DB)}")
+
+
+def _visible_r_lam_d(band_name: str) -> float:
+    """Radius of the visible region seen by the scanned beam, (1 + sin scan limit) D_env / lambda, at the top of the
+    band (largest in lambda / D_env): the region of the far-sidelobe scan (step 1.2)."""
+    b = f"band.{band_name}."
+    hi = P.get(b + "usable_hi_ghz")
+    lim = P.get(b + "scan_max_deg") if hi <= P.get(b + "scan_break_ghz") else P.get(b + "scan_max_hi_deg")
+    return (1.0 + math.sin(math.radians(lim))) * ARRAY_ENVELOPE_M * hi * 1e9 / 299_792_458.0
+
+
 PATTERNS: Dict[str, "antenna.BandPattern"] = antenna.face_patterns(
     TRSA_ROWS, TRSA_SIDE_M, TRSA_GAP_M, {"S": S_TRM_PER_TRSA_SIDE, "Ku": KU_TRM_PER_TRSA_SIDE}, ARRAY_ENVELOPE_M,
-    RX_SLL_OPTIONS_DB, P.get("aperture.rx_taper_nbar"), P.get("aperture.rx_taper_edge"))
+    RX_SLL_OPTIONS_DB, P.get("aperture.rx_taper_nbar"), P.get("aperture.rx_taper_edge"),
+    {b: _visible_r_lam_d(b) for b in ("S", "Ku")})
+# --- Active mismatch and polarisation (step 1.2) ---
+GRATING_LOBE_G0: float = P.get("aperture.grating_lobe_g0")
+TX_POLARISATION: str = P.get("aperture.tx_polarisation")
+MISMATCH_ALERT_DB: float = P.get("tool.alerts.mismatch_db_per_pass")
 
 # --- Surveillance sector (per face); its radius SECTOR_RADIUS_DEG is derived from the band scan limits below ---
 REFRESH_S: float = P.get("tool.cli.refresh_s")   # frame check of the CLI report only (missions: sector RR)
@@ -316,6 +351,7 @@ class BandConfig:
     scan_max_deg: float          # scan limit up to scan_break_ghz
     scan_break_ghz: float
     scan_max_hi_deg: float       # scan limit above scan_break_ghz
+    waim_match_deg: float        # scan angle where the WAIM matches the array (active-mismatch model, step 1.2)
     n_trm: int
     p_pk_trm_w: float
     eta_illum_tx: float          # (eta_illum_rx is derived from the volume's RX weighting: rx_beam())
@@ -390,7 +426,7 @@ def _band(name: str) -> BandConfig:
         name=name, usable_lo_ghz=lo, usable_hi_ghz=hi, core_lo_ghz=lo + (hi - lo) / div, core_hi_ghz=hi - (hi - lo) / div,
         edge_derating_db=P.get(b + "edge_derating_db"),
         scan_max_deg=P.get(b + "scan_max_deg"), scan_break_ghz=P.get(b + "scan_break_ghz"),
-        scan_max_hi_deg=P.get(b + "scan_max_hi_deg"),
+        scan_max_hi_deg=P.get(b + "scan_max_hi_deg"), waim_match_deg=P.get(b + "waim_match_deg"),
         n_trm=N_TRM[name], p_pk_trm_w=P.get(b + "p_pk_trm_w"),
         eta_illum_tx=P.get(b + "eta_illum_tx"),
         t_sys_k=t_sys_cascade(P.section(b + "rx")),
@@ -452,7 +488,7 @@ TARGETS: Dict[str, Target] = {
 # Gain / geometry
 # -----------------------------------------------------------------------------
 def aperture_m2(eta_illum: float, theta_deg: float) -> float:
-    # Geometric projection only. TEMPORARY: no active-mismatch (|Gamma|, WAIM) loss until roadmap step 1.2 (review 0.3).
+    # Geometric projection; the active mismatch is the loss "scan_mismatch" of solve() (active_mismatch, step 1.2).
     ef = max(math.cos(math.radians(theta_deg)), 1e-6)
     return PHYS_AREA_M2 * eta_illum * ETA_OHMIC * ef
 
@@ -484,6 +520,64 @@ def hpbw_deg(f_ghz: float, theta_deg: float = 0.0, beam: str = "tx", rx_sll_db: 
     fac = _pattern(f_ghz).tx.hpbw if beam == "tx" else rx_beam(band_for_frequency(f_ghz).name, rx_sll_db).hpbw
     d_eff = ARRAY_ENVELOPE_M * max(math.cos(math.radians(theta_deg)), 1e-6)
     return math.degrees(fac * lambda_m(f_ghz) / d_eff)
+
+
+def grating_lobe_margin(f_ghz: float, theta_deg: float) -> float:
+    """Distance (in u) of the first grating lobe to the visible region, worst azimuth (scan along a lattice axis):
+    lambda / d_mean - sin(theta) - 1, d_mean = mean element pitch of the band. <= 0: a grating lobe is visible."""
+    return lambda_m(f_ghz) / _pattern(f_ghz).d_mean_m - math.sin(math.radians(abs(theta_deg))) - 1.0
+
+
+def active_mismatch(f_ghz: float, theta_deg: float) -> Dict[str, float]:
+    """Active reflection of the array at scan theta (one model for S and Ku, step 1.2): current sheet matched at
+    waim_match_deg by a WAIM, |G_waim| = |cos t - cos t_m| / (cos t + cos t_m) (same in the E and H planes), and the
+    rise near a grating lobe, |G_gl| = exp(-g / GRATING_LOBE_G0) (worst azimuth), combined in power.
+    Returns |G_waim|, |G_gl|, |Gamma|, the grating-lobe margin g and the loss per pass (dB; TX or RX)."""
+    band = band_for_frequency(f_ghz)
+    c, cm = max(math.cos(math.radians(theta_deg)), 1e-6), math.cos(math.radians(band.waim_match_deg))
+    g_w = abs(c - cm) / (c + cm)
+    g = grating_lobe_margin(f_ghz, theta_deg)
+    g_gl = min(1.0, math.exp(-g / GRATING_LOBE_G0))
+    trans = max((1.0 - g_w * g_w) * (1.0 - g_gl * g_gl), 1e-12)
+    return {"gamma_waim": g_w, "gamma_gl": g_gl, "gamma": math.sqrt(1.0 - trans), "margin_g": g,
+            "loss_db_per_pass": -10.0 * math.log10(trans)}
+
+
+def pol_purity(theta_deg: float, phi_deg: float) -> Dict[str, float]:
+    """Polarisation purity of the TX element (linear along e_v, TX_POLARISATION), output only (step 1.2): current
+    element over the array, E_theta = cos t sin p, E_phi = cos p (p from e_u). Ludwig-3 co / cross components, the
+    cross-polar discrimination (dB, infinite in the principal planes, (1 + cos t) / (1 - cos t) at 45 deg) and the
+    tilt of the radiated linear polarisation. With the dual-pol RX this costs no SNR (both channels captured)."""
+    t, p = math.radians(theta_deg), math.radians(phi_deg)
+    co = math.cos(t) * math.sin(p) ** 2 + math.cos(p) ** 2
+    cross = math.sin(p) * math.cos(p) * (math.cos(t) - 1.0)
+    xpd = math.inf if abs(cross) < 1e-15 else 20.0 * math.log10(abs(co) / abs(cross))
+    return {"co": co, "cross": cross, "xpd_db": xpd, "tilt_deg": math.degrees(math.atan2(cross, co))}
+
+
+def sidelobe_visible_db(f_ghz: float, theta_deg: float, beam: str = "rx", rx_sll_db: Optional[float] = None) -> float:
+    """Worst sidelobe (dB) visible when the beam is scanned to theta at f: near sidelobes, and the far lobes at a
+    distance r lambda / D_env <= 1 + sin(theta) of the axis (worst azimuth; gap lobes of the TRSA lattice, step 1.2)."""
+    pat = _pattern(f_ghz)
+    b = pat.tx if beam == "tx" else rx_beam(band_for_frequency(f_ghz).name, rx_sll_db)
+    r = (1.0 + math.sin(math.radians(abs(theta_deg)))) * ARRAY_ENVELOPE_M / lambda_m(f_ghz)
+    prof = b.far_profile_db or ()
+    far = prof[min(int(r / antenna.FAR_PROFILE_STEP), len(prof) - 1)] if prof else -math.inf
+    return max(b.sll_db, far)
+
+
+def rx_sll_held_up_to_deg(f_ghz: float, rx_sll_db: Optional[float] = None, theta_max_deg: float = 90.0) -> float:
+    """Largest scan angle (0.5 deg steps, up to theta_max_deg) at which the RX option is held over the visible
+    region (sidelobe_visible_db <= option + fit tolerance). An input of the per-sector alert (step 1.2)."""
+    s = RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
+    held = 0.0
+    th = 0.0
+    while th <= theta_max_deg + 1e-9:
+        if sidelobe_visible_db(f_ghz, th, "rx", s) > s + antenna.FIT_TOL_DB:
+            break
+        held = th
+        th += 0.5
+    return held
 
 
 def angle_k_tx(band_name: str) -> float:
@@ -796,6 +890,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
                              f"droop too large")
         losses["buffer_droop"] = -10.0 * math.log10(1.0 - x_buf / 2.0)
     losses["multibeam_tx"] = multibeam_tx_loss_db(wf.b_tx)
+    losses["scan_mismatch"] = 2.0 * active_mismatch(f_ghz, theta_deg)["loss_db_per_pass"]   # TX and RX
     if ENABLE_GRID_LOSS and wf.role in ("SEARCH", "TWS"):
         losses["grid_tx"] = grid_loss_db()
         losses["grid_rx"] = grid_rx_loss_db()
@@ -855,6 +950,15 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
           f"RX {lin_to_db(gain_lin(rx.eta, f_ghz, theta_deg)):.2f} dBi (sidelobes {RX_SLL_DEFAULT_DB:g} dB, eta "
           f"{rx.eta:.3f}) | HPBW TX {hpbw_deg(f_ghz, theta_deg):.2f} / RX {hpbw_deg(f_ghz, theta_deg, 'rx'):.2f} deg | "
           f"avg RF available {face_avg_rf_w(elec_mw)/1e6:.3f} MW")
+    if abs(theta_deg) <= lim:
+        am = active_mismatch(f_ghz, theta_deg)
+        pp = pol_purity(theta_deg, 45.0)
+        print(f"Active mismatch at {theta_deg:g} deg: |Gamma| {am['gamma']:.3f} (WAIM {am['gamma_waim']:.3f}, grating "
+              f"lobe {am['gamma_gl']:.3f}, margin {am['margin_g']:+.4f} in u) -> {am['loss_db_per_pass']:.2f} dB per pass"
+              f" | TX pol {TX_POLARISATION}, cross-pol discrimination at 45 deg azimuth {pp['xpd_db']:.1f} dB")
+        print(f"Worst visible sidelobe at {theta_deg:g} deg: TX {sidelobe_visible_db(f_ghz, theta_deg, 'tx'):.1f} dB, RX "
+              f"{sidelobe_visible_db(f_ghz, theta_deg):.1f} dB (option {RX_SLL_DEFAULT_DB:g} dB held up to "
+              f"{rx_sll_held_up_to_deg(f_ghz, RX_SLL_DEFAULT_DB, lim):g} deg)")
     if abs(theta_deg) > lim:
         print(f"-> scan angle {theta_deg} deg exceeds the {lim:.0f} deg limit at {f_ghz} GHz. Nothing playable.")
         return
@@ -918,12 +1022,18 @@ def selftest() -> int:
           BAND_S.scan_limit_deg(2.8) == 75.0 and BAND_S.scan_limit_deg(2.88) == 70.0)
     check("S core band has no edge loss; edges 1.5 dB",
           BAND_S.edge_loss_db(2.8) == 0.0 and abs(BAND_S.edge_loss_db(2.7) - 1.5) < 1e-9 and abs(BAND_S.edge_loss_db(2.9) - 1.5) < 1e-9)
-    check("Search positions at 2.8 GHz in (u, v), spacing 1.04 HPBW_TX (real pattern), about 3050 (array tilt 25 deg)",
-          abs(n_search_positions(2.8) - 3050) < 45, f"({n_search_positions(2.8):.0f})")
+    check("Search positions at 2.8 GHz in (u, v), spacing 1.04 HPBW_TX (real pattern), about 3016 (array tilt 25 deg)",
+          abs(n_search_positions(2.8) - 3016) < 45, f"({n_search_positions(2.8):.0f})")
     check("TX beam of the uniform octagon 1.035 lambda / D_env (rectangular 0.886 replaced, step 1.1)",
           abs(PATTERNS["S"].tx.hpbw - 1.035) < 0.003, f"({PATTERNS['S'].tx.hpbw:.4f})")
     check("RX weighting reaches each sidelobe option on the real octagon",
           all(s - 0.06 <= rx_beam(b, s).sll_db <= s + 1e-9 for b in BANDS for s in RX_SLL_OPTIONS_DB))
+    check("Active mismatch: 0 at the WAIM match angle, 0.13 dB per pass at broadside, grating-lobe term 0.76 dB at "
+          "2.9 GHz / 75 deg with 0.5 mm gaps (1.8 dB with the WAIM term)",
+          active_mismatch(2.8, 45.0)["loss_db_per_pass"] < 1e-9
+          and abs(active_mismatch(2.8, 0.0)["loss_db_per_pass"] - 0.1298) < 1e-3
+          and abs(-10 * math.log10(1 - active_mismatch(2.9, 75.0)["gamma_gl"] ** 2) - 0.76) < 0.05
+          and abs(active_mismatch(2.9, 75.0)["loss_db_per_pass"] - 1.82) < 0.05)
     check("Angle CRLB x margin = 1.13 x 0.436 TX beamwidths / sqrt(SNR)", abs(angle_k_tx("S") - 0.4927) < 0.003,
           f"({angle_k_tx('S'):.4f})")
     check("Chain efficiency 0.917 and avg RF 1.375 MW at 2 MW", abs(CHAIN_EFF - 0.917) < 1e-3 and abs(2e6 * CHAIN_EFF * PAE - 1.375e6) < 3e3)
@@ -949,6 +1059,7 @@ def selftest() -> int:
     gt = 4 * math.pi * PHYS_AREA_M2 * 1.0 * ETA_OHMIC / lam ** 2
     gr = 4 * math.pi * PHYS_AREA_M2 * PATTERNS["S"].rx[-25.0].eta * ETA_OHMIC / lam ** 2
     l_db = (2.0 + 0.5 + 0.5 + 0.2 + 0.6 + 0.5)      # DSP CFAR calibration Ku_blockage TX_chain pol (pre-LNA is in T_sys)
+    l_db += -20 * math.log10(1 - ((1 - math.cos(math.radians(45))) / (1 + math.cos(math.radians(45)))) ** 2)   # WAIM
     l_db += -10 * math.log10(1 - (2000 / 0.75 * 200e-6 / 5.0) / 2) + MB_L8_DB * (2.0 / 3.0) ** MB_P + MIGRATION_RESIDUAL_DB + 1.672 * (BEAM_SPACING_HPBW ** 2 + 0.5 ** 2)
     snr = db_to_lin(shnidman_total_snr_db(DETECT_PD, DETECT_PFA, 24, 1))
     r_hand = ((9.8e6 / 4) * gt * gr * lam ** 2 * 1000.0 * 200e-6 * 24
@@ -960,7 +1071,8 @@ def selftest() -> int:
           f"({BAND_S.t_sys_k:.1f} vs {t_hand:.1f} K)")
     check("Radar equation matches an independent hand derivation (0.5 %)", abs(lrs.range_km / r_hand - 1) < 0.005,
           f"({lrs.range_km:.1f} vs {r_hand:.1f} km)")
-    # coarse plausibility bracket (test value): 5682 km with T_sys 346.5 K, 7099 km after review 0.3, 6916 km at 1.1
+    # coarse plausibility bracket (test value): 5682 km with T_sys 346.5 K, 7099 km after review 0.3, 6916 km at 1.1,
+    # 6814 km at 1.2 (active mismatch 0.26 dB round trip at broadside)
     check("Benchmark WF-LRS on ST at 2.8 GHz in [5000, 9000] km", 5000 < lrs.range_km < 9000, f"({lrs.range_km:.0f} km)")
     check("Grid loss at spacing 0.92 reproduces the 1.41 dB of the notes", abs(grid_loss_db(0.92) - 1.41) < 0.02,
           f"({grid_loss_db(0.92):.3f} dB)")
@@ -979,8 +1091,8 @@ def selftest() -> int:
     check("Positions x cell area = sector area (u, v)", abs(n_search_positions(2.8) * beam_cell_area_uv(2.8) - sector_area_uv()) < 1e-9)
     check("Sector uv area = 2.0006 (disc R=sin75 cut by the az=+/-45 planes, array tilt 25 deg)", abs(sector_area_uv() - 2.0006) < 0.002, f"({sector_area_uv():.4f})")
     _n_lim = n_search_positions(2.8, eps_min_deg=-20.0)
-    check("Mission rear limit eps_min = -20 deg: ~2637 positions (3601 x (0.886 / 1.035)^2 before step 1.1)",
-          abs(_n_lim - 2637) < 25, f"({_n_lim:.0f})")
+    check("Mission rear limit eps_min = -20 deg: ~2607 positions (3601 before step 1.1, 2637 with 2 mm gaps)",
+          abs(_n_lim - 2607) < 25, f"({_n_lim:.0f})")
     check("Default eps window (-90, +90) leaves the sector unchanged", abs(sector_area_uv() - 2.0006) < 0.002)
     check("uv count at small scan ~ angular count (cone 15 deg, 1 %)",
           abs(math.pi * math.sin(math.radians(15)) ** 2 / beam_cell_area_uv(2.8) /

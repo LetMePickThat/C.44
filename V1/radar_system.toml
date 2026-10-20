@@ -29,25 +29,33 @@ tilt_deg         = { value = 25.0, unit = "deg", status = "V", source = "all fou
 
 # Array build-up (review 0.3): bi-band TRSA tiles of 25 x 25 Ku TRMs and 5 x 5 S TRMs, 196 TRSAs in an approximate
 # octagon. DERIVED by the code (no entries): TRSA side 260 mm, 196 TRSAs, n_trm S 4900 / Ku 122500, emissive area
-# 13.2496 m2, total area with the gaps 13.4368 m2 (fill 98.61 %), envelope 4.190 m (16 TRSAs + 15 gaps), element
-# pitch S 52 mm / Ku 10.4 mm. The inter-TRSA gaps are a dead (non-radiating) region: the gain uses the emissive area.
+# 13.2496 m2, total area with the gaps 13.2964 m2 (fill 99.65 %), envelope 4.1675 m (16 TRSAs + 15 gaps), element
+# pitch S 52 mm / Ku 10.4 mm inside a TRSA (gap 0.5 mm since step 1.2, was 2 mm). The inter-TRSA gaps are a dead (non-radiating) region: the gain uses the emissive area.
 # Radiation pattern (step 1.1): COMPUTED from this build-up by core/antenna.py (isotropic elements, near boresight, in
 # lambda / D_env): TX uniform HPBW ~1.04 lambda / D_env (was 0.886 = rectangular aperture, V5.6.0); RX circular Taylor
 # fitted so that the achieved peak sidelobe level is the volume's option -> eta_illum_rx and the RX beamwidth are
 # derived (no entries); RMS aperture extent -> angle Cramer-Rao bound. Cached in core/antenna_cache.json.
-# Scan dependence: no entry. The gain follows the geometric projection cos(theta) only (review 0.3, 2026-10-20):
-# the V5.6.0 element exponent 1.1 (cos^0.1 = active mismatch / WAIM) and the V5.4.0 scan-loss law (0.6 dB at
-# 70 deg) were removed as a probable double count. NO active-mismatch loss is modelled until step 1.2 brings a
-# single |Gamma(theta, f)| model: results are OPTIMISTIC at large scan (about +9 % range at 70 deg, +12 % at 75 deg).
+# Scan dependence (step 1.2): gain = geometric projection cos(theta) x the active-mismatch transmission 1 - |Gamma|^2,
+# ONE model for S and Ku, applied on TX and on RX (reciprocity), separate from the band-edge derating (TRMs / filters,
+# step 1.4):  |Gamma|^2 = 1 - (1 - |G_waim|^2)(1 - |G_gl|^2) with
+#   G_waim = (cos theta - cos theta_m) / (cos theta + cos theta_m)   current sheet matched at theta_m by a WAIM layer
+#            (same magnitude in the E and H planes), theta_m = band.<b>.waim_match_deg
+#   G_gl   = exp(-g / grating_lobe_g0), g = lambda / d_mean - sin theta - 1 = distance (in u) of the first grating
+#            lobe to the visible region, WORST azimuth (scan along a lattice axis); d_mean = TRSA pitch / TRMs per side
+#            (S 52.1 mm, Ku 10.42 mm: the gaps widen the mean pitch). With 0.5 mm gaps the margin at 2.9 GHz /
+#            75 deg (outside the 70 deg limit) is 0.9 %, mismatch 1.8 dB per pass (was 4.1 dB with 2 mm gaps).
+# (Removed in review 0.3: element exponent 1.1 and the V5.4.0 scan-loss law, a double count.)
 [aperture]
 ku_trm_pitch_m       = { value = 0.0104, unit = "m", status = "V", source = "emissive face of a Ku TRM, 10.4 x 10.4 mm", date = "2026-10-20" }
 ku_trm_per_trsa_side = { value = 25, unit = "-", status = "V", source = "25 x 25 Ku TRMs (625) per TRSA", date = "2026-10-20" }
 s_trm_per_trsa_side  = { value = 5, unit = "-", status = "V", source = "5 x 5 S TRMs per TRSA (52 mm pitch, ~lambda/2; only divisor of 25 near lambda/2); recalled design discussion", date = "2026-10-20" }
 trsa_rows            = { value = [6, 8, 10, 12, 14, 16, 16, 16, 16, 16, 16, 14, 12, 10, 8, 6], unit = "-", status = "V", source = "TRSAs per grid row, approximate octagon, rows centred (196 TRSAs)", date = "2026-10-20" }
-trsa_gap_m           = { value = 0.002, unit = "m", status = "V", source = "clear mechanical gap between adjacent TRSAs (structure, thermal expansion, isolation): dead region", date = "2026-10-20" }
+trsa_gap_m           = { value = 0.0005, unit = "m", status = "V", source = "clear mechanical gap between adjacent TRSAs, dead region; 2 mm -> 0.5 mm at step 1.2 (user): the 2 mm pitch break between TRSAs made gap lobes next to the grating lobe (Ku -16.6 dB) that broke the RX sidelobe options at large scan; 0.5 mm needs CTE-matched TRSA / backplane materials (thermal excursion ~0.08 mm vs ~0.6 mm Al on CFRP over 100 K, estimate)", date = "2026-10-20" }
 rx_sll_options_db    = { value = [-25.0, -30.0, -35.0], unit = "dB", status = "V", source = "peak sidelobe level of the RX weighting offered to the operator PER WATCH VOLUME (mission key rx_sll_db, one setting for S and Ku; default in [tool.mission_defaults.sector]); step 1.1", date = "2026-10-20" }
 rx_taper_nbar        = { value = 5, unit = "-", status = "V", source = "circular Taylor law of the RX weighting, nbar; its design level is fitted numerically so that the real octagon reaches each option (step 1.1)", date = "2026-10-20" }
 rx_taper_edge        = { value = "inscribed", unit = "", status = "D", source = "radius where the Taylor law reaches its edge value: inscribed = D_env / 2 (corner elements keep the edge value; higher efficiency than circumscribed for the same achieved level, step 1.1 exploration) | circumscribed", date = "2026-10-20" }
+grating_lobe_g0      = { value = 0.02, unit = "-", status = "V", source = "width (in u) of the rise of |Gamma| as the first grating lobe approaches the visible region, |G_gl| = exp(-g / g0); this term alone with the 0.5 mm gaps: 0.76 dB per pass at 2.9 GHz / 75 deg (g = 0.018; 1.8 dB with the WAIM term), 0.02 dB at 2.85 GHz / 75 deg, ~0 at 2.8 GHz; with the former 2 mm gaps 3.0 dB at 2.9 GHz / 75 deg (step 1.2)", date = "2026-10-20" }
+tx_polarisation      = { value = "linear_ev", unit = "", status = "D", source = "TX polarisation: linear along e_v (face axis in the plane of the ship axis), one PA per TRM (step 1.2). No budget effect with the dual-pol RX; reference of Faraday (2.5) and polarimetry (3.3). Option to evaluate at 3.3: e_u / e_v switching per dwell (single PA + switch, ~0.1-0.2 dB)", date = "2026-10-20" }
 eta_ohmic            = { value = 1.0, unit = "-", status = "V", source = "radiating-element efficiency, no feed in the digital V6 (local TX / pre-LNA paths are in TX_chain and T_sys); was 0.96 = V5.6.0 low-loss feed (sec. 5.1.7); can carry extra losses later", date = "2026-10-20" }
 
 [search_grid]
@@ -96,6 +104,7 @@ edge_derating_db    = { value = 1.5, unit = "dB", status = "D", source = "raised
 scan_max_deg        = { value = 75.0, unit = "deg", status = "V", source = "scan limit up to scan_break_ghz", date = "2026-10-20" }
 scan_break_ghz      = { value = 2.85, unit = "GHz", status = "V", source = "above this frequency the scan limit is scan_max_hi_deg", date = "2026-10-20" }
 scan_max_hi_deg     = { value = 70.0, unit = "deg", status = "V", source = "scan limit above scan_break_ghz", date = "2026-10-20" }
+waim_match_deg      = { value = 45.0, unit = "deg", status = "V", source = "scan angle where the WAIM matches the array (current-sheet model): mismatch per pass 0.13 dB at broadside, 0 at 45 deg, 0.56 at 70, 1.05 at 75 deg (step 1.2)", date = "2026-10-20" }
 # n_trm is derived from [aperture] (4900 S TRMs per face, 9.8 MW peak)
 p_pk_trm_w          = { value = 2000.0, unit = "W", status = "V", source = "peak power per TRM at the PA OUTPUT (reference plane 1, where the PAE is defined; review 0.3): the PA -> element path is the derived loss TX_chain, [band.<b>.tx] + the shared circulator", date = "2026-10-20" }
 eta_illum_tx        = { value = 1.0, unit = "-", status = "V", source = "TX illumination efficiency", date = "2026-10-20" }
@@ -103,7 +112,7 @@ eta_illum_tx        = { value = 1.0, unit = "-", status = "V", source = "TX illu
 # t_sys_k is DERIVED from [band.S.rx] (Friis cascade at the antenna port): 154.3 K (was 346.5 K entered as a block)
 allowed_roles       = { value = ["SEARCH", "TWS"], unit = "", status = "D", source = "S = search / TWS only: radar-software band-use policy, defined with the radar functions and scheduler (3.x / 4.3); the S2 confirmation touch is an S confirmation look outside this policy (not checked: no Waveform)", date = "2026-10-20" }
 pol_rx_dual         = { value = true, unit = "", status = "V", source = "dual-polarised digital RX (per-TRM ADC)", date = "2026-10-20" }
-pol_loss_dual_db    = { value = 0.5, unit = "dB", status = "D", source = "single TX pol, dual-pol RX recombined: axial-ratio / cross-pol with scan; no source, revisited at 1.2 (WAIM, axial ratio vs scan)", date = "2026-10-20" }
+pol_loss_dual_db    = { value = 0.5, unit = "dB", status = "D", source = "PLACEHOLDER for the recombination of the two RX polarisation channels until step 1.5 (step 1.2: with both channels captured the antenna polarisation purity costs no SNR; purity is an output, radar_model.pol_purity)", date = "2026-10-20" }
 pol_loss_single_db  = { value = 3.0, unit = "dB", status = "V", source = "single-pol RX on a depolarising target; kept to study a single-pol receiver (used only if pol_rx_dual = false)", date = "2026-10-20" }
 e_buf_trm_j         = { value = 5.0, unit = "J", status = "?", source = "per-TRM energy buffer (0 = droop not modelled); WF-LRS droop 0.24 dB; no source, revisited at 1.3 (TRM model)", date = "2026-10-20" }
 buffer_max_fraction = { value = 0.5, unit = "-", status = "D", source = "solve() refuses a pulse drawing more than this fraction of the buffer; revisited at 1.3", date = "2026-10-20" }
@@ -151,6 +160,7 @@ edge_derating_db    = { value = 1.5, unit = "dB", status = "D", source = "raised
 scan_max_deg        = { value = 75.0, unit = "deg", status = "V", source = "scan limit up to scan_break_ghz", date = "2026-10-20" }
 scan_break_ghz      = { value = 14.25, unit = "GHz", status = "V", source = "5x the S threshold", date = "2026-10-20" }
 scan_max_hi_deg     = { value = 70.0, unit = "deg", status = "V", source = "scan limit above scan_break_ghz", date = "2026-10-20" }
+waim_match_deg      = { value = 45.0, unit = "deg", status = "V", source = "WAIM match angle, same as S (step 1.2)", date = "2026-10-20" }
 # n_trm is derived from [aperture] (122500 Ku TRMs per face, 9.19 MW peak)
 p_pk_trm_w          = { value = 75.0, unit = "W", status = "V", source = "peak power per TRM at the PA OUTPUT (reference plane 1, where the PAE is defined; review 0.3): the PA -> element path is the derived loss TX_chain, [band.<b>.tx] + the shared circulator", date = "2026-10-20" }
 eta_illum_tx        = { value = 1.0, unit = "-", status = "V", source = "TX illumination efficiency: uniform, PAs at saturation, as in S (was 0.88 from V5.6.0, which reduced the gain but not the radiated power); sidelobe control by the RX weighting of each volume (step 1.1: TX stays uniform, HPBW 1.035 lambda / D_env)", date = "2026-10-20" }
@@ -158,7 +168,7 @@ eta_illum_tx        = { value = 1.0, unit = "-", status = "V", source = "TX illu
 # t_sys_k is DERIVED from [band.Ku.rx] (Friis cascade at the antenna port): 238.7 K (was 400 K entered as a block, V5.6.0)
 allowed_roles       = { value = ["CONFIRM", "PROMOTE", "TRACK"], unit = "", status = "D", source = "Ku = confirmation / promotion / tracking only: radar-software band-use policy, defined with the radar functions and scheduler (3.x / 4.3)", date = "2026-10-20" }
 pol_rx_dual         = { value = true, unit = "", status = "V", source = "dual-polarised digital RX (per-TRM ADC), as in S", date = "2026-10-20" }
-pol_loss_dual_db    = { value = 0.5, unit = "dB", status = "D", source = "same as S (axial ratio / cross-pol with scan); was 0, not in the V5.6.0 lumped 8 dB (processing only); revisited at 1.2 (WAIM, axial ratio vs scan)", date = "2026-10-20" }
+pol_loss_dual_db    = { value = 0.5, unit = "dB", status = "D", source = "same as S: placeholder for the RX polarisation-channel recombination until step 1.5 (was 0, not in the V5.6.0 lumped 8 dB)", date = "2026-10-20" }
 pol_loss_single_db  = { value = 3.0, unit = "dB", status = "V", source = "single-pol RX on a depolarising target, as in S; kept to study a single-pol receiver", date = "2026-10-20" }
 e_buf_trm_j         = { value = 0.0, unit = "J", status = "D", source = "per-TRM energy buffer: not modelled in Ku (0); TRM model at 1.3", date = "2026-10-20" }
 buffer_max_fraction = { value = 0.5, unit = "-", status = "D", source = "unused while e_buf_trm_j = 0; TRM model at 1.3", date = "2026-10-20" }
@@ -289,6 +299,10 @@ r_max_lam_d  = 8.0              # radius evaluated around boresight, lambda / D_
 r_step_lam_d = 0.01             # radial step of a cut
 phi_step_deg = 1.5              # azimuth step between cuts (0..45 deg with the octagon symmetry)
 fit_tol_db   = 0.05             # fitted RX sidelobe level within [target - tol, target]
+far_step_lam_d = 0.125          # grid step of the far-sidelobe scan over the visible region (step 1.2), lambda / D_env
+
+[tool.alerts]                 # validation thresholds (step 1.2)
+mismatch_db_per_pass = 3.0      # alert when the active-mismatch loss of a used scan direction exceeds this, per pass
 
 [tool.display]
 grid_res_deg = 0.5              # direction-sphere raster of the 3D views and the fast estimate

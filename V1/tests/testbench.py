@@ -112,6 +112,13 @@ def model_case() -> dict:
         "array_envelope_m": rm.ARRAY_ENVELOPE_M, "sector_area_uv": rm.sector_area_uv(),
         "hpbw_deg": {f"{f} GHz | {th} deg": rm.hpbw_deg(f, th) for f in (2.8, 14.0) for th in (0.0, 40.0, 70.0)},
         "patterns": rm.PATTERNS, "grid_rx_loss_db": rm.grid_rx_loss_db(),
+        "active_mismatch": {f"{f} GHz | {th} deg": rm.active_mismatch(f, th)
+                            for f in (2.7, 2.8, 2.85, 2.9, 13.5, 14.0, 14.5) for th in (0.0, 30.0, 45.0, 60.0, 70.0, 75.0)},
+        "pol_purity": {f"{th} deg | phi {p}": rm.pol_purity(th, p) for th in (0.0, 45.0, 70.0) for p in (0.0, 22.5, 45.0)},
+        "sidelobe_visible_db": {f"{f} GHz | {th} deg | RX {s:g}": rm.sidelobe_visible_db(f, th, "rx", s)
+                                for f in (2.8, 2.9, 14.0, 14.5) for th in (0.0, 40.0, 70.0) for s in rm.RX_SLL_OPTIONS_DB},
+        "rx_sll_held_up_to_deg": {f"{f} GHz | RX {s:g}": rm.rx_sll_held_up_to_deg(f, s, 75.0)
+                                  for f in (2.8, 2.9, 14.0, 14.5) for s in rm.RX_SLL_OPTIONS_DB},
         "angle_k_tx": {b: rm.angle_k_tx(b) for b in rm.BANDS},
         "rx_beams_per_position": {f"{f} GHz | RX {s:g} dB": rm.rx_beams_per_position(f, s)
                                   for f in (2.8, 14.0) for s in rm.RX_SLL_OPTIONS_DB},

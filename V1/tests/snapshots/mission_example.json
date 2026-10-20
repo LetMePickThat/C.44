@@ -5,11 +5,11 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 168.34571049531073,
-    "energy_fraction": 0.12240308832664734,
-    "energy_j_per_refresh": 3366914.2099062144,
-    "positions": 1825.9970115995293,
-    "time_fraction_min": 0.017178133724011297,
+    "avg_power_kw": 170.81666590326984,
+    "energy_fraction": 0.12419970418434721,
+    "energy_j_per_refresh": 3416333.3180653965,
+    "positions": 1805.241371916979,
+    "time_fraction_min": 0.017430272030945902,
     "unreachable_pct": 0.0
    }
   },
@@ -18,11 +18,11 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 65.09346984509736,
-    "energy_fraction": 0.0473290451862113,
-    "energy_j_per_refresh": 325467.3492254868,
-    "positions": 320.5742216237728,
-    "time_fraction_min": 0.006642190800520139,
+    "avg_power_kw": 67.60124258907423,
+    "energy_fraction": 0.049152430693219576,
+    "energy_j_per_refresh": 338006.21294537117,
+    "positions": 316.930336670364,
+    "time_fraction_min": 0.006898085978476963,
     "unreachable_pct": 0.0
    }
   },
@@ -31,45 +31,45 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 177.3487996589871,
-    "energy_fraction": 0.12894917681842902,
-    "energy_j_per_refresh": 21281855.959078453,
-    "positions": 2993.989322471836,
-    "time_fraction_min": 0.01809681629173338,
+    "avg_power_kw": 188.93108294318876,
+    "energy_fraction": 0.13737058084285692,
+    "energy_j_per_refresh": 22671729.95318265,
+    "positions": 2959.9574137688787,
+    "time_fraction_min": 0.019278681932978443,
     "unreachable_pct": 0.16833985424120534
    },
    "1": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 177.3487996589871,
-    "energy_fraction": 0.12894917681842902,
-    "energy_j_per_refresh": 21281855.959078453,
-    "positions": 2993.989322471836,
-    "time_fraction_min": 0.01809681629173338,
+    "avg_power_kw": 188.93108294318876,
+    "energy_fraction": 0.13737058084285692,
+    "energy_j_per_refresh": 22671729.95318265,
+    "positions": 2959.9574137688787,
+    "time_fraction_min": 0.019278681932978443,
     "unreachable_pct": 0.1683398542412054
    },
    "2": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 177.3487996589871,
-    "energy_fraction": 0.12894917681842902,
-    "energy_j_per_refresh": 21281855.959078453,
-    "positions": 2993.989322471836,
-    "time_fraction_min": 0.01809681629173338,
+    "avg_power_kw": 188.9310829431887,
+    "energy_fraction": 0.1373705808428569,
+    "energy_j_per_refresh": 22671729.953182645,
+    "positions": 2959.9574137688787,
+    "time_fraction_min": 0.01927868193297844,
     "unreachable_pct": 0.1683398542412054
    },
    "3": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 177.3487996589871,
-    "energy_fraction": 0.12894917681842902,
-    "energy_j_per_refresh": 21281855.959078453,
-    "positions": 2993.9893224718357,
-    "time_fraction_min": 0.01809681629173338,
-    "unreachable_pct": 0.16833985424120543
+    "avg_power_kw": 188.9310829431887,
+    "energy_fraction": 0.1373705808428569,
+    "energy_j_per_refresh": 22671729.953182645,
+    "positions": 2959.9574137688787,
+    "time_fraction_min": 0.01927868193297844,
+    "unreachable_pct": 0.1683398542412054
    }
   }
  },
@@ -100,44 +100,44 @@
   "cancelled": false,
   "faces_total": {
    "0": {
-    "avg_power_kW": 337.698,
-    "energy_fraction": 0.2455,
-    "ku_duty_pct": 11.294,
-    "p_available_kW": 1037.6407,
-    "positions": 4820.0,
-    "power_margin": 0.7545,
-    "time_fraction": 0.0545,
-    "time_margin_s": 0.9455
+    "avg_power_kW": 354.3585,
+    "energy_fraction": 0.2577,
+    "ku_duty_pct": 11.1127,
+    "p_available_kW": 1020.9802,
+    "positions": 4765.2,
+    "power_margin": 0.7423,
+    "time_fraction": 0.0571,
+    "time_margin_s": 0.9429
    },
    "1": {
-    "avg_power_kW": 238.745,
-    "energy_fraction": 0.1736,
-    "ku_duty_pct": 12.3711,
-    "p_available_kW": 1136.5937,
-    "positions": 3313.8,
-    "power_margin": 0.8264,
-    "time_fraction": 0.0371,
-    "time_margin_s": 0.9629
+    "avg_power_kW": 255.8157,
+    "energy_fraction": 0.186,
+    "ku_duty_pct": 12.1853,
+    "p_available_kW": 1119.523,
+    "positions": 3276.1,
+    "power_margin": 0.814,
+    "time_fraction": 0.0399,
+    "time_margin_s": 0.9601
    },
    "2": {
-    "avg_power_kW": 173.7002,
-    "energy_fraction": 0.1263,
-    "ku_duty_pct": 13.0791,
-    "p_available_kW": 1201.6386,
-    "positions": 2994.0,
-    "power_margin": 0.8737,
-    "time_fraction": 0.0294,
-    "time_margin_s": 0.9706
+    "avg_power_kW": 188.0212,
+    "energy_fraction": 0.1367,
+    "ku_duty_pct": 12.9232,
+    "p_available_kW": 1187.3175,
+    "positions": 2960.0,
+    "power_margin": 0.8633,
+    "time_fraction": 0.0323,
+    "time_margin_s": 0.9677
    },
    "3": {
-    "avg_power_kW": 173.7002,
-    "energy_fraction": 0.1263,
-    "ku_duty_pct": 13.0791,
-    "p_available_kW": 1201.6386,
-    "positions": 2994.0,
-    "power_margin": 0.8737,
-    "time_fraction": 0.0294,
-    "time_margin_s": 0.9706
+    "avg_power_kW": 188.0212,
+    "energy_fraction": 0.1367,
+    "ku_duty_pct": 12.9232,
+    "p_available_kW": 1187.3175,
+    "positions": 2960.0,
+    "power_margin": 0.8633,
+    "time_fraction": 0.0323,
+    "time_margin_s": 0.9677
    }
   },
   "global": {
@@ -153,28 +153,30 @@
    {
     "faces": {
      "0": {
-      "avg_power_kW": 163.99785016993758,
-      "energy_J_per_refresh": 3279957.003398752,
-      "energy_fraction": 0.11924178691972259,
-      "positions": 1826.0,
+      "avg_power_kW": 166.33730875785136,
+      "energy_J_per_refresh": 3326746.1751570273,
+      "energy_fraction": 0.12094279228142986,
+      "positions": 1805.2,
       "theta_max_deg": 51.0,
-      "time_fraction": 0.025021254303163952
+      "time_fraction": 0.0247368441231785
      }
     },
     "flags": [],
     "id": "S01",
-    "positions_total": 1826.0,
+    "mismatch_db_per_pass_max": 0.1297354438199937,
+    "positions_total": 1805.2,
     "range_km": {
-     "at_best_scan": 5475,
-     "at_worst_scan": 5157,
+     "at_best_scan": 5394,
+     "at_worst_scan": 5149,
      "positions_short_of_range_pct": 0.0,
      "requested": 5000
     },
-    "rr_alone_s": 2.384835738394452,
+    "rr_alone_s": 2.418855845628597,
     "rr_est_mission_s": 20.0,
     "rr_target_s": 20,
-    "rx_beams_per_position": 3.377137592806013,
+    "rx_beams_per_position": 3.376688001163386,
     "rx_sll_db": -25.0,
+    "rx_sll_held_up_to_deg": 51.0,
     "status": "OK",
     "time_to_impact_at_detection_s": 980.0,
     "unscanned_pct": 0.0,
@@ -195,9 +197,9 @@
     },
     "wf_by_bin": [
      {
-      "positions": 36.4,
-      "power_scale": 0.7,
-      "range_km_at_bin_max": 5467,
+      "positions": 36.0,
+      "power_scale": 0.742,
+      "range_km_at_bin_max": 5387,
       "theta_hi_deg": 5.0,
       "theta_lo_deg": 0.0,
       "wf": {
@@ -217,9 +219,9 @@
       }
      },
      {
-      "positions": 108.1,
-      "power_scale": 0.715,
-      "range_km_at_bin_max": 5437,
+      "positions": 106.9,
+      "power_scale": 0.756,
+      "range_km_at_bin_max": 5363,
       "theta_hi_deg": 10.0,
       "theta_lo_deg": 5.0,
       "wf": {
@@ -239,9 +241,9 @@
       }
      },
      {
-      "positions": 176.4,
-      "power_scale": 0.742,
-      "range_km_at_bin_max": 5387,
+      "positions": 174.4,
+      "power_scale": 0.78,
+      "range_km_at_bin_max": 5321,
       "theta_hi_deg": 15.0,
       "theta_lo_deg": 10.0,
       "wf": {
@@ -261,9 +263,9 @@
       }
      },
      {
-      "positions": 239.5,
-      "power_scale": 0.783,
-      "range_km_at_bin_max": 5316,
+      "positions": 236.8,
+      "power_scale": 0.816,
+      "range_km_at_bin_max": 5261,
       "theta_hi_deg": 20.0,
       "theta_lo_deg": 15.0,
       "wf": {
@@ -283,9 +285,9 @@
       }
      },
      {
-      "positions": 295.4,
-      "power_scale": 0.84,
-      "range_km_at_bin_max": 5223,
+      "positions": 292.0,
+      "power_scale": 0.867,
+      "range_km_at_bin_max": 5181,
       "theta_hi_deg": 25.0,
       "theta_lo_deg": 20.0,
       "wf": {
@@ -305,9 +307,9 @@
       }
      },
      {
-      "positions": 294.0,
-      "power_scale": 0.918,
-      "range_km_at_bin_max": 5108,
+      "positions": 290.7,
+      "power_scale": 0.938,
+      "range_km_at_bin_max": 5080,
       "theta_hi_deg": 30.0,
       "theta_lo_deg": 25.0,
       "wf": {
@@ -327,9 +329,9 @@
       }
      },
      {
-      "positions": 288.4,
-      "power_scale": 0.527,
-      "range_km_at_bin_max": 5870,
+      "positions": 285.1,
+      "power_scale": 0.533,
+      "range_km_at_bin_max": 5852,
       "theta_hi_deg": 35.0,
       "theta_lo_deg": 30.0,
       "wf": {
@@ -349,9 +351,9 @@
       }
      },
      {
-      "positions": 252.1,
-      "power_scale": 0.601,
-      "range_km_at_bin_max": 5680,
+      "positions": 249.3,
+      "power_scale": 0.603,
+      "range_km_at_bin_max": 5674,
       "theta_hi_deg": 40.0,
       "theta_lo_deg": 35.0,
       "wf": {
@@ -371,7 +373,7 @@
       }
      },
      {
-      "positions": 114.0,
+      "positions": 112.7,
       "power_scale": 0.703,
       "range_km_at_bin_max": 5460,
       "theta_hi_deg": 45.0,
@@ -393,9 +395,9 @@
       }
      },
      {
-      "positions": 21.5,
-      "power_scale": 0.848,
-      "range_km_at_bin_max": 5211,
+      "positions": 21.3,
+      "power_scale": 0.851,
+      "range_km_at_bin_max": 5206,
       "theta_hi_deg": 50.0,
       "theta_lo_deg": 45.0,
       "wf": {
@@ -416,8 +418,8 @@
      },
      {
       "positions": 0.0,
-      "power_scale": 0.884,
-      "range_km_at_bin_max": 5157,
+      "power_scale": 0.889,
+      "range_km_at_bin_max": 5149,
       "theta_hi_deg": 55.0,
       "theta_lo_deg": 50.0,
       "wf": {
@@ -448,7 +450,7 @@
       "integration": "COHERENT",
       "n_pulses": 2,
       "name": "WF-S01-1",
-      "positions": 1149.8,
+      "positions": 1136.8,
       "pri_ms": 33.356,
       "sig_bw_mhz": 75.0,
       "tau_us": 100.0,
@@ -466,7 +468,7 @@
       "integration": "COHERENT",
       "n_pulses": 2,
       "name": "WF-S01-2",
-      "positions": 676.1,
+      "positions": 668.5,
       "pri_ms": 33.356,
       "sig_bw_mhz": 75.0,
       "tau_us": 200.0,
@@ -479,28 +481,30 @@
    {
     "faces": {
      "1": {
-      "avg_power_kW": 65.0448429762887,
-      "energy_J_per_refresh": 325224.21488144353,
-      "energy_fraction": 0.04729368890121704,
-      "positions": 319.8,
+      "avg_power_kW": 67.79448461311324,
+      "energy_J_per_refresh": 338972.42306556617,
+      "energy_fraction": 0.04929293573173391,
+      "positions": 316.1,
       "theta_max_deg": 20.0,
-      "time_fraction": 0.007674164154044222
+      "time_fraction": 0.007586933898444538
      }
     },
     "flags": [],
     "id": "S02",
-    "positions_total": 319.8,
+    "mismatch_db_per_pass_max": 0.1297354438199937,
+    "positions_total": 316.1,
     "range_km": {
-     "at_best_scan": 524,
-     "at_worst_scan": 509,
+     "at_best_scan": 516,
+     "at_worst_scan": 504,
      "positions_short_of_range_pct": 0.0,
      "requested": 500
     },
-    "rr_alone_s": 0.2364684445060852,
+    "rr_alone_s": 0.24646467865866956,
     "rr_est_mission_s": 5.0,
     "rr_target_s": 5,
-    "rx_beams_per_position": 3.377137592806013,
+    "rx_beams_per_position": 3.376688001163386,
     "rx_sll_db": -25.0,
+    "rx_sll_held_up_to_deg": 20.0,
     "status": "OK",
     "time_to_impact_at_detection_s": 15.0,
     "unscanned_pct": 0.0,
@@ -521,9 +525,9 @@
     },
     "wf_by_bin": [
      {
-      "positions": 36.4,
-      "power_scale": 0.834,
-      "range_km_at_bin_max": 523,
+      "positions": 36.0,
+      "power_scale": 0.885,
+      "range_km_at_bin_max": 516,
       "theta_hi_deg": 5.0,
       "theta_lo_deg": 0.0,
       "wf": {
@@ -543,9 +547,9 @@
       }
      },
      {
-      "positions": 108.1,
-      "power_scale": 0.852,
-      "range_km_at_bin_max": 520,
+      "positions": 106.9,
+      "power_scale": 0.901,
+      "range_km_at_bin_max": 513,
       "theta_hi_deg": 10.0,
       "theta_lo_deg": 5.0,
       "wf": {
@@ -565,9 +569,9 @@
       }
      },
      {
-      "positions": 109.6,
-      "power_scale": 0.885,
-      "range_km_at_bin_max": 516,
+      "positions": 108.4,
+      "power_scale": 0.929,
+      "range_km_at_bin_max": 509,
       "theta_hi_deg": 15.0,
       "theta_lo_deg": 10.0,
       "wf": {
@@ -587,9 +591,9 @@
       }
      },
      {
-      "positions": 65.6,
-      "power_scale": 0.933,
-      "range_km_at_bin_max": 509,
+      "positions": 64.9,
+      "power_scale": 0.972,
+      "range_km_at_bin_max": 504,
       "theta_hi_deg": 20.0,
       "theta_lo_deg": 15.0,
       "wf": {
@@ -620,7 +624,7 @@
       "integration": "COHERENT",
       "n_pulses": 6,
       "name": "WF-S02",
-      "positions": 319.8,
+      "positions": 316.1,
       "pri_ms": 3.336,
       "sig_bw_mhz": 75.0,
       "tau_us": 20.0,
@@ -633,52 +637,54 @@
    {
     "faces": {
      "0": {
-      "avg_power_kW": 173.70019235200098,
-      "energy_J_per_refresh": 20844023.082240116,
-      "energy_fraction": 0.12629629780445073,
-      "positions": 2994.0,
+      "avg_power_kW": 188.02123138665442,
+      "energy_J_per_refresh": 22562547.76639853,
+      "energy_fraction": 0.13670903360110698,
+      "positions": 2960.0,
       "theta_max_deg": 75.0,
-      "time_fraction": 0.02944878890705133
+      "time_fraction": 0.03234490543274669
      },
      "1": {
-      "avg_power_kW": 173.70019235200098,
-      "energy_J_per_refresh": 20844023.082240116,
-      "energy_fraction": 0.12629629780445073,
-      "positions": 2994.0,
+      "avg_power_kW": 188.02123138665448,
+      "energy_J_per_refresh": 22562547.766398538,
+      "energy_fraction": 0.136709033601107,
+      "positions": 2960.0,
       "theta_max_deg": 75.0,
-      "time_fraction": 0.02944878890705133
+      "time_fraction": 0.032344905432746714
      },
      "2": {
-      "avg_power_kW": 173.70019235200098,
-      "energy_J_per_refresh": 20844023.082240116,
-      "energy_fraction": 0.12629629780445073,
-      "positions": 2994.0,
+      "avg_power_kW": 188.0212313866545,
+      "energy_J_per_refresh": 22562547.76639854,
+      "energy_fraction": 0.13670903360110703,
+      "positions": 2960.0,
       "theta_max_deg": 75.0,
-      "time_fraction": 0.02944878890705133
+      "time_fraction": 0.032344905432746714
      },
      "3": {
-      "avg_power_kW": 173.70019235200098,
-      "energy_J_per_refresh": 20844023.082240116,
-      "energy_fraction": 0.12629629780445073,
-      "positions": 2994.0,
+      "avg_power_kW": 188.0212313866545,
+      "energy_J_per_refresh": 22562547.76639854,
+      "energy_fraction": 0.13670903360110703,
+      "positions": 2960.0,
       "theta_max_deg": 75.0,
-      "time_fraction": 0.02944878890705133
+      "time_fraction": 0.032344905432746714
      }
     },
     "flags": [],
     "id": "S03",
-    "positions_total": 11975.9,
+    "mismatch_db_per_pass_max": 0.9902829396719732,
+    "positions_total": 11839.8,
     "range_km": {
-     "at_best_scan": 9903,
-     "at_worst_scan": 8191,
+     "at_best_scan": 9756,
+     "at_worst_scan": 8257,
      "positions_short_of_range_pct": 0.0,
      "requested": 8000
     },
-    "rr_alone_s": 15.155555736534087,
+    "rr_alone_s": 16.405084032132844,
     "rr_est_mission_s": 120.0,
     "rr_target_s": 120,
-    "rx_beams_per_position": 3.377137592806013,
+    "rx_beams_per_position": 3.376688001163386,
     "rx_sll_db": -25.0,
+    "rx_sll_held_up_to_deg": 75.0,
     "status": "OK",
     "time_to_impact_at_detection_s": 1480.0,
     "unscanned_pct": 0.1,
@@ -699,9 +705,9 @@
     },
     "wf_by_bin": [
      {
-      "positions": 145.6,
-      "power_scale": 0.428,
-      "range_km_at_bin_max": 9888,
+      "positions": 143.9,
+      "power_scale": 0.454,
+      "range_km_at_bin_max": 9744,
       "theta_hi_deg": 5.0,
       "theta_lo_deg": 0.0,
       "wf": {
@@ -721,9 +727,9 @@
       }
      },
      {
-      "positions": 432.3,
-      "power_scale": 0.438,
-      "range_km_at_bin_max": 9835,
+      "positions": 427.4,
+      "power_scale": 0.463,
+      "range_km_at_bin_max": 9701,
       "theta_hi_deg": 10.0,
       "theta_lo_deg": 5.0,
       "wf": {
@@ -743,9 +749,9 @@
       }
      },
      {
-      "positions": 705.7,
-      "power_scale": 0.454,
-      "range_km_at_bin_max": 9744,
+      "positions": 697.7,
+      "power_scale": 0.477,
+      "range_km_at_bin_max": 9625,
       "theta_hi_deg": 15.0,
       "theta_lo_deg": 10.0,
       "wf": {
@@ -765,9 +771,9 @@
       }
      },
      {
-      "positions": 958.1,
-      "power_scale": 0.479,
-      "range_km_at_bin_max": 9615,
+      "positions": 947.2,
+      "power_scale": 0.499,
+      "range_km_at_bin_max": 9517,
       "theta_hi_deg": 20.0,
       "theta_lo_deg": 15.0,
       "wf": {
@@ -787,9 +793,9 @@
       }
      },
      {
-      "positions": 1181.5,
-      "power_scale": 0.514,
-      "range_km_at_bin_max": 9447,
+      "positions": 1168.1,
+      "power_scale": 0.531,
+      "range_km_at_bin_max": 9372,
       "theta_hi_deg": 25.0,
       "theta_lo_deg": 20.0,
       "wf": {
@@ -809,9 +815,9 @@
       }
      },
      {
-      "positions": 1366.4,
-      "power_scale": 0.562,
-      "range_km_at_bin_max": 9239,
+      "positions": 1350.9,
+      "power_scale": 0.574,
+      "range_km_at_bin_max": 9189,
       "theta_hi_deg": 30.0,
       "theta_lo_deg": 25.0,
       "wf": {
@@ -831,9 +837,9 @@
       }
      },
      {
-      "positions": 1513.4,
-      "power_scale": 0.627,
-      "range_km_at_bin_max": 8990,
+      "positions": 1496.2,
+      "power_scale": 0.634,
+      "range_km_at_bin_max": 8964,
       "theta_hi_deg": 35.0,
       "theta_lo_deg": 30.0,
       "wf": {
@@ -853,9 +859,9 @@
       }
      },
      {
-      "positions": 1612.7,
-      "power_scale": 0.715,
-      "range_km_at_bin_max": 8699,
+      "positions": 1594.4,
+      "power_scale": 0.718,
+      "range_km_at_bin_max": 8691,
       "theta_hi_deg": 40.0,
       "theta_lo_deg": 35.0,
       "wf": {
@@ -875,7 +881,7 @@
       }
      },
      {
-      "positions": 1235.2,
+      "positions": 1221.2,
       "power_scale": 0.837,
       "range_km_at_bin_max": 8364,
       "theta_hi_deg": 45.0,
@@ -897,9 +903,9 @@
       }
      },
      {
-      "positions": 926.4,
-      "power_scale": 0.574,
-      "range_km_at_bin_max": 9193,
+      "positions": 915.9,
+      "power_scale": 0.576,
+      "range_km_at_bin_max": 9184,
       "theta_hi_deg": 50.0,
       "theta_lo_deg": 45.0,
       "wf": {
@@ -919,9 +925,9 @@
       }
      },
      {
-      "positions": 715.8,
-      "power_scale": 0.717,
-      "range_km_at_bin_max": 8692,
+      "positions": 707.6,
+      "power_scale": 0.732,
+      "range_km_at_bin_max": 8650,
       "theta_hi_deg": 55.0,
       "theta_lo_deg": 50.0,
       "wf": {
@@ -941,9 +947,9 @@
       }
      },
      {
-      "positions": 542.0,
-      "power_scale": 0.939,
-      "range_km_at_bin_max": 8126,
+      "positions": 535.8,
+      "power_scale": 0.992,
+      "range_km_at_bin_max": 8016,
       "theta_hi_deg": 60.0,
       "theta_lo_deg": 55.0,
       "wf": {
@@ -963,9 +969,9 @@
       }
      },
      {
-      "positions": 393.4,
-      "power_scale": 0.999,
-      "range_km_at_bin_max": 8002,
+      "positions": 388.9,
+      "power_scale": 0.535,
+      "range_km_at_bin_max": 9356,
       "theta_hi_deg": 65.0,
       "theta_lo_deg": 60.0,
       "wf": {
@@ -973,10 +979,10 @@
        "band": "S",
        "doppler_max_kHz": 93.4,
        "duty_pct": 1.499,
-       "dwell_ms": 107.5,
+       "dwell_ms": 374.4,
        "freq_ghz": 2.8,
-       "integration": "COHERENT",
-       "n_pulses": 3,
+       "integration": "NONCOHERENT",
+       "n_pulses": 8,
        "name": "WF-S03-3",
        "pri_ms": 53.37,
        "sig_bw_mhz": 75.0,
@@ -985,9 +991,9 @@
       }
      },
      {
-      "positions": 186.0,
-      "power_scale": 0.53,
-      "range_km_at_bin_max": 9377,
+      "positions": 183.9,
+      "power_scale": 0.911,
+      "range_km_at_bin_max": 8189,
       "theta_hi_deg": 70.0,
       "theta_lo_deg": 65.0,
       "wf": {
@@ -995,11 +1001,11 @@
        "band": "S",
        "doppler_max_kHz": 93.4,
        "duty_pct": 1.499,
-       "dwell_ms": 587.9,
+       "dwell_ms": 374.4,
        "freq_ghz": 2.8,
        "integration": "NONCOHERENT",
-       "n_pulses": 12,
-       "name": "WF-S03-4",
+       "n_pulses": 8,
+       "name": "WF-S03-3",
        "pri_ms": 53.37,
        "sig_bw_mhz": 75.0,
        "tau_us": 800.0,
@@ -1007,9 +1013,9 @@
       }
      },
      {
-      "positions": 61.5,
-      "power_scale": 0.91,
-      "range_km_at_bin_max": 8191,
+      "positions": 60.8,
+      "power_scale": 0.881,
+      "range_km_at_bin_max": 8257,
       "theta_hi_deg": 75.0,
       "theta_lo_deg": 70.0,
       "wf": {
@@ -1017,10 +1023,10 @@
        "band": "S",
        "doppler_max_kHz": 93.4,
        "duty_pct": 1.499,
-       "dwell_ms": 587.9,
+       "dwell_ms": 1228.3,
        "freq_ghz": 2.8,
        "integration": "NONCOHERENT",
-       "n_pulses": 12,
+       "n_pulses": 24,
        "name": "WF-S03-4",
        "pri_ms": 53.37,
        "sig_bw_mhz": 75.0,
@@ -1040,7 +1046,7 @@
       "integration": "COHERENT",
       "n_pulses": 2,
       "name": "WF-S03-1",
-      "positions": 9150.9,
+      "positions": 9046.9,
       "pri_ms": 53.37,
       "sig_bw_mhz": 75.0,
       "tau_us": 400.0,
@@ -1058,7 +1064,7 @@
       "integration": "COHERENT",
       "n_pulses": 2,
       "name": "WF-S03-2",
-      "positions": 2184.1,
+      "positions": 2159.3,
       "pri_ms": 53.37,
       "sig_bw_mhz": 75.0,
       "tau_us": 800.0,
@@ -1071,16 +1077,16 @@
       "band": "S",
       "doppler_max_kHz": 93.4,
       "duty_pct": 1.499,
-      "dwell_ms": 107.5,
+      "dwell_ms": 374.4,
       "freq_ghz": 2.8,
-      "integration": "COHERENT",
-      "n_pulses": 3,
+      "integration": "NONCOHERENT",
+      "n_pulses": 8,
       "name": "WF-S03-3",
-      "positions": 393.4,
+      "positions": 572.8,
       "pri_ms": 53.37,
       "sig_bw_mhz": 75.0,
       "tau_us": 800.0,
-      "theta_hi_deg": 65.0,
+      "theta_hi_deg": 70.0,
       "theta_lo_deg": 60.0,
       "unamb_range_km": 8000
      },
@@ -1089,17 +1095,17 @@
       "band": "S",
       "doppler_max_kHz": 93.4,
       "duty_pct": 1.499,
-      "dwell_ms": 587.9,
+      "dwell_ms": 1228.3,
       "freq_ghz": 2.8,
       "integration": "NONCOHERENT",
-      "n_pulses": 12,
+      "n_pulses": 24,
       "name": "WF-S03-4",
-      "positions": 247.5,
+      "positions": 60.8,
       "pri_ms": 53.37,
       "sig_bw_mhz": 75.0,
       "tau_us": 800.0,
       "theta_hi_deg": 75.0,
-      "theta_lo_deg": 65.0,
+      "theta_lo_deg": 70.0,
       "unamb_range_km": 8000
      }
     ]
@@ -1113,65 +1119,65 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 0.0007192776836591453,
-     "confirm_ku_time": 0.0007989231902028837,
+     "confirm_energy": 0.000702928359247802,
+     "confirm_ku_time": 0.0007623509253839576,
      "confirm_s_time": 0.0,
-     "load": 0.24621927768365914,
-     "p_left_kW": 1036.7038364046532,
-     "search_energy": 0.2455,
-     "search_s_time": 0.0545,
+     "load": 0.25840292835924783,
+     "p_left_kW": 1019.9471895140524,
+     "search_energy": 0.2577,
+     "search_s_time": 0.0571,
      "status": "OK",
-     "total_energy": 0.24621927768365914,
-     "total_ku_time": 0.0007989231902028837,
-     "total_s_time": 0.0545
+     "total_energy": 0.25840292835924783,
+     "total_ku_time": 0.0007623509253839576,
+     "total_s_time": 0.0571
     },
     "1": {
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 0.00048481644060135304,
-     "confirm_ku_time": 0.0005530371332534828,
+     "confirm_energy": 0.0004683741415129831,
+     "confirm_ku_time": 0.0005193786737355151,
      "confirm_s_time": 0.0,
-     "load": 0.17408481644060136,
-     "p_left_kW": 1135.9131561626039,
-     "search_energy": 0.1736,
-     "search_s_time": 0.0371,
+     "load": 0.18646837414151296,
+     "p_left_kW": 1118.881569393679,
+     "search_energy": 0.186,
+     "search_s_time": 0.0399,
      "status": "OK",
-     "total_energy": 0.17408481644060136,
-     "total_ku_time": 0.0005530371332534828,
-     "total_s_time": 0.0371
+     "total_energy": 0.18646837414151296,
+     "total_ku_time": 0.0005193786737355151,
+     "total_s_time": 0.0399
     },
     "2": {
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 0.00041318991322666937,
-     "confirm_ku_time": 0.0004718417106642791,
+     "confirm_energy": 0.0003935069541913056,
+     "confirm_ku_time": 0.00043894704427999056,
      "confirm_s_time": 0.0,
-     "load": 0.12671318991322666,
-     "p_left_kW": 1201.0651897762302,
-     "search_energy": 0.1263,
-     "search_s_time": 0.0294,
+     "load": 0.13709350695419129,
+     "p_left_kW": 1186.788737512506,
+     "search_energy": 0.1367,
+     "search_s_time": 0.0323,
      "status": "OK",
-     "total_energy": 0.12671318991322666,
-     "total_ku_time": 0.0004718417106642791,
-     "total_s_time": 0.0294
+     "total_energy": 0.13709350695419129,
+     "total_ku_time": 0.00043894704427999056,
+     "total_s_time": 0.0323
     },
     "3": {
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 0.00041318991322666937,
-     "confirm_ku_time": 0.0004718417106642792,
+     "confirm_energy": 0.0003935069541913056,
+     "confirm_ku_time": 0.00043894704427999056,
      "confirm_s_time": 0.0,
-     "load": 0.12671318991322666,
-     "p_left_kW": 1201.0651897762302,
-     "search_energy": 0.1263,
-     "search_s_time": 0.0294,
+     "load": 0.13709350695419129,
+     "p_left_kW": 1186.788737512506,
+     "search_energy": 0.1367,
+     "search_s_time": 0.0323,
      "status": "OK",
-     "total_energy": 0.12671318991322666,
-     "total_ku_time": 0.0004718417106642792,
-     "total_s_time": 0.0294
+     "total_energy": 0.13709350695419129,
+     "total_ku_time": 0.00043894704427999056,
+     "total_s_time": 0.0323
     }
    },
    "ku_freq_ghz": 14.0,
@@ -1181,17 +1187,17 @@
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.2463,
+       "mission_max_load": 0.2584,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.2462,
+       "mission_max_load": 0.2584,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.2501,
+       "mission_max_load": 0.2623,
        "why_not": ""
       }
      },
@@ -1201,18 +1207,18 @@
       "admissible": true,
       "faces": {
        "0": {
-        "energy_fraction": 0.000306087770432476,
-        "ku_time_fraction": 0.0003270814795386047,
+        "energy_fraction": 0.00030942140505649664,
+        "ku_time_fraction": 0.00032340388110396734,
         "s_time_fraction": 0.0
        }
       },
       "ku_looks_fa": 7.0,
       "ku_looks_true": 7.0,
       "margin_db": 0.0,
-      "success": 0.9807525586563612,
+      "success": 0.9807341544511283,
       "why_not": ""
      },
-     "false_alarms_per_rr": 91.4,
+     "false_alarms_per_rr": 90.3,
      "flags": [],
      "forced": false,
      "id": "S01",
@@ -1222,17 +1228,17 @@
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.2462,
+       "mission_max_load": 0.2584,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.2462,
+       "mission_max_load": 0.2584,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.2462,
+       "mission_max_load": 0.2584,
        "why_not": ""
       }
      },
@@ -1242,18 +1248,18 @@
       "admissible": true,
       "faces": {
        "1": {
-        "energy_fraction": 7.16265273746837e-05,
-        "ku_time_fraction": 8.119542258920365e-05,
+        "energy_fraction": 7.486718732167748e-05,
+        "ku_time_fraction": 8.043162945552457e-05,
         "s_time_fraction": 0.0
        }
       },
       "ku_looks_fa": 7.0,
       "ku_looks_true": 7.0,
       "margin_db": 0.0,
-      "success": 0.9807525586563612,
+      "success": 0.9807341544511283,
       "why_not": ""
      },
-     "false_alarms_per_rr": 4.8,
+     "false_alarms_per_rr": 4.7,
      "flags": [],
      "forced": false,
      "id": "S02",
@@ -1263,17 +1269,17 @@
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.2463,
+       "mission_max_load": 0.2585,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.2462,
+       "mission_max_load": 0.2584,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.2527,
+       "mission_max_load": 0.2646,
        "why_not": ""
       }
      },
@@ -1283,33 +1289,33 @@
       "admissible": true,
       "faces": {
        "0": {
-        "energy_fraction": 0.0004131899132266693,
-        "ku_time_fraction": 0.000471841710664279,
+        "energy_fraction": 0.00039350695419130535,
+        "ku_time_fraction": 0.0004389470442799903,
         "s_time_fraction": 0.0
        },
        "1": {
-        "energy_fraction": 0.00041318991322666937,
-        "ku_time_fraction": 0.0004718417106642792,
+        "energy_fraction": 0.0003935069541913056,
+        "ku_time_fraction": 0.00043894704427999056,
         "s_time_fraction": 0.0
        },
        "2": {
-        "energy_fraction": 0.00041318991322666937,
-        "ku_time_fraction": 0.0004718417106642791,
+        "energy_fraction": 0.0003935069541913056,
+        "ku_time_fraction": 0.00043894704427999056,
         "s_time_fraction": 0.0
        },
        "3": {
-        "energy_fraction": 0.00041318991322666937,
-        "ku_time_fraction": 0.0004718417106642792,
+        "energy_fraction": 0.0003935069541913056,
+        "ku_time_fraction": 0.00043894704427999056,
         "s_time_fraction": 0.0
        }
       },
       "ku_looks_fa": 7.0,
       "ku_looks_true": 7.0,
       "margin_db": 0.0,
-      "success": 0.9807525586563612,
+      "success": 0.9807341544511283,
       "why_not": ""
      },
-     "false_alarms_per_rr": 964.6,
+     "false_alarms_per_rr": 922.5,
      "flags": [],
      "forced": false,
      "id": "S03",

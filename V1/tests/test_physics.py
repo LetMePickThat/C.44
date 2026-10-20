@@ -11,6 +11,7 @@ import os
 import subprocess
 import sys
 
+import numpy as np
 import pytest
 
 import testbench as tb
@@ -115,14 +116,16 @@ def test_nothing_playable_outside_the_bands_or_beyond_scan_limit():
 
 # ----------------------------------------------------------------------------- aperture build-up
 def test_aperture_derived_from_trsa_build_up():
-    """196 bi-band TRSAs (25 x 25 Ku, 5 x 5 S) in an octagon, 2 mm dead gaps (array design note, review 0.3)."""
+    """196 bi-band TRSAs (25 x 25 Ku, 5 x 5 S) in an octagon, dead gaps of 0.5 mm (2 mm in the design note, review 0.3;
+    0.5 mm since step 1.2)."""
     assert rm.N_TRSA == 196 and rm.N_TRSA_GAPS == 2 * 180
     assert rm.BAND_S.n_trm == 4900 and rm.BAND_KU.n_trm == 122500
     assert rm.TRSA_SIDE_M == pytest.approx(0.260) and rm.S_TRM_PITCH_M == pytest.approx(0.052)
     assert rm.PHYS_AREA_M2 == pytest.approx(13.2496, rel=1e-9)
-    assert rm.TOTAL_AREA_M2 == pytest.approx(13.4368, rel=1e-9)
-    assert rm.FILL_FACTOR == pytest.approx(0.9861, abs=5e-5)
-    assert rm.ARRAY_ENVELOPE_M == pytest.approx(4.190, rel=1e-9)
+    assert rm.TRSA_GAP_M == pytest.approx(0.0005)
+    assert rm.TOTAL_AREA_M2 == pytest.approx(13.2496 + 360 * 0.0005 * 0.26, rel=1e-9)
+    assert rm.FILL_FACTOR == pytest.approx(0.99648, abs=5e-5)
+    assert rm.ARRAY_ENVELOPE_M == pytest.approx(16 * 0.26 + 15 * 0.0005, rel=1e-9)
 
 
 # ----------------------------------------------------------------------------- radiation pattern (step 1.1)
@@ -162,7 +165,7 @@ def test_pattern_cache_is_current():
     _, key = antenna.input_key(rm.TRSA_ROWS, rm.TRSA_SIDE_M, rm.TRSA_GAP_M,
                                {"S": rm.S_TRM_PER_TRSA_SIDE, "Ku": rm.KU_TRM_PER_TRSA_SIDE}, rm.ARRAY_ENVELOPE_M,
                                rm.RX_SLL_OPTIONS_DB, params.P.get("aperture.rx_taper_nbar"),
-                               params.P.get("aperture.rx_taper_edge"))
+                               params.P.get("aperture.rx_taper_edge"), {b: rm._visible_r_lam_d(b) for b in ("S", "Ku")})
     assert antenna._read_cache(key) is not None
 
 
@@ -247,6 +250,102 @@ def test_fast_estimate_follows_the_rx_setting():
     assert table.rx_sll_db == rm.RX_SLL_DEFAULT_DB and eb > ea
 
 
+# ----------------------------------------------------------------------------- active mismatch, far lobes (step 1.2)
+def test_active_mismatch_current_sheet_with_waim():
+    """|G_waim| = |cos t - cos t_m| / (cos t + cos t_m), t_m = 45 deg in both bands; one model for S and Ku."""
+    for f in (2.8, 14.0):
+        assert rm.band_for_frequency(f).waim_match_deg == 45.0
+        for th in (0.0, 20.0, 45.0, 60.0, 70.0, 75.0):
+            c, cm = math.cos(math.radians(th)), math.cos(math.radians(45.0))
+            assert rm.active_mismatch(f, th)["gamma_waim"] == pytest.approx(abs(c - cm) / (c + cm), abs=1e-12)
+    assert rm.active_mismatch(2.8, 45.0)["loss_db_per_pass"] == pytest.approx(0.0, abs=1e-9)
+    assert rm.active_mismatch(2.8, 70.0)["loss_db_per_pass"] == pytest.approx(0.56, abs=0.01)
+    # S and Ku share the lattice in lambda units: same mismatch at the same relative frequency
+    assert rm.active_mismatch(2.9, 70.0)["loss_db_per_pass"] == pytest.approx(rm.active_mismatch(14.5, 70.0)["loss_db_per_pass"])
+
+
+def test_grating_lobe_term_explains_the_70_deg_limit():
+    """Mean pitch (TRSA pitch / TRMs per side) sets the grating lobes; inside the locked scan limits the margin stays
+    positive and the mismatch below the 3 dB alert; at 2.9 GHz / 75 deg (outside the limit) the grating-lobe term
+    adds to the WAIM one."""
+    p = rm.TRSA_SIDE_M + rm.TRSA_GAP_M
+    assert rm.PATTERNS["S"].d_mean_m == pytest.approx(p / 5) and rm.PATTERNS["Ku"].d_mean_m == pytest.approx(p / 25)
+    assert rm.grating_lobe_margin(2.9, 75.0) == pytest.approx(rm.lambda_m(2.9) * 5 / p - math.sin(math.radians(75)) - 1)
+    am = rm.active_mismatch(2.9, 75.0)
+    assert am["gamma_gl"] == pytest.approx(math.exp(-am["margin_g"] / 0.02))
+    assert am["loss_db_per_pass"] > rm.active_mismatch(2.85, 75.0)["loss_db_per_pass"]   # grating lobe approaching
+    for band in rm.BANDS.values():
+        for i in range(21):
+            f = band.usable_lo_ghz + i * (band.usable_hi_ghz - band.usable_lo_ghz) / 20
+            lim = band.scan_limit_deg(f)
+            assert rm.grating_lobe_margin(f, lim) > 0
+            assert rm.active_mismatch(f, lim)["loss_db_per_pass"] < rm.MISMATCH_ALERT_DB
+
+
+def test_solve_applies_the_mismatch_on_tx_and_rx():
+    for f, th in ((2.8, 0.0), (2.85, 75.0), (14.0, 60.0)):
+        wf = rm.WF_LRS if f < 3 else tb.KU_TRACK
+        r = rm.solve(wf, f, th, rm.TARGETS["KKV"])
+        assert r.losses["scan_mismatch"] == pytest.approx(2 * rm.active_mismatch(f, th)["loss_db_per_pass"])
+
+
+def test_gap_lobes_next_to_the_grating_lobe_match_the_subarray_factor():
+    """TRSA pitch P = side + gap: lobes at k lambda / P weighted by the factor of the n uniform TRMs of one TRSA. Where
+    they dominate (Ku, 2 mm gaps: the step-1.2 finding) the one next to the grating lobe (k = n - 1) is the analytic
+    -16.7 dB; with the 0.5 mm gaps it is far weaker, and the far scan of the model sees at least that lobe."""
+    from core import antenna
+
+    def lobe_db(gap: float) -> float:
+        xs, ys, mult, present, _ = antenna._quadrant(rm.TRSA_ROWS, rm.TRSA_SIDE_M, gap, 25)
+        lam, wm, p = rm.lambda_m(14.0), (mult * present).sum(axis=0), rm.TRSA_SIDE_M + gap
+        u = 24 * lam / p + np.linspace(-1.0, 1.0, 2001) * lam / (16 * rm.TRSA_SIDE_M)
+        return 20 * math.log10((np.abs(np.cos(2 * math.pi * np.outer(u, xs) / lam) @ wm) / wm.sum()).max())
+
+    d, p = rm.TRSA_SIDE_M / 25, rm.TRSA_SIDE_M + 0.002
+    x = math.pi * d * 24 / p
+    assert lobe_db(0.002) == pytest.approx(20 * math.log10(abs(math.sin(25 * x) / (25 * math.sin(x)))), abs=0.3)
+    now = lobe_db(rm.TRSA_GAP_M)
+    assert now < lobe_db(0.002) - 6.0 and rm.PATTERNS["Ku"].tx.far_sll_db >= now - 0.3
+    prof = rm.PATTERNS["Ku"].tx.far_profile_db
+    assert all(a <= b for a, b in zip(prof, prof[1:]))           # cumulative profile
+
+
+def test_visible_sidelobes_and_held_scan_angle():
+    """Near the axis the visible sidelobe is the near one; the far gap lobes enter with the scan (worst azimuth)."""
+    for b, f in (("S", 2.8), ("Ku", 14.0)):
+        assert rm.sidelobe_visible_db(f, 0.0, "tx") == pytest.approx(rm.PATTERNS[b].tx.sll_db)
+        for s in rm.RX_SLL_OPTIONS_DB:
+            vis = [rm.sidelobe_visible_db(f, th, "rx", s) for th in range(0, 76, 5)]
+            assert all(a <= b_ for a, b_ in zip(vis, vis[1:]))
+    for s in rm.RX_SLL_OPTIONS_DB:                                     # 0.5 mm gaps: every S option over the sector
+        assert rm.rx_sll_held_up_to_deg(2.8, s, 75.0) == 75.0
+    assert rm.rx_sll_held_up_to_deg(14.0, -25.0, 75.0) == 75.0
+    held = rm.rx_sll_held_up_to_deg(14.0, -35.0, 75.0)
+    assert 55.0 < held < 70.0 and rm.sidelobe_visible_db(14.0, held + 0.5, "rx", -35.0) > -35.0 + antenna.FIT_TOL_DB
+
+
+def test_tx_polarisation_purity_ludwig3():
+    """Linear along e_v: no cross-pol in the principal planes, (1 + cos t) / (1 - cos t) at 45 deg azimuth."""
+    assert rm.TX_POLARISATION == "linear_ev"
+    assert rm.pol_purity(70.0, 0.0)["xpd_db"] == math.inf and rm.pol_purity(70.0, 90.0)["xpd_db"] > 200
+    for th in (30.0, 60.0):
+        c = math.cos(math.radians(th))
+        assert rm.pol_purity(th, 45.0)["xpd_db"] == pytest.approx(20 * math.log10((1 + c) / (1 - c)))
+
+
+def test_sector_alerts_of_step_1_2(runs):
+    """Default -25 dB held everywhere (no flag); a -35 dB volume reaching large Ku scans gets the Ku flag."""
+    res = runs["mission_example.json"]
+    s03 = next(s for s in res["sectors"] if s["id"] == "S03")
+    assert s03["rx_sll_held_up_to_deg"] == pytest.approx(min(75.0, max(f["theta_max_deg"] for f in s03["faces"].values())))
+    assert s03["mismatch_db_per_pass_max"] < rm.MISMATCH_ALERT_DB
+    assert not any("held only" in w for w in res["warnings"])
+    sec = dict(md.new_sector([]), rx_sll_db=-35.0, eps_min_deg=-60.0, eps_max_deg=60.0, phi_min_deg=0.0,
+               phi_max_deg=90.0, range_km=500.0)
+    r = mo.run({"global": md.empty_mission()["global"], "sectors": [sec]}, workers=1)
+    assert any("Ku RX sidelobes -35 dB held only" in w for w in r["warnings"])
+
+
 def test_s_trm_block_must_divide_the_ku_block(tmp_path):
     text = _replace_value(_default_toml(), "aperture", "s_trm_per_trsa_side ", "5", "4")
     path = tmp_path / "radar_system.toml"
@@ -323,8 +422,9 @@ def test_tilt_change_propagates_to_model_optimiser_and_ship(tmp_path):
                                  "mo.face_frame(0.0)[0][2], geo.RP]))", tmp_path)
     tilt, pos, nz, rp = json.loads(out)
     assert tilt == 20.0 and nz == pytest.approx(math.sin(math.radians(20.0)))
-    # 4308 at 20 deg in the model history (V6.0.10, HPBW 0.886 lambda / D), x (0.886 / HPBW_TX)^2 since step 1.1
-    assert abs(pos - 4308 * (0.886 / rm.PATTERNS["S"].tx.hpbw) ** 2) < 25
+    # 4308 at 20 deg in the model history (V6.0.10, HPBW 0.886 lambda / D, D = 4.19 m), x (0.886 / HPBW_TX)^2 since
+    # step 1.1, x (D_env / 4.19)^2 since the 0.5 mm gaps (step 1.2)
+    assert abs(pos - 4308 * (0.886 / rm.PATTERNS["S"].tx.hpbw) ** 2 * (rm.ARRAY_ENVELOPE_M / 4.19) ** 2) < 25
     from core import geometry as geo
     assert rp < geo.RP                  # arrays sit lower on the cone at a smaller tilt
 

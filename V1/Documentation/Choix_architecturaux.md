@@ -1,6 +1,6 @@
 # Outil de préparation de mission radar : choix architecturaux
 
-Ce document recense tous les choix d'architecture faits jusqu'ici : organisation du logiciel, modèle du radar, et pour chaque variable sa définition, sa valeur, son statut et la raison de cette valeur. Il décrit l'état du dépôt après l'étape 1.1 de la feuille de route (modèle V6.1.0, 20 octobre 2026).
+Ce document recense tous les choix d'architecture faits jusqu'ici : organisation du logiciel, modèle du radar, et pour chaque variable sa définition, sa valeur, son statut et la raison de cette valeur. Il décrit l'état du dépôt après l'étape 1.2 de la feuille de route (modèle V6.2.0, 20 octobre 2026).
 
 > **Avertissement.** Les missions de `tests/missions/` sont des **missions de test**. Les valeurs figées de `tests/snapshots/` sont des **valeurs figées de test**. Elles servent seulement à détecter les régressions du code. Ce ne sont ni des exigences ni des performances du radar, dont les capacités réelles ne sont pas établies.
 
@@ -58,8 +58,8 @@ Construire un outil dans lequel l'opérateur prépare sa mission. Cette mission 
 | Module | Rôle |
 |---|---|
 | `core/params.py` | Charge `radar_system.toml`, une seule fois par processus. Expose `P.get`, `P.meta`, `P.section` et l'empreinte des paramètres (`fingerprint`). La variable d'environnement `RADAR_PARAMS` permet de désigner un autre fichier. |
-| `core/radar_model.py` | Modèle radar V6.1.0 : bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
-| `core/antenna.py` | **Étape 1.1.** Diagramme de rayonnement calculé à partir de la composition des TRSA : faisceau d'émission uniforme, pondération de réception par niveau de lobes, étendue RMS de l'ouverture. Résultat mis en cache dans `core/antenna_cache.json`. |
+| `core/radar_model.py` | Modèle radar V6.2.0 : désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
+| `core/antenna.py` | **Étapes 1.1 et 1.2.** Diagramme de rayonnement calculé à partir de la composition des TRSA : faisceau d'émission uniforme, pondération de réception par niveau de lobes, étendue RMS de l'ouverture, profil des lobes lointains sur tout l'espace visible (lobes de jeu compris). Résultat mis en cache dans `core/antenna_cache.json`. |
 | `core/optimizer.py` | Optimiseur de la veille S. Choisit pour chaque secteur la fréquence et les formes d'onde par tranche d'angle de dépointage, et établit le bilan énergie et temps par face. |
 | `core/tracking.py` | Confirmation (modes KU1+7, KU7 et S2) et poursuite active (AT) en Ku, ajoutées au bilan par face. |
 | `core/cost_estimate.py` | Estimation rapide pour l'interface, à partir de `core/cost_table.json`. Elle n'est pas faite pour décider : seul le calcul exact fait foi. |
@@ -75,7 +75,7 @@ Construire un outil dans lequel l'opérateur prépare sa mission. Cette mission 
 | Fichier | Contenu | Garantie de cohérence |
 |---|---|---|
 | `core/cost_table.json` | Énergie minimale par pointage selon la distance, la SER, la vitesse et l'angle, à 2,8 GHz. Il enregistre aussi l'option de lobes de réception utilisée. | Contient l'empreinte des paramètres. L'interface alerte si elle ne correspond plus, et un test vérifie qu'elle est à jour. Pour la reconstruire : `python tools/gen_cost_table.py`. |
-| `core/antenna_cache.json` | Diagrammes calculés pour chaque bande. | Indexé par un hachage de toutes ses entrées : composition, options, n̄, réglages `[tool.pattern]` et version de l'algorithme. Il est recalculé automatiquement si les entrées changent, en environ 5 s. Il n'est **réécrit que pour le fichier de paramètres par défaut** : un essai sur une copie modifiée ne touche pas au cache du dépôt. Un test vérifie qu'il est à jour. |
+| `core/antenna_cache.json` | Diagrammes calculés pour chaque bande. | Indexé par un hachage de toutes ses entrées : composition, options, n̄, réglages `[tool.pattern]` et version de l'algorithme. Il est recalculé automatiquement si les entrées changent, en environ 8 s. Il n'est **réécrit que pour le fichier de paramètres par défaut** : un essai sur une copie modifiée ne touche pas au cache du dépôt. Un test vérifie qu'il est à jour. |
 
 ### 2.3 Choix techniques
 
@@ -103,7 +103,7 @@ Construire un outil dans lequel l'opérateur prépare sa mission. Cette mission 
 | Autre fichier | Variable d'environnement `RADAR_PARAMS=<chemin>`, héritée par les processus de l'optimiseur. |
 | Revue | Toutes les valeurs ont été validées une par une lors de la revue 0.3. Les ajouts de l'étape 1.1 ont été validés pendant cette étape. |
 
-**Bilan actuel : 122 entrées système, dont 79 V, 40 D et 3 ?.** Les trois entrées « ? » sont `multibeam.l8_db`, `multibeam.p` et `band.S.e_buf_trm_j`.
+**Bilan actuel : 126 entrées système, dont 82 V, 41 D et 3 ?.** Les trois entrées « ? » sont `multibeam.l8_db`, `multibeam.p` et `band.S.e_buf_trm_j`.
 
 ---
 
@@ -117,7 +117,7 @@ Construire un outil dans lequel l'opérateur prépare sa mission. Cette mission 
 | Missions de test | `mission_example` (en JSON et en CSV), `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`. Les deux premières ont été récupérées dans l'historique git. |
 | Rapport d'impact | `python tests/impact_report.py`, à chaque étape, avant de régénérer les valeurs figées. |
 | Régénération | `python tests/update_snapshots.py`. Chaque régénération est consignée dans `tests/snapshots/JOURNAL.md`, avec sa cause et les formes d'onde ou modes qui ont changé. |
-| État | 70 tests passent après l'étape 1.1. |
+| État | 77 tests passent après l'étape 1.2. |
 
 ---
 
@@ -148,10 +148,12 @@ Le **rayon du secteur d'une face** n'a pas d'entrée. Il est calculé comme la p
 | `ku_trm_per_trsa_side` | TRM Ku par côté de TRSA. | 25, soit 625 par TRSA | V | Note de conception. |
 | `s_trm_per_trsa_side` | TRM S par côté de TRSA. | 5, soit 25 par TRSA | V | Pas de 52 mm, proche de λ/2 en S. C'est le seul diviseur de 25 proche de λ/2 : chaque TRM S recouvre exactement un bloc de 5 × 5 TRM Ku, et le code vérifie cette divisibilité. |
 | `trsa_rows` | Nombre de TRSA par rangée de la grille. Les rangées sont centrées et la liste doit être un palindrome (symétrie). | [6, 8, 10, 12, 14, 16, 16, 16, 16, 16, 16, 14, 12, 10, 8, 6], soit 196 TRSA | V | Octogone approché (revue 0.3). |
-| `trsa_gap_m` | Jeu mécanique libre entre TRSA voisines, qui forme une zone morte. | 0,002 m | V | Structure, dilatation thermique, isolation. Le gain utilise la surface émissive seule. |
+| `trsa_gap_m` | Jeu mécanique libre entre TRSA voisines, qui forme une zone morte. | 0,0005 m | V | **Ramené de 2 mm à 0,5 mm à l'étape 1.2** (décision de l'utilisateur). Avec 2 mm, la rupture du pas entre TRSA créait des lobes de jeu voisins du lobe de réseau (−16,6 dB en Ku) qui ne tenaient pas les options de réception aux grands dépointages. 0,5 mm est le plus petit écart qui libère presque tout. Il **suppose des matériaux appariés en dilatation** entre TRSA et plaque de fond : environ 0,08 mm d'excursion sur 100 K, contre environ 0,6 mm pour de l'aluminium sur fibre de carbone (estimation à confirmer par un mécanicien). Le gain utilise la surface émissive seule. |
 | `rx_sll_options_db` | Niveaux de crête des lobes secondaires de la **pondération de réception** offerts à l'opérateur pour chaque volume de veille. | [−25, −30, −35] dB | V | **Étape 1.1.** Le réglage est fait par volume dans la préparation de mission (clé `rx_sll_db`), avec un seul réglage pour S et Ku et −25 dB par défaut. Descendre en niveau rejette mieux les échos forts hors de l'axe (cible brillante, Lune ou Terre, brouilleur) au prix du gain en réception : −0,56 dB à −30, −1,04 dB à −35. |
 | `rx_taper_nbar` | Paramètre n̄ de la loi de Taylor circulaire de réception. | 5 | V | Étape 1.1. Loi standard ; son niveau de conception est **calé numériquement** pour que le niveau **atteint** sur l'octogone réel égale l'option demandée. |
 | `rx_taper_edge` | Rayon où la loi de Taylor atteint sa valeur de bord. | "inscribed", soit D_env/2 | D | Exploration de l'étape 1.1 : à niveau atteint égal, le cercle inscrit donne un meilleur rendement que le cercle circonscrit. Les éléments des coins gardent la valeur de bord. L'autre valeur possible est "circumscribed". |
+| `grating_lobe_g0` | Largeur, en u, de la remontée de \|Γ\| quand le premier lobe de réseau approche de l'espace visible : \|Γ_LR\| = exp(−g/g₀). | 0,02 | V | **Étape 1.2, Q3.** Ce terme seul coûte environ 3,0 dB par passage à 2,9 GHz et 75° (4,1 dB avec le terme WAIM), 0,07 dB à 2,85 GHz et 75°, et presque rien à 2,8 GHz. Il explique ainsi la limite de 70° au-dessus de 2,85 GHz sans pénaliser le reste de la bande. |
+| `tx_polarisation` | Polarisation d'émission. | "linear_ev" | D | **Étape 1.2, Q7.** Linéaire selon e_v, l'axe de la face contenu dans le plan de l'axe du vaisseau. Un seul PA par TRM. Elle ne change pas le bilan, puisque la réception bipolarisation capte les deux composantes ; elle sert de référence pour Faraday (2.5) et la polarimétrie (3.3). **À rappeler à l'étape 3.3** : la commutation e_u / e_v à chaque observation (un PA et un commutateur, environ 0,1 à 0,2 dB) reste une option. |
 | `eta_ohmic` | Rendement de l'élément rayonnant. | 1,0 | V | Pas de réseau d'alimentation dans l'architecture numérique V6 ; les chemins locaux sont comptés dans TX_chain et T_sys. L'ancienne valeur 0,96 venait de l'alimentation à faibles pertes de V5.6.0. Ce paramètre pourra porter des pertes supplémentaires plus tard. Portée +2,06 %. |
 
 Retraits faits lors de la revue 0.3 et de l'étape 1.1 :
@@ -159,9 +161,9 @@ Retraits faits lors de la revue 0.3 et de l'étape 1.1 :
 | Ancienne variable | Sort | Raison |
 |---|---|---|
 | `hpbw_factor` = 0,886 | Retiré du fichier (revue 0.3), puis du code (étape 1.1). | 0,886 λ/D est la largeur de lobe d'une ouverture **rectangulaire** uniforme. Elle est remplacée par le diagramme calculé de l'octogone. |
-| `scan_exponent` = 1,1 et section `[scan_loss]` | Supprimés (revue 0.3). | Ils comptaient deux fois la même perte. Le gain ne suit plus que la projection cos θ (résultats optimistes aux grands dépointages) jusqu'au modèle unique de \|Γ(θ, f)\| de l'étape 1.2. |
+| `scan_exponent` = 1,1 et section `[scan_loss]` | Supprimés (revue 0.3). | Ils comptaient deux fois la même perte. Ils sont remplacés à l'étape 1.2 par le modèle unique de \|Γ(θ, f)\| (`waim_match_deg`, `grating_lobe_g0`). |
 | `scan_radius_deg` | Supprimé (revue 0.3). | Remplacé par le rayon calculé : la plus large limite de balayage des bandes. |
-| Surface saisie de 13,25 m² | Remplacée par la surface calculée de 13,2496 m². | Dérivée de la composition des TRSA. Les chiffres de la note initiale contenaient une coquille : la surface totale vaut 13,4368 m² ; 187 200 mm² et non 134 368. |
+| Surface saisie de 13,25 m² | Remplacée par la surface calculée de 13,2496 m². | Dérivée de la composition des TRSA. Les chiffres de la note initiale contenaient une coquille : la surface totale valait 13,4368 m² avec 2 mm de jeu ; 187 200 mm² et non 134 368. |
 
 ### 5.4 `[search_grid]` : grille de veille
 
@@ -237,13 +239,14 @@ Retiré : `k_theta` = 0,5, remplacé par `angle_crlb_margin` à l'étape 1.1.
 | `core_inset_divisor` | La bande centrale est la bande utile amputée de 1/6 de sa largeur de chaque côté. | 6,0 | D | La loi de bord de V5.6.0 (§5.2.3) avait été établie sur l'ancienne bande Ku de 14,8 à 17,2 GHz. Elle est gardée **en fraction de bande** (option a). Une table propre à chaque bande viendra à l'étape 1.4. |
 | `edge_derating_db` | Dégradation maximale aux bords de la bande utile, en cosinus surélevé. | 1,5 dB | D | Même origine ; la bande S copie la bande Ku (étape 1.4). |
 | `scan_max_deg` | Limite de balayage jusqu'à `scan_break_ghz`. | 75° | V | Confirmé. |
-| `scan_break_ghz` | Fréquence au-dessus de laquelle la limite de balayage baisse. | 2,85 GHz | V | La marge de lobe de réseau n'est que de 1,1 % à 2,9 GHz pour 75°, ce qui explique les 70° au-dessus. Ce point sera traité à l'étape 1.2. |
+| `scan_break_ghz` | Fréquence au-dessus de laquelle la limite de balayage baisse. | 2,85 GHz | V | Avec le pas moyen réel (étape 1.2), la marge de lobe de réseau à 2,9 GHz et 75° valait 0,35 % avec 2 mm de jeu (désadaptation 4,1 dB par passage), d'où les 70° au-dessus. Avec 0,5 mm, elle vaut 0,9 % (1,8 dB par passage, sous le seuil d'alerte). Les limites restent verrouillées (Q5) ; les relâcher au-dessus de 2,85 GHz serait une décision à prendre. |
 | `scan_max_hi_deg` | Limite de balayage au-dessus de `scan_break_ghz`. | 70° | V | Idem. |
 | `p_pk_trm_w` | Puissance crête par TRM, **en sortie de PA** (plan de référence 1, là où la PAE est définie). | 2000 W | V | Convention verrouillée lors de la revue 0.3. Le chemin du PA à l'élément est la perte dérivée TX_chain. |
 | `eta_illum_tx` | Rendement d'illumination en émission. | 1,0 | V | Émission uniforme, PA en saturation. |
 | `allowed_roles` | Rôles permis en bande S. | ["SEARCH", "TWS"] | D | Politique d'usage des bandes du logiciel radar (étapes 3.x et 4.3). Le « toucher » S2 de confirmation sort de cette règle (noté pour l'étape 3.2). |
 | `pol_rx_dual` | Réception numérique bipolarisation. | vrai | V | Un CAN par TRM. |
-| `pol_loss_dual_db` | Perte de polarisation avec la réception bipolarisation. | 0,5 dB | D | Sans source. Rapport axial et polarisation croisée en fonction du dépointage à l'étape 1.2. |
+| `waim_match_deg` | Angle de dépointage où la couche WAIM adapte le réseau (modèle de la feuille de courant). | 45° | V | **Étape 1.2, Q2.** Perte par passage : 0,13 dB dans l'axe, 0 à 45°, 0,56 dB à 70°, 1,05 dB à 75°. C'est l'équilibre entre l'axe et les grands dépointages (40° favoriserait l'axe, 50° les grands angles). |
+| `pol_loss_dual_db` | Perte de polarisation avec la réception bipolarisation. | 0,5 dB | D | **Étape 1.2, Q8.** Valeur provisoire pour la recombinaison des deux voies de polarisation, jusqu'à l'étape 1.5. Les deux voies étant captées, la pureté de l'antenne ne coûte pas de SNR ; elle est calculée en sortie (`pol_purity`). |
 | `pol_loss_single_db` | Perte avec une réception monopolarisation sur une cible qui dépolarise. | 3,0 dB | V | Gardée pour étudier un récepteur monopolarisation. Utilisée seulement si `pol_rx_dual` est faux. |
 | `e_buf_trm_j` | Réserve d'énergie par TRM. | 5,0 J | ? | Sans source. Affaissement de 0,24 dB sur WF-LRS. Étape 1.3. |
 | `buffer_max_fraction` | Fraction maximale de la réserve qu'une impulsion peut consommer. | 0,5 | D | `solve()` refuse une impulsion qui la dépasse. Étape 1.3. |
@@ -305,7 +308,8 @@ TX_chain = filtre d'harmoniques + circulateur (traversée en émission) + couple
 | `eta_illum_tx` | Illumination en émission. | 1,0 | V | Uniforme comme en S. L'ancienne valeur 0,88 de V5.6.0 réduisait le gain mais pas la puissance rayonnée. Le contrôle des lobes passe par la pondération de réception de chaque volume. Portée Ku +3,25 %. |
 | `allowed_roles` | Rôles permis en Ku. | ["CONFIRM", "PROMOTE", "TRACK"] | D | Politique du logiciel radar (étapes 3.x et 4.3). Les rôles TWS et PROMOTE existent mais aucune forme d'onde ne les utilise. |
 | `pol_rx_dual` | Réception bipolarisation. | vrai | V | Comme en S. |
-| `pol_loss_dual_db` | Perte de polarisation. | 0,5 dB | D | Comme en S (étape 1.2). L'ancienne valeur 0 venait des 8 dB forfaitaires de V5.6.0, qui ne couvraient que le traitement. |
+| `waim_match_deg` | Angle d'adaptation de la couche WAIM. | 45° | V | Le même qu'en S (étape 1.2). |
+| `pol_loss_dual_db` | Perte de polarisation. | 0,5 dB | D | Comme en S : valeur provisoire pour la recombinaison, jusqu'à l'étape 1.5. L'ancienne valeur 0 venait des 8 dB forfaitaires de V5.6.0, qui ne couvraient que le traitement. |
 | `pol_loss_single_db` | Réception monopolarisation. | 3,0 dB | V | Comme en S. |
 | `e_buf_trm_j` | Réserve d'énergie par TRM Ku. | 0 (non modélisée) | D | Étape 1.3. |
 | `buffer_max_fraction` | Inutilisé tant que la réserve vaut 0. | 0,5 | D | Étape 1.3. |
@@ -398,9 +402,9 @@ Ces valeurs ne servent aujourd'hui qu'à la vue 3D. Le masquage des champs de vu
 | TRM par face | 196 × 25 (S), 196 × 625 (Ku) | 4 900 en S, 122 500 en Ku |
 | Puissance crête par face | n × p_pk | S 9,80 MW, Ku 9,19 MW |
 | Surface émissive | 196 × 0,26² | 13,2496 m² |
-| Surface totale (avec les jeux) | + 360 × 0,002 × 0,26 | 13,4368 m² (remplissage 98,61 %) |
-| Enveloppe D_env | 16 TRSA + 15 jeux | 4,190 m |
-| **Lobe d'émission (uniforme)** | diagramme calculé, plus petite coupe | **1,035 λ/D_env** (axe x 1,041), soit 1,52° à 2,8 GHz et 0,30° à 14 GHz ; 1ᵉʳ lobe secondaire −15,6 dB |
+| Surface totale (avec les jeux) | + 360 × 0,0005 × 0,26 | 13,2964 m² (remplissage 99,65 %) ; 13,4368 m² avec 2 mm |
+| Enveloppe D_env | 16 TRSA + 15 jeux | 4,1675 m (4,190 m avec 2 mm) |
+| **Lobe d'émission (uniforme)** | diagramme calculé, plus petite coupe | **1,035 λ/D_env** (axe x 1,041), soit 1,525° à 2,8 GHz et 0,305° à 14 GHz ; 1ᵉʳ lobe secondaire −15,6 dB |
 | **Pondération de réception à −25 dB** | Taylor n̄ = 5, conception 29,5 dB | η = 0,873, HPBW 1,172 λ/D (1,72° à 2,8 GHz), niveau atteint −25,0 dB |
 | **Pondération de réception à −30 dB** | conception 35,7 dB | η = 0,773, HPBW 1,255 λ/D |
 | **Pondération de réception à −35 dB** | conception 41,7 dB | η = 0,693, HPBW 1,325 λ/D |
@@ -414,10 +418,15 @@ Ces valeurs ne servent aujourd'hui qu'à la vue 3D. Le masquage des champs de vu
 | T_sys | cascade de Friis | S 154,3 K, Ku 238,7 K |
 | TX_chain | somme des composants | S 0,6 dB, Ku 0,95 dB |
 | Pertes fixes (hors polarisation) | somme | S 3,80 dB, Ku 4,55 dB |
+| Pas moyen des éléments | pas des TRSA / TRM par côté | S 52,1 mm, Ku 10,42 mm (52,5 et 10,9 mm de part et d'autre d'un jeu) |
+| Désadaptation aller-retour (2,8 GHz) | 2 × perte par passage | 0,26 dB dans l'axe, 0 à 45°, 1,12 dB à 70°, 2,11 dB à 75° ; 2,24 dB à 2,85 GHz et 75° |
+| Lobe lointain le plus fort (lobes de jeu compris) | grille 2D sur l'espace visible | Ku −25,3 dB, S −30,7 dB en uniforme (−16,6 et −26,8 dB avec 2 mm) ; la pondération ne réduit pas les lobes de jeu |
+| Dépointage jusqu'où l'option de réception est tenue | `rx_sll_held_up_to_deg` | S : les trois options sur tout le secteur. Ku : −25 dB partout ; −30 / −35 dB jusqu'à 75° / 62° à 14 GHz, 68,5° / 58,5° à 14,25 GHz, 64° / 55° à 14,5 GHz |
+| Pureté de polarisation (Ludwig 3, plan à 45°) | (1 + cos θ) / (1 − cos θ) | 15,3 dB à 45°, 6,2 dB à 70° ; infinie dans les plans principaux |
 | CHAIN_EFF | psu × distribution × (1 − overhead) | 0,917 |
 | Rayon du secteur | plus large limite de balayage | 75° |
 | Surface du secteur en (u, v) | disque sin 75° découpé par les plans ±45°, inclinaison 25° | 2,0006 |
-| Pointages par face à 2,8 GHz | surface / cellule | 3 050 (4 167 avant l'étape 1.1) |
+| Pointages par face à 2,8 GHz | surface / cellule | 3 016 (4 167 avant l'étape 1.1, 3 050 avec 2 mm de jeu) |
 | Plus longue impulsion S | 0,5 × 5 J × 0,75 / 2000 W | 937,5 µs |
 | Durée cohérente maximale (provisoire) | t₀ (−ln η_min)^(1/p) | 149 ms |
 
@@ -432,10 +441,10 @@ Pour l'ensemble de l'octogone, le facteur en λ/D ne dépend pas de la fréquenc
 R⁴ = P_faisceau · G_TX · G_RX · λ² · σ · τ · N / ((4π)³ · k · T_sys · L · SNR_req)
 
 - P_faisceau = P_crête de la face / B_TX.
-- G = 4π · A_émissive · η · η_ohmic · cos θ / λ². Seule la projection cos θ intervient, sans perte de désadaptation active jusqu'à l'étape 1.2.
+- G = 4π · A_émissive · η · η_ohmic · cos θ / λ². La désadaptation active est comptée à part, dans L (§7.3 bis).
 - **η_RX** est celui de la pondération du volume (`rx_sll_db`).
 - SNR_req est le SNR sur l'**énergie totale** intégrée, d'après l'ajustement de Shnidman, pour les cas Swerling 0 à 4 et une intégration cohérente ou non cohérente. La formule d'Albersheim de V5.4.0 était mal implémentée et comptait l'intégration deux fois.
-- L regroupe : pertes fixes, TX_chain, bord de bande, polarisation, affaissement de la réserve (−10 log(1 − x/2)), multifaisceau, grille d'émission et grille de réception (veille seulement), cohérence (intégration cohérente), migration.
+- L regroupe : pertes fixes, TX_chain, bord de bande, polarisation, affaissement de la réserve (−10 log(1 − x/2)), multifaisceau, **désadaptation active à l'émission et à la réception** (étape 1.2), grille d'émission et grille de réception (veille seulement), cohérence (intégration cohérente), migration.
 
 ### 7.2 Diagramme (étape 1.1, `core/antenna.py`)
 
@@ -445,6 +454,17 @@ R⁴ = P_faisceau · G_TX · G_RX · λ² · σ · τ · N / ((4π)³ · k · T_
 - Niveau de lobes : maximum au-delà du premier minimum de chaque coupe.
 - Pondération de réception : loi de Taylor circulaire de Hansen à n̄ = 5. Le niveau de conception est cherché par fausse position (Illinois) pour que le niveau atteint soit dans [cible − 0,05 dB, cible]. Les poids négatifs sont ramenés à 0.
 - η = (Σw)² / (N Σw²).
+
+### 7.3 bis Désadaptation active, lobes de réseau et lobes lointains (étape 1.2)
+
+- Un modèle unique pour S et Ku, appliqué à l'émission et à la réception, distinct de la dégradation de bord de bande (étape 1.4).
+- Feuille de courant adaptée à θm par une couche WAIM : |Γ_WAIM| = |cos θ − cos θm| / (cos θ + cos θm), identique dans les plans E et H.
+- Terme de lobe de réseau : |Γ_LR| = exp(−g/g₀), avec g = λ/d_moyen − sin θ − 1, calculé dans le pire azimut (balayage le long d'un axe de la maille).
+- Combinaison en puissance : 1 − |Γ|² = (1 − |Γ_WAIM|²)(1 − |Γ_LR|²). Perte par passage = −10 log(1 − |Γ|²), comptée deux fois dans `solve()`.
+- Les limites de balayage restent verrouillées. L'optimiseur alerte si une tranche utilisée dépasse 3 dB par passage, ce qui n'arrive pas à l'intérieur des limites actuelles.
+- Lobes lointains : grille 2D du facteur de réseau sur tout l'espace visible de la bande (rayon (1 + sin θ_lim) D/λ au haut de la bande), voisinages des lobes de réseau exclus. On stocke un profil cumulatif : niveau maximal des lobes à moins de r de l'axe. Un lobe à r est visible dès que r·λ/D ≤ 1 + sin θ (pire azimut).
+- Les jeux rompent le pas des éléments d'une TRSA à l'autre (pas des TRSA = côté + jeu), d'où des « lobes de jeu » en k·λ/(côté + jeu) pondérés par le facteur de sous-réseau d'une TRSA. Ceux voisins du lobe de réseau sont les plus forts et aucune pondération ne les réduit : −16,6 dB en Ku avec 2 mm de jeu, d'où le passage à 0,5 mm. L'optimiseur et le bilan de poursuite signalent, par secteur, jusqu'à quel dépointage l'option de réception est tenue.
+- Pureté de polarisation, en sortie seulement : élément courant selon e_v, E_θ = cos θ sin φ, E_φ = cos φ ; polarisation croisée de Ludwig 3 et inclinaison de la polarisation rayonnée.
 
 ### 7.3 Grille de veille
 
@@ -508,7 +528,8 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 | | `n_snr_quantiles`, `gh_nodes` | 32, 12 | Statistiques. |
 | `tool.redundancy` | `cover_full`, `cover_min`, `range_tol`, `min_piece_deg`, `plan_cache_max` | 0,995, 0,01, 0,01, 1°, 256 | Règles de redondance. |
 | `tool.cost_table` | `freq_ghz`, `range_km`, `rcs_m2`, `v_mps`, `theta_deg` | 2,8 GHz et grilles | Table calculée à 2,8 GHz seulement (optimiste à 2,7 et 2,9 GHz) ; à recaler à l'étape 5.5. |
-| `tool.pattern` | `r_max_lam_d`, `r_step_lam_d`, `phi_step_deg`, `fit_tol_db` | 8, 0,01, 1,5°, 0,05 dB | **Étape 1.1** : précision du calcul du diagramme. |
+| `tool.pattern` | `r_max_lam_d`, `r_step_lam_d`, `phi_step_deg`, `fit_tol_db`, `far_step_lam_d` | 8, 0,01, 1,5°, 0,05 dB, 0,125 | Étapes 1.1 et 1.2 : précision du calcul du diagramme et pas de la grille des lobes lointains. |
+| `tool.alerts` | `mismatch_db_per_pass` | 3,0 dB | **Étape 1.2, Q5** : seuil d'alerte de la désadaptation par passage. |
 | `tool.display` | `grid_res_deg`, `viz_freq_ghz` | 0,5°, 2,8 GHz | Trame 3D et estimation rapide. |
 | `tool.mission_defaults` | voir §9 | | Valeurs d'une nouvelle mission. |
 
@@ -557,7 +578,7 @@ La feuille de route complète, avec le contenu détaillé de chaque étape, se t
 | Phase | Étapes |
 |---|---|
 | 0, fondations | 0.1 fichier unique ✔ ; 0.2 banc de tests ✔ ; 0.3 revue des valeurs ✔ |
-| 1, antenne et RF | **1.1 géométrie et diagramme réel ✔ (code à commiter)** ; 1.2 diagramme : lobes de réseau, désadaptation active \|Γ(θ, f)\|, polarisation ; 1.3 TRM et chaîne d'émission (PAE variable, réserve, facteur de forme) ; 1.4 bande (table de bord, bande instantanée) ; 1.5 réception (T_sys selon la direction, CAN, isolation, bruit de phase de l'oscillateur, deux voies de polarisation) |
+| 1, antenne et RF | 1.1 géométrie et diagramme réel ✔ ; **1.2 diagramme : lobes de réseau, désadaptation active \|Γ(θ, f)\|, polarisation ✔** ; 1.3 TRM et chaîne d'émission (PAE variable, réserve, facteur de forme) ; 1.4 bande (table de bord, bande instantanée) ; 1.5 réception (T_sys selon la direction, CAN, isolation, bruit de phase de l'oscillateur, deux voies de polarisation) |
 | 2, signal et détection | 2.1 formes d'onde paramétriques ; 2.2 traitement (bancs de vitesse, CFAR, modèle de cohérence) ; 2.3 critère de détection ; 2.4 modèles de cibles ; 2.5 environnement (masquage par le vaisseau, Faraday, brouillage) |
 | 3, fonctions radar | 3.1 veille S (multifaisceau, grille de fréquences fine) ; 3.2 confirmation Ku (fréquence Ku choisie, connaissance du spectre) ; 3.3 poursuite (Kalman ou IMM) ; 3.4 fonctions annexes |
 | 4, ressources | 4.1 puissance (bus de 8 MW, répartition entre faces) ; 4.2 thermique ; 4.3 ordonnanceur et latence ; 4.4 calcul et données |
@@ -569,8 +590,8 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 
 | Sujet | État actuel | Étape |
 |---|---|---|
-| Désadaptation active et lobes de réseau | Gain en cos θ seul, **optimiste** aux grands dépointages (+9 % de portée à 70°, +12 % à 75°). | 1.2 |
-| Polarisation | Perte fixe de 0,5 dB. Polarisation d'émission à décider ; pureté en fonction du dépointage. | 1.2, 1.5, 2.4, 2.5, 3.2-3.3 |
+| Polarisation | Linéaire selon e_v (D) ; 0,5 dB provisoire pour la recombinaison des voies. Commutation e_u / e_v à rappeler en 3.3. | 1.5, 2.4, 2.5, 3.2-3.3 |
+| Élément rayonnant | Éléments isotropes dans le calcul du facteur de réseau ; seule la projection cos θ et la désadaptation interviennent. | à placer |
 | PAE | Constante à 0,75, commune à S et Ku. | 1.3 |
 | Réserve d'énergie et facteur de forme | 5 J (statut ?), 0,5, facteur de forme non défini. | 1.3 |
 | Densité de puissance | Environ 104 kW/m² de RF moyenne. | 1.3, 4.2 |
@@ -593,7 +614,8 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 - **(c)** Le toucher S2 sort de la règle des rôles S ; les rôles TWS et PROMOTE ne sont pas utilisés (étape 3.2).
 - **(d)** `power_scale` est arrondi à 3 décimales dans la sortie de l'optimiseur (étape 5.5).
 - **(e)** La table de l'estimation rapide n'est calculée qu'à 2,8 GHz (étape 5.5).
-- **(f)** Lobes du réseau périodique de jeux (pas de 262 mm) et lobes de réseau en général : hors de la fenêtre de 8 λ/D évaluée à l'étape 1.1, ils seront traités à l'étape 1.2.
+- **(f)** **Lobes de jeu des TRSA (étape 1.2), traité en grande partie.** Le jeu est passé de 2 mm à 0,5 mm. Restent en Ku, au haut de la bande : −30 dB tenu jusqu'à 68,5° (14,25 GHz) et 64° (14,5 GHz), −35 dB jusqu'à 62° (14 GHz), 58,5° et 55° ; signalé par secteur. Si la mécanique impose un jeu plus grand, la variante est une maille d'éléments uniforme à travers les jeux (TRM Ku de 10,32 mm ou éléments décalés), qui demande de séparer le pas des éléments de la taille des TRM dans `[aperture]`. Les effets de bord de tuile (couplage mutuel au bord d'un jeu) ne sont pas modélisés.
+- **(g)** `rx_taper_edge` = "inscribed" (statut D) à confirmer.
 
 ---
 
@@ -624,7 +646,7 @@ Revue en 10 lots, plus les réglages de l'outil. Principales décisions :
 - `eta_illum_tx` Ku porté à 1,0 ; rôles au statut D.
 - Biais S/Ku en angle absolu de 1,1 mrad ; règle de latence supprimée ; vaisseau validé.
 
-### Étape 1.1 : diagramme réel de l'antenne (20 octobre 2026, code à commiter)
+### Étape 1.1 : diagramme réel de l'antenne (20 octobre 2026)
 | Question | Décision de l'utilisateur |
 |---|---|
 | Q1, référence de la précision angulaire | **(a)** Borne de Cramér-Rao calculée sur la géométrie, multipliée par une marge ; marge de **1,13**. |
@@ -645,3 +667,26 @@ Effet sur les missions de test (valeurs de test seulement) :
 - temps Ku de −8 à −40 %, car il y a moins de fausses alarmes à confirmer.
 
 Le détail est dans `tests/snapshots/JOURNAL.md`.
+
+### Étape 1.2 : désadaptation active, lobes de réseau, lobes lointains, polarisation (20 octobre 2026)
+| Question | Décision de l'utilisateur |
+|---|---|
+| Q1, modèle de désadaptation | **(a)** Feuille de courant avec WAIM adaptée à θm, plus un terme de lobe de réseau. |
+| Q2, angle d'adaptation | **45° en S et en Ku.** |
+| Q3, largeur du terme de lobe de réseau | **g₀ = 0,02.** |
+| Q4, direction de la marge | **(a)** Pire azimut. |
+| Q5, limites de balayage | **(a)** Verrouillées ; marge et perte affichées ; alerte au-delà de **3 dB par passage**. |
+| Q6, application | À l'émission **et** à la réception, distincte de la dégradation de bord de bande. |
+| Q7, polarisation d'émission | **Linéaire selon e_v** (statut D). Rappeler à l'étape 3.3 que la commutation e_u / e_v est une option. |
+| Q8, perte avec réception bipolarisation | **(a)** 0,5 dB gardés comme valeur provisoire pour la recombinaison jusqu'à l'étape 1.5. |
+| Q9, pureté de polarisation | Modélisée, en sortie seulement. |
+| Q10, lobes secondaires | Calculés sur tout l'espace visible, avec alerte quand une option n'est pas tenue. |
+
+Constats de l'étape : avec 2 mm de jeu, le pas moyen réel (52,4 mm en S) réduisait la marge de lobe de réseau à 0,35 % à 2,9 GHz et 75°, et les lobes de jeu des TRSA (−16,6 dB en Ku) empêchaient de tenir les options de réception aux grands dépointages.
+
+**Décision consécutive :** jeu ramené à **0,5 mm**, le compromis jugé le plus acceptable (S : toutes les options sur tout le secteur ; Ku : −25 dB partout). Toutes les grandeurs dérivées ont suivi : surface totale 13,2964 m², enveloppe 4,1675 m, pointages −1,1 %, portées inchangées.
+
+Effet sur les missions de test (valeurs de test seulement) :
+- portée de WF-LRS −1,48 % dans l'axe et −6,25 % à 70° (6 916 → 6 813 km sur ST dans l'axe) ;
+- énergie par face de +0,2 à +9,5 %, temps S de 0 à +19 %, temps Ku de −6 à +61 % ;
+- puis, avec le jeu de 0,5 mm : pointages −1,1 %, énergie par face de 0 à −4,9 %, portées inchangées.

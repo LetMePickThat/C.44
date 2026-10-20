@@ -109,3 +109,31 @@ core/antenna_cache.json):
 - New snapshot entries: model terms "patterns", "grid_rx_loss_db", "angle_k_tx", "rx_beams_per_position", solve() at
   each RX option.
 - core/cost_table.json regenerated (now records the RX option it was built with).
+
+## 2026-10-20 -- roadmap step 1.2 (active mismatch, grating lobes, far sidelobes, polarisation)
+
+Model changes (radar_model V6.2.0, see its header):
+- Active mismatch on TX and RX (loss "scan_mismatch" = 2 x per pass): current sheet + WAIM matched at 45 deg (S and
+  Ku), combined with the grating-lobe term exp(-g / 0.02), g from the real mean pitch (S 52.4 mm, Ku 10.48 mm).
+  Round trip 0.26 dB at broadside, 1.12 dB at 70 deg, 2.11 dB at 75 deg (2.8 GHz); 2.24 dB at 2.85 GHz / 75 deg.
+  WF-LRS ranges -1.48 % at broadside, -6.25 % at 70 deg (ST: 6916 -> 6813 km at 0 deg, 4045 -> 3792 km at 70 deg).
+- Test missions: energy per face +0.2 to +9.5 %, S time 0 to +19 %, Ku time -6 to +61 % (mission_veille500: longer
+  coherent VEILLE_KV dwells -> more Doppler cells -> more false alarms to confirm). No confirmation-mode change.
+- Waveform sets that changed (S search, "COHE/NONC tau x N"):
+  - mission_example / S03: COHE 400us x2 | 800us x2 | COHE 800us x3 | NONC 800us x12
+    -> COHE 400us x2 | 800us x2 | NONC 800us x8 | NONC 800us x24
+  - mission_veille500 / CONE_D1..D4: third WF NONC 937.5us x12 -> NONC 800us x16
+  - mission_veille500 / VEILLE_KV: COHE 50us x4 | 50us x6 | 100us x6 | 200us x8 -> 50us x4 | 50us x8 | 100us x12 |
+    200us x12
+  - mission_redundancy_demo / A3_HIBAND: + COHE 100us x3 (4th WF); B3_EDGE: NONC 50us x1 -> 100us x1;
+    A5_SHORT: COHE 200us x8 dropped (3 WFs)
+  - mission_synthetic_mix / KV: COHE 50us x4 | 50us x6 | 100us x6 | 100us x12 -> 50us x4 | 50us x8 | 100us x8 | 100us x12
+- New outputs: far sidelobes / visible sidelobe vs scan (TRSA gap lobes), RX option held up to (deg), max mismatch per
+  sector, step-1.2 flags (mission_example S03: Ku RX -25 dB held only up to 61 deg at 14.0 GHz), pol_purity.
+- core/cost_table.json regenerated.
+- Same step, user decision after the gap-lobe finding: aperture.trsa_gap_m 2 mm -> 0.5 mm. Everything derived follows
+  (total area 13.4368 -> 13.2964 m2, fill 99.65 %, envelope 4.190 -> 4.1675 m, mean pitch S 52.1 / Ku 10.42 mm,
+  pattern cache recomputed): positions -1.14 %, ranges unchanged (emissive area unchanged; -0.002 %), energy per face
+  0 to -4.9 %, S time 0 to -1.4 %, Ku time -0.1 to -1.1 %. No waveform-set or confirmation-mode change. Gap lobes
+  Ku -16.6 -> -25.3 dB: S options held over the whole sector, Ku -25 dB everywhere (no more step-1.2 flag in the
+  test missions); Ku -30 / -35 dB held to 68.5 / 58.5 deg at 14.25 GHz. Mismatch at 2.9 GHz / 75 deg 4.1 -> 1.8 dB.

@@ -19,8 +19,9 @@ Règles appliquées à chaque étape :
 | 0.1 | ✔ fait (commit 90a5fc4) |
 | 0.2 | ✔ fait (commit c776688) |
 | 0.3 | ✔ fait (commits f205a23 et 7f6bd35) |
-| 1.1 | ✔ codé et testé, pas encore commité |
-| 1.2 et suivantes | à faire, la prochaine étant 1.2 |
+| 1.1 | ✔ fait (commit 5b3df06) |
+| 1.2 | ✔ fait |
+| 1.3 et suivantes | à faire, la prochaine étant 1.3 |
 
 ---
 
@@ -32,7 +33,7 @@ Règles appliquées à chaque étape :
 
 ## Phase 1 : antenne et RF
 
-- **1.1 Géométrie cohérente de l'antenne.** ✔ (pas encore commité)
+- **1.1 Géométrie cohérente de l'antenne.** ✔ (commit 5b3df06)
   - Calculer le **vrai diagramme** à partir de la composition des TRSA (rangées de l'octogone, jeux, pas de 52 mm en S et 10,4 mm en Ku), au lieu de HPBW = 0,886 λ/D_env, qui est la valeur d'une ouverture rectangulaire.
   - Séparer le faisceau d'émission, uniforme et qui sert à la grille de veille, du faisceau de réception, défini par son niveau de lobes secondaires, dont on déduit `eta_illum_rx`.
   - Largeur de lobe sur deux axes en (u, v).
@@ -44,7 +45,16 @@ Règles appliquées à chaque étape :
   - grappe de faisceaux de réception au pas de 0,5 largeur de lobe ;
   - ouverture Ku partagée.
 
-- **1.2 Diagramme de rayonnement.**
+- **1.2 Diagramme de rayonnement.** ✔
+
+  Décisions prises :
+  - feuille de courant avec WAIM adaptée à 45° (S et Ku), plus un terme de lobe de réseau exp(−g/0,02) dans le pire azimut ;
+  - perte appliquée à l'émission et à la réception ; limites de balayage verrouillées, alerte au-delà de 3 dB par passage ;
+  - polarisation d'émission linéaire selon e_v ; 0,5 dB gardés pour la recombinaison jusqu'à 1.5 ; pureté calculée en sortie ;
+  - lobes secondaires calculés sur tout l'espace visible, avec alerte par secteur ;
+  - jeu entre TRSA ramené de 2 mm à 0,5 mm, après la découverte des lobes de jeu.
+
+  Contenu prévu à l'origine :
   - Vrai lobe principal issu de la pondération, lobes secondaires, lobes de réseau, perte physique au dépointage (réflexion active).
   - **Doit apporter un modèle unique** de la désadaptation active |Γ(θ, f)|, pour S et Ku : WAIM, approche des lobes de réseau en haut de bande. Ce modèle doit expliquer la limite de 70° au-dessus de 2,85 GHz.
   - Depuis la revue 0.3, le gain ne suit que la projection cos θ : l'exposant 1,1 de V5.6.0 et la loi de perte au dépointage de V5.4.0 (0,6 dB à 70°) ont été retirés, car ils comptaient la même perte deux fois. Les résultats sont donc **optimistes** aux grands dépointages tant que cette étape n'est pas faite : 1,53 dB aller-retour à 70° (portée +9,2 %), 2,0 dB à 75° (+12,2 %).
@@ -139,6 +149,7 @@ Règles appliquées à chaque étape :
   - Le toucher S2 de confirmation est une observation S hors de la règle des rôles S (non vérifiée, sans objet Waveform). Les rôles TWS et PROMOTE existent mais aucune forme d'onde ne les utilise.
 
 - **3.3 Poursuite.**
+  - **Rappel à faire à l'utilisateur (décidé en 1.2)** : la polarisation d'émission est linéaire selon e_v ; la commutation e_u / e_v à chaque observation (un seul PA aiguillé vers les deux ports de l'élément, environ 0,1 à 0,2 dB de plus dans TX_chain) reste une **option à évaluer** pour la polarimétrie.
   - Filtre de Kalman ou IMM ; cadence de mise à jour selon la précision et la manœuvre ; initialisation, maintien et perte de piste.
   - **Polarisation** (avec 3.2) : usage polarimétrique des deux voies pour la confirmation, la discrimination des leurres et la classification.
 
@@ -197,7 +208,9 @@ Règles appliquées à chaque étape :
 |---|---|
 | Égalités exactes de l'optimiseur départagées par le bruit d'arrondi (candidats cohérents au plancher de cohérence) : il faut un critère secondaire. | 3.1 (ou plus tôt si l'utilisateur le souhaite) |
 | Le nombre de faces (4) est écrit en dur dans le code. | à placer |
-| Marge de lobe de réseau S de 1,1 % à 2,9 GHz et 75°, qui explique les 70° au-dessus de 2,85 GHz. | 1.2 |
 | Densité de puissance d'environ 104 kW/m² de RF moyenne. | 1.3, 4.2 |
 | `power_scale` arrondi à 3 décimales dans la sortie de l'optimiseur. | 5.5 |
-| `rx_taper_edge` = "inscribed" (statut D) à confirmer. | 1.1 / 1.2 |
+| `rx_taper_edge` = "inscribed" (statut D) à confirmer. | à placer |
+| **Lobes de jeu des TRSA** (étape 1.2) : traité en grande partie en ramenant le jeu à 0,5 mm. Restent en Ku au haut de la bande −30 dB tenu jusqu'à 64-68,5° et −35 dB jusqu'à 55-62°. Variante si la mécanique impose plus de jeu : maille d'éléments uniforme à travers les jeux. | lien avec 2.5 |
+| Matériaux appariés en dilatation, exigés par le jeu de 0,5 mm (à confirmer en mécanique). | 4.2 |
+| Limite de 70° au-dessus de 2,85 GHz : avec 0,5 mm, la désadaptation à 2,9 GHz et 75° n'est plus que de 1,8 dB par passage ; la relâcher serait une décision. | à placer |

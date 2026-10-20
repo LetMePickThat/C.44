@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-ANTENNA -- radiation pattern of one face computed from the array build-up (roadmap step 1.1).
+ANTENNA -- radiation pattern of one face computed from the array build-up (roadmap steps 1.1 and 1.2).
 
 The element positions come from [aperture] (TRSA rows of the octagon, TRSA side, dead gaps, TRMs per TRSA side);
-the elements are isotropic (element pattern and active mismatch: step 1.2). The pattern is evaluated near boresight
+the elements are isotropic (the active mismatch is radar_model.active_mismatch). The pattern is evaluated near boresight
 in units of lambda / D_env (D_env = the widest row, radar_model.ARRAY_ENVELOPE_M): there it does not depend on the
 frequency, only on the element layout, so one computation per band holds for its whole band.
 
@@ -13,6 +13,14 @@ frequency, only on the element layout, so one computation per band holds for its
             that the ACHIEVED peak sidelobe level of the real octagon equals each operator option of
             aperture.rx_sll_options_db (per watch volume, mission key "rx_sll_db") -> eta_illum_rx, RX beamwidth
   x_rms   : RMS extent of the aperture -> Cramer-Rao bound of the angle (radar_model.tracking_snr_req)
+  far     : (step 1.2) sidelobes over the whole visible region of the band (radius (1 + sin scan limit) D / lambda
+            at the top of the band), as a profile: peak level of the lobes within a distance r of the beam axis
+            (cumulative maximum, step FAR_PROFILE_STEP). A lobe at distance r is visible once scanned to theta with
+            r lambda / D <= 1 + sin(theta) (worst azimuth), so radar_model.sidelobe_visible_db() gives the worst
+            sidelobe of a scan direction. Includes the gap lobes of the TRSA lattice (k lambda / TRSA pitch, weighted
+            by the subarray factor of one TRSA: the ones next to the grating lobe reach about -17 dB in Ku, -27 dB in S);
+            the grating lobes (multiples of D / d_mean, d_mean = TRSA pitch / TRMs per side) and their near skirts
+            are left to the mismatch model
 
 User decisions (step 1.1, 2026-10-20): Taylor nbar 5 fitted on the octagon; options -25 / -30 / -35 dB, -25 by default;
 one setting per volume for S and Ku; eta_illum_rx derived (no longer an entry); worst axis kept.
@@ -29,7 +37,7 @@ import hashlib
 import json
 import math
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Dict, Optional, Sequence, Tuple
 
 import numpy as np
@@ -41,13 +49,15 @@ except ImportError:            # imported by core/radar_model.py run as a script
     import params
     from params import P
 
-ALGO_VERSION = 2                     # bump when the computation below changes (invalidates the cache)
+ALGO_VERSION = 4                     # bump when the computation below changes (invalidates the cache)
 CACHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "antenna_cache.json")
 _T = "tool.pattern."
 R_MAX = P.get(_T + "r_max_lam_d")            # evaluated radius around boresight, lambda / D_env
 R_STEP = P.get(_T + "r_step_lam_d")          # radial step of a cut
 PHI_STEP_DEG = P.get(_T + "phi_step_deg")    # azimuth step between cuts
 FIT_TOL_DB = P.get(_T + "fit_tol_db")        # tolerance of the fitted sidelobe level (achieved <= target)
+FAR_STEP = P.get(_T + "far_step_lam_d")      # grid step of the far-sidelobe scan over the visible region
+FAR_PROFILE_STEP = 0.5                       # radius step of the stored far-sidelobe profile, lambda / D_env
 
 
 @dataclass(frozen=True)
@@ -59,6 +69,9 @@ class Beam:
     hpbw_max: float                  # largest over the cuts
     sll_db: float                    # achieved peak sidelobe level (outside the first null), dB below the peak
     design_sll_db: Optional[float]   # design level of the circular Taylor law (None = uniform)
+    far_sll_db: Optional[float] = None   # peak sidelobe beyond the near window, over the visible region (step 1.2)
+    far_sll_r: Optional[float] = None    # its distance to the beam axis, lambda / D_env
+    far_profile_db: Optional[Tuple[float, ...]] = None   # peak level of the lobes within i x FAR_PROFILE_STEP
 
 
 @dataclass(frozen=True)
@@ -67,6 +80,8 @@ class BandPattern:
     x_rms_m: float                   # RMS extent of the (uniform) aperture along one axis, m
     tx: Beam
     rx: Dict[float, Beam]            # per sidelobe option (dB, negative)
+    d_mean_m: float = 0.0            # mean element pitch (TRSA pitch / TRMs per side): grating lobes
+    visible_r_lam_d: float = 0.0     # radius of the scanned far-sidelobe region, lambda / D_env
 
 
 # ----------------------------------------------------------------------------- special functions (numpy only)
@@ -165,20 +180,49 @@ def _analyse(xs, ys, mult, present, w, d_env, symmetric_xy: bool, design: Option
                 hpbw_max=float(hp.max()), sll_db=10.0 * math.log10(sll), design_sll_db=design)
 
 
-def _fit_taylor(xs, ys, mult, present, d_env, sym, target_db: float, nbar: int, edge_r: float) -> Beam:
+def _far(xs, ys, wm, d_env: float, r_vis: float, d_mean: float) -> Tuple[float, float, Tuple[float, ...]]:
+    """Peak power (dB) and radius (lambda / D_env) of the strongest lobe beyond the near window R_MAX, over the
+    visible region r <= r_vis of one quadrant (2D grid, AF = Cy W Cx^T), grating-lobe neighbourhoods excluded, and
+    the cumulative profile (peak dB within i x FAR_PROFILE_STEP; -inf inside the near window)."""
+    r = np.arange(0.0, r_vis + FAR_STEP / 2, FAR_STEP)
+    cx = np.cos(2.0 * math.pi * np.outer(r, xs) / d_env)
+    cy = np.cos(2.0 * math.pi * np.outer(r, ys) / d_env)
+    g = ((cy @ wm) @ cx.T / wm.sum()) ** 2                       # [v, u]
+    uu, vv = np.meshgrid(r, r)
+    rad = np.hypot(uu, vv)
+    keep = (rad > R_MAX) & (rad <= r_vis)
+    p_gl = d_env / d_mean                                        # grating-lobe lattice step, lambda / D_env
+    for i in range(int(r_vis // p_gl) + 2):
+        for j in range(int(r_vis // p_gl) + 2):
+            if i or j:
+                keep &= np.hypot(uu - i * p_gl, vv - j * p_gl) > R_MAX
+    k = int(np.argmax(np.where(keep, g, -1.0)))
+    n_bins = int(math.ceil(r_vis / FAR_PROFILE_STEP)) + 1
+    idx = np.minimum((rad / FAR_PROFILE_STEP).astype(int), n_bins - 1)
+    peak = np.zeros(n_bins)
+    np.maximum.at(peak, idx[keep], g[keep])
+    prof = np.maximum.accumulate(peak)
+    with np.errstate(divide="ignore"):
+        prof_db = tuple(float(x) for x in 10.0 * np.log10(prof))
+    return 10.0 * math.log10(float(g.flat[k])), float(rad.flat[k]), prof_db
+
+
+def _fit_taylor(xs, ys, mult, present, d_env, sym, target_db: float, nbar: int, edge_r: float) -> Tuple[Beam, np.ndarray]:
     """Weakest circular Taylor law (highest efficiency) whose achieved peak sidelobe level is <= target_db: the design
     level is searched by regula falsi between the target and the target - 40 dB."""
     xx, yy = np.meshgrid(xs, ys)
     p = np.minimum(np.hypot(xx, yy) / edge_r, 1.0)
 
+    def weights(design: float) -> np.ndarray:
+        return present * np.clip(taylor_circular(design, nbar, p), 0.0, None)
+
     def beam(design: float) -> Beam:
-        w = present * np.clip(taylor_circular(design, nbar, p), 0.0, None)
-        return _analyse(xs, ys, mult, present, w, d_env, sym, design)
+        return _analyse(xs, ys, mult, present, weights(design), d_env, sym, design)
 
     lo, hi = abs(target_db), abs(target_db) + 40.0
     b_lo, b_hi = beam(lo), beam(hi)
     if b_lo.sll_db <= target_db:
-        return b_lo
+        return b_lo, weights(lo)
     if b_hi.sll_db > target_db:
         raise ValueError(f"no circular Taylor law (nbar {nbar}) reaches {target_db} dB on this array")
     f_lo, f_hi = b_lo.sll_db - target_db, b_hi.sll_db - target_db
@@ -199,41 +243,52 @@ def _fit_taylor(xs, ys, mult, present, d_env, sym, target_db: float, nbar: int, 
             side = 1
         if -FIT_TOL_DB <= f <= 0.0 or hi - lo < 1e-3:
             break
-    return b_hi
+    return b_hi, weights(b_hi.design_sll_db)
 
 
 # ----------------------------------------------------------------------------- public entry
-def _compute(rows, trsa_side_m, gap_m, n_sub, d_env, sll_options, nbar, edge) -> BandPattern:
+def _compute(rows, trsa_side_m, gap_m, n_sub, d_env, sll_options, nbar, edge, r_vis) -> BandPattern:
     xs, ys, mult, present, n = _quadrant(rows, trsa_side_m, gap_m, n_sub)
     sym = len(xs) == len(ys) and np.allclose(xs, ys) and np.array_equal(present, present.T)
     edge_r = d_env / 2.0 if edge == "inscribed" else float(np.hypot(*np.meshgrid(xs, ys))[present > 0].max()
                                                              + trsa_side_m / n_sub / 2.0)
     x_rms = math.sqrt(float((mult * present * xs[None, :] ** 2).sum() / (mult * present).sum()))
-    tx = _analyse(xs, ys, mult, present, present, d_env, sym, None)
-    rx = {float(s): _fit_taylor(xs, ys, mult, present, d_env, sym, float(s), nbar, edge_r) for s in sll_options}
-    return BandPattern(n_elements=n, x_rms_m=x_rms, tx=tx, rx=rx)
+    d_mean = (trsa_side_m + gap_m) / n_sub
+
+    def with_far(b: Beam, w: np.ndarray) -> Beam:
+        far_db, far_r, prof = _far(xs, ys, mult * w, d_env, r_vis, d_mean)
+        return replace(b, far_sll_db=far_db, far_sll_r=far_r, far_profile_db=prof)
+
+    tx = with_far(_analyse(xs, ys, mult, present, present, d_env, sym, None), present)
+    rx = {float(s): with_far(*_fit_taylor(xs, ys, mult, present, d_env, sym, float(s), nbar, edge_r))
+          for s in sll_options}
+    return BandPattern(n_elements=n, x_rms_m=x_rms, tx=tx, rx=rx, d_mean_m=d_mean, visible_r_lam_d=r_vis)
 
 
 def input_key(rows: Sequence[int], trsa_side_m: float, gap_m: float, n_sub: Dict[str, int], d_env: float,
-              sll_options: Sequence[float], nbar: int, edge: str) -> Tuple[dict, str]:
+              sll_options: Sequence[float], nbar: int, edge: str, visible_r: Dict[str, float]) -> Tuple[dict, str]:
     """Everything the patterns depend on, and its hash (the cache key)."""
     inputs = {"algo": ALGO_VERSION, "rows": list(rows), "side": trsa_side_m, "gap": gap_m, "n_sub": dict(n_sub),
               "d_env": d_env, "sll": [float(s) for s in sll_options], "nbar": nbar, "edge": edge,
-              "r_max": R_MAX, "r_step": R_STEP, "phi_step": PHI_STEP_DEG, "fit_tol": FIT_TOL_DB}
+              "visible_r": dict(visible_r), "r_max": R_MAX, "r_step": R_STEP, "phi_step": PHI_STEP_DEG,
+              "fit_tol": FIT_TOL_DB, "far_step": FAR_STEP}
     return inputs, hashlib.sha256(json.dumps(inputs, sort_keys=True).encode("utf-8")).hexdigest()[:16]
 
 
 def face_patterns(rows: Sequence[int], trsa_side_m: float, gap_m: float, n_sub: Dict[str, int], d_env: float,
-                  sll_options: Sequence[float], nbar: int, edge: str) -> Dict[str, BandPattern]:
-    """Pattern of every band (n_sub = TRMs per TRSA side of each band), from the cache when its inputs are unchanged."""
-    inputs, key = input_key(rows, trsa_side_m, gap_m, n_sub, d_env, sll_options, nbar, edge)
+                  sll_options: Sequence[float], nbar: int, edge: str,
+                  visible_r: Dict[str, float]) -> Dict[str, BandPattern]:
+    """Pattern of every band (n_sub = TRMs per TRSA side of each band; visible_r = radius of its visible region,
+    lambda / D_env), from the cache when its inputs are unchanged."""
+    inputs, key = input_key(rows, trsa_side_m, gap_m, n_sub, d_env, sll_options, nbar, edge, visible_r)
     cached = _read_cache(key)
     if cached is not None:
         return cached
-    out = {b: _compute(rows, trsa_side_m, gap_m, k, d_env, sll_options, nbar, edge) for b, k in n_sub.items()}
+    out = {b: _compute(rows, trsa_side_m, gap_m, k, d_env, sll_options, nbar, edge, visible_r[b])
+           for b, k in n_sub.items()}
     if os.path.normcase(os.path.abspath(P.path)) == os.path.normcase(os.path.abspath(params.DEFAULT_PATH)):
         with open(CACHE_PATH, "w", encoding="utf-8") as fh:
-            json.dump({"key": key, "inputs": inputs, "bands": {b: asdict(p) for b, p in out.items()}}, fh, indent=1)
+            json.dump({"key": key, "inputs": inputs, "bands": {b: asdict(p) for b, p in out.items()}}, fh)
     return out
 
 
@@ -245,6 +300,10 @@ def _read_cache(key: str) -> Optional[Dict[str, BandPattern]]:
         return None
     if d.get("key") != key:
         return None
-    return {b: BandPattern(n_elements=p["n_elements"], x_rms_m=p["x_rms_m"], tx=Beam(**p["tx"]),
-                           rx={float(s): Beam(**v) for s, v in p["rx"].items()}) for b, p in d["bands"].items()}
+    def beam(v: dict) -> Beam:
+        return Beam(**{**v, "far_profile_db": tuple(v["far_profile_db"]) if v.get("far_profile_db") else None})
+
+    return {b: BandPattern(n_elements=p["n_elements"], x_rms_m=p["x_rms_m"], tx=beam(p["tx"]),
+                           rx={float(s): beam(v) for s, v in p["rx"].items()}, d_mean_m=p["d_mean_m"],
+                           visible_r_lam_d=p["visible_r_lam_d"]) for b, p in d["bands"].items()}
 
