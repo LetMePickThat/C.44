@@ -244,12 +244,23 @@ class PrepTab(QWidget):
         self.sb_rr = self._spin(0.1, 600, 1, md.SECTOR_DEFAULTS_BOX["rr_target_s"])
         self.sb_vmin = self._spin(0, 40000, 100, md.SECTOR_DEFAULTS_BOX["v_close_min_mps"])
         self.sb_vmax = self._spin(0, 40000, 100, md.SECTOR_DEFAULTS_BOX["v_close_max_mps"])
+        self.cb_rx_sll = QComboBox()
+        for i, sll in enumerate(md.RX_SLL_CHOICES):
+            beam = rm.rx_beam("S", sll)
+            self.cb_rx_sll.addItem(f"{sll:g}", sll)
+            self.cb_rx_sll.setItemData(i, f"RX weighting efficiency {beam.eta:.3f} (RX gain {rm.lin_to_db(beam.eta):+.2f} dB vs "
+                                          f"uniform), RX beamwidth {beam.hpbw:.3f} lambda/D", Qt.ToolTipRole)
+        self.cb_rx_sll.setToolTip("Peak sidelobe level of the digital RX weighting in this volume (S and Ku): lower "
+                                  "rejects strong off-axis echoes / interference better, at the cost of RX gain")
+        self.cb_rx_sll.currentIndexChanged.connect(self._on_field_changed)
+        self._set_rx_sll(md.SECTOR_DEFAULTS_BOX["rx_sll_db"])
         common.addRow("RCS (m2)", self.sb_rcs)
         common.addRow("Swerling", self.sb_swerling)
         common.addRow("Required range (km)", self.sb_range)
         common.addRow("Target RR (s)", self.sb_rr)
         common.addRow("Closing speed min (m/s)", self.sb_vmin)
         common.addRow("Closing speed max (m/s)", self.sb_vmax)
+        common.addRow("RX sidelobes (dB)", self.cb_rx_sll)
         v.addLayout(common)
         v.addWidget(self._build_tracking_group())
 
@@ -261,6 +272,10 @@ class PrepTab(QWidget):
         self.grp_box.setVisible(True)
         self.grp_cap.setVisible(False)
         return box
+
+    def _set_rx_sll(self, sll: float) -> None:
+        i = self.cb_rx_sll.findData(float(sll))
+        self.cb_rx_sll.setCurrentIndex(i if i >= 0 else self.cb_rx_sll.findData(md.SECTOR_DEFAULTS_BOX["rx_sll_db"]))
 
     def _build_tracking_group(self) -> QGroupBox:
         """Confirmation mode, new targets per refresh and the active-tracking (AT) range brackets of the sector."""
@@ -488,7 +503,7 @@ class PrepTab(QWidget):
         try:
             enabled = sec is not None
             for w in (self.ed_id, self.cb_shape, self.sb_rcs, self.sb_swerling, self.sb_range,
-                      self.sb_rr, self.sb_vmin, self.sb_vmax, self.grp_box, self.grp_cap, self.grp_at):
+                      self.sb_rr, self.sb_vmin, self.sb_vmax, self.cb_rx_sll, self.grp_box, self.grp_cap, self.grp_at):
                 w.setEnabled(enabled)
             self._fill_at_table(sec)
             if not sec:
@@ -511,6 +526,7 @@ class PrepTab(QWidget):
             self.sb_rr.setValue(sec.get("rr_target_s", md.SECTOR_DEFAULTS_BOX["rr_target_s"]))
             self.sb_vmin.setValue(sec.get("v_close_min_mps", md.SECTOR_DEFAULTS_BOX["v_close_min_mps"]))
             self.sb_vmax.setValue(sec.get("v_close_max_mps", md.SECTOR_DEFAULTS_BOX["v_close_max_mps"]))
+            self._set_rx_sll(sec.get("rx_sll_db", md.SECTOR_DEFAULTS_BOX["rx_sll_db"]))
             self.cb_confirm.setCurrentText(sec.get("confirm_mode", "auto"))
             self.sb_new_targets.setValue(sec.get("new_targets_per_rr", md.SECTOR_DEFAULTS_BOX["new_targets_per_rr"]))
         finally:
@@ -611,6 +627,7 @@ class PrepTab(QWidget):
         sec["rr_target_s"] = self.sb_rr.value()
         sec["v_close_min_mps"] = self.sb_vmin.value()
         sec["v_close_max_mps"] = self.sb_vmax.value()
+        sec["rx_sll_db"] = float(self.cb_rx_sll.currentData())
         sec["confirm_mode"] = self.cb_confirm.currentText()
         sec["new_targets_per_rr"] = self.sb_new_targets.value()
         self._decorate_item(self.list_sectors.item(self._cur_index), sec)

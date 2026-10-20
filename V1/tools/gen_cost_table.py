@@ -44,5 +44,6 @@ if __name__ == "__main__":
         tab[key] = None if best is None else [best[0], best[1], best[2], round(best[3], 1), round(best[4], 2), best[5]]
         reach[key] = [round(rmax, 1), e_rmax]     # max range of the cell (full power) and that waveform's energy (J)
     json.dump({"R": RS, "RCS": RCS, "V": VS, "TH": TH, "ppk": PPK, "pavg": rm.face_avg_rf_w(ELEC), "t": tab,
-               "reach": reach, "params_fingerprint": params.fingerprint(P)}, open(_OUT, "w"))
+               "reach": reach, "params_fingerprint": params.fingerprint(P), "rx_sll_db": rm.RX_SLL_DEFAULT_DB},
+              open(_OUT, "w"))
     print(len(tab), sum(1 for x in tab.values() if x is None), "infeasible")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.0.13
+# Radar Performance Model - V6.1.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,20 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.0.13 -> V6.1.0 (roadmap step 1.1: real radiation pattern of the octagonal TRSA array)
+#   - The pattern is COMPUTED from the array build-up (core/antenna.py, cached in core/antenna_cache.json) instead of
+#     HPBW = 0.886 lambda / D_env (rectangular aperture). TX uniform: HPBW 1.035 lambda / D_env (smallest cut; x 1.041,
+#     diagonal 1.035), first sidelobe -15.6 dB. Search lattice on the real TX beam: positions -27 %.
+#   - RX weighting = circular Taylor nbar 5 fitted on the real octagon so that the ACHIEVED peak sidelobe level is the
+#     watch volume's option (aperture.rx_sll_options_db, mission key "rx_sll_db", default -25 dB, one setting for S and
+#     Ku): eta_illum_rx is derived (-25: 0.873, -30: 0.773, -35: 0.693; was 0.88 entered, i.e. only -24 dB achieved).
+#   - Digital RX beams formed in each TX position on a lattice of rx_beam_spacing_hpbw = 0.5 RX beamwidth: residual
+#     RX grid loss 0.42 dB on search looks (was 0) and the RX beam count per position (compute load, step 4.4).
+#   - Angle accuracy = Cramer-Rao bound of the full digital aperture (x_rms from the build-up) x angle_crlb_margin
+#     1.13, independent of the RX weighting; replaces K_THETA 0.5 x HPBW(0.886): SNR need of an angle-driven track
+#     update +1.27 dB.
+#   - solve() takes rx_sll_db (None = the default option).
 #
 # Changes V6.0.12 -> V6.0.13 (roadmap step 0.1: single parameter file, no value changed)
 #   - All constants moved to radar_system.toml (loaded by core/params.py); module constant names kept. Bands and
@@ -170,11 +184,13 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 try:
+    from . import antenna
     from .params import P
 except ImportError:            # run as a script: python core/radar_model.py
+    import antenna
     from params import P
 
-MODEL_VERSION = "6.0.13"
+MODEL_VERSION = "6.1.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -199,12 +215,14 @@ MIGRATION_MODE: str = P.get("migration.mode")              # "COMPENSATED" (resi
 MIGRATION_RESIDUAL_DB: float = P.get("migration.residual_db")
 
 # --- Search beam grid ---
-# Hexagonal lattice of TX beam positions, spacing = BEAM_SPACING_HPBW x HPBW. The SAME spacing drives the number
-# of positions (frame time) and the mean TX grid loss (RX is digital and pointed on the target: TX only).
+# Hexagonal lattice of TX beam positions, spacing = BEAM_SPACING_HPBW x HPBW_TX. The SAME spacing drives the number
+# of positions (frame time) and the mean TX grid loss. In each position the digital RX forms a lattice of RX beams
+# (spacing RX_BEAM_SPACING_HPBW x HPBW_RX): residual RX grid loss, RX beam count (step 1.1).
 #   1.1  -> ~4590 positions, mean loss ~2.0 dB, worst -4.9 dB (V6.0.9) ; 1.04 -> ~5130, mean 1.81 dB, worst -4.3 dB (locked, V6.0.10)
 #   1.4  -> ~2830 positions, mean loss ~3.3 dB, worst point -7.9 dB (best mean range per energy)
 #   0.92 -> ~10200 positions, mean loss 1.41 dB (the value quoted in the notes)
 BEAM_SPACING_HPBW: float = P.get("search_grid.beam_spacing_hpbw")
+RX_BEAM_SPACING_HPBW: float = P.get("search_grid.rx_beam_spacing_hpbw")
 ENABLE_GRID_LOSS: bool = P.get("search_grid.enable_grid_loss")
 FRAME_INTERLEAVED: bool = P.get("search_grid.frame_interleaved")   # else the frame adds the echo wait 2R/c
 
@@ -248,16 +266,22 @@ FILL_FACTOR: float = PHYS_AREA_M2 / TOTAL_AREA_M2
 ARRAY_ENVELOPE_M: float = max(TRSA_ROWS) * TRSA_SIDE_M + (max(TRSA_ROWS) - 1) * TRSA_GAP_M   # widest row, beamwidth only
 N_TRM: Dict[str, int] = {"S": N_TRSA * S_TRM_PER_TRSA_SIDE ** 2, "Ku": N_TRSA * KU_TRM_PER_TRSA_SIDE ** 2}
 ETA_OHMIC: float = P.get("aperture.eta_ohmic")
-# HPBW = factor x lambda / D_env. TEMPORARY (review 0.3: removed from the parameter file): 0.886 is the V5.6.0 value,
-# that of a uniform RECTANGULAR aperture. The real pattern of the octagon (computed 2026-10-20: TX uniform 1.04,
-# RX taper eta 0.88 1.18) replaces it at roadmap step 1.1 -- do not move it back into the parameter file.
-HPBW_FACTOR: float = 0.886
+# Radiation pattern of each band computed from the build-up (core/antenna.py): TX uniform beam, RX weighting per
+# sidelobe option (eta_illum_rx, RX beamwidth), RMS extent x_rms (angle accuracy). Beamwidths in lambda / D_env.
+RX_SLL_OPTIONS_DB: Tuple[float, ...] = tuple(float(s) for s in P.get("aperture.rx_sll_options_db"))
+RX_SLL_DEFAULT_DB: float = float(P.get("tool.mission_defaults.sector.rx_sll_db"))
+if RX_SLL_DEFAULT_DB not in RX_SLL_OPTIONS_DB:
+    raise ValueError(f"{P.path}: tool.mission_defaults.sector.rx_sll_db ({RX_SLL_DEFAULT_DB:g}) is not one of "
+                     f"aperture.rx_sll_options_db {list(RX_SLL_OPTIONS_DB)}")
+PATTERNS: Dict[str, "antenna.BandPattern"] = antenna.face_patterns(
+    TRSA_ROWS, TRSA_SIDE_M, TRSA_GAP_M, {"S": S_TRM_PER_TRSA_SIDE, "Ku": KU_TRM_PER_TRSA_SIDE}, ARRAY_ENVELOPE_M,
+    RX_SLL_OPTIONS_DB, P.get("aperture.rx_taper_nbar"), P.get("aperture.rx_taper_edge"))
 
 # --- Surveillance sector (per face); its radius SECTOR_RADIUS_DEG is derived from the band scan limits below ---
 REFRESH_S: float = P.get("tool.cli.refresh_s")   # frame check of the CLI report only (missions: sector RR)
 
 # --- Tracking estimator constants (used by Ku TRACK waveforms, core/tracking.py) ---
-K_THETA: float = P.get("estimation.k_theta")
+ANGLE_CRLB_MARGIN: float = P.get("estimation.angle_crlb_margin")
 K_F: float = P.get("estimation.k_f")
 RANGE_CRLB_KR: float = P.get("estimation.range_crlb_kr")
 # =============================================================================
@@ -294,8 +318,7 @@ class BandConfig:
     scan_max_hi_deg: float       # scan limit above scan_break_ghz
     n_trm: int
     p_pk_trm_w: float
-    eta_illum_tx: float
-    eta_illum_rx: float
+    eta_illum_tx: float          # (eta_illum_rx is derived from the volume's RX weighting: rx_beam())
     t_sys_k: float
     losses_db: Dict[str, float]  # fixed implementation losses (summed)
     allowed_roles: Tuple[str, ...]
@@ -369,7 +392,7 @@ def _band(name: str) -> BandConfig:
         scan_max_deg=P.get(b + "scan_max_deg"), scan_break_ghz=P.get(b + "scan_break_ghz"),
         scan_max_hi_deg=P.get(b + "scan_max_hi_deg"),
         n_trm=N_TRM[name], p_pk_trm_w=P.get(b + "p_pk_trm_w"),
-        eta_illum_tx=P.get(b + "eta_illum_tx"), eta_illum_rx=P.get(b + "eta_illum_rx"),
+        eta_illum_tx=P.get(b + "eta_illum_tx"),
         t_sys_k=t_sys_cascade(P.section(b + "rx")),
         losses_db={**P.section(b + "losses_db"), "TX_chain": tx_chain_loss_db(P.section(b + "tx"), P.section(b + "rx"))},
         allowed_roles=tuple(P.get(b + "allowed_roles")),
@@ -438,9 +461,37 @@ def gain_lin(eta_illum: float, f_ghz: float, theta_deg: float) -> float:
     return 4.0 * math.pi * aperture_m2(eta_illum, theta_deg) / lambda_m(f_ghz) ** 2
 
 
-def hpbw_deg(f_ghz: float, theta_deg: float = 0.0) -> float:
+def rx_beam(band_name: str, rx_sll_db: Optional[float] = None) -> "antenna.Beam":
+    """RX beam of a band for a sidelobe option (None = the default option): eta_illum_rx, beamwidth, achieved level."""
+    s = RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
+    try:
+        return PATTERNS[band_name].rx[s]
+    except KeyError:
+        raise ValueError(f"RX sidelobe level {s:g} dB is not an option of aperture.rx_sll_options_db "
+                         f"{list(RX_SLL_OPTIONS_DB)}") from None
+
+
+def _pattern(f_ghz: float) -> "antenna.BandPattern":
+    band = band_for_frequency(f_ghz)
+    if band is None:
+        raise ValueError(f"{f_ghz} GHz is outside every band")
+    return PATTERNS[band.name]
+
+
+def hpbw_deg(f_ghz: float, theta_deg: float = 0.0, beam: str = "tx", rx_sll_db: Optional[float] = None) -> float:
+    """-3 dB beamwidth (deg) of the TX beam (uniform) or of the RX beam (weighting rx_sll_db), smallest over the
+    cuts; constant in (u, v), so the angular width grows as 1/cos(theta) in the scan plane (the worst axis)."""
+    fac = _pattern(f_ghz).tx.hpbw if beam == "tx" else rx_beam(band_for_frequency(f_ghz).name, rx_sll_db).hpbw
     d_eff = ARRAY_ENVELOPE_M * max(math.cos(math.radians(theta_deg)), 1e-6)
-    return math.degrees(HPBW_FACTOR * lambda_m(f_ghz) / d_eff)
+    return math.degrees(fac * lambda_m(f_ghz) / d_eff)
+
+
+def angle_k_tx(band_name: str) -> float:
+    """Angle accuracy per axis x sqrt(SNR), in TX beamwidths: Cramer-Rao bound of the full digital aperture,
+    sigma_u = lambda / (2 pi x_rms sqrt(2 SNR)), x ANGLE_CRLB_MARGIN, divided by the TX beamwidth in (u, v).
+    The same in every direction and at every frequency of the band (both scale with lambda / cos(theta))."""
+    p = PATTERNS[band_name]
+    return ANGLE_CRLB_MARGIN * ARRAY_ENVELOPE_M / (2.0 * math.pi * math.sqrt(2.0) * p.x_rms_m * p.tx.hpbw)
 
 
 SECTOR_TILT_DEG: float = P.get("geometry.tilt_deg")   # all four arrays tilted toward +Z (nose) (ship axis vertical, lighthouse model)
@@ -499,9 +550,18 @@ def _sector_area_uv(eps_min_deg: float, eps_max_deg: float) -> float:
 
 
 def beam_cell_area_uv(f_ghz: float) -> float:
-    """Area of one hexagonal cell of the beam lattice in (u, v): spacing = BEAM_SPACING_HPBW x 0.886 lambda / D."""
-    h = HPBW_FACTOR * lambda_m(f_ghz) / ARRAY_ENVELOPE_M
+    """Area of one hexagonal cell of the TX beam lattice in (u, v): spacing = BEAM_SPACING_HPBW x HPBW_TX (real
+    uniform-illumination pattern, smallest cut)."""
+    h = _pattern(f_ghz).tx.hpbw * lambda_m(f_ghz) / ARRAY_ENVELOPE_M
     return (math.sqrt(3.0) / 2.0) * (BEAM_SPACING_HPBW * h) ** 2
+
+
+def rx_beams_per_position(f_ghz: float, rx_sll_db: Optional[float] = None) -> float:
+    """Digital RX beams formed per TX search position: ratio of the TX and RX hexagonal lattice cells (RX spacing
+    RX_BEAM_SPACING_HPBW x HPBW_RX). An input of the compute and data budget (roadmap step 4.4)."""
+    p = _pattern(f_ghz)
+    rx = rx_beam(band_for_frequency(f_ghz).name, rx_sll_db)
+    return (BEAM_SPACING_HPBW * p.tx.hpbw / (RX_BEAM_SPACING_HPBW * rx.hpbw)) ** 2
 
 
 def n_search_positions(f_ghz: float, eps_min_deg: Optional[float] = None, eps_max_deg: Optional[float] = None) -> float:
@@ -514,6 +574,12 @@ def grid_loss_db(spacing_hpbw: Optional[float] = None) -> float:
     mean r^2 over the cell = 5 s^2 / 36  ->  L = 1.672 s^2 dB. Corner (worst case) loss is 12.04 s^2 / 3."""
     s = BEAM_SPACING_HPBW if spacing_hpbw is None else spacing_hpbw
     return 10.0 * math.log10(math.e) * 4.0 * math.log(2.0) * (5.0 / 36.0) * s * s
+
+
+def grid_rx_loss_db() -> float:
+    """Mean RX loss of a target between the digital RX beams of a position (same Gaussian law, RX lattice spacing
+    RX_BEAM_SPACING_HPBW in RX beamwidths): 0.42 dB at 0.5."""
+    return grid_loss_db(RX_BEAM_SPACING_HPBW)
 
 
 # -----------------------------------------------------------------------------
@@ -593,10 +659,12 @@ class TrackingPack:
 def tracking_snr_req(pack: TrackingPack, f_ghz: float, theta_deg: float, t_obs_s: float,
                      sig_bw_mhz: float) -> Tuple[float, str]:
     """SNR (linear) a track update needs for the pack's accuracies, and the dominant term (ANG / DOP / RNG).
-    t_obs_s = coherent observation time of the Doppler measurement (the dwell, (N - 1) PRI + tau)."""
+    t_obs_s = coherent observation time of the Doppler measurement (the dwell, (N - 1) PRI + tau).
+    Angle: Cramer-Rao bound of the full digital aperture x ANGLE_CRLB_MARGIN, sigma_u = lambda / (2 pi x_rms
+    sqrt(2 SNR)); in the scan plane (worst axis) an angle error is d_u / cos(theta)."""
     lam = lambda_m(f_ghz)
-    hp = math.radians(hpbw_deg(f_ghz, theta_deg))
-    ang = (K_THETA * hp / math.radians(pack.sigma_theta_deg)) ** 2
+    sigma_u = math.radians(pack.sigma_theta_deg) * max(math.cos(math.radians(theta_deg)), 1e-6)
+    ang = 0.5 * (ANGLE_CRLB_MARGIN * lam / (2.0 * math.pi * _pattern(f_ghz).x_rms_m * sigma_u)) ** 2
     sigma_f = 2.0 * pack.sigma_vr_mps / lam
     dop = 0.5 * (K_F / (t_obs_s * sigma_f)) ** 2
     rng = 0.0
@@ -699,7 +767,8 @@ class Result:
 
 
 def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
-          elec_mw: float = FACE_ELEC_POWER_MW) -> Result:
+          elec_mw: float = FACE_ELEC_POWER_MW, rx_sll_db: Optional[float] = None) -> Result:
+    """rx_sll_db: RX peak sidelobe level of the watch volume (an option of RX_SLL_OPTIONS_DB, None = default)."""
     band = band_for_frequency(f_ghz)
     if band is None or band.name != wf.band:
         raise ValueError(f"{wf.name}: {f_ghz} GHz is not in its {wf.band} band")
@@ -729,6 +798,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     losses["multibeam_tx"] = multibeam_tx_loss_db(wf.b_tx)
     if ENABLE_GRID_LOSS and wf.role in ("SEARCH", "TWS"):
         losses["grid_tx"] = grid_loss_db()
+        losses["grid_rx"] = grid_rx_loss_db()
     if wf.integration == "COHERENT" or wf.role == "TRACK":
         losses["coherence"] = coherence_loss_db(f_ghz, wf.coherent_time_s)
     mig, n_cells = migration_loss_db(target.v_close_mps, t_span, wf.sig_bw_mhz, wf.n)
@@ -736,7 +806,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     l_tot = sum(losses.values())
 
     g_tx = gain_lin(band.eta_illum_tx, f_ghz, theta_deg)
-    g_rx = gain_lin(band.eta_illum_rx, f_ghz, theta_deg)
+    g_rx = gain_lin(rx_beam(band.name, rx_sll_db).eta, f_ghz, theta_deg)
     p_beam = band.p_pk_total_w / wf.b_tx
     num = p_beam * g_tx * g_rx * lambda_m(f_ghz) ** 2 * target.rcs_m2 * wf.tau_s * wf.n
     den = (4.0 * math.pi) ** 3 * K_BOLTZ * band.t_sys_k * db_to_lin(l_tot) * db_to_lin(snr_db)
@@ -751,7 +821,8 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
         t_pos = wf.dwell_s + (0.0 if FRAME_INTERLEAVED else 2.0 * r_km * 1000.0 / C_MPS)
         t_frame = pos * t_pos / wf.b_tx
         frame = {"positions": pos, "dwell_s": wf.dwell_s, "t_pos_s": t_pos, "t_frame_s": t_frame,
-                 "ok": 1.0 if t_frame <= REFRESH_S else 0.0}
+                 "ok": 1.0 if t_frame <= REFRESH_S else 0.0,
+                 "rx_beams_per_position": rx_beams_per_position(f_ghz, rx_sll_db)}
 
     return Result(wf, target, snr_db, driver, r_km, losses, l_tot, p_avg_used, p_avg_max,
                   C_MPS * wf.pri_s / 2.0 / 1000.0, n_cells, frame)
@@ -779,9 +850,10 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
           f"Ku {1e3 * KU_TRM_PITCH_M:.1f} mm")
     print(f"Band {band.name}: {band.n_trm} TRM x {band.p_pk_trm_w:.0f} W = {band.p_pk_total_w/1e6:.2f} MW peak/face | "
           f"scan limit {lim:.0f} deg | T_sys {band.t_sys_k:.1f} K | fixed losses {band.l_fixed_db:.2f} dB")
+    rx = rx_beam(band.name)
     print(f"Gain TX {lin_to_db(gain_lin(band.eta_illum_tx, f_ghz, theta_deg)):.2f} dBi | "
-          f"RX {lin_to_db(gain_lin(band.eta_illum_rx, f_ghz, theta_deg)):.2f} dBi | "
-          f"HPBW {hpbw_deg(f_ghz, theta_deg):.2f} deg | "
+          f"RX {lin_to_db(gain_lin(rx.eta, f_ghz, theta_deg)):.2f} dBi (sidelobes {RX_SLL_DEFAULT_DB:g} dB, eta "
+          f"{rx.eta:.3f}) | HPBW TX {hpbw_deg(f_ghz, theta_deg):.2f} / RX {hpbw_deg(f_ghz, theta_deg, 'rx'):.2f} deg | "
           f"avg RF available {face_avg_rf_w(elec_mw)/1e6:.3f} MW")
     if abs(theta_deg) > lim:
         print(f"-> scan angle {theta_deg} deg exceeds the {lim:.0f} deg limit at {f_ghz} GHz. Nothing playable.")
@@ -846,7 +918,14 @@ def selftest() -> int:
           BAND_S.scan_limit_deg(2.8) == 75.0 and BAND_S.scan_limit_deg(2.88) == 70.0)
     check("S core band has no edge loss; edges 1.5 dB",
           BAND_S.edge_loss_db(2.8) == 0.0 and abs(BAND_S.edge_loss_db(2.7) - 1.5) < 1e-9 and abs(BAND_S.edge_loss_db(2.9) - 1.5) < 1e-9)
-    check("Search positions at 2.8 GHz in (u, v), spacing 1.04 HPBW, about 4167 (array tilt 25 deg)", abs(n_search_positions(2.8) - 4167) < 60, f"({n_search_positions(2.8):.0f})")
+    check("Search positions at 2.8 GHz in (u, v), spacing 1.04 HPBW_TX (real pattern), about 3050 (array tilt 25 deg)",
+          abs(n_search_positions(2.8) - 3050) < 45, f"({n_search_positions(2.8):.0f})")
+    check("TX beam of the uniform octagon 1.035 lambda / D_env (rectangular 0.886 replaced, step 1.1)",
+          abs(PATTERNS["S"].tx.hpbw - 1.035) < 0.003, f"({PATTERNS['S'].tx.hpbw:.4f})")
+    check("RX weighting reaches each sidelobe option on the real octagon",
+          all(s - 0.06 <= rx_beam(b, s).sll_db <= s + 1e-9 for b in BANDS for s in RX_SLL_OPTIONS_DB))
+    check("Angle CRLB x margin = 1.13 x 0.436 TX beamwidths / sqrt(SNR)", abs(angle_k_tx("S") - 0.4927) < 0.003,
+          f"({angle_k_tx('S'):.4f})")
     check("Chain efficiency 0.917 and avg RF 1.375 MW at 2 MW", abs(CHAIN_EFF - 0.917) < 1e-3 and abs(2e6 * CHAIN_EFF * PAE - 1.375e6) < 3e3)
 
     check("S 2.8 GHz: WF-LRS playable", [w.name for w in playable(2.8, 0.0)] == ["WF-LRS"])
@@ -868,9 +947,9 @@ def selftest() -> int:
     # Independent re-derivation of the radar equation for the WF-LRS benchmark (no solve() internals)
     lam = C_MPS / 2.8e9
     gt = 4 * math.pi * PHYS_AREA_M2 * 1.0 * ETA_OHMIC / lam ** 2
-    gr = 4 * math.pi * PHYS_AREA_M2 * 0.88 * ETA_OHMIC / lam ** 2
+    gr = 4 * math.pi * PHYS_AREA_M2 * PATTERNS["S"].rx[-25.0].eta * ETA_OHMIC / lam ** 2
     l_db = (2.0 + 0.5 + 0.5 + 0.2 + 0.6 + 0.5)      # DSP CFAR calibration Ku_blockage TX_chain pol (pre-LNA is in T_sys)
-    l_db += -10 * math.log10(1 - (2000 / 0.75 * 200e-6 / 5.0) / 2) + MB_L8_DB * (2.0 / 3.0) ** MB_P + MIGRATION_RESIDUAL_DB + 1.672 * BEAM_SPACING_HPBW ** 2
+    l_db += -10 * math.log10(1 - (2000 / 0.75 * 200e-6 / 5.0) / 2) + MB_L8_DB * (2.0 / 3.0) ** MB_P + MIGRATION_RESIDUAL_DB + 1.672 * (BEAM_SPACING_HPBW ** 2 + 0.5 ** 2)
     snr = db_to_lin(shnidman_total_snr_db(DETECT_PD, DETECT_PFA, 24, 1))
     r_hand = ((9.8e6 / 4) * gt * gr * lam ** 2 * 1000.0 * 200e-6 * 24
               / ((4 * math.pi) ** 3 * K_BOLTZ * BAND_S.t_sys_k * db_to_lin(l_db) * snr)) ** 0.25 / 1000.0
@@ -881,7 +960,7 @@ def selftest() -> int:
           f"({BAND_S.t_sys_k:.1f} vs {t_hand:.1f} K)")
     check("Radar equation matches an independent hand derivation (0.5 %)", abs(lrs.range_km / r_hand - 1) < 0.005,
           f"({lrs.range_km:.1f} vs {r_hand:.1f} km)")
-    # coarse plausibility bracket (test value): 5682 km with T_sys 346.5 K, 7223 km with the derived 154.3 K (review 0.3)
+    # coarse plausibility bracket (test value): 5682 km with T_sys 346.5 K, 7099 km after review 0.3, 6916 km at 1.1
     check("Benchmark WF-LRS on ST at 2.8 GHz in [5000, 9000] km", 5000 < lrs.range_km < 9000, f"({lrs.range_km:.0f} km)")
     check("Grid loss at spacing 0.92 reproduces the 1.41 dB of the notes", abs(grid_loss_db(0.92) - 1.41) < 0.02,
           f"({grid_loss_db(0.92):.3f} dB)")
@@ -900,7 +979,8 @@ def selftest() -> int:
     check("Positions x cell area = sector area (u, v)", abs(n_search_positions(2.8) * beam_cell_area_uv(2.8) - sector_area_uv()) < 1e-9)
     check("Sector uv area = 2.0006 (disc R=sin75 cut by the az=+/-45 planes, array tilt 25 deg)", abs(sector_area_uv() - 2.0006) < 0.002, f"({sector_area_uv():.4f})")
     _n_lim = n_search_positions(2.8, eps_min_deg=-20.0)
-    check("Mission rear limit eps_min = -20 deg: ~3600 positions (lattice count of the 3D viewer: 3601)", abs(_n_lim - 3601) < 30, f"({_n_lim:.0f})")
+    check("Mission rear limit eps_min = -20 deg: ~2637 positions (3601 x (0.886 / 1.035)^2 before step 1.1)",
+          abs(_n_lim - 2637) < 25, f"({_n_lim:.0f})")
     check("Default eps window (-90, +90) leaves the sector unchanged", abs(sector_area_uv() - 2.0006) < 0.002)
     check("uv count at small scan ~ angular count (cone 15 deg, 1 %)",
           abs(math.pi * math.sin(math.radians(15)) ** 2 / beam_cell_area_uv(2.8) /

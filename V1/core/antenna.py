@@ -1,0 +1,250 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+ANTENNA -- radiation pattern of one face computed from the array build-up (roadmap step 1.1).
+
+The element positions come from [aperture] (TRSA rows of the octagon, TRSA side, dead gaps, TRMs per TRSA side);
+the elements are isotropic (element pattern and active mismatch: step 1.2). The pattern is evaluated near boresight
+in units of lambda / D_env (D_env = the widest row, radar_model.ARRAY_ENVELOPE_M): there it does not depend on the
+frequency, only on the element layout, so one computation per band holds for its whole band.
+
+  TX beam : uniform illumination (PAs at saturation)            -> search lattice (radar_model.beam_cell_area_uv)
+  RX beam : circular Taylor weighting (nbar = aperture.rx_taper_nbar) whose design level is fitted numerically so
+            that the ACHIEVED peak sidelobe level of the real octagon equals each operator option of
+            aperture.rx_sll_options_db (per watch volume, mission key "rx_sll_db") -> eta_illum_rx, RX beamwidth
+  x_rms   : RMS extent of the aperture -> Cramer-Rao bound of the angle (radar_model.tracking_snr_req)
+
+User decisions (step 1.1, 2026-10-20): Taylor nbar 5 fitted on the octagon; options -25 / -30 / -35 dB, -25 by default;
+one setting per volume for S and Ku; eta_illum_rx derived (no longer an entry); worst axis kept.
+
+Symmetry: rows centred and palindromic (checked), so the array factor is real, sum of w cos(k x u) cos(k y v) over one
+quadrant; with x <-> y symmetry too (the octagon) only the cuts 0..45 deg are evaluated. Each cut is a matrix product.
+
+Results are cached in core/antenna_cache.json under a hash of their inputs (written only for the default parameter
+file, so a test on a modified copy never rewrites it).
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import math
+import os
+from dataclasses import asdict, dataclass
+from typing import Dict, Optional, Sequence, Tuple
+
+import numpy as np
+
+try:
+    from . import params
+    from .params import P
+except ImportError:            # imported by core/radar_model.py run as a script
+    import params
+    from params import P
+
+ALGO_VERSION = 2                     # bump when the computation below changes (invalidates the cache)
+CACHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "antenna_cache.json")
+_T = "tool.pattern."
+R_MAX = P.get(_T + "r_max_lam_d")            # evaluated radius around boresight, lambda / D_env
+R_STEP = P.get(_T + "r_step_lam_d")          # radial step of a cut
+PHI_STEP_DEG = P.get(_T + "phi_step_deg")    # azimuth step between cuts
+FIT_TOL_DB = P.get(_T + "fit_tol_db")        # tolerance of the fitted sidelobe level (achieved <= target)
+
+
+@dataclass(frozen=True)
+class Beam:
+    eta: float                       # illumination (taper) efficiency, 1 for uniform
+    hpbw: float                      # -3 dB beamwidth, lambda / D_env: SMALLEST over the cuts (worst case)
+    hpbw_x: float                    # along the TRSA rows (phi = 0)
+    hpbw_diag: float                 # phi = 45 deg
+    hpbw_max: float                  # largest over the cuts
+    sll_db: float                    # achieved peak sidelobe level (outside the first null), dB below the peak
+    design_sll_db: Optional[float]   # design level of the circular Taylor law (None = uniform)
+
+
+@dataclass(frozen=True)
+class BandPattern:
+    n_elements: int
+    x_rms_m: float                   # RMS extent of the (uniform) aperture along one axis, m
+    tx: Beam
+    rx: Dict[float, Beam]            # per sidelobe option (dB, negative)
+
+
+# ----------------------------------------------------------------------------- special functions (numpy only)
+_TAU = (np.arange(256) + 0.5) * (math.pi / 256)
+
+
+def bessel_j(n: int, x) -> np.ndarray:
+    """J_n(x) by its integral (1/pi) int_0^pi cos(n t - x sin t) dt, midpoint rule (spectrally accurate here)."""
+    x = np.asarray(x, dtype=float)
+    return np.cos(n * _TAU - x[..., None] * np.sin(_TAU)).mean(axis=-1)
+
+
+def j1_zeros(count: int) -> np.ndarray:
+    """First `count` positive zeros of J1 (McMahon start, Newton with J1' = J0 - J1 / x)."""
+    out = []
+    for m in range(1, count + 1):
+        b = (m + 0.25) * math.pi
+        x = b - 3.0 / (8.0 * b)
+        for _ in range(30):
+            j0, j1 = float(bessel_j(0, x)), float(bessel_j(1, x))
+            step = j1 / (j0 - j1 / x)
+            x -= step
+            if abs(step) < 1e-14:
+                break
+        out.append(x)
+    return np.array(out)
+
+
+def taylor_circular(design_sll_db: float, nbar: int, p: np.ndarray) -> np.ndarray:
+    """Circular Taylor (Hansen) aperture distribution at normalised radius p in [0, 1] (unnormalised)."""
+    a = math.acosh(10.0 ** (design_sll_db / 20.0)) / math.pi
+    mu = np.r_[0.0, j1_zeros(nbar) / math.pi]
+    sigma = mu[nbar] / math.sqrt(a * a + (nbar - 0.5) ** 2)
+    g = np.zeros_like(p, dtype=float)
+    for m in range(nbar):
+        if m == 0:
+            f = 1.0
+        else:
+            num = np.prod([1.0 - mu[m] ** 2 / (sigma ** 2 * (a * a + (n - 0.5) ** 2)) for n in range(1, nbar)])
+            den = np.prod([1.0 - mu[m] ** 2 / mu[n] ** 2 for n in range(1, nbar) if n != m])
+            f = -float(bessel_j(0, math.pi * mu[m])) * num / den
+        g += f / float(bessel_j(0, math.pi * mu[m])) ** 2 * bessel_j(0, math.pi * mu[m] * p)
+    return g
+
+
+# ----------------------------------------------------------------------------- array layout
+def _quadrant(rows: Sequence[int], trsa_side_m: float, gap_m: float, n_sub: int):
+    """Distinct x >= 0 and y >= 0 element coordinates of one quadrant, their multiplicities (1 on an axis, 2 off it)
+    and the presence matrix [y, x]."""
+    if list(rows) != list(rows)[::-1]:
+        raise ValueError("aperture.trsa_rows must be palindromic (symmetric array) for the pattern computation")
+    pitch = trsa_side_m + gap_m
+    d = trsa_side_m / n_sub
+    sub = (np.arange(n_sub) - (n_sub - 1) / 2.0) * d
+    pts = []
+    for r, n in enumerate(rows):
+        yc = (r - (len(rows) - 1) / 2.0) * pitch
+        xc = (np.arange(n) - (n - 1) / 2.0) * pitch
+        xx, yy = np.meshgrid((xc[:, None] + sub[None, :]).ravel(), yc + sub)
+        pts.append(np.c_[xx.ravel(), yy.ravel()])
+    pts = np.round(np.vstack(pts), 9)
+    q = pts[(pts[:, 0] >= 0) & (pts[:, 1] >= 0)]
+    xs, ix = np.unique(q[:, 0], return_inverse=True)
+    ys, iy = np.unique(q[:, 1], return_inverse=True)
+    present = np.zeros((len(ys), len(xs)))
+    present[iy, ix] = 1.0
+    mult = np.outer(np.where(ys == 0, 1.0, 2.0), np.where(xs == 0, 1.0, 2.0))
+    return xs, ys, mult, present, len(pts)
+
+
+def _cuts(xs, ys, wm, d_env, phis_deg, r) -> np.ndarray:
+    """Power pattern |AF|^2 / |AF(0)|^2 along each cut: rows = cuts, columns = radius r (lambda / D_env)."""
+    out = np.empty((len(phis_deg), len(r)))
+    a0 = wm.sum()
+    for i, phi in enumerate(np.radians(phis_deg)):
+        cx = np.cos(2.0 * math.pi * np.outer(r * math.cos(phi), xs) / d_env)
+        cy = np.cos(2.0 * math.pi * np.outer(r * math.sin(phi), ys) / d_env)
+        out[i] = (((cy @ wm) * cx).sum(axis=1) / a0) ** 2
+    return out
+
+
+def _analyse(xs, ys, mult, present, w, d_env, symmetric_xy: bool, design: Optional[float]) -> Beam:
+    phis = np.arange(0.0, (45.0 if symmetric_xy else 90.0) + 1e-9, PHI_STEP_DEG)
+    r = np.arange(0.0, R_MAX + R_STEP / 2, R_STEP)
+    g = _cuts(xs, ys, mult * w, d_env, phis, r)
+    hp, sll = [], -math.inf
+    for row in g:
+        i = int(np.argmax(row < 0.5))
+        hp.append(2.0 * float(np.interp(0.5, [row[i], row[i - 1]], [r[i], r[i - 1]])))
+        rising = np.flatnonzero(np.diff(row[i:]) > 0)
+        if rising.size:
+            sll = max(sll, float(row[i + rising[0]:].max()))
+    hp = np.array(hp)
+    eta = float((mult * w).sum() ** 2 / ((mult * present).sum() * (mult * w * w).sum()))
+    return Beam(eta=eta, hpbw=float(hp.min()), hpbw_x=float(hp[0]), hpbw_diag=float(np.interp(45.0, phis, hp)),
+                hpbw_max=float(hp.max()), sll_db=10.0 * math.log10(sll), design_sll_db=design)
+
+
+def _fit_taylor(xs, ys, mult, present, d_env, sym, target_db: float, nbar: int, edge_r: float) -> Beam:
+    """Weakest circular Taylor law (highest efficiency) whose achieved peak sidelobe level is <= target_db: the design
+    level is searched by regula falsi between the target and the target - 40 dB."""
+    xx, yy = np.meshgrid(xs, ys)
+    p = np.minimum(np.hypot(xx, yy) / edge_r, 1.0)
+
+    def beam(design: float) -> Beam:
+        w = present * np.clip(taylor_circular(design, nbar, p), 0.0, None)
+        return _analyse(xs, ys, mult, present, w, d_env, sym, design)
+
+    lo, hi = abs(target_db), abs(target_db) + 40.0
+    b_lo, b_hi = beam(lo), beam(hi)
+    if b_lo.sll_db <= target_db:
+        return b_lo
+    if b_hi.sll_db > target_db:
+        raise ValueError(f"no circular Taylor law (nbar {nbar}) reaches {target_db} dB on this array")
+    f_lo, f_hi = b_lo.sll_db - target_db, b_hi.sll_db - target_db
+    side = 0
+    for _ in range(40):
+        mid = (lo * f_hi - hi * f_lo) / (f_hi - f_lo)
+        b = beam(mid)
+        f = b.sll_db - target_db
+        if f > 0:
+            lo, f_lo, b_lo = mid, f, b
+            if side == -1:
+                f_hi /= 2.0
+            side = -1
+        else:
+            hi, f_hi, b_hi = mid, f, b
+            if side == 1:
+                f_lo /= 2.0
+            side = 1
+        if -FIT_TOL_DB <= f <= 0.0 or hi - lo < 1e-3:
+            break
+    return b_hi
+
+
+# ----------------------------------------------------------------------------- public entry
+def _compute(rows, trsa_side_m, gap_m, n_sub, d_env, sll_options, nbar, edge) -> BandPattern:
+    xs, ys, mult, present, n = _quadrant(rows, trsa_side_m, gap_m, n_sub)
+    sym = len(xs) == len(ys) and np.allclose(xs, ys) and np.array_equal(present, present.T)
+    edge_r = d_env / 2.0 if edge == "inscribed" else float(np.hypot(*np.meshgrid(xs, ys))[present > 0].max()
+                                                             + trsa_side_m / n_sub / 2.0)
+    x_rms = math.sqrt(float((mult * present * xs[None, :] ** 2).sum() / (mult * present).sum()))
+    tx = _analyse(xs, ys, mult, present, present, d_env, sym, None)
+    rx = {float(s): _fit_taylor(xs, ys, mult, present, d_env, sym, float(s), nbar, edge_r) for s in sll_options}
+    return BandPattern(n_elements=n, x_rms_m=x_rms, tx=tx, rx=rx)
+
+
+def input_key(rows: Sequence[int], trsa_side_m: float, gap_m: float, n_sub: Dict[str, int], d_env: float,
+              sll_options: Sequence[float], nbar: int, edge: str) -> Tuple[dict, str]:
+    """Everything the patterns depend on, and its hash (the cache key)."""
+    inputs = {"algo": ALGO_VERSION, "rows": list(rows), "side": trsa_side_m, "gap": gap_m, "n_sub": dict(n_sub),
+              "d_env": d_env, "sll": [float(s) for s in sll_options], "nbar": nbar, "edge": edge,
+              "r_max": R_MAX, "r_step": R_STEP, "phi_step": PHI_STEP_DEG, "fit_tol": FIT_TOL_DB}
+    return inputs, hashlib.sha256(json.dumps(inputs, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+
+
+def face_patterns(rows: Sequence[int], trsa_side_m: float, gap_m: float, n_sub: Dict[str, int], d_env: float,
+                  sll_options: Sequence[float], nbar: int, edge: str) -> Dict[str, BandPattern]:
+    """Pattern of every band (n_sub = TRMs per TRSA side of each band), from the cache when its inputs are unchanged."""
+    inputs, key = input_key(rows, trsa_side_m, gap_m, n_sub, d_env, sll_options, nbar, edge)
+    cached = _read_cache(key)
+    if cached is not None:
+        return cached
+    out = {b: _compute(rows, trsa_side_m, gap_m, k, d_env, sll_options, nbar, edge) for b, k in n_sub.items()}
+    if os.path.normcase(os.path.abspath(P.path)) == os.path.normcase(os.path.abspath(params.DEFAULT_PATH)):
+        with open(CACHE_PATH, "w", encoding="utf-8") as fh:
+            json.dump({"key": key, "inputs": inputs, "bands": {b: asdict(p) for b, p in out.items()}}, fh, indent=1)
+    return out
+
+
+def _read_cache(key: str) -> Optional[Dict[str, BandPattern]]:
+    try:
+        with open(CACHE_PATH, encoding="utf-8") as fh:
+            d = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    if d.get("key") != key:
+        return None
+    return {b: BandPattern(n_elements=p["n_elements"], x_rms_m=p["x_rms_m"], tx=Beam(**p["tx"]),
+                           rx={float(s): Beam(**v) for s, v in p["rx"].items()}) for b, p in d["bands"].items()}
+

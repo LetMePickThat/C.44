@@ -11,7 +11,8 @@ path as run(): core.optimizer.sector_plan), A's search in that direction:
         R_AB - v_B rr_A >= R_B - v_B rr_B   (1 % of R_B tolerance, as the optimiser's "short of range")
     i.e. a range margin can make up for a slower revisit, and a faster revisit for a shorter reach. In the scan bin of
     the direction, R_AB = solve(A's waveform, B's target) x (A's power scale)^(1/4): A only transmits the power that
-    just reaches A's own range ("no excess energy"), and range goes as P^(1/4);
+    just reaches A's own range ("no excess energy"), and range goes as P^(1/4); A's echoes are processed with B's RX
+    weighting (B's rx_sll_db: the digital RX can apply both to the same dwell);
   - keeps B's range unambiguous (A's PRI, same rule as the optimiser, unless B allows ambiguity) and resolves at
     least as finely (B's res_max_m).
 v_close_min_mps plays no part: the model evaluates migration at v_close_max only.
@@ -85,7 +86,7 @@ REASON_TEXT = {
 # every sector field the optimiser's plan, the need test or the shape depends on
 PLAN_FIELDS = geo.SECTOR_GEOMETRY_FIELDS + (
     "rcs_m2", "swerling", "range_km", "rr_target_s", "v_close_max_mps", "res_max_m", "allow_ambiguous",
-    "max_wf_per_sector", "short_tol", "freq_ghz_candidates")
+    "max_wf_per_sector", "short_tol", "freq_ghz_candidates", "rx_sll_db")
 
 _PLANS: Dict[str, Optional[dict]] = {}
 _PLAN_CACHE_MAX = P.get("tool.redundancy.plan_cache_max")
@@ -158,7 +159,7 @@ def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dic
         if w.n > 1 and not sec_b.get("allow_ambiguous") and mo.C * w.pri_s / 2e3 < sec_b["range_km"]:
             reason[i] = REASON_AMBIGUITY
             continue
-        r = mo.range_at(w, f, float(theta[i]), tgt_b)
+        r = mo.range_at(w, f, float(theta[i]), tgt_b, mo.rx_sll_db(sec_b))   # A's echoes, B's RX weighting
         if r is not None:
             reach[i] = r * plan["power_scale"][i] ** 0.25
             ok[i] = reach[i] >= g_need

@@ -80,7 +80,7 @@ def _try(fn: Callable[[], Any]) -> Any:
 def lin_to_db_gain(f: float, th: float) -> list:
     """TX and RX gain (dBi) of the band containing f at scan th."""
     b = rm.band_for_frequency(f)
-    return [rm.lin_to_db(rm.gain_lin(b.eta_illum_tx, f, th)), rm.lin_to_db(rm.gain_lin(b.eta_illum_rx, f, th))]
+    return [rm.lin_to_db(rm.gain_lin(b.eta_illum_tx, f, th)), rm.lin_to_db(rm.gain_lin(rm.rx_beam(b.name).eta, f, th))]
 
 
 def model_case() -> dict:
@@ -95,6 +95,11 @@ def model_case() -> dict:
         for f in (13.6, 14.0, 14.4):
             for th in (0.0, 50.0, 70.0):
                 sol[f"{w.name} {f} GHz | {th} deg | KKV"] = _try(lambda: rm.solve(w, f, th, rm.TARGETS["KKV"]))
+    for sll in rm.RX_SLL_OPTIONS_DB:                     # RX weighting options of a watch volume
+        sol[f"S 2.8 GHz | 30.0 deg | ST | RX {sll:g} dB"] = _try(
+            lambda: rm.solve(rm.WF_LRS, 2.8, 30.0, rm.TARGETS["ST"], rx_sll_db=sll))
+        sol[f"{KU_TRACK.name} 14.0 GHz | 30.0 deg | KKV | RX {sll:g} dB"] = _try(
+            lambda: rm.solve(KU_TRACK, 14.0, 30.0, rm.TARGETS["KKV"], rx_sll_db=sll))
     for r in sol.values():
         if isinstance(r, rm.Result):
             r.wf = r.wf.name       # the waveform is an input: keep its name only
@@ -106,6 +111,10 @@ def model_case() -> dict:
         "grid_loss_db": rm.grid_loss_db(), "chain_eff": rm.CHAIN_EFF, "face_avg_rf_w_2MW": rm.face_avg_rf_w(2.0),
         "array_envelope_m": rm.ARRAY_ENVELOPE_M, "sector_area_uv": rm.sector_area_uv(),
         "hpbw_deg": {f"{f} GHz | {th} deg": rm.hpbw_deg(f, th) for f in (2.8, 14.0) for th in (0.0, 40.0, 70.0)},
+        "patterns": rm.PATTERNS, "grid_rx_loss_db": rm.grid_rx_loss_db(),
+        "angle_k_tx": {b: rm.angle_k_tx(b) for b in rm.BANDS},
+        "rx_beams_per_position": {f"{f} GHz | RX {s:g} dB": rm.rx_beams_per_position(f, s)
+                                  for f in (2.8, 14.0) for s in rm.RX_SLL_OPTIONS_DB},
         "gain_dbi": {f"{f} GHz | {th} deg": lin_to_db_gain(f, th) for f in (2.8, 14.0) for th in (0.0, 30.0, 50.0, 70.0, 75.0)},
         "multibeam_tx_loss_db": {str(b): rm.multibeam_tx_loss_db(b) for b in (1, 2, 4, 8)},
         "coherence_loss_db": {str(t): rm.coherence_loss_db(14.0, t) for t in (1e-3, 0.064, 0.3)},

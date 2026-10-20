@@ -77,3 +77,35 @@ Model changes (radar_model V6.0.13, see its header):
 - confirmation.bias_s_hpbw 0.05 S beamwidth -> confirmation.bias_mrad 1.1 mrad per axis (absolute angle, constant in
   direction cosines; was 1.13 mrad at 2.8 GHz and varied with the S frequency). Confirmation energy -0.14 % at most,
   no mode change. cost_table.json rebuilt for its fingerprint.
+
+## 2026-10-20 -- roadmap step 1.1 (real radiation pattern of the octagonal TRSA array)
+
+Model changes (radar_model V6.1.0, see its header; pattern computed by core/antenna.py, cached in
+core/antenna_cache.json):
+- TX beam of the uniform octagon 1.035 lambda / D_env (smallest cut) instead of 0.886 (rectangular aperture): search
+  positions per face -26.8 % at every frequency (2.8 GHz: 4167 -> 3050).
+- RX weighting = circular Taylor nbar 5 fitted on the octagon, per watch volume (rx_sll_db, default -25 dB): eta_rx
+  0.88 -> 0.873 at the default (-0.035 dB; design level 29.5 dB, achieved -25.004 dB). Test missions have no rx_sll_db: all use the default.
+- RX grid loss 0.42 dB on search looks (digital RX beams every 0.5 RX beamwidth; was 0).
+- Together: WF-LRS ranges -2.58 % at every scan angle (ST at 0 deg: 7099 -> 6916 km); energy per position about +12 %
+  but 27 % fewer positions: S search energy about -18 % on the test missions, S time -14 to -27 %, Ku time -8 to -40 %
+  (fewer false alarms to confirm).
+- Angle accuracy = CRLB of the aperture x 1.13 (was 0.5 x HPBW(0.886)): the test missions have no angle-driven track
+  (model case only: synthetic Ku TRACK).
+- Waveform sets that changed (S search, per sector; "COHE/NONC tau x N, B_tx, dwell"):
+  - mission_example (and _csv) / S01: before NONC 100us x1 | COHE 100us x2 | COHE 200us x2;
+    after COHE 100us x2 | COHE 200us x2
+  - mission_example / S03: before COHE 400us x2 | COHE 800us x2 | NONC 937.5us x4 | NONC 937.5us x8;
+    after COHE 400us x2 | COHE 800us x2 | COHE 800us x3 | NONC 800us x12
+  - mission_veille500 / CONE_D1..D4: before NONC 800us x6 | NONC 800us x8 | NONC 800us x12;
+    after NONC 800us x6 | NONC 600us x12 | NONC 937.5us x12
+  - mission_veille500 / VEILLE_KV: before COHE 20us x6 | 50us x6 | 100us x8 | 200us x8;
+    after COHE 50us x4 | 50us x6 | 100us x6 | 200us x8
+  - mission_synthetic_mix / FWD: before COHE 400us x2 | 600us x2 | 600us x3; after COHE 400us x2 | 600us x2 | 800us x2 |
+    800us x3
+  - mission_synthetic_mix / KV: before COHE 20us x6 | 50us x4 | 50us x8 | 100us x8; after COHE 50us x4 | 50us x6 |
+    100us x6 | 100us x12
+  - confirmation mode KU7 -> KU1+7: mission_redundancy_demo / A2_VEILLE, mission_synthetic_mix / FWD
+- New snapshot entries: model terms "patterns", "grid_rx_loss_db", "angle_k_tx", "rx_beams_per_position", solve() at
+  each RX option.
+- core/cost_table.json regenerated (now records the RX option it was built with).

@@ -64,6 +64,7 @@ class CostTable:
     t: Dict[str, Optional[list]]
     reach: Optional[Dict[str, list]] = None   # per cell: [max range km at full power, that waveform's energy J]
     params_fingerprint: Optional[str] = None  # fingerprint of radar_system.toml the table was built from
+    rx_sll_db: float = rm.RX_SLL_DEFAULT_DB   # RX weighting the table was built with (older tables: the default)
 
     @property
     def is_current(self) -> bool:
@@ -90,7 +91,8 @@ def load_table(path: str = DEFAULT_TABLE_PATH) -> Optional[CostTable]:
     with open(path, encoding="utf-8") as fh:
         d = json.load(fh)
     return CostTable(R=d["R"], RCS=d["RCS"], V=d["V"], TH=d["TH"], ppk=d["ppk"], pavg_ref_w=d["pavg"], t=d["t"],
-                     reach=d.get("reach"), params_fingerprint=d.get("params_fingerprint"))
+                     reach=d.get("reach"), params_fingerprint=d.get("params_fingerprint"),
+                     rx_sll_db=d.get("rx_sll_db", rm.RX_SLL_DEFAULT_DB))
 
 
 def _bracket(value: float, grid: List[float], log: bool = False) -> Tuple[int, int, float]:
@@ -236,7 +238,7 @@ def _estimate_at_faces(sec: dict, grid: geo.SphereGrid, face_sel: Dict[int, Tupl
                 unreachable += n_tr_k
                 continue
             pack = rm.TrackingPack(b["angle_zone_deg"] / trk.ANGLE_ZONE_SIGMAS, b["vr_acc_mps"], b.get("range_acc_m"))
-            look = trk.ku_look(theta_k, tgt, b["r_max_km"], p_avg_max_w, pack)
+            look = trk.ku_look(theta_k, tgt, b["r_max_km"], p_avg_max_w, pack, sec.get("rx_sll_db"))
             if look is None:
                 unreachable += n_tr_k
                 continue
@@ -257,7 +259,10 @@ def estimate_sector_faces(table: CostTable, sec: dict, grid: geo.SphereGrid, eps
     cell = rm.beam_cell_area_uv(f_ghz)
     weight = grid.w * grid.d_omega / cell  # beam positions per raster cell (same convention as the optimiser)
     rr = sec.get("rr_target_s", 1.0) or 1.0
-    r_want = sec.get("range_km", 0.0)
+    # Another RX weighting than the table's only changes eta_illum_rx: the SNR scales as eta / R^4, so the energy of
+    # the sector's range is the table's at the equivalent range R (eta_table / eta)^(1/4)
+    eta_ratio = (rm.rx_beam("S", table.rx_sll_db).eta / rm.rx_beam("S", sec.get("rx_sll_db")).eta)
+    r_want = sec.get("range_km", 0.0) * eta_ratio ** 0.25
     rcs = sec.get("rcs_m2", 1.0)
     v = sec.get("v_close_max_mps", 1000.0)
     th_grid = np.array(table.TH, dtype=float)

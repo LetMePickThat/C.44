@@ -10,6 +10,7 @@ Active tracking (AT) and confirmation inputs, per sector (core/tracking.py):
               +/-2 sigma), range_acc_m and vr_acc_mps (1 sigma)};
   "confirm_mode": "auto" (default) or a forced mode of tracking.CONFIRM_MODES;
   "new_targets_per_rr": true targets newly detected per refresh (confirmed like the false alarms).
+RX weighting, per sector: "rx_sll_db" = RX peak sidelobe level, one of RX_SLL_CHOICES (S and Ku; default -25 dB).
 
 Validation messages are operator-facing.
 """
@@ -38,6 +39,7 @@ SECTOR_DEFAULTS_CAP: Dict[str, object] = {"shape": "cap", **P.section(_MD + ".ca
 BRACKET_DEFAULTS: Dict[str, float] = dict(P.section(_MD + ".bracket"))
 BRACKET_FIELDS = tuple(BRACKET_DEFAULTS)
 CONFIRM_MODE_CHOICES = ("auto", "KU1+7", "KU7", "S2")   # = tracking.CONFIRM_MODES, plus automatic selection
+RX_SLL_CHOICES = mo.rm.RX_SLL_OPTIONS_DB                # aperture.rx_sll_options_db
 
 _ID_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
 
@@ -170,6 +172,10 @@ def validate_sector(sec: dict, index: int) -> List[str]:
     res_max = sec.get("res_max_m")
     if res_max is not None and res_max <= 0:
         errs.append(f"{tag}: res_max_m must be > 0")
+    sll = sec.get("rx_sll_db", SECTOR_DEFAULTS_BOX["rx_sll_db"])
+    if sll not in RX_SLL_CHOICES:
+        errs.append(f"{tag}: RX sidelobe level rx_sll_db ({sll}) must be one of "
+                    f"{', '.join(f'{s:g}' for s in RX_SLL_CHOICES)} dB")
     errs.extend(validate_tracking(sec, tag))
     return errs
 
@@ -246,7 +252,7 @@ def save_mission_json(path: str, mission: dict) -> None:
 _CSV_FIELDS = [
     "id", "shape", "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg",
     "phi0_deg", "eps0_deg", "radius_deg", "rcs_m2", "swerling", "range_km", "rr_target_s",
-    "v_close_min_mps", "v_close_max_mps", "res_max_m", "allow_ambiguous",
+    "v_close_min_mps", "v_close_max_mps", "res_max_m", "allow_ambiguous", "rx_sll_db",
     "confirm_mode", "new_targets_per_rr", "tracking",
 ]
 

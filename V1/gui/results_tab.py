@@ -20,6 +20,7 @@ from PyQt5.QtWidgets import (
 )
 
 from core import geometry as geo
+from core import radar_model as rm
 from gui.scene_view import SceneView, SectorDraw
 
 
@@ -251,7 +252,8 @@ class ResultsTab(QWidget):
         n_wf = len(r.get("wf_set", [w]))
         text = (f"{sid}  {w['freq_ghz']} GHz, " +
                 (f"{n_wf} WFs" if n_wf > 1 else w["integration"][:4]) + "\n"
-                f"range: worst {rg['at_worst_scan']} / best {rg['at_best_scan']} km\n"
+                f"range: worst {rg['at_worst_scan']} / best {rg['at_best_scan']} km | RX sidelobes "
+                f"{r.get('rx_sll_db', rm.RX_SLL_DEFAULT_DB):g} dB\n"
                 f"RR: target {r['rr_target_s']:.0f}s alone {r['rr_alone_s']:.0f}s "
                 f"mission {r.get('rr_est_mission_s', r['rr_target_s']):.0f}s\n"
                 f"sector: energy {100 * self._sector_energy(r):.0f} % / time {100 * self._sector_time(r):.0f} %"

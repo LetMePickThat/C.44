@@ -6,8 +6,8 @@ core.optimizer.run() (called at its end; the result goes under the report key "t
 
 Decisions of 2026-10-19 (tracking plan, steps 1-2):
   - Angle measured on the detection echo itself (fully digital RX, ML estimator on the full aperture):
-    sigma per axis = K_ML x HPBW / sqrt(SNR of the echo), K_ML = 0.5; residual S/Ku alignment bias HPBW_S / 20 per
-    axis. The echoes that cross the threshold have a random SNR (Swerling), drawn here by quantiles.
+    sigma per axis = K x HPBW_TX / sqrt(SNR of the echo), K = Cramer-Rao bound of the aperture x margin
+    (radar_model.angle_k_tx, step 1.1, ~0.49); residual S/Ku alignment bias confirmation.bias_mrad per axis. The echoes that cross the threshold have a random SNR (Swerling), drawn here by quantiles.
   - Every S detection is confirmed: true targets AND false alarms (radar_model.DETECT_PFA per range-Doppler cell).
     Modes:  KU1+7 = one Ku look on the S estimate, then a 7-beam Ku cluster if it fails (two round trips);
             KU7   = 7-beam Ku cluster at once (one round trip);
@@ -42,7 +42,7 @@ from .params import P
 # Values from radar_system.toml ([confirmation], [tracking], [band.Ku], [tool.confirmation]).
 _T = "tool.confirmation."
 KU_FREQ_GHZ = P.get("confirmation.ku_freq_ghz")      # Ku confirmation / tracking frequency
-K_ML = rm.K_THETA                                    # angle estimator constant, ML on the full digital aperture
+K_ML_S = rm.angle_k_tx("S")                          # S angle accuracy x sqrt(SNR), in S TX beamwidths (CRLB x margin)
 BIAS_MRAD = P.get("confirmation.bias_mrad")          # residual S/Ku alignment bias per axis (absolute angle, constant in u, v)
 CONFIRM_P_MIN = P.get("confirmation.p_min")          # minimum probability of confirming a true target
 CONFIRM_MODES = ("KU1+7", "KU7", "S2")
@@ -125,9 +125,9 @@ def _ku_after_s(sigma_ku, bias_ku: float, snr_ku, swerling: int) -> Tuple[np.nda
 def confirm_tables(swerling: int, f_s_ghz: float) -> dict:
     """Confirmation statistics of the three modes vs the power margins (independent of range and scan angle:
     S and Ku beams widen together on the same face, and the detection always happens at the design SNR)."""
-    q = KU_FREQ_GHZ / f_s_ghz                                              # S beamwidth in Ku beamwidths
+    q = rm.hpbw_deg(f_s_ghz) / rm.hpbw_deg(KU_FREQ_GHZ)                    # S TX beamwidth in Ku TX beamwidths
     x_det = detected_snr_quantiles(_snr_ref(swerling), swerling)          # (M,)
-    sig_ku = K_ML * q / np.sqrt(x_det)
+    sig_ku = K_ML_S * q / np.sqrt(x_det)
     bias_ku = BIAS_MRAD * 1e-3 / math.radians(rm.hpbw_deg(KU_FREQ_GHZ))   # in Ku beamwidths (boresight = u, v width)
     m_lin = 10.0 ** (MARGIN_DB / 10.0)
     snr_ku = _snr_ref(swerling) * m_lin                                    # Ku centre-look SNR per margin
@@ -137,10 +137,10 @@ def confirm_tables(swerling: int, f_s_ghz: float) -> dict:
     ex = bias_s + sig_s[:, None, None] * GH_NODES[:, None]
     ey = bias_s + sig_s[:, None, None] * GH_NODES[None, :]
     w = GH_WEIGHTS[:, None] * GH_WEIGHTS[None, :]
-    touch_snr = _snr_ref(swerling) * rm.db_to_lin(rm.grid_loss_db()) * m_lin          # (n_ms,)
+    touch_snr = _snr_ref(swerling) * rm.db_to_lin(rm.grid_loss_db() + rm.grid_rx_loss_db()) * m_lin   # (n_ms,)
     pt = pd_single(_tx_gain(ex, ey)[..., None] * touch_snr, swerling)                   # (M, 12, 12, n_ms)
     pt = np.tensordot(w, pt, axes=([0, 1], [1, 2]))                                    # (M, n_ms)
-    sig2 = K_ML * q / np.sqrt(x_det[:, None] + touch_snr[None, :])                     # (M, n_ms)
+    sig2 = K_ML_S * q / np.sqrt(x_det[:, None] + touch_snr[None, :])                   # (M, n_ms)
     s2_succ = np.zeros((len(m_lin), len(m_lin)))
     s2_looks = np.zeros_like(s2_succ)
     for i in range(len(m_lin)):
@@ -178,25 +178,28 @@ def _ku_candidates(integ: str, pack: Optional[rm.TrackingPack]) -> Tuple[Tuple[r
 
 
 @functools.lru_cache(maxsize=1 << 17)
-def _ku_reach(w: rm.Waveform, theta: float, rcs_m2: float, swerling: int, v_mps: float) -> Tuple[float, str]:
+def _ku_reach(w: rm.Waveform, theta: float, rcs_m2: float, swerling: int, v_mps: float,
+              rx_sll_db: float) -> Tuple[float, str]:
     """Range at full power and SNR driver of one Ku waveform (0 if not playable)."""
     try:
-        r = rm.solve(w, KU_FREQ_GHZ, theta, rm.Target("ku", rcs_m2, swerling, v_mps), rm.FACE_ELEC_POWER_MW)
+        r = rm.solve(w, KU_FREQ_GHZ, theta, rm.Target("ku", rcs_m2, swerling, v_mps), rm.FACE_ELEC_POWER_MW, rx_sll_db)
         return r.range_km, r.driver
     except ValueError:
         return 0.0, "-"
 
 
 def ku_look(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: float,
-            pack: Optional[rm.TrackingPack] = None) -> Optional[dict]:
+            pack: Optional[rm.TrackingPack] = None, rx_sll_db: Optional[float] = None) -> Optional[dict]:
     """Cheapest Ku look reaching r_km at scan theta (power backed off to just reach it), for detection only
     (pack None) or for a track update (SNR = max(detection, accuracy)). Cost = max(energy / face average power,
-    Ku TX time), as the search objective. None when no candidate reaches r_km."""
+    Ku TX time), as the search objective. None when no candidate reaches r_km. rx_sll_db: RX weighting of the
+    volume (None = default option)."""
+    sll = rm.RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
     best = None
     for det, trk in _ku_candidates(_ku_integration(tgt.swerling), pack):
-        r_eff, driver = _ku_reach(det, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps)
+        r_eff, driver = _ku_reach(det, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps, sll)
         if trk is not None:
-            r_trk, d_trk = _ku_reach(trk, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps)
+            r_trk, d_trk = _ku_reach(trk, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps, sll)
             if r_trk < r_eff:
                 r_eff, driver = r_trk, d_trk.replace("Track-", "")
             else:
@@ -239,6 +242,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict
     sw = int(sec.get("swerling", 1))
     tgt = rm.Target(sec["id"], sec["rcs_m2"], sw, sec["v_close_max_mps"])
     r_det, rr = sec["range_km"], sec["rr_target_s"]
+    sll = mo.rx_sll_db(sec)
     f_s = r["wf"]["freq_ghz"]
     groups = _groups(P, r)
     p_face = P.sum(axis=1)
@@ -259,7 +263,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict
         cells = r_det * 1e3 / (rm.C_MPS / (2.0 * w["sig_bw_mhz"] * 1e6)) * (w["n_pulses"] if w["integration"] == "COHERENT" else 1)
         fa_g = gr["pos"] * cells * rm.DETECT_PFA
         fa += fa_g
-        look = ku_look(gr["theta"], tgt, r_det, p_avg_max_w) if gr["theta"] <= ku_lim else None
+        look = ku_look(gr["theta"], tgt, r_det, p_avg_max_w, rx_sll_db=sll) if gr["theta"] <= ku_lim else None
         if look is None:
             ku_missing += float(gr["pos"].sum())
         cg.append({"true": n_new * gr["pos"] / p_all, "fa": fa_g,
@@ -331,7 +335,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict
         drivers: Dict[str, float] = {}
         wf_main, pos_main, unreachable = None, -1.0, 0.0
         for gr in groups:
-            look = ku_look(gr["theta"], tgt, b["r_max_km"], p_avg_max_w, pack) if gr["theta"] <= ku_lim else None
+            look = ku_look(gr["theta"], tgt, b["r_max_km"], p_avg_max_w, pack, sll) if gr["theta"] <= ku_lim else None
             share = gr["pos"] / p_all * b["n_targets"]                       # tracks per face in this group
             if look is None:
                 unreachable += float(share.sum())

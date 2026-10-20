@@ -21,6 +21,8 @@ with the audit corrections):
     run time), so each candidate costs one solve() per frequency.
   - [D] Unambiguous range imposed on PRI (PRI >= 2 R / c) unless sector says "allow_ambiguous": true.
   - [D] Migration evaluated at v_close_max_mps; Pd/Pfa/loss budget are the model's locked values.
+  - RX weighting per sector (key "rx_sll_db", an option of radar_model.RX_SLL_OPTIONS_DB, default -25 dB): sets
+    eta_illum_rx, so the range of every candidate; the report gives the RX beams formed per position (step 4.4).
   - [D] Sectors are independent; overlapping sectors are each budgeted in full there (flagged, not deduplicated --
         merging distinct RCS/range/RR needs into one search is generally costlier than paying for each separately,
         since it has to meet the hardest of both at once). A sector spanning several faces is budgeted per face
@@ -193,18 +195,25 @@ def make_wf(name, tau, n, pri, bw, b, integ):
 
 
 @functools.lru_cache(maxsize=SOLVE_CACHE_SIZE)
-def _range_cached(w, f: float, theta: float, rcs_m2: float, swerling: int, v_close_mps: float) -> Optional[float]:
+def _range_cached(w, f: float, theta: float, rcs_m2: float, swerling: int, v_close_mps: float,
+                  rx_sll_db: float) -> Optional[float]:
     """Keyed on everything the range depends on (Waveform is a frozen dataclass; the target name is irrelevant).
     The model's module constants are assumed fixed for the life of the process."""
     try:
         tgt = rm.Target("cache", rcs_m2, swerling, v_close_mps)
-        return rm.solve(w, f, theta, tgt, rm.FACE_ELEC_POWER_MW).range_km
+        return rm.solve(w, f, theta, tgt, rm.FACE_ELEC_POWER_MW, rx_sll_db).range_km
     except ValueError:
         return None
 
 
-def range_at(w, f, theta, tgt):
-    return _range_cached(w, f, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps)
+def rx_sll_db(sec: dict) -> float:
+    """RX peak sidelobe level of a sector (mission key "rx_sll_db", default option when absent)."""
+    return float(sec.get("rx_sll_db", rm.RX_SLL_DEFAULT_DB))
+
+
+def range_at(w, f, theta, tgt, rx_sll: Optional[float] = None):
+    return _range_cached(w, f, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps,
+                         rm.RX_SLL_DEFAULT_DB if rx_sll is None else float(rx_sll))
 
 
 def candidate_waveforms(sec: dict) -> List:
@@ -241,7 +250,7 @@ def _theta_centres(f: float, nb: int) -> np.ndarray:
 @functools.lru_cache(maxsize=64)
 def _scan_factor(f: float, nb: int) -> Optional[np.ndarray]:
     """h(f, theta_i) = R(theta_i) / R(0) at the 1-deg bin centres. In the model the scan angle only enters the range
-    through the array gain and the scan loss, so h does not depend on the waveform, and one solve() per candidate (at
+    through the array gain and the scan loss, so h does not depend on the waveform (nor on the RX weighting), and one solve() per candidate (at
     theta = 0) gives its range in every bin. Checked here on two dissimilar waveforms; None if a model change ever
     breaks the property (callers then solve() every bin)."""
     th = _theta_centres(f, nb)
@@ -253,19 +262,19 @@ def _scan_factor(f: float, nb: int) -> Optional[np.ndarray]:
     return hs[0] if np.allclose(hs[0], hs[1], rtol=1e-9, atol=0.0) else None
 
 
-def _range_matrix(cands: List, f: float, tgt, nb: int) -> np.ndarray:
+def _range_matrix(cands: List, f: float, tgt, nb: int, rx_sll: float) -> np.ndarray:
     """ranges[c, i] (km, full peak power) of candidate c in 1-deg bin i; NaN where the waveform is not playable."""
     r = np.full((len(cands), nb), np.nan)
     h = _scan_factor(f, nb)
     th = _theta_centres(f, nb)
     for j, w in enumerate(cands):
         if h is not None:
-            r0 = range_at(w, f, 0.0, tgt)
+            r0 = range_at(w, f, 0.0, tgt, rx_sll)
             if r0 is not None:
                 r[j] = r0 * h
         else:
             for i, t in enumerate(th):
-                v = range_at(w, f, float(t), tgt)
+                v = range_at(w, f, float(t), tgt, rx_sll)
                 if v is not None:
                     r[j, i] = v
     return r
@@ -394,7 +403,7 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float):
         pos, unscanned = positions_table(sph, m, f)
         P = np.array([pos[k] for k in range(4)])
         if P.sum() > 0 and cands:
-            per_f.append((f, P, unscanned, _range_matrix(cands, f, tgt, P.shape[1])))
+            per_f.append((f, P, unscanned, _range_matrix(cands, f, tgt, P.shape[1], rx_sll_db(sec))))
     if not per_f:
         return {"id": sec["id"], "status": "NO_POSITIONS", "note": "empty sector or fully unscanned"}
     min_uns = min(x[2] for x in per_f)
@@ -486,6 +495,8 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float) -
                      "positions_short_of_range_pct": round(100 * plan.short_frac, 1)},
         "unscanned_pct": round(100 * unscanned, 1),
         "positions_total": round(float(p_tot.sum()), 1),
+        "rx_sll_db": rx_sll_db(sec),
+        "rx_beams_per_position": rm.rx_beams_per_position(f, rx_sll_db(sec)),
         "faces": {str(k): v for k, v in faces.items()},
         "rr_target_s": rr,
         "rr_alone_s": rr * load,                               # RR if this sector had the face to itself (energy and time)
@@ -719,7 +730,8 @@ def print_report(res: dict) -> None:
                   f"(Dopp. max {w['doppler_max_kHz']} kHz)")
         rg = r["range_km"]
         print(f"     Range: wanted {rg['requested']:.0f} km | worst scan {rg['at_worst_scan']} km | best scan {rg['at_best_scan']} km"
-              f" | positions: {r['positions_total']:.0f}")
+              f" | positions: {r['positions_total']:.0f} | RX sidelobes {r['rx_sll_db']:g} dB, "
+              f"{r['rx_beams_per_position']:.1f} RX beams / position")
         for k, fc in r["faces"].items():
             print(f"     face {k}: {fc['positions']:.0f} pos, theta<={fc['theta_max_deg']:.0f} deg | energy {100*fc['energy_fraction']:.1f} % "
                   f"| avg {fc['avg_power_kW']:.0f} kW | time on air {100*fc['time_fraction']:.2f} %")

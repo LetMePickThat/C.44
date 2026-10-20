@@ -14,6 +14,7 @@ import sys
 import pytest
 
 import testbench as tb
+from core import antenna
 from core import cost_estimate as ce
 from core import mission as md
 from core import optimizer as mo
@@ -124,6 +125,128 @@ def test_aperture_derived_from_trsa_build_up():
     assert rm.ARRAY_ENVELOPE_M == pytest.approx(4.190, rel=1e-9)
 
 
+# ----------------------------------------------------------------------------- radiation pattern (step 1.1)
+def test_special_functions_of_the_taylor_law():
+    assert float(antenna.bessel_j(0, 0.0)) == pytest.approx(1.0, abs=1e-14)
+    assert antenna.j1_zeros(3) == pytest.approx([3.831705970, 7.015586670, 10.173468135], abs=1e-8)
+    assert float(antenna.bessel_j(1, 2.0)) == pytest.approx(0.576724808, abs=1e-9)
+
+
+def test_tx_beam_of_the_uniform_octagon():
+    """Uniform octagon: eta 1, HPBW ~1.04 lambda / D_env (0.886 was the rectangular value), nearly circular, first
+    sidelobe ~-15.6 dB; S and Ku sample the same aperture so they agree within 0.1 %."""
+    for b in ("S", "Ku"):
+        tx = rm.PATTERNS[b].tx
+        assert tx.eta == pytest.approx(1.0, abs=1e-12) and tx.design_sll_db is None
+        assert 1.03 < tx.hpbw <= tx.hpbw_x <= tx.hpbw_max < 1.05 and tx.hpbw_max / tx.hpbw < 1.01
+        assert -16.5 < tx.sll_db < -15.0
+    assert rm.PATTERNS["S"].tx.hpbw == pytest.approx(rm.PATTERNS["Ku"].tx.hpbw, rel=1e-3)
+    assert rm.PATTERNS["S"].n_elements == rm.BAND_S.n_trm and rm.PATTERNS["Ku"].n_elements == rm.BAND_KU.n_trm
+
+
+def test_rx_weighting_reaches_each_sidelobe_option():
+    """Achieved peak sidelobe level within [target - tol, target]; lower level -> lower eta, wider beam."""
+    for b in ("S", "Ku"):
+        beams = [rm.rx_beam(b, s) for s in sorted(rm.RX_SLL_OPTIONS_DB, reverse=True)]
+        for s, beam in zip(sorted(rm.RX_SLL_OPTIONS_DB, reverse=True), beams):
+            assert s - antenna.FIT_TOL_DB - 1e-9 <= beam.sll_db <= s + 1e-9, (b, s, beam.sll_db)
+            assert beam.design_sll_db > -s                          # the octagon needs a deeper design level
+        assert all(x.eta > y.eta and x.hpbw < y.hpbw for x, y in zip(beams, beams[1:]))
+        assert all(rm.PATTERNS[b].tx.hpbw < x.hpbw for x in beams)
+    with pytest.raises(ValueError):
+        rm.rx_beam("S", -28.0)
+
+
+def test_pattern_cache_is_current():
+    """core/antenna_cache.json matches the parameter file (else the tool recomputes it at every start)."""
+    _, key = antenna.input_key(rm.TRSA_ROWS, rm.TRSA_SIDE_M, rm.TRSA_GAP_M,
+                               {"S": rm.S_TRM_PER_TRSA_SIDE, "Ku": rm.KU_TRM_PER_TRSA_SIDE}, rm.ARRAY_ENVELOPE_M,
+                               rm.RX_SLL_OPTIONS_DB, params.P.get("aperture.rx_taper_nbar"),
+                               params.P.get("aperture.rx_taper_edge"))
+    assert antenna._read_cache(key) is not None
+
+
+def test_pattern_follows_the_build_up_without_touching_the_cache(tmp_path):
+    """A smaller octagon -> wider beam in degrees, about the same in lambda / D_env (same shape); a modified copy of the
+    parameter file never rewrites the committed cache."""
+    before = open(antenna.CACHE_PATH, encoding="utf-8").read()
+    text = _replace_value(_default_toml(), "aperture", "trsa_rows ", "[6, 8, 10, 12, 14, 16, 16, 16, 16, 16, 16, 14, 12, 10, 8, 6]",
+                          "[4, 6, 8, 10, 12, 12, 12, 12, 10, 8, 6, 4]")
+    out = _run_with_params(text, "from core import radar_model as rm; print(rm.PATTERNS['S'].tx.hpbw, rm.N_TRSA, "
+                                 "rm.hpbw_deg(2.8))", tmp_path)
+    hpbw, n, deg = out.split()
+    assert int(n) == 104 and float(deg) > rm.hpbw_deg(2.8) * 1.2
+    assert float(hpbw) == pytest.approx(rm.PATTERNS["S"].tx.hpbw, rel=0.03)
+    assert open(antenna.CACHE_PATH, encoding="utf-8").read() == before
+
+
+def test_angle_accuracy_is_the_cramer_rao_bound_times_the_margin():
+    """sigma_u = margin x lambda / (2 pi x_rms sqrt(2 SNR)), independent of the RX weighting; x_rms of a filled
+    octagon ~ D / 4 (disc: R / 2)."""
+    p = rm.PATTERNS["S"]
+    assert p.x_rms_m / rm.ARRAY_ENVELOPE_M == pytest.approx(0.248, abs=0.002)
+    assert rm.ANGLE_CRLB_MARGIN == pytest.approx(1.13)
+    assert rm.angle_k_tx("S") == pytest.approx(1.13 * 0.436, abs=0.003)
+    pack = rm.TrackingPack(0.01, 1e6)
+    for f, th in ((14.0, 0.0), (14.0, 60.0), (2.8, 30.0)):
+        snr, dom = rm.tracking_snr_req(pack, f, th, 1e-3, 75.0)
+        sigma_u = math.radians(0.01) * math.cos(math.radians(th))
+        x = rm.PATTERNS[rm.band_for_frequency(f).name].x_rms_m
+        assert dom == "ANG" and snr == pytest.approx(0.5 * (1.13 * rm.lambda_m(f) / (2 * math.pi * x * sigma_u)) ** 2)
+
+
+def test_rx_weighting_only_scales_the_rx_gain():
+    """Range ratio between two options = (eta ratio)^(1/4), in search (S) and tracking (Ku); positions unchanged."""
+    for wf, f, tgt in ((rm.WF_LRS, 2.8, "ST"), (tb.KU_TRACK, 14.0, "KKV")):
+        r25 = rm.solve(wf, f, 30.0, rm.TARGETS[tgt], rx_sll_db=-25.0).range_km
+        r35 = rm.solve(wf, f, 30.0, rm.TARGETS[tgt], rx_sll_db=-35.0).range_km
+        band = rm.band_for_frequency(f).name
+        assert r35 / r25 == pytest.approx((rm.rx_beam(band, -35.0).eta / rm.rx_beam(band, -25.0).eta) ** 0.25, rel=1e-12)
+    assert rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"]).range_km == \
+        rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"], rx_sll_db=rm.RX_SLL_DEFAULT_DB).range_km
+
+
+def test_search_has_the_rx_grid_loss_and_counts_rx_beams():
+    r = rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"])
+    assert r.losses["grid_rx"] == pytest.approx(1.672 * 0.25, abs=1e-3)
+    n_rx = r.frame["rx_beams_per_position"]
+    assert n_rx == pytest.approx((1.04 * rm.PATTERNS["S"].tx.hpbw / (0.5 * rm.rx_beam("S").hpbw)) ** 2)
+    assert 3.0 < n_rx < 4.0 and rm.rx_beams_per_position(2.8, -35.0) < n_rx
+
+
+def test_mission_rx_sidelobe_setting(tmp_path):
+    """Per-sector option: default when absent, validated, kept by the CSV round trip, used by the optimiser."""
+    m = md.empty_mission()
+    m["sectors"].append(md.new_sector([]))
+    assert m["sectors"][0]["rx_sll_db"] == rm.RX_SLL_DEFAULT_DB == -25.0
+    m["sectors"][0]["rx_sll_db"] = -28.0
+    assert any("rx_sll_db" in e for e in md.validate_mission(m))
+    m["sectors"][0]["rx_sll_db"] = -35.0
+    assert md.validate_mission(m) == []
+    path = str(tmp_path / "m.csv")
+    md.save_mission_csv(path, m)
+    assert md.load_mission(path)["sectors"][0]["rx_sll_db"] == -35.0
+    sec = dict(m["sectors"][0], range_km=1500.0)
+    r35 = mo.run({"global": m["global"], "sectors": [sec]}, workers=1)["sectors"][0]
+    r25 = mo.run({"global": m["global"], "sectors": [dict(sec, rx_sll_db=-25.0)]}, workers=1)["sectors"][0]
+    assert r35["rx_sll_db"] == -35.0 and r25["rx_sll_db"] == -25.0
+    e = lambda r: sum(f["energy_J_per_refresh"] for f in r["faces"].values())   # noqa: E731
+    assert e(r35) > e(r25)                                    # less RX gain -> more energy for the same range
+
+
+def test_fast_estimate_follows_the_rx_setting():
+    """Equivalent-range scaling of the cost table: -35 dB costs more energy than the table's -25 dB."""
+    table = ce.load_table()
+    from core import geometry as geo
+    grid = geo.SphereGrid(res_deg=tb.GRID_RES_DEG)
+    sec = md.new_sector([])
+    p = rm.face_avg_rf_w(2.0)
+    a = ce.estimate_sector_faces(table, sec, grid, -90.0, 90.0, p)
+    b = ce.estimate_sector_faces(table, dict(sec, rx_sll_db=-35.0), grid, -90.0, 90.0, p)
+    ea, eb = (sum(f.energy_j_per_refresh for f in x.values()) for x in (a, b))
+    assert table.rx_sll_db == rm.RX_SLL_DEFAULT_DB and eb > ea
+
+
 def test_s_trm_block_must_divide_the_ku_block(tmp_path):
     text = _replace_value(_default_toml(), "aperture", "s_trm_per_trsa_side ", "5", "4")
     path = tmp_path / "radar_system.toml"
@@ -200,7 +323,8 @@ def test_tilt_change_propagates_to_model_optimiser_and_ship(tmp_path):
                                  "mo.face_frame(0.0)[0][2], geo.RP]))", tmp_path)
     tilt, pos, nz, rp = json.loads(out)
     assert tilt == 20.0 and nz == pytest.approx(math.sin(math.radians(20.0)))
-    assert abs(pos - 4308) < 30          # value of the model history at 20 deg (V6.0.10)
+    # 4308 at 20 deg in the model history (V6.0.10, HPBW 0.886 lambda / D), x (0.886 / HPBW_TX)^2 since step 1.1
+    assert abs(pos - 4308 * (0.886 / rm.PATTERNS["S"].tx.hpbw) ** 2) < 25
     from core import geometry as geo
     assert rp < geo.RP                  # arrays sit lower on the cone at a smaller tilt
 
@@ -239,8 +363,8 @@ def test_no_coherent_dwell_beyond_the_coherence_floor():
 
 
 def test_estimator_constants_share_one_margin_over_the_bounds():
-    """k_theta, k_f, k_r = Cramer-Rao bound x the same 1.13 margin (review 0.3)."""
-    margin = rm.K_THETA / 0.44
+    """Angle, k_f, k_r = Cramer-Rao bound x the same 1.13 margin (review 0.3, step 1.1)."""
+    margin = rm.ANGLE_CRLB_MARGIN
     assert rm.K_F == pytest.approx(0.551 * margin, abs=0.03) and rm.RANGE_CRLB_KR == pytest.approx(0.551 * margin, abs=0.03)
     assert rm.K_F > 0.551 and rm.RANGE_CRLB_KR > 0.551           # never below the bound
 
