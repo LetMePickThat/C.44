@@ -14,7 +14,7 @@ Decisions of 2026-10-19 (tracking plan, steps 1-2):
             S2    = immediate S touch pointed on the detection (rejects the false alarms in S), then KU1+7 to start
                     the track with the improved angle estimate.
     Each mode gets the smallest power margin (0.5 dB steps) giving a confirmation probability >= CONFIRM_P_MIN.
-    The mode is chosen automatically per sector: admissible modes (probability reachable, latency, Ku scan coverage),
+    The mode is chosen automatically per sector: admissible modes (probability reachable, Ku scan coverage; latency is left to the scheduler, roadmap 4.3),
     then the one that minimises the most loaded face's max(energy, S time, Ku time) over the whole mission; the
     sector key "confirm_mode" forces one.
   - Active tracking per operator range bracket (sector key "tracking"): number of targets, update period, angular
@@ -43,11 +43,10 @@ from .params import P
 _T = "tool.confirmation."
 KU_FREQ_GHZ = P.get("confirmation.ku_freq_ghz")      # Ku confirmation / tracking frequency
 K_ML = rm.K_THETA                                    # angle estimator constant, ML on the full digital aperture
-BIAS_S_HPBW = P.get("confirmation.bias_s_hpbw")      # residual S/Ku alignment bias per axis, in S beamwidths
+BIAS_MRAD = P.get("confirmation.bias_mrad")          # residual S/Ku alignment bias per axis (absolute angle, constant in u, v)
 CONFIRM_P_MIN = P.get("confirmation.p_min")          # minimum probability of confirming a true target
 CONFIRM_MODES = ("KU1+7", "KU7", "S2")
 CLUSTER_N = 7                   # hexagonal cluster: centre + first ring, spacing rm.BEAM_SPACING_HPBW
-LATENCY_MAX_FRAC = P.get("confirmation.latency_max_frac")   # confirmation latency / time to impact ceiling
 ANGLE_ZONE_SIGMAS = P.get("tracking.angle_zone_sigmas")     # angular zone opening = full width at +/-2 sigma
 MARGIN_DB = np.arange(0.0, P.get(_T + "margin_db_max") + P.get(_T + "margin_db_step") / 2.0,
                       P.get(_T + "margin_db_step"))  # power margins tried on confirmation looks
@@ -129,7 +128,7 @@ def confirm_tables(swerling: int, f_s_ghz: float) -> dict:
     q = KU_FREQ_GHZ / f_s_ghz                                              # S beamwidth in Ku beamwidths
     x_det = detected_snr_quantiles(_snr_ref(swerling), swerling)          # (M,)
     sig_ku = K_ML * q / np.sqrt(x_det)
-    bias_ku = BIAS_S_HPBW * q
+    bias_ku = BIAS_MRAD * 1e-3 / math.radians(rm.hpbw_deg(KU_FREQ_GHZ))   # in Ku beamwidths (boresight = u, v width)
     m_lin = 10.0 ** (MARGIN_DB / 10.0)
     snr_ku = _snr_ref(swerling) * m_lin                                    # Ku centre-look SNR per margin
     s17, l17, s7 = (a.mean(axis=0) for a in _ku_after_s(sig_ku, bias_ku, snr_ku, swerling))   # (n_margin,)
@@ -288,15 +287,10 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict
 
     tables = confirm_tables(sw, f_s)
     m_lin = 10.0 ** (MARGIN_DB / 10.0)
-    t_impact = r_det * 1e3 / tgt.v_close_mps if tgt.v_close_mps > 0 else math.inf
-    rtt = 2.0 * r_det * 1e3 / rm.C_MPS
     modes: Dict[str, dict] = {}
     for mode in CONFIRM_MODES:
         succ, looks = tables[mode]
-        n_rtt = {"KU1+7": 2, "KU7": 1, "S2": 3}[mode]
         why = []
-        if n_rtt * rtt > LATENCY_MAX_FRAC * t_impact:
-            why.append(f"latency {n_rtt * rtt * 1e3:.0f} ms > {100 * LATENCY_MAX_FRAC:.0f} % of the time to impact")
         if ku_missing > 0:
             why.append("part of the sector is out of Ku reach")
         ok = np.argwhere(succ >= CONFIRM_P_MIN)

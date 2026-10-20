@@ -697,6 +697,9 @@ class PrepTab(QWidget):
     def _update_alerts(self, eps_min: float, eps_max: float) -> None:
         self.list_alerts.clear()
         sectors = self.mission["sectors"]
+        if self.cost_table is not None and not self.cost_table.is_current:
+            self.list_alerts.addItem("Fast estimate: core/cost_table.json was built with other radar parameters "
+                                     "(radar_system.toml changed) -- rebuild it: python tools/gen_cost_table.py")
         self._add_redundancy_alerts()
         for sec in sectors:   # confirmation / AT inputs (also checked by 'Validate mission prep')
             for err in md.validate_tracking(sec, str(sec.get("id", "?"))):

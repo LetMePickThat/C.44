@@ -133,6 +133,33 @@ def test_s_trm_block_must_divide_the_ku_block(tmp_path):
     assert res.returncode != 0 and "must divide" in res.stderr
 
 
+def test_t_sys_from_the_receive_chain(tmp_path):
+    """T_sys is derived from [band.<b>.rx] (Friis) in both bands: a 1 dB worse S LNA must raise it accordingly."""
+    assert rm.BAND_S.t_sys_k == pytest.approx(154.3, abs=0.1) and rm.BAND_KU.t_sys_k == pytest.approx(238.7, abs=0.1)
+    assert "pre_LNA" not in rm.BAND_S.losses_db and "lumped_impl" not in rm.BAND_KU.losses_db
+    assert set(rm.BAND_S.losses_db) - {"Ku_blockage"} == set(rm.BAND_KU.losses_db) - {"S_blockage"}   # same posts
+    text = _replace_value(_default_toml(), "band.S.rx", "lna_nf_db ", "0.75", "1.75")
+    out = _run_with_params(text, "from core import radar_model as rm\nprint(rm.BAND_S.t_sys_k)", tmp_path)
+    l_pre = 10 ** (0.85 / 10)
+    assert float(out) - rm.BAND_S.t_sys_k == pytest.approx(l_pre * 290 * (10 ** 0.175 - 10 ** 0.075) * 10 ** 0.005, rel=1e-6)
+
+
+def test_tx_chain_from_its_components():
+    """PA-output convention: TX_chain = harmonic filter + circulator (shared with RX) + coupler + line."""
+    assert rm.BAND_S.losses_db["TX_chain"] == pytest.approx(0.15 + 0.3 + 0.05 + 0.1)
+    assert rm.BAND_KU.losses_db["TX_chain"] == pytest.approx(0.2 + 0.45 + 0.1 + 0.2)
+
+
+def test_fingerprint_follows_system_values_only(tmp_path):
+    base = params.fingerprint(params.P)
+    p1 = tmp_path / "a.toml"
+    p1.write_text(_replace_value(_default_toml(), "band.S.rx", "lna_nf_db ", "0.75", "0.8"), encoding="utf-8")
+    assert params.fingerprint(params.load(str(p1))) != base
+    p2 = tmp_path / "b.toml"
+    p2.write_text(_default_toml().replace("grid_res_deg = 0.5", "grid_res_deg = 1.0"), encoding="utf-8")
+    assert params.fingerprint(params.load(str(p2))) == base     # a display setting does not stale the table
+
+
 # ----------------------------------------------------------------------------- beam grid / geometry
 def test_positions_times_cell_area_is_sector_area():
     for f in (2.7, 2.8, 2.9):
@@ -190,6 +217,15 @@ def test_time_on_air_at_least_energy_over_peak_power(runs):
         p_avg = res["global"]["face_avg_rf_kW"] * 1e3
         for k, f in res["faces_total"].items():
             assert f["time_fraction"] >= f["energy_fraction"] * p_avg / rm.BAND_S.p_pk_total_w * (1 - 1e-9), (n, k)
+
+
+def test_longest_pulse_follows_the_trm_buffer(tmp_path):
+    """The longest S candidate pulse is derived from the buffer (frac x E x PAE / P_pk), and solve() accepts it."""
+    assert max(mo.TAU_CAND) == pytest.approx(0.5 * 5.0 * 0.75 / 2000.0) == rm.tau_max_s(rm.BAND_S)
+    rm.solve(mo.make_wf("t", max(mo.TAU_CAND), 1, 1e-3, 75.0, 1, "NONCOHERENT"), 2.8, 0.0, rm.TARGETS["ST"])
+    text = _replace_value(_default_toml(), "band.S", "e_buf_trm_j ", "5.0", "2.0")
+    out = _run_with_params(text, "from core import optimizer as mo\nprint(max(mo.TAU_CAND))", tmp_path)
+    assert float(out) == pytest.approx(0.5 * 2.0 * 0.75 / 2000.0)
 
 
 def test_no_coherent_dwell_beyond_the_coherence_floor():
@@ -292,6 +328,7 @@ def test_cost_table_matches_the_parameter_file():
     g = "tool.cost_table."
     assert (t.R, t.RCS, t.V, t.TH) == (params.P.get(g + "range_km"), params.P.get(g + "rcs_m2"),
                                        params.P.get(g + "v_mps"), params.P.get(g + "theta_deg"))
+    assert t.is_current, "radar_system.toml changed since cost_table.json was built: python tools/gen_cost_table.py"
     assert t.ppk == rm.BAND_S.p_pk_total_w
     assert t.pavg_ref_w == pytest.approx(rm.face_avg_rf_w(params.P.get("power.face_elec_mw")), rel=1e-12)
 

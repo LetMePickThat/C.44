@@ -32,6 +32,14 @@
 #   - Review 0.3: K_F 0.5 -> 0.6 and RANGE_CRLB_KR 1.3 -> 0.6 (Cramer-Rao bound 0.551 x the 1.13 margin of K_THETA).
 #   - Review 0.3, INTERIM: COH_T_MAX_S = t0 (-ln eta_min)^(1/p) = 149 ms; coherent dwells beyond it are no longer
 #     generated (the eta_min floor credited them N tau without limit and made exact energy ties). Until step 2.2.
+#   - Review 0.3: S-band T_sys derived from its receive chain ([band.S.rx], Friis at the antenna port): optimised
+#     front end with median estimates -> 154.3 K (was 346.5 K entered as a block, a classic T/R module). The
+#     pre-LNA loss left the signal-loss budget (it was counted twice: as a loss and inside T_sys).
+#   - Review 0.3: Ku the same way -- T_sys from [band.Ku.rx] (medians, 238.7 K, was 400 K) and the V5.6.0 lumped
+#     8 dB (processing only) replaced by the S posts with Ku values: DSP 2.0, CFAR 0.5, calibration 0.8,
+#     S_blockage 0.3, TX_chain 0.5 dB, polarisation 0.5 dB (was 0): fixed losses 8.0 -> 4.6 dB.
+#   - Review 0.3: TRM peak power specified at the PA OUTPUT (where the PAE is defined). TX_chain derived per
+#     component ([band.<b>.tx] + the circulator shared with the receive chain): S 0.3 -> 0.6 dB, Ku 0.5 -> 0.95 dB.
 #
 # Changes V6.0.11 -> V6.0.12 (array tilt)
 #   - SECTOR_TILT_DEG 20 -> 25 deg [V]: updated figure for all four arrays (ship axis vertical, lighthouse
@@ -325,6 +333,29 @@ class BandConfig:
         return sum(self.losses_db.values())
 
 
+T0_REF_K = 290.0   # IEEE reference temperature of a noise figure
+
+
+def t_sys_cascade(rx: Dict[str, float]) -> float:
+    """System noise temperature at the antenna port (Friis) from the receive-chain contributors of [band.<b>.rx]:
+    the losses before the LNA attenuate the signal and add (L - 1) T_phys, the later stages count divided by the gain
+    ahead of them, and the digital processing raises the total by digital_noise_db."""
+    l_pre = db_to_lin(rx["circulator_loss_db"] + rx["limiter_loss_db"] + rx["pre_lna_line_db"])
+    t_nf = lambda nf_db: T0_REF_K * (db_to_lin(nf_db) - 1.0)          # noqa: E731
+    g_lna, g_post = db_to_lin(rx["lna_gain_db"]), db_to_lin(rx["post_lna_gain_db"])
+    t_rx = t_nf(rx["lna_nf_db"]) + t_nf(rx["post_lna_nf_db"]) / g_lna + t_nf(rx["adc_nf_db"]) / (g_lna * g_post)
+    t = rx["t_ant_k"] + (l_pre - 1.0) * rx["t_phys_frontend_k"] + l_pre * t_rx
+    return t * db_to_lin(rx["digital_noise_db"])
+
+
+
+
+def tx_chain_loss_db(tx: Dict[str, float], rx: Dict[str, float]) -> float:
+    """PA output -> radiating element: harmonic filter, circulator (TX pass of the component of the receive chain),
+    calibration coupler, line. The TRM peak power is specified at the PA output (where the PAE is defined)."""
+    return tx["harmonic_filter_db"] + rx["circulator_loss_db"] + tx["cal_coupler_db"] + tx["line_to_element_db"]
+
+
 def _band(name: str) -> BandConfig:
     """Band [band.<name>] of radar_system.toml. Core band = usable band minus 1/core_inset_divisor of its width on
     each side (V5.4.0 proportions, to be replaced by the rf_layer_s.py edge-derating table)."""
@@ -339,8 +370,8 @@ def _band(name: str) -> BandConfig:
         scan_max_hi_deg=P.get(b + "scan_max_hi_deg"),
         n_trm=N_TRM[name], p_pk_trm_w=P.get(b + "p_pk_trm_w"),
         eta_illum_tx=P.get(b + "eta_illum_tx"), eta_illum_rx=P.get(b + "eta_illum_rx"),
-        t_sys_k=P.get(b + "t_sys_k"),
-        losses_db=dict(P.section(b + "losses_db")),
+        t_sys_k=t_sys_cascade(P.section(b + "rx")),
+        losses_db={**P.section(b + "losses_db"), "TX_chain": tx_chain_loss_db(P.section(b + "tx"), P.section(b + "rx"))},
         allowed_roles=tuple(P.get(b + "allowed_roles")),
         pol_loss_db=pol, e_buf_trm_j=P.get(b + "e_buf_trm_j"), buffer_max_fraction=P.get(b + "buffer_max_fraction"),
         bi_max_mhz=P.get(b + "bi_max_mhz"), duty_max=P.get(b + "duty_max"),
@@ -354,6 +385,14 @@ _KU_LO, _KU_HI = BAND_KU.usable_lo_ghz, BAND_KU.usable_hi_ghz
 BANDS: Dict[str, BandConfig] = {"S": BAND_S, "Ku": BAND_KU}
 # Face surveillance sector radius = the widest scan limit of any band (derived, no entry of its own: review 0.3)
 SECTOR_RADIUS_DEG: float = max(max(b.scan_max_deg, b.scan_max_hi_deg) for b in BANDS.values())
+
+
+def tau_max_s(band: BandConfig) -> float:
+    """Longest pulse the TRM energy buffer allows (solve() refuses more): buffer_max_fraction x E_buf x PAE / P_pk per
+    TRM. Infinite when the buffer is not modelled (e_buf_trm_j = 0). Derived, so waveform spaces follow the architecture."""
+    if band.e_buf_trm_j <= 0.0:
+        return math.inf
+    return band.buffer_max_fraction * band.e_buf_trm_j * PAE / band.p_pk_trm_w
 
 
 def face_avg_rf_w(elec_mw: float) -> float:
@@ -683,7 +722,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
         losses["polarisation"] = band.pol_loss_db
     if band.e_buf_trm_j > 0:
         x_buf = band.p_pk_trm_w / PAE * wf.tau_s / band.e_buf_trm_j
-        if x_buf > band.buffer_max_fraction:
+        if x_buf > band.buffer_max_fraction * (1.0 + 1e-12):     # tolerance: tau_max_s() sits exactly on the limit
             raise ValueError(f"{wf.name}: pulse needs {x_buf:.2f} of the TRM buffer (max {band.buffer_max_fraction:g}): "
                              f"droop too large")
         losses["buffer_droop"] = -10.0 * math.log10(1.0 - x_buf / 2.0)
@@ -830,14 +869,20 @@ def selftest() -> int:
     lam = C_MPS / 2.8e9
     gt = 4 * math.pi * PHYS_AREA_M2 * 1.0 * ETA_OHMIC / lam ** 2
     gr = 4 * math.pi * PHYS_AREA_M2 * 0.88 * ETA_OHMIC / lam ** 2
-    l_db = (2.0 + 0.5 + 0.5 + 0.3 + 0.2 + 0.3 + 0.5)
+    l_db = (2.0 + 0.5 + 0.5 + 0.2 + 0.6 + 0.5)      # DSP CFAR calibration Ku_blockage TX_chain pol (pre-LNA is in T_sys)
     l_db += -10 * math.log10(1 - (2000 / 0.75 * 200e-6 / 5.0) / 2) + MB_L8_DB * (2.0 / 3.0) ** MB_P + MIGRATION_RESIDUAL_DB + 1.672 * BEAM_SPACING_HPBW ** 2
     snr = db_to_lin(shnidman_total_snr_db(DETECT_PD, DETECT_PFA, 24, 1))
     r_hand = ((9.8e6 / 4) * gt * gr * lam ** 2 * 1000.0 * 200e-6 * 24
-              / ((4 * math.pi) ** 3 * K_BOLTZ * 346.5 * db_to_lin(l_db) * snr)) ** 0.25 / 1000.0
+              / ((4 * math.pi) ** 3 * K_BOLTZ * BAND_S.t_sys_k * db_to_lin(l_db) * snr)) ** 0.25 / 1000.0
+    l_pre = 10 ** ((0.3 + 0.35 + 0.2) / 10)
+    t_hand = (10.0 + (l_pre - 1) * 320.0 + l_pre * (290 * (10 ** 0.075 - 1) + 290 * (10 ** 0.8 - 1) / 10 ** 2.75
+                                                    + 290 * (10 ** 2.75 - 1) / 10 ** 4.75)) * 10 ** 0.005
+    check("S-band T_sys from the receive-chain cascade, hand calculation (0.1 %)", abs(BAND_S.t_sys_k / t_hand - 1) < 1e-3,
+          f"({BAND_S.t_sys_k:.1f} vs {t_hand:.1f} K)")
     check("Radar equation matches an independent hand derivation (0.5 %)", abs(lrs.range_km / r_hand - 1) < 0.005,
           f"({lrs.range_km:.1f} vs {r_hand:.1f} km)")
-    check("Benchmark WF-LRS on ST at 2.8 GHz in [4500, 6500] km", 4500 < lrs.range_km < 6500, f"({lrs.range_km:.0f} km)")
+    # coarse plausibility bracket (test value): 5682 km with T_sys 346.5 K, 7223 km with the derived 154.3 K (review 0.3)
+    check("Benchmark WF-LRS on ST at 2.8 GHz in [5000, 9000] km", 5000 < lrs.range_km < 9000, f"({lrs.range_km:.0f} km)")
     check("Grid loss at spacing 0.92 reproduces the 1.41 dB of the notes", abs(grid_loss_db(0.92) - 1.41) < 0.02,
           f"({grid_loss_db(0.92):.3f} dB)")
     import random

@@ -45,6 +45,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from . import params
 from . import geometry as geo
 from . import radar_model as rm
 from . import tracking as trk
@@ -62,6 +63,12 @@ class CostTable:
     pavg_ref_w: float
     t: Dict[str, Optional[list]]
     reach: Optional[Dict[str, list]] = None   # per cell: [max range km at full power, that waveform's energy J]
+    params_fingerprint: Optional[str] = None  # fingerprint of radar_system.toml the table was built from
+
+    @property
+    def is_current(self) -> bool:
+        """False when radar_system.toml changed since the table was built (rerun tools/gen_cost_table.py)."""
+        return self.params_fingerprint == params.fingerprint(params.P)
 
     @staticmethod
     def _key(r_km: float, rcs_m2: float, v_mps: float, th_deg: float) -> str:
@@ -83,7 +90,7 @@ def load_table(path: str = DEFAULT_TABLE_PATH) -> Optional[CostTable]:
     with open(path, encoding="utf-8") as fh:
         d = json.load(fh)
     return CostTable(R=d["R"], RCS=d["RCS"], V=d["V"], TH=d["TH"], ppk=d["ppk"], pavg_ref_w=d["pavg"], t=d["t"],
-                     reach=d.get("reach"))
+                     reach=d.get("reach"), params_fingerprint=d.get("params_fingerprint"))
 
 
 def _bracket(value: float, grid: List[float], log: bool = False) -> Tuple[int, int, float]:

@@ -7,6 +7,7 @@ _OUT = os.path.join(_ROOT, "core", "cost_table.json")
 sys.path.insert(0, _ROOT)
 from core import optimizer as mo  # noqa: E402
 from core import radar_model as rm  # noqa: E402
+from core import params  # noqa: E402
 from core.params import P  # noqa: E402
 PPK = rm.BAND_S.p_pk_total_w; F = P.get("tool.cost_table.freq_ghz"); ELEC = P.get("power.face_elec_mw")
 # Grid in radar_system.toml [tool.cost_table]: dense enough that interpolation between rows stays within the
@@ -43,5 +44,5 @@ if __name__ == "__main__":
         tab[key] = None if best is None else [best[0], best[1], best[2], round(best[3], 1), round(best[4], 2), best[5]]
         reach[key] = [round(rmax, 1), e_rmax]     # max range of the cell (full power) and that waveform's energy (J)
     json.dump({"R": RS, "RCS": RCS, "V": VS, "TH": TH, "ppk": PPK, "pavg": rm.face_avg_rf_w(ELEC), "t": tab,
-               "reach": reach}, open(_OUT, "w"))
+               "reach": reach, "params_fingerprint": params.fingerprint(P)}, open(_OUT, "w"))
     print(len(tab), sum(1 for x in tab.values() if x is None), "infeasible")

@@ -61,7 +61,10 @@ _T = "tool.optimizer."
 FACE_PHI = tuple(P.get("geometry.face_phi_deg"))
 D_RES_DEG = P.get(_T + "sphere_res_deg")             # raster step (deg) on the (phi, eps) sphere
 FREQ_CANDIDATES = tuple(P.get(_T + "freq_candidates_ghz"))
-TAU_CAND = tuple(P.get(_T + "tau_s"))
+# Pulse lengths of the file below the TRM buffer limit, plus the limit itself (derived: 937.5 us today, follows the
+# buffer, the PAE and the TRM peak power)
+TAU_CAND = tuple(sorted({t for t in P.get(_T + "tau_s") if t < rm.tau_max_s(rm.BAND_S)}
+                        | ({rm.tau_max_s(rm.BAND_S)} if math.isfinite(rm.tau_max_s(rm.BAND_S)) else set())))
 N_CAND = tuple(P.get(_T + "n_pulses"))
 B_CAND = tuple(P.get(_T + "b_tx"))
 SIGBW_CAND = tuple(P.get(_T + "sig_bw_mhz"))

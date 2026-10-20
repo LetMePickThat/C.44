@@ -29,3 +29,51 @@ Model changes (radar_model V6.0.13, see its header):
     after  COHE 600us x3 B1 80.7ms | COHE 800us x3 B1 80.9ms | COHE 937.5us x4 B1 121ms | NONC 800us x8 B1 281ms
   Effect: S search energy 0 to +12 %, Ku time -25 to -88 % (fewer false alarms to confirm).
 - core/cost_table.json regenerated (same waveform space as the optimiser).
+
+## 2026-10-20 -- review 0.3, batch 6 (S-band receive chain)
+
+- S-band T_sys derived from its receive chain ([band.S.rx], Friis at the antenna port), "optimised front end" with
+  the median estimates: 154.3 K (was the block value 346.5 K). The pre-LNA 0.3 dB left the signal-loss budget (now
+  counted once, inside T_sys). Together +3.81 dB: every S range +24.55 %, S search energy about -60 % on the test
+  missions, S time about -60 %, Ku time -8 to -36 %.
+- Confirmation mode changes: mission_redundancy_demo / A1_TRIM and B4_FINE KU1+7 -> S2.
+- Model self-test plausibility bracket of WF-LRS on ST widened to [5000, 9000] km (now 7223 km).
+- core/cost_table.json regenerated; it now stores the parameter fingerprint (stale-table alert in the GUI).
+
+## 2026-10-20 -- review 0.3, Ku receive chain and losses
+
+- Ku T_sys derived from [band.Ku.rx] (same Friis formula as S, median of the Ku ranges): 238.7 K (was 400 K).
+- Ku V5.6.0 lumped 8 dB (processing only, sec. 5.2.1) replaced by the S posts with Ku values (status D): DSP 2.0,
+  CFAR 0.5, calibration 0.8, S_blockage 0.3, TX_chain 0.5 dB, plus polarisation 0.5 dB (was 0): 8.0 -> 4.6 dB.
+- Together +5.64 dB: every Ku range +38.4 % (synthetic Ku track 4670 -> 6462 km); Ku time on air -52 to -77 % on the
+  test missions, total energy -0.3 to -1.2 %.
+- Confirmation mode change: mission_example (json and csv) / S02 KU1+7 -> KU7.
+- core/cost_table.json regenerated (fingerprint changed; S content unchanged).
+
+## 2026-10-20 -- review 0.3, TX chain (PA-output convention)
+
+- TRM peak power specified at the PA output (where the PAE is defined). TX_chain derived per component
+  ([band.<b>.tx]: harmonic filter, calibration coupler, line; + the circulator shared with the receive chain):
+  S 0.3 -> 0.6 dB, Ku 0.5 -> 0.95 dB. Ranges S -1.71 %, Ku -2.56 %.
+- Waveform sets changed (discrete choices) in mission_example / S03, mission_veille500 / CONE_D1-D4 and VEILLE_KV,
+  mission_redundancy_demo / A4_SEARCH and A5_SHORT. Face energy +7 to +11 %, S time +7 to +22 %, Ku time +8 to +22 %
+  on the test missions (E ~ L: +0.3 dB alone is +7 %).
+- core/cost_table.json regenerated.
+
+## 2026-10-20 -- review 0.3, S instantaneous bandwidth
+
+- band.S.bi_max_mhz 0 (undefined) -> 200 MHz (digital per-TRM true-time delay in S as in Ku). No mission output
+  changed (the S waveform space stops at 75 MHz); only the model snapshot record of the value. cost_table.json rebuilt
+  for its fingerprint (content unchanged).
+
+## 2026-10-20 -- review 0.3, Ku TX illumination
+
+- band.Ku.eta_illum_tx 0.88 -> 1.0 (uniform TX, PAs at saturation, as in S; the V5.6.0 taper cut the gain but not
+  the radiated power). Ku ranges +3.25 %; Ku time on air -5 to -17 % on the test missions, energy about -0.03 %.
+  No confirmation mode change. cost_table.json rebuilt for its fingerprint.
+
+## 2026-10-20 -- review 0.3, S/Ku alignment bias
+
+- confirmation.bias_s_hpbw 0.05 S beamwidth -> confirmation.bias_mrad 1.1 mrad per axis (absolute angle, constant in
+  direction cosines; was 1.13 mrad at 2.8 GHz and varied with the S frequency). Confirmation energy -0.14 % at most,
+  no mode change. cost_table.json rebuilt for its fingerprint.

@@ -108,6 +108,19 @@ def load(path: Optional[str] = None) -> Params:
     return Params(entries, path)
 
 
+# Values a derived file (core/cost_table.json) does NOT depend on: GUI, CLI and mission-prep settings
+_FINGERPRINT_SKIP = ("meta.", "tool.cli.", "tool.display.", "tool.mission_defaults.", "tool.redundancy.", "tool.confirmation.")
+
+
+def fingerprint(params: "Params") -> str:
+    """Hash of every value a derived file depends on (system values + optimiser and cost-table settings). A derived
+    file stores it when built; a different fingerprint means the parameter file changed since: rebuild it."""
+    import hashlib
+    import json
+    vals = {p.path: p.value for p in params if not p.path.startswith(_FINGERPRINT_SKIP)}
+    return hashlib.sha256(json.dumps(vals, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+
+
 def summary(params: "Params") -> Tuple[int, Dict[str, int]]:
     """Number of system entries and their count per status (tool settings excluded)."""
     counts = {s: 0 for s in STATUSES}
