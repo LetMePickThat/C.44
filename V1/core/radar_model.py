@@ -190,7 +190,8 @@ MB_P: float = P.get("multibeam.p")
 
 # --- Scan loss (law from V5.4.0; extrapolated beyond theta_ref) and S-band RX polarisation / energy buffer ---
 POL_RX_DUAL: bool = P.get("band.S.pol_rx_dual")
-POL_LOSS_DB: float = P.get("band.S.pol_loss_dual_db") if POL_RX_DUAL else P.get("band.S.pol_loss_single_db")
+_POL_DUAL_DB, _POL_SINGLE_DB = P.get("band.S.pol_loss_dual_db"), P.get("band.S.pol_loss_single_db")
+POL_LOSS_DB: float = _POL_DUAL_DB if POL_RX_DUAL else _POL_SINGLE_DB
 E_BUF_TRM_J: float = P.get("band.S.e_buf_trm_j")
 ENABLE_SCAN_LOSS: bool = P.get("scan_loss.enable")
 SCAN_LOSS_THETA_REF_DEG: float = P.get("scan_loss.theta_ref_deg")
@@ -299,7 +300,8 @@ def _band(name: str) -> BandConfig:
     each side (V5.4.0 proportions, to be replaced by the rf_layer_s.py edge-derating table)."""
     b = f"band.{name}."
     lo, hi, div = P.get(b + "usable_lo_ghz"), P.get(b + "usable_hi_ghz"), P.get(b + "core_inset_divisor")
-    pol = P.get(b + "pol_loss_dual_db") if P.get(b + "pol_rx_dual") else P.get(b + "pol_loss_single_db")
+    pol_dual, pol_single = P.get(b + "pol_loss_dual_db"), P.get(b + "pol_loss_single_db")
+    pol = pol_dual if P.get(b + "pol_rx_dual") else pol_single
     return BandConfig(
         name=name, usable_lo_ghz=lo, usable_hi_ghz=hi, core_lo_ghz=lo + (hi - lo) / div, core_hi_ghz=hi - (hi - lo) / div,
         edge_derating_db=P.get(b + "edge_derating_db"),

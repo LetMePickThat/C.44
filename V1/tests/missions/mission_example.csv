@@ -1,0 +1,4 @@
+# EXEMPLE ILLUSTRATIF. shape=box: phi_min/phi_max/eps_min/eps_max ; shape=cap: phi0/eps0/radius (deg)
+id,shape,phi_min_deg,phi_max_deg,eps_min_deg,eps_max_deg,phi0_deg,eps0_deg,radius_deg,rcs_m2,swerling,range_km,rr_target_s,v_close_min_mps,v_close_max_mps
+S01,box,315,45,0,60,,,,1000,1,5000,20,1000,5000
+S02,cap,,,,,90,20,15,0.135,1,500,5,10000,25000

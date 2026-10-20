@@ -1,0 +1,79 @@
+{
+  "global": {
+    "eps_min_deg": -40.0,
+    "eps_max_deg": 90.0,
+    "face_elec_mw": 2.0
+  },
+  "sectors": [
+    {
+      "id": "FWD",
+      "shape": "cap",
+      "phi0_deg": 0.0,
+      "eps0_deg": 80.0,
+      "radius_deg": 20.0,
+      "rcs_m2": 1000.0,
+      "swerling": 1,
+      "range_km": 6000.0,
+      "rr_target_s": 120.0,
+      "v_close_min_mps": 1000.0,
+      "v_close_max_mps": 5000.0,
+      "confirm_mode": "auto",
+      "new_targets_per_rr": 1.0,
+      "tracking": []
+    },
+    {
+      "id": "KV",
+      "shape": "box",
+      "phi_min_deg": 300.0,
+      "phi_max_deg": 120.0,
+      "eps_min_deg": -30.0,
+      "eps_max_deg": 60.0,
+      "rcs_m2": 0.135,
+      "swerling": 1,
+      "range_km": 500.0,
+      "rr_target_s": 20.0,
+      "v_close_min_mps": 1000.0,
+      "v_close_max_mps": 25000.0,
+      "confirm_mode": "auto",
+      "new_targets_per_rr": 2.0,
+      "tracking": [
+        {
+          "r_min_km": 0,
+          "r_max_km": 250,
+          "n_targets": 5,
+          "rr_s": 1.0,
+          "angle_zone_deg": 0.2,
+          "range_acc_m": 10.0,
+          "vr_acc_mps": 5.0
+        },
+        {
+          "r_min_km": 250,
+          "r_max_km": 500,
+          "n_targets": 3,
+          "rr_s": 2.0,
+          "angle_zone_deg": 0.5,
+          "range_acc_m": 30.0,
+          "vr_acc_mps": 10.0
+        }
+      ]
+    },
+    {
+      "id": "SHIPW",
+      "shape": "box",
+      "phi_min_deg": 150.0,
+      "phi_max_deg": 240.0,
+      "eps_min_deg": -10.0,
+      "eps_max_deg": 20.0,
+      "rcs_m2": 3000.0,
+      "swerling": 3,
+      "range_km": 3000.0,
+      "rr_target_s": 60.0,
+      "v_close_min_mps": 100.0,
+      "v_close_max_mps": 5000.0,
+      "res_max_m": 10.0,
+      "confirm_mode": "KU7",
+      "new_targets_per_rr": 1.0,
+      "tracking": []
+    }
+  ]
+}

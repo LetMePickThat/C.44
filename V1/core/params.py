@@ -46,23 +46,27 @@ class Params:
     def __init__(self, entries: Dict[str, Param], path: str):
         self._entries = entries
         self.path = path
+        self.read_keys: set = set()     # keys the code has read (the test bench flags entries nothing reads)
 
     def get(self, key: str) -> Any:
         return self.meta(key).value
 
     def meta(self, key: str) -> Param:
         try:
-            return self._entries[key]
+            p = self._entries[key]
         except KeyError:
             raise KeyError(f"parameter '{key}' missing from {self.path}") from None
+        self.read_keys.add(key)
+        return p
 
     def section(self, prefix: str) -> Dict[str, Any]:
         """Values directly under one section, in file order (e.g. "band.S.losses_db" -> {"DSP": 2.0, ...})."""
         n = len(prefix) + 1
-        out = {k[n:]: p.value for k, p in self._entries.items() if k.startswith(prefix + ".") and "." not in k[n:]}
-        if not out:
+        keys = [k for k in self._entries if k.startswith(prefix + ".") and "." not in k[n:]]
+        if not keys:
             raise KeyError(f"section '{prefix}' missing from {self.path}")
-        return out
+        self.read_keys.update(keys)
+        return {k[n:]: self._entries[k].value for k in keys}
 
     def __iter__(self) -> Iterator[Param]:
         return iter(self._entries.values())

@@ -1,0 +1,1487 @@
+{
+ "fast_estimate": {
+  "FWD": {
+   "0": {
+    "at_avg_power_kw": 0.0,
+    "at_ku_time_fraction": 0.0,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 49.17572654578392,
+    "energy_fraction": 0.03575535594106101,
+    "energy_j_per_refresh": 5901087.18549407,
+    "positions": 265.25344375520496,
+    "time_fraction_min": 0.005017931280182033,
+    "unreachable_pct": 0.0
+   },
+   "1": {
+    "at_avg_power_kw": 0.0,
+    "at_ku_time_fraction": 0.0,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 24.74652483063762,
+    "energy_fraction": 0.017993039773392283,
+    "energy_j_per_refresh": 2969582.979676515,
+    "positions": 99.09658693783831,
+    "time_fraction_min": 0.0025251555949630227,
+    "unreachable_pct": 0.0
+   },
+   "2": {
+    "at_avg_power_kw": 0.0,
+    "at_ku_time_fraction": 0.0,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 10.02718690089375,
+    "energy_fraction": 0.007290703400085071,
+    "energy_j_per_refresh": 1203262.42810725,
+    "positions": 28.507396725997076,
+    "time_fraction_min": 0.0010231823368258928,
+    "unreachable_pct": 0.0
+   },
+   "3": {
+    "at_avg_power_kw": 0.0,
+    "at_ku_time_fraction": 0.0,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 24.74652483063762,
+    "energy_fraction": 0.017993039773392283,
+    "energy_j_per_refresh": 2969582.979676515,
+    "positions": 99.09658693783831,
+    "time_fraction_min": 0.0025251555949630227,
+    "unreachable_pct": 0.0
+   }
+  },
+  "KV": {
+   "0": {
+    "at_avg_power_kw": 0.18402151585155277,
+    "at_ku_time_fraction": 8.750000000000001e-05,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 695.9676452248236,
+    "energy_fraction": 0.5060336191536985,
+    "energy_j_per_refresh": 13915672.47417944,
+    "positions": 3598.2252811199996,
+    "time_fraction_min": 0.0709983289498951,
+    "unreachable_pct": 0.0
+   },
+   "1": {
+    "at_avg_power_kw": 0.15057215049566358,
+    "at_ku_time_fraction": 7.451595895030263e-05,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 559.832821835513,
+    "energy_fraction": 0.4070508606228924,
+    "energy_j_per_refresh": 11193644.993700346,
+    "positions": 3064.2880839071886,
+    "time_fraction_min": 0.05711043364132829,
+    "unreachable_pct": 0.0
+   },
+   "3": {
+    "at_avg_power_kw": 0.036579178444504326,
+    "at_ku_time_fraction": 1.298404104969739e-05,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 136.1379532023992,
+    "energy_fraction": 0.09898503419786522,
+    "energy_j_per_refresh": 2722027.4804790937,
+    "positions": 533.9371972128115,
+    "time_fraction_min": 0.013887895308566803,
+    "unreachable_pct": 0.0
+   }
+  },
+  "SHIPW": {
+   "2": {
+    "at_avg_power_kw": 0.0,
+    "at_ku_time_fraction": 0.0,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 2.9645995465249886,
+    "energy_fraction": 0.002155541350467286,
+    "energy_j_per_refresh": 177875.9727914993,
+    "positions": 1207.5389548942196,
+    "time_fraction_min": 0.0003025101578086723,
+    "unreachable_pct": 0.0
+   },
+   "3": {
+    "at_avg_power_kw": 0.0,
+    "at_ku_time_fraction": 0.0,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 0.729384979125716,
+    "energy_fraction": 0.0005303311486902526,
+    "energy_j_per_refresh": 43763.09874754296,
+    "positions": 208.60284511087707,
+    "time_fraction_min": 7.442703868629754e-05,
+    "unreachable_pct": 0.0
+   }
+  }
+ },
+ "redundancy": {
+  "findings": [],
+  "pair_notes": {}
+ },
+ "run": {
+  "cancelled": false,
+  "faces_total": {
+   "0": {
+    "avg_power_kW": 725.193,
+    "energy_fraction": 0.5273,
+    "ku_duty_pct": 7.0764,
+    "p_available_kW": 650.1458,
+    "positions": 3863.5,
+    "power_margin": 0.4727,
+    "time_fraction": 0.1085,
+    "time_margin_s": 0.8915
+   },
+   "1": {
+    "avg_power_kW": 568.4187,
+    "energy_fraction": 0.4133,
+    "ku_duty_pct": 8.7828,
+    "p_available_kW": 806.9201,
+    "positions": 3163.4,
+    "power_margin": 0.5867,
+    "time_fraction": 0.0853,
+    "time_margin_s": 0.9147
+   },
+   "2": {
+    "avg_power_kW": 10.9531,
+    "energy_fraction": 0.008,
+    "ku_duty_pct": 14.8505,
+    "p_available_kW": 1364.3857,
+    "positions": 1236.1,
+    "power_margin": 0.992,
+    "time_fraction": 0.0023,
+    "time_margin_s": 0.9977
+   },
+   "3": {
+    "avg_power_kW": 157.5698,
+    "energy_fraction": 0.1146,
+    "ku_duty_pct": 13.2546,
+    "p_available_kW": 1217.7689,
+    "positions": 841.6,
+    "power_margin": 0.8854,
+    "time_fraction": 0.0246,
+    "time_margin_s": 0.9754
+   }
+  },
+  "global": {
+   "bin_deg": 5,
+   "eps_max_deg": 90.0,
+   "eps_min_deg": -40.0,
+   "face_avg_rf_kW": 1375.3387499999997,
+   "face_elec_mw": 2.0,
+   "max_wf_per_sector": 4,
+   "objective": "max(energy,time)"
+  },
+  "sectors": [
+   {
+    "faces": {
+     "0": {
+      "avg_power_kW": 48.68826144818069,
+      "energy_J_per_refresh": 5842591.373781683,
+      "energy_fraction": 0.035400923189418385,
+      "positions": 265.3,
+      "theta_max_deg": 65.0,
+      "time_fraction": 0.008073546242120718
+     },
+     "1": {
+      "avg_power_kW": 24.615376120682964,
+      "energy_J_per_refresh": 2953845.1344819553,
+      "energy_fraction": 0.017897682386017966,
+      "positions": 99.1,
+      "theta_max_deg": 65.0,
+      "time_fraction": 0.004708582039073211
+     },
+     "2": {
+      "avg_power_kW": 9.896322905870825,
+      "energy_J_per_refresh": 1187558.748704499,
+      "energy_fraction": 0.007195553027114831,
+      "positions": 28.6,
+      "theta_max_deg": 65.0,
+      "time_fraction": 0.0019325609851056802
+     },
+     "3": {
+      "avg_power_kW": 24.61537612068295,
+      "energy_J_per_refresh": 2953845.134481954,
+      "energy_fraction": 0.017897682386017955,
+      "positions": 99.1,
+      "theta_max_deg": 65.0,
+      "time_fraction": 0.004708582039073209
+     }
+    },
+    "flags": [],
+    "id": "FWD",
+    "positions_total": 492.1,
+    "range_km": {
+     "at_best_scan": 6560,
+     "at_worst_scan": 7031,
+     "positions_short_of_range_pct": 0.0,
+     "requested": 6000.0
+    },
+    "rr_alone_s": 4.2481107827302065,
+    "rr_est_mission_s": 120.0,
+    "rr_target_s": 120.0,
+    "status": "OK",
+    "time_to_impact_at_detection_s": 1080.0,
+    "unscanned_pct": 0.0,
+    "wf": {
+     "b_tx": 1,
+     "band": "S",
+     "doppler_max_kHz": 93.4,
+     "duty_pct": 0.5,
+     "dwell_ms": 1241.1,
+     "freq_ghz": 2.8,
+     "integration": "COHERENT",
+     "n_pulses": 32,
+     "name": "WF-FWD-3",
+     "pri_ms": 40.028,
+     "sig_bw_mhz": 75.0,
+     "tau_us": 200.0,
+     "unamb_range_km": 6000
+    },
+    "wf_by_bin": [
+     {
+      "positions": 39.1,
+      "power_scale": 0.79,
+      "range_km_at_bin_max": 6365,
+      "theta_hi_deg": 40.0,
+      "theta_lo_deg": 35.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 1.499,
+       "dwell_ms": 80.7,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 3,
+       "name": "WF-FWD-1",
+       "pri_ms": 40.028,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 600.0,
+       "unamb_range_km": 6000
+      }
+     },
+     {
+      "positions": 65.6,
+      "power_scale": 0.945,
+      "range_km_at_bin_max": 6086,
+      "theta_hi_deg": 45.0,
+      "theta_lo_deg": 40.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 1.499,
+       "dwell_ms": 80.7,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 3,
+       "name": "WF-FWD-1",
+       "pri_ms": 40.028,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 600.0,
+       "unamb_range_km": 6000
+      }
+     },
+     {
+      "positions": 133.0,
+      "power_scale": 0.941,
+      "range_km_at_bin_max": 6092,
+      "theta_hi_deg": 50.0,
+      "theta_lo_deg": 45.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 1.999,
+       "dwell_ms": 80.9,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 3,
+       "name": "WF-FWD-2",
+       "pri_ms": 40.028,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 6000
+      }
+     },
+     {
+      "positions": 125.0,
+      "power_scale": 0.491,
+      "range_km_at_bin_max": 7169,
+      "theta_hi_deg": 55.0,
+      "theta_lo_deg": 50.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 0.5,
+       "dwell_ms": 1241.1,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 32,
+       "name": "WF-FWD-3",
+       "pri_ms": 40.028,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 200.0,
+       "unamb_range_km": 6000
+      }
+     },
+     {
+      "positions": 98.8,
+      "power_scale": 0.675,
+      "range_km_at_bin_max": 6619,
+      "theta_hi_deg": 60.0,
+      "theta_lo_deg": 55.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 0.5,
+       "dwell_ms": 1241.1,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 32,
+       "name": "WF-FWD-3",
+       "pri_ms": 40.028,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 200.0,
+       "unamb_range_km": 6000
+      }
+     },
+     {
+      "positions": 30.5,
+      "power_scale": 0.53,
+      "range_km_at_bin_max": 7031,
+      "theta_hi_deg": 65.0,
+      "theta_lo_deg": 60.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 0.999,
+       "dwell_ms": 1241.3,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 32,
+       "name": "WF-FWD-4",
+       "pri_ms": 40.028,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 400.0,
+       "unamb_range_km": 6000
+      }
+     }
+    ],
+    "wf_set": [
+     {
+      "b_tx": 1,
+      "band": "S",
+      "doppler_max_kHz": 93.4,
+      "duty_pct": 1.499,
+      "dwell_ms": 80.7,
+      "freq_ghz": 2.8,
+      "integration": "COHERENT",
+      "n_pulses": 3,
+      "name": "WF-FWD-1",
+      "positions": 104.8,
+      "pri_ms": 40.028,
+      "sig_bw_mhz": 75.0,
+      "tau_us": 600.0,
+      "theta_hi_deg": 45.0,
+      "theta_lo_deg": 35.0,
+      "unamb_range_km": 6000
+     },
+     {
+      "b_tx": 1,
+      "band": "S",
+      "doppler_max_kHz": 93.4,
+      "duty_pct": 1.999,
+      "dwell_ms": 80.9,
+      "freq_ghz": 2.8,
+      "integration": "COHERENT",
+      "n_pulses": 3,
+      "name": "WF-FWD-2",
+      "positions": 133.0,
+      "pri_ms": 40.028,
+      "sig_bw_mhz": 75.0,
+      "tau_us": 800.0,
+      "theta_hi_deg": 50.0,
+      "theta_lo_deg": 45.0,
+      "unamb_range_km": 6000
+     },
+     {
+      "b_tx": 1,
+      "band": "S",
+      "doppler_max_kHz": 93.4,
+      "duty_pct": 0.5,
+      "dwell_ms": 1241.1,
+      "freq_ghz": 2.8,
+      "integration": "COHERENT",
+      "n_pulses": 32,
+      "name": "WF-FWD-3",
+      "positions": 223.8,
+      "pri_ms": 40.028,
+      "sig_bw_mhz": 75.0,
+      "tau_us": 200.0,
+      "theta_hi_deg": 60.0,
+      "theta_lo_deg": 50.0,
+      "unamb_range_km": 6000
+     },
+     {
+      "b_tx": 1,
+      "band": "S",
+      "doppler_max_kHz": 93.4,
+      "duty_pct": 0.999,
+      "dwell_ms": 1241.3,
+      "freq_ghz": 2.8,
+      "integration": "COHERENT",
+      "n_pulses": 32,
+      "name": "WF-FWD-4",
+      "positions": 30.5,
+      "pri_ms": 40.028,
+      "sig_bw_mhz": 75.0,
+      "tau_us": 400.0,
+      "theta_hi_deg": 65.0,
+      "theta_lo_deg": 60.0,
+      "unamb_range_km": 6000
+     }
+    ]
+   },
+   {
+    "faces": {
+     "0": {
+      "avg_power_kW": 676.5046906002016,
+      "energy_J_per_refresh": 13530093.812004032,
+      "energy_fraction": 0.4918822294508911,
+      "positions": 3598.2,
+      "theta_max_deg": 70.0,
+      "time_fraction": 0.1003865271518503
+     },
+     "1": {
+      "avg_power_kW": 543.803277867314,
+      "energy_J_per_refresh": 10876065.55734628,
+      "energy_fraction": 0.3953958818271601,
+      "positions": 3064.3,
+      "theta_max_deg": 70.0,
+      "time_fraction": 0.0805662774893898
+     },
+     "3": {
+      "avg_power_kW": 132.70141273288777,
+      "energy_J_per_refresh": 2654028.2546577556,
+      "energy_fraction": 0.09648634762373111,
+      "positions": 533.9,
+      "theta_max_deg": 70.0,
+      "time_fraction": 0.019820249662460508
+     }
+    },
+    "flags": [],
+    "id": "KV",
+    "positions_total": 7196.4,
+    "range_km": {
+     "at_best_scan": 580,
+     "at_worst_scan": 520,
+     "positions_short_of_range_pct": 0.0,
+     "requested": 500.0
+    },
+    "rr_alone_s": 9.837644589017822,
+    "rr_est_mission_s": 20.0,
+    "rr_target_s": 20.0,
+    "status": "OK",
+    "time_to_impact_at_detection_s": 0.0,
+    "unscanned_pct": 0.0,
+    "wf": {
+     "b_tx": 1,
+     "band": "S",
+     "doppler_max_kHz": 467.0,
+     "duty_pct": 1.499,
+     "dwell_ms": 23.4,
+     "freq_ghz": 2.8,
+     "integration": "COHERENT",
+     "n_pulses": 8,
+     "name": "WF-KV-1",
+     "pri_ms": 3.336,
+     "sig_bw_mhz": 75.0,
+     "tau_us": 50.0,
+     "unamb_range_km": 500
+    },
+    "wf_by_bin": [
+     {
+      "positions": 99.4,
+      "power_scale": 0.556,
+      "range_km_at_bin_max": 579,
+      "theta_hi_deg": 5.0,
+      "theta_lo_deg": 0.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 467.0,
+       "duty_pct": 1.499,
+       "dwell_ms": 23.4,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-KV-1",
+       "pri_ms": 3.336,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 50.0,
+       "unamb_range_km": 500
+      }
+     },
+     {
+      "positions": 295.3,
+      "power_scale": 0.57,
+      "range_km_at_bin_max": 575,
+      "theta_hi_deg": 10.0,
+      "theta_lo_deg": 5.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 467.0,
+       "duty_pct": 1.499,
+       "dwell_ms": 23.4,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-KV-1",
+       "pri_ms": 3.336,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 50.0,
+       "unamb_range_km": 500
+      }
+     },
+     {
+      "positions": 482.0,
+      "power_scale": 0.594,
+      "range_km_at_bin_max": 570,
+      "theta_hi_deg": 15.0,
+      "theta_lo_deg": 10.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 467.0,
+       "duty_pct": 1.499,
+       "dwell_ms": 23.4,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-KV-1",
+       "pri_ms": 3.336,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 50.0,
+       "unamb_range_km": 500
+      }
+     },
+     {
+      "positions": 654.3,
+      "power_scale": 0.629,
+      "range_km_at_bin_max": 561,
+      "theta_hi_deg": 20.0,
+      "theta_lo_deg": 15.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 467.0,
+       "duty_pct": 1.499,
+       "dwell_ms": 23.4,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-KV-1",
+       "pri_ms": 3.336,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 50.0,
+       "unamb_range_km": 500
+      }
+     },
+     {
+      "positions": 806.9,
+      "power_scale": 0.68,
+      "range_km_at_bin_max": 551,
+      "theta_hi_deg": 25.0,
+      "theta_lo_deg": 20.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 467.0,
+       "duty_pct": 1.499,
+       "dwell_ms": 23.4,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-KV-1",
+       "pri_ms": 3.336,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 50.0,
+       "unamb_range_km": 500
+      }
+     },
+     {
+      "positions": 933.2,
+      "power_scale": 0.75,
+      "range_km_at_bin_max": 537,
+      "theta_hi_deg": 30.0,
+      "theta_lo_deg": 25.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 467.0,
+       "duty_pct": 1.499,
+       "dwell_ms": 23.4,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-KV-1",
+       "pri_ms": 3.336,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 50.0,
+       "unamb_range_km": 500
+      }
+     },
+     {
+      "positions": 1033.6,
+      "power_scale": 0.847,
+      "range_km_at_bin_max": 521,
+      "theta_hi_deg": 35.0,
+      "theta_lo_deg": 30.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 467.0,
+       "duty_pct": 1.499,
+       "dwell_ms": 23.4,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-KV-1",
+       "pri_ms": 3.336,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 50.0,
+       "unamb_range_km": 500
+      }
+     },
+     {
+      "positions": 1010.2,
+      "power_scale": 0.982,
+      "range_km_at_bin_max": 502,
+      "theta_hi_deg": 40.0,
+      "theta_lo_deg": 35.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 467.0,
+       "duty_pct": 1.499,
+       "dwell_ms": 23.4,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-KV-1",
+       "pri_ms": 3.336,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 50.0,
+       "unamb_range_km": 500
+      }
+     },
+     {
+      "positions": 686.2,
+      "power_scale": 0.596,
+      "range_km_at_bin_max": 569,
+      "theta_hi_deg": 45.0,
+      "theta_lo_deg": 40.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 467.0,
+       "duty_pct": 2.998,
+       "dwell_ms": 23.4,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-KV-2",
+       "pri_ms": 3.336,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 100.0,
+       "unamb_range_km": 500
+      }
+     },
+     {
+      "positions": 466.9,
+      "power_scale": 0.74,
+      "range_km_at_bin_max": 539,
+      "theta_hi_deg": 50.0,
+      "theta_lo_deg": 45.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 467.0,
+       "duty_pct": 2.998,
+       "dwell_ms": 23.4,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-KV-2",
+       "pri_ms": 3.336,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 100.0,
+       "unamb_range_km": 500
+      }
+     },
+     {
+      "positions": 384.5,
+      "power_scale": 0.963,
+      "range_km_at_bin_max": 505,
+      "theta_hi_deg": 55.0,
+      "theta_lo_deg": 50.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 467.0,
+       "duty_pct": 2.998,
+       "dwell_ms": 23.4,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-KV-2",
+       "pri_ms": 3.336,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 100.0,
+       "unamb_range_km": 500
+      }
+     },
+     {
+      "positions": 220.3,
+      "power_scale": 0.895,
+      "range_km_at_bin_max": 514,
+      "theta_hi_deg": 60.0,
+      "theta_lo_deg": 55.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 467.0,
+       "duty_pct": 2.998,
+       "dwell_ms": 36.8,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 12,
+       "name": "WF-KV-3",
+       "pri_ms": 3.336,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 100.0,
+       "unamb_range_km": 500
+      }
+     },
+     {
+      "positions": 98.3,
+      "power_scale": 0.521,
+      "range_km_at_bin_max": 588,
+      "theta_hi_deg": 65.0,
+      "theta_lo_deg": 60.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 467.0,
+       "duty_pct": 5.996,
+       "dwell_ms": 50.2,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 16,
+       "name": "WF-KV-4",
+       "pri_ms": 3.336,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 200.0,
+       "unamb_range_km": 500
+      }
+     },
+     {
+      "positions": 25.1,
+      "power_scale": 0.854,
+      "range_km_at_bin_max": 520,
+      "theta_hi_deg": 70.0,
+      "theta_lo_deg": 65.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 467.0,
+       "duty_pct": 5.996,
+       "dwell_ms": 50.2,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 16,
+       "name": "WF-KV-4",
+       "pri_ms": 3.336,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 200.0,
+       "unamb_range_km": 500
+      }
+     }
+    ],
+    "wf_set": [
+     {
+      "b_tx": 1,
+      "band": "S",
+      "doppler_max_kHz": 467.0,
+      "duty_pct": 1.499,
+      "dwell_ms": 23.4,
+      "freq_ghz": 2.8,
+      "integration": "COHERENT",
+      "n_pulses": 8,
+      "name": "WF-KV-1",
+      "positions": 5315.0,
+      "pri_ms": 3.336,
+      "sig_bw_mhz": 75.0,
+      "tau_us": 50.0,
+      "theta_hi_deg": 40.0,
+      "theta_lo_deg": 0.0,
+      "unamb_range_km": 500
+     },
+     {
+      "b_tx": 1,
+      "band": "S",
+      "doppler_max_kHz": 467.0,
+      "duty_pct": 2.998,
+      "dwell_ms": 23.4,
+      "freq_ghz": 2.8,
+      "integration": "COHERENT",
+      "n_pulses": 8,
+      "name": "WF-KV-2",
+      "positions": 1537.7,
+      "pri_ms": 3.336,
+      "sig_bw_mhz": 75.0,
+      "tau_us": 100.0,
+      "theta_hi_deg": 55.0,
+      "theta_lo_deg": 40.0,
+      "unamb_range_km": 500
+     },
+     {
+      "b_tx": 1,
+      "band": "S",
+      "doppler_max_kHz": 467.0,
+      "duty_pct": 2.998,
+      "dwell_ms": 36.8,
+      "freq_ghz": 2.8,
+      "integration": "COHERENT",
+      "n_pulses": 12,
+      "name": "WF-KV-3",
+      "positions": 220.3,
+      "pri_ms": 3.336,
+      "sig_bw_mhz": 75.0,
+      "tau_us": 100.0,
+      "theta_hi_deg": 60.0,
+      "theta_lo_deg": 55.0,
+      "unamb_range_km": 500
+     },
+     {
+      "b_tx": 1,
+      "band": "S",
+      "doppler_max_kHz": 467.0,
+      "duty_pct": 5.996,
+      "dwell_ms": 50.2,
+      "freq_ghz": 2.8,
+      "integration": "COHERENT",
+      "n_pulses": 16,
+      "name": "WF-KV-4",
+      "positions": 123.4,
+      "pri_ms": 3.336,
+      "sig_bw_mhz": 75.0,
+      "tau_us": 200.0,
+      "theta_hi_deg": 70.0,
+      "theta_lo_deg": 60.0,
+      "unamb_range_km": 500
+     }
+    ]
+   },
+   {
+    "faces": {
+     "2": {
+      "avg_power_kW": 1.0567432636934155,
+      "energy_J_per_refresh": 63404.595821604926,
+      "energy_fraction": 0.0007683512616025801,
+      "positions": 1207.5,
+      "theta_max_deg": 56.0,
+      "time_fraction": 0.0004025097850969305
+     },
+     "3": {
+      "avg_power_kW": 0.2530214710127598,
+      "energy_J_per_refresh": 15181.288260765588,
+      "energy_fraction": 0.00018397029169196305,
+      "positions": 208.6,
+      "theta_max_deg": 56.0,
+      "time_fraction": 6.953372763981765e-05
+     }
+    },
+    "flags": [],
+    "id": "SHIPW",
+    "positions_total": 1416.1,
+    "range_km": {
+     "at_best_scan": 4543,
+     "at_worst_scan": 3296,
+     "positions_short_of_range_pct": 0.0,
+     "requested": 3000.0
+    },
+    "rr_alone_s": 0.046101075696154806,
+    "rr_est_mission_s": 60.0,
+    "rr_target_s": 60.0,
+    "status": "OK",
+    "time_to_impact_at_detection_s": 540.0,
+    "unscanned_pct": 0.0,
+    "wf": {
+     "b_tx": 1,
+     "band": "S",
+     "doppler_max_kHz": 93.4,
+     "duty_pct": 2.0,
+     "dwell_ms": 0.0,
+     "freq_ghz": 2.8,
+     "integration": "NONCOHERENT",
+     "n_pulses": 1,
+     "name": "WF-SHIPW",
+     "pri_ms": 1.0,
+     "sig_bw_mhz": 20.0,
+     "tau_us": 20.0,
+     "unamb_range_km": 150
+    },
+    "wf_by_bin": [
+     {
+      "positions": 39.6,
+      "power_scale": 0.194,
+      "range_km_at_bin_max": 4520,
+      "theta_hi_deg": 10.0,
+      "theta_lo_deg": 5.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 2.0,
+       "dwell_ms": 0.0,
+       "freq_ghz": 2.8,
+       "integration": "NONCOHERENT",
+       "n_pulses": 1,
+       "name": "WF-SHIPW",
+       "pri_ms": 1.0,
+       "sig_bw_mhz": 20.0,
+       "tau_us": 20.0,
+       "unamb_range_km": 150
+      }
+     },
+     {
+      "positions": 92.1,
+      "power_scale": 0.202,
+      "range_km_at_bin_max": 4474,
+      "theta_hi_deg": 15.0,
+      "theta_lo_deg": 10.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 2.0,
+       "dwell_ms": 0.0,
+       "freq_ghz": 2.8,
+       "integration": "NONCOHERENT",
+       "n_pulses": 1,
+       "name": "WF-SHIPW",
+       "pri_ms": 1.0,
+       "sig_bw_mhz": 20.0,
+       "tau_us": 20.0,
+       "unamb_range_km": 150
+      }
+     },
+     {
+      "positions": 140.2,
+      "power_scale": 0.214,
+      "range_km_at_bin_max": 4409,
+      "theta_hi_deg": 20.0,
+      "theta_lo_deg": 15.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 2.0,
+       "dwell_ms": 0.0,
+       "freq_ghz": 2.8,
+       "integration": "NONCOHERENT",
+       "n_pulses": 1,
+       "name": "WF-SHIPW",
+       "pri_ms": 1.0,
+       "sig_bw_mhz": 20.0,
+       "tau_us": 20.0,
+       "unamb_range_km": 150
+      }
+     },
+     {
+      "positions": 183.7,
+      "power_scale": 0.232,
+      "range_km_at_bin_max": 4324,
+      "theta_hi_deg": 25.0,
+      "theta_lo_deg": 20.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 2.0,
+       "dwell_ms": 0.0,
+       "freq_ghz": 2.8,
+       "integration": "NONCOHERENT",
+       "n_pulses": 1,
+       "name": "WF-SHIPW",
+       "pri_ms": 1.0,
+       "sig_bw_mhz": 20.0,
+       "tau_us": 20.0,
+       "unamb_range_km": 150
+      }
+     },
+     {
+      "positions": 221.8,
+      "power_scale": 0.256,
+      "range_km_at_bin_max": 4220,
+      "theta_hi_deg": 30.0,
+      "theta_lo_deg": 25.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 2.0,
+       "dwell_ms": 0.0,
+       "freq_ghz": 2.8,
+       "integration": "NONCOHERENT",
+       "n_pulses": 1,
+       "name": "WF-SHIPW",
+       "pri_ms": 1.0,
+       "sig_bw_mhz": 20.0,
+       "tau_us": 20.0,
+       "unamb_range_km": 150
+      }
+     },
+     {
+      "positions": 253.3,
+      "power_scale": 0.288,
+      "range_km_at_bin_max": 4094,
+      "theta_hi_deg": 35.0,
+      "theta_lo_deg": 30.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 2.0,
+       "dwell_ms": 0.0,
+       "freq_ghz": 2.8,
+       "integration": "NONCOHERENT",
+       "n_pulses": 1,
+       "name": "WF-SHIPW",
+       "pri_ms": 1.0,
+       "sig_bw_mhz": 20.0,
+       "tau_us": 20.0,
+       "unamb_range_km": 150
+      }
+     },
+     {
+      "positions": 212.4,
+      "power_scale": 0.335,
+      "range_km_at_bin_max": 3945,
+      "theta_hi_deg": 40.0,
+      "theta_lo_deg": 35.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 2.0,
+       "dwell_ms": 0.0,
+       "freq_ghz": 2.8,
+       "integration": "NONCOHERENT",
+       "n_pulses": 1,
+       "name": "WF-SHIPW",
+       "pri_ms": 1.0,
+       "sig_bw_mhz": 20.0,
+       "tau_us": 20.0,
+       "unamb_range_km": 150
+      }
+     },
+     {
+      "positions": 158.5,
+      "power_scale": 0.4,
+      "range_km_at_bin_max": 3771,
+      "theta_hi_deg": 45.0,
+      "theta_lo_deg": 40.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 2.0,
+       "dwell_ms": 0.0,
+       "freq_ghz": 2.8,
+       "integration": "NONCOHERENT",
+       "n_pulses": 1,
+       "name": "WF-SHIPW",
+       "pri_ms": 1.0,
+       "sig_bw_mhz": 20.0,
+       "tau_us": 20.0,
+       "unamb_range_km": 150
+      }
+     },
+     {
+      "positions": 83.8,
+      "power_scale": 0.497,
+      "range_km_at_bin_max": 3572,
+      "theta_hi_deg": 50.0,
+      "theta_lo_deg": 45.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 2.0,
+       "dwell_ms": 0.0,
+       "freq_ghz": 2.8,
+       "integration": "NONCOHERENT",
+       "n_pulses": 1,
+       "name": "WF-SHIPW",
+       "pri_ms": 1.0,
+       "sig_bw_mhz": 20.0,
+       "tau_us": 20.0,
+       "unamb_range_km": 150
+      }
+     },
+     {
+      "positions": 29.9,
+      "power_scale": 0.647,
+      "range_km_at_bin_max": 3345,
+      "theta_hi_deg": 55.0,
+      "theta_lo_deg": 50.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 2.0,
+       "dwell_ms": 0.0,
+       "freq_ghz": 2.8,
+       "integration": "NONCOHERENT",
+       "n_pulses": 1,
+       "name": "WF-SHIPW",
+       "pri_ms": 1.0,
+       "sig_bw_mhz": 20.0,
+       "tau_us": 20.0,
+       "unamb_range_km": 150
+      }
+     },
+     {
+      "positions": 0.9,
+      "power_scale": 0.686,
+      "range_km_at_bin_max": 3296,
+      "theta_hi_deg": 60.0,
+      "theta_lo_deg": 55.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 93.4,
+       "duty_pct": 2.0,
+       "dwell_ms": 0.0,
+       "freq_ghz": 2.8,
+       "integration": "NONCOHERENT",
+       "n_pulses": 1,
+       "name": "WF-SHIPW",
+       "pri_ms": 1.0,
+       "sig_bw_mhz": 20.0,
+       "tau_us": 20.0,
+       "unamb_range_km": 150
+      }
+     }
+    ],
+    "wf_set": [
+     {
+      "b_tx": 1,
+      "band": "S",
+      "doppler_max_kHz": 93.4,
+      "duty_pct": 2.0,
+      "dwell_ms": 0.0,
+      "freq_ghz": 2.8,
+      "integration": "NONCOHERENT",
+      "n_pulses": 1,
+      "name": "WF-SHIPW",
+      "positions": 1416.1,
+      "pri_ms": 1.0,
+      "sig_bw_mhz": 20.0,
+      "tau_us": 20.0,
+      "theta_hi_deg": 56.0,
+      "theta_lo_deg": 5.0,
+      "unamb_range_km": 150
+     }
+    ]
+   }
+  ],
+  "tracking": {
+   "advice": [],
+   "confirm_p_min": 0.98,
+   "faces": {
+    "0": {
+     "at_energy": 0.00018698371042647334,
+     "at_ku_time": 9.439167047215223e-05,
+     "binding": "energy",
+     "confirm_energy": 0.0026729186596338456,
+     "confirm_ku_time": 0.002856674042470859,
+     "confirm_s_time": 0.0,
+     "load": 0.5301599023700603,
+     "p_left_kW": 646.1892925742392,
+     "search_energy": 0.5273,
+     "search_s_time": 0.1085,
+     "status": "OK",
+     "total_energy": 0.5301599023700603,
+     "total_ku_time": 0.002951065712943011,
+     "total_s_time": 0.1085
+    },
+    "1": {
+     "at_energy": 0.00014838481441989773,
+     "at_ku_time": 7.886740272711231e-05,
+     "binding": "energy",
+     "confirm_energy": 0.002084285685494242,
+     "confirm_ku_time": 0.0022316226921753964,
+     "confirm_s_time": 0.0,
+     "load": 0.41553267049991416,
+     "p_left_kW": 803.840566370486,
+     "search_energy": 0.4133,
+     "search_s_time": 0.0853,
+     "status": "OK",
+     "total_energy": 0.41553267049991416,
+     "total_ku_time": 0.0023104900949025087,
+     "total_s_time": 0.0853
+    },
+    "2": {
+     "at_energy": 0.0,
+     "at_ku_time": 0.0,
+     "binding": "energy",
+     "confirm_energy": 0.0006303590702151077,
+     "confirm_ku_time": 0.0006492195555561968,
+     "confirm_s_time": 0.0,
+     "load": 0.008630359070215109,
+     "p_left_kW": 1363.469082744319,
+     "search_energy": 0.008,
+     "search_s_time": 0.0023,
+     "status": "OK",
+     "total_energy": 0.008630359070215109,
+     "total_ku_time": 0.0006492195555561968,
+     "total_s_time": 0.0023
+    },
+    "3": {
+     "at_energy": 3.859889600657563e-05,
+     "at_ku_time": 1.5524267745039948e-05,
+     "binding": "energy",
+     "confirm_energy": 0.001430651071787882,
+     "confirm_ku_time": 0.0015034478212373806,
+     "confirm_s_time": 0.0,
+     "load": 0.11606924996779446,
+     "p_left_kW": 1215.7042128358557,
+     "search_energy": 0.1146,
+     "search_s_time": 0.0246,
+     "status": "OK",
+     "total_energy": 0.11606924996779446,
+     "total_ku_time": 0.0015189720889824206,
+     "total_s_time": 0.0246
+    }
+   },
+   "ku_freq_ghz": 14.0,
+   "pfa": 1e-08,
+   "sectors": [
+    {
+     "alternatives": {
+      "KU1+7": {
+       "admissible": true,
+       "mission_max_load": 0.5303,
+       "why_not": ""
+      },
+      "KU7": {
+       "admissible": true,
+       "mission_max_load": 0.5302,
+       "why_not": ""
+      },
+      "S2": {
+       "admissible": true,
+       "mission_max_load": 0.5437,
+       "why_not": ""
+      }
+     },
+     "at": [],
+     "confirm_mode": "KU7",
+     "confirmation": {
+      "admissible": true,
+      "faces": {
+       "0": {
+        "energy_fraction": 0.0014570093049265666,
+        "ku_time_fraction": 0.0014943608446300644,
+        "s_time_fraction": 0.0
+       },
+       "1": {
+        "energy_fraction": 0.0011493597805368044,
+        "ku_time_fraction": 0.0011858056576088238,
+        "s_time_fraction": 0.0
+       },
+       "2": {
+        "energy_fraction": 0.0006291172999696251,
+        "ku_time_fraction": 0.0006425857050206169,
+        "s_time_fraction": 0.0
+       },
+       "3": {
+        "energy_fraction": 0.001149359780536804,
+        "ku_time_fraction": 0.0011858056576088236,
+        "s_time_fraction": 0.0
+       }
+      },
+      "ku_looks_fa": 7.0,
+      "ku_looks_true": 7.0,
+      "margin_db": 0.0,
+      "success": 0.9811473762893312,
+      "why_not": ""
+     },
+     "false_alarms_per_rr": 265.7,
+     "flags": [],
+     "forced": false,
+     "id": "FWD",
+     "reason": "lowest mission face load (binding resource: energy)"
+    },
+    {
+     "alternatives": {
+      "KU1+7": {
+       "admissible": true,
+       "mission_max_load": 0.5303,
+       "why_not": ""
+      },
+      "KU7": {
+       "admissible": true,
+       "mission_max_load": 0.5302,
+       "why_not": ""
+      },
+      "S2": {
+       "admissible": true,
+       "mission_max_load": 0.5379,
+       "why_not": ""
+      }
+     },
+     "at": [
+      {
+       "angle_zone_deg": 0.2,
+       "avg_power_kW": 0.10149764467054494,
+       "driver": "DET",
+       "energy_per_update_J": 20.299528934108988,
+       "faces": {
+        "0": {
+         "energy_fraction": 3.6899143818402906e-05,
+         "ku_time_fraction": 5.128642980994517e-05
+        },
+        "1": {
+         "energy_fraction": 2.9496146108784414e-05,
+         "ku_time_fraction": 4.3256775888168425e-05
+        },
+        "3": {
+         "energy_fraction": 7.4029977096184934e-06,
+         "ku_time_fraction": 8.029653921776747e-06
+        }
+       },
+       "n_targets": 5,
+       "r_max_km": 250,
+       "r_min_km": 0,
+       "range_acc_m": 10.0,
+       "rr_s": 1.0,
+       "sigma_theta_deg": 0.05,
+       "unreachable_tracks": 0.0,
+       "vr_acc_mps": 5.0,
+       "wf": "14.0 GHz COHE tau 10 us x N 2 @ PRI 0.5 ms B 50 MHz"
+      },
+      {
+       "angle_zone_deg": 0.5,
+       "avg_power_kW": 0.4128342404660706,
+       "driver": "DET",
+       "energy_per_update_J": 275.2228269773804,
+       "faces": {
+        "0": {
+         "energy_fraction": 0.00015008456660807042,
+         "ku_time_fraction": 4.3105240662207056e-05
+        },
+        "1": {
+         "energy_fraction": 0.00011888866831111331,
+         "ku_time_fraction": 3.5610626838943876e-05
+        },
+        "3": {
+         "energy_fraction": 3.119589829695713e-05,
+         "ku_time_fraction": 7.494613823263199e-06
+        }
+       },
+       "n_targets": 3,
+       "r_max_km": 500,
+       "r_min_km": 250,
+       "range_acc_m": 30.0,
+       "rr_s": 2.0,
+       "sigma_theta_deg": 0.125,
+       "unreachable_tracks": 0.0,
+       "vr_acc_mps": 10.0,
+       "wf": "14.0 GHz COHE tau 50 us x N 1 @ PRI 0.5 ms B 50 MHz"
+      }
+     ],
+     "confirm_mode": "KU7",
+     "confirmation": {
+      "admissible": true,
+      "faces": {
+       "0": {
+        "energy_fraction": 0.001215909354707279,
+        "ku_time_fraction": 0.0013623131978407945,
+        "s_time_fraction": 0.0
+       },
+       "1": {
+        "energy_fraction": 0.0009349259049574374,
+        "ku_time_fraction": 0.0010458170345665726,
+        "s_time_fraction": 0.0
+       },
+       "3": {
+        "energy_fraction": 0.0002809834497498417,
+        "ku_time_fraction": 0.0003164961632742224,
+        "s_time_fraction": 0.0
+       }
+      },
+      "ku_looks_fa": 7.0,
+      "ku_looks_true": 7.0,
+      "margin_db": 0.0,
+      "success": 0.9811473762893312,
+      "why_not": ""
+     },
+     "false_alarms_per_rr": 148.7,
+     "flags": [],
+     "forced": false,
+     "id": "KV",
+     "reason": "lowest mission face load (binding resource: energy)"
+    },
+    {
+     "alternatives": {
+      "KU1+7": {
+       "admissible": true,
+       "mission_max_load": 0.5302,
+       "why_not": ""
+      },
+      "KU7": {
+       "admissible": true,
+       "mission_max_load": 0.5302,
+       "why_not": ""
+      },
+      "S2": {
+       "admissible": true,
+       "mission_max_load": 0.5302,
+       "why_not": ""
+      }
+     },
+     "at": [],
+     "confirm_mode": "KU7",
+     "confirmation": {
+      "admissible": true,
+      "faces": {
+       "2": {
+        "energy_fraction": 1.241770245482695e-06,
+        "ku_time_fraction": 6.633850535579955e-06,
+        "s_time_fraction": 0.0
+       },
+       "3": {
+        "energy_fraction": 3.078415012363715e-07,
+        "ku_time_fraction": 1.1460003543347217e-06,
+        "s_time_fraction": 0.0
+       }
+      },
+      "ku_looks_fa": 7.0,
+      "ku_looks_true": 7.0,
+      "margin_db": 2.5,
+      "success": 0.9820945446392576,
+      "why_not": ""
+     },
+     "false_alarms_per_rr": 5.7,
+     "flags": [],
+     "forced": true,
+     "id": "SHIPW",
+     "reason": "forced by the operator"
+    }
+   ]
+  },
+  "warnings": []
+ },
+ "validation": []
+}

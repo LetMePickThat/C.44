@@ -1,0 +1,251 @@
+"""
+TESTBENCH -- shared by the test suite (pytest), tests/update_snapshots.py and tests/impact_report.py.
+
+Computes the numeric outputs of the tool for the test cases, flattens them, compares them with the frozen snapshots
+(tests/snapshots/*.json) and extracts the key figures of the impact report.
+
+TEST VALUES ONLY: the missions of tests/missions/ are test missions, and the snapshots are the tool's own outputs
+frozen at a given commit. They detect unintended changes of the code; they are NOT radar requirements or achieved
+performance (the radar's capabilities are not established).
+"""
+from __future__ import annotations
+
+import dataclasses
+import json
+import math
+import os
+import sys
+from typing import Any, Callable, Dict, List, Tuple
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+
+import numpy as np  # noqa: E402
+
+from core import cost_estimate as ce  # noqa: E402
+from core import geometry as geo  # noqa: E402
+from core import mission as md  # noqa: E402
+from core import optimizer as mo  # noqa: E402
+from core import radar_model as rm  # noqa: E402
+from core import redundancy as red  # noqa: E402
+from core import tracking as trk  # noqa: E402
+
+TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+MISSIONS_DIR = os.path.join(TESTS_DIR, "missions")
+SNAPSHOTS_DIR = os.path.join(TESTS_DIR, "snapshots")
+REL_TOL = 1e-9          # [user 2026-10-20] relative tolerance of the snapshot comparison
+ABS_TOL = 1e-15         # below this, two numbers are equal (zeros computed through different paths)
+GRID_RES_DEG = 0.5      # raster of the redundancy check and the fast estimate (= tool.display.grid_res_deg default)
+
+MISSIONS = ("mission_example.json", "mission_example.csv", "mission_veille500.json",
+            "mission_redundancy_demo.json", "mission_synthetic_mix.json")
+
+# Synthetic Ku waveforms of the model case (no Ku waveform in the model catalogue)
+KU_TRACK = rm.Waveform(name="TEST-KU-TRK", role="TRACK", band="Ku", tau_s=40e-6, n=128, pri_s=500e-6,
+                       sig_bw_mhz=75.0, integration="COHERENT", tracking_pack=rm.TrackingPack(0.05, 2.0, 5.0))
+KU_CONFIRM = rm.Waveform(name="TEST-KU-CONF", role="CONFIRM", band="Ku", tau_s=100e-6, n=8, pri_s=1e-3,
+                         sig_bw_mhz=200.0, integration="COHERENT")
+
+
+def to_plain(x: Any) -> Any:
+    """JSON-ready copy: numpy and dataclasses converted, dict keys as strings, tuples as lists."""
+    if isinstance(x, dict):
+        return {str(k): to_plain(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [to_plain(v) for v in x]
+    if isinstance(x, np.ndarray):
+        return to_plain(x.tolist())
+    if isinstance(x, np.bool_):
+        return bool(x)
+    if isinstance(x, np.integer):
+        return int(x)
+    if isinstance(x, np.floating):
+        return float(x)
+    if dataclasses.is_dataclass(x) and not isinstance(x, type):
+        return to_plain(dataclasses.asdict(x))
+    if isinstance(x, (bool, int, float, str, type(None))):
+        return x
+    return repr(x)
+
+
+def _try(fn: Callable[[], Any]) -> Any:
+    try:
+        return fn()
+    except ValueError as exc:
+        return f"ValueError: {exc}"
+
+
+# ----------------------------------------------------------------------------- cases
+def model_case() -> dict:
+    """Radar model alone: solve() over a grid of frequencies / scan angles / targets, positions, loss terms."""
+    out: Dict[str, Any] = {}
+    sol = {}
+    for f in (2.7, 2.75, 2.8, 2.88, 2.9):
+        for th in (0.0, 30.0, 60.0, 70.0, 74.0):
+            for name, tgt in rm.TARGETS.items():
+                sol[f"S {f} GHz | {th} deg | {name}"] = _try(lambda: rm.solve(rm.WF_LRS, f, th, tgt))
+    for w in (KU_TRACK, KU_CONFIRM):
+        for f in (13.6, 14.0, 14.4):
+            for th in (0.0, 50.0, 70.0):
+                sol[f"{w.name} {f} GHz | {th} deg | KKV"] = _try(lambda: rm.solve(w, f, th, rm.TARGETS["KKV"]))
+    for r in sol.values():
+        if isinstance(r, rm.Result):
+            r.wf = r.wf.name       # the waveform is an input: keep its name only
+            r.target = r.target.name
+    out["solve"] = sol
+    out["positions"] = {f"{f} GHz | eps {lo}..{hi}": rm.n_search_positions(f, lo, hi)
+                        for f in (2.7, 2.8, 2.9) for lo, hi in ((-90.0, 90.0), (-20.0, 90.0), (-90.0, 30.0))}
+    out["terms"] = {
+        "grid_loss_db": rm.grid_loss_db(), "chain_eff": rm.CHAIN_EFF, "face_avg_rf_w_2MW": rm.face_avg_rf_w(2.0),
+        "array_envelope_m": rm.ARRAY_ENVELOPE_M, "sector_area_uv": rm.sector_area_uv(),
+        "hpbw_deg": {f"{f} GHz | {th} deg": rm.hpbw_deg(f, th) for f in (2.8, 14.0) for th in (0.0, 40.0, 70.0)},
+        "scan_loss_db": {str(th): rm.scan_loss_db(th) for th in (0.0, 30.0, 50.0, 70.0, 75.0)},
+        "multibeam_tx_loss_db": {str(b): rm.multibeam_tx_loss_db(b) for b in (1, 2, 4, 8)},
+        "coherence_loss_db": {str(t): rm.coherence_loss_db(14.0, t) for t in (1e-3, 0.064, 0.3)},
+        "edge_loss_db": {str(f): rm.BAND_S.edge_loss_db(f) for f in (2.7, 2.72, 2.8, 2.88, 2.9)},
+        "shnidman_db": {f"N {n} SW{s}": rm.shnidman_total_snr_db(rm.DETECT_PD, rm.DETECT_PFA, n, s)
+                        for n in (1, 8, 24, 128) for s in (0, 1, 2, 3, 4)},
+        "bands": {b.name: b for b in rm.BANDS.values()}, "targets": rm.TARGETS,
+        "ship_array_radius": geo.RP,
+    }
+    out["confirmation_tables"] = {f"SW{sw}": trk.confirm_tables(sw, 2.8) for sw in (1, 3)}
+    out["ku_look"] = {f"{th} deg | {r} km | {'track' if pack else 'detect'}":
+                      trk.ku_look(th, rm.TARGETS["KKV"], r, rm.face_avg_rf_w(2.0), pack)
+                      for th in (0.0, 60.0) for r in (300.0, 800.0)
+                      for pack in (None, rm.TrackingPack(0.05, 5.0, 10.0))}
+    for v in out["ku_look"].values():
+        if v is not None:
+            v["wf"] = trk._wf_label(v["wf"])
+    return to_plain(out)
+
+
+def mission_case(name: str, grid: "geo.SphereGrid", table) -> dict:
+    """One test mission through every calculation of the tool."""
+    m = md.load_mission(os.path.join(MISSIONS_DIR, name))
+    g = {**md.GLOBAL_DEFAULTS, **m.get("global", {})}
+    out: Dict[str, Any] = {"validation": md.validate_mission(m)}
+    out["run"] = mo.run(m, workers=1)
+    findings, notes = red.find_redundancies(m, grid)
+    out["redundancy"] = {"findings": findings, "pair_notes": {f"{a} > {b}": t for (a, b), t in notes.items()}}
+    out["fast_estimate"] = {s["id"]: ce.estimate_sector_faces(table, s, grid, g["eps_min_deg"], g["eps_max_deg"],
+                                                              rm.face_avg_rf_w(g["face_elec_mw"]))
+                            for s in m["sectors"]}
+    return to_plain(out)
+
+
+def case_names() -> List[str]:
+    return ["model"] + [os.path.splitext(n)[0] + ("_csv" if n.endswith(".csv") else "") for n in MISSIONS]
+
+
+def compute_all() -> Dict[str, dict]:
+    grid = geo.SphereGrid(res_deg=GRID_RES_DEG)
+    table = ce.load_table()
+    out = {"model": model_case()}
+    for n, case in zip(MISSIONS, case_names()[1:]):
+        out[case] = mission_case(n, grid, table)
+    return out
+
+
+def compute_case(case: str) -> dict:
+    if case == "model":
+        return model_case()
+    n = MISSIONS[case_names().index(case) - 1]
+    return mission_case(n, geo.SphereGrid(res_deg=GRID_RES_DEG), ce.load_table())
+
+
+# ----------------------------------------------------------------------------- snapshots
+def snapshot_path(case: str) -> str:
+    return os.path.join(SNAPSHOTS_DIR, f"{case}.json")
+
+
+def load_snapshot(case: str) -> dict:
+    with open(snapshot_path(case), encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def save_snapshot(case: str, data: dict) -> None:
+    os.makedirs(SNAPSHOTS_DIR, exist_ok=True)
+    with open(snapshot_path(case), "w", encoding="utf-8") as fh:
+        json.dump(data, fh, indent=1, sort_keys=True, ensure_ascii=False)
+        fh.write("\n")
+
+
+def _same(a: Any, b: Any) -> bool:
+    if isinstance(a, bool) or isinstance(b, bool):
+        return a is b or a == b and type(a) is type(b)
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        if math.isnan(a) or math.isnan(b):
+            return math.isnan(a) and math.isnan(b)
+        return math.isclose(a, b, rel_tol=REL_TOL, abs_tol=ABS_TOL)
+    return a == b
+
+
+def differences(old: Any, new: Any, path: str = "") -> List[Tuple[str, Any, Any]]:
+    """(path, frozen value, current value) of every difference beyond the tolerance."""
+    if isinstance(old, dict) and isinstance(new, dict):
+        out = []
+        for k in list(old) + [k for k in new if k not in old]:
+            p = f"{path}/{k}"
+            if k not in new:
+                out.append((p, old[k], "<missing>"))
+            elif k not in old:
+                out.append((p, "<missing>", new[k]))
+            else:
+                out.extend(differences(old[k], new[k], p))
+        return out
+    if isinstance(old, list) and isinstance(new, list):
+        if len(old) != len(new):
+            return [(path, f"<{len(old)} items>", f"<{len(new)} items>")]
+        out = []
+        for i, (a, b) in enumerate(zip(old, new)):
+            out.extend(differences(a, b, f"{path}[{i}]"))
+        return out
+    return [] if _same(old, new) else [(path or "/", old, new)]
+
+
+def format_differences(diffs: List[Tuple[str, Any, Any]], limit: int = 40) -> str:
+    def short(v: Any) -> str:
+        s = json.dumps(v, ensure_ascii=False) if not isinstance(v, str) else v
+        return s if len(s) <= 120 else s[:117] + "..."
+    lines = [f"{p} : {short(a)} -> {short(b)}" for p, a, b in diffs[:limit]]
+    if len(diffs) > limit:
+        lines.append(f"... and {len(diffs) - limit} more")
+    return "\n".join(lines)
+
+
+# ----------------------------------------------------------------------------- impact report key figures
+def key_figures(case: str, data: dict) -> Dict[str, Any]:
+    """The figures of the impact report for one case (flat, label -> value)."""
+    k: Dict[str, Any] = {}
+    if case == "model":
+        for name in ("ST", "KKV", "SHIP"):
+            for th in (0.0, 70.0):
+                r = data["solve"].get(f"S 2.8 GHz | {th} deg | {name}")
+                k[f"WF-LRS range {name} @ {th:g} deg (km)"] = r["range_km"] if isinstance(r, dict) else r
+        for f in (2.7, 2.8, 2.9):
+            k[f"positions per face @ {f} GHz"] = data["positions"][f"{f} GHz | eps -90.0..90.0"]
+        return k
+    run = data["run"]
+    for s in run["sectors"]:
+        sid = s["id"]
+        k[f"{sid} status"] = s["status"]
+        if s["status"] != "OK":
+            continue
+        k[f"{sid} RR est. (s)"] = s.get("rr_est_mission_s")
+        k[f"{sid} range at worst scan (km)"] = s["range_km"]["at_worst_scan"]
+        k[f"{sid} positions short of range (%)"] = s["range_km"]["positions_short_of_range_pct"]
+        k[f"{sid} unscanned (%)"] = s["unscanned_pct"]
+        k[f"{sid} flags"] = len(s.get("flags", []))
+    trk_faces = run.get("tracking", {}).get("faces", {})
+    for f, v in trk_faces.items():
+        if v["load"] == 0.0 and v["total_energy"] == 0.0:
+            continue
+        tag = f"F{int(f) + 1}"
+        k[f"{tag} energy"] = v["total_energy"]
+        k[f"{tag} S time"] = v["total_s_time"]
+        k[f"{tag} Ku time"] = v["total_ku_time"]
+        k[f"{tag} load ({v['binding']})"] = v["load"]
+    for s in run.get("tracking", {}).get("sectors", []):
+        k[f"{s['id']} confirmation mode"] = s["confirm_mode"]
+    return k

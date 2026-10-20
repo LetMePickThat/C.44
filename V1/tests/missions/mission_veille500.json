@@ -1,0 +1,80 @@
+{
+  "_comment": "Test mission for optimiser v2, RECONSTRUCTED from SPEC_optimiseur_v2.md section 6 (the original file was not supplied): forward 30 deg cone split per face (ST 1000 m2, 8000 km, RR 120 s) + KV search eps <= 75 (0.135 m2, 25 km/s, 500 km, RR 20 s).",
+  "global": {
+    "eps_min_deg": -90,
+    "eps_max_deg": 90,
+    "face_elec_mw": 2.0
+  },
+  "sectors": [
+    {
+      "id": "CONE_D1",
+      "shape": "box",
+      "phi_min_deg": 315,
+      "phi_max_deg": 45,
+      "eps_min_deg": 75,
+      "eps_max_deg": 90,
+      "rcs_m2": 1000,
+      "swerling": 1,
+      "range_km": 8000,
+      "rr_target_s": 120,
+      "v_close_min_mps": 1000,
+      "v_close_max_mps": 5000
+    },
+    {
+      "id": "CONE_D2",
+      "shape": "box",
+      "phi_min_deg": 45,
+      "phi_max_deg": 135,
+      "eps_min_deg": 75,
+      "eps_max_deg": 90,
+      "rcs_m2": 1000,
+      "swerling": 1,
+      "range_km": 8000,
+      "rr_target_s": 120,
+      "v_close_min_mps": 1000,
+      "v_close_max_mps": 5000
+    },
+    {
+      "id": "CONE_D3",
+      "shape": "box",
+      "phi_min_deg": 135,
+      "phi_max_deg": 225,
+      "eps_min_deg": 75,
+      "eps_max_deg": 90,
+      "rcs_m2": 1000,
+      "swerling": 1,
+      "range_km": 8000,
+      "rr_target_s": 120,
+      "v_close_min_mps": 1000,
+      "v_close_max_mps": 5000
+    },
+    {
+      "id": "CONE_D4",
+      "shape": "box",
+      "phi_min_deg": 225,
+      "phi_max_deg": 315,
+      "eps_min_deg": 75,
+      "eps_max_deg": 90,
+      "rcs_m2": 1000,
+      "swerling": 1,
+      "range_km": 8000,
+      "rr_target_s": 120,
+      "v_close_min_mps": 1000,
+      "v_close_max_mps": 5000
+    },
+    {
+      "id": "VEILLE_KV",
+      "shape": "box",
+      "phi_min_deg": 0,
+      "phi_max_deg": 360,
+      "eps_min_deg": -90,
+      "eps_max_deg": 75,
+      "rcs_m2": 0.135,
+      "swerling": 1,
+      "range_km": 500,
+      "rr_target_s": 20,
+      "v_close_min_mps": 10000,
+      "v_close_max_mps": 25000
+    }
+  ]
+}
