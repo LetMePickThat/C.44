@@ -79,6 +79,7 @@ B_CAND = tuple(P.get(_T + "b_tx"))
 SIGBW_CAND = tuple(P.get(_T + "sig_bw_mhz"))
 PRI_MIN_S = P.get(_T + "pri_min_s")                  # PRI of single-pulse and range-ambiguous candidates
 RES_MAX_M_DEFAULT = P.get("tool.mission_defaults.res_max_m")   # range resolution requested if the sector gives none
+RANGE_MIN_FRAC = P.get("tool.mission_defaults.range_min_frac") # sector range_min_km when absent, x range_km (step 2.1)
 THETA_BIN_DEG = P.get(_T + "theta_bin_deg")
 C = rm.C_MPS
 SOLVE_CACHE_SIZE = P.get(_T + "solve_cache_size")    # memoised solve() ranges per process (~50 MB when full)
@@ -255,9 +256,20 @@ def search_positions(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, sky: O
 
 
 # ----------------------------------------------------------------------------- optimiser
-def make_wf(name, tau, n, pri, bw, b, integ):
+def make_wf(name, tau, n, pri, bw, b, integ, staggered=False):
     return rm.Waveform(name=name, role="SEARCH", band="S", tau_s=tau, n=n, pri_s=pri, sig_bw_mhz=bw,
-                       b_tx=b, integration=integ)
+                       b_tx=b, integration=integ, staggered=staggered)
+
+
+def range_min_km(sec: dict) -> float:
+    """Shortest range of interest of a sector (step 2.1, C1): key "range_min_km", else RANGE_MIN_FRAC x range_km.
+    A waveform whose blind range c (tau + limiter recovery) / 2 exceeds it is not playable for the sector."""
+    return float(sec.get("range_min_km", RANGE_MIN_FRAC * sec["range_km"]))
+
+
+def resolution_m(sec: dict, sig_bw_mhz: float) -> float:
+    """Physical range resolution of a signal for this sector (its range sidelobe level, step 2.1, A7)."""
+    return rm.range_resolution_m(sig_bw_mhz, rm.range_psl_db(rx_sll_db(sec)))
 
 
 @functools.lru_cache(maxsize=SOLVE_CACHE_SIZE)
@@ -283,22 +295,26 @@ def range_at(w, f, theta, tgt, rx_sll: Optional[float] = None):
 
 
 def candidate_waveforms(sec: dict) -> List:
-    """Search-space enumeration (same grid and PRI rules as v1)."""
+    """Search-space enumeration. Step 2.1: signal bandwidths meeting the sector's PHYSICAL resolution (else the
+    widest, flagged), pulses whose blind range fits under range_min_km, trains with an unambiguous PRI >= 2 R / c +
+    tau + recovery (no self-eclipsing), or, if the sector allows it, range-ambiguous staggered trains (PRI_MIN_S,
+    mean eclipsing loss in solve())."""
     r_want = sec["range_km"]
     res_max = sec.get("res_max_m", RES_MAX_M_DEFAULT)
-    bws = [b for b in SIGBW_CAND if C / (2 * b * 1e6) <= res_max + 1e-9] or [max(SIGBW_CAND)]
-    pri_unamb = 2 * r_want * 1e3 / C
+    bws = [b for b in SIGBW_CAND if resolution_m(sec, b) <= res_max + 1e-9] or [max(SIGBW_CAND)]
+    r_min = range_min_km(sec)
     out = []
     for integ in ("COHERENT", "NONCOHERENT"):
         for b in B_CAND:
             for bw in bws:
                 for n in N_CAND:
                     for tau in TAU_CAND:
-                        pri = max(tau, pri_unamb) if not sec.get("allow_ambiguous") else max(tau, PRI_MIN_S)
-                        if n == 1:
-                            pri = max(tau, PRI_MIN_S)
+                        if rm.blind_range_km(rm.BAND_S, tau) > r_min + 1e-9:
+                            continue
+                        pri_unamb = rm.unambiguous_pri_s(rm.BAND_S, r_want, tau)
+                        pri = max(tau, PRI_MIN_S) if (n == 1 or sec.get("allow_ambiguous")) else max(tau, pri_unamb)
                         try:
-                            w = make_wf("c", tau, n, pri, bw, b, integ)
+                            w = make_wf("c", tau, n, pri, bw, b, integ, staggered=n > 1 and pri < pri_unamb)
                         except ValueError:
                             continue
                         if integ == "COHERENT" and w.dwell_s > rm.COH_T_MAX_S:
@@ -449,13 +465,19 @@ def _plan_waveforms(P, r, e_pos, t_pos, r_want, rr, p_avg_max_w, max_wf, short_t
     return best[1] if best else None
 
 
-def _wf_dict(name: str, w, f: float, v_max: float) -> dict:
+def _wf_dict(name: str, w, f: float, sec: dict) -> dict:
+    v_max, v_min = sec["v_close_max_mps"], sec.get("v_close_min_mps", 0.0)
     return {"name": name, "band": "S", "freq_ghz": f, "integration": w.integration,
             "tau_us": round(w.tau_s * 1e6, 1), "n_pulses": w.n, "pri_ms": round(w.pri_s * 1e3, 3),
             "sig_bw_mhz": w.sig_bw_mhz, "b_tx": w.b_tx,
             "dwell_ms": round(w.dwell_s * 1e3, 1), "duty_pct": round(100 * w.duty, 3), "pae": rm.pae_wf(w),
             "rx_deaf_us": round(rm.rx_deaf_after_pulse_s(rm.BAND_S, w.tau_s) * 1e6, 3),
-            "unamb_range_km": round(C * w.pri_s / 2e3), "doppler_max_kHz": round(2 * v_max / rm.lambda_m(f) / 1e3, 1)}
+            "unamb_range_km": round(C * w.pri_s / 2e3), "doppler_max_kHz": round(2 * v_max / rm.lambda_m(f) / 1e3, 1),
+            "modulation": w.modulation or rm.modulation_for(f, w.sig_bw_mhz, v_max),
+            "range_resolution_m": resolution_m(sec, w.sig_bw_mhz),
+            "blind_range_km": rm.blind_range_km(rm.BAND_S, w.tau_s), "staggered": w.staggered,
+            "cells_in_pulse": rm.cells_in_pulse(v_max, w.tau_s, w.sig_bw_mhz),
+            "velocity_hypotheses_1db": rm.velocity_hypotheses(v_max - v_min, w.tau_s, w.sig_bw_mhz)}
 
 
 def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: Optional[dict] = None):
@@ -467,6 +489,11 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
     max_wf = max(1, int(sec.get("max_wf_per_sector", MAX_WF_PER_SECTOR)))
     short_tol = sec.get("short_tol", SHORT_TOL)
     cands = candidate_waveforms(sec)
+    if not cands:
+        return {"id": sec["id"], "status": "NO_WAVEFORM",
+                "note": f"no pulse of the search space is short enough: the shortest leaves "
+                        f"{rm.blind_range_km(rm.BAND_S, min(TAU_CAND)):.1f} km blind, above the sector's range_min_km "
+                        f"{range_min_km(sec):g} km (shorter pulses: search space, step 3.1)"}
     pae = np.array([rm.pae_wf(w) for w in cands])
     e_pos = np.array([rm.BAND_S.p_pk_total_w * w.n * w.tau_s / w.b_tx for w in cands]) / pae   # electrical J / position
     t_pos = np.array([w.n * w.tau_s / w.b_tx for w in cands])                            # s of TX time per position
@@ -531,7 +558,7 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
     wf_set = []
     for n, c in enumerate(order, 1):
         bins = populated[plan.choice[populated] == c]
-        d = _wf_dict(f"WF-{sec['id']}" + (f"-{n}" if len(order) > 1 else ""), cands[c], f, v_max)
+        d = _wf_dict(f"WF-{sec['id']}" + (f"-{n}" if len(order) > 1 else ""), cands[c], f, sec)
         d.update({"theta_lo_deg": float(bins.min() * THETA_BIN_DEG), "theta_hi_deg": float((bins.max() + 1) * THETA_BIN_DEG),
                   "positions": round(float(p_tot[bins].sum()), 1)})
         wf_set.append(d)
@@ -580,6 +607,9 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
         "unscanned_pct": round(100 * unscanned, 1),
         "positions_total": round(float(p_tot.sum()), 1),
         "rx_sll_db": sll,
+        "range_min_km": range_min_km(sec),
+        "range_resolution_m": {"requested": sec.get("res_max_m", RES_MAX_M_DEFAULT),
+                               "achieved": max(d["range_resolution_m"] for d in wf_set)},
         "rx_beams_per_position": rm.rx_beams_per_position(f, sll),
         "rx_sll_held_up_to_deg": sll_held,
         "mismatch_db_per_pass_max": mismatch_max,
@@ -591,6 +621,10 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
         "time_to_impact_at_detection_s": (r_want * 1e3 / v_max - rr) if v_max > 0 else None,
     }
     out["flags"] = []
+    res = out["range_resolution_m"]
+    if res["achieved"] > res["requested"] + 1e-9:
+        out["flags"].append(f"range resolution {res['requested']:g} m not met: {res['achieved']:.2f} m at best with the "
+                            f"search space up to {max(SIGBW_CAND):g} MHz (wider signals at step 3.1)")
     if plan.short_pos > 0:
         out["flags"].append(f"range {r_want:.0f} km not reached on {100 * plan.short_frac:.1f} % of positions at full power "
                             f"(worst scan {r_worst:.0f} km)")

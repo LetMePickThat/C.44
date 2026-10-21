@@ -76,7 +76,9 @@ REASON_NO_WAVEFORM = 1
 REASON_RESOLUTION = 2
 REASON_AMBIGUITY = 3
 REASON_RANGE = 4
+REASON_BLIND = 5
 REASON_TEXT = {
+    REASON_BLIND: "{a}'s pulses leave a blind range beyond {b}'s shortest range of interest",
     REASON_NO_WAVEFORM: "{a} has no waveform planned in that direction (outside its own reach)",
     REASON_RESOLUTION: "{a}'s range resolution is coarser than {b} requires",
     REASON_AMBIGUITY: "{a}'s waveform would leave {b}'s range ambiguous, which {b} disallows",
@@ -85,7 +87,7 @@ REASON_TEXT = {
 
 # every sector field the optimiser's plan, the need test or the shape depends on
 PLAN_FIELDS = geo.SECTOR_GEOMETRY_FIELDS + (
-    "rcs_m2", "swerling", "range_km", "rr_target_s", "v_close_max_mps", "res_max_m", "allow_ambiguous",
+    "rcs_m2", "swerling", "range_km", "rr_target_s", "v_close_max_mps", "res_max_m", "range_min_km", "allow_ambiguous",
     "max_wf_per_sector", "short_tol", "freq_ghz_candidates", "rx_sll_db")
 
 _PLANS: Dict[str, Optional[dict]] = {}
@@ -153,11 +155,15 @@ def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dic
     for i, w in enumerate(plan["wf"]):
         if w is None:
             continue
-        if mo.C / (2 * w.sig_bw_mhz * 1e6) > res_b + 1e-9:
+        if mo.resolution_m(sec_b, w.sig_bw_mhz) > res_b + 1e-9:       # physical resolution, B's sidelobes (2.1)
             reason[i] = REASON_RESOLUTION
             continue
-        if w.n > 1 and not sec_b.get("allow_ambiguous") and mo.C * w.pri_s / 2e3 < sec_b["range_km"]:
+        if (w.n > 1 and not sec_b.get("allow_ambiguous")
+                and w.pri_s < rm.unambiguous_pri_s(rm.BAND_S, sec_b["range_km"], w.tau_s) - 1e-12):
             reason[i] = REASON_AMBIGUITY
+            continue
+        if rm.blind_range_km(rm.BAND_S, w.tau_s) > mo.range_min_km(sec_b) + 1e-9:
+            reason[i] = REASON_BLIND
             continue
         r = mo.range_at(w, f, float(theta[i]), tgt_b, mo.rx_sll_db(sec_b))   # A's echoes, B's RX weighting
         if r is not None:
@@ -174,7 +180,7 @@ def _dominant_reason(grid: geo.SphereGrid, reason_cells: np.ndarray, unmet: np.n
     """The REASON_* code covering the most solid angle of `unmet` (REASON_RANGE if nothing is set, e.g. an
     empty mask -- the most common case, so it is the least surprising fallback)."""
     weights = {code: float((grid.d_omega * unmet * (reason_cells == code)).sum())
-              for code in (REASON_RESOLUTION, REASON_AMBIGUITY, REASON_RANGE, REASON_NO_WAVEFORM)}
+              for code in (REASON_RESOLUTION, REASON_AMBIGUITY, REASON_BLIND, REASON_RANGE, REASON_NO_WAVEFORM)}
     weights = {c: w for c, w in weights.items() if w > 0.0}
     return max(weights, key=weights.get) if weights else REASON_RANGE
 

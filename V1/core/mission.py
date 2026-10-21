@@ -11,6 +11,8 @@ Active tracking (AT) and confirmation inputs, per sector (core/tracking.py):
   "confirm_mode": "auto" (default) or a forced mode of tracking.CONFIRM_MODES;
   "new_targets_per_rr": true targets newly detected per refresh (confirmed like the false alarms).
 RX weighting, per sector: "rx_sll_db" = RX peak sidelobe level, one of RX_SLL_CHOICES (S and Ku; default -25 dB).
+Shortest range of interest, per sector: "range_min_km" (step 2.1; default tool.mission_defaults.range_min_frac x
+range_km): the blind range c (tau + limiter recovery) / 2 of the sector's waveforms must stay under it.
 Sky, global key "sky" (step 1.5, core/sky.py): the bodies in front of the faces and the galactic frame, in the ship
 frame, filled later by the global scenario simulator (no sky = cold sky + worst-case galactic rise).
 
@@ -176,6 +178,10 @@ def validate_sector(sec: dict, index: int) -> List[str]:
     res_max = sec.get("res_max_m")
     if res_max is not None and res_max <= 0:
         errs.append(f"{tag}: res_max_m must be > 0")
+    r_min = sec.get("range_min_km")
+    if r_min is not None and (r_min < 0 or (sec.get("range_km") is not None and r_min >= sec["range_km"])):
+        errs.append(f"{tag}: range_min_km ({r_min}) must be >= 0 and below range_km (shortest range of interest: "
+                    f"the blind range of the waveforms must stay under it)")
     sll = sec.get("rx_sll_db", SECTOR_DEFAULTS_BOX["rx_sll_db"])
     if sll not in RX_SLL_CHOICES:
         errs.append(f"{tag}: RX sidelobe level rx_sll_db ({sll}) must be one of "
@@ -256,7 +262,7 @@ def save_mission_json(path: str, mission: dict) -> None:
 _CSV_FIELDS = [
     "id", "shape", "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg",
     "phi0_deg", "eps0_deg", "radius_deg", "rcs_m2", "swerling", "range_km", "rr_target_s",
-    "v_close_min_mps", "v_close_max_mps", "res_max_m", "allow_ambiguous", "rx_sll_db",
+    "v_close_min_mps", "v_close_max_mps", "res_max_m", "range_min_km", "allow_ambiguous", "rx_sll_db",
     "confirm_mode", "new_targets_per_rr", "tracking",
 ]
 

@@ -259,10 +259,14 @@ def test_angle_accuracy_is_the_cramer_rao_bound_times_the_margin():
 def test_rx_weighting_only_scales_the_rx_gain():
     """Range ratio between two options = (eta ratio)^(1/4), in search (S) and tracking (Ku); positions unchanged."""
     for wf, f, tgt in ((rm.WF_LRS, 2.8, "ST"), (tb.KU_TRACK, 14.0, "KKV")):
-        r25 = rm.solve(wf, f, 30.0, rm.TARGETS[tgt], rx_sll_db=-25.0).range_km
-        r35 = rm.solve(wf, f, 30.0, rm.TARGETS[tgt], rx_sll_db=-35.0).range_km
+        a = rm.solve(wf, f, 30.0, rm.TARGETS[tgt], rx_sll_db=-25.0)
+        b = rm.solve(wf, f, 30.0, rm.TARGETS[tgt], rx_sll_db=-35.0)
         band = rm.band_for_frequency(f).name
-        assert r35 / r25 == pytest.approx((rm.rx_beam(band, -35.0).eta / rm.rx_beam(band, -25.0).eta) ** 0.25, rel=1e-12)
+        # since step 2.1 the option also sets the range sidelobes: an LFM look pays its weighting (loss, k_r)
+        extra_db = (b.l_tot_db - a.l_tot_db) + (b.snr_req_db - a.snr_req_db)
+        assert (extra_db == 0.0) == (a.pulse["modulation"] == "nlfm")
+        assert b.range_km / a.range_km == pytest.approx(
+            (rm.rx_beam(band, -35.0).eta / rm.rx_beam(band, -25.0).eta * 10 ** (-extra_db / 10)) ** 0.25, rel=1e-12)
     assert rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"]).range_km == \
         rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"], rx_sll_db=rm.RX_SLL_DEFAULT_DB).range_km
 
@@ -423,6 +427,76 @@ def test_t_sys_from_the_receive_chain(tmp_path):
     out = _run_with_params(text, "from core import radar_model as rm\nprint(rm.BAND_S.t_sys_k)", tmp_path)
     l_pre = 10 ** (0.85 / 10)
     assert float(out) - rm.BAND_S.t_sys_k == pytest.approx(l_pre * 290 * (10 ** 0.175 - 10 ** 0.075) * 10 ** 0.005, rel=1e-6)
+
+
+# ----------------------------------------------------------------------------- parametric waveforms (step 2.1)
+def test_range_weighting_follows_the_volume_sidelobes():
+    """Taylor nbar 5 weighting at the volume's RX option: loss, broadening and RMS bandwidth grow with the level;
+    the achieved range sidelobes meet the option; k_r = RANGE_CRLB_KR / RMS ratio; NLFM: no weighting loss."""
+    w = [rm.range_weighting(s) for s in rm.RX_SLL_OPTIONS_DB]
+    assert all(a["loss_db"] < b["loss_db"] and a["broadening"] < b["broadening"] and a["rms_ratio"] > b["rms_ratio"]
+               for a, b in zip(w, w[1:]))
+    assert all(abs(x["psl_db"] - s) < 0.4 for x, s in zip(w, rm.RX_SLL_OPTIONS_DB))
+    r = rm.solve(tb.KU_TRACK, 14.0, 0.0, rm.TARGETS["ST"], rx_sll_db=-35.0)
+    assert r.pulse["range_psl_db"] == -35.0 and r.pulse["k_r"] == pytest.approx(0.6 / w[2]["rms_ratio"])
+    assert r.pulse["range_resolution_m"] == pytest.approx(w[2]["broadening"] * rm.C_MPS / (2 * 75e6))
+
+
+def test_modulation_choice_and_compression_loss():
+    """NLFM while f_d,max / B <= 2 % (mismatch 0.1 dB), else LFM: weighting + Doppler loss on the ridge."""
+    f_d = rm.doppler_max_hz(2.8, 25000.0)
+    b_lim = f_d / rm.NLFM_DOPPLER_MAX_FRAC / 1e6
+    assert rm.modulation_for(2.8, b_lim * 1.01, 25000.0) == "nlfm" and rm.modulation_for(2.8, b_lim * 0.99, 25000.0) == "lfm"
+    assert rm.compression_loss_db("nlfm", 2.8, 75.0, 25000.0, -25.0) == rm.NLFM_MISMATCH_LOSS_DB
+    lfm = rm.compression_loss_db("lfm", 2.8, 10.0, 25000.0, -25.0)
+    assert lfm == pytest.approx(rm.range_weighting(-25.0)["loss_db"] - 20 * math.log10(1 - f_d / 10e6))
+    w = rm.Waveform("w", "SEARCH", "S", 100e-6, 1, 1e-3, 10.0)
+    r = rm.solve(w, 2.8, 0.0, rm.TARGETS["KKV"])
+    assert r.pulse["modulation"] == "lfm" and r.losses["compression"] == pytest.approx(lfm)
+    assert "DSP" not in rm.BAND_S.losses_db and rm.BAND_S.losses_db["finite_precision"] == 0.3
+
+
+def test_intra_pulse_velocity_mismatch_law():
+    """Quadratic-phase loss of a filter matched to the wrong velocity grows with n_c = 2 dv tau B / c; the velocity
+    filters for 1 dB scale with the span and with tau B."""
+    loss = [rm.velocity_mismatch_loss_db(n) for n in (0.0, 0.25, 0.5, 1.0, 2.0)]
+    assert loss[0] == pytest.approx(0.0, abs=1e-12) and all(b > a for a, b in zip(loss, loss[1:]))
+    assert rm.cells_in_pulse(25000.0, 2e-3, 75.0) == pytest.approx(25.0, rel=1e-3)
+    n1 = rm.velocity_hypotheses(20000.0, 2e-3, 75.0)
+    assert rm.velocity_hypotheses(40000.0, 2e-3, 75.0) in (2 * n1 - 1, 2 * n1, 2 * n1 + 1)
+    assert rm.velocity_hypotheses(20000.0, 1e-3, 75.0) <= (n1 + 1) // 2 + 1
+
+
+def test_blind_range_eclipsing_and_unambiguous_pri():
+    """Blind range c (tau + recovery) / 2; an unambiguous train has PRI >= 2 R / c + tau + recovery (no echo out to R
+    falls on its own pulses); a staggered ambiguous train pays -10 log(1 - (tau + rec) / PRI)."""
+    s = rm.BAND_S
+    assert rm.blind_range_km(s, 2e-3) == pytest.approx(rm.C_MPS * (2e-3 + 50e-9) / 2e3)
+    assert rm.unambiguous_pri_s(s, 1000.0, 1e-4) == pytest.approx(2e6 / rm.C_MPS + 1e-4 + 50e-9)
+    w = rm.Waveform("w", "SEARCH", "S", 2e-4, 8, 1e-3, 75.0, staggered=True)
+    r = rm.solve(w, 2.8, 0.0, rm.TARGETS["ST"])
+    assert r.losses["eclipsing"] == pytest.approx(-10 * math.log10(1 - (2e-4 + 50e-9) / 1e-3))
+    sec = dict(md.new_sector([]), range_km=2000.0)
+    cands = mo.candidate_waveforms(sec)
+    assert all(rm.blind_range_km(s, w.tau_s) <= mo.range_min_km(sec) for w in cands)
+    assert all(w.n == 1 or w.pri_s >= rm.unambiguous_pri_s(s, 2000.0, w.tau_s) - 1e-15 for w in cands)
+    assert not any(w.staggered for w in cands)
+    amb = mo.candidate_waveforms(dict(sec, allow_ambiguous=True))
+    assert any(w.staggered for w in amb) and all(w.staggered == (w.n > 1) for w in amb if w.pri_s == mo.PRI_MIN_S)
+
+
+def test_sector_range_min_and_resolution_flags():
+    sec = dict(md.new_sector([]), range_km=2000.0, range_min_km=40.0)
+    default = {k: v for k, v in sec.items() if k != "range_min_km"}
+    assert mo.range_min_km(sec) == 40.0 and mo.range_min_km(default) == pytest.approx(mo.RANGE_MIN_FRAC * 2000.0)
+    assert max(w.tau_s for w in mo.candidate_waveforms(sec)) <= 2 * 40e3 / rm.C_MPS
+    m = md.empty_mission()
+    m["sectors"] = [dict(sec, range_min_km=2500.0)]
+    assert any("range_min_km" in e for e in md.validate_mission(m))
+    res = mo.run({"global": md.empty_mission()["global"], "sectors": [dict(sec, res_max_m=2.0)]}, workers=1)
+    assert any("range resolution 2 m not met" in f for f in res["sectors"][0]["flags"])
+    res = mo.run({"global": md.empty_mission()["global"], "sectors": [dict(sec, res_max_m=3.0)]}, workers=1)
+    assert not any("range resolution" in f for f in res["sectors"][0]["flags"])
 
 
 # ----------------------------------------------------------------------------- the receive chain (step 1.5)

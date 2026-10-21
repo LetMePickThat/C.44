@@ -16,7 +16,7 @@
 # they take a bare value or the same table.
 #
 # Sections: geometry, aperture, search_grid, detection, power, migration, multibeam, coherence, estimation,
-#           band.S, band.Ku (+ losses_db, rx, tx), sky (+ tb_k), isolation, targets.*, confirmation, tracking,
+#           waveform, band.S, band.Ku (+ losses_db, rx, tx), sky (+ tb_k), isolation, targets.*, confirmation, tracking,
 #           ship  |  tool.*
 # =====================================================================================================================
 
@@ -103,6 +103,24 @@ range_crlb_kr = { value = 0.6, unit = "-", status = "V", source = "range estimat
 # Since step 1.3 the face budget is ELECTRICAL: the face has face_elec_mw x psu x distribution x (1 - overhead) for
 # transmission, and every look costs its RF energy / PAE(band, pulse, duty) (band.<b>.pae_*).
 
+# --- waveforms ----------------------------------------------------------------------------------------------------
+# Pulse modulation and compression, intra-pulse effects, dwell timeline (step 2.1; optimistic end of every range, user).
+# Family chosen per look: NLFM when f_d,max / B <= nlfm_doppler_max_frac (f_d,max = 2 v_close / lambda), else LFM with
+# a Taylor receive weighting. Range sidelobes = the volume's RX sidelobe option (rx_sll_db). Derived (no entries):
+# weighting loss and main-lobe broadening (1D Taylor), k_r = range_crlb_kr / RMS-bandwidth ratio, LFM Doppler loss
+# -20 log(1 - f_d / B), range-Doppler coupling c f_d tau / 2B (corrected by the Doppler measurement, output), cells
+# crossed in the pulse n_c = 2 v tau B / c and the velocity-mismatch loss (bank of 2.2), blind range
+# c (tau + limiter recovery) / 2, eclipsing of ambiguous (staggered) trains.
+[waveform]
+modulations           = { value = ["lfm", "nlfm"], unit = "", status = "V", source = "modulation families modelled (step 2.1, A1): LFM (Doppler tolerant) and NLFM (low range sidelobes by the frequency law, no weighting loss); phase codes left out (Doppler intolerant at 25 km/s)", date = "2026-10-21" }
+nlfm_doppler_max_frac = { value = 0.02, unit = "-", status = "V", source = "NLFM used while f_d,max / B stays below this (A3, optimistic end of 1-5 %): at 25 km/s only above ~23 MHz in S, ~117 MHz in Ku; LFM beyond", date = "2026-10-21" }
+nlfm_mismatch_loss_db = { value = 0.1, unit = "dB", status = "V", source = "NLFM mismatch loss (A6, optimistic end of 0.1-0.3 dB); same main-lobe broadening and RMS bandwidth as the weighted LFM of the same sidelobe level", date = "2026-10-21" }
+range_psl             = { value = "volume", unit = "", status = "V", source = "range sidelobe level of the compressed pulse: 'volume' = the volume's RX sidelobe option rx_sll_db (A4: one sidelobe policy per volume, angle and range), or a level in dB (negative number)", date = "2026-10-21" }
+range_taylor_nbar     = { value = 5, unit = "-", status = "V", source = "Taylor weighting of the LFM, receive only (A5, same law as the aperture): -25 / -30 / -35 dB -> loss 0.41 / 0.68 / 0.93 dB, broadening x1.18 / 1.27 / 1.34 (computed, radar_model.range_weighting)", date = "2026-10-21" }
+pa_am_pm_deg_per_db   = { value = 2.0, unit = "deg/dB", status = "V", source = "PA AM/PM conversion, residual after correction (B5, B6; optimistic end of 2-10 deg/dB): phase drift as the buffer empties during the pulse, output only (quasi linear = a small Doppler offset)", date = "2026-10-21" }
+stagger_n_pri         = { value = 3, unit = "-", status = "V", source = "range-ambiguous trains are staggered over this many PRIs (C5): resolves the range ambiguity and moves the blind zones; mean eclipsing loss -10 log(1 - (tau + recovery) / PRI) (C4)", date = "2026-10-21" }
+stagger_spread        = { value = 0.1, unit = "-", status = "V", source = "PRI spread of the stagger, +/- this fraction around the nominal PRI (C5, 5-20 %); the dwell uses the nominal (mean) PRI", date = "2026-10-21" }
+
 # --- bands --------------------------------------------------------------------------------------------------------
 [band.S]
 usable_lo_ghz       = { value = 2.7, unit = "GHz", status = "V", source = "S band", date = "2026-10-20" }
@@ -137,7 +155,8 @@ duty_max            = { value = 0.65, unit = "-", status = "D", source = "TRM du
 [band.S.losses_db]
 # (the element -> LNA path is no longer a signal loss here: its attenuation AND noise are in T_sys, [band.S.rx];
 #  the PA -> element loss TX_chain is derived from [band.S.tx] and added to these posts by the model)
-DSP         = { value = 2.0, unit = "dB", status = "V", source = "weighting/mismatch ~1.0 + range/Doppler straddle ~0.7 + finite precision ~0.3 (2050 deep-space)", date = "2026-10-20" }
+finite_precision = { value = 0.3, unit = "dB", status = "V", source = "finite-precision processing, the part of the former DSP 2.0 dB that stays an entry (step 2.1, Q5); the weighting / mismatch part (~1.0 dB) is now computed per look (loss 'compression', [waveform])", date = "2026-10-21" }
+straddle    = { value = 0.7, unit = "dB", status = "D", source = "range / Doppler straddle, the part of the former DSP 2.0 dB kept as a lump until step 2.2 (real cell grid)", date = "2026-10-21" }
 CFAR        = { value = 0.5, unit = "dB", status = "V", source = "homogeneous, known noise floor, no clutter, large reference window", date = "2026-10-20" }
 calibration = { value = 0.5, unit = "dB", status = "V", source = "calibration residual", date = "2026-10-20" }
 Ku_blockage = { value = 0.2, unit = "dB", status = "V", source = "blockage of the S aperture by the Ku array", date = "2026-10-20" }
@@ -215,7 +234,8 @@ duty_max            = { value = 0.65, unit = "-", status = "D", source = "as S (
 # i.e. the S posts DSP + CFAR (2.5 dB). The element -> LNA path is in T_sys ([band.Ku.rx]); TX_chain is derived
 # from [band.Ku.tx] like in S.
 [band.Ku.losses_db]
-DSP         = { value = 2.0, unit = "dB", status = "D", source = "same digital processing as S (weighting/mismatch ~1.0 + straddle ~0.7 + finite precision ~0.3); replaces the V5.6.0 lumped 8 dB with CFAR", date = "2026-10-20" }
+finite_precision = { value = 0.3, unit = "dB", status = "D", source = "as S (step 2.1): the weighting / mismatch part of the former DSP 2.0 dB is computed per look", date = "2026-10-21" }
+straddle    = { value = 0.7, unit = "dB", status = "D", source = "as S: straddle lump until step 2.2", date = "2026-10-21" }
 CFAR        = { value = 0.5, unit = "dB", status = "D", source = "same environment as S: homogeneous, known noise floor, no clutter", date = "2026-10-20" }
 calibration = { value = 0.8, unit = "dB", status = "D", source = "calibration residual; above S (0.5): same mechanical tolerances are 5x larger in phase at Ku, 25x more elements", date = "2026-10-20" }
 S_blockage  = { value = 0.3, unit = "dB", status = "D", source = "scattering by the S radiators interleaved in the bi-band TRSA (S has Ku_blockage 0.2)", date = "2026-10-20" }
@@ -408,7 +428,9 @@ viz_freq_ghz = 2.8              # frequency of the viz-only scan limit and of th
 [tool.mission_defaults]       # values of a new mission / sector / AT bracket (operator inputs, not the radar)
 eps_min_deg = -90.0             # rear limit of the scan window (-90 = no limit)
 eps_max_deg = 90.0              # front limit (90 = no limit)
-res_max_m   = 2.0               # range resolution requested when a sector gives none (-> 75 MHz)
+res_max_m   = 2.0               # range resolution requested when a sector gives none: PHYSICAL resolution since step 2.1
+                                # (broadening x c / 2B: 2 m needs 89 MHz at -25 dB, above the 75 MHz search space until 3.1)
+range_min_frac = 0.1            # sector range_min_km when absent = this x range_km (step 2.1, C1): blind range limit
 
 [tool.mission_defaults.sector]
 rcs_m2 = 1000.0

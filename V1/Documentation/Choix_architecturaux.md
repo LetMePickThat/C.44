@@ -1,6 +1,6 @@
 # Outil de préparation de mission radar : choix architecturaux
 
-Ce document recense tous les choix d'architecture faits jusqu'ici : organisation du logiciel, modèle du radar, et pour chaque variable sa définition, sa valeur, son statut et la raison de cette valeur. Il décrit l'état du dépôt après l'étape 1.5 de la feuille de route (modèle V6.5.0, 21 octobre 2026).
+Ce document recense tous les choix d'architecture faits jusqu'ici : organisation du logiciel, modèle du radar, et pour chaque variable sa définition, sa valeur, son statut et la raison de cette valeur. Il décrit l'état du dépôt après l'étape 2.1 de la feuille de route (modèle V6.6.0, 21 octobre 2026).
 
 > **Avertissement.** Les missions de `tests/missions/` sont des **missions de test**. Les valeurs figées de `tests/snapshots/` sont des **valeurs figées de test**. Elles servent seulement à détecter les régressions du code. Ce ne sont ni des exigences ni des performances du radar, dont les capacités réelles ne sont pas établies.
 
@@ -63,7 +63,7 @@ Rien de ce qui a été décidé ne vit seulement dans une conversation :
 | `Documentation/Choix_architecturaux.md` (ce document) | Toutes les variables, leurs valeurs et leurs raisons, les formules, les dispositions provisoires, les points ouverts et l'historique des décisions, question par question. |
 | `Documentation/Feuille_de_route.md` | La feuille de route, l'état d'avancement et, pour chaque étape, les décisions prises et les renvois reçus d'autres étapes. |
 | `radar_system.toml` | Les valeurs elles-mêmes ; le champ `source` de chaque entrée résume sa justification. |
-| En-tête de `core/radar_model.py` | Le journal des versions du modèle (V6.0.0 à V6.5.0) et ce que chaque version a changé. |
+| En-tête de `core/radar_model.py` | Le journal des versions du modèle (V6.0.0 à V6.6.0) et ce que chaque version a changé. |
 | `tests/snapshots/JOURNAL.md` | Chaque régénération des valeurs figées de test et ses causes. |
 | Mémoire de l'assistant (hors dépôt) | Un index de la feuille de route, l'état courant, les règles de méthode et la procédure ; en cas d'écart, le dépôt fait foi. |
 
@@ -86,7 +86,7 @@ Procédure d'une étape :
 | Module | Rôle |
 |---|---|
 | `core/params.py` | Charge `radar_system.toml`, une seule fois par processus. Expose `P.get`, `P.meta`, `P.section` et l'empreinte des paramètres (`fingerprint`). La variable d'environnement `RADAR_PARAMS` permet de désigner un autre fichier. |
-| `core/radar_model.py` | Modèle radar V6.5.0 : chaîne de réception (T_sys de ciel froid, facteur de bruit du CAN dérivé du convertisseur, dynamique et portée minimale non saturée, récupération du limiteur, perte de recombinaison des deux voies de polarisation ; étape 1.5), bande (loi de bord par bande, occupation du spectre, retard vrai, contrôles de cohérence au chargement ; étape 1.4), bilan électrique et PAE variable par bande (étape 1.3), désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
+| `core/radar_model.py` | Modèle radar V6.6.0 : formes d'onde paramétriques (modulation LFM ou NLFM, pondération et perte de compression, k_r et résolution physique, effets dans l'impulsion, zone aveugle, éclipsage des trains échelonnés ; étape 2.1), chaîne de réception (T_sys de ciel froid, facteur de bruit du CAN dérivé du convertisseur, dynamique et portée minimale non saturée, récupération du limiteur, perte de recombinaison des deux voies de polarisation ; étape 1.5), bande (loi de bord par bande, occupation du spectre, retard vrai, contrôles de cohérence au chargement ; étape 1.4), bilan électrique et PAE variable par bande (étape 1.3), désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
 | `core/antenna.py` | **Étapes 1.1 et 1.2.** Diagramme de rayonnement calculé à partir de la composition des TRSA : faisceau d'émission uniforme, pondération de réception par niveau de lobes, étendue RMS de l'ouverture, profil des lobes lointains sur tout l'espace visible (lobes de jeu compris). Profils **moyennés en azimut** du diagramme de réception, pour l'intégrale du bruit du ciel (étape 1.5). Résultat mis en cache dans `core/antenna_cache.json`. |
 | `core/sky.py` | **Étape 1.5.** Hausse de la température d'antenne selon la direction : fond galactique et corps du ciel de la mission (Soleil, Terre, Lune...), donnés dans le repère du vaisseau ; aveuglement et centile du bilan d'un secteur. |
 | `core/isolation.py` | **Étape 1.5.** Fuites entre bandes et entre faces : matrice des verdicts, règles pour l'ordonnanceur (cadence commune par bande, harmonique S dans le canal Ku). |
@@ -131,9 +131,9 @@ Procédure d'une étape :
 | Réglages `[tool.*]` | Valeur seule ou table complète. Ils ne décrivent pas le radar : ce sont des grilles de recherche, des trames, des caches et des valeurs par défaut de l'interface. |
 | Modification | À la main dans le fichier pour l'instant. Un onglet de l'interface est prévu à l'étape 5.5. |
 | Autre fichier | Variable d'environnement `RADAR_PARAMS=<chemin>`, héritée par les processus de l'optimiseur. |
-| Revue | Toutes les valeurs ont été validées une par une lors de la revue 0.3. Les ajouts des étapes 1.1 à 1.5 ont été validés pendant chacune de ces étapes. |
+| Revue | Toutes les valeurs ont été validées une par une lors de la revue 0.3. Les ajouts des étapes 1.1 à 2.1 ont été validés pendant chacune de ces étapes. |
 
-**Bilan actuel (étape 1.5) : 178 entrées système, dont 129 V, 47 D et 2 ?.** Les deux entrées « ? » sont `multibeam.l8_db` et `multibeam.p`.
+**Bilan actuel (étape 2.1) : 188 entrées système, dont 137 V, 49 D et 2 ?.** Les deux entrées « ? » sont `multibeam.l8_db` et `multibeam.p`.
 
 ---
 
@@ -147,7 +147,7 @@ Procédure d'une étape :
 | Missions de test | `mission_example` (en JSON et en CSV), `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`, `mission_sky_demo` (étape 1.5 : un ciel avec le Soleil, la Lune, le limbe de la Terre et un repère galactique). Les deux premières ont été récupérées dans l'historique git. |
 | Rapport d'impact | `python tests/impact_report.py`, à chaque étape, avant de régénérer les valeurs figées : chiffres clés, et pour chaque mission de test les formes d'onde de veille et les modes de confirmation qui changent. |
 | Régénération | `python tests/update_snapshots.py`. Chaque régénération est consignée dans `tests/snapshots/JOURNAL.md`, avec sa cause et les formes d'onde ou modes qui ont changé. |
-| État | 96 tests passent après l'étape 1.5. |
+| État | 101 tests passent après l'étape 2.1. |
 
 ---
 
@@ -258,7 +258,7 @@ Retiré : `sigma_t`, la gigue d'horloge. Son effet est négligeable (1e-7 à 2,8
 |---|---|---|---|---|
 | `angle_crlb_margin` | Marge appliquée à la **borne de Cramér-Rao angulaire** de l'ouverture numérique complète. | 1,13 | V | **Étape 1.1, option a.** σ_u = marge × λ / (2π x_rms √(2 SNR)), où x_rms vient de la composition des TRSA (0,248 D). Cette précision **ne dépend pas de la pondération de réception** : l'estimateur ML utilise toute l'ouverture. La marge est la même que pour k_f et k_r. Elle remplace k_θ = 0,5 × HPBW(0,886), qui était légèrement sous la borne. Effet : +1,27 dB de SNR demandé pour une poursuite pilotée par l'angle. |
 | `k_f` | Constante de l'estimateur Doppler. | 0,6 | V | Borne pour une sinusoïde seule, 0,551, multipliée par 1,13 (revue 0.3). L'ancienne valeur 0,5 était sous la borne. |
-| `range_crlb_kr` | Constante de l'estimateur de distance. | 0,6 | V | Borne pour un spectre rectangulaire, 0,551, multipliée par 1,13 ; `sig_bw` est la bande **totale**. Ancienne valeur : 1,3, sans source. La pondération de Taylor sera déduite de la modulation réelle à l'étape 2.1. Une suggestion extérieure donnait k_r = 0,32 pour une bande RMS. Elle a été corrigée (la bonne valeur serait 0,16) et ne s'applique pas ici, puisque la bande utilisée est la bande totale. |
+| `range_crlb_kr` | Constante de l'estimateur de distance, **spectre rectangulaire** (depuis l'étape 2.1, le k_r d'une observation en est **dérivé** : 0,6 / rapport des largeurs de bande RMS de la pondération, soit 0,70 / 0,75 / 0,79 à −25 / −30 / −35 dB). | 0,6 | V | Borne pour un spectre rectangulaire, 0,551, multipliée par 1,13 ; `sig_bw` est la bande **totale**. Ancienne valeur : 1,3, sans source. La pondération de Taylor sera déduite de la modulation réelle à l'étape 2.1. Une suggestion extérieure donnait k_r = 0,32 pour une bande RMS. Elle a été corrigée (la bonne valeur serait 0,16) et ne s'applique pas ici, puisque la bande utilisée est la bande totale. |
 
 Retiré : `k_theta` = 0,5, remplacé par `angle_crlb_margin` à l'étape 1.1.
 
@@ -294,7 +294,8 @@ Retirés : `eta_illum_rx` (0,88), désormais **dérivé** de la pondération du 
 
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
-| `DSP` | Traitement numérique. | 2,0 dB | V | Pondération et désadaptation ≈ 1,0, chevauchement de cases en distance et Doppler ≈ 0,7, précision finie ≈ 0,3 (contexte spatial lointain, 2050). |
+| `finite_precision` | Précision finie du traitement numérique. | 0,3 dB | V | **Étape 2.1, Q5.** Seule part de l'ancien `DSP` = 2,0 dB qui reste une entrée. La part pondération et désadaptation (≈ 1,0 dB) est désormais **calculée** par observation (perte `compression`, §5.18). |
+| `straddle` | Chevauchement de cases en distance et Doppler. | 0,7 dB | D | Forfait gardé jusqu'à l'étape 2.2 (grille réelle des cases). |
 | `CFAR` | Perte du détecteur CFAR. | 0,5 dB | V | Environnement homogène, plancher de bruit connu, pas de fouillis, grande fenêtre de référence. |
 | `calibration` | Résidu d'étalonnage. | 0,5 dB | V | Confirmé. |
 | `Ku_blockage` | Masquage de l'ouverture S par le réseau Ku. | 0,2 dB | V | TRSA bi-bande. |
@@ -377,7 +378,8 @@ Mêmes postes qu'en S, avec des valeurs crédibles en Ku (revue 0.3). Ils rempla
 
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
-| `DSP` | Traitement numérique. | 2,0 dB | D | Même traitement qu'en S. |
+| `finite_precision` | Précision finie. | 0,3 dB | D | Comme en S (étape 2.1). |
+| `straddle` | Chevauchement de cases. | 0,7 dB | D | Comme en S : forfait jusqu'à l'étape 2.2. |
 | `CFAR` | Détecteur. | 0,5 dB | D | Même environnement qu'en S. |
 | `calibration` | Résidu d'étalonnage. | 0,8 dB | D | Plus élevé qu'en S : à tolérances mécaniques égales, l'erreur de phase est 5 fois plus grande en Ku, et il y a 25 fois plus d'éléments. |
 | `S_blockage` | Diffusion par les éléments S intercalés dans la TRSA. | 0,3 dB | D | Symétrique de `Ku_blockage` en S. |
@@ -489,6 +491,23 @@ Valeurs au **bout optimiste** de chaque plage (décision de l'utilisateur). Le m
 
 Les autres entrées de l'isolation sont dans les chaînes : `preselect_rej_db` et `post_rej_db` (§5.11, §5.12), `harmonic_in_ku_dbc` et `harmonic_filter_rej_in_ku_db` (`[band.S.tx]`).
 
+### 5.18 `[waveform]` : formes d'onde (étape 2.1)
+
+Valeurs au bout optimiste de chaque plage. Le modèle est décrit au §7.9.
+
+| Variable | Définition | Valeur | Statut | Justification |
+|---|---|---|---|---|
+| `modulations` | Familles de modulation modélisées. | ["lfm", "nlfm"] | V | **A1.** La LFM tolère le Doppler ; la NLFM forme le spectre par sa loi de fréquence (lobes bas sans perte de pondération). Les codes de phase sont écartés : ils tolèrent mal le Doppler à 25 km/s (f_d ≈ 470 kHz en S, 2,3 MHz en Ku). |
+| `nlfm_doppler_max_frac` | La NLFM est choisie tant que f_d,max / B ne dépasse pas cette valeur ; au-delà, LFM pondérée. | 0,02 | V | **A2-A3**, bout optimiste de 1 à 5 %. À 25 km/s, la NLFM n'est possible qu'au-dessus d'environ 23 MHz en S et 117 MHz en Ku. Le choix est automatique, par observation. |
+| `nlfm_mismatch_loss_db` | Perte de désadaptation de la NLFM. | 0,1 dB | V | **A6**, bout optimiste de 0,1 à 0,3 dB. Même élargissement et même bande RMS que la LFM pondérée de même niveau de lobes. |
+| `range_psl` | Niveau des lobes en distance. | "volume" | V | **A4.** Le même que l'option de lobes en angle du volume (`rx_sll_db`) : une seule politique de lobes par volume. Un nombre négatif imposerait un niveau fixe. |
+| `range_taylor_nbar` | Pondération de Taylor de la LFM, à la réception seule. | 5 | V | **A5.** Même loi que l'ouverture ; les PA restent saturés. Perte 0,41 / 0,68 / 0,93 dB et élargissement ×1,18 / ×1,27 / ×1,34 à −25 / −30 / −35 dB (calculés). |
+| `pa_am_pm_deg_per_db` | Conversion AM/PM du PA, résidu après correction. | 2°/dB | V | **B5-B6**, bout optimiste de 2 à 10°/dB. Dérive de phase pendant que la réserve se vide (au plus 0,97 dB), quasi linéaire : donnée en sortie, sans perte. |
+| `stagger_n_pri` | Nombre de PRI d'un train ambigu en distance, échelonné. | 3 | V | **C5.** Lève l'ambiguïté et déplace les zones aveugles ; minimum courant pour une décision M sur N. |
+| `stagger_spread` | Écart des PRI autour de la PRI nominale. | ±10 % | V | **C5**, plage 5 à 20 %. L'observation est comptée sur la PRI nominale (moyenne). |
+
+Réglage de mission associé : `tool.mission_defaults.range_min_frac` = 0,1 (portée minimale d'intérêt par défaut d'un secteur, en fraction de sa portée, C1).
+
 ---
 
 ## 6. Grandeurs dérivées (calculées, sans entrée dans le fichier)
@@ -526,6 +545,15 @@ Les autres entrées de l'isolation sont dans les chaînes : `preselect_rej_db` e
 | Lune dans l'axe | §7.8 | S 15 K (+0,4 dB), Ku 188 K (+2,6 dB) |
 | Normalisation de l'intégrale du bruit | corps couvrant tout le demi-espace avant | 1,00 à 1,04 × T_b selon le faisceau |
 | Fond galactique au pire cas | T_centre − T_haut | +7,5 K en S (T_sys du bilan 152,1 K, +0,22 dB), +0,13 K en Ku |
+| Pondération en distance (Taylor n̄ = 5) | `range_weighting` | −25 / −30 / −35 dB : perte 0,41 / 0,68 / 0,93 dB, élargissement ×1,18 / ×1,27 / ×1,34, bande RMS ×0,855 / ×0,801 / ×0,759 |
+| k_r d'une observation | 0,6 / rapport de bande RMS | 0,70 / 0,75 / 0,79 (−25 / −30 / −35 dB) |
+| Résolution à 75 MHz | élargissement × c / 2B | 2,37 / 2,53 / 2,68 m ; 2 m demandent 89 / 95 / 100 MHz |
+| Bande minimale de la NLFM à 25 km/s | f_d,max / 2 % | 23 MHz en S, 117 MHz en Ku |
+| Cases traversées dans l'impulsion | 2 v τ B / c | 25 pour 2 ms, 75 MHz, 25 km/s ; 0,5 pour WF-LRS (200 µs, 5 km/s) |
+| Écart de vitesse pour 1 dB | n_c = 1,016 | 13 filtres de vitesse pour 2 ms, 75 MHz, 0 à 25 km/s ; 1 pour WF-LRS |
+| Couplage distance-Doppler (LFM) | c f_d τ / 2B | 1,9 km pour 2 ms, 75 MHz, 25 km/s en S (corrigé par la mesure du Doppler) |
+| Zone aveugle | c (τ + récupération) / 2 | 3,0 km (20 µs), 15 km (100 µs), 150 km (1 ms), 300 km (2 ms) |
+| Éclipsage moyen d'un train échelonné | −10 log(1 − (τ + réc.) / PRI) | 0,46 dB à d = 0,1 ; 7 dB à d = 0,8 |
 | TX_chain | somme des composants | S 0,6 dB, Ku 0,95 dB |
 | Pertes fixes (hors polarisation) | somme | S 3,80 dB, Ku 4,55 dB |
 | Pas moyen des éléments | pas des TRSA / TRM par côté | S 52,1 mm, Ku 10,42 mm (52,5 et 10,9 mm de part et d'autre d'un jeu) |
@@ -559,7 +587,7 @@ R⁴ = P_faisceau · G_TX · G_RX · λ² · σ · τ · N / ((4π)³ · k · T_
 - SNR_req est le SNR sur l'**énergie totale** intégrée, d'après l'ajustement de Shnidman, pour les cas Swerling 0 à 4 et une intégration cohérente ou non cohérente. La formule d'Albersheim de V5.4.0 était mal implémentée et comptait l'intégration deux fois.
 - Bande (étape 1.4) : le spectre du signal [f − B/2, f + B/2] doit tenir dans la bande utile, sinon la forme d'onde n'est pas jouable à cette fréquence ; la perte de bord est l'intégrale exacte du cosinus surélevé sur ce spectre, divisée par B ; sans retard vrai, B ≤ c / (D_env sin θ). Au chargement, le modèle vérifie que la bande centrale et la fréquence de rupture sont dans la bande utile.
 - Le coût d'une observation est électrique (étape 1.3) : E = P_crête · N · τ / B_TX / PAE(bande, τ, τ/PRI), comparé à P_élec × CHAIN_EFF × période de revisite. La chaleur vaut E_élec − E_RF.
-- L regroupe : pertes fixes, TX_chain, bord de bande, polarisation, affaissement de la réserve (−10 log(1 − x/2)), multifaisceau, **désadaptation active à l'émission et à la réception** (étape 1.2), grille d'émission et grille de réception (veille seulement), cohérence (intégration cohérente), migration.
+- L regroupe : pertes fixes, TX_chain, bord de bande, **compression** et **éclipsage des trains échelonnés** (étape 2.1), polarisation, affaissement de la réserve (−10 log(1 − x/2)), multifaisceau, **désadaptation active à l'émission et à la réception** (étape 1.2), grille d'émission et grille de réception (veille seulement), cohérence (intégration cohérente), migration.
 
 ### 7.1 bis TRM et chaîne d'émission (étape 1.3)
 
@@ -670,6 +698,14 @@ Estimation grossière du coût de la synchronisation par rapport au modèle « p
 
 Coûts de l'annulation active, si elle est reprise à l'étape 4.3 : perte d'insertion avant le LNA (0,3 à 1 dB, versée dans T_sys en permanence), puissance injectée égale à la fuite (environ 1 W par élément à 70 dB de couplage, environ 1 mW à 100 dB), calcul (à faire dans l'espace des faisceaux), temps d'adaptation à chaque changement de pointage (quelques %), masse et fiabilité ; une solution mixte (synchronisation entre faces voisines, annulation entre faces opposées) avait été proposée.
 
+### 7.9 Formes d'onde (étape 2.1)
+
+**Modulation et compression.** Pour chaque observation : f_d,max = 2 v / λ (vitesse de rapprochement de la cible ou du secteur). Si f_d,max / B ≤ 2 % : NLFM, perte 0,1 dB. Sinon : LFM avec pondération de Taylor n̄ = 5 à la réception, au niveau de lobes du volume ; perte = perte de pondération − 20 log(1 − f_d / B) (perte Doppler sur la crête de la fonction d'ambiguïté). La perte `compression` remplace la part « pondération » de l'ancien forfait `DSP`. k_r = 0,6 / (bande RMS pondérée / bande RMS rectangulaire). Résolution physique = élargissement × c / 2B ; elle sert au choix de la bande du signal (`res_max_m`) et la résolution atteinte est signalée si elle n'est pas tenue. Le biais de couplage distance-Doppler c·f_d·τ / 2B est corrigé par la mesure du Doppler (sortie ; le résidu ira à la poursuite, étape 3.3).
+
+**Effets dans l'impulsion.** Une cible traverse n_c = 2 v τ B / c cases pendant l'impulsion : l'écho est comprimé dans le temps, ce qui donne au filtre adapté à une autre vitesse une erreur de phase quadratique. Perte pour un écart de vitesse Δv : L = −20 log |moyenne sur x ∈ [−½, ½] de exp(j 2π n_c x²)|, n_c calculé avec Δv. Elle vaut 1 dB à n_c = 1,016, d'où le nombre de filtres de vitesse pour 1 dB sur l'étendue des vitesses du secteur (sortie pour le banc de l'étape 2.2 et le calcul de l'étape 4.4). Aucune perte n'est ajoutée au bilan avant l'étape 2.2 : un banc de vitesses est supposé, et le forfait de migration de 1 dB est gardé. Dérive AM/PM et décroissance d'amplitude : sorties seulement (négligeables).
+
+**Chronologie de l'observation.** Zone aveugle c (τ + récupération du limiteur) / 2 ≤ `range_min_km` du secteur (par défaut 10 % de la portée) : sinon la forme d'onde n'est pas jouable pour lui. Train non ambigu : PRI ≥ 2 R / c + τ + récupération, ce qui supprime l'éclipsage par le train lui-même entre `range_min_km` et R. Train ambigu (secteur `allow_ambiguous`, ou observation Ku dont la PRI est sous 2 r / c + τ + récupération) : échelonné sur 3 PRI à ±10 %, perte moyenne −10 log(1 − (τ + réc.) / PRI). Ambiguïté Doppler f_d,max × PRI : sortie, sans perte (pas de fouillis). L'éclipsage par les autres observations et par les autres faces synchronisées relève de l'étape 4.3.
+
 ---
 
 ## 8. Paramètres de l'outil (`[tool.*]`)
@@ -696,7 +732,7 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 | | `sky_above_budget_db` | 1,0 dB | **Étape 1.5** : les pointages au-dessus du T_sys du bilan ne sont signalés que si le pire le dépasse de plus que cela (sinon le centile signalerait toujours 1 % des pointages). |
 | `tool.sky` | `eval_step_hpbw`, `near_r_step_lam_d`, `near_phi_step_deg`, `body_ring_lam_d`, `small_body_lam_d`, `body_rings_max`, `chunk` | 0,5, 0,05, 10°, 2,0, 2,0, 16, 2048 | **Étape 1.5** : pas d'évaluation du T_sys sur un secteur (A5) et précision de l'intégrale du bruit. |
 | `tool.display` | `grid_res_deg`, `viz_freq_ghz` | 0,5°, 2,8 GHz | Trame 3D et estimation rapide. |
-| `tool.mission_defaults` | voir §9 | | Valeurs d'une nouvelle mission. |
+| `tool.mission_defaults` | voir §9 | | Valeurs d'une nouvelle mission. Depuis l'étape 2.1 : `res_max_m` est une résolution **physique**, et `range_min_frac` = 0,1 donne la portée minimale d'intérêt d'un secteur qui n'en fixe pas. |
 
 ---
 
@@ -720,7 +756,8 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 | `rcs_m2`, `swerling` | 1000 m², 1 | Menace. |
 | `range_km`, `rr_target_s` | 2000 km, 30 s | Portée exigée et période de revisite visée. |
 | `v_close_min_mps`, `v_close_max_mps` | 1000 et 5000 m/s | La vitesse maximale dimensionne la migration, le Doppler et le temps avant impact. |
-| `res_max_m` | 2 m (soit 75 MHz) | Résolution en distance demandée. |
+| `res_max_m` | 2 m | Résolution en distance demandée, **physique** depuis l'étape 2.1 (élargissement de la pondération compris : 2 m demandent 89 MHz à −25 dB, au-delà des 75 MHz de l'espace de recherche ; le secteur est signalé jusqu'à l'étape 3.1). |
+| **`range_min_km`** | 10 % de `range_km` | **Étape 2.1.** Portée minimale d'intérêt : la zone aveugle des formes d'onde du secteur (veille et observations Ku) doit rester en dessous. À terme, les affichages ne montreront que le volume utile, sans la zone aveugle (étape 5.5). L'interface ne l'édite pas encore ; elle la conserve. |
 | `allow_ambiguous` | faux | Autorise une distance ambiguë. |
 | **`rx_sll_db`** | **−25 dB** | **Étape 1.1.** Niveau de lobes de la pondération de réception du volume, au choix parmi −25, −30 et −35 dB. Il s'applique à la veille S et à la confirmation et poursuite Ku du volume. Un ancien fichier sans ce champ prend −25 dB. Une liste déroulante dans l'interface indique, pour chaque option, η, la perte de gain et la largeur de lobe. |
 | `confirm_mode` | "auto" | auto, KU1+7, KU7 ou S2. |
@@ -745,7 +782,7 @@ La feuille de route complète, avec le contenu détaillé de chaque étape, se t
 |---|---|
 | 0, fondations | 0.1 fichier unique ✔ ; 0.2 banc de tests ✔ ; 0.3 revue des valeurs ✔ |
 | 1, antenne et RF | 1.1 géométrie et diagramme réel ✔ ; **1.2 diagramme : lobes de réseau, désadaptation active \|Γ(θ, f)\|, polarisation ✔** ; **1.3 TRM et chaîne d'émission ✔** ; **1.4 bande ✔** ; **1.5 réception ✔** (T_sys selon la direction, CAN, isolation, deux voies de polarisation ; le bruit de phase de l'oscillateur est passé en 2.2) |
-| 2, signal et détection | 2.1 formes d'onde paramétriques ; 2.2 traitement (bancs de vitesse, CFAR, modèle de cohérence et bruit de phase de l'oscillateur) ; 2.3 critère de détection ; 2.4 modèles de cibles ; 2.5 environnement (masquage par le vaisseau, Faraday, brouillage) |
+| 2, signal et détection | **2.1 formes d'onde paramétriques ✔** ; 2.2 traitement (bancs de vitesse, CFAR, modèle de cohérence et bruit de phase de l'oscillateur) ; 2.3 critère de détection ; 2.4 modèles de cibles ; 2.5 environnement (masquage par le vaisseau, Faraday, brouillage) |
 | 3, fonctions radar | 3.1 veille S (multifaisceau, grille de fréquences fine) ; 3.2 confirmation Ku (fréquence Ku choisie, connaissance du spectre) ; 3.3 poursuite (Kalman ou IMM) ; 3.4 fonctions annexes |
 | 4, ressources | 4.1 puissance (bus de 8 MW, répartition entre faces) ; 4.2 thermique ; 4.3 ordonnanceur et latence ; 4.4 calcul et données |
 | 5, mission et validation | 5.1 modèle de mission enrichi et bibliothèque de menaces ; 5.2 optimiseur global ; 5.3 moteur de validation ; 5.4 simulation Monte-Carlo ; 5.5 interface opérateur ; 5.6 vérification, validation et documentation |
@@ -758,7 +795,12 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 |---|---|---|
 | Polarisation | Linéaire selon e_v (D). Recombinaison des deux voies par le GLRT depuis l'étape 1.5 (perte calculée), sans gain de diversité. Commutation e_u / e_v à rappeler en 3.3. | 2.4 (diversité), 2.5 (Faraday), 3.2-3.3 |
 | Élément rayonnant | Éléments isotropes dans le calcul du facteur de réseau ; seule la projection cos θ et la désadaptation interviennent. | à placer |
-| Zone aveugle et éclipse | Non vérifiées : impulsions de 2 ms (300 km aveugles), facteur de forme jusqu'à 0,65. La zone aveugle sera jugée par rapport au besoin du secteur ; migration et Doppler dans l'impulsion (50 m à 25 km/s). | 2.1, 2.2 |
+| Zone aveugle et éclipse | Depuis l'étape 2.1 : zone aveugle ≤ `range_min_km`, pas d'auto-éclipsage des trains non ambigus, perte moyenne des trains échelonnés. Reste l'éclipsage par les autres observations et les autres faces. | 4.3 |
+| Banc de vitesses | Loi de perte de désadaptation en vitesse et nombre de filtres pour 1 dB calculés ; forfait de migration de 1 dB gardé. | 2.2 |
+| Bandes au-delà de 75 MHz, impulsions plus courtes que 20 µs | Modèle valide jusqu'à 200 MHz ; secteurs « résolution non tenue » signalés ; un secteur de 20 km (B2_AUTOPROT) n'a plus de forme d'onde (20 µs laissent 3 km aveugles). | 3.1 |
+| Multiplexage en temps ou en fréquence du multifaisceau | Passé de l'étape 2.1 à l'étape 3.1, avec le reste du multifaisceau. | 3.1 |
+| Résidu du couplage distance-Doppler | Biais corrigé par la mesure du Doppler ; résidu non compté. | 3.3 |
+| Affichage du volume utile, édition de `range_min_km` | À terme, les vues ne montrent que le volume utile (sans la zone aveugle) ; l'interface n'édite pas `range_min_km`. | 5.5 |
 | PAE en fonction du recul du PA | PAE constante sous réduction de puissance ; loi nécessaire au multifaisceau par superposition. | 3.1 |
 | Espaces de recherche | Rien entre 0,8 et 2 ms en S, rien au-delà de 400 µs en Ku. | 3.1, 3.2 |
 | Alimentation des TRM | Recharge de la réserve pendant un train, capacité d'alimentation d'un TRM, et **puissance instantanée de la face** pendant une observation (4 900 TRM S en même temps : environ 8,2 MW à d = 0,65, contre 2 MW alloués) ; seule la moyenne sur la période de revisite est vérifiée. | 4.1 |
@@ -957,3 +999,57 @@ Effet sur les missions de test (valeurs de test seulement) :
 - missions sans repère galactique : fond galactique au pire cas (+7,5 K en S, T_sys du bilan 152,1 K) ; portées +0,1 à +2,4 %, énergie par face −0,6 à −1,1 %, temps S 0 à −11 %, temps Ku 0 à −9 % ; une forme d'onde de CONE_D1-D4 passe de cohérente à non cohérente (la perte GLRT est plus faible en non cohérent) ;
 - nouvelle mission de test `mission_sky_demo.json` (Soleil, Lune, limbe de la Terre, repère galactique) : environ 1 % des pointages du secteur SUN aveuglés et T_sys du bilan +4,7 dB (la frange du Soleil dépasse 1 % d'un petit secteur), EARTH +2,5 dB, MOON +0,3 dB ;
 - toutes les missions de test : règles pour l'ordonnanceur (synchronisation par bande ; le signal S de 75 MHz à 2,8 GHz met son harmonique sur le canal Ku de 14,0 GHz).
+
+### Étape 2.1 : formes d'onde paramétriques (21 octobre 2026)
+
+Questions de cadrage (toutes acceptées) :
+
+| Question | Décision |
+|---|---|
+| Q1, multiplexage du multifaisceau | Passé à l'étape 3.1, avec tout le multifaisceau. |
+| Q2, vitesse et migration | Étape 2.1 : perte d'un filtre adapté à une autre vitesse ; étape 2.2 : banc de vitesses et migration entre impulsions. |
+| Q3, zone aveugle | Nouvelle clé de secteur `range_min_km`. L'utilisateur demande en plus qu'**à terme les vues affichent seulement le volume utile**, sans la zone aveugle (étape 5.5). |
+| Q4, éclipsage | Celui du train de l'observation seule ici ; la chronologie complète à l'étape 4.3. |
+| Q5, forfait `DSP` | Décomposé : pondération calculée, chevauchement 0,7 dB gardé jusqu'à 2.2, précision finie 0,3 dB. |
+| Q6, bandes > 75 MHz | Modèle valide jusqu'à 200 MHz ; espace de recherche ouvert à l'étape 3.1. |
+
+Variables (toutes validées, bout optimiste) :
+
+| Sujet | Décision |
+|---|---|
+| A1-A3 | LFM et NLFM ; NLFM si f_d,max / B ≤ 2 %, sinon LFM ; codes de phase écartés. |
+| A4-A6 | Lobes en distance = option du volume ; Taylor n̄ = 5 à la réception pour la LFM ; NLFM 0,1 dB. |
+| A7 | Résolution physique (élargissement compris). |
+| A8-A10 | k_r dérivé ; perte Doppler LFM dérivée ; biais de couplage corrigé par la mesure du Doppler, donné en sortie. |
+| B1-B6 | Loi exacte de perte en vitesse (phase quadratique) ; aucune perte au bilan avant l'étape 2.2 ; AM/PM 2°/dB, résidu après correction, en sortie. |
+| C1-C8 | `range_min_km` (défaut 10 % de la portée) ; zone aveugle stricte ; PRI ≥ 2R/c + τ + récupération ; trains ambigus échelonnés sur 3 PRI à ±10 % avec la perte d'éclipsage moyenne ; ambiguïté Doppler en sortie ; éclipsage de la chronologie à l'étape 4.3. |
+| D1-D3 | Modèle valide jusqu'à 200 MHz ; espace de recherche inchangé ; résolution non tenue signalée. |
+
+**Correction signalée à l'utilisateur.** Lors des questions, l'élargissement de la pondération avait été annoncé à ×1,13 / ×1,20 / ×1,27 (calcul trop grossier) et, par suite, 2 m de résolution à « 85 MHz » et 2,27 m à 75 MHz. Les valeurs justes, calculées par `range_weighting`, sont ×1,18 / ×1,27 / ×1,34, 89 MHz et 2,37 m. Les pertes (0,41 / 0,68 / 0,93 dB) et les k_r étaient justes.
+
+Effet sur les missions de test (valeurs de test seulement) :
+- toutes les observations S à 75 MHz sont des NLFM : 0,9 dB de pertes en moins ; portées de WF-LRS +5,3 % (ST 7 185 → 7 567 km) ;
+- énergie par face −22 à +6 %, temps S −7 à −50 %, temps Ku −42 à +53 % (éclipsage des trains Ku ambigus contre pertes plus faibles) ;
+- les secteurs courts perdent leurs impulsions longues ; B2_AUTOPROT (20 km) n'a plus de forme d'onde : l'impulsion la plus courte (20 µs) laisse 3 km aveugles, au-delà de sa portée minimale par défaut de 2 km (conservé : à reprendre avec l'espace de recherche de l'étape 3.1) ;
+- tous les secteurs qui demandent 2 m (le défaut) sont signalés « résolution non tenue » (2,37 m à 75 MHz).
+
+#### Écart cumulé avec le modèle d'avant la feuille de route (demande de l'utilisateur, étape 2.1)
+
+Comparaison du modèle V6.0.12 (commit ad07412, avant l'étape 0.1) et du modèle V6.6.0, avec les mêmes formes d'onde et les mêmes missions de test (`mission_example`, `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`). **Valeurs de test seulement : ce ne sont ni des exigences ni des performances du radar.**
+
+| Grandeur | V6.0.12 | V6.6.0 | Écart |
+|---|---|---|---|
+| T_sys S / Ku | 346,5 / 400 K | 144,5 / 230,8 K (ciel froid) | −3,8 / −2,4 dB |
+| Pointages par face à 2,8 GHz | 4 167 | 3 016 | −28 % (lobe réel, plus large) |
+| Largeur du lobe d'émission à 2,8 GHz | 1,30° | 1,53° | +18 % |
+| Pertes de WF-LRS, axe / 45° / 70° | 7,86 / 7,91 / 8,46 dB | 7,00 / 6,74 / 7,86 dB | −0,9 / −1,2 / −0,6 dB |
+| Portée de WF-LRS sur ST, axe / 45° / 70° | 5 682 / 4 682 / 3 043 km | 7 567 / 6 459 / 4 211 km | **+33 / +38 / +38 %** |
+| Portée de WF-LRS sur KKV, axe | 613 km | 816 km | +33 % |
+| Poursuite Ku synthétique sur KKV, axe / 50° | 4 576 / 2 860 km | 6 240 / 4 067 km | **+36 / +42 %** |
+| Énergie par face pour tenir les mêmes besoins (missions de test) | — | — | **−75 à −85 %** |
+| Temps d'émission S par face | — | — | −25 à −85 % |
+| Temps d'émission Ku par face | — | — | −90 à −99 % |
+| Période de revisite atteignable seul (mêmes besoins) | — | — | ÷ 4 à ÷ 6,5 |
+| Secteurs sans forme d'onde jouable | 0 | 2 sur 21 | A3_HIBAND (2,9 GHz, bord de bande, étape 1.4) et B2_AUTOPROT (zone aveugle, étape 2.1) |
+
+À ressources égales, une énergie divisée par 5 vaut une portée multipliée par environ 1,5 (R ∝ E^¼). Le gain vient surtout de T_sys (revue 0.3 : frontal optimisé au lieu d'un module T/R classique, puis ciel froid et CAN dérivé à l'étape 1.5 : environ +3,8 dB en S), des pertes (pré-LNA compté une fois, rendement ohmique 1,0, polarisation par GLRT, compression NLFM), du lobe réel (moins de pointages) et du bilan électrique avec des impulsions de 2 ms (étape 1.3). Les corrections pessimistes (désadaptation active jusqu'à 2,2 dB aller-retour à 75°, bords de bande, zone aveugle, éclipsage des trains ambigus, fond galactique au pire cas, contrôles stricts) en reprennent une partie. Les étapes à venir en ajouteront d'autres (banc de vitesses et cases réelles en 2.2, critère de détection en 2.3, cibles en 2.4, ordonnanceur et synchronisation en 4.3).

@@ -28,8 +28,9 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 1.2 | ✔ fait (commit e6ce750) |
 | 1.3 | ✔ fait (commit e242519) |
 | 1.4 | ✔ fait (commit 1feda84) |
-| 1.5 | ✔ fait |
-| 2.1 et suivantes | à faire, la prochaine étant 2.1 |
+| 1.5 | ✔ fait (commit d8245d1) |
+| 2.1 | ✔ fait |
+| 2.2 et suivantes | à faire, la prochaine étant 2.2 |
 
 ---
 
@@ -123,7 +124,17 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 
 ## Phase 2 : signal et détection
 
-- **2.1 Formes d'onde paramétriques.**
+- **2.1 Formes d'onde paramétriques.** ✔
+
+  Décisions prises (bout optimiste de chaque plage) :
+  - LFM et NLFM, choix automatique (NLFM si f_d,max / B ≤ 2 %, perte 0,1 dB ; sinon LFM avec Taylor n̄ = 5 à la réception) ; lobes en distance = option du volume ; perte `compression` calculée ; `DSP` décomposé (précision finie 0,3 dB, chevauchement 0,7 dB jusqu'à 2.2) ;
+  - k_r dérivé du spectre pondéré ; résolution physique (élargissement compris), signalée si elle n'est pas tenue ;
+  - loi exacte de perte d'un filtre adapté à une autre vitesse et nombre de filtres pour 1 dB, en sortie pour l'étape 2.2 ; biais de couplage distance-Doppler et dérive AM/PM en sortie ;
+  - nouvelle clé de secteur `range_min_km` (défaut 10 % de la portée) ; zone aveugle stricte ; PRI des trains non ambigus ≥ 2R/c + τ + récupération ; trains ambigus échelonnés (3 PRI, ±10 %) avec la perte d'éclipsage moyenne ;
+  - multiplexage du multifaisceau passé en 3.1 ; espace de recherche au-delà de 75 MHz ouvert en 3.1 ;
+  - à terme, les vues afficheront seulement le volume utile, sans la zone aveugle (5.5).
+
+  Contenu prévu à l'origine :
   - **Renvois de l'étape 1.3** : zone aveugle c·τ/2 à vérifier **par rapport au besoin du secteur** (300 km pour les impulsions de 2 ms, sans importance à 10 000 km) ; éclipse au facteur de forme élevé (jusqu'à 0,65) ; migration et Doppler dans l'impulsion (50 m à 25 km/s sur 2 ms) ; dérive de phase et d'amplitude dans l'impulsion.
   - **Renvoi de l'étape 1.5** : le récepteur est sourd pendant τ + la récupération du limiteur (50 ns en S, 25 ns en Ku ; sortie `rx_deaf_us` des formes d'onde), à prendre dans l'éclipsage.
   - Modulation, compression, lobes en distance, tolérance au Doppler, couplage distance-Doppler.
@@ -138,6 +149,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Doit aussi corriger le modèle de cohérence.** Le plancher η_min = 0,70 est atteint vers 149 ms, puis fige la perte à 1,55 dB quelle que soit la durée d'intégration : ce n'est pas physique, et c'est la cause des égalités exactes dans l'optimiseur. Il faut plafonner le temps cohérent et intégrer de façon non cohérente au-delà.
   - t₀ = 0,25 s et p = 2 n'ont **aucune source connue** et sont à établir.
   - **Disposition provisoire** depuis la revue 0.3 : `radar_model.COH_T_MAX_S` = t₀(−ln η_min)^(1/p) = 149 ms. Les générateurs de formes d'onde de l'optimiseur et de la poursuite écartent les intégrations cohérentes plus longues. À retirer quand les blocs cohérents suivis d'une intégration non cohérente seront modélisés.
+  - **Renvoi de l'étape 2.1** : le pas du banc de vitesses se déduit de la loi de perte calculée à l'étape 2.1 (`velocity_mismatch_loss_db` : 1 dB à n_c = 1,016, soit 13 filtres pour 2 ms à 75 MHz sur 0 à 25 km/s) ; le forfait de chevauchement de 0,7 dB (`straddle`) est à remplacer par la grille réelle des cases.
   - **Bruit de phase de l'oscillateur, sujet entier (décidé à l'étape 1.5)** : modèle du spectre de l'oscillateur et effet sur l'aller-retour (53 ms à 8 000 km, décalages d'environ 19 Hz). Il décorrèle l'émission et la réception (lobes Doppler, cohérence) ; ce n'est pas seulement une gigue à court terme. À traiter avec la refonte de la cohérence ci-dessus.
 
 - **2.3 Critère de détection** (D).
@@ -175,7 +187,8 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 
     Cela remplace la loi unique `multibeam.l8_db` / `p` (statut ?). À reprendre aussi à l'étape 5.2.
   - **Grille de fréquences S** : remplacer `freq_candidates_ghz` (2,7, 2,8 et 2,9 GHz) par une grille fine au pas de 5 ou 10 MHz. Depuis l'étape 1.4, aucun signal ne tient à 2,7 ni à 2,9 GHz (bords de bande) : la grille doit se placer dans la bande, en tenant compte de la largeur du signal. Le but est d'éviter les brouilleurs étroits de forte puissance tout en gardant plus de cases fréquence qu'un masquage par multiples de 25 MHz. La grille est restreinte au spectre utilisable (connaissance du spectre, voir 3.2).
-  - Bandes de signal au-delà de 75 MHz (bi_max 200 MHz) : plus de cases, donc plus de fausses alarmes (avec 2.1).
+  - Bandes de signal au-delà de 75 MHz (bi_max 200 MHz) : plus de cases, donc plus de fausses alarmes. **Depuis l'étape 2.1**, le modèle est valide jusqu'à 200 MHz et la résolution est physique : 2 m demandent 89 MHz à −25 dB, et les secteurs qui demandent 2 m sont signalés tant que l'espace de recherche s'arrête à 75 MHz.
+  - **Renvois de l'étape 2.1** : multiplexage en temps ou en fréquence du multifaisceau (tout le sujet ici) ; impulsions plus courtes que 20 µs pour les secteurs à courte portée (B2_AUTOPROT, 20 km, n'a plus de forme d'onde : 20 µs laissent 3 km aveugles) ; choix de la famille de modulation par l'optimiseur si utile.
   - Règles de l'optimiseur (`bin_deg`, `max_wf`, `short_tol`, `n_alphas`, `short_penalty`) et défaut des égalités exactes : il faut un critère secondaire (ici et en 5.2).
   - La table de coût n'est calculée qu'à 2,8 GHz (optimiste pour les secteurs à 2,7 ou 2,9 GHz) : à recaler à l'étape 5.5. `track_margin_warn` → 5.3.
   - La plus longue impulsion S est déjà **calculée** à partir de la réserve des TRM (`radar_model.tau_max_s`).
@@ -194,6 +207,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Rappel à faire à l'utilisateur (décidé en 1.2)** : la polarisation d'émission est linéaire selon e_v ; la commutation e_u / e_v à chaque observation (un seul PA aiguillé vers les deux ports de l'élément, environ 0,1 à 0,2 dB de plus dans TX_chain) reste une **option à évaluer** pour la polarimétrie.
   - Filtre de Kalman ou IMM ; cadence de mise à jour selon la précision et la manœuvre ; initialisation, maintien et perte de piste.
   - **Polarisation** (avec 3.2) : usage polarimétrique des deux voies pour la confirmation, la discrimination des leurres et la classification ; le déséquilibre entre les deux voies (non modélisé, sans effet sur le GLRT) y comptera.
+  - **Renvoi de l'étape 2.1** : résidu du couplage distance-Doppler (c·τ·σ_fd / 2B) dans la précision en distance.
   - **Renvoi de l'étape 1.5** : atténuateur commutable par observation (ou STC) pour la poursuite rapprochée ; aujourd'hui le gain est fixe et une alerte signale les tranches de poursuite sous la portée non saturée Ku.
 
 - **3.4 Fonctions annexes** (D) : étalonnage en vol, santé des TRM, mode dégradé.
@@ -213,10 +227,11 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - Modèle des tâches, priorités, entrelacement contraint par les allers-retours, chronologies S et Ku par face, latence, politique de surcharge.
   - **Latence reconstruite de zéro.** L'ancienne règle `confirmation.latency_max_frac` (allers-retours comparés à 1 % du temps avant impact) a été supprimée lors de la revue 0.3 : elle ne limitait jamais rien (2nv/c) et ignorait les vraies causes. Il faut construire une vraie latence (attente dans la file de l'ordonnanceur, traitement, allers-retours) et la comparer à une exigence de délai par secteur.
   - Vérifier `frame_interleaved`.
-  - **Renvois de l'étape 1.5** : (1) **cadence commune d'émission et de réception de toutes les faces, par bande** (`isolation.interface_mode` = sync) : aucune face ne reçoit une bande pendant qu'une autre l'émet ; coût estimé de 0 à 1 dB si les émissions sont alignées, jusqu'à −10 log(1 − Σ des facteurs d'émission des autres faces) sinon (0,5 à 1,5 dB en forte charge), aucune perte comptée avant cette étape ; (2) pas de réception Ku sur une face pendant une émission S dont l'harmonique couvre le canal Ku ; (3) **annulation active à revoir ici** (coûts : perte avant le LNA versée dans T_sys, puissance injectée égale à la fuite, temps d'adaptation à chaque pointage, calcul dans l'espace des faisceaux ; solution mixte proposée : synchronisation entre faces voisines, annulation entre faces opposées) ; (4) pointages aveuglés par le Soleil à sortir du plan de balayage.
+  - **Renvois de l'étape 1.5** : (1) **cadence commune d'émission et de réception de toutes les faces, par bande** (`isolation.interface_mode` = sync) : aucune face ne reçoit une bande pendant qu'une autre l'émet ; coût estimé de 0 à 1 dB si les émissions sont alignées, jusqu'à −10 log(1 − Σ des facteurs d'émission des autres faces) sinon (0,5 à 1,5 dB en forte charge), aucune perte comptée avant cette étape ; (2) pas de réception Ku sur une face pendant une émission S dont l'harmonique couvre le canal Ku ; (3) **annulation active à revoir ici** (coûts : perte avant le LNA versée dans T_sys, puissance injectée égale à la fuite, temps d'adaptation à chaque pointage, calcul dans l'espace des faisceaux ; solution mixte proposée : synchronisation entre faces voisines, annulation entre faces opposées) ; (4) pointages aveuglés par le Soleil à sortir du plan de balayage ; (5) **renvoi de l'étape 2.1** : éclipsage par les autres observations (positions entrelacées) et par les autres faces synchronisées.
 
 - **4.4 Calcul et données** (D).
   - Débits des CAN, faisceaux de réception numériques simultanés (dont les quelque 3,4 faisceaux par pointage de l'étape 1.1), charge de traitement, capacité du calculateur central.
+  - **Entrée de l'étape 2.1** : nombre de filtres de vitesse par observation (`velocity_hypotheses_1db`).
   - **Entrées de l'étape 1.5** : deux CAN I/Q par TRM (deux voies de polarisation) à 250 Méch/s et 13 bits, soit 9 800 CAN en S et 245 000 en Ku par face, et une formation de faisceau doublée ; leur consommation est à budgéter.
   - Leur consommation électrique alimente le bilan de puissance de l'étape 4.1, à la place de `overhead_frac`.
 
@@ -237,6 +252,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - Préparation, estimation rapide recalée, diagnostic par contrainte, chronologies, export du rapport.
   - Onglet d'édition des paramètres.
   - Arrondi de `power_scale`.
+  - **Renvois de l'étape 2.1** : les vues (3D, interface) n'affichent que le **volume utile**, sans la zone aveugle (demande de l'utilisateur) ; édition de `range_min_km` dans l'interface.
   - **Renvoi de l'étape 1.5** : l'estimation rapide (`cost_table.json`) est au ciel froid, sans le bruit du ciel ni l'aveuglement ; l'interface n'édite pas le ciel de la mission (il viendra du simulateur de scénario), elle le conserve.
 
 - **5.6 Vérification, validation et documentation.** Cas de référence figés, traçabilité des paramètres, manuel de l'opérateur, note de modèle.

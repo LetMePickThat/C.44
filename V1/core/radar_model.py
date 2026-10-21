@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.5.0
+# Radar Performance Model - V6.6.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,19 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.5.0 -> V6.6.0 (roadmap step 2.1: parametric waveforms; optimistic end of every range, user)
+#   - Modulation per look ([waveform]): NLFM while f_d,max / B <= 2 % (mismatch 0.1 dB), else LFM with a Taylor nbar 5
+#     receive weighting; range sidelobes = the volume's RX option. New loss "compression" (weighting or mismatch +
+#     LFM Doppler loss -20 log(1 - f_d / B)) replaces the weighting part of the former DSP 2.0 dB, now split into
+#     finite_precision 0.3 dB + straddle 0.7 dB (lump until 2.2). k_r = range_crlb_kr / RMS-bandwidth ratio of the
+#     weighted spectrum (0.70 at -25 dB). Physical range resolution = broadening x c / 2B (x1.18 at -25 dB).
+#   - Intra-pulse effects, outputs: cells crossed in the pulse n_c = 2 v tau B / c, velocity-mismatch loss (exact
+#     quadratic-phase law, for the velocity bank of 2.2), velocity hypotheses for 1 dB, range-Doppler coupling bias,
+#     AM/PM phase drift. No loss added (velocity bank assumed, migration lump kept until 2.2).
+#   - Dwell timeline: blind range c (tau + limiter recovery) / 2; staggered (range-ambiguous) trains pay the mean
+#     eclipsing loss -10 log(1 - (tau + recovery) / PRI); Doppler ambiguity output. The optimiser: blind range <=
+#     the sector's range_min_km, unambiguous PRI >= 2 R / c + tau + recovery (no self-eclipsing).
 #
 # Changes V6.4.0 -> V6.5.0 (roadmap step 1.5: the receive chain; optimistic end of every range, user)
 #   - T_sys by direction: band.<b>.rx.t_ant_k is the COLD sky (S 10 -> 3.2 K, Ku 5 -> 2.8 K); core/sky.py adds the
@@ -236,10 +249,13 @@
 from __future__ import annotations
 
 import argparse
+import functools
 import math
 import sys
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
+
+import numpy as np
 
 try:
     from . import antenna
@@ -248,7 +264,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import antenna
     from params import P
 
-MODEL_VERSION = "6.5.0"
+MODEL_VERSION = "6.6.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -358,6 +374,20 @@ REFRESH_S: float = P.get("tool.cli.refresh_s")   # frame check of the CLI report
 ANGLE_CRLB_MARGIN: float = P.get("estimation.angle_crlb_margin")
 K_F: float = P.get("estimation.k_f")
 RANGE_CRLB_KR: float = P.get("estimation.range_crlb_kr")
+
+# --- Waveforms: modulation, compression, intra-pulse effects, dwell timeline (step 2.1) ---
+MODULATIONS: Tuple[str, ...] = tuple(P.get("waveform.modulations"))
+NLFM_DOPPLER_MAX_FRAC: float = P.get("waveform.nlfm_doppler_max_frac")
+NLFM_MISMATCH_LOSS_DB: float = P.get("waveform.nlfm_mismatch_loss_db")
+RANGE_PSL = P.get("waveform.range_psl")                    # "volume" (= rx_sll_db) or a level in dB
+RANGE_TAYLOR_NBAR: int = P.get("waveform.range_taylor_nbar")
+PA_AM_PM_DEG_PER_DB: float = P.get("waveform.pa_am_pm_deg_per_db")
+STAGGER_N_PRI: int = P.get("waveform.stagger_n_pri")
+STAGGER_SPREAD: float = P.get("waveform.stagger_spread")
+if not set(MODULATIONS) <= {"lfm", "nlfm"} or "lfm" not in MODULATIONS:
+    raise ValueError(f"{P.path}: waveform.modulations {list(MODULATIONS)} must be within ['lfm', 'nlfm'] and hold 'lfm'")
+if not (RANGE_PSL == "volume" or (isinstance(RANGE_PSL, (int, float)) and RANGE_PSL < 0)):
+    raise ValueError(f"{P.path}: waveform.range_psl must be 'volume' or a negative level in dB")
 # =============================================================================
 
 C_MPS = 299_792_458.0
@@ -855,6 +885,126 @@ def migration_loss_db(v_mps: float, t_span_s: float, sig_bw_mhz: float, n_pulses
 
 
 # -----------------------------------------------------------------------------
+# Waveforms: compression and intra-pulse effects (step 2.1)
+# -----------------------------------------------------------------------------
+@functools.lru_cache(maxsize=32)
+def range_weighting(psl_db: float) -> Dict[str, float]:
+    """1D Taylor weighting (nbar = RANGE_TAYLOR_NBAR) of a compressed pulse at the range sidelobe level psl_db,
+    evaluated numerically on 4096 spectral samples: SNR loss (dB), -3 dB main-lobe broadening against the
+    unweighted pulse, RMS-bandwidth ratio (k_r = RANGE_CRLB_KR / ratio) and the achieved sidelobe level."""
+    n, nbar = 4096, RANGE_TAYLOR_NBAR
+    a = math.acosh(10.0 ** (abs(psl_db) / 20.0)) / math.pi
+    s2 = nbar ** 2 / (a ** 2 + (nbar - 0.5) ** 2)
+    ms = range(1, nbar)
+    x = (np.arange(n) - (n - 1) / 2.0) / n
+    w = np.ones(n)
+    for m in ms:
+        num = np.prod([1.0 - m ** 2 / s2 / (a ** 2 + (k - 0.5) ** 2) for k in ms])
+        den = np.prod([1.0 - m ** 2 / k ** 2 for k in ms if k != m])
+        w += 2.0 * (-1) ** (m + 1) * num / (2.0 * den) * np.cos(2.0 * math.pi * m * x)
+    u = np.arange(0.0, 1.5, 1e-4)                     # main lobe, in resolution cells (1 / pulse spectrum width)
+    cu = np.cos(2.0 * math.pi * np.outer(u, x))
+
+    def half_power(win: np.ndarray) -> float:
+        g = (cu @ win / win.sum()) ** 2
+        i = int(np.argmax(g < 0.5))
+        return float(np.interp(0.5, [g[i], g[i - 1]], [u[i], u[i - 1]]))
+
+    pw = np.abs(np.fft.rfft(w, 16 * n)) ** 2
+    pw /= pw[0]
+    k = int(np.argmax(pw < 0.5))
+    while pw[k + 1] < pw[k]:
+        k += 1
+    return {"loss_db": -10.0 * math.log10(w.sum() ** 2 / (n * (w * w).sum())),
+            "broadening": half_power(w) / half_power(np.ones(n)),
+            "rms_ratio": math.sqrt((w * x * x).sum() / w.sum()) / math.sqrt((x * x).mean()),
+            "psl_db": 10.0 * math.log10(pw[k:].max())}
+
+
+def range_psl_db(rx_sll_db: Optional[float] = None) -> float:
+    """Range sidelobe level of a look: the volume's RX option (waveform.range_psl = 'volume') or the fixed level."""
+    if RANGE_PSL == "volume":
+        return RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
+    return float(RANGE_PSL)
+
+
+def doppler_max_hz(f_ghz: float, v_mps: float) -> float:
+    return 2.0 * abs(v_mps) / lambda_m(f_ghz)
+
+
+def modulation_for(f_ghz: float, sig_bw_mhz: float, v_mps: float) -> str:
+    """Family of a look (step 2.1, A2): NLFM while f_d,max / B <= NLFM_DOPPLER_MAX_FRAC (and modelled), else LFM."""
+    if "nlfm" in MODULATIONS and doppler_max_hz(f_ghz, v_mps) <= NLFM_DOPPLER_MAX_FRAC * sig_bw_mhz * 1e6:
+        return "nlfm"
+    return "lfm"
+
+
+def compression_loss_db(modulation: str, f_ghz: float, sig_bw_mhz: float, v_mps: float, psl_db: float) -> float:
+    """Pulse-compression loss: LFM = Taylor weighting loss + Doppler loss on the ridge -20 log(1 - f_d / B);
+    NLFM = its mismatch loss (no weighting, Doppler within its tolerance)."""
+    if modulation == "nlfm":
+        return NLFM_MISMATCH_LOSS_DB
+    frac = min(doppler_max_hz(f_ghz, v_mps) / (sig_bw_mhz * 1e6), 0.999)
+    return range_weighting(psl_db)["loss_db"] - 20.0 * math.log10(1.0 - frac)
+
+
+def range_resolution_m(sig_bw_mhz: float, psl_db: float) -> float:
+    """Physical range resolution: -3 dB width of the compressed pulse = broadening x c / 2B (same for LFM and NLFM)."""
+    return range_weighting(psl_db)["broadening"] * C_MPS / (2.0 * sig_bw_mhz * 1e6)
+
+
+def cells_in_pulse(v_mps: float, tau_s: float, sig_bw_mhz: float) -> float:
+    """Range cells (c / 2B) a target crosses during one pulse: n_c = 2 v tau B / c (step 2.1, B1)."""
+    return 2.0 * abs(v_mps) * tau_s * sig_bw_mhz * 1e6 / C_MPS
+
+
+@functools.lru_cache(maxsize=4096)
+def velocity_mismatch_loss_db(n_c: float) -> float:
+    """Loss of a filter matched to the wrong velocity, n_c = 2 |dv| tau B / c (B1): the echo time compression is a
+    quadratic phase error 2 pi n_c x^2 over the pulse (x in [-1/2, 1/2]): -20 log |mean exp(j 2 pi n_c x^2)|."""
+    x = (np.arange(4001) + 0.5) / 4001 - 0.5
+    return -20.0 * math.log10(abs(np.exp(2j * math.pi * n_c * x * x).mean()))
+
+
+@functools.lru_cache(maxsize=1)
+def _n_c_for_db(loss_db: float = 1.0) -> float:
+    lo, hi = 0.0, 4.0
+    for _ in range(60):
+        mid = 0.5 * (lo + hi)
+        lo, hi = (mid, hi) if velocity_mismatch_loss_db(mid) < loss_db else (lo, mid)
+    return lo
+
+
+def velocity_hypotheses(v_span_mps: float, tau_s: float, sig_bw_mhz: float, loss_db: float = 1.0) -> int:
+    """Velocity filters needed over v_span so that the worst mismatch (half a step) costs at most loss_db (B2,
+    output for the velocity bank of 2.2 and the compute load of 4.4)."""
+    if v_span_mps <= 0.0:
+        return 1
+    dv_half = _n_c_for_db(loss_db) * C_MPS / (2.0 * tau_s * sig_bw_mhz * 1e6)
+    return max(1, int(math.ceil(v_span_mps / (2.0 * dv_half))))
+
+
+def am_pm_drift_deg(x_buf: float) -> float:
+    """Phase drift over the pulse (B5): AM/PM x the end-of-pulse power drop -10 log(1 - x) of the TRM buffer."""
+    return PA_AM_PM_DEG_PER_DB * (-10.0 * math.log10(max(1.0 - x_buf, 1e-12)))
+
+
+def blind_range_km(band: BandConfig, tau_s: float) -> float:
+    """Range hidden by the receiver deaf time (pulse + limiter recovery): c (tau + recovery) / 2 (step 2.1, C2)."""
+    return C_MPS * rx_deaf_after_pulse_s(band, tau_s) / 2.0 / 1000.0
+
+
+def eclipsing_loss_db(band: BandConfig, tau_s: float, pri_s: float) -> float:
+    """Mean eclipsing loss of a staggered range-ambiguous train (C4): -10 log(1 - (tau + recovery) / PRI)."""
+    return -10.0 * math.log10(max(1.0 - rx_deaf_after_pulse_s(band, tau_s) / pri_s, 1e-6))
+
+
+def unambiguous_pri_s(band: BandConfig, r_km: float, tau_s: float) -> float:
+    """Shortest PRI of a train with no ambiguity and no self-eclipsing out to r_km (C3): 2 R / c + tau + recovery."""
+    return 2.0 * r_km * 1e3 / C_MPS + rx_deaf_after_pulse_s(band, tau_s)
+
+
+# -----------------------------------------------------------------------------
 # Detection SNR requirement (TOTAL integrated energy SNR, for the energy-form radar equation)
 # -----------------------------------------------------------------------------
 def albersheim_total_snr_db(pd: float, pfa: float, n: int) -> float:
@@ -952,9 +1102,10 @@ class TrackingPack:
 
 
 def tracking_snr_req(pack: TrackingPack, f_ghz: float, theta_deg: float, t_obs_s: float,
-                     sig_bw_mhz: float) -> Tuple[float, str]:
+                     sig_bw_mhz: float, k_r: float = RANGE_CRLB_KR) -> Tuple[float, str]:
     """SNR (linear) a track update needs for the pack's accuracies, and the dominant term (ANG / DOP / RNG).
-    t_obs_s = coherent observation time of the Doppler measurement (the dwell, (N - 1) PRI + tau).
+    t_obs_s = coherent observation time of the Doppler measurement (the dwell, (N - 1) PRI + tau). k_r: range
+    estimator constant of the look's spectrum (step 2.1: RANGE_CRLB_KR / RMS-bandwidth ratio of the weighting).
     Angle: Cramer-Rao bound of the full digital aperture x ANGLE_CRLB_MARGIN, sigma_u = lambda / (2 pi x_rms
     sqrt(2 SNR)); in the scan plane (worst axis) an angle error is d_u / cos(theta)."""
     lam = lambda_m(f_ghz)
@@ -964,7 +1115,7 @@ def tracking_snr_req(pack: TrackingPack, f_ghz: float, theta_deg: float, t_obs_s
     dop = 0.5 * (K_F / (t_obs_s * sigma_f)) ** 2
     rng = 0.0
     if pack.sigma_r_m is not None:
-        rng = 0.5 * ((RANGE_CRLB_KR * C_MPS) / (2.0 * sig_bw_mhz * 1e6 * pack.sigma_r_m)) ** 2
+        rng = 0.5 * ((k_r * C_MPS) / (2.0 * sig_bw_mhz * 1e6 * pack.sigma_r_m)) ** 2
     comps = {"ANG": ang, "DOP": dop, "RNG": rng}
     dom = max(comps, key=comps.get)
     return comps[dom], dom
@@ -989,8 +1140,12 @@ class Waveform:
     integration: str = "NONCOHERENT"   # "COHERENT" | "NONCOHERENT"
     swerling: Optional[int] = None     # None -> target's case
     tracking_pack: Optional[TrackingPack] = None
+    modulation: Optional[str] = None   # "lfm" | "nlfm" | None = chosen per look (modulation_for, step 2.1)
+    staggered: bool = False            # range-ambiguous train staggered over STAGGER_N_PRI PRIs (eclipsing loss)
 
     def __post_init__(self) -> None:
+        if self.modulation is not None and self.modulation not in MODULATIONS:
+            raise ValueError(f"{self.name}: modulation '{self.modulation}' is not one of {MODULATIONS}")
         if self.band not in BANDS:
             raise ValueError(f"{self.name}: unknown band {self.band}")
         if self.role not in BANDS[self.band].allowed_roles:
@@ -1065,6 +1220,7 @@ class Result:
     pae: float = 0.0             # PAE of the waveform
     p_diss_trm_w: float = 0.0    # heat per TRM during the dwell
     t_sys_k: float = 0.0         # system noise temperature used
+    pulse: Optional[Dict[str, float]] = None   # step 2.1: modulation and intra-pulse / timeline outputs
 
 
 def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
@@ -1087,18 +1243,26 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
             raise ValueError(f"{wf.name}: {wf.sig_bw_mhz:g} MHz exceeds the aperture-fill bandwidth {b_fill:.0f} MHz "
                              f"at {theta_deg} deg (no true-time delay)")
     sw = wf.swerling if wf.swerling is not None else target.swerling
+    psl = range_psl_db(rx_sll_db)
+    mod = wf.modulation or modulation_for(f_ghz, wf.sig_bw_mhz, target.v_close_mps)
+    wgt = range_weighting(psl)
 
     if wf.role in DETECT_ROLES:
         snr_db = detect_snr_req_db(wf.integration, wf.n, sw)
         driver = "Detect-" + wf.integration[:4]
     else:
-        snr_lin, dom = tracking_snr_req(wf.tracking_pack, f_ghz, theta_deg, wf.dwell_s, wf.sig_bw_mhz)
+        snr_lin, dom = tracking_snr_req(wf.tracking_pack, f_ghz, theta_deg, wf.dwell_s, wf.sig_bw_mhz,
+                                        RANGE_CRLB_KR / wgt["rms_ratio"])
         snr_db, driver = lin_to_db(snr_lin), "Track-" + dom
 
     t_span = wf.dwell_s
     losses: Dict[str, float] = dict(band.losses_db)
     losses["edge"] = band.edge_loss_db(f_ghz, wf.sig_bw_mhz)
+    losses["compression"] = compression_loss_db(mod, f_ghz, wf.sig_bw_mhz, target.v_close_mps, psl)
+    if wf.staggered and wf.n > 1:
+        losses["eclipsing"] = eclipsing_loss_db(band, wf.tau_s, wf.pri_s)
     losses["polarisation"] = pol_recombination_loss_db(band, wf.role, wf.integration, wf.n, sw)
+    x_buf = 0.0
     if band.e_buf_trm_j > 0:
         x_buf = pulse_elec_energy_trm_j(wf) / band.e_buf_trm_j
         if x_buf > band.buffer_max_fraction * (1.0 + 1e-12):     # tolerance: tau_max_s() sits exactly on the limit
@@ -1137,8 +1301,17 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
                  "ok": 1.0 if t_frame <= REFRESH_S else 0.0,
                  "rx_beams_per_position": rx_beams_per_position(f_ghz, rx_sll_db)}
 
+    f_d = doppler_max_hz(f_ghz, target.v_close_mps)
+    n_c = cells_in_pulse(target.v_close_mps, wf.tau_s, wf.sig_bw_mhz)
+    pulse = {"modulation": mod, "range_psl_db": psl, "range_resolution_m": range_resolution_m(wf.sig_bw_mhz, psl),
+             "k_r": RANGE_CRLB_KR / wgt["rms_ratio"], "doppler_hz": f_d,
+             "coupling_bias_m": C_MPS * f_d * wf.tau_s / (2.0 * wf.sig_bw_mhz * 1e6),
+             "cells_in_pulse": n_c, "zero_velocity_filter_loss_db": velocity_mismatch_loss_db(n_c),
+             "velocity_hypotheses_1db": velocity_hypotheses(target.v_close_mps, wf.tau_s, wf.sig_bw_mhz),
+             "am_pm_drift_deg": am_pm_drift_deg(x_buf), "blind_range_km": blind_range_km(band, wf.tau_s),
+             "doppler_ambiguity": f_d * wf.pri_s if wf.n > 1 else 0.0}
     return Result(wf, target, snr_db, driver, r_km, losses, l_tot, p_avg_used, p_avg_max,
-                  C_MPS * wf.pri_s / 2.0 / 1000.0, n_cells, frame, eta, trm_dissipation_w(wf), t_sys)
+                  C_MPS * wf.pri_s / 2.0 / 1000.0, n_cells, frame, eta, trm_dissipation_w(wf), t_sys, pulse)
 
 
 # -----------------------------------------------------------------------------
@@ -1214,6 +1387,12 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
         ls = ", ".join(f"{k} {v:.2f}" for k, v in r.losses.items() if v)
         print(f"  Losses (dB): {ls} | total {r.l_tot_db:.2f}")
         print(f"  Migration: {r.n_cells:.0f} range cells crossed over the dwell ({MIGRATION_MODE.lower()})")
+        pu = r.pulse
+        print(f"  Pulse: {pu['modulation'].upper()}, range sidelobes {pu['range_psl_db']:g} dB, resolution "
+              f"{pu['range_resolution_m']:.2f} m, k_r {pu['k_r']:.3f} | blind range {pu['blind_range_km']:.1f} km | "
+              f"{pu['cells_in_pulse']:.1f} cells crossed in the pulse -> {pu['velocity_hypotheses_1db']} velocity filters "
+              f"for 1 dB | range-Doppler coupling {pu['coupling_bias_m']:.0f} m (corrected) | AM/PM drift "
+              f"{pu['am_pm_drift_deg']:.2f} deg")
         print(f"  Electrical power: {r.p_avg_used_w/1e3:.1f} kW used of {r.p_avg_max_w/1e3:.0f} kW available "
               f"({100*r.p_avg_used_w/r.p_avg_max_w:.1f} %) | duty {100*w.duty:.2f} % | PAE {r.pae:.3f} | "
               f"TRM heat {r.p_diss_trm_w:.1f} W during the dwell")
@@ -1306,7 +1485,9 @@ def selftest() -> int:
     gt = 4 * math.pi * PHYS_AREA_M2 * 1.0 * ETA_OHMIC / lam ** 2
     gr = 4 * math.pi * PHYS_AREA_M2 * PATTERNS["S"].rx[-25.0].eta * ETA_OHMIC / lam ** 2
     pol_glrt = shnidman_total_snr_db(DETECT_PD, DETECT_PFA, 25, 1) - shnidman_total_snr_db(DETECT_PD, DETECT_PFA, 24, 1)
-    l_db = (2.0 + 0.5 + 0.5 + 0.2 + 0.6 + pol_glrt)  # DSP CFAR calibration Ku_blockage TX_chain pol (pre-LNA is in T_sys)
+    # finite precision + straddle (ex DSP 2.0), CFAR, calibration, Ku_blockage, TX_chain, pol, compression (NLFM: f_d
+    # 93 kHz << 2 % of 75 MHz); the pre-LNA path is in T_sys
+    l_db = (0.3 + 0.7 + 0.5 + 0.5 + 0.2 + 0.6 + pol_glrt + 0.1)
     l_db += -20 * math.log10(1 - ((1 - math.cos(math.radians(45))) / (1 + math.cos(math.radians(45)))) ** 2)   # WAIM
     l_db += -10 * math.log10(1 - (2000 * 200.2e-6 / 0.8 / 25.0) / 2) + MB_L8_DB * (2.0 / 3.0) ** MB_P + MIGRATION_RESIDUAL_DB + 1.672 * (BEAM_SPACING_HPBW ** 2 + 0.5 ** 2)
     snr = db_to_lin(shnidman_total_snr_db(DETECT_PD, DETECT_PFA, 24, 1))
@@ -1321,6 +1502,13 @@ def selftest() -> int:
     check("S-band T_sys from the receive-chain cascade, hand calculation (0.1 %), cold sky 144.5 K",
           abs(BAND_S.t_sys_k / t_hand - 1) < 1e-3 and abs(BAND_S.t_sys_k - 144.5) < 0.1,
           f"({BAND_S.t_sys_k:.1f} vs {t_hand:.1f} K)")
+    check("Range Taylor weighting nbar 5: -25 / -30 / -35 dB -> loss 0.41 / 0.68 / 0.93 dB, broadening 1.18 / 1.27 / 1.34",
+          all(abs(range_weighting(s)["loss_db"] - lo) < 0.01 and abs(range_weighting(s)["broadening"] - br) < 0.005
+              and abs(range_weighting(s)["psl_db"] - s) < 0.4
+              for s, lo, br in ((-25.0, 0.407, 1.184), (-30.0, 0.679, 1.267), (-35.0, 0.926, 1.340))))
+    check("Velocity-mismatch loss: 0 at n_c = 0, about 10 log(2 n_c) for large n_c; WF-LRS is NLFM",
+          velocity_mismatch_loss_db(0.0) < 1e-9 and abs(velocity_mismatch_loss_db(50.0) - 10 * math.log10(100.0)) < 0.5
+          and lrs.pulse["modulation"] == "nlfm" and lrs.losses["compression"] == 0.1)
     check("Dual-pol GLRT loss 0.54 dB on one coherent sample (Shnidman, SW1), track looks 0.05 dB",
           abs(pol_recombination_loss_db(BAND_S, "SEARCH", "COHERENT", 12, 1) - 0.536) < 0.005
           and pol_recombination_loss_db(BAND_KU, "TRACK", "COHERENT", 128, 1) == 0.05)

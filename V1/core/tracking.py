@@ -29,6 +29,7 @@ Flagged [D] = decision, change on request.
 """
 from __future__ import annotations
 
+import dataclasses
 import functools
 import math
 from typing import Dict, List, Optional, Tuple
@@ -192,15 +193,22 @@ def _ku_reach(w: rm.Waveform, theta: float, rcs_m2: float, swerling: int, v_mps:
 
 def ku_look(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: float,
             pack: Optional[rm.TrackingPack] = None, rx_sll_db: Optional[float] = None,
-            t_sys_k: Optional[float] = None) -> Optional[dict]:
+            t_sys_k: Optional[float] = None, r_min_km: Optional[float] = None) -> Optional[dict]:
     """Cheapest Ku look reaching r_km at scan theta (power backed off to just reach it), for detection only
     (pack None) or for a track update (SNR = max(detection, accuracy)). Cost = max(energy / face average power,
     Ku TX time), as the search objective. None when no candidate reaches r_km. rx_sll_db: RX weighting of the
     volume (None = default option); t_sys_k: the sector's Ku budget T_sys (sky noise, None = cold sky). energy_J is
-    electrical (RF / PAE), energy_rf_J the radiated energy."""
+    electrical (RF / PAE), energy_rf_J the radiated energy. Step 2.1: pulses whose blind range exceeds r_min_km are
+    left out; a train whose PRI is below 2 r / c + tau + recovery is range-ambiguous at r_km, so it is staggered and
+    pays the mean eclipsing loss."""
     sll = rm.RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
     best = None
     for det, trk in _ku_candidates(_ku_integration(tgt.swerling), pack):
+        if r_min_km is not None and rm.blind_range_km(rm.BAND_KU, det.tau_s) > r_min_km + 1e-9:
+            continue
+        if det.n > 1 and det.pri_s < rm.unambiguous_pri_s(rm.BAND_KU, r_km, det.tau_s):
+            det = dataclasses.replace(det, staggered=True)
+            trk = None if trk is None else dataclasses.replace(trk, staggered=True)
         r_eff, driver = _ku_reach(det, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps, sll, t_sys_k)
         if trk is not None:
             r_trk, d_trk = _ku_reach(trk, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps, sll, t_sys_k)
@@ -261,7 +269,11 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
     if ku_sky is not None:
         flags.extend(mo.sky_flags(ku_sky, "Ku"))
     r_sat_ku = rm.min_unsaturated_range_km(KU_FREQ_GHZ, 0.0, sec["rcs_m2"])
+    r_min_sec = mo.range_min_km(sec)          # shortest range of interest: Ku blind range limit (step 2.1)
     for b in sec.get("tracking", []):
+        if b["r_min_km"] < r_min_sec:
+            flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km starts below the sector's shortest range of "
+                         f"interest ({r_min_sec:.0f} km, range_min_km): Ku looks only need a blind range below that")
         if b["r_min_km"] < r_sat_ku:
             flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: below {r_sat_ku:.1f} km the Ku echo of "
                          f"{sec['rcs_m2']:g} m2 clips the per-element ADCs (fixed gain; attenuator option at 3.3)")
@@ -279,7 +291,8 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         cells = r_det * 1e3 / (rm.C_MPS / (2.0 * w["sig_bw_mhz"] * 1e6)) * (w["n_pulses"] if w["integration"] == "COHERENT" else 1)
         fa_g = gr["pos"] * cells * rm.DETECT_PFA
         fa += fa_g
-        look = ku_look(gr["theta"], tgt, r_det, p_avg_max_w, rx_sll_db=sll, t_sys_k=t_ku) if gr["theta"] <= ku_lim else None
+        look = (ku_look(gr["theta"], tgt, r_det, p_avg_max_w, rx_sll_db=sll, t_sys_k=t_ku, r_min_km=r_min_sec)
+                if gr["theta"] <= ku_lim else None)
         if look is None:
             ku_missing += float(gr["pos"].sum())
         e_s_rf = rm.BAND_S.p_pk_total_w * w["n_pulses"] * w["tau_us"] * 1e-6 / w["b_tx"] * gr["power_scale"]
@@ -361,7 +374,8 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         drivers: Dict[str, float] = {}
         wf_main, pos_main, unreachable = None, -1.0, 0.0
         for gr in groups:
-            look = ku_look(gr["theta"], tgt, b["r_max_km"], p_avg_max_w, pack, sll, t_ku) if gr["theta"] <= ku_lim else None
+            look = (ku_look(gr["theta"], tgt, b["r_max_km"], p_avg_max_w, pack, sll, t_ku, max(b["r_min_km"], r_min_sec))
+                    if gr["theta"] <= ku_lim else None)
             share = gr["pos"] / p_all * b["n_targets"]                       # tracks per face in this group
             if look is None:
                 unreachable += float(share.sum())

@@ -161,6 +161,10 @@ def model_case() -> dict:
                         for b, role in (("S", "SEARCH"), ("Ku", "CONFIRM"), ("Ku", "TRACK"))
                         for integ in ("COHERENT", "NONCOHERENT") for n in (1, 8) for sw in (1, 3)},
         "sky_rise_k": sky_rise_terms(),
+        "range_weighting": {f"{s:g} dB": rm.range_weighting(s) for s in rm.RX_SLL_OPTIONS_DB},
+        "velocity_mismatch_loss_db": {f"n_c {n:g}": rm.velocity_mismatch_loss_db(n) for n in (0.25, 0.5, 1.0, 2.0, 10.0)},
+        "modulation": {f"{f} GHz | B {b:g} | v {v:g}": rm.modulation_for(f, b, v)
+                       for f in (2.8, 14.0) for b in (10.0, 75.0, 200.0) for v in (5000.0, 25000.0)},
     }
     out["confirmation_tables"] = {f"SW{sw}": trk.confirm_tables(sw, 2.8) for sw in (1, 3)}
     out["ku_look"] = {f"{th} deg | {r} km | {'track' if pack else 'detect'}":

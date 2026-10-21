@@ -192,3 +192,23 @@ Model changes (radar_model V6.5.0, see its header; optimistic end of every range
   isolation matrix and the scheduler rules (sync per band, S harmonic in the Ku channel).
 - core/antenna_cache.json rebuilt (ALGO_VERSION 5: azimuthal-mean pattern profiles); core/cost_table.json regenerated
   (fast estimate: cold sky, the sky noise is not in it).
+
+## 2026-10-21 -- roadmap step 2.1 (parametric waveforms)
+
+Model changes (radar_model V6.6.0, see its header; optimistic end of every range, user):
+- Former DSP 2.0 dB split: finite_precision 0.3 + straddle 0.7 (lump until 2.2) + a COMPUTED loss "compression":
+  NLFM 0.1 dB while f_d,max / B <= 2 %, else LFM with a Taylor nbar 5 receive weighting at the volume's sidelobe
+  option (0.41 / 0.68 / 0.93 dB at -25 / -30 / -35 dB) + Doppler loss on the ridge. In S at 75 MHz every look is NLFM:
+  -0.9 dB of losses, WF-LRS ranges +5.32 % (ST 7185 -> 7567 km).
+- k_r from the weighted spectrum (0.70 at -25 dB); physical range resolution (x1.18 at -25 dB): the default 2 m
+  needs 89 MHz, so every sector asking 2 m is flagged "range resolution not met" (2.37 m at 75 MHz) until 3.1.
+- Blind range c (tau + recovery) / 2 <= range_min_km (default 10 % of range_km), unambiguous PRI >= 2R/c + tau +
+  recovery (no self-eclipsing), staggered ambiguous trains (Ku looks at long range) with the mean eclipsing loss.
+- Test missions: energy per face -22 to +6 % (losses -0.9 dB; +6 % on one face of mission_sky_demo), S time -7 to -50 %, Ku time -42 to +53 % (eclipsing of
+  the ambiguous Ku trains vs the lower losses). Short-range sectors lose their long pulses (S02 100 -> 50 us, B3_EDGE,
+  S01 adds a 100 us waveform); mission_redundancy_demo / B2_AUTOPROT (20 km) is now NO_WAVEFORM: the shortest pulse of
+  the search space (20 us) leaves 3 km blind, above its default range_min_km of 2 km (kept: exercises the path;
+  shorter pulses belong to the search space of step 3.1).
+- New outputs per waveform / look: modulation, resolution, k_r, blind range, staggering, cells crossed in the pulse,
+  velocity filters for 1 dB, range-Doppler coupling, AM/PM drift, Doppler ambiguity.
+- core/cost_table.json regenerated.
