@@ -165,7 +165,7 @@ def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dic
         if rm.blind_range_km(rm.BAND_S, w.tau_s) > mo.range_min_km(sec_b) + 1e-9:
             reason[i] = REASON_BLIND
             continue
-        r = mo.range_at(w, f, float(theta[i]), tgt_b, mo.rx_sll_db(sec_b))   # A's echoes, B's RX weighting
+        r = mo.range_at(w, f, float(theta[i]), tgt_b, mo.rx_sll_db(sec_b), mo.velocity_span_mps(sec_b))   # A's echoes, B's RX weighting
         if r is not None:
             reach[i] = r * plan["power_scale"][i] ** 0.25
             ok[i] = reach[i] >= g_need

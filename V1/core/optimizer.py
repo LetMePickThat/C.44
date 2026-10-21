@@ -274,12 +274,12 @@ def resolution_m(sec: dict, sig_bw_mhz: float) -> float:
 
 @functools.lru_cache(maxsize=SOLVE_CACHE_SIZE)
 def _range_cached(w, f: float, theta: float, rcs_m2: float, swerling: int, v_close_mps: float,
-                  rx_sll_db: float) -> Optional[float]:
+                  rx_sll_db: float, v_span_mps: Optional[float] = None) -> Optional[float]:
     """Keyed on everything the range depends on (Waveform is a frozen dataclass; the target name is irrelevant).
     The model's module constants are assumed fixed for the life of the process."""
     try:
         tgt = rm.Target("cache", rcs_m2, swerling, v_close_mps)
-        return rm.solve(w, f, theta, tgt, rm.FACE_ELEC_POWER_MW, rx_sll_db).range_km
+        return rm.solve(w, f, theta, tgt, rm.FACE_ELEC_POWER_MW, rx_sll_db, v_span_mps=v_span_mps).range_km
     except ValueError:
         return None
 
@@ -289,9 +289,14 @@ def rx_sll_db(sec: dict) -> float:
     return float(sec.get("rx_sll_db", rm.RX_SLL_DEFAULT_DB))
 
 
-def range_at(w, f, theta, tgt, rx_sll: Optional[float] = None):
+def velocity_span_mps(sec: dict) -> float:
+    """Velocity span the velocity bank of a sector covers (step 2.2, B4): v_close_max - v_close_min."""
+    return float(sec["v_close_max_mps"] - sec.get("v_close_min_mps", 0.0))
+
+
+def range_at(w, f, theta, tgt, rx_sll: Optional[float] = None, v_span: Optional[float] = None):
     return _range_cached(w, f, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps,
-                         rm.RX_SLL_DEFAULT_DB if rx_sll is None else float(rx_sll))
+                         rm.RX_SLL_DEFAULT_DB if rx_sll is None else float(rx_sll), v_span)
 
 
 def candidate_waveforms(sec: dict) -> List:
@@ -317,8 +322,6 @@ def candidate_waveforms(sec: dict) -> List:
                             w = make_wf("c", tau, n, pri, bw, b, integ, staggered=n > 1 and pri < pri_unamb)
                         except ValueError:
                             continue
-                        if integ == "COHERENT" and w.dwell_s > rm.COH_T_MAX_S:
-                            continue      # INTERIM until step 2.2: beyond the coherence floor (radar_model.COH_T_MAX_S)
                         out.append(w)
     return out
 
@@ -347,19 +350,19 @@ def _scan_factor(f: float, nb: int) -> Optional[np.ndarray]:
     return hs[0] if np.allclose(hs[0], hs[1], rtol=1e-9, atol=0.0) else None
 
 
-def _range_matrix(cands: List, f: float, tgt, nb: int, rx_sll: float) -> np.ndarray:
+def _range_matrix(cands: List, f: float, tgt, nb: int, rx_sll: float, v_span: Optional[float] = None) -> np.ndarray:
     """ranges[c, i] (km, full peak power) of candidate c in 1-deg bin i; NaN where the waveform is not playable."""
     r = np.full((len(cands), nb), np.nan)
     h = _scan_factor(f, nb)
     th = _theta_centres(f, nb)
     for j, w in enumerate(cands):
         if h is not None:
-            r0 = range_at(w, f, 0.0, tgt, rx_sll)
+            r0 = range_at(w, f, 0.0, tgt, rx_sll, v_span)
             if r0 is not None:
                 r[j] = r0 * h
         else:
             for i, t in enumerate(th):
-                v = range_at(w, f, float(t), tgt, rx_sll)
+                v = range_at(w, f, float(t), tgt, rx_sll, v_span)
                 if v is not None:
                     r[j, i] = v
     return r
@@ -477,7 +480,18 @@ def _wf_dict(name: str, w, f: float, sec: dict) -> dict:
             "range_resolution_m": resolution_m(sec, w.sig_bw_mhz),
             "blind_range_km": rm.blind_range_km(rm.BAND_S, w.tau_s), "staggered": w.staggered,
             "cells_in_pulse": rm.cells_in_pulse(v_max, w.tau_s, w.sig_bw_mhz),
-            "velocity_hypotheses_1db": rm.velocity_hypotheses(v_max - v_min, w.tau_s, w.sig_bw_mhz)}
+            "velocity_hypotheses_1db": rm.velocity_hypotheses(v_max - v_min, w.tau_s, w.sig_bw_mhz),
+            **_processing_dict(w, sec)}
+
+
+def _processing_dict(w, sec: dict) -> dict:
+    """Step 2.2 processing of a search waveform for this sector: coherent blocks, velocity bank (hypotheses over the
+    sector's span), independent cells per position (range from range_min, Doppler, velocity, angle)."""
+    sw = int(sec.get("swerling", 1))
+    m, t_b = rm.coherent_blocks(w.n, w.pri_s, w.tau_s, w.integration, sw)
+    n_hyp = rm.velocity_bank(round(velocity_span_mps(sec), 6), w.tau_s, w.sig_bw_mhz, w.dwell_s, w.n, m == 1)[0]         if rm.MIGRATION_MODE.upper() == "COMPENSATED" else 1
+    return {"coherent_blocks": m, "pulses_per_block": w.n // m, "block_ms": round(t_b * 1e3, 3),
+            "velocity_hypotheses": n_hyp}
 
 
 def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: Optional[dict] = None):
@@ -504,7 +518,7 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
         pos, unscanned, sky_s, factor = search_positions(sec, sph, m, f, sky)
         P = np.array([pos[k] for k in range(4)])
         if P.sum() > 0 and cands:
-            per_f.append((f, P, unscanned, _range_matrix(cands, f, tgt, P.shape[1], rx_sll_db(sec)) * factor, sky_s))
+            per_f.append((f, P, unscanned, _range_matrix(cands, f, tgt, P.shape[1], rx_sll_db(sec), velocity_span_mps(sec)) * factor, sky_s))
     if not per_f:
         return {"id": sec["id"], "status": "NO_POSITIONS", "note": "empty sector, fully unscanned or blinded by the sky"}
     min_uns = min(x[2] for x in per_f)

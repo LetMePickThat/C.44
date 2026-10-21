@@ -15,7 +15,7 @@
 # [tool.*] sections are the tool's own numerical settings (search grids, rasters, caches, GUI defaults), not the radar:
 # they take a bare value or the same table.
 #
-# Sections: geometry, aperture, search_grid, detection, power, migration, multibeam, coherence, estimation,
+# Sections: geometry, aperture, search_grid, detection, processing, power, migration, multibeam, coherence, estimation,
 #           waveform, band.S, band.Ku (+ losses_db, rx, tx), sky (+ tb_k), isolation, targets.*, confirmation, tracking,
 #           ship  |  tool.*
 # =====================================================================================================================
@@ -72,6 +72,16 @@ frame_interleaved = { value = true, unit = "", status = "D", source = "echo wait
 pd  = { value = 0.9, unit = "-", status = "V", source = "single-look probability of detection, all sectors; cumulative Pd / per-sector value at 2.3 (5.1)", date = "2026-10-20" }
 pfa = { value = 1e-8, unit = "-", status = "V", source = "per range-Doppler cell; 1e-6 until then (false-alarm confirmations cost twice the search); Shnidman fit valid down to 1e-9; real cell count at 2.2", date = "2026-10-19" }
 
+# Processing grid, CFAR and cell count (step 2.2): straddle and CFAR losses are COMPUTED per look (mean losses);
+# the false alarms are counted on INDEPENDENT resolution cells: range (R_max - range_min) / (c / 2B) x Doppler (pulses
+# of a coherent block) x velocity hypotheses x angle (RX beams per position x RX spacing^2).
+[processing]
+range_grid_oversampling= { value = 4.0, unit = "-", status = "V", source = "detection grid in range, samples per c / 2B (digital interpolation of the ADC samples): mean straddle 0.05 dB at -25 dB (0.54 at 1.25, 0.22 at 2), step 2.2 C1, optimistic end", date = "2026-10-21" }
+doppler_zero_padding   = { value = 4.0, unit = "-", status = "V", source = "zero padding of the Doppler transform of a coherent block: mean straddle 0.07 dB (1.12 at 1, 0.29 at 2), step 2.2 C2, optimistic end", date = "2026-10-21" }
+doppler_window         = { value = "none", unit = "", status = "V", source = "Doppler weighting: none (no clutter to reject in space; Doppler sidelobes of strong targets at 2.4 / 2.5), step 2.2 C3", date = "2026-10-21" }
+cfar_type              = { value = "CA", unit = "", status = "V", source = "cell-averaging CFAR (homogeneous thermal noise in space; OS / GO variants for dense targets or clutter at 2.4 / 2.5), step 2.2 D1", date = "2026-10-21" }
+cfar_ref_cells         = { value = 1024, unit = "-", status = "V", source = "CFAR reference cells: loss 0.04 dB (0.64 at 64, 0.16 at 256), exact for Swerling 1 on one sample at the model Pd / Pfa and applied to every look (slightly prudent), step 2.2 D2-D3, optimistic end", date = "2026-10-21" }
+
 [power]
 trm_technology     = { value = "GaN-on-diamond, microchannel cooling", unit = "", status = "V", source = "V5.6.0: The TRM employs a GaN-on-diamond semiconductor architecture combined with microchannel cooling, enabling high power density and efficient heat removal suitable for sustained spaceborne operation under high peak and average load conditions", date = "2026-10-20" }
 pae_duty_ref       = { value = 0.10, unit = "-", status = "D", source = "duty at which band.<b>.pae_sat is specified (usual pulsed datasheet condition); PAE = pae_sat x tau / (tau + pae_t_edge_s) x min(1, 1 - pae_duty_slope (d - pae_duty_ref)), d = tau / PRI of a train (d_ref for a single pulse); step 1.3, replaces the constant pae 0.75 shared by S and Ku", date = "2026-10-20" }
@@ -83,17 +93,24 @@ ship_elec_total_mw = { value = 8.0, unit = "MW", status = "V", source = "ship to
 
 [migration]
 mode        = { value = "COMPENSATED", unit = "", status = "V", source = "COMPENSATED (residual loss) | UNCOMPENSATED; velocity-bank processing cost at 2.2 / 4.4", date = "2026-10-20" }
-residual_db = { value = 1.0, unit = "dB", status = "V", source = "residual loss when compensated (keystone / Radon-type processing); flat, also applied to single pulses (intra-pulse = Doppler mismatch, not migration): loss vs cells crossed at 2.2, range-Doppler coupling at 2.1", date = "2026-10-20" }
+residual_db       = { value = 0.1, unit = "dB", status = "V", source = "residual loss of the migration compensation algorithm (keystone / Radon type) when the target crosses more than 1.5 cells over the dwell (step 2.2, B5, optimistic end of 0.1-0.3 dB; was 1.0 dB lump). The velocity-bank loss is computed (bank_max_loss_db)", date = "2026-10-21" }
+bank_max_loss_db  = { value = 1.0, unit = "dB", status = "V", source = "velocity-hypothesis bank: step chosen so that a target half a step off costs this much (intra-pulse law of 2.1 + walk over the dwell); the MEAN loss over the step goes to the budget, the hypotheses to the false-alarm count and the compute load (step 2.2, B2, 0.5-2 dB)", date = "2026-10-21" }
 
 [multibeam]
 l8_db = { value = 0.8, unit = "dB", status = "?", source = "TX multibeam loss at 8 beams, one law for every mode (V5.6.0, definition unknown); RX loss 0 (digital). To be replaced by per-mode models (superposition + PA back-off 1.3, aperture partition 1.1, time/frequency multiplex 2.1), mode chosen by the optimiser per context (3.1 / 5.2)", date = "2026-10-20" }
 p     = { value = 1.1, unit = "-", status = "?", source = "exponent of the multibeam law L8 x (log2 B / 3)^p (0.24 / 0.51 / 0.80 dB at 2 / 4 / 8 beams); replaced with l8_db by the per-mode models", date = "2026-10-20" }
 
 [coherence]
-enable    = { value = true, unit = "", status = "D", source = "phase-noise / coherence loss (V5.4.0), coherent integration only; no known source (review 0.3)", date = "" }
-t0_s      = { value = 0.25, unit = "s", status = "D", source = "coherence time constant (V5.4.0); NO known source (review 0.3): LO, platform or target decorrelation undetermined", date = "" }
-p         = { value = 2.0, unit = "-", status = "D", source = "exponent of the coherence term (V5.4.0); no known source (review 0.3)", date = "" }
-eta_min   = { value = 0.70, unit = "-", status = "D", source = "floor of the coherence efficiency (caps the loss at 1.55 dB); reached at T = t0 (-ln eta_min)^(1/p) = 149 ms. INTERIM (review 0.3): the waveform generators drop coherent dwells longer than that, so the floor is never used; replaced at 2.2 (coherent blocks <= T_coh, noncoherent beyond)", date = "" }
+enable               = { value = true, unit = "", status = "D", source = "coherence loss of the coherent blocks (target + oscillator + platform), step 2.2", date = "2026-10-21" }
+t0_s                 = { value = 0.25, unit = "s", status = "D", source = "PROVISIONAL target coherence time, eta = exp(-(T / t0)^p) per coherent block (step 2.2, A6): no known source; the value per target type comes at step 2.4. The eta_min floor and the 149 ms cap were removed at 2.2 (coherent blocks of optimal length, noncoherent beyond)", date = "2026-10-21" }
+p                    = { value = 2.0, unit = "-", status = "D", source = "exponent of the provisional target coherence law (until 2.4)", date = "2026-10-21" }
+# Oscillator (step 2.2, A1-A3): one LO for TX and RX, its phase noise filtered by the round trip 4 sin^2(pi f tau_rt);
+# residual phase variance from 1 / T_block to B / 2 -> loss 4.34 sigma^2 (negligible with these values), Doppler floor
+# output. Platform: residual structure / platform motion after compensation, phase 4 pi delta / lambda.
+lo_ref_ghz           = { value = 10.0, unit = "GHz", status = "V", source = "carrier of the LO phase-noise table below; scaled to the carrier by +20 log(f / ref)", date = "2026-10-21" }
+lo_offsets_hz        = { value = [1.0, 10.0, 100.0, 1e3, 1e4, 1e5, 1e6], unit = "Hz", status = "V", source = "offsets of the LO phase-noise table (log-log interpolation, flat beyond the ends)", date = "2026-10-21" }
+lo_ssb_dbc_hz        = { value = [-100.0, -120.0, -140.0, -150.0, -160.0, -170.0, -175.0], unit = "dBc/Hz", status = "V", source = "LO single-sideband phase noise at lo_ref_ghz, optimistic end (photonic, optical frequency division); a realistic space LO today: -60 / -90 / -110 / -130 / -140 / -150 / -155 dBc/Hz (step 2.2, A1)", date = "2026-10-21" }
+platform_motion_rms_m= { value = 1e-05, unit = "m", status = "V", source = "residual platform / structure motion over a coherent block after compensation, rms (step 2.2, A5, optimistic end of 10-100 um): phase 4 pi delta / lambda", date = "2026-10-21" }
 
 [estimation]
 angle_crlb_margin = { value = 1.13, unit = "-", status = "V", source = "angle accuracy = Cramer-Rao bound of the full digital aperture (ML, sigma_u = lambda / (2 pi x_rms sqrt(2 SNR)), x_rms from the build-up) x this margin, same margin as k_f / k_r; replaces k_theta 0.5 x HPBW (step 1.1, option a): independent of the RX weighting", date = "2026-10-20" }
@@ -156,8 +173,6 @@ duty_max            = { value = 0.65, unit = "-", status = "D", source = "TRM du
 # (the element -> LNA path is no longer a signal loss here: its attenuation AND noise are in T_sys, [band.S.rx];
 #  the PA -> element loss TX_chain is derived from [band.S.tx] and added to these posts by the model)
 finite_precision = { value = 0.3, unit = "dB", status = "V", source = "finite-precision processing, the part of the former DSP 2.0 dB that stays an entry (step 2.1, Q5); the weighting / mismatch part (~1.0 dB) is now computed per look (loss 'compression', [waveform])", date = "2026-10-21" }
-straddle    = { value = 0.7, unit = "dB", status = "D", source = "range / Doppler straddle, the part of the former DSP 2.0 dB kept as a lump until step 2.2 (real cell grid)", date = "2026-10-21" }
-CFAR        = { value = 0.5, unit = "dB", status = "V", source = "homogeneous, known noise floor, no clutter, large reference window", date = "2026-10-20" }
 calibration = { value = 0.5, unit = "dB", status = "V", source = "calibration residual", date = "2026-10-20" }
 Ku_blockage = { value = 0.2, unit = "dB", status = "V", source = "blockage of the S aperture by the Ku array", date = "2026-10-20" }
 
@@ -235,8 +250,6 @@ duty_max            = { value = 0.65, unit = "-", status = "D", source = "as S (
 # from [band.Ku.tx] like in S.
 [band.Ku.losses_db]
 finite_precision = { value = 0.3, unit = "dB", status = "D", source = "as S (step 2.1): the weighting / mismatch part of the former DSP 2.0 dB is computed per look", date = "2026-10-21" }
-straddle    = { value = 0.7, unit = "dB", status = "D", source = "as S: straddle lump until step 2.2", date = "2026-10-21" }
-CFAR        = { value = 0.5, unit = "dB", status = "D", source = "same environment as S: homogeneous, known noise floor, no clutter", date = "2026-10-20" }
 calibration = { value = 0.8, unit = "dB", status = "D", source = "calibration residual; above S (0.5): same mechanical tolerances are 5x larger in phase at Ku, 25x more elements", date = "2026-10-20" }
 S_blockage  = { value = 0.3, unit = "dB", status = "D", source = "scattering by the S radiators interleaved in the bi-band TRSA (S has Ku_blockage 0.2)", date = "2026-10-20" }
 

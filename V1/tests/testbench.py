@@ -157,9 +157,9 @@ def model_case() -> dict:
         "isolation": iso.matrix(), "scheduler_rules": iso.scheduler_rules(),
         "min_unsaturated_range_km": {f"{f} GHz | {n}": rm.min_unsaturated_range_km(f, 0.0, t.rcs_m2)
                                      for f in (2.8, 14.0) for n, t in rm.TARGETS.items()},
-        "pol_loss_db": {f"{b} {role} {integ} N {n} SW{sw}": rm.pol_recombination_loss_db(rm.BANDS[b], role, integ, n, sw)
+        "pol_loss_db": {f"{b} {role} n_nc {n} SW{sw}": rm.pol_recombination_loss_db(rm.BANDS[b], role, n, sw)
                         for b, role in (("S", "SEARCH"), ("Ku", "CONFIRM"), ("Ku", "TRACK"))
-                        for integ in ("COHERENT", "NONCOHERENT") for n in (1, 8) for sw in (1, 3)},
+                        for n in (1, 8) for sw in (1, 3)},
         "sky_rise_k": sky_rise_terms(),
         "range_weighting": {f"{s:g} dB": rm.range_weighting(s) for s in rm.RX_SLL_OPTIONS_DB},
         "velocity_mismatch_loss_db": {f"n_c {n:g}": rm.velocity_mismatch_loss_db(n) for n in (0.25, 0.5, 1.0, 2.0, 10.0)},

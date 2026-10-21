@@ -264,7 +264,8 @@ def test_rx_weighting_only_scales_the_rx_gain():
         band = rm.band_for_frequency(f).name
         # since step 2.1 the option also sets the range sidelobes: an LFM look pays its weighting (loss, k_r)
         extra_db = (b.l_tot_db - a.l_tot_db) + (b.snr_req_db - a.snr_req_db)
-        assert (extra_db == 0.0) == (a.pulse["modulation"] == "nlfm")
+        if a.pulse["modulation"] == "nlfm":    # NLFM: only the range straddle follows the sidelobe level (step 2.2)
+            assert extra_db == pytest.approx(rm.straddle_range_db(-35.0) - rm.straddle_range_db(-25.0), abs=1e-12)
         assert b.range_km / a.range_km == pytest.approx(
             (rm.rx_beam(band, -35.0).eta / rm.rx_beam(band, -25.0).eta * 10 ** (-extra_db / 10)) ** 0.25, rel=1e-12)
     assert rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"]).range_km == \
@@ -499,6 +500,70 @@ def test_sector_range_min_and_resolution_flags():
     assert not any("range resolution" in f for f in res["sectors"][0]["flags"])
 
 
+# ----------------------------------------------------------------------------- processing (step 2.2)
+def test_oscillator_phase_noise_through_the_round_trip(tmp_path):
+    """One LO for TX and RX: the round trip filters its noise (nothing at tau_rt = 0); with the photonic-class
+    table the loss is negligible; a 40 dB worse LO raises the variance 10^4 times; the Doppler floor is an output."""
+    assert rm.oscillator_phase_var(14.0, 0.1, 0.0, 75.0) == pytest.approx(
+        (4 * math.pi * rm.PLATFORM_MOTION_RMS_M / rm.lambda_m(14.0)) ** 2, rel=1e-9)
+    v = rm.oscillator_phase_var(14.0, 0.1, 8000.0, 75.0) - rm.oscillator_phase_var(14.0, 0.1, 0.0, 75.0)
+    assert 0.0 < v < 1e-6
+    assert rm.oscillator_phase_var(14.0, 0.1, 8000.0, 75.0) > rm.oscillator_phase_var(2.8, 0.1, 8000.0, 75.0)
+    floor = rm.doppler_floor_dbc(2.8, 0.05, 8000.0)
+    assert set(floor) == {"100 Hz", "1000 Hz", "10000 Hz"} and all(x < -100.0 for x in floor.values())
+    text = _default_toml().replace("value = [-100.0, -120.0, -140.0, -150.0, -160.0, -170.0, -175.0]",
+                                   "value = [-60.0, -80.0, -100.0, -110.0, -120.0, -130.0, -135.0]")
+    out = _run_with_params(text, "from core import radar_model as rm\n"
+                                 "print(rm.oscillator_phase_var(14.0, 0.1, 8000.0, 75.0) - rm.oscillator_phase_var(14.0, 0.1, 0.0, 75.0))",
+                           tmp_path)
+    assert float(out) == pytest.approx(v * 1e4, rel=1e-6)
+
+
+def test_velocity_bank_loss_and_hypotheses():
+    """Bank step: 1 dB at half a step; the mean over the step is below it; more span -> more hypotheses; a TRACK look
+    has one hypothesis; a single pulse only sees the intra-pulse term; a long noncoherent dwell needs a dense bank."""
+    n1, mean1 = rm.velocity_bank(5000.0, 2e-4, 75.0, 0.6, 24, False)
+    n2, _ = rm.velocity_bank(10000.0, 2e-4, 75.0, 0.6, 24, False)
+    assert 0.0 < mean1 < rm.BANK_MAX_LOSS_DB and n2 in (2 * n1 - 1, 2 * n1, 2 * n1 + 1) and n1 > 100
+    assert rm.velocity_bank(5000.0, 2e-4, 75.0, 2e-4, 1, True)[0] == 1
+    assert rm.walk_loss_db(0.0, True) == 0.0 and rm.walk_loss_db(1.0, False) < rm.walk_loss_db(1.0, True)
+    trk_wf = rm.Waveform("t", "TRACK", "Ku", 40e-6, 16, 5e-4, 75.0, integration="COHERENT",
+                         tracking_pack=rm.TrackingPack(0.05, 2.0))
+    r = rm.solve(trk_wf, 14.0, 0.0, rm.TARGETS["KKV"])
+    assert r.pulse["velocity_hypotheses"] == 1 and r.pulse["velocity_span_mps"] == 0.0
+    r = rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"], v_span_mps=4000.0)
+    assert r.losses["migration"] == pytest.approx(rm.velocity_bank(4000.0, 2e-4, 75.0, rm.WF_LRS.dwell_s, 24, False)[1]
+                                                  + rm.MIGRATION_RESIDUAL_DB)
+
+
+def test_straddle_and_cfar_follow_the_processing_entries(tmp_path):
+    """Straddle shrinks with the grid factors, the CA-CFAR loss with the reference cells; the lumps are gone."""
+    assert "straddle" not in rm.BAND_S.losses_db and "CFAR" not in rm.BAND_S.losses_db
+    assert rm.cfar_loss_db(64) == pytest.approx(0.64, abs=0.01) and rm.cfar_loss_db(1024) < rm.cfar_loss_db(256)
+    assert rm.straddle_range_db(-35.0) < rm.straddle_range_db(-25.0)
+    text = _replace_value(_default_toml(), "processing", "range_grid_oversampling", "4.0", "2.0")
+    text = _replace_value(text, "processing", "doppler_zero_padding", "4.0", "1.0")
+    out = _run_with_params(text, "from core import radar_model as rm\n"
+                                 "print(rm.straddle_range_db(-25.0), rm.straddle_doppler_db())", tmp_path).split()
+    assert float(out[0]) == pytest.approx(0.215, abs=0.01) and float(out[1]) == pytest.approx(1.12, abs=0.02)
+
+
+def test_false_alarms_count_independent_cells(runs):
+    """Confirmation budget: false alarms = positions x independent cells x Pfa, cells = range from range_min x
+    Doppler cells of a block x velocity hypotheses x angle cells."""
+    assert rm.independent_cells(100.0, 1100.0, 75.0, 4, 3, 0.5) == pytest.approx(1e6 / 2.0 * 4 * 3 * 0.5, rel=1e-3)
+    res = runs["mission_example.json"]
+    s = next(x for x in res["sectors"] if x["id"] == "S02")
+    w = s["wf"]
+    assert {"coherent_blocks", "pulses_per_block", "velocity_hypotheses", "block_ms"} <= set(w)
+    trk_s = next(x for x in res["tracking"]["sectors"] if x["id"] == "S02")
+    sec = next(x for x in md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_example.json"))["sectors"] if x["id"] == "S02")
+    angle = rm.rx_beams_per_position(w["freq_ghz"], mo.rx_sll_db(sec)) * rm.RX_BEAM_SPACING_HPBW ** 2
+    cells = rm.independent_cells(mo.range_min_km(sec), sec["range_km"], w["sig_bw_mhz"], w["pulses_per_block"],
+                                 w["velocity_hypotheses"], angle)
+    assert trk_s["false_alarms_per_rr"] == pytest.approx(round(s["positions_total"] * cells * rm.DETECT_PFA, 1), abs=0.11)
+
+
 # ----------------------------------------------------------------------------- the receive chain (step 1.5)
 def test_adc_noise_figure_from_the_converter(tmp_path):
     """NF = P_FS - (6.02 ENOB + 1.76) - 10 log10(k T0 fs): one more bit = -6.02 dB, +6 dB of full scale = +6 dB; the
@@ -532,13 +597,13 @@ def test_polarisation_glrt_replaces_the_placeholder():
     """Dual-pol detection looks: one more unknown (the polarisation) = SNR_req(n + 1) - SNR_req(n), n = 1 for a
     coherent dwell; smaller for long noncoherent trains; TRACK looks: the estimation residual; solve() carries it."""
     s = rm.BAND_S
-    g1 = rm.pol_recombination_loss_db(s, "SEARCH", "COHERENT", 16, 1)
+    g1 = rm.pol_recombination_loss_db(s, "SEARCH", 1, 1)
     assert g1 == pytest.approx(rm.shnidman_total_snr_db(rm.DETECT_PD, rm.DETECT_PFA, 2, 1)
                                - rm.shnidman_total_snr_db(rm.DETECT_PD, rm.DETECT_PFA, 1, 1))
-    assert 0.4 < g1 < 0.6 and rm.pol_recombination_loss_db(s, "SEARCH", "NONCOHERENT", 24, 1) < 0.1
-    assert rm.pol_recombination_loss_db(rm.BAND_KU, "TRACK", "COHERENT", 64, 1) == 0.05
+    assert 0.4 < g1 < 0.6 and rm.pol_recombination_loss_db(s, "SEARCH", 24, 1) < 0.1
+    assert rm.pol_recombination_loss_db(rm.BAND_KU, "TRACK", 1, 1) == 0.05
     assert rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"]).losses["polarisation"] == pytest.approx(
-        rm.pol_recombination_loss_db(s, "SEARCH", "NONCOHERENT", 24, 1))
+        rm.pol_recombination_loss_db(s, "SEARCH", 24, 1))
     assert "pol_loss_dual_db" not in {p.path.split(".")[-1] for p in params.P}
 
 
@@ -788,14 +853,20 @@ def test_electrical_budget_and_dissipation(runs):
 
 
 
-def test_no_coherent_dwell_beyond_the_coherence_floor():
-    """INTERIM until step 2.2: past COH_T_MAX_S the eta_min floor would credit N tau without limit."""
-    assert rm.COH_T_MAX_S == pytest.approx(rm.COH_T0_S * (-math.log(rm.COH_ETA_MIN)) ** (1 / rm.COH_P))
-    assert rm.coherence_loss_db(2.8, rm.COH_T_MAX_S * 0.999) < rm.coherence_loss_db(2.8, rm.COH_T_MAX_S * 1.5)
-    for w in mo.candidate_waveforms({"range_km": 8000.0}) + mo.candidate_waveforms({"range_km": 500.0}):
-        assert w.integration != "COHERENT" or w.dwell_s <= rm.COH_T_MAX_S
-    for det, _ in trk._ku_candidates("COHERENT", None):
-        assert det.dwell_s <= rm.COH_T_MAX_S
+def test_coherent_blocks_replace_the_coherence_floor():
+    """Step 2.2: no cap any more; a long coherent train is cut into the blocks minimising SNR_req(M) + block
+    coherence loss; noncoherent and fast-fluctuating targets integrate pulse by pulse; the loss keeps growing."""
+    assert not hasattr(rm, "COH_T_MAX_S")
+    assert rm.coherence_loss_db(2.8, 0.15) < rm.coherence_loss_db(2.8, 0.3) < rm.coherence_loss_db(2.8, 1.0)
+    m_short, _ = rm.coherent_blocks(4, 2e-3, 1e-4, "COHERENT", 1)
+    m_long, t_b = rm.coherent_blocks(32, 60e-3, 1e-4, "COHERENT", 1)
+    assert m_short == 1 and m_long > 1 and 32 % m_long == 0 and t_b == pytest.approx((32 // m_long - 1) * 60e-3 + 1e-4)
+    assert rm.coherent_blocks(8, 1e-3, 1e-4, "NONCOHERENT", 1) == (8, 1e-4)
+    assert rm.coherent_blocks(8, 1e-3, 1e-4, "COHERENT", 2)[0] == 8
+    w = rm.Waveform("w", "SEARCH", "S", 1e-3, 32, 60e-3, 75.0, integration="COHERENT")
+    r = rm.solve(w, 2.8, 0.0, rm.TARGETS["ST"])
+    assert r.pulse["coherent_blocks"] == m_long or r.pulse["coherent_blocks"] > 1
+    assert r.snr_req_db == pytest.approx(rm.shnidman_total_snr_db(rm.DETECT_PD, rm.DETECT_PFA, r.pulse["coherent_blocks"], 1))
 
 
 def test_estimator_constants_share_one_margin_over_the_bounds():

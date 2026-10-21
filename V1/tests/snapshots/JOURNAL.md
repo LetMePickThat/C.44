@@ -212,3 +212,20 @@ Model changes (radar_model V6.6.0, see its header; optimistic end of every range
 - New outputs per waveform / look: modulation, resolution, k_r, blind range, staggering, cells crossed in the pulse,
   velocity filters for 1 dB, range-Doppler coupling, AM/PM drift, Doppler ambiguity.
 - core/cost_table.json regenerated.
+
+## 2026-10-21 -- roadmap step 2.2 (processing)
+
+Model changes (radar_model V6.7.0, see its header; optimistic end of every range, user):
+- Lumps replaced by computed losses: straddle 0.7 dB -> range 0.05 dB (x4 grid) + Doppler 0.07 dB (x4 padding, coherent
+  blocks only); CFAR 0.5 dB -> CA-CFAR 0.04 dB (1024 cells); migration 1.0 dB -> mean velocity-bank loss (1 dB at half
+  a step) + 0.1 dB residual. WF-LRS: losses 7.00 -> 5.34 dB, ranges +10.0 % (ST 7567 -> 8325 km).
+- Coherent blocks of optimal length (no cap, no eta_min floor); provisional target t0 0.25 s; LO phase noise and
+  platform motion (negligible). Optimiser and Ku look generators keep their former waveform spaces without the cap.
+- False alarms on independent cells: range from range_min x Doppler cells of a block x velocity hypotheses x angle
+  cells (0.85 per position). Trains now need velocity banks of 50 to 535 hypotheses: their false alarms, hence the Ku
+  confirmation looks, grow accordingly; the search optimiser does not see that cost when it picks its waveforms.
+- Test missions: S energy per face -20 to -36 %, S time -14 to -50 %, but Ku time -53 % to x300 (velocity banks of the
+  trains: mission_veille500 x30, mission_sky_demo up to x300 on one face, 0.25 of Ku time); most sectors switch to
+  single pulses (labelled COHE, equivalent for N = 1); confirmation modes KU1+7 -> KU7 on several sectors.
+- New outputs: coherent blocks, pulses per block, velocity hypotheses per waveform; Doppler floor.
+- core/cost_table.json regenerated.

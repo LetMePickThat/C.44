@@ -29,8 +29,9 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 1.3 | ✔ fait (commit e242519) |
 | 1.4 | ✔ fait (commit 1feda84) |
 | 1.5 | ✔ fait (commit d8245d1) |
-| 2.1 | ✔ fait |
-| 2.2 et suivantes | à faire, la prochaine étant 2.2 |
+| 2.1 | ✔ fait (commit eb542ca) |
+| 2.2 | ✔ fait |
+| 2.3 et suivantes | à faire, la prochaine étant 2.3 |
 
 ---
 
@@ -143,7 +144,17 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - Bandes de signal au-delà de 75 MHz.
   - Multiplexage en temps ou en fréquence pour le multifaisceau.
 
-- **2.2 Traitement.**
+- **2.2 Traitement.** ✔
+
+  Décisions prises (bout optimiste de chaque plage) :
+  - blocs cohérents de taille optimale puis intégration non cohérente ; plancher η_min et plafond de 149 ms supprimés ; temps de cohérence de la cible provisoire (t₀ 0,25 s) jusqu'à l'étape 2.4 ;
+  - oscillateur photonique commun, perte par l'aller-retour calculée (négligeable), plancher Doppler en sortie, plateforme 10 µm ;
+  - banc d'hypothèses de vitesse (pas à 1 dB, perte moyenne au bilan, résidu 0,1 dB) sur l'étendue de vitesses du secteur, une hypothèse en poursuite ;
+  - chevauchement calculé (grilles ×4 en distance et en Doppler, pas de fenêtre), CA-CFAR à 1 024 cellules ; entrées `straddle` et `CFAR` supprimées ;
+  - fausses alarmes comptées sur les cases indépendantes (distance depuis `range_min_km`, Doppler d'un bloc, hypothèses de vitesse, angle ≈ 0,85), Pfa 1e-8 inchangée ;
+  - **constat** : les bancs de vitesses des trains multiplient les fausses alarmes (×50 à ×535) et l'optimiseur de veille ne voit pas ce coût (sujet des fausses alarmes traité en 2.3, 5.1 et 5.2, décision de l'utilisateur).
+
+  Contenu prévu à l'origine :
   - Migration traitée par bancs d'hypothèses de vitesse : perte en fonction du nombre de cases traversées, au lieu d'un forfait de 1 dB.
   - Chevauchement de cases, CFAR, nombre réel de cases.
   - **Doit aussi corriger le modèle de cohérence.** Le plancher η_min = 0,70 est atteint vers 149 ms, puis fige la perte à 1,55 dB quelle que soit la durée d'intégration : ce n'est pas physique, et c'est la cause des égalités exactes dans l'optimiseur. Il faut plafonner le temps cohérent et intégrer de façon non cohérente au-delà.
@@ -156,11 +167,13 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - Pd moyenne ou au pire point de la cellule de la grille.
   - Pd cumulée sur plusieurs trames pour une cible qui se rapproche.
   - Revoir `beam_spacing_hpbw` et `enable_grid_loss`.
+  - **Renvois de l'étape 2.2** : moyenne ou pire point aussi pour le chevauchement et le banc de vitesses (pertes moyennes aujourd'hui) ; **politique de fausses alarmes** : Pfa par case fixe (aujourd'hui) ou taux de fausses alarmes fixé par position ou par période, la Pfa par case s'en déduisant (le seuil monte avec le nombre de cases au lieu des fausses alarmes).
   - **Renvoi de l'étape 1.5** : T_sys du bilan d'un secteur au centile (1 − `short_tol`) des pointages non aveuglés, c'est-à-dire le pire point à 1 % près ; le choix entre moyenne et pire point est à revoir ici.
 
 - **2.4 Modèles de cibles** (D).
   - SER selon l'aspect et la bande, cas de Swerling par bande, cinématique et manœuvre.
-  - Un **temps de cohérence T₀ par type de cible** (rotation, accélération, décorrélation de scintillation), au lieu du `coherence.t0_s` = 0,25 s global.
+  - Un **temps de cohérence T₀ par type de cible** (rotation, accélération, décorrélation de scintillation), au lieu du `coherence.t0_s` = 0,25 s global (provisoire depuis l'étape 2.2, qui a mis en place les blocs cohérents).
+  - **Renvois de l'étape 2.2** : accélération et manœuvre dans le banc de vitesses (courbure en distance : 10 g sur 1,7 s font 140 m) ; masquage d'une cible faible par les lobes Doppler (plancher de bruit de phase, transformée sans fenêtre) et par les lobes en distance ; CFAR robuste (OS, GO) en présence de cibles voisines.
   - **Polarisation** : matrice de diffusion par type de cible (SER copolaire et croisée, dépolarisation selon l'aspect) et effet de la diversité de polarisation sur le cas de Swerling (perte de fluctuation). Depuis l'étape 1.5, la recombinaison des deux voies est le détecteur GLRT, sans gain de diversité : ce gain est à établir ici.
 
 - **2.5 Environnement.**
@@ -232,6 +245,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 - **4.4 Calcul et données** (D).
   - Débits des CAN, faisceaux de réception numériques simultanés (dont les quelque 3,4 faisceaux par pointage de l'étape 1.1), charge de traitement, capacité du calculateur central.
   - **Entrée de l'étape 2.1** : nombre de filtres de vitesse par observation (`velocity_hypotheses_1db`).
+  - **Entrées de l'étape 2.2** : hypothèses de vitesse par forme d'onde (`velocity_hypotheses`, jusqu'à plusieurs centaines), grilles de détection ×4 en distance et en Doppler, transformées par bloc cohérent. **Capacité du formateur de faisceaux** (faisceaux simultanés par face, débit) à fixer ici comme ressource et à comparer au besoin calculé par l'ordonnanceur (4.3) : question de l'utilisateur à l'étape 2.2.
   - **Entrées de l'étape 1.5** : deux CAN I/Q par TRM (deux voies de polarisation) à 250 Méch/s et 13 bits, soit 9 800 CAN en S et 245 000 en Ku par face, et une formation de faisceau doublée ; leur consommation est à budgéter.
   - Leur consommation électrique alimente le bilan de puissance de l'étape 4.1, à la place de `overhead_frac`.
 
@@ -240,9 +254,10 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 - **5.1 Modèle de mission enrichi.**
   - Menaces, priorités, phases temporelles et modes, avec des fichiers qui restent compatibles.
   - **Bibliothèque de menaces** : l'opérateur choisit un type de cible par secteur au lieu de ressaisir SER, Swerling et vitesse. Aujourd'hui, `[targets.*]` ne sert qu'au rapport en ligne de commande et aux tests.
+  - **Renvoi de l'étape 2.2 (sujet des fausses alarmes, décision de l'utilisateur : 2.3, 5.1, 5.2)** : réglage de la politique de fausses alarmes dans la mission (taux toléré par secteur ou par période).
   - `confirmation.p_min` (0,98) comme réglage de mission, avec en **option à étudier** un réglage par volume (secteur).
 
-- **5.2 Optimiseur global.** Répartition conjointe de la veille, de la confirmation et de la poursuite sur toutes les ressources et toutes les faces, **y compris la répartition à la demande des 8 MW du vaisseau entre les faces** (voir 4.1).
+- **5.2 Optimiseur global.** Répartition conjointe de la veille, de la confirmation et de la poursuite sur toutes les ressources et toutes les faces, **y compris la répartition à la demande des 8 MW du vaisseau entre les faces** (voir 4.1). **Renvoi de l'étape 2.2** : l'optimiseur doit compter le **coût de confirmation des fausses alarmes** dans le choix des formes d'onde de veille (les bancs de vitesses des trains multiplient les fausses alarmes par 50 à 535).
 
 - **5.3 Moteur de validation.** Verdict par contrainte, ressource limitante, conseil chiffré de relâchement, redondances et recouvrements.
 

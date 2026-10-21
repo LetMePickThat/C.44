@@ -173,19 +173,17 @@ def _ku_candidates(integ: str, pack: Optional[rm.TrackingPack]) -> Tuple[Tuple[r
                                                                     tracking_pack=pack)
                     except ValueError:
                         continue
-                    if integ == "COHERENT" and det.dwell_s > rm.COH_T_MAX_S:
-                        continue          # INTERIM until step 2.2: beyond the coherence floor (radar_model.COH_T_MAX_S)
                     out.append((det, trk))
     return tuple(out)
 
 
 @functools.lru_cache(maxsize=1 << 17)
 def _ku_reach(w: rm.Waveform, theta: float, rcs_m2: float, swerling: int, v_mps: float,
-              rx_sll_db: float, t_sys_k: Optional[float] = None) -> Tuple[float, str]:
+              rx_sll_db: float, t_sys_k: Optional[float] = None, v_span_mps: Optional[float] = None) -> Tuple[float, str]:
     """Range at full power and SNR driver of one Ku waveform (0 if not playable)."""
     try:
         r = rm.solve(w, KU_FREQ_GHZ, theta, rm.Target("ku", rcs_m2, swerling, v_mps), rm.FACE_ELEC_POWER_MW, rx_sll_db,
-                     t_sys_k)
+                     t_sys_k, v_span_mps)
         return r.range_km, r.driver
     except ValueError:
         return 0.0, "-"
@@ -193,14 +191,16 @@ def _ku_reach(w: rm.Waveform, theta: float, rcs_m2: float, swerling: int, v_mps:
 
 def ku_look(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: float,
             pack: Optional[rm.TrackingPack] = None, rx_sll_db: Optional[float] = None,
-            t_sys_k: Optional[float] = None, r_min_km: Optional[float] = None) -> Optional[dict]:
+            t_sys_k: Optional[float] = None, r_min_km: Optional[float] = None,
+            v_span_mps: Optional[float] = None) -> Optional[dict]:
     """Cheapest Ku look reaching r_km at scan theta (power backed off to just reach it), for detection only
     (pack None) or for a track update (SNR = max(detection, accuracy)). Cost = max(energy / face average power,
     Ku TX time), as the search objective. None when no candidate reaches r_km. rx_sll_db: RX weighting of the
     volume (None = default option); t_sys_k: the sector's Ku budget T_sys (sky noise, None = cold sky). energy_J is
     electrical (RF / PAE), energy_rf_J the radiated energy. Step 2.1: pulses whose blind range exceeds r_min_km are
     left out; a train whose PRI is below 2 r / c + tau + recovery is range-ambiguous at r_km, so it is staggered and
-    pays the mean eclipsing loss."""
+    pays the mean eclipsing loss. v_span_mps: velocity span of the look's velocity bank (step 2.2; None = 0 to the
+    target speed, 0 = velocity known, e.g. a track update)."""
     sll = rm.RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
     best = None
     for det, trk in _ku_candidates(_ku_integration(tgt.swerling), pack):
@@ -209,9 +209,9 @@ def ku_look(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: float,
         if det.n > 1 and det.pri_s < rm.unambiguous_pri_s(rm.BAND_KU, r_km, det.tau_s):
             det = dataclasses.replace(det, staggered=True)
             trk = None if trk is None else dataclasses.replace(trk, staggered=True)
-        r_eff, driver = _ku_reach(det, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps, sll, t_sys_k)
+        r_eff, driver = _ku_reach(det, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps, sll, t_sys_k, v_span_mps)
         if trk is not None:
-            r_trk, d_trk = _ku_reach(trk, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps, sll, t_sys_k)
+            r_trk, d_trk = _ku_reach(trk, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps, sll, t_sys_k, v_span_mps)
             if r_trk < r_eff:
                 r_eff, driver = r_trk, d_trk.replace("Track-", "")
             else:
@@ -270,6 +270,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         flags.extend(mo.sky_flags(ku_sky, "Ku"))
     r_sat_ku = rm.min_unsaturated_range_km(KU_FREQ_GHZ, 0.0, sec["rcs_m2"])
     r_min_sec = mo.range_min_km(sec)          # shortest range of interest: Ku blind range limit (step 2.1)
+    angle_cells = rm.rx_beams_per_position(f_s, sll) * rm.RX_BEAM_SPACING_HPBW ** 2   # independent cells per position
     for b in sec.get("tracking", []):
         if b["r_min_km"] < r_min_sec:
             flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km starts below the sector's shortest range of "
@@ -288,10 +289,12 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
     ku_missing = 0.0
     for gr in groups:
         w = gr["wf"]
-        cells = r_det * 1e3 / (rm.C_MPS / (2.0 * w["sig_bw_mhz"] * 1e6)) * (w["n_pulses"] if w["integration"] == "COHERENT" else 1)
+        cells = rm.independent_cells(r_min_sec, r_det, w["sig_bw_mhz"], w["pulses_per_block"], w["velocity_hypotheses"],
+                                     angle_cells)          # independent cells per position (step 2.2, E1-E5)
         fa_g = gr["pos"] * cells * rm.DETECT_PFA
         fa += fa_g
-        look = (ku_look(gr["theta"], tgt, r_det, p_avg_max_w, rx_sll_db=sll, t_sys_k=t_ku, r_min_km=r_min_sec)
+        look = (ku_look(gr["theta"], tgt, r_det, p_avg_max_w, rx_sll_db=sll, t_sys_k=t_ku, r_min_km=r_min_sec,
+                        v_span_mps=mo.velocity_span_mps(sec))
                 if gr["theta"] <= ku_lim else None)
         if look is None:
             ku_missing += float(gr["pos"].sum())
@@ -374,7 +377,8 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         drivers: Dict[str, float] = {}
         wf_main, pos_main, unreachable = None, -1.0, 0.0
         for gr in groups:
-            look = (ku_look(gr["theta"], tgt, b["r_max_km"], p_avg_max_w, pack, sll, t_ku, max(b["r_min_km"], r_min_sec))
+            look = (ku_look(gr["theta"], tgt, b["r_max_km"], p_avg_max_w, pack, sll, t_ku, max(b["r_min_km"], r_min_sec),
+                            v_span_mps=0.0)                      # track update: velocity known (step 2.2)
                     if gr["theta"] <= ku_lim else None)
             share = gr["pos"] / p_all * b["n_targets"]                       # tracks per face in this group
             if look is None:

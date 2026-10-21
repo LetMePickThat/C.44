@@ -1,6 +1,6 @@
 # Outil de préparation de mission radar : choix architecturaux
 
-Ce document recense tous les choix d'architecture faits jusqu'ici : organisation du logiciel, modèle du radar, et pour chaque variable sa définition, sa valeur, son statut et la raison de cette valeur. Il décrit l'état du dépôt après l'étape 2.1 de la feuille de route (modèle V6.6.0, 21 octobre 2026).
+Ce document recense tous les choix d'architecture faits jusqu'ici : organisation du logiciel, modèle du radar, et pour chaque variable sa définition, sa valeur, son statut et la raison de cette valeur. Il décrit l'état du dépôt après l'étape 2.2 de la feuille de route (modèle V6.7.0, 21 octobre 2026).
 
 > **Avertissement.** Les missions de `tests/missions/` sont des **missions de test**. Les valeurs figées de `tests/snapshots/` sont des **valeurs figées de test**. Elles servent seulement à détecter les régressions du code. Ce ne sont ni des exigences ni des performances du radar, dont les capacités réelles ne sont pas établies.
 
@@ -63,7 +63,7 @@ Rien de ce qui a été décidé ne vit seulement dans une conversation :
 | `Documentation/Choix_architecturaux.md` (ce document) | Toutes les variables, leurs valeurs et leurs raisons, les formules, les dispositions provisoires, les points ouverts et l'historique des décisions, question par question. |
 | `Documentation/Feuille_de_route.md` | La feuille de route, l'état d'avancement et, pour chaque étape, les décisions prises et les renvois reçus d'autres étapes. |
 | `radar_system.toml` | Les valeurs elles-mêmes ; le champ `source` de chaque entrée résume sa justification. |
-| En-tête de `core/radar_model.py` | Le journal des versions du modèle (V6.0.0 à V6.6.0) et ce que chaque version a changé. |
+| En-tête de `core/radar_model.py` | Le journal des versions du modèle (V6.0.0 à V6.7.0) et ce que chaque version a changé. |
 | `tests/snapshots/JOURNAL.md` | Chaque régénération des valeurs figées de test et ses causes. |
 | Mémoire de l'assistant (hors dépôt) | Un index de la feuille de route, l'état courant, les règles de méthode et la procédure ; en cas d'écart, le dépôt fait foi. |
 
@@ -86,7 +86,7 @@ Procédure d'une étape :
 | Module | Rôle |
 |---|---|
 | `core/params.py` | Charge `radar_system.toml`, une seule fois par processus. Expose `P.get`, `P.meta`, `P.section` et l'empreinte des paramètres (`fingerprint`). La variable d'environnement `RADAR_PARAMS` permet de désigner un autre fichier. |
-| `core/radar_model.py` | Modèle radar V6.6.0 : formes d'onde paramétriques (modulation LFM ou NLFM, pondération et perte de compression, k_r et résolution physique, effets dans l'impulsion, zone aveugle, éclipsage des trains échelonnés ; étape 2.1), chaîne de réception (T_sys de ciel froid, facteur de bruit du CAN dérivé du convertisseur, dynamique et portée minimale non saturée, récupération du limiteur, perte de recombinaison des deux voies de polarisation ; étape 1.5), bande (loi de bord par bande, occupation du spectre, retard vrai, contrôles de cohérence au chargement ; étape 1.4), bilan électrique et PAE variable par bande (étape 1.3), désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
+| `core/radar_model.py` | Modèle radar V6.7.0 : traitement (blocs cohérents de taille optimale, oscillateur et plateforme, banc de vitesses, chevauchement et CFAR calculés, cases indépendantes pour les fausses alarmes ; étape 2.2), formes d'onde paramétriques (modulation LFM ou NLFM, pondération et perte de compression, k_r et résolution physique, effets dans l'impulsion, zone aveugle, éclipsage des trains échelonnés ; étape 2.1), chaîne de réception (T_sys de ciel froid, facteur de bruit du CAN dérivé du convertisseur, dynamique et portée minimale non saturée, récupération du limiteur, perte de recombinaison des deux voies de polarisation ; étape 1.5), bande (loi de bord par bande, occupation du spectre, retard vrai, contrôles de cohérence au chargement ; étape 1.4), bilan électrique et PAE variable par bande (étape 1.3), désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
 | `core/antenna.py` | **Étapes 1.1 et 1.2.** Diagramme de rayonnement calculé à partir de la composition des TRSA : faisceau d'émission uniforme, pondération de réception par niveau de lobes, étendue RMS de l'ouverture, profil des lobes lointains sur tout l'espace visible (lobes de jeu compris). Profils **moyennés en azimut** du diagramme de réception, pour l'intégrale du bruit du ciel (étape 1.5). Résultat mis en cache dans `core/antenna_cache.json`. |
 | `core/sky.py` | **Étape 1.5.** Hausse de la température d'antenne selon la direction : fond galactique et corps du ciel de la mission (Soleil, Terre, Lune...), donnés dans le repère du vaisseau ; aveuglement et centile du bilan d'un secteur. |
 | `core/isolation.py` | **Étape 1.5.** Fuites entre bandes et entre faces : matrice des verdicts, règles pour l'ordonnanceur (cadence commune par bande, harmonique S dans le canal Ku). |
@@ -131,9 +131,9 @@ Procédure d'une étape :
 | Réglages `[tool.*]` | Valeur seule ou table complète. Ils ne décrivent pas le radar : ce sont des grilles de recherche, des trames, des caches et des valeurs par défaut de l'interface. |
 | Modification | À la main dans le fichier pour l'instant. Un onglet de l'interface est prévu à l'étape 5.5. |
 | Autre fichier | Variable d'environnement `RADAR_PARAMS=<chemin>`, héritée par les processus de l'optimiseur. |
-| Revue | Toutes les valeurs ont été validées une par une lors de la revue 0.3. Les ajouts des étapes 1.1 à 2.1 ont été validés pendant chacune de ces étapes. |
+| Revue | Toutes les valeurs ont été validées une par une lors de la revue 0.3. Les ajouts des étapes 1.1 à 2.2 ont été validés pendant chacune de ces étapes. |
 
-**Bilan actuel (étape 2.1) : 188 entrées système, dont 137 V, 49 D et 2 ?.** Les deux entrées « ? » sont `multibeam.l8_db` et `multibeam.p`.
+**Bilan actuel (étape 2.2) : 193 entrées système, dont 146 V, 45 D et 2 ?.** Les deux entrées « ? » sont `multibeam.l8_db` et `multibeam.p`.
 
 ---
 
@@ -147,7 +147,7 @@ Procédure d'une étape :
 | Missions de test | `mission_example` (en JSON et en CSV), `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`, `mission_sky_demo` (étape 1.5 : un ciel avec le Soleil, la Lune, le limbe de la Terre et un repère galactique). Les deux premières ont été récupérées dans l'historique git. |
 | Rapport d'impact | `python tests/impact_report.py`, à chaque étape, avant de régénérer les valeurs figées : chiffres clés, et pour chaque mission de test les formes d'onde de veille et les modes de confirmation qui changent. |
 | Régénération | `python tests/update_snapshots.py`. Chaque régénération est consignée dans `tests/snapshots/JOURNAL.md`, avec sa cause et les formes d'onde ou modes qui ont changé. |
-| État | 101 tests passent après l'étape 2.1. |
+| État | 105 tests passent après l'étape 2.2. |
 
 ---
 
@@ -211,6 +211,18 @@ Retraits faits lors de la revue 0.3 et de l'étape 1.1 :
 | `pd` | Probabilité de détection d'une observation, pour tous les secteurs. | 0,9 | V | Pd cumulée et réglage par secteur aux étapes 2.3 et 5.1. |
 | `pfa` | Probabilité de fausse alarme par case distance-Doppler. | 1e-8 | V | À 1e-6, confirmer les fausses alarmes coûtait deux fois la veille elle-même. L'ajustement de Shnidman reste valable jusqu'à 1e-9. Le nombre réel de cases sera modélisé à l'étape 2.2. |
 
+### 5.5 bis `[processing]` : grille de détection et CFAR (étape 2.2)
+
+| Variable | Définition | Valeur | Statut | Justification |
+|---|---|---|---|---|
+| `range_grid_oversampling` | Suréchantillonnage de la grille de détection en distance (interpolation numérique). | ×4 | V | **C1**, bout optimiste de ×1,25 à ×4 : chevauchement moyen 0,05 dB à −25 dB (0,54 dB à ×1,25, 0,22 dB à ×2). Coût de calcul à l'étape 4.4. |
+| `doppler_zero_padding` | Bourrage de zéros de la transformée Doppler d'un bloc cohérent. | ×4 | V | **C2** : 0,07 dB en moyenne (1,12 dB sans bourrage, 0,29 dB à ×2). |
+| `doppler_window` | Pondération Doppler. | "none" | V | **C3.** Pas de fouillis à rejeter dans l'espace ; le masquage par les lobes Doppler d'une cible forte est à revoir aux étapes 2.4 et 2.5. |
+| `cfar_type` | Type de CFAR. | "CA" | V | **D1.** Bruit thermique homogène ; les variantes robustes (OS, GO) relèvent des étapes 2.4 et 2.5. |
+| `cfar_ref_cells` | Cellules de référence du CFAR. | 1 024 | V | **D2**, bout optimiste : perte 0,04 dB (0,64 dB à 64, 0,16 dB à 256), calculée exactement pour Swerling 1 sur un échantillon et appliquée à toute observation (D3, légèrement prudent). |
+
+Ces trois pertes (`straddle_range`, `straddle_doppler`, `cfar`) remplacent les entrées `straddle` (0,7 dB) et `CFAR` (0,5 dB), supprimées.
+
 ### 5.6 `[power]` : chaîne de puissance
 
 | Variable | Définition | Valeur | Statut | Justification |
@@ -230,7 +242,8 @@ Valeur dérivée : CHAIN_EFF = 0,95 × 0,995 × (1 − 0,03) = 0,917. **Depuis l
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
 | `mode` | Traitement de la migration en distance. | "COMPENSATED" | V | Traitement de type keystone ou Radon. Le coût des bancs de vitesse sera évalué aux étapes 2.2 et 4.4. |
-| `residual_db` | Perte résiduelle quand la migration est compensée. | 1,0 dB | V | Valeur forfaitaire. La perte en fonction du nombre de cases traversées viendra à l'étape 2.2, le couplage distance-Doppler à l'étape 2.1. |
+| `residual_db` | Résidu de l'algorithme de compensation (keystone ou Radon) quand la cible traverse plus de 1,5 case. | 0,1 dB | V | **Étape 2.2, B5**, bout optimiste de 0,1 à 0,3 dB. Était 1,0 dB forfaitaire ; la perte du banc de vitesses est désormais calculée. |
+| `bank_max_loss_db` | Pas du banc d'hypothèses de vitesse : perte d'une cible à mi-pas. | 1,0 dB | V | **Étape 2.2, B2** (plage 0,5 à 2 dB). Loi = perte dans l'impulsion (étape 2.1) + glissement sur l'observation. La perte **moyenne** sur le pas va au bilan, le nombre d'hypothèses aux fausses alarmes et au calcul (étape 4.4). |
 
 ### 5.8 `[multibeam]` : multifaisceau en émission
 
@@ -245,12 +258,13 @@ Décision : « tous les modes sont possibles et sont à évaluer par l'optimiseu
 
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
-| `enable` | Active la perte de cohérence, en intégration cohérente seulement. | vrai | D | Modèle V5.4.0, sans source connue. |
-| `t0_s` | Constante de temps de cohérence. | 0,25 s | D | **Aucune source connue** : on ne sait pas si elle relève de l'oscillateur, de la plateforme ou de la cible. Un T₀ par type de cible viendra à l'étape 2.4. |
-| `p` | Exposant du terme de cohérence. | 2,0 | D | Aucune source connue. |
-| `eta_min` | Plancher de l'efficacité de cohérence, qui plafonne la perte à 1,55 dB. | 0,70 | D | Atteint à T = t₀(−ln η_min)^(1/p) = 149 ms. **Disposition provisoire :** les générateurs de formes d'onde écartent les intégrations cohérentes plus longues (`COH_T_MAX_S`), car au-delà le plancher créditait N·τ sans limite et provoquait des égalités exactes dans l'optimiseur. Ce plafond sera remplacé à l'étape 2.2 par des blocs cohérents suivis d'une intégration non cohérente. |
+| `enable` | Active la perte de cohérence des blocs cohérents (cible, oscillateur, plateforme). | vrai | D | Étape 2.2. |
+| `t0_s` | Temps de cohérence **provisoire de la cible**, η = exp(−(T/t₀)^p) par bloc cohérent. | 0,25 s | D | **Étape 2.2, A6.** Toujours sans source ; la valeur par type de cible viendra à l'étape 2.4. |
+| `p` | Exposant de cette loi provisoire. | 2,0 | D | Jusqu'à l'étape 2.4. |
+| `lo_ref_ghz`, `lo_offsets_hz`, `lo_ssb_dbc_hz` | Spectre de bruit de phase de l'oscillateur à 10 GHz, mis à l'échelle de la porteuse (+20 log f/10 GHz). | 1 Hz −100 ; 10 Hz −120 ; 100 Hz −140 ; 1 kHz −150 ; 10 kHz −160 ; 100 kHz −170 ; 1 MHz −175 dBc/Hz | V | **Étape 2.2, A1**, bout optimiste (oscillateur photonique). Réaliste aujourd'hui en spatial : −60 / −90 / −110 / −130 / −140 / −150 / −155. Un seul oscillateur pour l'émission et la réception (A2) : l'aller-retour filtre le bruit par 4 sin²(π f τ_rt). La perte est négligeable dans les deux cas (au plus 4e-6 dB) ; l'effet visible est le plancher Doppler, en sortie. |
+| `platform_motion_rms_m` | Mouvement résiduel de la plateforme et de la structure après compensation, sur un bloc. | 10 µm | V | **A5**, bout optimiste de 10 à 100 µm : 1,2 mrad en S, 6 mrad en Ku. |
 
-Retiré : `sigma_t`, la gigue d'horloge. Son effet est négligeable (1e-7 à 2,8 GHz).
+Retirés : `sigma_t`, la gigue d'horloge (négligeable, 1e-7 à 2,8 GHz), et à l'étape 2.2 `eta_min` (plancher de 0,70) avec le plafond provisoire de 149 ms (`COH_T_MAX_S`) : une forme d'onde cohérente est désormais découpée en **blocs cohérents de taille optimale**, intégrés de façon non cohérente (§7.10).
 
 ### 5.10 `[estimation]` : précision des mesures
 
@@ -295,8 +309,6 @@ Retirés : `eta_illum_rx` (0,88), désormais **dérivé** de la pondération du 
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
 | `finite_precision` | Précision finie du traitement numérique. | 0,3 dB | V | **Étape 2.1, Q5.** Seule part de l'ancien `DSP` = 2,0 dB qui reste une entrée. La part pondération et désadaptation (≈ 1,0 dB) est désormais **calculée** par observation (perte `compression`, §5.18). |
-| `straddle` | Chevauchement de cases en distance et Doppler. | 0,7 dB | D | Forfait gardé jusqu'à l'étape 2.2 (grille réelle des cases). |
-| `CFAR` | Perte du détecteur CFAR. | 0,5 dB | V | Environnement homogène, plancher de bruit connu, pas de fouillis, grande fenêtre de référence. |
 | `calibration` | Résidu d'étalonnage. | 0,5 dB | V | Confirmé. |
 | `Ku_blockage` | Masquage de l'ouverture S par le réseau Ku. | 0,2 dB | V | TRSA bi-bande. |
 
@@ -379,8 +391,6 @@ Mêmes postes qu'en S, avec des valeurs crédibles en Ku (revue 0.3). Ils rempla
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
 | `finite_precision` | Précision finie. | 0,3 dB | D | Comme en S (étape 2.1). |
-| `straddle` | Chevauchement de cases. | 0,7 dB | D | Comme en S : forfait jusqu'à l'étape 2.2. |
-| `CFAR` | Détecteur. | 0,5 dB | D | Même environnement qu'en S. |
 | `calibration` | Résidu d'étalonnage. | 0,8 dB | D | Plus élevé qu'en S : à tolérances mécaniques égales, l'erreur de phase est 5 fois plus grande en Ku, et il y a 25 fois plus d'éléments. |
 | `S_blockage` | Diffusion par les éléments S intercalés dans la TRSA. | 0,3 dB | D | Symétrique de `Ku_blockage` en S. |
 
@@ -569,7 +579,11 @@ Réglage de mission associé : `tool.mission_defaults.range_min_frac` = 0,1 (por
 | PAE à d = 0,65, impulsion longue | η_sat (1 − a × 0,55) | S 0,778, Ku 0,621 |
 | Puissance électrique disponible pour l'émission, 2 MW | 2 MW × CHAIN_EFF | 1,834 MW par face |
 | Dissipation d'un TRM à d = 0,65 | P_crête × d × (1/PAE − 1) | S ≈ 370 W, Ku ≈ 30 W pendant l'observation (exigence pour les microcanaux, étape 4.2) |
-| Durée cohérente maximale (provisoire) | t₀ (−ln η_min)^(1/p) | 149 ms |
+| Blocs cohérents | M minimisant SNR_req(M) + perte de cohérence d'un bloc | ex. 32 impulsions à PRI 60 ms : 16 blocs de 2 impulsions (61 ms) ; plus de plafond (149 ms jusqu'à l'étape 2.1) |
+| Banc de vitesses (pas à 1 dB) | §7.10 | WF-LRS (24 impulsions, 621 ms) sur 0 à 4 km/s : 637 hypothèses, perte moyenne 0,35 dB ; trains des missions de test : 50 à 535 hypothèses ; impulsion seule : 1 à 2 |
+| Chevauchement moyen | grille ×4 | distance 0,05 dB (−25 dB), Doppler 0,07 dB |
+| Perte CA-CFAR | 1 024 cellules | 0,04 dB |
+| Pertes de WF-LRS sur ST, axe | somme | 5,34 dB (7,00 dB à l'étape 2.1) ; portée 8 325 km (valeur de test) |
 
 Pour l'ensemble de l'octogone, le facteur en λ/D ne dépend pas de la fréquence au voisinage de l'axe. Les bandes S et Ku échantillonnent la même ouverture, et leurs résultats s'accordent à 0,1 % près. Un seul calcul par bande suffit donc (étape 1.1, décision Q7).
 
@@ -706,6 +720,18 @@ Coûts de l'annulation active, si elle est reprise à l'étape 4.3 : perte d'ins
 
 **Chronologie de l'observation.** Zone aveugle c (τ + récupération du limiteur) / 2 ≤ `range_min_km` du secteur (par défaut 10 % de la portée) : sinon la forme d'onde n'est pas jouable pour lui. Train non ambigu : PRI ≥ 2 R / c + τ + récupération, ce qui supprime l'éclipsage par le train lui-même entre `range_min_km` et R. Train ambigu (secteur `allow_ambiguous`, ou observation Ku dont la PRI est sous 2 r / c + τ + récupération) : échelonné sur 3 PRI à ±10 %, perte moyenne −10 log(1 − (τ + réc.) / PRI). Ambiguïté Doppler f_d,max × PRI : sortie, sans perte (pas de fouillis). L'éclipsage par les autres observations et par les autres faces synchronisées relève de l'étape 4.3.
 
+### 7.10 Traitement (étape 2.2)
+
+**Blocs cohérents.** Une forme d'onde COHERENT de N impulsions est découpée en M blocs (M diviseur de N) : M minimise SNR_req(M blocs intégrés de façon non cohérente, Shnidman) + perte de cohérence d'un bloc de durée (N/M − 1)·PRI + τ. NONCOHERENT, ou cible de Swerling 2 ou 4 : M = N. Perte d'un bloc = cible exp(−(T/t₀)²) (provisoire, t₀ 0,25 s jusqu'à l'étape 2.4) + 4,34·σ², σ² = bruit de phase de l'oscillateur filtré par l'aller-retour (4 sin²(π f τ_rt), de 1/T à B/2, à la distance d'écoute c·PRI/2) + (4π δ / λ)² de la plateforme. Le plancher Doppler (bruit résiduel dans une case de 1/T, à 100 Hz, 1 kHz et 10 kHz) est donné en sortie. La perte de polarisation (GLRT) prend n_nc = M.
+
+**Banc de vitesses** (mode COMPENSATED). Perte d'un filtre décalé de Δv : loi dans l'impulsion de l'étape 2.1 (n_c = 2 Δv τ B / c) + glissement de m = Δv·T_obs / (c/2B) cases sur l'observation, −20 log(moyenne de sinc(m x)) si l'observation est un seul bloc cohérent, −10 log(moyenne de sinc²(m x)) sinon. Pas : perte de `bank_max_loss_db` (1 dB) à mi-pas ; hypothèses = étendue / pas, sur [v_close_min, v_close_max] du secteur en veille et en confirmation, une seule en poursuite. Bilan : perte moyenne sur le pas + `residual_db` (0,1 dB) si la cible traverse plus de 1,5 case. Mode UNCOMPENSATED : 10 log(min(cases, N)), inchangé.
+
+**Chevauchement et CFAR.** Distance : perte moyenne d'une cible uniforme entre deux échantillons de la grille ×4, avec la réponse comprimée de la pondération de l'observation. Doppler (blocs de plus d'une impulsion) : sinc² sans fenêtre, bourrage ×4. CA-CFAR : seuil α = N (Pfa^(−1/N) − 1), Pd = (1 + α / (N (1 + S)))^(−N), comparé au SNR à bruit connu ln Pfa / ln Pd − 1.
+
+**Fausses alarmes.** Cases indépendantes par position : (R_max − `range_min_km`) / (c/2B) × cases Doppler d'un bloc × hypothèses de vitesse × cellules angulaires (faisceaux de réception par position × 0,5² ≈ 0,85). Les grilles suréchantillonnées ne sont pas comptées (échantillons corrélés). Fausses alarmes par période de revisite = positions × cases × Pfa (1e-8) : elles alimentent la confirmation Ku.
+
+**Constat de l'étape.** Les trains d'impulsions demandent des bancs de 50 à 535 hypothèses de vitesse sur les missions de test : leurs fausses alarmes, donc les observations Ku de confirmation, croissent d'autant. L'optimiseur de veille ne voit pas ce coût quand il choisit ses formes d'onde (il ne minimise que l'énergie et le temps de la veille). Voir §10.2.
+
 ---
 
 ## 8. Paramètres de l'outil (`[tool.*]`)
@@ -782,7 +808,7 @@ La feuille de route complète, avec le contenu détaillé de chaque étape, se t
 |---|---|
 | 0, fondations | 0.1 fichier unique ✔ ; 0.2 banc de tests ✔ ; 0.3 revue des valeurs ✔ |
 | 1, antenne et RF | 1.1 géométrie et diagramme réel ✔ ; **1.2 diagramme : lobes de réseau, désadaptation active \|Γ(θ, f)\|, polarisation ✔** ; **1.3 TRM et chaîne d'émission ✔** ; **1.4 bande ✔** ; **1.5 réception ✔** (T_sys selon la direction, CAN, isolation, deux voies de polarisation ; le bruit de phase de l'oscillateur est passé en 2.2) |
-| 2, signal et détection | **2.1 formes d'onde paramétriques ✔** ; 2.2 traitement (bancs de vitesse, CFAR, modèle de cohérence et bruit de phase de l'oscillateur) ; 2.3 critère de détection ; 2.4 modèles de cibles ; 2.5 environnement (masquage par le vaisseau, Faraday, brouillage) |
+| 2, signal et détection | **2.1 formes d'onde paramétriques ✔** ; **2.2 traitement ✔** ; 2.2 traitement (bancs de vitesse, CFAR, modèle de cohérence et bruit de phase de l'oscillateur) ; 2.3 critère de détection ; 2.4 modèles de cibles ; 2.5 environnement (masquage par le vaisseau, Faraday, brouillage) |
 | 3, fonctions radar | 3.1 veille S (multifaisceau, grille de fréquences fine) ; 3.2 confirmation Ku (fréquence Ku choisie, connaissance du spectre) ; 3.3 poursuite (Kalman ou IMM) ; 3.4 fonctions annexes |
 | 4, ressources | 4.1 puissance (bus de 8 MW, répartition entre faces) ; 4.2 thermique ; 4.3 ordonnanceur et latence ; 4.4 calcul et données |
 | 5, mission et validation | 5.1 modèle de mission enrichi et bibliothèque de menaces ; 5.2 optimiseur global ; 5.3 moteur de validation ; 5.4 simulation Monte-Carlo ; 5.5 interface opérateur ; 5.6 vérification, validation et documentation |
@@ -796,7 +822,9 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 | Polarisation | Linéaire selon e_v (D). Recombinaison des deux voies par le GLRT depuis l'étape 1.5 (perte calculée), sans gain de diversité. Commutation e_u / e_v à rappeler en 3.3. | 2.4 (diversité), 2.5 (Faraday), 3.2-3.3 |
 | Élément rayonnant | Éléments isotropes dans le calcul du facteur de réseau ; seule la projection cos θ et la désadaptation interviennent. | à placer |
 | Zone aveugle et éclipse | Depuis l'étape 2.1 : zone aveugle ≤ `range_min_km`, pas d'auto-éclipsage des trains non ambigus, perte moyenne des trains échelonnés. Reste l'éclipsage par les autres observations et les autres faces. | 4.3 |
-| Banc de vitesses | Loi de perte de désadaptation en vitesse et nombre de filtres pour 1 dB calculés ; forfait de migration de 1 dB gardé. | 2.2 |
+| Coût des fausses alarmes dans le choix des formes d'onde de veille | Depuis l'étape 2.2, les bancs de vitesses des trains multiplient les fausses alarmes (×50 à ×535) ; l'optimiseur de veille ne compte pas le coût de confirmation qui en découle. | 2.3 (politique de fausses alarmes), 5.1 (réglage de mission), 5.2 (coût de confirmation dans l'optimiseur) : décision de l'utilisateur |
+| Accélération des cibles (courbure en distance) | Non modélisée dans le banc de vitesses. | 2.4 |
+| Capacité du formateur de faisceaux et charge de détection | Faisceaux par position calculés (≈ 3,4) ; nombre de faisceaux simultanés (positions en attente d'écho, multifaisceau, deux voies, Ku) non modélisé ; hypothèses de vitesse et grilles ×4 multiplient la charge. Capacité à fixer comme ressource. | 4.3, 4.4 |
 | Bandes au-delà de 75 MHz, impulsions plus courtes que 20 µs | Modèle valide jusqu'à 200 MHz ; secteurs « résolution non tenue » signalés ; un secteur de 20 km (B2_AUTOPROT) n'a plus de forme d'onde (20 µs laissent 3 km aveugles). | 3.1 |
 | Multiplexage en temps ou en fréquence du multifaisceau | Passé de l'étape 2.1 à l'étape 3.1, avec le reste du multifaisceau. | 3.1 |
 | Résidu du couplage distance-Doppler | Biais corrigé par la mesure du Doppler ; résidu non compté. | 3.3 |
@@ -807,8 +835,8 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 | Thermique | Chaleur calculée (≈ 370 W par TRM S en pointe) ; capacité des microcanaux et constantes de temps non modélisées. Densité de puissance d'environ 104 kW/m² de RF moyenne. | 4.2 |
 | Limite de 70° au-dessus de la fréquence de rupture | Gardée à l'étape 1.4 tant que le diagramme de l'élément n'est pas modélisé (flanc du lobe de réseau à l'horizon). | avec le diagramme de l'élément (à placer) |
 | Fréquences candidates de la veille S | 2,7 / 2,8 / 2,9 GHz : depuis l'étape 1.4, aucun signal ne tient aux bords de bande (2,7 et 2,9 GHz), seule 2,8 GHz est jouable. | 3.1 (grille fine dans la bande) |
-| Plafond de cohérence | Provisoire, 149 ms ; t₀ et p sans source. | 2.2 |
-| Bruit de phase de l'oscillateur (spectre et aller-retour) | Non modélisé (53 ms à 8 000 km) ; sujet entier passé en 2.2 à l'étape 1.5. | 2.2 |
+| Temps de cohérence de la cible | Loi provisoire unique, t₀ 0,25 s, p 2, sans source ; plafond de 149 ms supprimé à l'étape 2.2 (blocs cohérents). | 2.4 |
+| Bruit de phase de l'oscillateur | Modélisé à l'étape 2.2 (négligeable sur la cohérence) ; plancher Doppler en sortie, son effet de masquage avec les cibles. | 2.4 |
 | Synchronisation des faces par bande | Règle signalée (`scheduler_rules`), non imposée ; aucune perte dans le bilan. Annulation active à revoir. | 4.3 |
 | Harmonique 5 de la S dans le canal Ku | Règle de fréquence signalée par secteur. | 3.2, 4.3 |
 | Pire point ou moyenne du T_sys d'un secteur | Centile (1 − `short_tol`) des pointages non aveuglés. | 2.3 |
@@ -829,7 +857,7 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 
 ### 10.3 Points ouverts
 
-- **(a)** L'optimiseur départage des égalités exactes par le bruit d'arrondi : il faut un critère secondaire (étapes 3.1 et 5.2).
+- **(a)** L'optimiseur départage des égalités exactes par le bruit d'arrondi : il faut un critère secondaire (étapes 3.1 et 5.2). La cause principale, le plancher de cohérence, a disparu à l'étape 2.2 ; il reste des égalités entre une impulsion seule étiquetée COHERENT ou NONCOHERENT (identiques).
 - **(b)** Le nombre de faces, 4, est écrit en dur dans le code.
 - **(c)** Le toucher S2 sort de la règle des rôles S ; les rôles TWS et PROMOTE ne sont pas utilisés (étape 3.2).
 - **(d)** `power_scale` est arrondi à 3 décimales dans la sortie de l'optimiseur (étape 5.5).
@@ -1053,3 +1081,24 @@ Comparaison du modèle V6.0.12 (commit ad07412, avant l'étape 0.1) et du modèl
 | Secteurs sans forme d'onde jouable | 0 | 2 sur 21 | A3_HIBAND (2,9 GHz, bord de bande, étape 1.4) et B2_AUTOPROT (zone aveugle, étape 2.1) |
 
 À ressources égales, une énergie divisée par 5 vaut une portée multipliée par environ 1,5 (R ∝ E^¼). Le gain vient surtout de T_sys (revue 0.3 : frontal optimisé au lieu d'un module T/R classique, puis ciel froid et CAN dérivé à l'étape 1.5 : environ +3,8 dB en S), des pertes (pré-LNA compté une fois, rendement ohmique 1,0, polarisation par GLRT, compression NLFM), du lobe réel (moins de pointages) et du bilan électrique avec des impulsions de 2 ms (étape 1.3). Les corrections pessimistes (désadaptation active jusqu'à 2,2 dB aller-retour à 75°, bords de bande, zone aveugle, éclipsage des trains ambigus, fond galactique au pire cas, contrôles stricts) en reprennent une partie. Les étapes à venir en ajouteront d'autres (banc de vitesses et cases réelles en 2.2, critère de détection en 2.3, cibles en 2.4, ordonnanceur et synchronisation en 4.3).
+
+### Étape 2.2 : le traitement (21 octobre 2026)
+
+Questions de cadrage (toutes acceptées) : Q1 temps de cohérence de la cible à l'étape 2.4 (valeur provisoire ici) ; Q2 blocs cohérents puis intégration non cohérente ; Q3 banc d'hypothèses de vitesse ; Q4 Pfa par case fixe, toutes les cases comptées ; Q5 pertes moyennes (l'étape 2.3 tranche) ; Q6 CA-CFAR calculé ; Q7 bruit de phase : perte et lobes Doppler.
+
+Variables (toutes validées, bout optimiste) :
+
+| Sujet | Décision |
+|---|---|
+| A cohérence et oscillateur | Spectre photonique à 10 GHz, un oscillateur commun, perte 4,34 σ² calculée (négligeable), plancher Doppler en sortie, plateforme 10 µm, cible provisoire t₀ 0,25 s / p 2, plancher supprimé, blocs de taille optimale, SW2/SW4 impulsion par impulsion. Le calcul préalable a montré que l'oscillateur ne limite pas la cohérence (au plus 4e-6 dB même avec un oscillateur spatial réaliste). |
+| B banc de vitesses | Loi dérivée (dans l'impulsion + glissement), pas à 1 dB, perte moyenne au bilan, étendue du secteur (une hypothèse en poursuite), résidu 0,1 dB, accélération à l'étape 2.4, mode UNCOMPENSATED gardé. |
+| C chevauchement | Grilles ×4 en distance et en Doppler, pas de fenêtre Doppler, pertes calculées, entrée `straddle` supprimée. |
+| D CFAR | CA-CFAR, 1 024 cellules, loi exacte Swerling 1, entrées `CFAR` supprimées. |
+| E fausses alarmes | Cases de résolution indépendantes : distance depuis `range_min_km`, Doppler d'un bloc, hypothèses de vitesse, cellules angulaires ≈ 0,85 ; Pfa 1e-8 inchangée. |
+
+Question annexe de l'utilisateur : le nombre de faisceaux numériques de réception est-il figé ? Non : le nombre par position est **calculé** (1,04 HPBW_TX / 0,5 HPBW_RX)², soit 3,38 / 2,95 / 2,64 selon l'option ; le nombre de faisceaux **simultanés** dépend de la chronologie (étape 4.3) ; la capacité du formateur de faisceaux est une ressource à fixer à l'étape 4.4 (renvoi inscrit).
+
+Effet sur les missions de test (valeurs de test seulement) :
+- pertes de WF-LRS 7,00 → 5,34 dB (chevauchement, CFAR et migration calculés) : portées +10,0 % (ST 7 567 → 8 325 km) ;
+- énergie de veille par face −20 à −36 %, temps S −14 à −50 % ; la plupart des secteurs passent à des impulsions seules ;
+- **mais** temps Ku de −53 % à ×300 : les trains demandent des bancs de 50 à 535 hypothèses de vitesse, qui multiplient les fausses alarmes à confirmer, et l'optimiseur de veille ne voit pas ce coût (§7.10 ; l'utilisateur traitera le sujet aux étapes 2.3, 5.1 et 5.2) ; plusieurs modes de confirmation passent de KU1+7 à KU7.
