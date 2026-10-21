@@ -129,8 +129,10 @@ def _plan(sec: dict, eps_min: float, eps_max: float, p_avg_max_w: float, sky: Op
 
 
 def guaranteed_range_km(range_km: float, rr_s: float, v_mps: float) -> float:
-    """Detection range guaranteed by a search reaching range_km with revisit rr_s on a target closing at v_mps."""
-    return range_km - v_mps * rr_s / 1e3
+    """Detection range guaranteed by a search reaching range_km with revisit rr_s on a target closing at v_mps. Since
+    step 2.3 the search criterion is the cumulative probability reached AT range_km over the looks spaced v x RR
+    (the revisit is inside the criterion), so the guaranteed range is range_km itself (it was range_km - v RR)."""
+    return range_km
 
 
 def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dict,
@@ -143,8 +145,8 @@ def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dic
         return z, z, None, np.where(cells, REASON_NO_WAVEFORM, REASON_NONE).astype(np.int8)
     v_b = sec_b["v_close_max_mps"]
     tgt_b = rm.Target("need", sec_b["rcs_m2"], int(sec_b.get("swerling", 1)), v_b)
-    g_need = (guaranteed_range_km(sec_b["range_km"], sec_b["rr_target_s"], v_b)
-              - RANGE_TOL * sec_b["range_km"] + v_b * sec_a["rr_target_s"] / 1e3)   # = reach A needs
+    g_need = sec_b["range_km"] * (1.0 - RANGE_TOL)          # A's cumulative reach on B's need (step 2.3)
+    cum = (float(v_b), float(sec_a["rr_target_s"]), float(sec_b["range_km"]))   # A's revisit, B's target and range
     res_b = sec_b.get("res_max_m", mo.RES_MAX_M_DEFAULT)
     f = plan["freq_ghz"]
     nb = len(plan["wf"])
@@ -165,7 +167,8 @@ def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dic
         if rm.blind_range_km(rm.BAND_S, w.tau_s) > mo.range_min_km(sec_b) + 1e-9:
             reason[i] = REASON_BLIND
             continue
-        r = mo.range_at(w, f, float(theta[i]), tgt_b, mo.rx_sll_db(sec_b), mo.velocity_span_mps(sec_b))   # A's echoes, B's RX weighting
+        r = mo.range_at(w, f, float(theta[i]), tgt_b, mo.rx_sll_db(sec_b), mo.velocity_span_mps(sec_b),
+                        plan["pfa"][i], cum)        # A's echoes and false-alarm setting, B's RX weighting and need
         if r is not None:
             reach[i] = r * plan["power_scale"][i] ** 0.25
             ok[i] = reach[i] >= g_need

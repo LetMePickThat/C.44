@@ -30,8 +30,9 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 1.4 | ✔ fait (commit 1feda84) |
 | 1.5 | ✔ fait (commit d8245d1) |
 | 2.1 | ✔ fait (commit eb542ca) |
-| 2.2 | ✔ fait |
-| 2.3 et suivantes | à faire, la prochaine étant 2.3 |
+| 2.2 | ✔ fait (commit 71c5b6b) |
+| 2.3 | ✔ fait |
+| 2.4 et suivantes | à faire, la prochaine étant 2.4 |
 
 ---
 
@@ -163,7 +164,16 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Renvoi de l'étape 2.1** : le pas du banc de vitesses se déduit de la loi de perte calculée à l'étape 2.1 (`velocity_mismatch_loss_db` : 1 dB à n_c = 1,016, soit 13 filtres pour 2 ms à 75 MHz sur 0 à 25 km/s) ; le forfait de chevauchement de 0,7 dB (`straddle`) est à remplacer par la grille réelle des cases.
   - **Bruit de phase de l'oscillateur, sujet entier (décidé à l'étape 1.5)** : modèle du spectre de l'oscillateur et effet sur l'aller-retour (53 ms à 8 000 km, décalages d'environ 19 Hz). Il décorrèle l'émission et la réception (lobes Doppler, cohérence) ; ce n'est pas seulement une gigue à court terme. À traiter avec la refonte de la cohérence ci-dessus.
 
-- **2.3 Critère de détection** (D).
+- **2.3 Critère de détection** (D). ✔
+
+  Décisions prises :
+  - veille : `detection.pd` 0,9 devient une **Pd cumulée** atteinte à `range_km` sur les observations d'une cible qui se rapproche à v_close_max (espacées de v·RR, phase moyennée, sans plafond) ; Ku : une observation ;
+  - Pd de chaque observation **moyennée** sur la position aléatoire de la cible (grilles, chevauchement, filtre de vitesse) : une perte « positions » ; lois de détection **exactes** (Swerling 0 à 4, toute Pfa) ;
+  - politique de fausses alarmes « fa_rate » : 10 par secteur et par revisite, Pfa par case déduite (bornée 1e-14 à 1e-4) ; mode « pfa_cell » conservé ;
+  - grille de veille **1,04 → 1,4** lobe, **décalée à chaque trame** (exigence pour l'ordonnanceur) ; T_sys du ciel gardé au centile ; redondance au même critère ;
+  - constat : deux régimes selon q = v·RR / R (longue portée : énergie divisée par 3 à 25 ; anti-KKV à q = 1 : énergie ×4).
+
+  Contenu prévu à l'origine :
   - Pd moyenne ou au pire point de la cellule de la grille.
   - Pd cumulée sur plusieurs trames pour une cible qui se rapproche.
   - Revoir `beam_spacing_hpbw` et `enable_grid_loss`.
@@ -206,6 +216,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - La table de coût n'est calculée qu'à 2,8 GHz (optimiste pour les secteurs à 2,7 ou 2,9 GHz) : à recaler à l'étape 5.5. `track_margin_warn` → 5.3.
   - La plus longue impulsion S est déjà **calculée** à partir de la réserve des TRM (`radar_model.tau_max_s`).
   - Le pas des faisceaux de réception (0,5) pourra être réglé par l'optimiseur.
+  - **Renvoi de l'étape 2.3** : pas de la grille de veille propre à chaque secteur (1,4 en commun ; l'optimum va de 1,3 à 1,6 selon la Pd par observation).
 
 - **3.2 Confirmation Ku reconstruite** (tracking.py).
   - **Renvoi de l'étape 1.3** : impulsions Ku au-delà de 400 µs (τ_max Ku = 2,08 ms).
@@ -240,6 +251,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - Modèle des tâches, priorités, entrelacement contraint par les allers-retours, chronologies S et Ku par face, latence, politique de surcharge.
   - **Latence reconstruite de zéro.** L'ancienne règle `confirmation.latency_max_frac` (allers-retours comparés à 1 % du temps avant impact) a été supprimée lors de la revue 0.3 : elle ne limitait jamais rien (2nv/c) et ignorait les vraies causes. Il faut construire une vraie latence (attente dans la file de l'ordonnanceur, traitement, allers-retours) et la comparer à une exigence de délai par secteur.
   - Vérifier `frame_interleaved`.
+  - **Renvoi de l'étape 2.3** : décalage de la grille de veille à chaque trame (`grid_dithering`), supposé par le critère cumulé.
   - **Renvois de l'étape 1.5** : (1) **cadence commune d'émission et de réception de toutes les faces, par bande** (`isolation.interface_mode` = sync) : aucune face ne reçoit une bande pendant qu'une autre l'émet ; coût estimé de 0 à 1 dB si les émissions sont alignées, jusqu'à −10 log(1 − Σ des facteurs d'émission des autres faces) sinon (0,5 à 1,5 dB en forte charge), aucune perte comptée avant cette étape ; (2) pas de réception Ku sur une face pendant une émission S dont l'harmonique couvre le canal Ku ; (3) **annulation active à revoir ici** (coûts : perte avant le LNA versée dans T_sys, puissance injectée égale à la fuite, temps d'adaptation à chaque pointage, calcul dans l'espace des faisceaux ; solution mixte proposée : synchronisation entre faces voisines, annulation entre faces opposées) ; (4) pointages aveuglés par le Soleil à sortir du plan de balayage ; (5) **renvoi de l'étape 2.1** : éclipsage par les autres observations (positions entrelacées) et par les autres faces synchronisées.
 
 - **4.4 Calcul et données** (D).
@@ -253,8 +265,10 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 
 - **5.1 Modèle de mission enrichi.**
   - Menaces, priorités, phases temporelles et modes, avec des fichiers qui restent compatibles.
+  - **Volumes par défaut** (idée de l'utilisateur, étape 2.3) : des volumes types prêts à l'emploi pour les besoins récurrents, par exemple l'autoprotection du vaisseau contre un KKV ; leurs paramètres standards (portée, revisite, etc.) seront discutés à ce moment-là, pas pendant la construction de l'outil.
   - **Bibliothèque de menaces** : l'opérateur choisit un type de cible par secteur au lieu de ressaisir SER, Swerling et vitesse. Aujourd'hui, `[targets.*]` ne sert qu'au rapport en ligne de commande et aux tests.
   - **Renvoi de l'étape 2.2 (sujet des fausses alarmes, décision de l'utilisateur : 2.3, 5.1, 5.2)** : réglage de la politique de fausses alarmes dans la mission (taux toléré par secteur ou par période).
+  - **Renvois de l'étape 2.3** : Pd cumulée et taux de fausses alarmes **par secteur** ; **plafond du nombre d'observations** pour une cible surgissante (sortie d'horizon, lancement), aujourd'hui sans plafond (bout optimiste) ; la Pd cumulée suppose que la cible est présente sur toute son approche.
   - `confirmation.p_min` (0,98) comme réglage de mission, avec en **option à étudier** un réglage par volume (secteur).
 
 - **5.2 Optimiseur global.** Répartition conjointe de la veille, de la confirmation et de la poursuite sur toutes les ressources et toutes les faces, **y compris la répartition à la demande des 8 MW du vaisseau entre les faces** (voir 4.1). **Renvoi de l'étape 2.2** : l'optimiseur doit compter le **coût de confirmation des fausses alarmes** dans le choix des formes d'onde de veille (les bancs de vitesses des trains multiplient les fausses alarmes par 50 à 535).
@@ -268,6 +282,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - Onglet d'édition des paramètres.
   - Arrondi de `power_scale`.
   - **Renvois de l'étape 2.1** : les vues (3D, interface) n'affichent que le **volume utile**, sans la zone aveugle (demande de l'utilisateur) ; édition de `range_min_km` dans l'interface.
+  - **Renvoi de l'étape 2.3** : l'estimation rapide reste au critère d'une observation à `detection.pfa` ; à recaler sur la Pd cumulée et le taux de fausses alarmes.
   - **Renvoi de l'étape 1.5** : l'estimation rapide (`cost_table.json`) est au ciel froid, sans le bruit du ciel ni l'aveuglement ; l'interface n'édite pas le ciel de la mission (il viendra du simulateur de scénario), elle le conserve.
 
 - **5.6 Vérification, validation et documentation.** Cas de référence figés, traçabilité des paramètres, manuel de l'opérateur, note de modèle.

@@ -264,8 +264,6 @@ def test_rx_weighting_only_scales_the_rx_gain():
         band = rm.band_for_frequency(f).name
         # since step 2.1 the option also sets the range sidelobes: an LFM look pays its weighting (loss, k_r)
         extra_db = (b.l_tot_db - a.l_tot_db) + (b.snr_req_db - a.snr_req_db)
-        if a.pulse["modulation"] == "nlfm":    # NLFM: only the range straddle follows the sidelobe level (step 2.2)
-            assert extra_db == pytest.approx(rm.straddle_range_db(-35.0) - rm.straddle_range_db(-25.0), abs=1e-12)
         assert b.range_km / a.range_km == pytest.approx(
             (rm.rx_beam(band, -35.0).eta / rm.rx_beam(band, -25.0).eta * 10 ** (-extra_db / 10)) ** 0.25, rel=1e-12)
     assert rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"]).range_km == \
@@ -273,11 +271,15 @@ def test_rx_weighting_only_scales_the_rx_gain():
 
 
 def test_search_has_the_rx_grid_loss_and_counts_rx_beams():
+    """Step 2.3: the search lattice cell and the RX beam lattice enter the averaged Pd ('positions'); their mean
+    losses are given (real patterns, close to the Gaussian 1.672 s^2 dB); RX beams per position at 1.4 HPBW."""
     r = rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"])
-    assert r.losses["grid_rx"] == pytest.approx(1.672 * 0.25, abs=1e-3)
+    parts = r.pulse["position_losses_mean_db"]
+    assert parts["grid_rx"] == pytest.approx(1.672 * 0.25, abs=0.1) and parts["grid_tx"] == pytest.approx(1.672 * 1.96, abs=0.4)
+    assert r.losses["positions"] > sum(parts.values()) - 1e-9          # averaging Pd costs more than averaging dB here
     n_rx = r.frame["rx_beams_per_position"]
-    assert n_rx == pytest.approx((1.04 * rm.PATTERNS["S"].tx.hpbw / (0.5 * rm.rx_beam("S").hpbw)) ** 2)
-    assert 3.0 < n_rx < 4.0 and rm.rx_beams_per_position(2.8, -35.0) < n_rx
+    assert n_rx == pytest.approx((1.4 * rm.PATTERNS["S"].tx.hpbw / (0.5 * rm.rx_beam("S").hpbw)) ** 2)
+    assert 5.5 < n_rx < 7.0 and rm.rx_beams_per_position(2.8, -35.0) < n_rx
 
 
 def test_mission_rx_sidelobe_setting(tmp_path):
@@ -500,6 +502,54 @@ def test_sector_range_min_and_resolution_flags():
     assert not any("range resolution" in f for f in res["sectors"][0]["flags"])
 
 
+# ----------------------------------------------------------------------------- detection criterion (step 2.3)
+def test_exact_laws_match_the_closed_forms_and_shnidman():
+    """SW1 on one sample = 10 log(ln Pfa / ln Pd - 1) at any Pfa; SW1 = SW2 and SW3 = SW4 on one sample; Shnidman
+    within 0.5 dB where it is valid; Pd grows with SNR and N."""
+    from core import detection as d
+    for pfa in (1e-6, 1e-8, 1e-12, 1e-14):
+        assert d.snr_req_db(1, 1, pfa, 0.9) == pytest.approx(10 * math.log10(math.log(pfa) / math.log(0.9) - 1), abs=0.01)
+    assert d.snr_req_db(1, 2, 1e-8, 0.9) == pytest.approx(d.snr_req_db(1, 1, 1e-8, 0.9), abs=0.01)
+    assert d.snr_req_db(1, 4, 1e-8, 0.9) == pytest.approx(d.snr_req_db(1, 3, 1e-8, 0.9), abs=0.01)
+    for sw in range(5):
+        for n in (1, 8, 24):
+            assert d.snr_req_db(n, sw, 1e-8, 0.9) == pytest.approx(rm.shnidman_total_snr_db(0.9, 1e-8, n, sw), abs=0.5)
+    c = d.pd_curve(4, 1, 1e-10)
+    assert np.all(np.diff(c) >= -1e-12) and c[0] < 1e-8 and c[-1] > 0.999
+
+
+def test_cumulative_criterion_and_averaged_pd():
+    """Denser looks (smaller q = v RR / R) need less SNR at R; the averaged Pd costs more than a perfectly centred
+    target; solve() with cum meets the cumulative target exactly at the requirement range."""
+    from core import detection as d
+    reqs = [d.required_snr_db(1, 1, 1e-8, 0.9, q=q) for q in (0.5, 0.2, 0.05, 0.01)]
+    assert all(b < a for a, b in zip(reqs, reqs[1:]))
+    law = rm.position_losses("S", -25.0, -25.0, True, False, (0.0, 1e-4, 75.0, 1e-4, 1, True))
+    assert d.required_snr_db(1, 1, 1e-8, 0.9, law[0], law[1]) > d.required_snr_db(1, 1, 1e-8, 0.9)
+    w = rm.Waveform("w", "SEARCH", "S", 1e-4, 1, 1e-3, 75.0)
+    r = rm.solve(w, 2.8, 0.0, rm.TARGETS["ST"], cum=(5000.0, 60.0, 3000.0))
+    assert r.pulse["criterion"] == "cumulative" and r.pulse["look_spacing_q"] == pytest.approx(0.1)
+    assert r.snr_req_db < rm.solve(w, 2.8, 0.0, rm.TARGETS["ST"]).snr_req_db
+    assert 0.0 < r.pulse["pd_per_look_at_range"] < rm.DETECT_PD
+
+
+def test_false_alarm_policy(tmp_path):
+    """'fa_rate': Pfa per cell = rate / (positions x cells), bounded, on 1/20 decade; 'pfa_cell': detection.pfa;
+    a fixed search lattice (no dithering) is refused."""
+    assert rm.search_pfa(10.0, 1000.0, 1e7) == pytest.approx(1e-9, rel=0.13)
+    assert rm.search_pfa(10.0, 1.0, 1.0) == pytest.approx(rm.PFA_MAX, rel=0.13)
+    assert rm.search_pfa(1e-30, 1e9, 1e9) == pytest.approx(rm.PFA_MIN, rel=0.13)
+    text = _replace_value(_default_toml(), "detection", "fa_mode ", '"fa_rate"', '"pfa_cell"')
+    out = _run_with_params(text, "from core import radar_model as rm\nprint(rm.search_pfa(10.0, 1000.0, 1e7))", tmp_path)
+    assert float(out) == rm.DETECT_PFA
+    bad = _replace_value(_default_toml(), "search_grid", "grid_dithering ", "true", "false")
+    path = tmp_path / "bad.toml"
+    path.write_text(bad, encoding="utf-8")
+    res = subprocess.run([PYTHON, "-c", "import core.radar_model"], cwd=tb.ROOT, capture_output=True, text=True,
+                         env={**os.environ, params.PARAMS_ENV: str(path)}, timeout=120)
+    assert res.returncode != 0 and "not implemented" in res.stderr
+
+
 # ----------------------------------------------------------------------------- processing (step 2.2)
 def test_oscillator_phase_noise_through_the_round_trip(tmp_path):
     """One LO for TX and RX: the round trip filters its noise (nothing at tau_rt = 0); with the photonic-class
@@ -522,8 +572,8 @@ def test_oscillator_phase_noise_through_the_round_trip(tmp_path):
 def test_velocity_bank_loss_and_hypotheses():
     """Bank step: 1 dB at half a step; the mean over the step is below it; more span -> more hypotheses; a TRACK look
     has one hypothesis; a single pulse only sees the intra-pulse term; a long noncoherent dwell needs a dense bank."""
-    n1, mean1 = rm.velocity_bank(5000.0, 2e-4, 75.0, 0.6, 24, False)
-    n2, _ = rm.velocity_bank(10000.0, 2e-4, 75.0, 0.6, 24, False)
+    n1, mean1, _ = rm.velocity_bank(5000.0, 2e-4, 75.0, 0.6, 24, False)
+    n2, _, _ = rm.velocity_bank(10000.0, 2e-4, 75.0, 0.6, 24, False)
     assert 0.0 < mean1 < rm.BANK_MAX_LOSS_DB and n2 in (2 * n1 - 1, 2 * n1, 2 * n1 + 1) and n1 > 100
     assert rm.velocity_bank(5000.0, 2e-4, 75.0, 2e-4, 1, True)[0] == 1
     assert rm.walk_loss_db(0.0, True) == 0.0 and rm.walk_loss_db(1.0, False) < rm.walk_loss_db(1.0, True)
@@ -532,8 +582,9 @@ def test_velocity_bank_loss_and_hypotheses():
     r = rm.solve(trk_wf, 14.0, 0.0, rm.TARGETS["KKV"])
     assert r.pulse["velocity_hypotheses"] == 1 and r.pulse["velocity_span_mps"] == 0.0
     r = rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"], v_span_mps=4000.0)
-    assert r.losses["migration"] == pytest.approx(rm.velocity_bank(4000.0, 2e-4, 75.0, rm.WF_LRS.dwell_s, 24, False)[1]
-                                                  + rm.MIGRATION_RESIDUAL_DB)
+    assert r.losses["migration"] == rm.MIGRATION_RESIDUAL_DB      # the filter offset is in 'positions' (step 2.3)
+    assert r.pulse["position_losses_mean_db"]["velocity_filter"] == pytest.approx(
+        rm.velocity_bank(4000.0, 2e-4, 75.0, rm.WF_LRS.dwell_s, 24, False)[1], abs=0.02)
 
 
 def test_straddle_and_cfar_follow_the_processing_entries(tmp_path):
@@ -561,7 +612,9 @@ def test_false_alarms_count_independent_cells(runs):
     angle = rm.rx_beams_per_position(w["freq_ghz"], mo.rx_sll_db(sec)) * rm.RX_BEAM_SPACING_HPBW ** 2
     cells = rm.independent_cells(mo.range_min_km(sec), sec["range_km"], w["sig_bw_mhz"], w["pulses_per_block"],
                                  w["velocity_hypotheses"], angle)
-    assert trk_s["false_alarms_per_rr"] == pytest.approx(round(s["positions_total"] * cells * rm.DETECT_PFA, 1), abs=0.11)
+    assert trk_s["false_alarms_per_rr"] == pytest.approx(round(s["positions_total"] * cells * w["pfa"], 1), abs=0.11)
+    if rm.FA_MODE == "fa_rate":         # step 2.3: the tolerated rate (Pfa rounded to 1/20 decade)
+        assert trk_s["false_alarms_per_rr"] == pytest.approx(mo.fa_per_rr(sec), rel=0.13)
 
 
 # ----------------------------------------------------------------------------- the receive chain (step 1.5)
@@ -597,9 +650,10 @@ def test_polarisation_glrt_replaces_the_placeholder():
     """Dual-pol detection looks: one more unknown (the polarisation) = SNR_req(n + 1) - SNR_req(n), n = 1 for a
     coherent dwell; smaller for long noncoherent trains; TRACK looks: the estimation residual; solve() carries it."""
     s = rm.BAND_S
+    from core import detection
     g1 = rm.pol_recombination_loss_db(s, "SEARCH", 1, 1)
-    assert g1 == pytest.approx(rm.shnidman_total_snr_db(rm.DETECT_PD, rm.DETECT_PFA, 2, 1)
-                               - rm.shnidman_total_snr_db(rm.DETECT_PD, rm.DETECT_PFA, 1, 1))
+    assert g1 == pytest.approx(detection.snr_req_db(2, 1, rm.DETECT_PFA, rm.DETECT_PD)
+                               - detection.snr_req_db(1, 1, rm.DETECT_PFA, rm.DETECT_PD))
     assert 0.4 < g1 < 0.6 and rm.pol_recombination_loss_db(s, "SEARCH", 24, 1) < 0.1
     assert rm.pol_recombination_loss_db(rm.BAND_KU, "TRACK", 1, 1) == 0.05
     assert rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"]).losses["polarisation"] == pytest.approx(
@@ -770,7 +824,9 @@ def test_tilt_change_propagates_to_model_optimiser_and_ship(tmp_path):
     assert tilt == 20.0 and nz == pytest.approx(math.sin(math.radians(20.0)))
     # 4308 at 20 deg in the model history (V6.0.10, HPBW 0.886 lambda / D, D = 4.19 m), x (0.886 / HPBW_TX)^2 since
     # step 1.1, x (D_env / 4.19)^2 since the 0.5 mm gaps (step 1.2)
-    assert abs(pos - 4308 * (0.886 / rm.PATTERNS["S"].tx.hpbw) ** 2 * (rm.ARRAY_ENVELOPE_M / 4.19) ** 2) < 25
+    # and x (1.04 / 1.4)^2 since the search lattice of step 2.3
+    assert abs(pos - 4308 * (0.886 / rm.PATTERNS["S"].tx.hpbw) ** 2 * (rm.ARRAY_ENVELOPE_M / 4.19) ** 2
+               * (1.04 / rm.BEAM_SPACING_HPBW) ** 2) < 20
     from core import geometry as geo
     assert rp < geo.RP                  # arrays sit lower on the cone at a smaller tilt
 
@@ -866,7 +922,8 @@ def test_coherent_blocks_replace_the_coherence_floor():
     w = rm.Waveform("w", "SEARCH", "S", 1e-3, 32, 60e-3, 75.0, integration="COHERENT")
     r = rm.solve(w, 2.8, 0.0, rm.TARGETS["ST"])
     assert r.pulse["coherent_blocks"] == m_long or r.pulse["coherent_blocks"] > 1
-    assert r.snr_req_db == pytest.approx(rm.shnidman_total_snr_db(rm.DETECT_PD, rm.DETECT_PFA, r.pulse["coherent_blocks"], 1))
+    from core import detection
+    assert r.snr_req_db == pytest.approx(detection.snr_req_db(r.pulse["coherent_blocks"], 1, rm.DETECT_PFA, rm.DETECT_PD))
 
 
 def test_estimator_constants_share_one_margin_over_the_bounds():

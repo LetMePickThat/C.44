@@ -291,7 +291,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         w = gr["wf"]
         cells = rm.independent_cells(r_min_sec, r_det, w["sig_bw_mhz"], w["pulses_per_block"], w["velocity_hypotheses"],
                                      angle_cells)          # independent cells per position (step 2.2, E1-E5)
-        fa_g = gr["pos"] * cells * rm.DETECT_PFA
+        fa_g = gr["pos"] * cells * w.get("pfa", rm.DETECT_PFA)    # Pfa per cell of the waveform (step 2.3)
         fa += fa_g
         look = (ku_look(gr["theta"], tgt, r_det, p_avg_max_w, rx_sll_db=sll, t_sys_k=t_ku, r_min_km=r_min_sec,
                         v_span_mps=mo.velocity_span_mps(sec))
@@ -560,7 +560,9 @@ def budget(mission: dict, res: dict) -> dict:
             advice.append(_relax_advice(k, worst, load[worst], res, sbs, choice, secs))
     for a in advice:
         warn.append(a)
-    rules = iso.scheduler_rules() + [f"sector {s['id']}: {t}" for s in out_secs for t in s["scheduler_rules"]]
+    rules = ([f"search lattice shifted every frame (grid_dithering, step 2.3): the cumulative detection criterion "
+              f"draws the target position in its cell anew at each revisit"] if rm.GRID_DITHERING else [])
+    rules += iso.scheduler_rules() + [f"sector {s['id']}: {t}" for s in out_secs for t in s["scheduler_rules"]]
     return {"ku_freq_ghz": KU_FREQ_GHZ, "pfa": rm.DETECT_PFA, "confirm_p_min": CONFIRM_P_MIN,
             "sectors": out_secs, "faces": faces, "advice": advice, "scheduler_rules": rules, "warnings": warn}
 

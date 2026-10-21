@@ -24,6 +24,7 @@ if ROOT not in sys.path:
 import numpy as np  # noqa: E402
 
 from core import cost_estimate as ce  # noqa: E402
+from core import detection  # noqa: E402
 from core import geometry as geo  # noqa: E402
 from core import isolation as iso  # noqa: E402
 from core import mission as md  # noqa: E402
@@ -163,6 +164,10 @@ def model_case() -> dict:
         "sky_rise_k": sky_rise_terms(),
         "range_weighting": {f"{s:g} dB": rm.range_weighting(s) for s in rm.RX_SLL_OPTIONS_DB},
         "velocity_mismatch_loss_db": {f"n_c {n:g}": rm.velocity_mismatch_loss_db(n) for n in (0.25, 0.5, 1.0, 2.0, 10.0)},
+        "exact_snr_req_db": {f"N {n} SW{sw} Pfa {pfa:g}": detection.snr_req_db(n, sw, pfa, rm.DETECT_PD)
+                             for n in (1, 8) for sw in range(5) for pfa in (1e-8, 1e-12)},
+        "cumulative_snr_req_db": {f"q {q:g}": detection.required_snr_db(1, 1, 1e-8, rm.DETECT_PD, q=q)
+                                  for q in (0.5, 0.1, 0.02)},
         "modulation": {f"{f} GHz | B {b:g} | v {v:g}": rm.modulation_for(f, b, v)
                        for f in (2.8, 14.0) for b in (10.0, 75.0, 200.0) for v in (5000.0, 25000.0)},
     }

@@ -178,6 +178,9 @@ def validate_sector(sec: dict, index: int) -> List[str]:
     res_max = sec.get("res_max_m")
     if res_max is not None and res_max <= 0:
         errs.append(f"{tag}: res_max_m must be > 0")
+    fa = sec.get("fa_per_rr")
+    if fa is not None and fa <= 0:
+        errs.append(f"{tag}: fa_per_rr ({fa}) must be > 0 (false alarms tolerated per revisit)")
     r_min = sec.get("range_min_km")
     if r_min is not None and (r_min < 0 or (sec.get("range_km") is not None and r_min >= sec["range_km"])):
         errs.append(f"{tag}: range_min_km ({r_min}) must be >= 0 and below range_km (shortest range of interest: "
@@ -262,7 +265,7 @@ def save_mission_json(path: str, mission: dict) -> None:
 _CSV_FIELDS = [
     "id", "shape", "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg",
     "phi0_deg", "eps0_deg", "radius_deg", "rcs_m2", "swerling", "range_km", "rr_target_s",
-    "v_close_min_mps", "v_close_max_mps", "res_max_m", "range_min_km", "allow_ambiguous", "rx_sll_db",
+    "v_close_min_mps", "v_close_max_mps", "res_max_m", "range_min_km", "fa_per_rr", "allow_ambiguous", "rx_sll_db",
     "confirm_mode", "new_targets_per_rr", "tracking",
 ]
 

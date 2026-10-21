@@ -63,14 +63,19 @@ tx_polarisation      = { value = "linear_ev", unit = "", status = "D", source = 
 eta_ohmic            = { value = 1.0, unit = "-", status = "V", source = "radiating-element efficiency, no feed in the digital V6 (local TX / pre-LNA paths are in TX_chain and T_sys); was 0.96 = V5.6.0 low-loss feed (sec. 5.1.7); can carry extra losses later", date = "2026-10-20" }
 
 [search_grid]
-beam_spacing_hpbw = { value = 1.04, unit = "HPBW", status = "V", source = "hexagonal TX beam lattice in TX beamwidths (real uniform-illumination pattern since step 1.1), worst-case optimum (V6.0.10): drives positions and mean TX grid loss; revisit at 2.3 (detection criterion)", date = "2026-10-20" }
+beam_spacing_hpbw = { value = 1.4, unit = "HPBW", status = "V", source = "hexagonal TX beam lattice of the search, in TX beamwidths: optimum of the step-2.3 criterion (Pd AVERAGED over the cell, real pattern): 1.4 at Pd 0.9 per look, 1.6 at 0.5, flat within 0.1 dB from 1.3 to 1.6; was 1.04 (worst-point optimum, V6.0.10). Corner of a cell -7.9 dB, so the lattice must be shifted every frame (grid_dithering). Per-sector tuning at 3.1", date = "2026-10-21" }
+grid_dithering    = { value = true, unit = "", status = "V", source = "the scheduler shifts the search lattice every frame (random or 3-4 offset sequence, step 2.3 option a): a radially closing target does not stay at the same place of its cell, so its position is drawn anew at each revisit (only 'true' is implemented; scheduler rule for 4.3)", date = "2026-10-21" }
 rx_beam_spacing_hpbw = { value = 0.5, unit = "HPBW_RX", status = "V", source = "lattice of the digital RX beams formed in each TX position, in RX beamwidths (step 1.1, option C): residual RX grid loss 1.672 x 0.5^2 = 0.42 dB, ~3.4 RX beams per TX position at -25 dB (count -> compute load, 4.4); optimiser may tune it at 3.1 / 5.2", date = "2026-10-20" }
 enable_grid_loss  = { value = true, unit = "", status = "V", source = "mean TX grid loss over the cell (V6.0.1); mean vs worst point revisited at 2.3", date = "2026-10-20" }
 frame_interleaved = { value = true, unit = "", status = "D", source = "echo wait hidden by interleaving positions (digital RX); false = dwell + 2R/c; scheduler assumption, to check at 4.3", date = "" }
 
 [detection]
-pd  = { value = 0.9, unit = "-", status = "V", source = "single-look probability of detection, all sectors; cumulative Pd / per-sector value at 2.3 (5.1)", date = "2026-10-20" }
-pfa = { value = 1e-8, unit = "-", status = "V", source = "per range-Doppler cell; 1e-6 until then (false-alarm confirmations cost twice the search); Shnidman fit valid down to 1e-9; real cell count at 2.2", date = "2026-10-19" }
+pd  = { value = 0.9, unit = "-", status = "V", source = "search: CUMULATIVE probability of detection reached at the sector's range_km over the looks of a target closing at v_close_max (spaced v x RR, phase averaged), each look's Pd averaged over the target position (step 2.3, A1); Ku confirmation / tracking looks: single-look Pd. Per-sector setting at 5.1", date = "2026-10-21" }
+pfa = { value = 1e-8, unit = "-", status = "V", source = "false-alarm probability per independent cell in the 'pfa_cell' mode, and of the Ku confirmation / tracking looks (step 2.3, C3 / C5); 1e-6 until 2026-10-19", date = "2026-10-21" }
+fa_mode      = { value = "fa_rate", unit = "", status = "V", source = "false-alarm policy of the search (step 2.3, C1): 'fa_rate' = a tolerated number of false alarms per sector and per revisit (sector key fa_per_rr), the Pfa per cell follows the cell count; 'pfa_cell' = pfa per cell fixed. Mission setting at 5.1, confirmation cost in the optimiser at 5.2", date = "2026-10-21" }
+pfa_min      = { value = 1e-14, unit = "-", status = "V", source = "lower bound of the derived Pfa per cell (step 2.3, C4)", date = "2026-10-21" }
+pfa_max      = { value = 1e-4, unit = "-", status = "V", source = "upper bound of the derived Pfa per cell (step 2.3, C4)", date = "2026-10-21" }
+cum_pd_floor = { value = 1e-3, unit = "-", status = "V", source = "looks whose Pd stays below this no longer count in the cumulative probability (step 2.3, A4: no other cap)", date = "2026-10-21" }
 
 # Processing grid, CFAR and cell count (step 2.2): straddle and CFAR losses are COMPUTED per look (mean losses);
 # the false alarms are counted on INDEPENDENT resolution cells: range (R_max - range_min) / (c / 2B) x Doppler (pulses
@@ -430,6 +435,9 @@ small_body_lam_d = 2.0           # bodies of radius up to this (lambda / D_env):
 body_rings_max  = 16            # at most this many rings (6 (2j + 1) points on ring j)
 chunk           = 2048           # directions evaluated per numpy block
 
+[tool.detection]              # detection criterion (core/detection.py, step 2.3)
+offset_quantiles = 16           # quantiles of each random position loss (grid, straddle, velocity filter)
+
 [tool.alerts]                 # validation thresholds (step 1.2)
 mismatch_db_per_pass = 3.0      # alert when the active-mismatch loss of a used scan direction exceeds this, per pass
 sky_above_budget_db  = 1.0      # flag the positions above a sector's sky-noise budget only when the worst is this far above (step 1.5)
@@ -455,6 +463,7 @@ v_close_max_mps = 5000.0
 confirm_mode = "auto"
 new_targets_per_rr = 1.0
 rx_sll_db = -25.0               # RX peak sidelobe level of the volume, one of aperture.rx_sll_options_db (S and Ku)
+fa_per_rr = 10.0                # false alarms tolerated per sector and per revisit (detection.fa_mode 'fa_rate', step 2.3 C2)
 
 [tool.mission_defaults.box]
 phi_min_deg = 0.0

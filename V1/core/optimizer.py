@@ -80,6 +80,7 @@ SIGBW_CAND = tuple(P.get(_T + "sig_bw_mhz"))
 PRI_MIN_S = P.get(_T + "pri_min_s")                  # PRI of single-pulse and range-ambiguous candidates
 RES_MAX_M_DEFAULT = P.get("tool.mission_defaults.res_max_m")   # range resolution requested if the sector gives none
 RANGE_MIN_FRAC = P.get("tool.mission_defaults.range_min_frac") # sector range_min_km when absent, x range_km (step 2.1)
+FA_PER_RR_DEFAULT = P.get("tool.mission_defaults.sector.fa_per_rr")   # false alarms per sector and revisit (2.3)
 THETA_BIN_DEG = P.get(_T + "theta_bin_deg")
 C = rm.C_MPS
 SOLVE_CACHE_SIZE = P.get(_T + "solve_cache_size")    # memoised solve() ranges per process (~50 MB when full)
@@ -274,12 +275,14 @@ def resolution_m(sec: dict, sig_bw_mhz: float) -> float:
 
 @functools.lru_cache(maxsize=SOLVE_CACHE_SIZE)
 def _range_cached(w, f: float, theta: float, rcs_m2: float, swerling: int, v_close_mps: float,
-                  rx_sll_db: float, v_span_mps: Optional[float] = None) -> Optional[float]:
+                  rx_sll_db: float, v_span_mps: Optional[float] = None, pfa: Optional[float] = None,
+                  cum: Optional[Tuple[float, float, float]] = None) -> Optional[float]:
     """Keyed on everything the range depends on (Waveform is a frozen dataclass; the target name is irrelevant).
     The model's module constants are assumed fixed for the life of the process."""
     try:
         tgt = rm.Target("cache", rcs_m2, swerling, v_close_mps)
-        return rm.solve(w, f, theta, tgt, rm.FACE_ELEC_POWER_MW, rx_sll_db, v_span_mps=v_span_mps).range_km
+        return rm.solve(w, f, theta, tgt, rm.FACE_ELEC_POWER_MW, rx_sll_db, v_span_mps=v_span_mps, pfa=pfa,
+                        cum=cum).range_km
     except ValueError:
         return None
 
@@ -294,9 +297,34 @@ def velocity_span_mps(sec: dict) -> float:
     return float(sec["v_close_max_mps"] - sec.get("v_close_min_mps", 0.0))
 
 
-def range_at(w, f, theta, tgt, rx_sll: Optional[float] = None, v_span: Optional[float] = None):
+def range_at(w, f, theta, tgt, rx_sll: Optional[float] = None, v_span: Optional[float] = None,
+             pfa: Optional[float] = None, cum: Optional[Tuple[float, float, float]] = None):
     return _range_cached(w, f, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps,
-                         rm.RX_SLL_DEFAULT_DB if rx_sll is None else float(rx_sll), v_span)
+                         rm.RX_SLL_DEFAULT_DB if rx_sll is None else float(rx_sll), v_span, pfa, cum)
+
+
+def fa_per_rr(sec: dict) -> float:
+    """False alarms tolerated per revisit for a sector (step 2.3, fa_mode 'fa_rate'; mission setting at 5.1)."""
+    return float(sec.get("fa_per_rr", FA_PER_RR_DEFAULT))
+
+
+def search_criterion(sec: dict) -> Tuple[float, float, float]:
+    """(v_close_max, revisit, requirement range) of the cumulative search criterion of a sector (step 2.3)."""
+    return float(sec["v_close_max_mps"]), float(sec["rr_target_s"]), float(sec["range_km"])
+
+
+def cells_per_position(sec: dict, w, f: float) -> float:
+    """Independent cells a search position of this waveform tests (step 2.2, E1-E5)."""
+    d = _processing_dict(w, sec)
+    angle = rm.rx_beams_per_position(f, rx_sll_db(sec)) * rm.RX_BEAM_SPACING_HPBW ** 2
+    return rm.independent_cells(range_min_km(sec), sec["range_km"], w.sig_bw_mhz, d["pulses_per_block"],
+                                d["velocity_hypotheses"], angle)
+
+
+def candidate_pfas(sec: dict, cands: List, f: float, positions: float) -> List[float]:
+    """Pfa per cell of each candidate (step 2.3): the sector's tolerated false alarms over its positions and the
+    candidate's cells ('fa_rate'), or detection.pfa ('pfa_cell'); rounded to 6 digits for the range cache."""
+    return [float(f"{rm.search_pfa(fa_per_rr(sec), positions, cells_per_position(sec, w, f)):.6g}") for w in cands]
 
 
 def candidate_waveforms(sec: dict) -> List:
@@ -350,19 +378,21 @@ def _scan_factor(f: float, nb: int) -> Optional[np.ndarray]:
     return hs[0] if np.allclose(hs[0], hs[1], rtol=1e-9, atol=0.0) else None
 
 
-def _range_matrix(cands: List, f: float, tgt, nb: int, rx_sll: float, v_span: Optional[float] = None) -> np.ndarray:
+def _range_matrix(cands: List, f: float, tgt, nb: int, rx_sll: float, v_span: Optional[float] = None,
+                  pfas: Optional[List[float]] = None, cum: Optional[Tuple[float, float, float]] = None) -> np.ndarray:
     """ranges[c, i] (km, full peak power) of candidate c in 1-deg bin i; NaN where the waveform is not playable."""
     r = np.full((len(cands), nb), np.nan)
     h = _scan_factor(f, nb)
     th = _theta_centres(f, nb)
     for j, w in enumerate(cands):
+        pfa = None if pfas is None else pfas[j]
         if h is not None:
-            r0 = range_at(w, f, 0.0, tgt, rx_sll, v_span)
+            r0 = range_at(w, f, 0.0, tgt, rx_sll, v_span, pfa, cum)
             if r0 is not None:
                 r[j] = r0 * h
         else:
             for i, t in enumerate(th):
-                v = range_at(w, f, float(t), tgt, rx_sll, v_span)
+                v = range_at(w, f, float(t), tgt, rx_sll, v_span, pfa, cum)
                 if v is not None:
                     r[j, i] = v
     return r
@@ -518,24 +548,27 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
         pos, unscanned, sky_s, factor = search_positions(sec, sph, m, f, sky)
         P = np.array([pos[k] for k in range(4)])
         if P.sum() > 0 and cands:
-            per_f.append((f, P, unscanned, _range_matrix(cands, f, tgt, P.shape[1], rx_sll_db(sec), velocity_span_mps(sec)) * factor, sky_s))
+            pfas = candidate_pfas(sec, cands, f, float(P.sum()))
+            r = _range_matrix(cands, f, tgt, P.shape[1], rx_sll_db(sec), velocity_span_mps(sec), pfas,
+                              search_criterion(sec)) * factor
+            per_f.append((f, P, unscanned, r, sky_s, pfas))
     if not per_f:
         return {"id": sec["id"], "status": "NO_POSITIONS", "note": "empty sector, fully unscanned or blinded by the sky"}
     min_uns = min(x[2] for x in per_f)
     best = None
-    for f, P, unscanned, r, sky_s in per_f:
+    for f, P, unscanned, r, sky_s, pfas in per_f:
         plan = _plan_waveforms(P, r, e_pos, t_pos, r_want, rr, p_avg_max_w, max_wf, short_tol)
         if plan is None:
             continue
         # [D] a frequency that leaves more of the sector unscanned (e.g. > 2.85 GHz, 70 deg scan limit) never wins
         key = (round(unscanned - min_uns, 3), round(plan.short_frac / short_tol), plan.objective)
         if best is None or key < best[0]:
-            best = (key, f, P, unscanned, plan, sky_s)
+            best = (key, f, P, unscanned, plan, sky_s, pfas)
     if best is None:
         return {"id": sec["id"], "status": "NO_WAVEFORM", "note": "no playable waveform in the search space"}
-    _, f, P, unscanned, plan, sky_s = best
+    _, f, P, unscanned, plan, sky_s, pfas = best
     plan.pae = pae
-    return f, P, unscanned, plan, cands, sky_s
+    return f, P, unscanned, plan, cands, sky_s, pfas
 
 
 def sector_plan(sec: dict, eps_min: float, eps_max: float, p_avg_max_w: float,
@@ -548,8 +581,9 @@ def sector_plan(sec: dict, eps_min: float, eps_max: float, p_avg_max_w: float,
     best = _best_plan(sec, sph, sph.mask(sec), p_avg_max_w, sky)
     if isinstance(best, dict):
         return None
-    f, _, _, plan, cands, _ = best
+    f, _, _, plan, cands, _, pfas = best
     return {"freq_ghz": f, "wf": [cands[c] if c >= 0 else None for c in plan.choice],
+            "pfa": [pfas[c] if c >= 0 else None for c in plan.choice],
             "power_scale": [float(s) for s in plan.s_bin],
             "short": [bool(r < sec["range_km"]) for r in plan.r_bin]}   # NaN (no position) compares False
 
@@ -558,7 +592,7 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
     best = _best_plan(sec, sph, m, p_avg_max_w, sky)
     if isinstance(best, dict):
         return best
-    f, P, unscanned, plan, cands, sky_s = best
+    f, P, unscanned, plan, cands, sky_s, pfas = best
     r_want, rr = sec["range_km"], sec["rr_target_s"]
     v_max = sec["v_close_max_mps"]
     p_tot = P.sum(axis=0)
@@ -573,6 +607,7 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
     for n, c in enumerate(order, 1):
         bins = populated[plan.choice[populated] == c]
         d = _wf_dict(f"WF-{sec['id']}" + (f"-{n}" if len(order) > 1 else ""), cands[c], f, sec)
+        d["pfa"] = pfas[c]
         d.update({"theta_lo_deg": float(bins.min() * THETA_BIN_DEG), "theta_hi_deg": float((bins.max() + 1) * THETA_BIN_DEG),
                   "positions": round(float(p_tot[bins].sum()), 1)})
         wf_set.append(d)

@@ -229,3 +229,23 @@ Model changes (radar_model V6.7.0, see its header; optimistic end of every range
   single pulses (labelled COHE, equivalent for N = 1); confirmation modes KU1+7 -> KU7 on several sectors.
 - New outputs: coherent blocks, pulses per block, velocity hypotheses per waveform; Doppler floor.
 - core/cost_table.json regenerated.
+
+## 2026-10-21 -- roadmap step 2.3 (detection criterion)
+
+Model changes (radar_model V6.8.0, see its header):
+- Exact detection laws, Swerling 0-4, any Pfa (core/detection.py); Shnidman kept as a cross-check (within 0.3 dB).
+- Pd of a look averaged over the random position of the target (search lattice cell and RX lattice with the real
+  patterns, range / Doppler straddle, velocity-filter offset): one loss 'positions' replaces grid_tx, grid_rx,
+  straddle_range, straddle_doppler and the bank's mean loss in the budget.
+- Search criterion: detection.pd 0.9 = CUMULATIVE probability reached at range_km over the looks of a target closing
+  at v_close_max, spaced v x RR (q = v RR / R), phase averaged, no cap on the looks counted (Pd > 0.001).
+- False alarms: 'fa_rate' mode, 10 per sector and revisit (Pfa per cell 1e-11 to 1e-7 on the test missions).
+- Search lattice 1.04 -> 1.4 TX beamwidths (lattice shifted every frame: scheduler rule).
+- WF-LRS benchmark (CLI, single look, no criterion parameters): ranges -10.2 % (positions loss 4.6 dB with the
+  wider lattice at Pd 0.9 on one look; ST 8325 -> 7479 km).
+- Test missions, two regimes: sectors with q << 1 (long range, e.g. 8000 km / 120 s / 5 km/s: q = 0.075, tens of
+  looks) need far less energy: -69 to -96 % per face; the anti-KKV sectors (500 km, RR 20 s, 25 km/s: q = 1, the
+  target covers the whole required range between two looks) need more: +280 to +305 % on the faces they dominate
+  (mission_veille500, mission_synthetic_mix). Ku time mostly -80 to -99 % (10 false alarms per revisit instead of
+  hundreds), +1000 % on one face of mission_example_csv. Many confirmation modes change (KU7 -> KU1+7 or S2).
+- core/cost_table.json regenerated (fast estimate: still single look at detection.pfa, see the renvoi to 5.5).
