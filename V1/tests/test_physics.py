@@ -414,14 +414,163 @@ def test_s_trm_block_must_divide_the_ku_block(tmp_path):
 
 
 def test_t_sys_from_the_receive_chain(tmp_path):
-    """T_sys is derived from [band.<b>.rx] (Friis) in both bands: a 1 dB worse S LNA must raise it accordingly."""
-    assert rm.BAND_S.t_sys_k == pytest.approx(154.3, abs=0.1) and rm.BAND_KU.t_sys_k == pytest.approx(238.7, abs=0.1)
+    """T_sys is derived from [band.<b>.rx] (Friis, cold sky since step 1.5) in both bands: a 1 dB worse S LNA must
+    raise it accordingly."""
+    assert rm.BAND_S.t_sys_k == pytest.approx(144.5, abs=0.1) and rm.BAND_KU.t_sys_k == pytest.approx(230.8, abs=0.1)
     assert "pre_LNA" not in rm.BAND_S.losses_db and "lumped_impl" not in rm.BAND_KU.losses_db
     assert set(rm.BAND_S.losses_db) - {"Ku_blockage"} == set(rm.BAND_KU.losses_db) - {"S_blockage"}   # same posts
     text = _replace_value(_default_toml(), "band.S.rx", "lna_nf_db ", "0.75", "1.75")
     out = _run_with_params(text, "from core import radar_model as rm\nprint(rm.BAND_S.t_sys_k)", tmp_path)
     l_pre = 10 ** (0.85 / 10)
     assert float(out) - rm.BAND_S.t_sys_k == pytest.approx(l_pre * 290 * (10 ** 0.175 - 10 ** 0.075) * 10 ** 0.005, rel=1e-6)
+
+
+# ----------------------------------------------------------------------------- the receive chain (step 1.5)
+def test_adc_noise_figure_from_the_converter(tmp_path):
+    """NF = P_FS - (6.02 ENOB + 1.76) - 10 log10(k T0 fs): one more bit = -6.02 dB, +6 dB of full scale = +6 dB; the
+    clipping level follows the full scale and the gain; an analog chain compressing before the ADC is refused."""
+    s = rm.BAND_S
+    assert s.adc_nf_db == pytest.approx(10.0 - 80.02 - 10 * math.log10(rm.K_BOLTZ * 290 * 250e6 * 1e3), abs=1e-9)
+    assert s.adc_fs_hz == pytest.approx(250e6) and s.clip_ant_dbm == pytest.approx(10.0 - 3.0 - s.gain_to_adc_db)
+    assert s.gain_to_adc_db == pytest.approx(-0.85 + 27.5 + 20.0)
+    text = _replace_value(_default_toml(), "band.S.rx", "adc_enob ", "13.0", "14.0")
+    out = _run_with_params(text, "from core import radar_model as rm\nprint(rm.BAND_S.adc_nf_db)", tmp_path)
+    assert float(out) == pytest.approx(s.adc_nf_db - 6.02, abs=1e-9)
+    bad = _replace_value(_default_toml(), "band.Ku.rx", "post_lna_op1db_dbm ", "15.0", "12.0")
+    path = tmp_path / "bad.toml"
+    path.write_text(bad, encoding="utf-8")
+    res = subprocess.run([PYTHON, "-c", "import core.radar_model"], cwd=tb.ROOT, capture_output=True, text=True,
+                         env={**os.environ, params.PARAMS_ENV: str(path)}, timeout=120)
+    assert res.returncode != 0 and "compress before" in res.stderr
+
+
+def test_saturation_range_scales_as_rcs_quarter_power():
+    """The echo per element grows as sigma / R^4: the shortest unsaturated range scales as sigma^(1/4), and at that
+    range the echo sits exactly on the clipping level."""
+    for f in (2.8, 14.0):
+        r1, r16 = rm.min_unsaturated_range_km(f, 0.0, 1.0), rm.min_unsaturated_range_km(f, 0.0, 16.0)
+        assert r16 / r1 == pytest.approx(2.0, rel=1e-12)
+        assert rm.echo_peak_dbm_per_element(f, 0.0, 1.0, r1) == pytest.approx(rm.band_for_frequency(f).clip_ant_dbm)
+    assert rm.rx_deaf_after_pulse_s(rm.BAND_S, 1e-3) == pytest.approx(1e-3 + 50e-9)
+
+
+def test_polarisation_glrt_replaces_the_placeholder():
+    """Dual-pol detection looks: one more unknown (the polarisation) = SNR_req(n + 1) - SNR_req(n), n = 1 for a
+    coherent dwell; smaller for long noncoherent trains; TRACK looks: the estimation residual; solve() carries it."""
+    s = rm.BAND_S
+    g1 = rm.pol_recombination_loss_db(s, "SEARCH", "COHERENT", 16, 1)
+    assert g1 == pytest.approx(rm.shnidman_total_snr_db(rm.DETECT_PD, rm.DETECT_PFA, 2, 1)
+                               - rm.shnidman_total_snr_db(rm.DETECT_PD, rm.DETECT_PFA, 1, 1))
+    assert 0.4 < g1 < 0.6 and rm.pol_recombination_loss_db(s, "SEARCH", "NONCOHERENT", 24, 1) < 0.1
+    assert rm.pol_recombination_loss_db(rm.BAND_KU, "TRACK", "COHERENT", 64, 1) == 0.05
+    assert rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"]).losses["polarisation"] == pytest.approx(
+        rm.pol_recombination_loss_db(s, "SEARCH", "NONCOHERENT", 24, 1))
+    assert "pol_loss_dual_db" not in {p.path.split(".")[-1] for p in params.P}
+
+
+def test_solve_scales_with_the_system_temperature():
+    r0 = rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"])
+    r1 = rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"], t_sys_k=16 * rm.BAND_S.t_sys_k)
+    assert r0.t_sys_k == rm.BAND_S.t_sys_k and r1.range_km / r0.range_km == pytest.approx(0.5, rel=1e-12)
+
+
+def _boresight_body(typ: str, radius_deg: float, **kw) -> "sky.Body":
+    from core import sky
+    return sky.parse({"bodies": [{"id": typ, "type": typ, "phi_deg": 0.0, "eps_deg": rm.SECTOR_TILT_DEG,
+                                  "angular_radius_deg": radius_deg, **kw}]}).bodies[0]
+
+
+def test_sky_body_filling_the_front_half_space_adds_its_temperature():
+    """A body covering the whole front half-space adds T_b (Parseval normalisation of the mean pattern, 2 %)."""
+    from core import sky
+    d = sky.unit(np.array([0.0]), np.array([rm.SECTOR_TILT_DEG]))
+    for b, f in (("S", 2.8), ("Ku", 14.0)):
+        for sll in rm.RX_SLL_OPTIONS_DB:
+            r = sky.body_rise_k(_boresight_body("earth", 90.0, tb_k=100.0), b, f, sll, mo.face_frame(0.0), d)
+            assert r[0] == pytest.approx(100.0, rel=0.02)
+
+
+def test_sun_in_the_beam_matches_the_hand_calculation():
+    """S: the Sun (0.267 deg) is small against the beam: T_b Omega_sun G0 / 4 pi x the mean of a Gaussian main lobe
+    over the disk (within 1 %); Ku: the Sun is wider than the -3 dB beam: most of T_b. Both blind the position (rise >
+    sky.blind_rise_db). Behind the face: nothing."""
+    from core import sky
+    d = sky.unit(np.array([0.0]), np.array([rm.SECTOR_TILT_DEG]))
+    sun = _boresight_body("sun", 0.267)
+    rs = sky.body_rise_k(sun, "S", 2.8, -25.0, mo.face_frame(0.0), d)[0]
+    a_r2 = 4 * math.log(2) * (math.radians(0.267) * rm.ARRAY_ENVELOPE_M / rm.lambda_m(2.8) / rm.rx_beam("S").hpbw) ** 2
+    hand = (sun.tb_k[0] * math.pi * math.radians(0.267) ** 2 * rm.gain_lin(rm.rx_beam("S").eta, 2.8, 0.0) / (4 * math.pi)
+            * (1 - math.exp(-a_r2)) / a_r2)
+    assert rs == pytest.approx(hand, rel=0.01)
+    rk = sky.body_rise_k(sun, "Ku", 14.0, -25.0, mo.face_frame(0.0), d)[0]
+    assert 0.75 * sun.tb_k[1] < rk < sun.tb_k[1]          # disk wider than the -3 dB beam: most of the main lobe
+    for b, r in (("S", rs), ("Ku", rk)):
+        band = rm.BANDS[b]
+        assert rm.lin_to_db(rm.t_sys_with_rise(band, r) / band.t_sys_k) > sky.BLIND_RISE_DB
+    assert sky.body_rise_k(sun, "S", 2.8, -25.0, mo.face_frame(180.0), d)[0] == 0.0
+
+
+def test_galactic_rise_profile_and_worst_case():
+    from core import sky
+    d = sky.unit(np.array([180.0, 0.0]), np.array([30.0, 60.0]))      # galactic centre, galactic pole
+    s = sky.parse({"galactic": {"pole_phi_deg": 0.0, "pole_eps_deg": 60.0, "centre_phi_deg": 180.0, "centre_eps_deg": 30.0}})
+    r = sky.galactic_rise_k(s, d, sky.GAL_REF_GHZ)
+    assert r[0] == pytest.approx(sky.GAL_T_CENTRE_K - sky.GAL_T_HIGH_K) and r[1] == pytest.approx(0.0, abs=1e-9)
+    w = sky.galactic_rise_k(sky.parse(None), d, 14.0)
+    assert np.allclose(w, (sky.GAL_T_CENTRE_K - sky.GAL_T_HIGH_K) * (14.0 / sky.GAL_REF_GHZ) ** -sky.GAL_INDEX)
+    assert sky.parse(None).galactic.startswith("worst case")
+
+
+def test_sky_sector_budget_blinds_and_takes_the_quantile(runs):
+    """Sky test mission: the Sun blinds part of its sector (those positions are not scanned), the budget T_sys is the
+    (1 - short_tol) position quantile of the others, ranges follow it; a sector without bodies only gets the galaxy."""
+    res = runs["mission_sky_demo.json"]
+    by = {s["id"]: s for s in res["sectors"]}
+    sun = by["SUN"]["sky"]
+    assert sun["blinded_pct"] > 0 and sun["blinded_by"] == ["SUN"]
+    assert by["SUN"]["sky"]["t_sys_budget_k"] > rm.BAND_S.t_sys_k
+    earth = by["EARTH"]["sky"]
+    assert earth["blinded_pct"] == 0 and 1.5 < earth["rise_db"] < 4.5
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_sky_demo.json"))
+    sec = next(s for s in m["sectors"] if s["id"] == "SUN")
+    sph = mo._sphere(-90.0, 90.0)
+    pos_sky, _, _, _ = mo.search_positions(sec, sph, sph.mask(sec), 2.8, m["global"]["sky"])
+    pos_cold, _ = mo.positions_table(sph, sph.mask(sec), 2.8)
+    blinded = 1.0 - sum(v.sum() for v in pos_sky.values()) / sum(v.sum() for v in pos_cold.values())
+    assert blinded == pytest.approx(sun["blinded_pct"] / 100.0, abs=2e-3)
+    trk_sun = next(s for s in res["tracking"]["sectors"] if s["id"] == "SUN")
+    assert trk_sun["ku_sky"]["band"] == "Ku" and trk_sun["ku_sky"]["blinded_by"] == ["SUN"]
+
+
+def test_invalid_sky_is_refused():
+    bad = {"bodies": [{"id": "X", "type": "comet", "phi_deg": 0.0, "eps_deg": 0.0, "angular_radius_deg": 1.0},
+                      {"id": "Y", "type": "sun", "phi_deg": 0.0, "eps_deg": 95.0, "angular_radius_deg": 0.3}],
+           "galactic": {"pole_phi_deg": 0.0, "pole_eps_deg": 90.0, "centre_phi_deg": 0.0, "centre_eps_deg": 45.0}}
+    errs = md.validate_global({**md.GLOBAL_DEFAULTS, "sky": bad})
+    assert any("give tb_k" in e for e in errs) and any("outside [-90, 90]" in e for e in errs)
+    assert any("90 expected" in e for e in errs)
+    with pytest.raises(ValueError):
+        mo.run({"global": {**md.GLOBAL_DEFAULTS, "sky": bad}, "sectors": [md.new_sector([])]}, workers=1)
+
+
+def test_isolation_matrix_and_scheduler_rules(tmp_path):
+    """Same band, other faces: forbidden (sync rule); S harmonic in Ku on the same face: frequency rule; Ku -> S:
+    allowed; the harmonic order follows the bands; 'cancel' is not implemented."""
+    from core import isolation as iso
+    v = {(p["tx"], p["rx"], p["relation"]): p["verdict"] for p in iso.matrix()}
+    assert v[("S", "S", "same")] == v[("Ku", "Ku", "same")] == "eclipsing"
+    assert all(v[(b, b, r)] == "forbidden" for b in ("S", "Ku") for r in ("adjacent", "opposite"))
+    assert v[("S", "Ku", "same")] == "frequency_rule" and v[("S", "Ku", "adjacent")] == "allowed"
+    assert all(v[("Ku", "S", r)] == "allowed" for r in iso.RELATIONS)
+    assert iso.HARMONIC_ORDERS == (5,)
+    assert iso.harmonic_conflict(2.8, 75.0, 14.0, 50.0) and not iso.harmonic_conflict(2.75, 10.0, 14.2, 50.0)
+    assert any("common TX / RX cadence" in r for r in iso.scheduler_rules())
+    text = _replace_value(_default_toml(), "isolation", "interface_mode ", '"sync"', '"cancel"')
+    path = tmp_path / "bad.toml"
+    path.write_text(text, encoding="utf-8")
+    res = subprocess.run([PYTHON, "-c", "import core.isolation"], cwd=tb.ROOT, capture_output=True, text=True,
+                         env={**os.environ, params.PARAMS_ENV: str(path)}, timeout=120)
+    assert res.returncode != 0 and "not implemented" in res.stderr
 
 
 def test_tx_chain_from_its_components():

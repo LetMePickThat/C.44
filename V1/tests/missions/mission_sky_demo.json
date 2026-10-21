@@ -1,0 +1,29 @@
+{
+  "_comment": "TEST mission (step 1.5): a sky in the ship frame -- the Sun inside sector SUN, the Earth limb in sector EARTH, the Moon in sector MOON (with Ku tracking), a galactic frame. Test values only, not radar performance.",
+  "global": {
+    "eps_min_deg": -90.0,
+    "eps_max_deg": 90.0,
+    "face_elec_mw": 2.0,
+    "sky": {
+      "bodies": [
+        {"id": "SUN", "type": "sun", "phi_deg": 45.0, "eps_deg": 20.0, "angular_radius_deg": 0.267},
+        {"id": "MOON", "type": "moon", "phi_deg": 100.0, "eps_deg": 30.0, "angular_radius_deg": 0.26},
+        {"id": "EARTH", "type": "earth_ocean", "phi_deg": 200.0, "eps_deg": -80.0, "angular_radius_deg": 60.0}
+      ],
+      "galactic": {"pole_phi_deg": 0.0, "pole_eps_deg": 60.0, "centre_phi_deg": 180.0, "centre_eps_deg": 30.0}
+    }
+  },
+  "sectors": [
+    {"id": "SUN", "shape": "box", "phi_min_deg": 30.0, "phi_max_deg": 60.0, "eps_min_deg": 10.0, "eps_max_deg": 30.0,
+     "rcs_m2": 1.0, "swerling": 1, "range_km": 1500.0, "rr_target_s": 20.0, "v_close_min_mps": 1000.0,
+     "v_close_max_mps": 7000.0, "rx_sll_db": -25.0, "confirm_mode": "auto", "new_targets_per_rr": 1.0, "tracking": []},
+    {"id": "EARTH", "shape": "box", "phi_min_deg": 190.0, "phi_max_deg": 230.0, "eps_min_deg": -40.0, "eps_max_deg": -5.0,
+     "rcs_m2": 1.0, "swerling": 1, "range_km": 1500.0, "rr_target_s": 20.0, "v_close_min_mps": 1000.0,
+     "v_close_max_mps": 7000.0, "rx_sll_db": -30.0, "confirm_mode": "auto", "new_targets_per_rr": 1.0, "tracking": []},
+    {"id": "MOON", "shape": "cap", "phi0_deg": 100.0, "eps0_deg": 30.0, "radius_deg": 6.0,
+     "rcs_m2": 10.0, "swerling": 1, "range_km": 3000.0, "rr_target_s": 10.0, "v_close_min_mps": 1000.0,
+     "v_close_max_mps": 7000.0, "rx_sll_db": -25.0, "confirm_mode": "auto", "new_targets_per_rr": 1.0,
+     "tracking": [{"r_min_km": 5.0, "r_max_km": 1000.0, "n_targets": 2.0, "rr_s": 2.0, "angle_zone_deg": 0.2,
+                   "range_acc_m": 10.0, "vr_acc_mps": 5.0}]}
+  ]
+}

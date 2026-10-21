@@ -5,11 +5,11 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 204.5896144245405,
-    "energy_fraction": 0.11156684912601016,
-    "energy_j_per_refresh": 4091792.2884908104,
+    "avg_power_kw": 193.1488163763627,
+    "energy_fraction": 0.10532795086466665,
+    "energy_j_per_refresh": 3862976.327527254,
     "positions": 1805.241371916979,
-    "time_fraction_min": 0.016701193014248206,
+    "time_fraction_min": 0.015767250316437772,
     "unreachable_pct": 0.0
    }
   },
@@ -18,11 +18,11 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 84.05921082049494,
-    "energy_fraction": 0.04583918552092799,
-    "energy_j_per_refresh": 420296.05410247465,
+    "avg_power_kw": 79.37474088787846,
+    "energy_fraction": 0.04328464944793336,
+    "energy_j_per_refresh": 396873.7044393923,
     "positions": 316.930336670364,
-    "time_fraction_min": 0.00686197639350979,
+    "time_fraction_min": 0.006479570684724773,
     "unreachable_pct": 0.0
    }
   },
@@ -31,44 +31,44 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 190.6980063300684,
-    "energy_fraction": 0.10399147464401139,
-    "energy_j_per_refresh": 22883760.75960821,
+    "avg_power_kw": 175.76353722326616,
+    "energy_fraction": 0.09584740698787816,
+    "energy_j_per_refresh": 21091624.46679194,
     "positions": 2959.9574137688787,
-    "time_fraction_min": 0.015567184190209667,
+    "time_fraction_min": 0.014348043854960501,
     "unreachable_pct": 0.0
    },
    "1": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 190.69800633006838,
-    "energy_fraction": 0.10399147464401137,
-    "energy_j_per_refresh": 22883760.759608205,
+    "avg_power_kw": 175.76353722326616,
+    "energy_fraction": 0.09584740698787816,
+    "energy_j_per_refresh": 21091624.46679194,
     "positions": 2959.9574137688787,
-    "time_fraction_min": 0.015567184190209664,
+    "time_fraction_min": 0.014348043854960501,
     "unreachable_pct": 0.0
    },
    "2": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 190.69800633006838,
-    "energy_fraction": 0.10399147464401137,
-    "energy_j_per_refresh": 22883760.759608205,
+    "avg_power_kw": 175.76353722326616,
+    "energy_fraction": 0.09584740698787816,
+    "energy_j_per_refresh": 21091624.46679194,
     "positions": 2959.9574137688787,
-    "time_fraction_min": 0.015567184190209664,
+    "time_fraction_min": 0.014348043854960501,
     "unreachable_pct": 0.0
    },
    "3": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 190.69800633006838,
-    "energy_fraction": 0.10399147464401137,
-    "energy_j_per_refresh": 22883760.759608205,
+    "avg_power_kw": 175.76353722326613,
+    "energy_fraction": 0.09584740698787815,
+    "energy_j_per_refresh": 21091624.466791935,
     "positions": 2959.9574137688787,
-    "time_fraction_min": 0.015567184190209664,
+    "time_fraction_min": 0.014348043854960501,
     "unreachable_pct": 0.0
    }
   }
@@ -80,7 +80,7 @@
      "S03"
     ],
     "caveat": "",
-    "detail": "S03 detects S01's target from 6079 km (worst scan angle), revisit 120 s: 5479 km guaranteed at 5000 m/s, vs 4900 km for S01's own spec (5000 km, revisit 20 s)",
+    "detail": "S03 detects S01's target from 6157 km (worst scan angle), revisit 120 s: 5557 km guaranteed at 5000 m/s, vs 4900 km for S01's own spec (5000 km, revisit 20 s)",
     "fraction": 1.0,
     "full": true,
     "index": 0,
@@ -100,46 +100,46 @@
   "cancelled": false,
   "faces_total": {
    "0": {
-    "avg_power_kW": 383.8979,
-    "dissipation_kW": 76.9321,
-    "energy_fraction": 0.2093,
-    "ku_duty_pct": 10.2577,
-    "p_available_kW": 1449.8871,
+    "avg_power_kW": 380.3355,
+    "dissipation_kW": 76.2318,
+    "energy_fraction": 0.2074,
+    "ku_duty_pct": 10.2829,
+    "p_available_kW": 1453.4495,
     "positions": 4765.2,
-    "power_margin": 0.7907,
-    "time_fraction": 0.0512,
-    "time_margin_s": 0.9488
+    "power_margin": 0.7926,
+    "time_fraction": 0.0483,
+    "time_margin_s": 0.9517
    },
    "1": {
-    "avg_power_kW": 269.0423,
-    "dissipation_kW": 53.9717,
-    "energy_fraction": 0.1467,
-    "ku_duty_pct": 11.0703,
-    "p_available_kW": 1564.7427,
+    "avg_power_kW": 266.5085,
+    "dissipation_kW": 53.4639,
+    "energy_fraction": 0.1453,
+    "ku_duty_pct": 11.0882,
+    "p_available_kW": 1567.2765,
     "positions": 3276.1,
-    "power_margin": 0.8533,
+    "power_margin": 0.8547,
     "time_fraction": 0.0391,
     "time_margin_s": 0.9609
    },
    "2": {
-    "avg_power_kW": 184.5192,
-    "dissipation_kW": 36.9321,
-    "energy_fraction": 0.1006,
-    "ku_duty_pct": 11.6683,
-    "p_available_kW": 1649.2658,
+    "avg_power_kW": 182.5042,
+    "dissipation_kW": 36.5289,
+    "energy_fraction": 0.0995,
+    "ku_duty_pct": 11.6825,
+    "p_available_kW": 1651.2808,
     "positions": 2960.0,
-    "power_margin": 0.8994,
+    "power_margin": 0.9005,
     "time_fraction": 0.0265,
     "time_margin_s": 0.9735
    },
    "3": {
-    "avg_power_kW": 184.5192,
-    "dissipation_kW": 36.9321,
-    "energy_fraction": 0.1006,
-    "ku_duty_pct": 11.6683,
-    "p_available_kW": 1649.2658,
+    "avg_power_kW": 182.5042,
+    "dissipation_kW": 36.5289,
+    "energy_fraction": 0.0995,
+    "ku_duty_pct": 11.6825,
+    "p_available_kW": 1651.2808,
     "positions": 2960.0,
-    "power_margin": 0.8994,
+    "power_margin": 0.9005,
     "time_fraction": 0.0265,
     "time_margin_s": 0.9735
    }
@@ -151,20 +151,22 @@
    "face_elec_avail_kW": 1833.7849999999999,
    "face_elec_mw": 2.0,
    "max_wf_per_sector": 4,
-   "objective": "max(energy,time)"
+   "objective": "max(energy,time)",
+   "sky_bodies": [],
+   "sky_galactic": "worst case (no galactic frame given)"
   },
   "sectors": [
    {
     "faces": {
      "0": {
-      "avg_power_kW": 199.37879362769615,
-      "dissipation_kW": 40.000008486776274,
-      "dissipation_kW_m2": 3.0083337209151555,
-      "energy_J_per_refresh": 3987575.8725539227,
-      "energy_fraction": 0.10872528329531334,
+      "avg_power_kW": 197.83134277501375,
+      "dissipation_kW": 39.70295538857175,
+      "dissipation_kW_m2": 2.9859928543494294,
+      "energy_J_per_refresh": 3956626.8555002753,
+      "energy_fraction": 0.1078814270893337,
       "positions": 1805.2,
       "theta_max_deg": 51.0,
-      "time_fraction": 0.0247368441231785
+      "time_fraction": 0.021885453306653042
      }
     },
     "flags": [],
@@ -172,17 +174,30 @@
     "mismatch_db_per_pass_max": 0.1297354438199937,
     "positions_total": 1805.2,
     "range_km": {
-     "at_best_scan": 5441,
-     "at_worst_scan": 5218,
+     "at_best_scan": 5449,
+     "at_worst_scan": 5226,
      "positions_short_of_range_pct": 0.0,
      "requested": 5000
     },
-    "rr_alone_s": 2.174505665906267,
+    "rr_alone_s": 2.157628541786674,
     "rr_est_mission_s": 20.0,
     "rr_target_s": 20,
     "rx_beams_per_position": 3.376688001163386,
     "rx_sll_db": -25.0,
     "rx_sll_held_up_to_deg": 51.0,
+    "s_min_unsaturated_range_km": 12.245459344502835,
+    "sky": {
+     "above_budget_pct": 0.0,
+     "band": "S",
+     "blind_rise_db": 10.0,
+     "blinded_by": [],
+     "blinded_pct": 0.0,
+     "galactic": "worst case (no galactic frame given)",
+     "rise_db": 0.222291576594411,
+     "t_sys_budget_k": 152.05116100887255,
+     "t_sys_cold_k": 144.46431510192332,
+     "worst_rise_db": 0.222291576594411
+    },
     "status": "OK",
     "time_to_impact_at_detection_s": 980.0,
     "unscanned_pct": 0.0,
@@ -198,6 +213,7 @@
      "name": "WF-S01-1",
      "pae": 0.7992007992007992,
      "pri_ms": 1.0,
+     "rx_deaf_us": 200.05,
      "sig_bw_mhz": 75.0,
      "tau_us": 200.0,
      "unamb_range_km": 150
@@ -205,8 +221,8 @@
     "wf_by_bin": [
      {
       "positions": 36.0,
-      "power_scale": 0.717,
-      "range_km_at_bin_max": 5434,
+      "power_scale": 0.712,
+      "range_km_at_bin_max": 5442,
       "theta_hi_deg": 5.0,
       "theta_lo_deg": 0.0,
       "wf": {
@@ -221,6 +237,7 @@
        "name": "WF-S01-1",
        "pae": 0.7992007992007992,
        "pri_ms": 1.0,
+       "rx_deaf_us": 200.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 200.0,
        "unamb_range_km": 150
@@ -228,8 +245,8 @@
      },
      {
       "positions": 106.9,
-      "power_scale": 0.73,
-      "range_km_at_bin_max": 5410,
+      "power_scale": 0.725,
+      "range_km_at_bin_max": 5418,
       "theta_hi_deg": 10.0,
       "theta_lo_deg": 5.0,
       "wf": {
@@ -244,6 +261,7 @@
        "name": "WF-S01-1",
        "pae": 0.7992007992007992,
        "pri_ms": 1.0,
+       "rx_deaf_us": 200.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 200.0,
        "unamb_range_km": 150
@@ -251,8 +269,8 @@
      },
      {
       "positions": 174.4,
-      "power_scale": 0.753,
-      "range_km_at_bin_max": 5368,
+      "power_scale": 0.748,
+      "range_km_at_bin_max": 5376,
       "theta_hi_deg": 15.0,
       "theta_lo_deg": 10.0,
       "wf": {
@@ -267,6 +285,7 @@
        "name": "WF-S01-1",
        "pae": 0.7992007992007992,
        "pri_ms": 1.0,
+       "rx_deaf_us": 200.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 200.0,
        "unamb_range_km": 150
@@ -274,8 +293,8 @@
      },
      {
       "positions": 236.8,
-      "power_scale": 0.788,
-      "range_km_at_bin_max": 5307,
+      "power_scale": 0.783,
+      "range_km_at_bin_max": 5315,
       "theta_hi_deg": 20.0,
       "theta_lo_deg": 15.0,
       "wf": {
@@ -290,6 +309,7 @@
        "name": "WF-S01-1",
        "pae": 0.7992007992007992,
        "pri_ms": 1.0,
+       "rx_deaf_us": 200.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 200.0,
        "unamb_range_km": 150
@@ -297,8 +317,8 @@
      },
      {
       "positions": 292.0,
-      "power_scale": 0.837,
-      "range_km_at_bin_max": 5227,
+      "power_scale": 0.832,
+      "range_km_at_bin_max": 5235,
       "theta_hi_deg": 25.0,
       "theta_lo_deg": 20.0,
       "wf": {
@@ -313,6 +333,7 @@
        "name": "WF-S01-1",
        "pae": 0.7992007992007992,
        "pri_ms": 1.0,
+       "rx_deaf_us": 200.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 200.0,
        "unamb_range_km": 150
@@ -320,8 +341,8 @@
      },
      {
       "positions": 290.7,
-      "power_scale": 0.906,
-      "range_km_at_bin_max": 5125,
+      "power_scale": 0.901,
+      "range_km_at_bin_max": 5133,
       "theta_hi_deg": 30.0,
       "theta_lo_deg": 25.0,
       "wf": {
@@ -336,6 +357,7 @@
        "name": "WF-S01-1",
        "pae": 0.7992007992007992,
        "pri_ms": 1.0,
+       "rx_deaf_us": 200.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 200.0,
        "unamb_range_km": 150
@@ -343,31 +365,32 @@
      },
      {
       "positions": 285.1,
-      "power_scale": 0.505,
-      "range_km_at_bin_max": 5930,
+      "power_scale": 0.995,
+      "range_km_at_bin_max": 5007,
       "theta_hi_deg": 35.0,
       "theta_lo_deg": 30.0,
       "wf": {
        "b_tx": 1,
        "band": "S",
        "doppler_max_kHz": 93.4,
-       "duty_pct": 40.0,
-       "dwell_ms": 0.4,
+       "duty_pct": 20.0,
+       "dwell_ms": 0.2,
        "freq_ghz": 2.8,
        "integration": "NONCOHERENT",
        "n_pulses": 1,
-       "name": "WF-S01-2",
-       "pae": 0.79960019990005,
+       "name": "WF-S01-1",
+       "pae": 0.7992007992007992,
        "pri_ms": 1.0,
+       "rx_deaf_us": 200.05,
        "sig_bw_mhz": 75.0,
-       "tau_us": 400.0,
+       "tau_us": 200.0,
        "unamb_range_km": 150
       }
      },
      {
       "positions": 249.3,
-      "power_scale": 0.572,
-      "range_km_at_bin_max": 5749,
+      "power_scale": 0.569,
+      "range_km_at_bin_max": 5758,
       "theta_hi_deg": 40.0,
       "theta_lo_deg": 35.0,
       "wf": {
@@ -382,6 +405,7 @@
        "name": "WF-S01-2",
        "pae": 0.79960019990005,
        "pri_ms": 1.0,
+       "rx_deaf_us": 400.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 400.0,
        "unamb_range_km": 150
@@ -389,8 +413,8 @@
      },
      {
       "positions": 112.7,
-      "power_scale": 0.667,
-      "range_km_at_bin_max": 5533,
+      "power_scale": 0.663,
+      "range_km_at_bin_max": 5541,
       "theta_hi_deg": 45.0,
       "theta_lo_deg": 40.0,
       "wf": {
@@ -405,6 +429,7 @@
        "name": "WF-S01-2",
        "pae": 0.79960019990005,
        "pri_ms": 1.0,
+       "rx_deaf_us": 400.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 400.0,
        "unamb_range_km": 150
@@ -412,8 +437,8 @@
      },
      {
       "positions": 21.3,
-      "power_scale": 0.807,
-      "range_km_at_bin_max": 5275,
+      "power_scale": 0.802,
+      "range_km_at_bin_max": 5283,
       "theta_hi_deg": 50.0,
       "theta_lo_deg": 45.0,
       "wf": {
@@ -428,6 +453,7 @@
        "name": "WF-S01-2",
        "pae": 0.79960019990005,
        "pri_ms": 1.0,
+       "rx_deaf_us": 400.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 400.0,
        "unamb_range_km": 150
@@ -435,8 +461,8 @@
      },
      {
       "positions": 0.0,
-      "power_scale": 0.843,
-      "range_km_at_bin_max": 5218,
+      "power_scale": 0.838,
+      "range_km_at_bin_max": 5226,
       "theta_hi_deg": 55.0,
       "theta_lo_deg": 50.0,
       "wf": {
@@ -451,6 +477,7 @@
        "name": "WF-S01-2",
        "pae": 0.79960019990005,
        "pri_ms": 1.0,
+       "rx_deaf_us": 400.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 400.0,
        "unamb_range_km": 150
@@ -469,11 +496,12 @@
       "n_pulses": 1,
       "name": "WF-S01-1",
       "pae": 0.7992007992007992,
-      "positions": 1136.8,
+      "positions": 1421.9,
       "pri_ms": 1.0,
+      "rx_deaf_us": 200.05,
       "sig_bw_mhz": 75.0,
       "tau_us": 200.0,
-      "theta_hi_deg": 30.0,
+      "theta_hi_deg": 35.0,
       "theta_lo_deg": 0.0,
       "unamb_range_km": 150
      },
@@ -488,12 +516,13 @@
       "n_pulses": 1,
       "name": "WF-S01-2",
       "pae": 0.79960019990005,
-      "positions": 668.5,
+      "positions": 383.3,
       "pri_ms": 1.0,
+      "rx_deaf_us": 400.05,
       "sig_bw_mhz": 75.0,
       "tau_us": 400.0,
       "theta_hi_deg": 51.0,
-      "theta_lo_deg": 30.0,
+      "theta_lo_deg": 35.0,
       "unamb_range_km": 150
      }
     ]
@@ -501,11 +530,11 @@
    {
     "faces": {
      "1": {
-      "avg_power_kW": 84.52310770207723,
-      "dissipation_kW": 17.039588578662276,
-      "dissipation_kW_m2": 1.281518950893646,
-      "energy_J_per_refresh": 422615.53851038613,
-      "energy_fraction": 0.04609215786042379,
+      "avg_power_kW": 84.00432112824785,
+      "dissipation_kW": 16.9350028621817,
+      "dissipation_kW_m2": 1.2736532341221458,
+      "energy_J_per_refresh": 420021.6056412393,
+      "energy_fraction": 0.04580925306306239,
       "positions": 316.1,
       "theta_max_deg": 20.0,
       "time_fraction": 0.012644889830740896
@@ -516,17 +545,30 @@
     "mismatch_db_per_pass_max": 0.1297354438199937,
     "positions_total": 316.1,
     "range_km": {
-     "at_best_scan": 587,
-     "at_worst_scan": 573,
+     "at_best_scan": 588,
+     "at_worst_scan": 574,
      "positions_short_of_range_pct": 0.0,
      "requested": 500
     },
-    "rr_alone_s": 0.23046078930211894,
+    "rr_alone_s": 0.22904626531531194,
     "rr_est_mission_s": 5.0,
     "rr_target_s": 5,
     "rx_beams_per_position": 3.376688001163386,
     "rx_sll_db": -25.0,
     "rx_sll_held_up_to_deg": 20.0,
+    "s_min_unsaturated_range_km": 1.319953168606993,
+    "sky": {
+     "above_budget_pct": 0.0,
+     "band": "S",
+     "blind_rise_db": 10.0,
+     "blinded_by": [],
+     "blinded_pct": 0.0,
+     "galactic": "worst case (no galactic frame given)",
+     "rise_db": 0.222291576594411,
+     "t_sys_budget_k": 152.05116100887255,
+     "t_sys_cold_k": 144.46431510192332,
+     "worst_rise_db": 0.222291576594411
+    },
     "status": "OK",
     "time_to_impact_at_detection_s": 15.0,
     "unscanned_pct": 0.0,
@@ -542,6 +584,7 @@
      "name": "WF-S02",
      "pae": 0.7984031936127745,
      "pri_ms": 3.336,
+     "rx_deaf_us": 100.05,
      "sig_bw_mhz": 75.0,
      "tau_us": 100.0,
      "unamb_range_km": 500
@@ -549,8 +592,8 @@
     "wf_by_bin": [
      {
       "positions": 36.0,
-      "power_scale": 0.528,
-      "range_km_at_bin_max": 586,
+      "power_scale": 0.525,
+      "range_km_at_bin_max": 587,
       "theta_hi_deg": 5.0,
       "theta_lo_deg": 0.0,
       "wf": {
@@ -565,6 +608,7 @@
        "name": "WF-S02",
        "pae": 0.7984031936127745,
        "pri_ms": 3.336,
+       "rx_deaf_us": 100.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 100.0,
        "unamb_range_km": 500
@@ -572,8 +616,8 @@
      },
      {
       "positions": 106.9,
-      "power_scale": 0.538,
-      "range_km_at_bin_max": 584,
+      "power_scale": 0.535,
+      "range_km_at_bin_max": 585,
       "theta_hi_deg": 10.0,
       "theta_lo_deg": 5.0,
       "wf": {
@@ -588,6 +632,7 @@
        "name": "WF-S02",
        "pae": 0.7984031936127745,
        "pri_ms": 3.336,
+       "rx_deaf_us": 100.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 100.0,
        "unamb_range_km": 500
@@ -595,8 +640,8 @@
      },
      {
       "positions": 108.4,
-      "power_scale": 0.555,
-      "range_km_at_bin_max": 579,
+      "power_scale": 0.552,
+      "range_km_at_bin_max": 580,
       "theta_hi_deg": 15.0,
       "theta_lo_deg": 10.0,
       "wf": {
@@ -611,6 +656,7 @@
        "name": "WF-S02",
        "pae": 0.7984031936127745,
        "pri_ms": 3.336,
+       "rx_deaf_us": 100.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 100.0,
        "unamb_range_km": 500
@@ -618,8 +664,8 @@
      },
      {
       "positions": 64.9,
-      "power_scale": 0.581,
-      "range_km_at_bin_max": 573,
+      "power_scale": 0.577,
+      "range_km_at_bin_max": 574,
       "theta_hi_deg": 20.0,
       "theta_lo_deg": 15.0,
       "wf": {
@@ -634,6 +680,7 @@
        "name": "WF-S02",
        "pae": 0.7984031936127745,
        "pri_ms": 3.336,
+       "rx_deaf_us": 100.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 100.0,
        "unamb_range_km": 500
@@ -654,6 +701,7 @@
       "pae": 0.7984031936127745,
       "positions": 316.1,
       "pri_ms": 3.336,
+      "rx_deaf_us": 100.05,
       "sig_bw_mhz": 75.0,
       "tau_us": 100.0,
       "theta_hi_deg": 20.0,
@@ -665,41 +713,41 @@
    {
     "faces": {
      "0": {
-      "avg_power_kW": 184.51915197046856,
-      "dissipation_kW": 36.93213198511798,
-      "dissipation_kW_m2": 2.777603861580426,
-      "energy_J_per_refresh": 22142298.236456227,
-      "energy_fraction": 0.100622020558827,
+      "avg_power_kW": 182.50416930578552,
+      "dissipation_kW": 36.528891147291816,
+      "dissipation_kW_m2": 2.747276792762839,
+      "energy_J_per_refresh": 21900500.316694263,
+      "energy_fraction": 0.09952320981237471,
       "positions": 2960.0,
       "theta_max_deg": 75.0,
       "time_fraction": 0.026457260985732204
      },
      "1": {
-      "avg_power_kW": 184.51915197046873,
-      "dissipation_kW": 36.932131985118005,
-      "dissipation_kW_m2": 2.777603861580428,
-      "energy_J_per_refresh": 22142298.236456245,
-      "energy_fraction": 0.10062202055882707,
+      "avg_power_kW": 182.50416930578567,
+      "dissipation_kW": 36.528891147291844,
+      "dissipation_kW_m2": 2.7472767927628414,
+      "energy_J_per_refresh": 21900500.316694282,
+      "energy_fraction": 0.09952320981237478,
       "positions": 2960.0,
       "theta_max_deg": 75.0,
       "time_fraction": 0.026457260985732214
      },
      "2": {
-      "avg_power_kW": 184.51915197046873,
-      "dissipation_kW": 36.932131985118005,
-      "dissipation_kW_m2": 2.777603861580428,
-      "energy_J_per_refresh": 22142298.236456245,
-      "energy_fraction": 0.10062202055882707,
+      "avg_power_kW": 182.50416930578567,
+      "dissipation_kW": 36.528891147291844,
+      "dissipation_kW_m2": 2.7472767927628414,
+      "energy_J_per_refresh": 21900500.316694282,
+      "energy_fraction": 0.09952320981237478,
       "positions": 2960.0,
       "theta_max_deg": 75.0,
       "time_fraction": 0.026457260985732214
      },
      "3": {
-      "avg_power_kW": 184.51915197046873,
-      "dissipation_kW": 36.932131985118005,
-      "dissipation_kW_m2": 2.777603861580428,
-      "energy_J_per_refresh": 22142298.236456245,
-      "energy_fraction": 0.10062202055882707,
+      "avg_power_kW": 182.50416930578567,
+      "dissipation_kW": 36.528891147291844,
+      "dissipation_kW_m2": 2.7472767927628414,
+      "energy_J_per_refresh": 21900500.316694282,
+      "energy_fraction": 0.09952320981237478,
       "positions": 2960.0,
       "theta_max_deg": 75.0,
       "time_fraction": 0.026457260985732214
@@ -710,17 +758,30 @@
     "mismatch_db_per_pass_max": 0.9902829396719732,
     "positions_total": 11839.8,
     "range_km": {
-     "at_best_scan": 10049,
-     "at_worst_scan": 8349,
+     "at_best_scan": 10064,
+     "at_worst_scan": 8546,
      "positions_short_of_range_pct": 0.0,
      "requested": 8000
     },
-    "rr_alone_s": 12.074642467059249,
+    "rr_alone_s": 11.942785177484973,
     "rr_est_mission_s": 120.0,
     "rr_target_s": 120,
     "rx_beams_per_position": 3.376688001163386,
     "rx_sll_db": -25.0,
     "rx_sll_held_up_to_deg": 75.0,
+    "s_min_unsaturated_range_km": 16.115930819966447,
+    "sky": {
+     "above_budget_pct": 0.0,
+     "band": "S",
+     "blind_rise_db": 10.0,
+     "blinded_by": [],
+     "blinded_pct": 0.0,
+     "galactic": "worst case (no galactic frame given)",
+     "rise_db": 0.222291576594411,
+     "t_sys_budget_k": 152.05116100887255,
+     "t_sys_cold_k": 144.46431510192332,
+     "worst_rise_db": 0.222291576594411
+    },
     "status": "OK",
     "time_to_impact_at_detection_s": 1480.0,
     "unscanned_pct": 0.1,
@@ -736,6 +797,7 @@
      "name": "WF-S03-1",
      "pae": 0.7998000499875031,
      "pri_ms": 1.0,
+     "rx_deaf_us": 800.05,
      "sig_bw_mhz": 75.0,
      "tau_us": 800.0,
      "unamb_range_km": 150
@@ -743,8 +805,8 @@
     "wf_by_bin": [
      {
       "positions": 143.9,
-      "power_scale": 0.404,
-      "range_km_at_bin_max": 10036,
+      "power_scale": 0.401,
+      "range_km_at_bin_max": 10052,
       "theta_hi_deg": 5.0,
       "theta_lo_deg": 0.0,
       "wf": {
@@ -759,6 +821,7 @@
        "name": "WF-S03-1",
        "pae": 0.7998000499875031,
        "pri_ms": 1.0,
+       "rx_deaf_us": 800.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 800.0,
        "unamb_range_km": 150
@@ -766,8 +829,8 @@
      },
      {
       "positions": 427.4,
-      "power_scale": 0.411,
-      "range_km_at_bin_max": 9992,
+      "power_scale": 0.408,
+      "range_km_at_bin_max": 10007,
       "theta_hi_deg": 10.0,
       "theta_lo_deg": 5.0,
       "wf": {
@@ -782,6 +845,7 @@
        "name": "WF-S03-1",
        "pae": 0.7998000499875031,
        "pri_ms": 1.0,
+       "rx_deaf_us": 800.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 800.0,
        "unamb_range_km": 150
@@ -789,8 +853,8 @@
      },
      {
       "positions": 697.7,
-      "power_scale": 0.424,
-      "range_km_at_bin_max": 9914,
+      "power_scale": 0.421,
+      "range_km_at_bin_max": 9929,
       "theta_hi_deg": 15.0,
       "theta_lo_deg": 10.0,
       "wf": {
@@ -805,6 +869,7 @@
        "name": "WF-S03-1",
        "pae": 0.7998000499875031,
        "pri_ms": 1.0,
+       "rx_deaf_us": 800.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 800.0,
        "unamb_range_km": 150
@@ -812,8 +877,8 @@
      },
      {
       "positions": 947.2,
-      "power_scale": 0.444,
-      "range_km_at_bin_max": 9802,
+      "power_scale": 0.441,
+      "range_km_at_bin_max": 9817,
       "theta_hi_deg": 20.0,
       "theta_lo_deg": 15.0,
       "wf": {
@@ -828,6 +893,7 @@
        "name": "WF-S03-1",
        "pae": 0.7998000499875031,
        "pri_ms": 1.0,
+       "rx_deaf_us": 800.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 800.0,
        "unamb_range_km": 150
@@ -835,8 +901,8 @@
      },
      {
       "positions": 1168.1,
-      "power_scale": 0.472,
-      "range_km_at_bin_max": 9653,
+      "power_scale": 0.469,
+      "range_km_at_bin_max": 9668,
       "theta_hi_deg": 25.0,
       "theta_lo_deg": 20.0,
       "wf": {
@@ -851,6 +917,7 @@
        "name": "WF-S03-1",
        "pae": 0.7998000499875031,
        "pri_ms": 1.0,
+       "rx_deaf_us": 800.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 800.0,
        "unamb_range_km": 150
@@ -858,8 +925,8 @@
      },
      {
       "positions": 1350.9,
-      "power_scale": 0.51,
-      "range_km_at_bin_max": 9465,
+      "power_scale": 0.507,
+      "range_km_at_bin_max": 9480,
       "theta_hi_deg": 30.0,
       "theta_lo_deg": 25.0,
       "wf": {
@@ -874,6 +941,7 @@
        "name": "WF-S03-1",
        "pae": 0.7998000499875031,
        "pri_ms": 1.0,
+       "rx_deaf_us": 800.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 800.0,
        "unamb_range_km": 150
@@ -881,8 +949,8 @@
      },
      {
       "positions": 1496.2,
-      "power_scale": 0.564,
-      "range_km_at_bin_max": 9233,
+      "power_scale": 0.56,
+      "range_km_at_bin_max": 9247,
       "theta_hi_deg": 35.0,
       "theta_lo_deg": 30.0,
       "wf": {
@@ -897,6 +965,7 @@
        "name": "WF-S03-1",
        "pae": 0.7998000499875031,
        "pri_ms": 1.0,
+       "rx_deaf_us": 800.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 800.0,
        "unamb_range_km": 150
@@ -904,8 +973,8 @@
      },
      {
       "positions": 1594.4,
-      "power_scale": 0.638,
-      "range_km_at_bin_max": 8952,
+      "power_scale": 0.634,
+      "range_km_at_bin_max": 8965,
       "theta_hi_deg": 40.0,
       "theta_lo_deg": 35.0,
       "wf": {
@@ -920,6 +989,7 @@
        "name": "WF-S03-1",
        "pae": 0.7998000499875031,
        "pri_ms": 1.0,
+       "rx_deaf_us": 800.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 800.0,
        "unamb_range_km": 150
@@ -927,8 +997,8 @@
      },
      {
       "positions": 1221.2,
-      "power_scale": 0.744,
-      "range_km_at_bin_max": 8615,
+      "power_scale": 0.739,
+      "range_km_at_bin_max": 8628,
       "theta_hi_deg": 45.0,
       "theta_lo_deg": 40.0,
       "wf": {
@@ -943,6 +1013,7 @@
        "name": "WF-S03-1",
        "pae": 0.7998000499875031,
        "pri_ms": 1.0,
+       "rx_deaf_us": 800.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 800.0,
        "unamb_range_km": 150
@@ -950,8 +1021,8 @@
      },
      {
       "positions": 915.9,
-      "power_scale": 0.9,
-      "range_km_at_bin_max": 8213,
+      "power_scale": 0.895,
+      "range_km_at_bin_max": 8226,
       "theta_hi_deg": 50.0,
       "theta_lo_deg": 45.0,
       "wf": {
@@ -966,6 +1037,7 @@
        "name": "WF-S03-1",
        "pae": 0.7998000499875031,
        "pri_ms": 1.0,
+       "rx_deaf_us": 800.05,
        "sig_bw_mhz": 75.0,
        "tau_us": 800.0,
        "unamb_range_km": 150
@@ -973,8 +1045,8 @@
      },
      {
       "positions": 707.6,
-      "power_scale": 0.488,
-      "range_km_at_bin_max": 9571,
+      "power_scale": 0.485,
+      "range_km_at_bin_max": 9586,
       "theta_hi_deg": 55.0,
       "theta_lo_deg": 50.0,
       "wf": {
@@ -989,6 +1061,7 @@
        "name": "WF-S03-2",
        "pae": 0.79992,
        "pri_ms": 2.0,
+       "rx_deaf_us": 1999.85,
        "sig_bw_mhz": 75.0,
        "tau_us": 1999.8,
        "unamb_range_km": 300
@@ -996,8 +1069,8 @@
      },
      {
       "positions": 535.8,
-      "power_scale": 0.662,
-      "range_km_at_bin_max": 8869,
+      "power_scale": 0.658,
+      "range_km_at_bin_max": 8883,
       "theta_hi_deg": 60.0,
       "theta_lo_deg": 55.0,
       "wf": {
@@ -1012,6 +1085,7 @@
        "name": "WF-S03-2",
        "pae": 0.79992,
        "pri_ms": 2.0,
+       "rx_deaf_us": 1999.85,
        "sig_bw_mhz": 75.0,
        "tau_us": 1999.8,
        "unamb_range_km": 300
@@ -1019,8 +1093,8 @@
      },
      {
       "positions": 388.9,
-      "power_scale": 0.984,
-      "range_km_at_bin_max": 8032,
+      "power_scale": 0.978,
+      "range_km_at_bin_max": 8045,
       "theta_hi_deg": 65.0,
       "theta_lo_deg": 60.0,
       "wf": {
@@ -1035,6 +1109,7 @@
        "name": "WF-S03-2",
        "pae": 0.79992,
        "pri_ms": 2.0,
+       "rx_deaf_us": 1999.85,
        "sig_bw_mhz": 75.0,
        "tau_us": 1999.8,
        "unamb_range_km": 300
@@ -1042,8 +1117,8 @@
      },
      {
       "positions": 183.9,
-      "power_scale": 0.88,
-      "range_km_at_bin_max": 8259,
+      "power_scale": 0.875,
+      "range_km_at_bin_max": 8271,
       "theta_hi_deg": 70.0,
       "theta_lo_deg": 65.0,
       "wf": {
@@ -1058,6 +1133,7 @@
        "name": "WF-S03-3",
        "pae": 0.79992,
        "pri_ms": 53.37,
+       "rx_deaf_us": 1999.85,
        "sig_bw_mhz": 75.0,
        "tau_us": 1999.8,
        "unamb_range_km": 8000
@@ -1065,8 +1141,8 @@
      },
      {
       "positions": 60.8,
-      "power_scale": 0.843,
-      "range_km_at_bin_max": 8349,
+      "power_scale": 0.768,
+      "range_km_at_bin_max": 8546,
       "theta_hi_deg": 75.0,
       "theta_lo_deg": 70.0,
       "wf": {
@@ -1081,6 +1157,7 @@
        "name": "WF-S03-4",
        "pae": 0.79992,
        "pri_ms": 53.37,
+       "rx_deaf_us": 1999.85,
        "sig_bw_mhz": 75.0,
        "tau_us": 1999.8,
        "unamb_range_km": 8000
@@ -1101,6 +1178,7 @@
       "pae": 0.7998000499875031,
       "positions": 9962.8,
       "pri_ms": 1.0,
+      "rx_deaf_us": 800.05,
       "sig_bw_mhz": 75.0,
       "tau_us": 800.0,
       "theta_hi_deg": 50.0,
@@ -1120,6 +1198,7 @@
       "pae": 0.79992,
       "positions": 1632.4,
       "pri_ms": 2.0,
+      "rx_deaf_us": 1999.85,
       "sig_bw_mhz": 75.0,
       "tau_us": 1999.8,
       "theta_hi_deg": 65.0,
@@ -1139,6 +1218,7 @@
       "pae": 0.79992,
       "positions": 183.9,
       "pri_ms": 53.37,
+      "rx_deaf_us": 1999.85,
       "sig_bw_mhz": 75.0,
       "tau_us": 1999.8,
       "theta_hi_deg": 70.0,
@@ -1158,6 +1238,7 @@
       "pae": 0.79992,
       "positions": 60.8,
       "pri_ms": 53.37,
+      "rx_deaf_us": 1999.85,
       "sig_bw_mhz": 75.0,
       "tau_us": 1999.8,
       "theta_hi_deg": 75.0,
@@ -1175,35 +1256,35 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 0.0004696403167786985,
+     "confirm_energy": 0.00045822020786140925,
      "confirm_ku_time": 0.000988387088030368,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 77.23480787507782,
-     "dissipation_kW_m2": 5.80870069154642,
-     "load": 0.2097696403167787,
-     "p_left_kW": 1449.112580131696,
-     "search_energy": 0.2093,
-     "search_s_time": 0.0512,
+     "dissipation_kW": 76.52714701447876,
+     "dissipation_kW_m2": 5.755478702090698,
+     "load": 0.20785822020786143,
+     "p_left_kW": 1452.6177136561269,
+     "search_energy": 0.2074,
+     "search_s_time": 0.0483,
      "status": "OK",
-     "total_energy": 0.2097696403167787,
+     "total_energy": 0.20785822020786143,
      "total_ku_time": 0.000988387088030368,
-     "total_s_time": 0.0512
+     "total_s_time": 0.0483
     },
     "1": {
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 0.0003116168802940289,
+     "confirm_energy": 0.0003040393819697088,
      "confirm_ku_time": 0.00046755367085906074,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 54.17245301751656,
-     "dissipation_kW_m2": 4.074219564507428,
-     "load": 0.14701161688029402,
-     "p_left_kW": 1564.19730213917,
-     "search_energy": 0.1467,
+     "dissipation_kW": 53.65977136395402,
+     "dissipation_kW_m2": 4.035661635025573,
+     "load": 0.14560403938196972,
+     "p_left_kW": 1566.7784966419345,
+     "search_energy": 0.1453,
      "search_s_time": 0.0391,
      "status": "OK",
-     "total_energy": 0.14701161688029402,
+     "total_energy": 0.14560403938196972,
      "total_ku_time": 0.00046755367085906074,
      "total_s_time": 0.0391
     },
@@ -1211,17 +1292,17 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 0.00028081907271025483,
+     "confirm_energy": 0.00027399047584191047,
      "confirm_ku_time": 0.00040772143121972474,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 37.11290358672959,
-     "dissipation_kW_m2": 2.791199391318672,
-     "load": 0.10088081907271025,
-     "p_left_kW": 1648.79126719675,
-     "search_energy": 0.1006,
+     "dissipation_kW": 36.705307037755155,
+     "dissipation_kW_m2": 2.7605447367524407,
+     "load": 0.09977399047584191,
+     "p_left_kW": 1650.820952875258,
+     "search_energy": 0.0995,
      "search_s_time": 0.0265,
      "status": "OK",
-     "total_energy": 0.10088081907271025,
+     "total_energy": 0.09977399047584191,
      "total_ku_time": 0.00040772143121972474,
      "total_s_time": 0.0265
     },
@@ -1229,39 +1310,51 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 0.0002808190727102549,
+     "confirm_energy": 0.00027399047584191047,
      "confirm_ku_time": 0.00040772143121972474,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 37.11290358672959,
-     "dissipation_kW_m2": 2.791199391318672,
-     "load": 0.10088081907271025,
-     "p_left_kW": 1648.79126719675,
-     "search_energy": 0.1006,
+     "dissipation_kW": 36.705307037755155,
+     "dissipation_kW_m2": 2.7605447367524407,
+     "load": 0.09977399047584191,
+     "p_left_kW": 1650.820952875258,
+     "search_energy": 0.0995,
      "search_s_time": 0.0265,
      "status": "OK",
-     "total_energy": 0.10088081907271025,
+     "total_energy": 0.09977399047584191,
      "total_ku_time": 0.00040772143121972474,
      "total_s_time": 0.0265
     }
    },
    "ku_freq_ghz": 14.0,
    "pfa": 1e-08,
+   "scheduler_rules": [
+    "S band: common TX / RX cadence of all faces (interface_mode sync): no face receives S while another transmits S (adjacent and opposite faces fail the isolation)",
+    "Ku band: common TX / RX cadence of all faces (interface_mode sync): no face receives Ku while another transmits Ku (adjacent and opposite faces fail the isolation)",
+    "S transmission and Ku reception on the same face(s) only if the S harmonic (order 5) misses the Ku channel",
+    "sector S01: WF-S01-1 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+    "sector S01: WF-S01-2 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+    "sector S02: WF-S02 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+    "sector S03: WF-S03-1 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+    "sector S03: WF-S03-2 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+    "sector S03: WF-S03-3 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+    "sector S03: WF-S03-4 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission"
+   ],
    "sectors": [
     {
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.2098,
+       "mission_max_load": 0.2079,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.2098,
+       "mission_max_load": 0.2079,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.2116,
+       "mission_max_load": 0.2096,
        "why_not": ""
       }
      },
@@ -1271,7 +1364,7 @@
       "admissible": true,
       "faces": {
        "0": {
-        "energy_fraction": 0.00018882124406844383,
+        "energy_fraction": 0.00018422973201949895,
         "ku_time_fraction": 0.0005806656568106435,
         "s_time_fraction": 0.0
        }
@@ -1286,23 +1379,40 @@
      "flags": [],
      "forced": false,
      "id": "S01",
-     "reason": "lowest mission face load (binding resource: energy)"
+     "ku_min_unsaturated_range_km": 10.226285183640794,
+     "ku_sky": {
+      "above_budget_pct": 0.0,
+      "band": "Ku",
+      "blind_rise_db": 10.0,
+      "blinded_by": [],
+      "blinded_pct": 0.0,
+      "galactic": "worst case (no galactic frame given)",
+      "rise_db": 0.002553125925614558,
+      "t_sys_budget_k": 230.92767242927093,
+      "t_sys_cold_k": 230.7919548038089,
+      "worst_rise_db": 0.002553125925614558
+     },
+     "reason": "lowest mission face load (binding resource: energy)",
+     "scheduler_rules": [
+      "WF-S01-1 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+      "WF-S01-2 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission"
+     ]
     },
     {
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.2098,
+       "mission_max_load": 0.2079,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.2098,
+       "mission_max_load": 0.2079,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.2098,
+       "mission_max_load": 0.2079,
        "why_not": ""
       }
      },
@@ -1312,7 +1422,7 @@
       "admissible": true,
       "faces": {
        "1": {
-        "energy_fraction": 3.079780758377397e-05,
+        "energy_fraction": 3.0048906127798352e-05,
         "ku_time_fraction": 5.983223963933598e-05,
         "s_time_fraction": 0.0
        }
@@ -1327,23 +1437,39 @@
      "flags": [],
      "forced": false,
      "id": "S02",
-     "reason": "lowest mission face load (binding resource: energy)"
+     "ku_min_unsaturated_range_km": 1.1023038949767903,
+     "ku_sky": {
+      "above_budget_pct": 0.0,
+      "band": "Ku",
+      "blind_rise_db": 10.0,
+      "blinded_by": [],
+      "blinded_pct": 0.0,
+      "galactic": "worst case (no galactic frame given)",
+      "rise_db": 0.002553125925614558,
+      "t_sys_budget_k": 230.92767242927093,
+      "t_sys_cold_k": 230.7919548038089,
+      "worst_rise_db": 0.002553125925614558
+     },
+     "reason": "lowest mission face load (binding resource: energy)",
+     "scheduler_rules": [
+      "WF-S02 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission"
+     ]
     },
     {
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.2098,
+       "mission_max_load": 0.2079,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.2098,
+       "mission_max_load": 0.2079,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.2126,
+       "mission_max_load": 0.2106,
        "why_not": ""
       }
      },
@@ -1353,22 +1479,22 @@
       "admissible": true,
       "faces": {
        "0": {
-        "energy_fraction": 0.00028081907271025467,
+        "energy_fraction": 0.0002739904758419103,
         "ku_time_fraction": 0.0004077214312197245,
         "s_time_fraction": 0.0
        },
        "1": {
-        "energy_fraction": 0.0002808190727102549,
+        "energy_fraction": 0.00027399047584191047,
         "ku_time_fraction": 0.00040772143121972474,
         "s_time_fraction": 0.0
        },
        "2": {
-        "energy_fraction": 0.00028081907271025483,
+        "energy_fraction": 0.00027399047584191047,
         "ku_time_fraction": 0.00040772143121972474,
         "s_time_fraction": 0.0
        },
        "3": {
-        "energy_fraction": 0.0002808190727102549,
+        "energy_fraction": 0.00027399047584191047,
         "ku_time_fraction": 0.00040772143121972474,
         "s_time_fraction": 0.0
        }
@@ -1383,7 +1509,26 @@
      "flags": [],
      "forced": false,
      "id": "S03",
-     "reason": "lowest mission face load (binding resource: energy)"
+     "ku_min_unsaturated_range_km": 13.458548179230757,
+     "ku_sky": {
+      "above_budget_pct": 0.0,
+      "band": "Ku",
+      "blind_rise_db": 10.0,
+      "blinded_by": [],
+      "blinded_pct": 0.0,
+      "galactic": "worst case (no galactic frame given)",
+      "rise_db": 0.002553125925614558,
+      "t_sys_budget_k": 230.92767242927093,
+      "t_sys_cold_k": 230.7919548038089,
+      "worst_rise_db": 0.002553125925614558
+     },
+     "reason": "lowest mission face load (binding resource: energy)",
+     "scheduler_rules": [
+      "WF-S03-1 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+      "WF-S03-2 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+      "WF-S03-3 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+      "WF-S03-4 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission"
+     ]
     }
    ]
   },

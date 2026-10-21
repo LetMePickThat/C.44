@@ -11,6 +11,8 @@ Active tracking (AT) and confirmation inputs, per sector (core/tracking.py):
   "confirm_mode": "auto" (default) or a forced mode of tracking.CONFIRM_MODES;
   "new_targets_per_rr": true targets newly detected per refresh (confirmed like the false alarms).
 RX weighting, per sector: "rx_sll_db" = RX peak sidelobe level, one of RX_SLL_CHOICES (S and Ku; default -25 dB).
+Sky, global key "sky" (step 1.5, core/sky.py): the bodies in front of the faces and the galactic frame, in the ship
+frame, filled later by the global scenario simulator (no sky = cold sky + worst-case galactic rise).
 
 Validation messages are operator-facing.
 """
@@ -25,6 +27,7 @@ from typing import Dict, List
 
 # Re-use the optimiser's loader so JSON/CSV parsing never diverges from what run() expects.
 from . import optimizer as mo
+from . import sky
 from .params import P
 
 # Defaults of a new mission / sector / AT bracket: radar_system.toml [tool.mission_defaults] and [power].
@@ -107,6 +110,7 @@ def validate_global(g: dict) -> List[str]:
         errs.append(f"electrical power per face ({elec} MW) must be > 0")
     elif elec > SHIP_ELEC_TOTAL_MW:
         errs.append(f"electrical power per face ({elec} MW) exceeds the ship total budget ({SHIP_ELEC_TOTAL_MW:g} MW)")
+    errs.extend(sky.validate(g.get("sky")))
     return errs
 
 

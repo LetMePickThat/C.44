@@ -35,6 +35,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from . import isolation as iso
 from . import optimizer as mo
 from . import radar_model as rm
 from .params import P
@@ -179,27 +180,30 @@ def _ku_candidates(integ: str, pack: Optional[rm.TrackingPack]) -> Tuple[Tuple[r
 
 @functools.lru_cache(maxsize=1 << 17)
 def _ku_reach(w: rm.Waveform, theta: float, rcs_m2: float, swerling: int, v_mps: float,
-              rx_sll_db: float) -> Tuple[float, str]:
+              rx_sll_db: float, t_sys_k: Optional[float] = None) -> Tuple[float, str]:
     """Range at full power and SNR driver of one Ku waveform (0 if not playable)."""
     try:
-        r = rm.solve(w, KU_FREQ_GHZ, theta, rm.Target("ku", rcs_m2, swerling, v_mps), rm.FACE_ELEC_POWER_MW, rx_sll_db)
+        r = rm.solve(w, KU_FREQ_GHZ, theta, rm.Target("ku", rcs_m2, swerling, v_mps), rm.FACE_ELEC_POWER_MW, rx_sll_db,
+                     t_sys_k)
         return r.range_km, r.driver
     except ValueError:
         return 0.0, "-"
 
 
 def ku_look(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: float,
-            pack: Optional[rm.TrackingPack] = None, rx_sll_db: Optional[float] = None) -> Optional[dict]:
+            pack: Optional[rm.TrackingPack] = None, rx_sll_db: Optional[float] = None,
+            t_sys_k: Optional[float] = None) -> Optional[dict]:
     """Cheapest Ku look reaching r_km at scan theta (power backed off to just reach it), for detection only
     (pack None) or for a track update (SNR = max(detection, accuracy)). Cost = max(energy / face average power,
     Ku TX time), as the search objective. None when no candidate reaches r_km. rx_sll_db: RX weighting of the
-    volume (None = default option). energy_J is electrical (RF / PAE), energy_rf_J the radiated energy."""
+    volume (None = default option); t_sys_k: the sector's Ku budget T_sys (sky noise, None = cold sky). energy_J is
+    electrical (RF / PAE), energy_rf_J the radiated energy."""
     sll = rm.RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
     best = None
     for det, trk in _ku_candidates(_ku_integration(tgt.swerling), pack):
-        r_eff, driver = _ku_reach(det, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps, sll)
+        r_eff, driver = _ku_reach(det, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps, sll, t_sys_k)
         if trk is not None:
-            r_trk, d_trk = _ku_reach(trk, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps, sll)
+            r_trk, d_trk = _ku_reach(trk, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps, sll, t_sys_k)
             if r_trk < r_eff:
                 r_eff, driver = r_trk, d_trk.replace("Track-", "")
             else:
@@ -239,9 +243,10 @@ def _groups(P: np.ndarray, r: dict) -> List[dict]:
     return out
 
 
-def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict:
+def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky: Optional[dict] = None) -> dict:
     """Confirmation (all modes) and AT loads per face of one sector, per second, as fractions of the face resources:
-    "e" = energy (shared S + Ku), "ts" = S TX time, "tk" = Ku TX time."""
+    "e" = energy (shared S + Ku), "ts" = S TX time, "tk" = Ku TX time. ku_sky: the sector's Ku sky summary
+    (optimizer.sector_sky): every Ku look uses its budget T_sys."""
     sw = int(sec.get("swerling", 1))
     tgt = rm.Target(sec["id"], sec["rcs_m2"], sw, sec["v_close_max_mps"])
     r_det, rr = sec["range_km"], sec["rr_target_s"]
@@ -252,6 +257,14 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict
     p_all = float(p_face.sum())
     ku_lim = rm.BAND_KU.scan_limit_deg(KU_FREQ_GHZ)
     flags: List[str] = []
+    t_ku = ku_sky["t_sys_budget_k"] if ku_sky is not None else None
+    if ku_sky is not None:
+        flags.extend(mo.sky_flags(ku_sky, "Ku"))
+    r_sat_ku = rm.min_unsaturated_range_km(KU_FREQ_GHZ, 0.0, sec["rcs_m2"])
+    for b in sec.get("tracking", []):
+        if b["r_min_km"] < r_sat_ku:
+            flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: below {r_sat_ku:.1f} km the Ku echo of "
+                         f"{sec['rcs_m2']:g} m2 clips the per-element ADCs (fixed gain; attenuator option at 3.3)")
 
     # --- confirmation: per scan-angle group, true detections and false alarms per face (per refresh), with the
     #     look costs at the design point (Ku look at the sector's detection range, S touch = the search look
@@ -266,7 +279,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict
         cells = r_det * 1e3 / (rm.C_MPS / (2.0 * w["sig_bw_mhz"] * 1e6)) * (w["n_pulses"] if w["integration"] == "COHERENT" else 1)
         fa_g = gr["pos"] * cells * rm.DETECT_PFA
         fa += fa_g
-        look = ku_look(gr["theta"], tgt, r_det, p_avg_max_w, rx_sll_db=sll) if gr["theta"] <= ku_lim else None
+        look = ku_look(gr["theta"], tgt, r_det, p_avg_max_w, rx_sll_db=sll, t_sys_k=t_ku) if gr["theta"] <= ku_lim else None
         if look is None:
             ku_missing += float(gr["pos"].sum())
         e_s_rf = rm.BAND_S.p_pk_total_w * w["n_pulses"] * w["tau_us"] * 1e-6 / w["b_tx"] * gr["power_scale"]
@@ -348,7 +361,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict
         drivers: Dict[str, float] = {}
         wf_main, pos_main, unreachable = None, -1.0, 0.0
         for gr in groups:
-            look = ku_look(gr["theta"], tgt, b["r_max_km"], p_avg_max_w, pack, sll) if gr["theta"] <= ku_lim else None
+            look = ku_look(gr["theta"], tgt, b["r_max_km"], p_avg_max_w, pack, sll, t_ku) if gr["theta"] <= ku_lim else None
             share = gr["pos"] / p_all * b["n_targets"]                       # tracks per face in this group
             if look is None:
                 unreachable += float(share.sum())
@@ -371,8 +384,19 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float) -> dict
             flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: {unreachable:.1f} track(s) out of Ku reach "
                          f"at {b['r_max_km']:.0f} km (scan limit or range)")
         at.append(out_b)
+    # S harmonic in the Ku channel on the same face (isolation matrix: frequency rule) -> a scheduler rule
+    rules = []
+    if iso.same_face_s_to_ku_verdict() == "frequency_rule":
+        ku_bws = sorted({c["ku"]["wf"].sig_bw_mhz for c in cg if c["ku"] is not None})
+        for w in r.get("wf_set", [r["wf"]]):
+            hit = [bw for bw in ku_bws if iso.harmonic_conflict(w["freq_ghz"], w["sig_bw_mhz"], KU_FREQ_GHZ, bw)]
+            if hit:
+                bands = ", ".join(f"{a:.3f}-{b:.3f}" for a, b in iso.harmonic_bands_ghz(w["freq_ghz"], w["sig_bw_mhz"]))
+                rules.append(f"{w['name']} ({w['freq_ghz']} GHz, {w['sig_bw_mhz']:g} MHz) puts its harmonic on {bands} GHz, "
+                             f"over the Ku channel {KU_FREQ_GHZ} GHz / {max(hit):g} MHz: on the same face, no Ku reception "
+                             f"during this S transmission")
     return {"faces": [k for k in range(4) if p_face[k] > 0], "false_alarms_per_rr": fa, "modes": modes, "at": at,
-            "flags": flags}
+            "flags": flags, "ku_sky": ku_sky, "ku_min_unsaturated_range_km": r_sat_ku, "scheduler_rules": rules}
 
 
 # ----------------------------------------------------------------------------- mission budget
@@ -409,13 +433,16 @@ def budget(mission: dict, res: dict) -> dict:
     for k, v in res["faces_total"].items():
         base["e"][int(k)] = v["energy_fraction"]
         base["ts"][int(k)] = v["time_fraction"]
+    sky = mission.get("global", {}).get("sky")
     sbs: Dict[str, dict] = {}
     for r in res["sectors"]:
         if r["status"] != "OK":
             continue
         sec = secs[r["id"]]
-        P, _ = mo.positions_table(sph, sph.mask(sec), r["wf"]["freq_ghz"])
-        sbs[r["id"]] = sector_budget(sec, r, np.array([P[k] for k in range(4)]), p_avg_max)
+        m = sph.mask(sec)
+        P, _, _, _ = mo.search_positions(sec, sph, m, r["wf"]["freq_ghz"], sky)      # blinded positions left out
+        ku_sky, _ = mo.sector_sky(sec, sph, m, KU_FREQ_GHZ, "Ku", sky)
+        sbs[r["id"]] = sector_budget(sec, r, np.array([P[k] for k in range(4)]), p_avg_max, ku_sky)
 
     # confirmation mode: forced, or automatic (greedy on the mission's most loaded face, two passes)
     choice: Dict[str, Optional[str]] = {}
@@ -484,6 +511,8 @@ def budget(mission: dict, res: dict) -> dict:
             "at": [{**{k: v for k, v in b.items() if k not in ("e", "tk", "q_w")},
                     "faces": {str(k): {"energy_fraction": float(b["e"][k]), "ku_time_fraction": float(b["tk"][k])}
                               for k in sb["faces"]}} for b in sb["at"]],
+            "ku_sky": sb["ku_sky"], "ku_min_unsaturated_range_km": sb["ku_min_unsaturated_range_km"],
+            "scheduler_rules": sb["scheduler_rules"],
             "flags": sb["flags"]})
         for fl in sb["flags"]:
             warn.append(f"sector {sid}: {fl}")
@@ -513,8 +542,9 @@ def budget(mission: dict, res: dict) -> dict:
             advice.append(_relax_advice(k, worst, load[worst], res, sbs, choice, secs))
     for a in advice:
         warn.append(a)
+    rules = iso.scheduler_rules() + [f"sector {s['id']}: {t}" for s in out_secs for t in s["scheduler_rules"]]
     return {"ku_freq_ghz": KU_FREQ_GHZ, "pfa": rm.DETECT_PFA, "confirm_p_min": CONFIRM_P_MIN,
-            "sectors": out_secs, "faces": faces, "advice": advice, "warnings": warn}
+            "sectors": out_secs, "faces": faces, "advice": advice, "scheduler_rules": rules, "warnings": warn}
 
 
 def _relax_advice(k: int, key: str, load: float, res: dict, sbs: Dict[str, dict], choice: Dict[str, Optional[str]],

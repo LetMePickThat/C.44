@@ -1,0 +1,1272 @@
+{
+ "fast_estimate": {
+  "EARTH": {
+   "2": {
+    "at_avg_power_kw": 0.0,
+    "at_ku_time_fraction": 0.0,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 956.4381382569836,
+    "energy_fraction": 0.5215650352996583,
+    "energy_j_per_refresh": 19128762.765139673,
+    "positions": 290.8465943680361,
+    "time_fraction_min": 0.0780765827148558,
+    "unreachable_pct": 5.626650300829823
+   },
+   "3": {
+    "at_avg_power_kw": 0.0,
+    "at_ku_time_fraction": 0.0,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 185.1742282618037,
+    "energy_fraction": 0.10097924689197683,
+    "energy_j_per_refresh": 3703484.5652360744,
+    "positions": 32.74905962468074,
+    "time_fraction_min": 0.015116263531575814,
+    "unreachable_pct": 18.539253334816298
+   }
+  },
+  "MOON": {
+   "1": {
+    "at_avg_power_kw": 0.015206569160748648,
+    "at_ku_time_fraction": 2e-05,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 122.73450140190646,
+    "energy_fraction": 0.06692960265347708,
+    "energy_j_per_refresh": 1227192.948327457,
+    "positions": 51.24088793558866,
+    "time_fraction_min": 0.010017901618999651,
+    "unreachable_pct": 0.0
+   }
+  },
+  "SUN": {
+   "0": {
+    "at_avg_power_kw": 0.0,
+    "at_ku_time_fraction": 0.0,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 107.43407176771365,
+    "energy_fraction": 0.05858596932994525,
+    "energy_j_per_refresh": 2148681.435354273,
+    "positions": 104.7854764387751,
+    "time_fraction_min": 0.00877012830756846,
+    "unreachable_pct": 0.0
+   },
+   "1": {
+    "at_avg_power_kw": 0.0,
+    "at_ku_time_fraction": 0.0,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 107.43407176771365,
+    "energy_fraction": 0.05858596932994525,
+    "energy_j_per_refresh": 2148681.435354273,
+    "positions": 104.78547643877512,
+    "time_fraction_min": 0.00877012830756846,
+    "unreachable_pct": 0.0
+   }
+  }
+ },
+ "redundancy": {
+  "findings": [],
+  "pair_notes": {}
+ },
+ "run": {
+  "cancelled": false,
+  "faces_total": {
+   "0": {
+    "avg_power_kW": 337.8162,
+    "dissipation_kW": 67.6308,
+    "energy_fraction": 0.1842,
+    "ku_duty_pct": 10.5837,
+    "p_available_kW": 1495.9688,
+    "positions": 103.8,
+    "power_margin": 0.8158,
+    "time_fraction": 0.0343,
+    "time_margin_s": 0.9657
+   },
+   "1": {
+    "avg_power_kW": 465.8571,
+    "dissipation_kW": 93.2646,
+    "energy_fraction": 0.254,
+    "ku_duty_pct": 9.6779,
+    "p_available_kW": 1367.9279,
+    "positions": 154.8,
+    "power_margin": 0.746,
+    "time_fraction": 0.0465,
+    "time_margin_s": 0.9535
+   },
+   "2": {
+    "avg_power_kW": 1512.7374,
+    "dissipation_kW": 302.8503,
+    "energy_fraction": 0.8249,
+    "ku_duty_pct": 2.2714,
+    "p_available_kW": 321.0476,
+    "positions": 290.8,
+    "power_margin": 0.1751,
+    "time_fraction": 0.1729,
+    "time_margin_s": 0.8271
+   },
+   "3": {
+    "avg_power_kW": 211.3238,
+    "dissipation_kW": 42.3071,
+    "energy_fraction": 0.1152,
+    "ku_duty_pct": 11.4786,
+    "p_available_kW": 1622.4612,
+    "positions": 32.8,
+    "power_margin": 0.8848,
+    "time_fraction": 0.0239,
+    "time_margin_s": 0.9761
+   }
+  },
+  "global": {
+   "bin_deg": 5,
+   "eps_max_deg": 90.0,
+   "eps_min_deg": -90.0,
+   "face_elec_avail_kW": 1833.7849999999999,
+   "face_elec_mw": 2.0,
+   "max_wf_per_sector": 4,
+   "objective": "max(energy,time)",
+   "sky_bodies": [
+    "SUN",
+    "MOON",
+    "EARTH"
+   ],
+   "sky_galactic": "frame"
+  },
+  "sectors": [
+   {
+    "faces": {
+     "0": {
+      "avg_power_kW": 337.81621854022876,
+      "dissipation_kW": 67.63079006516453,
+      "dissipation_kW_m2": 5.086398578951035,
+      "energy_J_per_refresh": 6756324.370804576,
+      "energy_fraction": 0.18421800731286864,
+      "positions": 103.8,
+      "theta_max_deg": 46.0,
+      "time_fraction": 0.03432616361588203
+     },
+     "1": {
+      "avg_power_kW": 337.39033754683834,
+      "dissipation_kW": 67.5455287115765,
+      "dissipation_kW_m2": 5.079986215184298,
+      "energy_J_per_refresh": 6747806.750936767,
+      "energy_fraction": 0.1839857658050635,
+      "positions": 103.7,
+      "theta_max_deg": 46.0,
+      "time_fraction": 0.03427613688797872
+     }
+    },
+    "flags": [
+     "0.99 % of the S positions blinded by the sky (SUN: T_sys rise above 10 dB), not scanned",
+     "0.98 % of the S positions above the budget T_sys (430.7 K): sky noise up to +10.0 dB, range reduced there"
+    ],
+    "id": "SUN",
+    "mismatch_db_per_pass_max": 0.05566803723350894,
+    "positions_total": 207.5,
+    "range_km": {
+     "at_best_scan": 1542,
+     "at_worst_scan": 1578,
+     "positions_short_of_range_pct": 0.0,
+     "requested": 1500.0
+    },
+    "rr_alone_s": 3.6843601462573727,
+    "rr_est_mission_s": 20.0,
+    "rr_target_s": 20.0,
+    "rx_beams_per_position": 3.376688001163386,
+    "rx_sll_db": -25.0,
+    "rx_sll_held_up_to_deg": 46.0,
+    "s_min_unsaturated_range_km": 2.1775848218798117,
+    "sky": {
+     "above_budget_pct": 0.9755855461600684,
+     "band": "S",
+     "blind_rise_db": 10.0,
+     "blinded_by": [
+      "SUN"
+     ],
+     "blinded_pct": 0.9934344397132799,
+     "galactic": "frame",
+     "rise_db": 4.744260141249502,
+     "t_sys_budget_k": 430.7116284259681,
+     "t_sys_cold_k": 144.46431510192332,
+     "worst_rise_db": 9.995163414557032
+    },
+    "status": "OK",
+    "time_to_impact_at_detection_s": 194.28571428571428,
+    "unscanned_pct": 0.0,
+    "wf": {
+     "b_tx": 1,
+     "band": "S",
+     "doppler_max_kHz": 130.8,
+     "duty_pct": 7.994,
+     "dwell_ms": 70.8,
+     "freq_ghz": 2.8,
+     "integration": "COHERENT",
+     "n_pulses": 8,
+     "name": "WF-SUN-2",
+     "pae": 0.7998000499875031,
+     "pri_ms": 10.007,
+     "rx_deaf_us": 800.05,
+     "sig_bw_mhz": 75.0,
+     "tau_us": 800.0,
+     "unamb_range_km": 1500
+    },
+    "wf_by_bin": [
+     {
+      "positions": 26.7,
+      "power_scale": 0.925,
+      "range_km_at_bin_max": 1529,
+      "theta_hi_deg": 30.0,
+      "theta_lo_deg": 25.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 7.994,
+       "dwell_ms": 50.8,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 6,
+       "name": "WF-SUN-1",
+       "pae": 0.7998000499875031,
+       "pri_ms": 10.007,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 1500
+      }
+     },
+     {
+      "positions": 77.3,
+      "power_scale": 0.797,
+      "range_km_at_bin_max": 1588,
+      "theta_hi_deg": 35.0,
+      "theta_lo_deg": 30.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 7.994,
+       "dwell_ms": 70.8,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-SUN-2",
+       "pae": 0.7998000499875031,
+       "pri_ms": 10.007,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 1500
+      }
+     },
+     {
+      "positions": 76.3,
+      "power_scale": 0.902,
+      "range_km_at_bin_max": 1539,
+      "theta_hi_deg": 40.0,
+      "theta_lo_deg": 35.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 7.994,
+       "dwell_ms": 70.8,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-SUN-2",
+       "pae": 0.7998000499875031,
+       "pri_ms": 10.007,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 1500
+      }
+     },
+     {
+      "positions": 27.1,
+      "power_scale": 0.788,
+      "range_km_at_bin_max": 1592,
+      "theta_hi_deg": 45.0,
+      "theta_lo_deg": 40.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 7.994,
+       "dwell_ms": 110.9,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 12,
+       "name": "WF-SUN-3",
+       "pae": 0.7998000499875031,
+       "pri_ms": 10.007,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 1500
+      }
+     },
+     {
+      "positions": 0.0,
+      "power_scale": 0.816,
+      "range_km_at_bin_max": 1578,
+      "theta_hi_deg": 50.0,
+      "theta_lo_deg": 45.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 7.994,
+       "dwell_ms": 110.9,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 12,
+       "name": "WF-SUN-3",
+       "pae": 0.7998000499875031,
+       "pri_ms": 10.007,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 1500
+      }
+     }
+    ],
+    "wf_set": [
+     {
+      "b_tx": 1,
+      "band": "S",
+      "doppler_max_kHz": 130.8,
+      "duty_pct": 7.994,
+      "dwell_ms": 50.8,
+      "freq_ghz": 2.8,
+      "integration": "COHERENT",
+      "n_pulses": 6,
+      "name": "WF-SUN-1",
+      "pae": 0.7998000499875031,
+      "positions": 26.7,
+      "pri_ms": 10.007,
+      "rx_deaf_us": 800.05,
+      "sig_bw_mhz": 75.0,
+      "tau_us": 800.0,
+      "theta_hi_deg": 30.0,
+      "theta_lo_deg": 27.0,
+      "unamb_range_km": 1500
+     },
+     {
+      "b_tx": 1,
+      "band": "S",
+      "doppler_max_kHz": 130.8,
+      "duty_pct": 7.994,
+      "dwell_ms": 70.8,
+      "freq_ghz": 2.8,
+      "integration": "COHERENT",
+      "n_pulses": 8,
+      "name": "WF-SUN-2",
+      "pae": 0.7998000499875031,
+      "positions": 153.6,
+      "pri_ms": 10.007,
+      "rx_deaf_us": 800.05,
+      "sig_bw_mhz": 75.0,
+      "tau_us": 800.0,
+      "theta_hi_deg": 40.0,
+      "theta_lo_deg": 30.0,
+      "unamb_range_km": 1500
+     },
+     {
+      "b_tx": 1,
+      "band": "S",
+      "doppler_max_kHz": 130.8,
+      "duty_pct": 7.994,
+      "dwell_ms": 110.9,
+      "freq_ghz": 2.8,
+      "integration": "COHERENT",
+      "n_pulses": 12,
+      "name": "WF-SUN-3",
+      "pae": 0.7998000499875031,
+      "positions": 27.1,
+      "pri_ms": 10.007,
+      "rx_deaf_us": 800.05,
+      "sig_bw_mhz": 75.0,
+      "tau_us": 800.0,
+      "theta_hi_deg": 46.0,
+      "theta_lo_deg": 40.0,
+      "unamb_range_km": 1500
+     }
+    ]
+   },
+   {
+    "faces": {
+     "2": {
+      "avg_power_kW": 1512.7373696561328,
+      "dissipation_kW": 302.8503071057436,
+      "dissipation_kW_m2": 22.77686494883905,
+      "energy_J_per_refresh": 30254747.393122654,
+      "energy_fraction": 0.8249262425290494,
+      "positions": 290.8,
+      "theta_max_deg": 75.0,
+      "time_fraction": 0.17287421260603267
+     },
+     "3": {
+      "avg_power_kW": 211.32375655349057,
+      "dissipation_kW": 42.307111068213295,
+      "dissipation_kW_m2": 3.181847046434621,
+      "energy_J_per_refresh": 4226475.131069811,
+      "energy_fraction": 0.11523911284773874,
+      "positions": 32.8,
+      "theta_max_deg": 75.0,
+      "time_fraction": 0.02387438997795311
+     }
+    },
+    "flags": [
+     "range 1500 km not reached on 14.6 % of positions at full power (worst scan 131 km)",
+     "0.9 % of the sector is outside the scanned zone (scan limit / eps window)"
+    ],
+    "id": "EARTH",
+    "mismatch_db_per_pass_max": 0.9902829396719732,
+    "positions_total": 323.6,
+    "range_km": {
+     "at_best_scan": 1783,
+     "at_worst_scan": 131,
+     "positions_short_of_range_pct": 14.6,
+     "requested": 1500.0
+    },
+    "rr_alone_s": 16.49852485058099,
+    "rr_est_mission_s": 20.0,
+    "rr_target_s": 20.0,
+    "rx_beams_per_position": 2.9455442160612644,
+    "rx_sll_db": -30.0,
+    "rx_sll_held_up_to_deg": 75.0,
+    "s_min_unsaturated_range_km": 2.1775848218798117,
+    "sky": {
+     "above_budget_pct": 0.9888252405929023,
+     "band": "S",
+     "blind_rise_db": 10.0,
+     "blinded_by": [],
+     "blinded_pct": 0.0,
+     "galactic": "frame",
+     "rise_db": 2.465948904252606,
+     "t_sys_budget_k": 254.89157061216784,
+     "t_sys_cold_k": 144.46431510192332,
+     "worst_rise_db": 2.466079971414078
+    },
+    "status": "OK",
+    "time_to_impact_at_detection_s": 194.28571428571428,
+    "unscanned_pct": 0.9,
+    "wf": {
+     "b_tx": 1,
+     "band": "S",
+     "doppler_max_kHz": 130.8,
+     "duty_pct": 7.994,
+     "dwell_ms": 70.8,
+     "freq_ghz": 2.8,
+     "integration": "COHERENT",
+     "n_pulses": 8,
+     "name": "WF-EARTH-1",
+     "pae": 0.7998000499875031,
+     "pri_ms": 10.007,
+     "rx_deaf_us": 800.05,
+     "sig_bw_mhz": 75.0,
+     "tau_us": 800.0,
+     "unamb_range_km": 1500
+    },
+    "wf_by_bin": [
+     {
+      "positions": 6.5,
+      "power_scale": 0.533,
+      "range_km_at_bin_max": 1756,
+      "theta_hi_deg": 35.0,
+      "theta_lo_deg": 30.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 7.994,
+       "dwell_ms": 70.8,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-EARTH-1",
+       "pae": 0.7998000499875031,
+       "pri_ms": 10.007,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 1500
+      }
+     },
+     {
+      "positions": 26.2,
+      "power_scale": 0.603,
+      "range_km_at_bin_max": 1702,
+      "theta_hi_deg": 40.0,
+      "theta_lo_deg": 35.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 7.994,
+       "dwell_ms": 70.8,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-EARTH-1",
+       "pae": 0.7998000499875031,
+       "pri_ms": 10.007,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 1500
+      }
+     },
+     {
+      "positions": 40.0,
+      "power_scale": 0.703,
+      "range_km_at_bin_max": 1638,
+      "theta_hi_deg": 45.0,
+      "theta_lo_deg": 40.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 7.994,
+       "dwell_ms": 70.8,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-EARTH-1",
+       "pae": 0.7998000499875031,
+       "pri_ms": 10.007,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 1500
+      }
+     },
+     {
+      "positions": 49.8,
+      "power_scale": 0.851,
+      "range_km_at_bin_max": 1562,
+      "theta_hi_deg": 50.0,
+      "theta_lo_deg": 45.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 7.994,
+       "dwell_ms": 70.8,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 8,
+       "name": "WF-EARTH-1",
+       "pae": 0.7998000499875031,
+       "pri_ms": 10.007,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 1500
+      }
+     },
+     {
+      "positions": 62.4,
+      "power_scale": 0.81,
+      "range_km_at_bin_max": 1581,
+      "theta_hi_deg": 55.0,
+      "theta_lo_deg": 50.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 7.994,
+       "dwell_ms": 110.9,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 12,
+       "name": "WF-EARTH-2",
+       "pae": 0.7998000499875031,
+       "pri_ms": 10.007,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 1500
+      }
+     },
+     {
+      "positions": 55.5,
+      "power_scale": 0.689,
+      "range_km_at_bin_max": 1646,
+      "theta_hi_deg": 60.0,
+      "theta_lo_deg": 55.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 7.994,
+       "dwell_ms": 311.0,
+       "freq_ghz": 2.8,
+       "integration": "NONCOHERENT",
+       "n_pulses": 32,
+       "name": "WF-EARTH-3",
+       "pae": 0.7998000499875031,
+       "pri_ms": 10.007,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 1500
+      }
+     },
+     {
+      "positions": 44.2,
+      "power_scale": 1.0,
+      "range_km_at_bin_max": 1491,
+      "theta_hi_deg": 65.0,
+      "theta_lo_deg": 60.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 7.994,
+       "dwell_ms": 311.0,
+       "freq_ghz": 2.8,
+       "integration": "NONCOHERENT",
+       "n_pulses": 32,
+       "name": "WF-EARTH-3",
+       "pae": 0.7998000499875031,
+       "pri_ms": 10.007,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 1500
+      }
+     },
+     {
+      "positions": 27.8,
+      "power_scale": 1.0,
+      "range_km_at_bin_max": 158,
+      "theta_hi_deg": 70.0,
+      "theta_lo_deg": 65.0,
+      "wf": {
+       "b_tx": 8,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 2.0,
+       "dwell_ms": 0.0,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 1,
+       "name": "WF-EARTH-4",
+       "pae": 0.7920792079207921,
+       "pri_ms": 1.0,
+       "rx_deaf_us": 20.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 20.0,
+       "unamb_range_km": 150
+      }
+     },
+     {
+      "positions": 11.3,
+      "power_scale": 1.0,
+      "range_km_at_bin_max": 131,
+      "theta_hi_deg": 75.0,
+      "theta_lo_deg": 70.0,
+      "wf": {
+       "b_tx": 8,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 2.0,
+       "dwell_ms": 0.0,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 1,
+       "name": "WF-EARTH-4",
+       "pae": 0.7920792079207921,
+       "pri_ms": 1.0,
+       "rx_deaf_us": 20.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 20.0,
+       "unamb_range_km": 150
+      }
+     }
+    ],
+    "wf_set": [
+     {
+      "b_tx": 1,
+      "band": "S",
+      "doppler_max_kHz": 130.8,
+      "duty_pct": 7.994,
+      "dwell_ms": 70.8,
+      "freq_ghz": 2.8,
+      "integration": "COHERENT",
+      "n_pulses": 8,
+      "name": "WF-EARTH-1",
+      "pae": 0.7998000499875031,
+      "positions": 122.4,
+      "pri_ms": 10.007,
+      "rx_deaf_us": 800.05,
+      "sig_bw_mhz": 75.0,
+      "tau_us": 800.0,
+      "theta_hi_deg": 50.0,
+      "theta_lo_deg": 31.0,
+      "unamb_range_km": 1500
+     },
+     {
+      "b_tx": 1,
+      "band": "S",
+      "doppler_max_kHz": 130.8,
+      "duty_pct": 7.994,
+      "dwell_ms": 110.9,
+      "freq_ghz": 2.8,
+      "integration": "COHERENT",
+      "n_pulses": 12,
+      "name": "WF-EARTH-2",
+      "pae": 0.7998000499875031,
+      "positions": 62.4,
+      "pri_ms": 10.007,
+      "rx_deaf_us": 800.05,
+      "sig_bw_mhz": 75.0,
+      "tau_us": 800.0,
+      "theta_hi_deg": 55.0,
+      "theta_lo_deg": 50.0,
+      "unamb_range_km": 1500
+     },
+     {
+      "b_tx": 1,
+      "band": "S",
+      "doppler_max_kHz": 130.8,
+      "duty_pct": 7.994,
+      "dwell_ms": 311.0,
+      "freq_ghz": 2.8,
+      "integration": "NONCOHERENT",
+      "n_pulses": 32,
+      "name": "WF-EARTH-3",
+      "pae": 0.7998000499875031,
+      "positions": 99.7,
+      "pri_ms": 10.007,
+      "rx_deaf_us": 800.05,
+      "sig_bw_mhz": 75.0,
+      "tau_us": 800.0,
+      "theta_hi_deg": 65.0,
+      "theta_lo_deg": 55.0,
+      "unamb_range_km": 1500
+     },
+     {
+      "b_tx": 8,
+      "band": "S",
+      "doppler_max_kHz": 130.8,
+      "duty_pct": 2.0,
+      "dwell_ms": 0.0,
+      "freq_ghz": 2.8,
+      "integration": "COHERENT",
+      "n_pulses": 1,
+      "name": "WF-EARTH-4",
+      "pae": 0.7920792079207921,
+      "positions": 39.1,
+      "pri_ms": 1.0,
+      "rx_deaf_us": 20.05,
+      "sig_bw_mhz": 75.0,
+      "tau_us": 20.0,
+      "theta_hi_deg": 75.0,
+      "theta_lo_deg": 65.0,
+      "unamb_range_km": 150
+     }
+    ]
+   },
+   {
+    "faces": {
+     "1": {
+      "avg_power_kW": 128.46673207288612,
+      "dissipation_kW": 25.71903333926063,
+      "dissipation_kW_m2": 1.9342854711997706,
+      "energy_J_per_refresh": 1284667.320728861,
+      "energy_fraction": 0.07005550382017856,
+      "positions": 51.1,
+      "theta_max_deg": 17.0,
+      "time_fraction": 0.012261143586409482
+     }
+    },
+    "flags": [],
+    "id": "MOON",
+    "mismatch_db_per_pass_max": 0.12747332217836527,
+    "positions_total": 51.1,
+    "range_km": {
+     "at_best_scan": 3140,
+     "at_worst_scan": 3089,
+     "positions_short_of_range_pct": 0.0,
+     "requested": 3000.0
+    },
+    "rr_alone_s": 0.7005550382017856,
+    "rr_est_mission_s": 10.0,
+    "rr_target_s": 10.0,
+    "rx_beams_per_position": 3.376688001163386,
+    "rx_sll_db": -25.0,
+    "rx_sll_held_up_to_deg": 17.0,
+    "s_min_unsaturated_range_km": 3.8723542523621455,
+    "sky": {
+     "above_budget_pct": 0.9851124277555585,
+     "band": "S",
+     "blind_rise_db": 10.0,
+     "blinded_by": [],
+     "blinded_pct": 0.0,
+     "galactic": "frame",
+     "rise_db": 0.31857580469949986,
+     "t_sys_budget_k": 155.45982103908915,
+     "t_sys_cold_k": 144.46431510192332,
+     "worst_rise_db": 0.36620353289825625
+    },
+    "status": "OK",
+    "time_to_impact_at_detection_s": 418.57142857142856,
+    "unscanned_pct": 0.0,
+    "wf": {
+     "b_tx": 1,
+     "band": "S",
+     "doppler_max_kHz": 130.8,
+     "duty_pct": 3.997,
+     "dwell_ms": 40.8,
+     "freq_ghz": 2.8,
+     "integration": "COHERENT",
+     "n_pulses": 3,
+     "name": "WF-MOON",
+     "pae": 0.7998000499875031,
+     "pri_ms": 20.014,
+     "rx_deaf_us": 800.05,
+     "sig_bw_mhz": 75.0,
+     "tau_us": 800.0,
+     "unamb_range_km": 3000
+    },
+    "wf_by_bin": [
+     {
+      "positions": 1.1,
+      "power_scale": 0.833,
+      "range_km_at_bin_max": 3140,
+      "theta_hi_deg": 5.0,
+      "theta_lo_deg": 0.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 3.997,
+       "dwell_ms": 40.8,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 3,
+       "name": "WF-MOON",
+       "pae": 0.7998000499875031,
+       "pri_ms": 20.014,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 3000
+      }
+     },
+     {
+      "positions": 20.5,
+      "power_scale": 0.848,
+      "range_km_at_bin_max": 3126,
+      "theta_hi_deg": 10.0,
+      "theta_lo_deg": 5.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 3.997,
+       "dwell_ms": 40.8,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 3,
+       "name": "WF-MOON",
+       "pae": 0.7998000499875031,
+       "pri_ms": 20.014,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 3000
+      }
+     },
+     {
+      "positions": 26.4,
+      "power_scale": 0.875,
+      "range_km_at_bin_max": 3102,
+      "theta_hi_deg": 15.0,
+      "theta_lo_deg": 10.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 3.997,
+       "dwell_ms": 40.8,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 3,
+       "name": "WF-MOON",
+       "pae": 0.7998000499875031,
+       "pri_ms": 20.014,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 3000
+      }
+     },
+     {
+      "positions": 3.1,
+      "power_scale": 0.889,
+      "range_km_at_bin_max": 3089,
+      "theta_hi_deg": 20.0,
+      "theta_lo_deg": 15.0,
+      "wf": {
+       "b_tx": 1,
+       "band": "S",
+       "doppler_max_kHz": 130.8,
+       "duty_pct": 3.997,
+       "dwell_ms": 40.8,
+       "freq_ghz": 2.8,
+       "integration": "COHERENT",
+       "n_pulses": 3,
+       "name": "WF-MOON",
+       "pae": 0.7998000499875031,
+       "pri_ms": 20.014,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 75.0,
+       "tau_us": 800.0,
+       "unamb_range_km": 3000
+      }
+     }
+    ],
+    "wf_set": [
+     {
+      "b_tx": 1,
+      "band": "S",
+      "doppler_max_kHz": 130.8,
+      "duty_pct": 3.997,
+      "dwell_ms": 40.8,
+      "freq_ghz": 2.8,
+      "integration": "COHERENT",
+      "n_pulses": 3,
+      "name": "WF-MOON",
+      "pae": 0.7998000499875031,
+      "positions": 51.1,
+      "pri_ms": 20.014,
+      "rx_deaf_us": 800.05,
+      "sig_bw_mhz": 75.0,
+      "tau_us": 800.0,
+      "theta_hi_deg": 17.0,
+      "theta_lo_deg": 4.0,
+      "unamb_range_km": 3000
+     }
+    ]
+   }
+  ],
+  "tracking": {
+   "advice": [],
+   "confirm_p_min": 0.98,
+   "faces": {
+    "0": {
+     "at_energy": 0.0,
+     "at_ku_time": 0.0,
+     "binding": "energy",
+     "confirm_energy": 0.00029345304177971163,
+     "confirm_ku_time": 0.00026338838775418665,
+     "confirm_s_time": 0.0,
+     "dissipation_kW": 67.8194948601031,
+     "dissipation_kW_m2": 5.100590750887692,
+     "load": 0.18449345304177972,
+     "p_left_kW": 1495.4636732137799,
+     "search_energy": 0.1842,
+     "search_s_time": 0.0343,
+     "status": "OK",
+     "total_energy": 0.18449345304177972,
+     "total_ku_time": 0.00026338838775418665,
+     "total_s_time": 0.0343
+    },
+    "1": {
+     "at_energy": 8.448726851628554e-06,
+     "at_ku_time": 2.0000000000000005e-05,
+     "binding": "energy",
+     "confirm_energy": 0.0006168130090405265,
+     "confirm_ku_time": 0.0004700957789602449,
+     "confirm_s_time": 0.0,
+     "dissipation_kW": 93.66674264781179,
+     "dissipation_kW_m2": 7.044519016260927,
+     "load": 0.2546252617358921,
+     "p_left_kW": 1366.8570144076468,
+     "search_energy": 0.254,
+     "search_s_time": 0.0465,
+     "status": "OK",
+     "total_energy": 0.2546252617358921,
+     "total_ku_time": 0.0004900957789602449,
+     "total_s_time": 0.0465
+    },
+    "2": {
+     "at_energy": 0.0,
+     "at_ku_time": 0.0,
+     "binding": "energy",
+     "confirm_energy": 0.0022588766560456986,
+     "confirm_ku_time": 0.0017514193967027435,
+     "confirm_s_time": 0.0,
+     "dissipation_kW": 304.30520249416764,
+     "dissipation_kW_m2": 22.886285197058424,
+     "load": 0.8271588766560457,
+     "p_left_kW": 316.9534593712932,
+     "search_energy": 0.8249,
+     "search_s_time": 0.1729,
+     "status": "OK",
+     "total_energy": 0.8271588766560457,
+     "total_ku_time": 0.0017514193967027435,
+     "total_s_time": 0.1729
+    },
+    "3": {
+     "at_energy": 0.0,
+     "at_ku_time": 0.0,
+     "binding": "energy",
+     "confirm_energy": 0.00029431179342845657,
+     "confirm_ku_time": 0.0002169178695275792,
+     "confirm_s_time": 0.0,
+     "dissipation_kW": 42.49720946279843,
+     "dissipation_kW_m2": 3.196144028669296,
+     "load": 0.11549431179342845,
+     "p_left_kW": 1621.9932634478878,
+     "search_energy": 0.1152,
+     "search_s_time": 0.0239,
+     "status": "OK",
+     "total_energy": 0.11549431179342845,
+     "total_ku_time": 0.0002169178695275792,
+     "total_s_time": 0.0239
+    }
+   },
+   "ku_freq_ghz": 14.0,
+   "pfa": 1e-08,
+   "scheduler_rules": [
+    "S band: common TX / RX cadence of all faces (interface_mode sync): no face receives S while another transmits S (adjacent and opposite faces fail the isolation)",
+    "Ku band: common TX / RX cadence of all faces (interface_mode sync): no face receives Ku while another transmits Ku (adjacent and opposite faces fail the isolation)",
+    "S transmission and Ku reception on the same face(s) only if the S harmonic (order 5) misses the Ku channel",
+    "sector SUN: WF-SUN-1 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+    "sector SUN: WF-SUN-2 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+    "sector SUN: WF-SUN-3 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+    "sector EARTH: WF-EARTH-1 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+    "sector EARTH: WF-EARTH-2 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+    "sector EARTH: WF-EARTH-3 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+    "sector EARTH: WF-EARTH-4 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+    "sector MOON: WF-MOON (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission"
+   ],
+   "sectors": [
+    {
+     "alternatives": {
+      "KU1+7": {
+       "admissible": true,
+       "mission_max_load": 0.8272,
+       "why_not": ""
+      },
+      "KU7": {
+       "admissible": true,
+       "mission_max_load": 0.8272,
+       "why_not": ""
+      },
+      "S2": {
+       "admissible": true,
+       "mission_max_load": 0.8272,
+       "why_not": ""
+      }
+     },
+     "at": [],
+     "confirm_mode": "KU1+7",
+     "confirmation": {
+      "admissible": true,
+      "faces": {
+       "0": {
+        "energy_fraction": 0.00029345304177971163,
+        "ku_time_fraction": 0.00026338838775418665,
+        "s_time_fraction": 0.0
+       },
+       "1": {
+        "energy_fraction": 0.0002929526840711114,
+        "ku_time_fraction": 0.0002630071399277583,
+        "s_time_fraction": 0.0
+       }
+      },
+      "ku_looks_fa": 8.0,
+      "ku_looks_true": 2.304416204019793,
+      "margin_db": 0.0,
+      "success": 0.9952662122601231,
+      "why_not": ""
+     },
+     "false_alarms_per_rr": 12.9,
+     "flags": [
+      "0.07 % of the Ku positions blinded by the sky (SUN: T_sys rise above 10 dB), not scanned",
+      "0.99 % of the Ku positions above the budget T_sys (234.9 K): sky noise up to +9.2 dB, range reduced there"
+     ],
+     "forced": false,
+     "id": "SUN",
+     "ku_min_unsaturated_range_km": 1.8185192383254527,
+     "ku_sky": {
+      "above_budget_pct": 0.9945671511918416,
+      "band": "Ku",
+      "blind_rise_db": 10.0,
+      "blinded_by": [
+       "SUN"
+      ],
+      "blinded_pct": 0.07397429063455278,
+      "galactic": "frame",
+      "rise_db": 0.07749252462327319,
+      "t_sys_budget_k": 234.94700765122926,
+      "t_sys_cold_k": 230.7919548038089,
+      "worst_rise_db": 9.171210177346246
+     },
+     "reason": "lowest mission face load (binding resource: energy)",
+     "scheduler_rules": [
+      "WF-SUN-1 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+      "WF-SUN-2 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+      "WF-SUN-3 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission"
+     ]
+    },
+    {
+     "alternatives": {
+      "KU1+7": {
+       "admissible": true,
+       "mission_max_load": 0.8272,
+       "why_not": ""
+      },
+      "KU7": {
+       "admissible": true,
+       "mission_max_load": 0.8276,
+       "why_not": ""
+      },
+      "S2": {
+       "admissible": true,
+       "mission_max_load": 0.8524,
+       "why_not": ""
+      }
+     },
+     "at": [],
+     "confirm_mode": "KU1+7",
+     "confirmation": {
+      "admissible": true,
+      "faces": {
+       "2": {
+        "energy_fraction": 0.0022588766560456986,
+        "ku_time_fraction": 0.0017514193967027435,
+        "s_time_fraction": 0.0
+       },
+       "3": {
+        "energy_fraction": 0.00029431179342845657,
+        "ku_time_fraction": 0.0002169178695275792,
+        "s_time_fraction": 0.0
+       }
+      },
+      "ku_looks_fa": 8.0,
+      "ku_looks_true": 2.304416204019793,
+      "margin_db": 0.0,
+      "success": 0.9952662122601231,
+      "why_not": ""
+     },
+     "false_alarms_per_rr": 14.0,
+     "flags": [],
+     "forced": false,
+     "id": "EARTH",
+     "ku_min_unsaturated_range_km": 1.8185192383254527,
+     "ku_sky": {
+      "above_budget_pct": 0.9989863619993734,
+      "band": "Ku",
+      "blind_rise_db": 10.0,
+      "blinded_by": [],
+      "blinded_pct": 0.0,
+      "galactic": "frame",
+      "rise_db": 2.187474942825945,
+      "t_sys_budget_k": 381.9162698176698,
+      "t_sys_cold_k": 230.7919548038089,
+      "worst_rise_db": 2.188147236456139
+     },
+     "reason": "lowest mission face load (binding resource: energy)",
+     "scheduler_rules": [
+      "WF-EARTH-1 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+      "WF-EARTH-2 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+      "WF-EARTH-3 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+      "WF-EARTH-4 (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission"
+     ]
+    },
+    {
+     "alternatives": {
+      "KU1+7": {
+       "admissible": true,
+       "mission_max_load": 0.8272,
+       "why_not": ""
+      },
+      "KU7": {
+       "admissible": true,
+       "mission_max_load": 0.8272,
+       "why_not": ""
+      },
+      "S2": {
+       "admissible": true,
+       "mission_max_load": 0.8272,
+       "why_not": ""
+      }
+     },
+     "at": [
+      {
+       "angle_zone_deg": 0.2,
+       "avg_power_kW": 0.015493148569613667,
+       "driver": "DET",
+       "energy_per_update_J": 15.493148569613666,
+       "faces": {
+        "1": {
+         "energy_fraction": 8.448726851628554e-06,
+         "ku_time_fraction": 2.0000000000000005e-05
+        }
+       },
+       "n_targets": 2.0,
+       "r_max_km": 1000.0,
+       "r_min_km": 5.0,
+       "range_acc_m": 10.0,
+       "rr_s": 2.0,
+       "sigma_theta_deg": 0.05,
+       "unreachable_tracks": 0.0,
+       "vr_acc_mps": 5.0,
+       "wf": "14.0 GHz COHE tau 10 us x N 2 @ PRI 0.5 ms B 50 MHz"
+      }
+     ],
+     "confirm_mode": "KU1+7",
+     "confirmation": {
+      "admissible": true,
+      "faces": {
+       "1": {
+        "energy_fraction": 0.000323860324969415,
+        "ku_time_fraction": 0.00020708863903248662,
+        "s_time_fraction": 0.0
+       }
+      },
+      "ku_looks_fa": 8.0,
+      "ku_looks_true": 2.304416204019793,
+      "margin_db": 0.0,
+      "success": 0.9952662122601231,
+      "why_not": ""
+     },
+     "false_alarms_per_rr": 2.3,
+     "flags": [
+      "0.98 % of the Ku positions above the budget T_sys (231.3 K): sky noise up to +2.3 dB, range reduced there"
+     ],
+     "forced": false,
+     "id": "MOON",
+     "ku_min_unsaturated_range_km": 3.2338353182738184,
+     "ku_sky": {
+      "above_budget_pct": 0.9806459477578368,
+      "band": "Ku",
+      "blind_rise_db": 10.0,
+      "blinded_by": [],
+      "blinded_pct": 0.0,
+      "galactic": "frame",
+      "rise_db": 0.009496263436498856,
+      "t_sys_budget_k": 231.29715557860644,
+      "t_sys_cold_k": 230.7919548038089,
+      "worst_rise_db": 2.2534470515375054
+     },
+     "reason": "lowest mission face load (binding resource: energy)",
+     "scheduler_rules": [
+      "WF-MOON (2.8 GHz, 75 MHz) puts its harmonic on 13.812-14.188 GHz, over the Ku channel 14.0 GHz / 50 MHz: on the same face, no Ku reception during this S transmission"
+     ]
+    }
+   ]
+  },
+  "warnings": [
+   "sector SUN: 0.07 % of the Ku positions blinded by the sky (SUN: T_sys rise above 10 dB), not scanned",
+   "sector SUN: 0.99 % of the Ku positions above the budget T_sys (234.9 K): sky noise up to +9.2 dB, range reduced there",
+   "sector MOON: 0.98 % of the Ku positions above the budget T_sys (231.3 K): sky noise up to +2.3 dB, range reduced there"
+  ]
+ },
+ "validation": []
+}

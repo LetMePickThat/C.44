@@ -25,10 +25,12 @@ import numpy as np  # noqa: E402
 
 from core import cost_estimate as ce  # noqa: E402
 from core import geometry as geo  # noqa: E402
+from core import isolation as iso  # noqa: E402
 from core import mission as md  # noqa: E402
 from core import optimizer as mo  # noqa: E402
 from core import radar_model as rm  # noqa: E402
 from core import redundancy as red  # noqa: E402
+from core import sky  # noqa: E402
 from core import tracking as trk  # noqa: E402
 
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -39,7 +41,9 @@ ABS_TOL = 1e-15         # below this, two numbers are equal (zeros computed thro
 GRID_RES_DEG = 0.5      # raster of the redundancy check and the fast estimate (= tool.display.grid_res_deg default)
 
 MISSIONS = ("mission_example.json", "mission_example.csv", "mission_veille500.json",
-            "mission_redundancy_demo.json", "mission_synthetic_mix.json")
+            "mission_redundancy_demo.json", "mission_synthetic_mix.json", "mission_sky_demo.json")
+# Bodies on the face 0 boresight (phi 0, eps = tilt) for the sky-noise terms of the model case (step 1.5)
+SKY_BODIES = {"sun": 0.267, "moon": 0.26, "earth": 60.0}
 
 # Synthetic Ku waveforms of the model case (no Ku waveform in the model catalogue)
 KU_TRACK = rm.Waveform(name="TEST-KU-TRK", role="TRACK", band="Ku", tau_s=40e-6, n=128, pri_s=500e-6,
@@ -81,6 +85,21 @@ def lin_to_db_gain(f: float, th: float) -> list:
     """TX and RX gain (dBi) of the band containing f at scan th."""
     b = rm.band_for_frequency(f)
     return [rm.lin_to_db(rm.gain_lin(b.eta_illum_tx, f, th)), rm.lin_to_db(rm.gain_lin(rm.rx_beam(b.name).eta, f, th))]
+
+
+def sky_rise_terms() -> dict:
+    """Antenna-temperature rise of a body centred on the face 0 boresight, beam offset in elevation (step 1.5)."""
+    frame = mo.face_frame(0.0)
+    out = {}
+    for typ, rad in SKY_BODIES.items():
+        s = sky.parse({"bodies": [{"id": typ, "type": typ, "phi_deg": 0.0, "eps_deg": rm.SECTOR_TILT_DEG,
+                                   "angular_radius_deg": rad}]})
+        offs = np.array([0.0, 0.5, 1.0, 2.0, 5.0, 20.0])
+        dirs = sky.unit(np.zeros(len(offs)), rm.SECTOR_TILT_DEG + offs)
+        for b, f in (("S", 2.8), ("Ku", 14.0)):
+            r = sky.body_rise_k(s.bodies[0], b, f, -25.0, frame, dirs)
+            out.update({f"{typ} | {b} | offset {o:g} deg": float(v) for o, v in zip(offs, r)})
+    return out
 
 
 def model_case() -> dict:
@@ -135,6 +154,13 @@ def model_case() -> dict:
                         for n in (1, 8, 24, 128) for s in (0, 1, 2, 3, 4)},
         "bands": {b.name: b for b in rm.BANDS.values()}, "targets": rm.TARGETS,
         "ship_array_radius": geo.RP,
+        "isolation": iso.matrix(), "scheduler_rules": iso.scheduler_rules(),
+        "min_unsaturated_range_km": {f"{f} GHz | {n}": rm.min_unsaturated_range_km(f, 0.0, t.rcs_m2)
+                                     for f in (2.8, 14.0) for n, t in rm.TARGETS.items()},
+        "pol_loss_db": {f"{b} {role} {integ} N {n} SW{sw}": rm.pol_recombination_loss_db(rm.BANDS[b], role, integ, n, sw)
+                        for b, role in (("S", "SEARCH"), ("Ku", "CONFIRM"), ("Ku", "TRACK"))
+                        for integ in ("COHERENT", "NONCOHERENT") for n in (1, 8) for sw in (1, 3)},
+        "sky_rise_k": sky_rise_terms(),
     }
     out["confirmation_tables"] = {f"SW{sw}": trk.confirm_tables(sw, 2.8) for sw in (1, 3)}
     out["ku_look"] = {f"{th} deg | {r} km | {'track' if pack else 'detect'}":
@@ -263,6 +289,9 @@ def key_figures(case: str, data: dict) -> Dict[str, Any]:
         k[f"{sid} range at worst scan (km)"] = s["range_km"]["at_worst_scan"]
         k[f"{sid} positions short of range (%)"] = s["range_km"]["positions_short_of_range_pct"]
         k[f"{sid} unscanned (%)"] = s["unscanned_pct"]
+        if "sky" in s:
+            k[f"{sid} sky budget T_sys S (K)"] = s["sky"]["t_sys_budget_k"]
+            k[f"{sid} blinded S (%)"] = s["sky"]["blinded_pct"]
         k[f"{sid} flags"] = len(s.get("flags", []))
     trk_faces = run.get("tracking", {}).get("faces", {})
     for f, v in trk_faces.items():

@@ -10,13 +10,14 @@ Règles appliquées à chaque étape :
 - garder toutes les variables système dans le fichier unique `radar_system.toml` ;
 - ne jamais présenter les missions de test et les valeurs figées comme des références ou des performances ;
 - traiter au même endroit tout ce qui touche un même sujet, et fixer une valeur dépendante après celles dont elle dépend ;
-- pour les technologies, retenir des valeurs crédibles mais optimistes pour 2050-2060.
+- pour les technologies, retenir des valeurs crédibles mais optimistes pour 2050-2060, et le bout optimiste de chaque plage proposée ;
+- le simulateur radar travaille dans le repère du vaisseau ; la position des objets lui viendra d'un futur simulateur global de scénario.
 
 La procédure détaillée d'une étape et la manière de reprendre le travail dans une nouvelle session sont décrites au §1.4 de `Choix_architecturaux.md`.
 
 (D) signale une étape qui demande une décision ou des données de l'utilisateur. Le détail des choix déjà faits est dans `Choix_architecturaux.md`.
 
-## État d'avancement (20 octobre 2026)
+## État d'avancement (21 octobre 2026)
 
 | Étape | État |
 |---|---|
@@ -26,8 +27,9 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 1.1 | ✔ fait (commit 5b3df06) |
 | 1.2 | ✔ fait (commit e6ce750) |
 | 1.3 | ✔ fait (commit e242519) |
-| 1.4 | ✔ fait |
-| 1.5 et suivantes | à faire, la prochaine étant 1.5 |
+| 1.4 | ✔ fait (commit 1feda84) |
+| 1.5 | ✔ fait |
+| 2.1 et suivantes | à faire, la prochaine étant 2.1 |
 
 ---
 
@@ -101,17 +103,29 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - Retard vrai (numérique par TRM en S et en Ku, décidé lors de la revue 0.3).
   - Question : relâcher ou non la limite de 70° au-dessus de 2,85 GHz (tranchée : gardée).
 
-- **1.5 Réception.**
+- **1.5 Réception.** ✔
+
+  Décisions prises (bout optimiste de chaque plage) :
+  - le bruit de phase de l'oscillateur passe **en entier** à l'étape 2.2, avec la cohérence (règle « regrouper par sujet ») ;
+  - ciel dans le **repère du vaisseau**, donné par la mission (clé `sky`), plus tard par le simulateur global de scénario ; le modèle ne calcule jamais où sont les corps ;
+  - T_ant = ciel froid (S 3,2 K, Ku 2,8 K) + fond galactique (profil en latitude et longitude, pire cas 8 K à 2,8 GHz sans repère) + corps (table des T_b par type et par bande, surcharge possible par le scénario) intégrés sur le diagramme de réception réel moyenné en azimut ;
+  - pointages **aveuglés** au-delà de +10 dB ; T_sys du bilan d'un secteur = centile (1 − `short_tol`) des autres pointages ;
+  - CAN I/Q à 250 Méch/s, 13 bits, +10 dBm : facteur de bruit dérivé (20 dB) ; T_sys froid S 144,5 K, Ku 230,8 K ; dynamique, portée minimale non saturée, alerte des tranches de poursuite ; récupération du limiteur 50 / 25 ns ;
+  - isolation : matrice des verdicts ; **synchronisation** des faces par bande (`interface_mode` sync) ; harmonique 5 de la S dans la bande Ku : règle de fréquence sur la même face ;
+  - polarisation : détecteur GLRT sur la polarisation inconnue (perte calculée, 0,54 dB sur un échantillon cohérent), 0,05 dB en poursuite ; remplace les 0,5 dB provisoires.
+
+  Contenu prévu à l'origine :
   - T_sys selon la direction (Terre, Lune, Soleil, plan galactique).
   - LNA ; dynamique et saturation du CAN.
   - Isolation entre S et Ku et entre faces.
-  - Modèle du bruit de phase de l'oscillateur : spectre et effet sur le temps d'aller-retour (sert à l'étape 2.2).
-  - **Polarisation** : deux voies de polarisation en réception par TRM et leur recombinaison (cohérente ou optimale), avec le gain de diversité de polarisation face à la perte.
+  - Modèle du bruit de phase de l'oscillateur : spectre et effet sur le temps d'aller-retour (**passé à l'étape 2.2**).
+  - **Polarisation** : deux voies de polarisation en réception par TRM et leur recombinaison (cohérente ou optimale), avec le gain de diversité de polarisation face à la perte (le gain de diversité reste à l'étape 2.4).
 
 ## Phase 2 : signal et détection
 
 - **2.1 Formes d'onde paramétriques.**
   - **Renvois de l'étape 1.3** : zone aveugle c·τ/2 à vérifier **par rapport au besoin du secteur** (300 km pour les impulsions de 2 ms, sans importance à 10 000 km) ; éclipse au facteur de forme élevé (jusqu'à 0,65) ; migration et Doppler dans l'impulsion (50 m à 25 km/s sur 2 ms) ; dérive de phase et d'amplitude dans l'impulsion.
+  - **Renvoi de l'étape 1.5** : le récepteur est sourd pendant τ + la récupération du limiteur (50 ns en S, 25 ns en Ku ; sortie `rx_deaf_us` des formes d'onde), à prendre dans l'éclipsage.
   - Modulation, compression, lobes en distance, tolérance au Doppler, couplage distance-Doppler.
   - Éclipsage, ambiguïté en distance et en Doppler, PRF échelonnée.
   - Pondération de Taylor déduite de la modulation réelle (pour k_r).
@@ -124,21 +138,23 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Doit aussi corriger le modèle de cohérence.** Le plancher η_min = 0,70 est atteint vers 149 ms, puis fige la perte à 1,55 dB quelle que soit la durée d'intégration : ce n'est pas physique, et c'est la cause des égalités exactes dans l'optimiseur. Il faut plafonner le temps cohérent et intégrer de façon non cohérente au-delà.
   - t₀ = 0,25 s et p = 2 n'ont **aucune source connue** et sont à établir.
   - **Disposition provisoire** depuis la revue 0.3 : `radar_model.COH_T_MAX_S` = t₀(−ln η_min)^(1/p) = 149 ms. Les générateurs de formes d'onde de l'optimiseur et de la poursuite écartent les intégrations cohérentes plus longues. À retirer quand les blocs cohérents suivis d'une intégration non cohérente seront modélisés.
-  - Bruit de phase de l'oscillateur sur l'aller-retour (53 ms à 8 000 km, décalages d'environ 19 Hz). Il décorrèle l'émission et la réception (lobes Doppler, cohérence) ; ce n'est pas seulement une gigue à court terme (voir 1.5).
+  - **Bruit de phase de l'oscillateur, sujet entier (décidé à l'étape 1.5)** : modèle du spectre de l'oscillateur et effet sur l'aller-retour (53 ms à 8 000 km, décalages d'environ 19 Hz). Il décorrèle l'émission et la réception (lobes Doppler, cohérence) ; ce n'est pas seulement une gigue à court terme. À traiter avec la refonte de la cohérence ci-dessus.
 
 - **2.3 Critère de détection** (D).
   - Pd moyenne ou au pire point de la cellule de la grille.
   - Pd cumulée sur plusieurs trames pour une cible qui se rapproche.
   - Revoir `beam_spacing_hpbw` et `enable_grid_loss`.
+  - **Renvoi de l'étape 1.5** : T_sys du bilan d'un secteur au centile (1 − `short_tol`) des pointages non aveuglés, c'est-à-dire le pire point à 1 % près ; le choix entre moyenne et pire point est à revoir ici.
 
 - **2.4 Modèles de cibles** (D).
   - SER selon l'aspect et la bande, cas de Swerling par bande, cinématique et manœuvre.
   - Un **temps de cohérence T₀ par type de cible** (rotation, accélération, décorrélation de scintillation), au lieu du `coherence.t0_s` = 0,25 s global.
-  - **Polarisation** : matrice de diffusion par type de cible (SER copolaire et croisée, dépolarisation selon l'aspect) et effet de la diversité de polarisation sur le cas de Swerling (perte de fluctuation).
+  - **Polarisation** : matrice de diffusion par type de cible (SER copolaire et croisée, dépolarisation selon l'aspect) et effet de la diversité de polarisation sur le cas de Swerling (perte de fluctuation). Depuis l'étape 1.5, la recombinaison des deux voies est le détecteur GLRT, sans gain de diversité : ce gain est à établir ici.
 
 - **2.5 Environnement.**
   - Bruit de fond.
-  - **Masquage des champs de vue de l'antenne par le vaisseau** (ailes de radiateurs de 76,5 m, coque), d'après la géométrie `[ship]`, pour le calcul de la couverture. Aujourd'hui, seul le plancher arrière ε ≈ −55° est modélisé.
+  - **Masquage des champs de vue de l'antenne par le vaisseau** (ailes de radiateurs de 76,5 m, coque), d'après la géométrie `[ship]`, pour le calcul de la couverture. Aujourd'hui, seul le plancher arrière ε ≈ −55° est modélisé. **Avec le bruit thermique de la structure du vaisseau** dans le champ des faces (ailes de radiateurs chaudes, coque), même objet (décidé à l'étape 1.5) : la structure deviendra un « corps » du bruit du ciel (`core/sky.py`).
+  - Fouillis terrestre : la Terre est déjà une source de bruit (étape 1.5) ; son écho (fouillis) et la saturation des CAN qu'il peut causer (numérisation à l'élément, avant la formation de faisceau) sont à traiter ici, comme le brouillage.
   - (D) Débris, fouillis lunaire ou terrestre, brouillage ?
   - **Rotation de Faraday** (gardée par l'utilisateur), seulement pour les lignes de visée qui traversent l'ionosphère ou la plasmasphère :
     - orbite terrestre basse : plusieurs radians en S dans l'ionosphère ;
@@ -172,11 +188,13 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **L'optimiseur doit choisir la fréquence Ku**, comme il le fait déjà pour la S. Aujourd'hui `confirmation.ku_freq_ghz` est fixée à 14,0 GHz, à titre provisoire.
   - **Temps réel** : connaissance du spectre. Il faut mesurer quelles parties des bandes S et Ku sont brouillées ou perturbées et restreindre le choix des fréquences au spectre utilisable (liens avec 2.5 pour le brouillage, 4.3 pour l'ordonnanceur et 5.2 pour l'optimiseur).
   - Le toucher S2 de confirmation est une observation S hors de la règle des rôles S (non vérifiée, sans objet Waveform). Les rôles TWS et PROMOTE existent mais aucune forme d'onde ne les utilise.
+  - **Renvoi de l'étape 1.5** : le choix de la fréquence Ku doit éviter l'harmonique 5 des émissions S de la même face, [5(f − B/2), 5(f + B/2)] (règle de fréquence de la matrice d'isolation, signalée par secteur dans `scheduler_rules`).
 
 - **3.3 Poursuite.**
   - **Rappel à faire à l'utilisateur (décidé en 1.2)** : la polarisation d'émission est linéaire selon e_v ; la commutation e_u / e_v à chaque observation (un seul PA aiguillé vers les deux ports de l'élément, environ 0,1 à 0,2 dB de plus dans TX_chain) reste une **option à évaluer** pour la polarimétrie.
   - Filtre de Kalman ou IMM ; cadence de mise à jour selon la précision et la manœuvre ; initialisation, maintien et perte de piste.
-  - **Polarisation** (avec 3.2) : usage polarimétrique des deux voies pour la confirmation, la discrimination des leurres et la classification.
+  - **Polarisation** (avec 3.2) : usage polarimétrique des deux voies pour la confirmation, la discrimination des leurres et la classification ; le déséquilibre entre les deux voies (non modélisé, sans effet sur le GLRT) y comptera.
+  - **Renvoi de l'étape 1.5** : atténuateur commutable par observation (ou STC) pour la poursuite rapprochée ; aujourd'hui le gain est fixe et une alerte signale les tranches de poursuite sous la portée non saturée Ku.
 
 - **3.4 Fonctions annexes** (D) : étalonnage en vol, santé des TRM, mode dégradé.
 
@@ -195,9 +213,11 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - Modèle des tâches, priorités, entrelacement contraint par les allers-retours, chronologies S et Ku par face, latence, politique de surcharge.
   - **Latence reconstruite de zéro.** L'ancienne règle `confirmation.latency_max_frac` (allers-retours comparés à 1 % du temps avant impact) a été supprimée lors de la revue 0.3 : elle ne limitait jamais rien (2nv/c) et ignorait les vraies causes. Il faut construire une vraie latence (attente dans la file de l'ordonnanceur, traitement, allers-retours) et la comparer à une exigence de délai par secteur.
   - Vérifier `frame_interleaved`.
+  - **Renvois de l'étape 1.5** : (1) **cadence commune d'émission et de réception de toutes les faces, par bande** (`isolation.interface_mode` = sync) : aucune face ne reçoit une bande pendant qu'une autre l'émet ; coût estimé de 0 à 1 dB si les émissions sont alignées, jusqu'à −10 log(1 − Σ des facteurs d'émission des autres faces) sinon (0,5 à 1,5 dB en forte charge), aucune perte comptée avant cette étape ; (2) pas de réception Ku sur une face pendant une émission S dont l'harmonique couvre le canal Ku ; (3) **annulation active à revoir ici** (coûts : perte avant le LNA versée dans T_sys, puissance injectée égale à la fuite, temps d'adaptation à chaque pointage, calcul dans l'espace des faisceaux ; solution mixte proposée : synchronisation entre faces voisines, annulation entre faces opposées) ; (4) pointages aveuglés par le Soleil à sortir du plan de balayage.
 
 - **4.4 Calcul et données** (D).
   - Débits des CAN, faisceaux de réception numériques simultanés (dont les quelque 3,4 faisceaux par pointage de l'étape 1.1), charge de traitement, capacité du calculateur central.
+  - **Entrées de l'étape 1.5** : deux CAN I/Q par TRM (deux voies de polarisation) à 250 Méch/s et 13 bits, soit 9 800 CAN en S et 245 000 en Ku par face, et une formation de faisceau doublée ; leur consommation est à budgéter.
   - Leur consommation électrique alimente le bilan de puissance de l'étape 4.1, à la place de `overhead_frac`.
 
 ## Phase 5 : mission et validation
@@ -217,6 +237,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - Préparation, estimation rapide recalée, diagnostic par contrainte, chronologies, export du rapport.
   - Onglet d'édition des paramètres.
   - Arrondi de `power_scale`.
+  - **Renvoi de l'étape 1.5** : l'estimation rapide (`cost_table.json`) est au ciel froid, sans le bruit du ciel ni l'aveuglement ; l'interface n'édite pas le ciel de la mission (il viendra du simulateur de scénario), elle le conserve.
 
 - **5.6 Vérification, validation et documentation.** Cas de référence figés, traçabilité des paramètres, manuel de l'opérateur, note de modèle.
 
@@ -242,4 +263,6 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | **Lobes de jeu des TRSA** (étape 1.2) : traité en grande partie en ramenant le jeu à 0,5 mm. Restent en Ku au haut de la bande −30 dB tenu jusqu'à 64-68,5° et −35 dB jusqu'à 55-62°. Variante si la mécanique impose plus de jeu : maille d'éléments uniforme à travers les jeux. | lien avec 2.5 |
 | Matériaux appariés en dilatation, exigés par le jeu de 0,5 mm (à confirmer en mécanique). | 4.2 |
 | Limite de 70° au-dessus de la fréquence de rupture : gardée à l'étape 1.4 tant que le diagramme de l'élément n'est pas modélisé. | avec le diagramme de l'élément (à placer) |
-| Couplage mutuel au bord des tuiles et diagramme réel de l'élément rayonnant non modélisés. | à placer |
+| Couplage mutuel au bord des tuiles et diagramme réel de l'élément rayonnant non modélisés (l'intégrale du bruit du ciel prend un élément en cos θ, rien vers l'arrière, depuis l'étape 1.5). | à placer |
+| Couplages entre faces (90 et 120 dB) et dans une TRSA (−30 dB) de l'étape 1.5 : ordres de grandeur au bout optimiste, une simulation électromagnétique serait nécessaire. | à placer (avec 4.3) |
+| Erreurs aléatoires d'amplitude et de phase des TRM non modélisées (environ 0,2 % de la puissance hors du lobe pour 0,2 dB et 2° : négligeable pour le bruit du ciel). | à placer |

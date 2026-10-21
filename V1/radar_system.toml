@@ -16,7 +16,8 @@
 # they take a bare value or the same table.
 #
 # Sections: geometry, aperture, search_grid, detection, power, migration, multibeam, coherence, estimation,
-#           band.S, band.Ku (+ losses_db, rx, tx), targets.*, confirmation, tracking, ship  |  tool.*
+#           band.S, band.Ku (+ losses_db, rx, tx), sky (+ tb_k), isolation, targets.*, confirmation, tracking,
+#           ship  |  tool.*
 # =====================================================================================================================
 
 [meta]
@@ -120,10 +121,11 @@ pae_t_edge_s        = { value = 0.2e-6, unit = "s", status = "D", source = "DC-o
 pae_duty_slope      = { value = 0.05, unit = "-", status = "D", source = "relative PAE loss per unit duty above pae_duty_ref (channel heating), GaN-on-diamond + microchannels: -2.75 % at d = 0.65", date = "2026-10-20" }
 eta_illum_tx        = { value = 1.0, unit = "-", status = "V", source = "TX illumination efficiency", date = "2026-10-20" }
 # eta_illum_rx is DERIVED from the RX weighting of the volume (core/antenna.py, aperture.rx_sll_options_db)
-# t_sys_k is DERIVED from [band.S.rx] (Friis cascade at the antenna port): 154.3 K (was 346.5 K entered as a block)
+# t_sys_k is DERIVED from [band.S.rx] (Friis cascade at the antenna port, cold sky): 144.5 K since step 1.5 (154.3 K
+# at review 0.3, 346.5 K entered as a block before); the sky in front of the face adds to it by direction ([sky])
 allowed_roles       = { value = ["SEARCH", "TWS"], unit = "", status = "D", source = "S = search / TWS only: radar-software band-use policy, defined with the radar functions and scheduler (3.x / 4.3); the S2 confirmation touch is an S confirmation look outside this policy (not checked: no Waveform)", date = "2026-10-20" }
 pol_rx_dual         = { value = true, unit = "", status = "V", source = "dual-polarised digital RX (per-TRM ADC)", date = "2026-10-20" }
-pol_loss_dual_db    = { value = 0.5, unit = "dB", status = "D", source = "PLACEHOLDER for the recombination of the two RX polarisation channels until step 1.5 (step 1.2: with both channels captured the antenna polarisation purity costs no SNR; purity is an output, radar_model.pol_purity)", date = "2026-10-20" }
+pol_track_est_loss_db= { value = 0.05, unit = "dB", status = "V", source = "dual-pol RX, TRACK looks: the target polarisation is known from the previous looks, coherent recombination with estimated weights, residual estimation loss (step 1.5). Detection looks (search, confirmation) recombine by the GLRT on the unknown polarisation: loss COMPUTED, SNR_req(n + 1) - SNR_req(n) (radar_model.pol_recombination_loss_db), no entry; it replaces the 0.5 dB placeholder pol_loss_dual_db. S has no TRACK role today (entry kept for symmetry)", date = "2026-10-21" }
 pol_loss_single_db  = { value = 3.0, unit = "dB", status = "V", source = "single-pol RX on a depolarising target; kept to study a single-pol receiver (used only if pol_rx_dual = false)", date = "2026-10-20" }
 e_buf_trm_j         = { value = 25.0, unit = "J", status = "D", source = "per-TRM energy buffer (local capacitor bank feeding the pulse); was 5 J (no source). tau_max = 0.2 x 25 x 0.8 / 2000 W = 2.0 ms, wanted by the user for very long range search (blind range ~300 km is a non-event at 10000 km; the dwell time is driven by the pulse count at the long PRI); 5 cm3 at 5 J/cm3 (2050); ~270 kg of S + Ku buffers per face at 1 J/g (open point)", date = "2026-10-20" }
 buffer_max_fraction = { value = 0.2, unit = "-", status = "D", source = "largest fraction of the buffer one pulse may draw: PA power follows the stored energy, so the pulse ends at 1 - 0.2 = -0.97 dB (mean loss 0.46 dB at the limit); was 0.5 (-3 dB end of pulse, too much for a coherent radar). Sets tau_max (step 1.3)", date = "2026-10-20" }
@@ -144,8 +146,11 @@ Ku_blockage = { value = 0.2, unit = "dB", status = "V", source = "blockage of th
 # + T_ADC / (G_LNA G_post))] x 10^(digital/10), L_pre = circulator x limiter x line. "Optimised front end" locked in
 # review 0.3 with the MEDIAN of each estimated range (revisit when the architecture is refined): T_sys = 154.3 K
 # (the low end of the ranges would give ~95 K; the former 346.5 K was a classic T/R module, NF ~3.2 dB at the port).
+# Step 1.5 (optimistic end of each range, user): cold-sky t_ant_k, the ADC noise figure DERIVED from the converter
+# (NF = P_FS - (6.02 ENOB + 1.76) - 10 log10(fs) + 174, fs = adc_oversampling x bi_max_mhz complex samples/s:
+# 13 bits at +10 dBm and 250 Msps -> 20.0 dB, was 27.5 dB entered; a higher full scale costs as much as a bit gains) and the dynamic range of the chain: T_sys 144.5 K.
 [band.S.rx]
-t_ant_k            = { value = 10.0, unit = "K", status = "V", source = "antenna temperature, cold sky in S (CMB + galactic), median of 5-15 K; direction-dependent at 1.5", date = "2026-10-20" }
+t_ant_k            = { value = 3.2, unit = "K", status = "V", source = "COLD-SKY antenna temperature in S: CMB 2.73 K + minimum galactic ~0.5 K at high latitude (step 1.5; was 10 K = CMB + a median galactic). The galactic plane and the bodies in front of the face are added by direction from the mission sky ([sky], core/sky.py)", date = "2026-10-21" }
 t_phys_frontend_k  = { value = 320.0, unit = "K", status = "V", source = "physical temperature of the front end, median of 290-350 K (TRM dissipation, see 4.2)", date = "2026-10-20" }
 circulator_loss_db = { value = 0.3, unit = "dB", status = "V", source = "circulator / T-R switch, median of 0.2-0.4 dB", date = "2026-10-20" }
 limiter_loss_db    = { value = 0.35, unit = "dB", status = "V", source = "LNA protection limiter (TX leakage of 2 kW), median of 0.2-0.5 dB", date = "2026-10-20" }
@@ -154,13 +159,25 @@ lna_nf_db          = { value = 0.75, unit = "dB", status = "V", source = "LNA no
 lna_gain_db        = { value = 27.5, unit = "dB", status = "V", source = "LNA gain, median of 25-30 dB", date = "2026-10-20" }
 post_lna_nf_db     = { value = 8.0, unit = "dB", status = "V", source = "analog chain after the LNA, median of 6-10 dB", date = "2026-10-20" }
 post_lna_gain_db   = { value = 20.0, unit = "dB", status = "V", source = "gain of the analog chain after the LNA, median of 15-25 dB", date = "2026-10-20" }
-adc_nf_db          = { value = 27.5, unit = "dB", status = "V", source = "ADC noise figure (one ADC per TRM), median of 25-30 dB", date = "2026-10-20" }
 digital_noise_db   = { value = 0.05, unit = "dB", status = "V", source = "digital processing noise (finite precision), below 0.1 dB", date = "2026-10-20" }
+# Converter and dynamic range (step 1.5; optimistic end of each range, user). adc_nf_db is DERIVED (no entry).
+adc_enob           = { value = 13.0, unit = "bit", status = "V", source = "effective number of bits of the per-TRM ADC (I/Q baseband, one per polarisation channel): today ~12.3 at 250 Msps; 13 = optimistic end of 11-13 for 2050-60 at low power per channel", date = "2026-10-21" }
+adc_fullscale_dbm  = { value = 10.0, unit = "dBm", status = "V", source = "ADC full-scale power (sine), optimistic end of 0..+10 dBm: sets the derived ADC noise figure and the clipping level", date = "2026-10-21" }
+adc_oversampling   = { value = 1.25, unit = "-", status = "V", source = "complex sample rate / instantaneous bandwidth (anti-alias filter margin): fs = 1.25 x bi_max_mhz = 250 Msps", date = "2026-10-21" }
+clip_backoff_db    = { value = 3.0, unit = "dB", status = "V", source = "peak of signal + noise kept below full scale: clipping level = P_FS - 3 dB", date = "2026-10-21" }
+lna_p1db_in_dbm    = { value = 10.0, unit = "dBm", status = "V", source = "LNA input 1 dB compression, rugged GaN LNA (2050-60): blocking by leaks outside the channel (isolation matrix)", date = "2026-10-21" }
+post_lna_op1db_dbm = { value = 15.0, unit = "dBm", status = "V", source = "output 1 dB compression of the analog chain after the LNA; load-time check: >= adc_fullscale_dbm + clip_backoff_db (the ADC clips first)", date = "2026-10-21" }
+limiter_recovery_s = { value = 5e-08, unit = "s", status = "V", source = "limiter recovery after each pulse, optimistic end (today PIN limiters 0.1-1 us; self-protected GaN LNAs): receiver deaf for tau + recovery, output for the eclipsing model (step 2.1)", date = "2026-10-21" }
+preselect_rej_db   = { value = 80.0, unit = "dB", status = "V", source = "filter before the LNA: rejection of the other band (Ku at the S front end), optimistic end of 40-80 dB (isolation matrix)", date = "2026-10-21" }
+post_rej_db        = { value = 80.0, unit = "dB", status = "V", source = "down-conversion / anti-alias filtering before the ADC: rejection of the other band, optimistic end of 40-80 dB", date = "2026-10-21" }
 
 # Transmit chain, PA output -> radiating element (TX_chain = harmonic filter + circulator (TX pass; the circulator entry
 # is shared with [band.S.rx], one component crossed twice) + calibration coupler + line). Medians (review 0.3).
 [band.S.tx]
 harmonic_filter_db = { value = 0.15, unit = "dB", status = "V", source = "harmonic filter after the PA, median (S)", date = "2026-10-20" }
+# The S harmonic that falls in the Ku band (order DERIVED from the two bands: 5 today, 5 x 2.7-2.9 = 13.5-14.5 GHz)
+harmonic_in_ku_dbc = { value = -45.0, unit = "dBc", status = "V", source = "level of the S PA harmonic that falls in the Ku band (5th today), saturated harmonic-tuned GaN, optimistic end of -25..-45 dBc (isolation matrix, step 1.5)", date = "2026-10-21" }
+harmonic_filter_rej_in_ku_db= { value = 80.0, unit = "dB", status = "V", source = "rejection of the S harmonic filter at that harmonic, optimistic end of 50-80 dB", date = "2026-10-21" }
 cal_coupler_db     = { value = 0.05, unit = "dB", status = "V", source = "calibration coupler, median (S)", date = "2026-10-20" }
 line_to_element_db = { value = 0.1, unit = "dB", status = "V", source = "line and transition to the radiating element, median (S)", date = "2026-10-20" }
 
@@ -181,10 +198,11 @@ pae_t_edge_s        = { value = 0.1e-6, unit = "s", status = "D", source = "as S
 pae_duty_slope      = { value = 0.08, unit = "-", status = "D", source = "as S, smaller chips / higher power density: -4.4 % at d = 0.65", date = "2026-10-20" }
 eta_illum_tx        = { value = 1.0, unit = "-", status = "V", source = "TX illumination efficiency: uniform, PAs at saturation, as in S (was 0.88 from V5.6.0, which reduced the gain but not the radiated power); sidelobe control by the RX weighting of each volume (step 1.1: TX stays uniform, HPBW 1.035 lambda / D_env)", date = "2026-10-20" }
 # eta_illum_rx is DERIVED from the RX weighting of the volume (core/antenna.py), same options as S
-# t_sys_k is DERIVED from [band.Ku.rx] (Friis cascade at the antenna port): 238.7 K (was 400 K entered as a block, V5.6.0)
+# t_sys_k is DERIVED from [band.Ku.rx] (Friis cascade at the antenna port, cold sky): 230.8 K since step 1.5 (238.7 K
+# at review 0.3, 400 K entered as a block in V5.6.0); the sky adds to it by direction ([sky])
 allowed_roles       = { value = ["CONFIRM", "PROMOTE", "TRACK"], unit = "", status = "D", source = "Ku = confirmation / promotion / tracking only: radar-software band-use policy, defined with the radar functions and scheduler (3.x / 4.3)", date = "2026-10-20" }
 pol_rx_dual         = { value = true, unit = "", status = "V", source = "dual-polarised digital RX (per-TRM ADC), as in S", date = "2026-10-20" }
-pol_loss_dual_db    = { value = 0.5, unit = "dB", status = "D", source = "same as S: placeholder for the RX polarisation-channel recombination until step 1.5 (was 0, not in the V5.6.0 lumped 8 dB)", date = "2026-10-20" }
+pol_track_est_loss_db= { value = 0.05, unit = "dB", status = "V", source = "as S: TRACK looks recombine coherently with the polarisation estimated on the previous looks (step 1.5); detection looks use the computed GLRT loss", date = "2026-10-21" }
 pol_loss_single_db  = { value = 3.0, unit = "dB", status = "V", source = "single-pol RX on a depolarising target, as in S; kept to study a single-pol receiver", date = "2026-10-20" }
 e_buf_trm_j         = { value = 1.2, unit = "J", status = "D", source = "per-TRM energy buffer in Ku (was not modelled): tau_max = 0.2 x 1.2 x 0.65 / 75 W = 2.08 ms, same rationale as S (very long pulses for very long range); 0.24 cm3 at 5 J/cm3", date = "2026-10-20" }
 buffer_max_fraction = { value = 0.2, unit = "-", status = "D", source = "as S: -0.97 dB at the end of the longest pulse", date = "2026-10-20" }
@@ -204,8 +222,9 @@ S_blockage  = { value = 0.3, unit = "dB", status = "D", source = "scattering by 
 
 # Receive chain, referred to the antenna port (same Friis formula as S), MEDIAN of each Ku range (review 0.3, Claude
 # estimates to confirm): T_sys = 238.7 K (low end of the ranges ~138 K, high end ~387 K, the former block 400 K).
+# Step 1.5 as S: cold-sky t_ant_k, ADC noise figure derived (20.0 dB), dynamic range: T_sys 230.8 K.
 [band.Ku.rx]
-t_ant_k            = { value = 5.0, unit = "K", status = "D", source = "antenna temperature, cold sky in Ku (CMB, negligible galactic), median of 3-8 K; direction-dependent at 1.5", date = "2026-10-20" }
+t_ant_k            = { value = 2.8, unit = "K", status = "V", source = "COLD-SKY antenna temperature in Ku: CMB, galactic negligible (step 1.5; was 5 K); the sky in front of the face is added by direction ([sky])", date = "2026-10-21" }
 t_phys_frontend_k  = { value = 320.0, unit = "K", status = "D", source = "physical temperature of the front end, same face as S, median of 290-350 K (4.2)", date = "2026-10-20" }
 circulator_loss_db = { value = 0.45, unit = "dB", status = "D", source = "circulator / T-R switch at Ku, median of 0.3-0.6 dB", date = "2026-10-20" }
 limiter_loss_db    = { value = 0.45, unit = "dB", status = "D", source = "LNA protection limiter at Ku (75 W TX), median of 0.3-0.6 dB", date = "2026-10-20" }
@@ -214,8 +233,17 @@ lna_nf_db          = { value = 1.15, unit = "dB", status = "D", source = "Ku LNA
 lna_gain_db        = { value = 25.0, unit = "dB", status = "D", source = "Ku LNA gain, median of 20-30 dB", date = "2026-10-20" }
 post_lna_nf_db     = { value = 8.0, unit = "dB", status = "D", source = "analog chain after the LNA (down-conversion), median of 6-10 dB", date = "2026-10-20" }
 post_lna_gain_db   = { value = 20.0, unit = "dB", status = "D", source = "gain of the analog chain after the LNA, median of 15-25 dB", date = "2026-10-20" }
-adc_nf_db          = { value = 27.5, unit = "dB", status = "D", source = "ADC noise figure (one ADC per TRM), median of 25-30 dB", date = "2026-10-20" }
 digital_noise_db   = { value = 0.05, unit = "dB", status = "D", source = "digital processing noise (finite precision), below 0.1 dB", date = "2026-10-20" }
+# Converter and dynamic range (step 1.5, as S). adc_nf_db is DERIVED (no entry).
+adc_enob           = { value = 13.0, unit = "bit", status = "V", source = "as S: per-TRM I/Q ADC, 13 effective bits (optimistic end of 11-13)", date = "2026-10-21" }
+adc_fullscale_dbm  = { value = 10.0, unit = "dBm", status = "V", source = "as S", date = "2026-10-21" }
+adc_oversampling   = { value = 1.25, unit = "-", status = "V", source = "as S: fs = 1.25 x bi_max_mhz = 250 Msps", date = "2026-10-21" }
+clip_backoff_db    = { value = 3.0, unit = "dB", status = "V", source = "as S", date = "2026-10-21" }
+lna_p1db_in_dbm    = { value = 5.0, unit = "dBm", status = "V", source = "Ku LNA input 1 dB compression (smaller devices than S)", date = "2026-10-21" }
+post_lna_op1db_dbm = { value = 15.0, unit = "dBm", status = "V", source = "as S; load-time check >= adc_fullscale_dbm + clip_backoff_db", date = "2026-10-21" }
+limiter_recovery_s = { value = 2.5e-08, unit = "s", status = "V", source = "Ku limiter recovery, optimistic end (smaller devices than S); output for the eclipsing model (step 2.1)", date = "2026-10-21" }
+preselect_rej_db   = { value = 80.0, unit = "dB", status = "V", source = "filter before the Ku LNA: rejection of the S band, optimistic end of 40-80 dB", date = "2026-10-21" }
+post_rej_db        = { value = 80.0, unit = "dB", status = "V", source = "down-conversion / anti-alias filtering before the Ku ADC: rejection of the S band", date = "2026-10-21" }
 
 # Transmit chain, PA output -> radiating element (TX_chain = harmonic filter + circulator (TX pass; the circulator entry
 # is shared with [band.Ku.rx], one component crossed twice) + calibration coupler + line). Medians (review 0.3).
@@ -223,6 +251,48 @@ digital_noise_db   = { value = 0.05, unit = "dB", status = "D", source = "digita
 harmonic_filter_db = { value = 0.2, unit = "dB", status = "V", source = "harmonic filter after the PA, median (Ku)", date = "2026-10-20" }
 cal_coupler_db     = { value = 0.1, unit = "dB", status = "V", source = "calibration coupler, median (Ku)", date = "2026-10-20" }
 line_to_element_db = { value = 0.2, unit = "dB", status = "V", source = "line and transition to the radiating element, median (Ku)", date = "2026-10-20" }
+
+# --- sky noise and isolation (step 1.5) --------------------------------------------------------------------------
+# T_ant(direction) = cold sky (band.<b>.rx.t_ant_k) + galactic rise + sum over the bodies in front of the face. The
+# MISSION gives the sky in the SHIP frame (global key "sky": bodies with type, direction, angular radius, optional
+# T_b; optional galactic frame); later the global scenario simulator fills it (the radar model never computes where a
+# body is). A body adds T_b x (A eta_rx / D_env^2) x the integral of the azimuthal-mean RX power pattern over the body
+# seen in (u, v) (core/sky.py, core/antenna.py: exact main lobe, near and far sidelobes, nothing behind the ground
+# plane). A position whose T_sys rises above blind_rise_db is blinded (not scanned, reported); the sector budget uses
+# the (1 - short_tol) position quantile of T_sys over the other positions (optimizer short_tol, worst point up to it).
+[sky]
+blind_rise_db         = { value = 10.0, unit = "dB", status = "V", source = "T_sys rise above which a search / confirmation position is blinded (not scanned, reported with the body): separates the Sun in the beam (~15 dB S, ~16 dB Ku) from the Earth (~4 dB S) and the Moon (<= 2.7 dB Ku), step 1.5", date = "2026-10-21" }
+noise_element_pattern = { value = "cos_front", unit = "", status = "D", source = "element pattern of the noise integral: cos(theta) (projected area, consistent with the gain law), nothing behind the face (ground plane); first step on the open point 'isotropic element' (step 1.5)", date = "2026-10-21" }
+gal_ref_ghz           = { value = 2.8, unit = "GHz", status = "V", source = "frequency of the three galactic temperatures below (S band), scaled to f by (f / gal_ref_ghz)^-gal_spectral_index", date = "2026-10-21" }
+gal_t_high_k          = { value = 0.5, unit = "K", status = "V", source = "galactic brightness at high latitude at 2.8 GHz (408 MHz synchrotron x (f / 0.408)^-2.7); already inside t_ant_k, so the rise is T_gal - this", date = "2026-10-21" }
+gal_t_plane_k         = { value = 2.0, unit = "K", status = "V", source = "galactic plane away from the centre, 2.8 GHz", date = "2026-10-21" }
+gal_t_centre_k        = { value = 8.0, unit = "K", status = "V", source = "towards the galactic centre, diluted in a 1.5 deg beam, 2.8 GHz; also the WORST CASE used everywhere when the mission gives no galactic frame (flagged)", date = "2026-10-21" }
+gal_sigma_b_deg       = { value = 3.0, unit = "deg", status = "V", source = "thickness of the plane: T_gal = T_high + (T_plane - T_high) e^-(b/sb)^2 + (T_centre - T_plane) e^-(b/sb)^2 e^-(l/sl)^2", date = "2026-10-21" }
+gal_sigma_l_deg       = { value = 30.0, unit = "deg", status = "V", source = "longitude extent of the central bulge", date = "2026-10-21" }
+gal_spectral_index    = { value = 2.5, unit = "-", status = "V", source = "between free-free (2.1) and synchrotron (2.7): Ku = S x 0.018", date = "2026-10-21" }
+
+# Brightness temperature per body type, [S, Ku] (K). A mission body may override it (key "tb_k": a number or
+# {"S": ..., "Ku": ...}, e.g. a scripted solar burst); a type absent here needs that override.
+[sky.tb_k]
+sun        = { value = [1.0e5, 1.2e4], unit = "K", status = "V", source = "quiet-Sun disk at mid cycle (F10.7 ~170 sfu -> 1.0e5 K at 2.8 GHz; ~1e4 K at 14 GHz); bursts = scenario override", date = "2026-10-21" }
+sun_quiet  = { value = [4.5e4, 1.0e4], unit = "K", status = "V", source = "solar minimum (F10.7 ~70 sfu)", date = "2026-10-21" }
+sun_active = { value = [1.5e5, 1.5e4], unit = "K", status = "V", source = "solar maximum (F10.7 ~250 sfu)", date = "2026-10-21" }
+earth      = { value = [290.0, 290.0], unit = "K", status = "V", source = "WORST CASE (emissivity 1); the scenario may say what part of the Earth is seen", date = "2026-10-21" }
+earth_ocean = { value = [110.0, 150.0], unit = "K", status = "V", source = "low ocean emissivity in S; atmosphere and clouds in Ku", date = "2026-10-21" }
+earth_land = { value = [270.0, 275.0], unit = "K", status = "V", source = "land", date = "2026-10-21" }
+moon       = { value = [230.0, 230.0], unit = "K", status = "V", source = "disk mean, about +/- 30 K with the phase", date = "2026-10-21" }
+
+# Isolation between bands and faces (step 1.5; optimistic end of each range, user). Leak to ONE receive element,
+# three checks: LNA blocking (P1dB - lna_block_backoff_db), ADC clipping (clip level), desensitisation of the received
+# channel (noise - desens_margin_db). Output: radar_model / core/isolation.py matrix, scheduler rules (step 4.3).
+[isolation]
+interface_mode       = { value = "sync", unit = "", status = "V", source = "how faces share a band: sync = common TX / RX cadence of all faces per band (no face receives a band while another transmits it: about 143 dB of isolation would be needed); 'cancel' (active cancellation) is to be revisited with the scheduler (4.3), not implemented", date = "2026-10-21" }
+coupling_adjacent_db = { value = 90.0, unit = "dB", status = "V", source = "total TX power of a face -> one element of an ADJACENT face (normals 80 deg apart, near field, far sidelobes and grazing element pattern), optimistic end of 60-90 dB (EM simulation needed)", date = "2026-10-21" }
+coupling_opposite_db = { value = 120.0, unit = "dB", status = "V", source = "total TX power of a face -> one element of the OPPOSITE face (normals 130 deg apart, hull in between), optimistic end of 90-120 dB", date = "2026-10-21" }
+intra_trsa_s_to_ku_db = { value = -30.0, unit = "dB", status = "V", source = "same TRSA: one S element -> the neighbouring Ku elements (S fundamental and its harmonic), optimistic end of -15..-30 dB", date = "2026-10-21" }
+intra_trsa_ku_to_s_db = { value = -30.0, unit = "dB", status = "V", source = "same TRSA: the Ku TRMs of one S cell (25) -> the S element, optimistic end of -15..-30 dB", date = "2026-10-21" }
+desens_margin_db     = { value = 6.0, unit = "dB", status = "V", source = "a leak in the received channel must stay this far below the noise (noise rise ~1 dB at the limit); optimistic (least strict) end of 6-15 dB", date = "2026-10-21" }
+lna_block_backoff_db = { value = 6.0, unit = "dB", status = "V", source = "margin below the LNA input P1dB for a leak outside the channel; optimistic end of 6-15 dB", date = "2026-10-21" }
 
 # --- targets ------------------------------------------------------------------------------------------------------
 # Reference targets of the CLI report and the tests only: missions use each sector's own RCS / Swerling / speed.
@@ -318,8 +388,18 @@ phi_step_deg = 1.5              # azimuth step between cuts (0..45 deg with the 
 fit_tol_db   = 0.05             # fitted RX sidelobe level within [target - tol, target]
 far_step_lam_d = 0.125          # grid step of the far-sidelobe scan over the visible region (step 1.2), lambda / D_env
 
+[tool.sky]                    # sky-noise evaluation (core/sky.py)
+eval_step_hpbw  = 0.5            # T_sys evaluated every 0.5 TX beamwidth over a sector (at least the optimiser raster)
+near_r_step_lam_d = 0.05         # radial step of the near-zone integral around the beam (lambda / D_env)
+near_phi_step_deg = 10.0         # azimuth step of the near-zone integral
+body_ring_lam_d = 2.0            # ring spacing of the body-disk sampling of the far integral (lambda / D_env)
+small_body_lam_d = 2.0           # bodies of radius up to this (lambda / D_env): fine disk samples (2 x near step) only
+body_rings_max  = 16            # at most this many rings (6 (2j + 1) points on ring j)
+chunk           = 2048           # directions evaluated per numpy block
+
 [tool.alerts]                 # validation thresholds (step 1.2)
 mismatch_db_per_pass = 3.0      # alert when the active-mismatch loss of a used scan direction exceeds this, per pass
+sky_above_budget_db  = 1.0      # flag the positions above a sector's sky-noise budget only when the worst is this far above (step 1.5)
 
 [tool.display]
 grid_res_deg = 0.5              # direction-sphere raster of the 3D views and the fast estimate

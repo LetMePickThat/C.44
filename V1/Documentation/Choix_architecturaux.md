@@ -1,6 +1,6 @@
 # Outil de préparation de mission radar : choix architecturaux
 
-Ce document recense tous les choix d'architecture faits jusqu'ici : organisation du logiciel, modèle du radar, et pour chaque variable sa définition, sa valeur, son statut et la raison de cette valeur. Il décrit l'état du dépôt après l'étape 1.4 de la feuille de route (modèle V6.4.0, 20 octobre 2026).
+Ce document recense tous les choix d'architecture faits jusqu'ici : organisation du logiciel, modèle du radar, et pour chaque variable sa définition, sa valeur, son statut et la raison de cette valeur. Il décrit l'état du dépôt après l'étape 1.5 de la feuille de route (modèle V6.5.0, 21 octobre 2026).
 
 > **Avertissement.** Les missions de `tests/missions/` sont des **missions de test**. Les valeurs figées de `tests/snapshots/` sont des **valeurs figées de test**. Elles servent seulement à détecter les régressions du code. Ce ne sont ni des exigences ni des performances du radar, dont les capacités réelles ne sont pas établies.
 
@@ -48,7 +48,8 @@ Construire un outil dans lequel l'opérateur prépare sa mission. Cette mission 
 | Fichier global | Toutes les variables système vivent dans un seul fichier, modifiable rapidement (§3). |
 | Valeurs de test | Les missions de test et les valeurs figées ne sont jamais présentées comme des références ou des performances. |
 | Regrouper par sujet | Tout ce qui touche un même sujet est traité au même endroit (même étape, même bloc de questions) ; une valeur qui en dépend d'une autre se fixe après celle-ci (règle fixée à l'étape 1.3). |
-| Valeurs technologiques | Hypothèses **crédibles mais optimistes pour 2050-2060** (règle fixée à l'étape 1.3). |
+| Valeurs technologiques | Hypothèses **crédibles mais optimistes pour 2050-2060** (règle fixée à l'étape 1.3). Quand une plage est proposée, c'est **son bout optimiste** qui est retenu ; pour un critère ou une marge, le bout optimiste est le moins strict, et on le dit (règle fixée à l'étape 1.5). |
+| Simulateur de scénario | Le simulateur radar sera une partie d'un **simulateur global de scénario**, qui lui fournira la position de tous les objets (cibles, planètes, astres) **dans le repère du vaisseau**. Le modèle radar tient compte des effets d'un corps devant les faces (bruit thermique), mais ne calcule jamais où sont les objets ; le changement de repère est l'affaire du simulateur global. Le prototype de ce simulateur (`RADARv5/SIMULATOR`) n'est qu'une preuve de concept : rien n'en est repris (règle fixée à l'étape 1.5). |
 | Valeurs ajustables | Les valeurs peuvent encore changer (par exemple une bande jouable plus large si les TRM progressent) : tout ce qui en dépend est **calculé** à partir du fichier, et le chargeur refuse une combinaison incohérente avec un message clair (règle fixée à l'étape 1.4). |
 | Sources | Le dossier `RADARv5` est **obsolète** : il ne sert pas de source de valeurs ni de modèles (règle fixée à l'étape 1.4). |
 | Commits | Un commit par étape, et seulement sur demande (« c, p » = commit et push). |
@@ -62,7 +63,7 @@ Rien de ce qui a été décidé ne vit seulement dans une conversation :
 | `Documentation/Choix_architecturaux.md` (ce document) | Toutes les variables, leurs valeurs et leurs raisons, les formules, les dispositions provisoires, les points ouverts et l'historique des décisions, question par question. |
 | `Documentation/Feuille_de_route.md` | La feuille de route, l'état d'avancement et, pour chaque étape, les décisions prises et les renvois reçus d'autres étapes. |
 | `radar_system.toml` | Les valeurs elles-mêmes ; le champ `source` de chaque entrée résume sa justification. |
-| En-tête de `core/radar_model.py` | Le journal des versions du modèle (V6.0.0 à V6.3.0) et ce que chaque version a changé. |
+| En-tête de `core/radar_model.py` | Le journal des versions du modèle (V6.0.0 à V6.5.0) et ce que chaque version a changé. |
 | `tests/snapshots/JOURNAL.md` | Chaque régénération des valeurs figées de test et ses causes. |
 | Mémoire de l'assistant (hors dépôt) | Un index de la feuille de route, l'état courant, les règles de méthode et la procédure ; en cas d'écart, le dépôt fait foi. |
 
@@ -85,10 +86,12 @@ Procédure d'une étape :
 | Module | Rôle |
 |---|---|
 | `core/params.py` | Charge `radar_system.toml`, une seule fois par processus. Expose `P.get`, `P.meta`, `P.section` et l'empreinte des paramètres (`fingerprint`). La variable d'environnement `RADAR_PARAMS` permet de désigner un autre fichier. |
-| `core/radar_model.py` | Modèle radar V6.4.0 : bande (loi de bord par bande, occupation du spectre, retard vrai, contrôles de cohérence au chargement ; étape 1.4), bilan électrique et PAE variable par bande (étape 1.3), désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
-| `core/antenna.py` | **Étapes 1.1 et 1.2.** Diagramme de rayonnement calculé à partir de la composition des TRSA : faisceau d'émission uniforme, pondération de réception par niveau de lobes, étendue RMS de l'ouverture, profil des lobes lointains sur tout l'espace visible (lobes de jeu compris). Résultat mis en cache dans `core/antenna_cache.json`. |
-| `core/optimizer.py` | Optimiseur de la veille S. Choisit pour chaque secteur la fréquence et les formes d'onde par tranche d'angle de dépointage, et établit le bilan énergie et temps par face. |
-| `core/tracking.py` | Confirmation (modes KU1+7, KU7 et S2) et poursuite active (AT) en Ku, ajoutées au bilan par face. |
+| `core/radar_model.py` | Modèle radar V6.5.0 : chaîne de réception (T_sys de ciel froid, facteur de bruit du CAN dérivé du convertisseur, dynamique et portée minimale non saturée, récupération du limiteur, perte de recombinaison des deux voies de polarisation ; étape 1.5), bande (loi de bord par bande, occupation du spectre, retard vrai, contrôles de cohérence au chargement ; étape 1.4), bilan électrique et PAE variable par bande (étape 1.3), désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
+| `core/antenna.py` | **Étapes 1.1 et 1.2.** Diagramme de rayonnement calculé à partir de la composition des TRSA : faisceau d'émission uniforme, pondération de réception par niveau de lobes, étendue RMS de l'ouverture, profil des lobes lointains sur tout l'espace visible (lobes de jeu compris). Profils **moyennés en azimut** du diagramme de réception, pour l'intégrale du bruit du ciel (étape 1.5). Résultat mis en cache dans `core/antenna_cache.json`. |
+| `core/sky.py` | **Étape 1.5.** Hausse de la température d'antenne selon la direction : fond galactique et corps du ciel de la mission (Soleil, Terre, Lune...), donnés dans le repère du vaisseau ; aveuglement et centile du bilan d'un secteur. |
+| `core/isolation.py` | **Étape 1.5.** Fuites entre bandes et entre faces : matrice des verdicts, règles pour l'ordonnanceur (cadence commune par bande, harmonique S dans le canal Ku). |
+| `core/optimizer.py` | Optimiseur de la veille S. Choisit pour chaque secteur la fréquence et les formes d'onde par tranche d'angle de dépointage, et établit le bilan énergie et temps par face. Depuis l'étape 1.5, il évalue le T_sys du ciel sur le secteur (`sector_sky`), retire les pointages aveuglés et met les portées à l'échelle du T_sys du bilan. |
+| `core/tracking.py` | Confirmation (modes KU1+7, KU7 et S2) et poursuite active (AT) en Ku, ajoutées au bilan par face. Depuis l'étape 1.5 : T_sys Ku du ciel par secteur, alerte de saturation des tranches de poursuite, règles pour l'ordonnanceur. |
 | `core/cost_estimate.py` | Estimation rapide pour l'interface, à partir de `core/cost_table.json`. Elle n'est pas faite pour décider : seul le calcul exact fait foi. |
 | `core/mission.py` | Modèle de mission : valeurs par défaut, validation, chargement et sauvegarde JSON et CSV. |
 | `core/redundancy.py` | Détecte si un secteur couvre déjà le besoin d'un autre, dans les deux sens. |
@@ -128,9 +131,9 @@ Procédure d'une étape :
 | Réglages `[tool.*]` | Valeur seule ou table complète. Ils ne décrivent pas le radar : ce sont des grilles de recherche, des trames, des caches et des valeurs par défaut de l'interface. |
 | Modification | À la main dans le fichier pour l'instant. Un onglet de l'interface est prévu à l'étape 5.5. |
 | Autre fichier | Variable d'environnement `RADAR_PARAMS=<chemin>`, héritée par les processus de l'optimiseur. |
-| Revue | Toutes les valeurs ont été validées une par une lors de la revue 0.3. Les ajouts des étapes 1.1, 1.2 et 1.3 ont été validés pendant chacune de ces étapes. |
+| Revue | Toutes les valeurs ont été validées une par une lors de la revue 0.3. Les ajouts des étapes 1.1 à 1.5 ont été validés pendant chacune de ces étapes. |
 
-**Bilan actuel : 137 entrées système, dont 85 V, 50 D et 2 ?.** Les deux entrées « ? » sont `multibeam.l8_db` et `multibeam.p`.
+**Bilan actuel (étape 1.5) : 178 entrées système, dont 129 V, 47 D et 2 ?.** Les deux entrées « ? » sont `multibeam.l8_db` et `multibeam.p`.
 
 ---
 
@@ -141,10 +144,10 @@ Procédure d'une étape :
 | Outil | `pytest`, déclaré dans `requirements-dev.txt`. |
 | Famille 1 : valeurs figées | `tests/test_snapshots.py`. Toutes les sorties numériques de l'outil sont comparées avec une **tolérance relative de 1e-9**. |
 | Famille 2 : physique et invariants | `tests/test_physics.py`. Lois qui doivent tenir quelles que soient les valeurs : R ∝ σ^¼, R ∝ P^¼, cohérence du nombre de pointages, du cache, de la borne de Cramér-Rao, des options de lobes, etc. Le self-test du modèle est conservé. |
-| Missions de test | `mission_example` (en JSON et en CSV), `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`. Les deux premières ont été récupérées dans l'historique git. |
+| Missions de test | `mission_example` (en JSON et en CSV), `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`, `mission_sky_demo` (étape 1.5 : un ciel avec le Soleil, la Lune, le limbe de la Terre et un repère galactique). Les deux premières ont été récupérées dans l'historique git. |
 | Rapport d'impact | `python tests/impact_report.py`, à chaque étape, avant de régénérer les valeurs figées : chiffres clés, et pour chaque mission de test les formes d'onde de veille et les modes de confirmation qui changent. |
 | Régénération | `python tests/update_snapshots.py`. Chaque régénération est consignée dans `tests/snapshots/JOURNAL.md`, avec sa cause et les formes d'onde ou modes qui ont changé. |
-| État | 85 tests passent après l'étape 1.4. |
+| État | 96 tests passent après l'étape 1.5. |
 
 ---
 
@@ -274,7 +277,7 @@ Retiré : `k_theta` = 0,5, remplacé par `angle_crlb_margin` à l'étape 1.1.
 | `allowed_roles` | Rôles permis en bande S. | ["SEARCH", "TWS"] | D | Politique d'usage des bandes du logiciel radar (étapes 3.x et 4.3). Le « toucher » S2 de confirmation sort de cette règle (noté pour l'étape 3.2). |
 | `pol_rx_dual` | Réception numérique bipolarisation. | vrai | V | Un CAN par TRM. |
 | `waim_match_deg` | Angle de dépointage où la couche WAIM adapte le réseau (modèle de la feuille de courant). | 45° | V | **Étape 1.2, Q2.** Perte par passage : 0,13 dB dans l'axe, 0 à 45°, 0,56 dB à 70°, 1,05 dB à 75°. C'est l'équilibre entre l'axe et les grands dépointages (40° favoriserait l'axe, 50° les grands angles). |
-| `pol_loss_dual_db` | Perte de polarisation avec la réception bipolarisation. | 0,5 dB | D | **Étape 1.2, Q8.** Valeur provisoire pour la recombinaison des deux voies de polarisation, jusqu'à l'étape 1.5. Les deux voies étant captées, la pureté de l'antenne ne coûte pas de SNR ; elle est calculée en sortie (`pol_purity`). |
+| `pol_track_est_loss_db` | Perte de polarisation d'une observation de **poursuite** avec la réception bipolarisation. | 0,05 dB | V | **Étape 1.5, E2.** La polarisation de la cible est connue par les observations précédentes : recombinaison cohérente avec des poids estimés, il reste le résidu d'estimation. Les observations de **détection** (veille, confirmation) n'ont pas d'entrée : leur perte est **calculée** (§7.8). Remplace `pol_loss_dual_db` = 0,5 dB, valeur provisoire de l'étape 1.2. La bande S n'a pas de rôle de poursuite aujourd'hui ; l'entrée est gardée par symétrie. |
 | `pol_loss_single_db` | Perte avec une réception monopolarisation sur une cible qui dépolarise. | 3,0 dB | V | Gardée pour étudier un récepteur monopolarisation. Utilisée seulement si `pol_rx_dual` est faux. |
 | `pae_sat` | PAE du PA en saturation, au facteur de forme de référence. | 0,80 | D | **Étape 1.3, Q3.** Le GaN actuel en S de forte puissance atteint environ 55 à 65 % sur la bande, les meilleurs résultats de laboratoire environ 75 à 80 %. 0,80 est une hypothèse optimiste pour 2050-2060. |
 | `pae_t_edge_s` | Temps par impulsion pendant lequel le PA consomme sans délivrer sa pleine puissance (fronts, mise en place de la polarisation et de la phase). | 0,2 µs | D | **Q4.** Aujourd'hui 0,5 à 2 µs ; 0,2 µs suppose des commutateurs intégrés et une alimentation locale. −1 % de PAE sur une impulsion de 20 µs. |
@@ -285,7 +288,7 @@ Retiré : `k_theta` = 0,5, remplacé par `angle_crlb_margin` à l'étape 1.1.
 | `true_time_delay` | Mode de dépointage. | "digital_per_trm" | V | **Étape 1.4, D1.** Retard vrai numérique dans chaque TRM : pas de dépointage avec la fréquence, pas de limite de remplissage de l'ouverture. L'autre valeur possible, "none" (dépointage par la phase), limiterait la bande du signal à c / (D_env sin θ), environ 75 MHz à 75°. |
 | `duty_max` | Plafond du facteur de forme d'un TRM, sur les trains d'impulsions. | 0,65 | D | **Q5.** Contrôlé à la création de la forme d'onde. Avec le GaN sur diamant et les microcanaux, l'échauffement du canal n'est plus limitant ; l'optimiseur ne s'en sert que si c'est utile. L'éclipse (récepteur sourd 65 % du temps) n'est modélisée qu'à l'étape 2.1 : les choix à fort facteur de forme sont optimistes d'ici là. |
 
-Retirés : `eta_illum_rx` (0,88), désormais **dérivé** de la pondération du volume (§6), et `t_sys_k`, désormais **dérivé** de la chaîne de réception.
+Retirés : `eta_illum_rx` (0,88), désormais **dérivé** de la pondération du volume (§6), `t_sys_k`, désormais **dérivé** de la chaîne de réception, et `pol_loss_dual_db` (0,5 dB), remplacé à l'étape 1.5 par la perte calculée du détecteur GLRT (§7.8).
 
 #### `[band.S.losses_db]` : pertes fixes en S (sommées)
 
@@ -300,11 +303,13 @@ Une perte s'ajoute : **TX_chain**, dérivée de `[band.S.tx]`, soit 0,6 dB. Le c
 
 #### `[band.S.rx]` : chaîne de réception S (Friis, ramenée au port d'antenne)
 
-Choix « frontal optimisé », verrouillé avec la **valeur médiane** de chaque fourchette estimée (à revoir si l'architecture s'affine). Résultat : **T_sys = 154,3 K**. Le bas des fourchettes donnerait environ 95 K. L'ancienne valeur, 346,5 K, correspondait à un module T/R classique.
+Choix « frontal optimisé », verrouillé avec la **valeur médiane** de chaque fourchette estimée lors de la revue 0.3 (154,3 K). Le bas des fourchettes donnerait environ 95 K. L'ancienne valeur, 346,5 K, correspondait à un module T/R classique.
+
+**Étape 1.5** (bout optimiste de chaque plage) : `t_ant_k` devient le **ciel froid**, le ciel devant la face s'y ajoute selon la direction (§5.16) ; le facteur de bruit du CAN est **dérivé** du convertisseur (20,0 dB au lieu des 27,5 dB saisis) ; la dynamique de la chaîne est décrite. Résultat : **T_sys = 144,5 K** (ciel froid).
 
 | Variable | Définition | Valeur | Statut | Fourchette (médiane retenue) |
 |---|---|---|---|---|
-| `t_ant_k` | Température d'antenne, ciel froid (fond cosmologique et galactique). | 10 K | V | 5 à 15 K. Dépendance à la direction à l'étape 1.5. |
+| `t_ant_k` | Température d'antenne du **ciel froid** : fond cosmologique 2,73 K et minimum galactique d'environ 0,5 K à haute latitude. | 3,2 K | V | **Étape 1.5, A1.** Ancienne valeur 10 K (fond cosmologique et médiane galactique). Le plan galactique et les corps devant la face s'ajoutent par direction (§5.16). |
 | `t_phys_frontend_k` | Température physique du frontal. | 320 K | V | 290 à 350 K (dissipation des TRM, étape 4.2). |
 | `circulator_loss_db` | Circulateur ou commutateur T/R. **Partagé avec l'émission** : le même composant est traversé deux fois. | 0,3 dB | V | 0,2 à 0,4 dB. |
 | `limiter_loss_db` | Limiteur qui protège le LNA de la fuite de 2 kW. | 0,35 dB | V | 0,2 à 0,5 dB. |
@@ -313,8 +318,16 @@ Choix « frontal optimisé », verrouillé avec la **valeur médiane** de chaque
 | `lna_gain_db` | Gain du LNA. | 27,5 dB | V | 25 à 30 dB. |
 | `post_lna_nf_db` | Facteur de bruit de la chaîne analogique après le LNA. | 8,0 dB | V | 6 à 10 dB. |
 | `post_lna_gain_db` | Gain de la chaîne après le LNA. | 20 dB | V | 15 à 25 dB. |
-| `adc_nf_db` | Facteur de bruit du CAN, un par TRM. | 27,5 dB | V | 25 à 30 dB. |
 | `digital_noise_db` | Bruit du traitement numérique (précision finie). | 0,05 dB | V | Moins de 0,1 dB. |
+| `adc_enob` | Nombre de bits effectifs du CAN (I/Q en bande de base, un par TRM et par voie de polarisation). | 13 bits | V | **Étape 1.5, B2.** Bout optimiste de 11 à 13 bits ; aujourd'hui environ 12,3 bits à 250 Méch/s. Remplace `adc_nf_db` = 27,5 dB, qui devient **dérivé** (§6). |
+| `adc_fullscale_dbm` | Pleine échelle du CAN (sinus). | +10 dBm | V | **B2.** Bout optimiste de 0 à +10 dBm. |
+| `adc_oversampling` | Rapport entre la cadence complexe et la bande instantanée. | 1,25 | V | **B1.** fs = 1,25 × 200 MHz = 250 Méch/s complexes (marge du filtre anti-repliement). |
+| `clip_backoff_db` | Marge des crêtes (signal + bruit) sous la pleine échelle. | 3 dB | V | **B3.** Niveau d'écrêtage = P_FS − 3 dB. |
+| `lna_p1db_in_dbm` | Compression à 1 dB du LNA, en entrée. | +10 dBm | V | **B4.** LNA GaN robuste ; sert au blocage par les fuites hors canal (§5.17). |
+| `post_lna_op1db_dbm` | Compression à 1 dB de la chaîne après le LNA, en sortie. | +15 dBm | V | **B4.** Contrôle au chargement : au moins P_FS + `clip_backoff_db` (le CAN écrête le premier). |
+| `limiter_recovery_s` | Récupération du limiteur après chaque impulsion. | 50 ns | V | **B5**, bout optimiste (limiteurs PIN actuels 0,1 à 1 µs). Récepteur sourd pendant τ + récupération : sortie pour l'éclipsage (étape 2.1). |
+| `preselect_rej_db` | Réjection de l'autre bande par le filtre avant le LNA. | 80 dB | V | **Sujet C**, bout optimiste de 40 à 80 dB. |
+| `post_rej_db` | Réjection de l'autre bande avant le CAN (conversion, anti-repliement). | 80 dB | V | **Sujet C**, bout optimiste de 40 à 80 dB. |
 
 #### `[band.S.tx]` : chaîne d'émission S (sortie du PA vers l'élément)
 
@@ -325,6 +338,10 @@ TX_chain = filtre d'harmoniques + circulateur (traversée en émission) + couple
 | `harmonic_filter_db` | Filtre d'harmoniques après le PA. | 0,15 dB | V |
 | `cal_coupler_db` | Coupleur d'étalonnage. | 0,05 dB | V |
 | `line_to_element_db` | Ligne et transition vers l'élément rayonnant. | 0,1 dB | V |
+| `harmonic_in_ku_dbc` | Niveau de l'harmonique du PA S qui tombe dans la bande Ku (rang **dérivé** des deux bandes : 5 aujourd'hui, 5 × 2,7-2,9 = 13,5-14,5 GHz). | −45 dBc | V |
+| `harmonic_filter_rej_in_ku_db` | Réjection du filtre d'harmoniques S à cette harmonique. | 80 dB | V |
+
+Les deux dernières entrées viennent de l'étape 1.5 (sujet C, bout optimiste : −25 à −45 dBc et 50 à 80 dB).
 
 ### 5.12 `[band.Ku]` : bande Ku (confirmation et poursuite)
 
@@ -344,7 +361,7 @@ TX_chain = filtre d'harmoniques + circulateur (traversée en émission) + couple
 | `allowed_roles` | Rôles permis en Ku. | ["CONFIRM", "PROMOTE", "TRACK"] | D | Politique du logiciel radar (étapes 3.x et 4.3). Les rôles TWS et PROMOTE existent mais aucune forme d'onde ne les utilise. |
 | `pol_rx_dual` | Réception bipolarisation. | vrai | V | Comme en S. |
 | `waim_match_deg` | Angle d'adaptation de la couche WAIM. | 45° | V | Le même qu'en S (étape 1.2). |
-| `pol_loss_dual_db` | Perte de polarisation. | 0,5 dB | D | Comme en S : valeur provisoire pour la recombinaison, jusqu'à l'étape 1.5. L'ancienne valeur 0 venait des 8 dB forfaitaires de V5.6.0, qui ne couvraient que le traitement. |
+| `pol_track_est_loss_db` | Perte de polarisation d'une observation de poursuite. | 0,05 dB | V | **Étape 1.5**, comme en S : polarisation connue, résidu d'estimation. Les observations de confirmation ont la perte calculée du détecteur GLRT (§7.8). Remplace `pol_loss_dual_db` = 0,5 dB. |
 | `pol_loss_single_db` | Réception monopolarisation. | 3,0 dB | V | Comme en S. |
 | `e_buf_trm_j` | Réserve d'énergie par TRM Ku. | 1,2 J | D | **Q7.** Elle n'était pas modélisée. τ_max = 0,2 × 1,2 × 0,65 / 75 W = 2,08 ms, même raison qu'en S. |
 | `buffer_max_fraction` | Fraction maximale par impulsion. | 0,2 | D | Comme en S. |
@@ -369,11 +386,11 @@ TX_chain Ku dérivée = 0,2 + 0,45 + 0,1 + 0,2 = **0,95 dB**.
 
 #### `[band.Ku.rx]` : médianes (statut D, estimations à confirmer)
 
-**T_sys = 238,7 K**, contre 400 K saisis en bloc auparavant. Le bas des fourchettes donnerait environ 138 K, le haut environ 387 K.
+**T_sys = 238,7 K** à la revue 0.3, contre 400 K saisis en bloc auparavant. Le bas des fourchettes donnerait environ 138 K, le haut environ 387 K. **Étape 1.5** : ciel froid et CAN dérivé, comme en S : **T_sys = 230,8 K**.
 
 | Variable | Valeur | Fourchette |
 |---|---|---|
-| `t_ant_k` | 5 K | 3 à 8 K (fond cosmologique, galactique négligeable) |
+| `t_ant_k` | **2,8 K** (V, étape 1.5 ; était 5 K) | ciel froid : fond cosmologique, galactique négligeable |
 | `t_phys_frontend_k` | 320 K | 290 à 350 K |
 | `circulator_loss_db` | 0,45 dB | 0,3 à 0,6 dB |
 | `limiter_loss_db` | 0,45 dB | 0,3 à 0,6 dB (émission de 75 W) |
@@ -382,8 +399,11 @@ TX_chain Ku dérivée = 0,2 + 0,45 + 0,1 + 0,2 = **0,95 dB**.
 | `lna_gain_db` | 25 dB | 20 à 30 dB |
 | `post_lna_nf_db` | 8,0 dB | 6 à 10 dB (conversion vers le bas) |
 | `post_lna_gain_db` | 20 dB | 15 à 25 dB |
-| `adc_nf_db` | 27,5 dB | 25 à 30 dB |
 | `digital_noise_db` | 0,05 dB | moins de 0,1 dB |
+| `adc_enob`, `adc_fullscale_dbm`, `adc_oversampling`, `clip_backoff_db` | 13 bits, +10 dBm, 1,25, 3 dB (V, étape 1.5) | comme en S ; `adc_nf_db` (27,5 dB) devient dérivé : 20,0 dB |
+| `lna_p1db_in_dbm`, `post_lna_op1db_dbm` | +5 dBm, +15 dBm (V) | LNA Ku plus petit qu'en S |
+| `limiter_recovery_s` | 25 ns (V) | bout optimiste, composants plus petits qu'en S |
+| `preselect_rej_db`, `post_rej_db` | 80 dB, 80 dB (V) | réjection de la bande S |
 
 #### `[band.Ku.tx]` : médianes (V)
 
@@ -423,7 +443,51 @@ Supprimée lors de la revue 0.3 : `latency_max_frac`, la règle de latence. Elle
 | `hull_diameter_m` | Diamètre maximal de la coque. | 16,8 m | V |
 | `width_m` | Envergure maximale, ailes de radiateurs comprises. | 76,5 m | V |
 
-Ces valeurs ne servent aujourd'hui qu'à la vue 3D. Le masquage des champs de vue par le vaisseau est prévu à l'étape 2.5. Seul le plancher arrière (ε ≈ −55°) est modélisé.
+Ces valeurs ne servent aujourd'hui qu'à la vue 3D. Le masquage des champs de vue par le vaisseau est prévu à l'étape 2.5, **avec le bruit thermique de la structure du vaisseau** dans le champ des faces (ailes de radiateurs, coque), décidé à l'étape 1.5 (A6) : c'est le même objet. Seul le plancher arrière (ε ≈ −55°) est modélisé.
+
+### 5.16 `[sky]` et `[sky.tb_k]` : bruit du ciel (étape 1.5)
+
+T_ant(direction) = ciel froid (`t_ant_k`, dans T_sys) + hausse galactique + somme des corps devant la face. Le ciel est une **entrée de la mission** (clé globale `sky`, §9.1), dans le repère du vaisseau ; le simulateur global de scénario la remplira plus tard. Le modèle (`core/sky.py`) est décrit au §7.8.
+
+| Variable | Définition | Valeur | Statut | Justification |
+|---|---|---|---|---|
+| `blind_rise_db` | Hausse de T_sys au-delà de laquelle un pointage est **aveuglé** : il n'est pas balayé, et il est signalé avec le corps responsable. | 10 dB | V | **A5.** Sépare le Soleil dans le lobe (≈ 17 dB en S comme en Ku) de la Terre (≈ 2,5 à 4 dB en S) et de la Lune (au plus ≈ 2,7 dB en Ku). |
+| `noise_element_pattern` | Diagramme d'élément de l'intégrale du bruit. | "cos_front" | D | **A4.** cos θ (cohérent avec la loi de gain), rien derrière la face (plan de masse). Premier pas sur le point ouvert « élément isotrope ». |
+| `gal_ref_ghz` | Fréquence des trois températures galactiques. | 2,8 GHz | V | Mise à l'échelle par (f / f_réf)^−indice. |
+| `gal_t_high_k` | Fond galactique à haute latitude. | 0,5 K | V | **A2.** Synchrotron du relevé à 408 MHz × (f / 0,408)^−2,7. Déjà compris dans `t_ant_k` : la hausse est T_gal − cette valeur. |
+| `gal_t_plane_k` | Plan galactique loin du centre. | 2 K | V | **A2.** |
+| `gal_t_centre_k` | Vers le centre galactique, dilué dans un lobe de 1,5°. | 8 K | V | **A2.** C'est aussi le **pire cas** appliqué partout quand la mission ne donne pas de repère galactique (signalé). |
+| `gal_sigma_b_deg` | Épaisseur du plan. | 3° | V | T_gal = T_haut + (T_plan − T_haut) e^−(b/σb)² + (T_centre − T_plan) e^−(b/σb)² e^−(l/σl)². |
+| `gal_sigma_l_deg` | Étendue du renflement central en longitude. | 30° | V | |
+| `gal_spectral_index` | Indice spectral du fond galactique. | 2,5 | V | Entre le libre-libre (2,1) et le synchrotron (2,7) : Ku = S × 0,018. |
+
+Table des températures de brillance `[sky.tb_k]`, en [S, Ku] (A3, statut V). Un corps de la mission peut la surcharger (clé `tb_k` : un nombre, ou {"S": …, "Ku": …}, par exemple pour une éruption solaire scénarisée). Un type absent de la table exige cette surcharge.
+
+| Type | S (2,8 GHz) | Ku (14 GHz) | Justification |
+|---|---|---|---|
+| `sun` | 1,0e5 K | 1,2e4 K | Disque calme en milieu de cycle (F10.7 ≈ 170 sfu) |
+| `sun_quiet` | 4,5e4 K | 1,0e4 K | Minimum solaire (F10.7 ≈ 70) |
+| `sun_active` | 1,5e5 K | 1,5e4 K | Maximum solaire (F10.7 ≈ 250) ; les éruptions sont une surcharge du scénario |
+| `earth` | 290 K | 290 K | Pire cas (émissivité 1) |
+| `earth_ocean` | 110 K | 150 K | Faible émissivité de l'océan en S, atmosphère et nuages en Ku |
+| `earth_land` | 270 K | 275 K | Terre émergée |
+| `moon` | 230 K | 230 K | Moyenne du disque, environ ±30 K avec la phase |
+
+### 5.17 `[isolation]` : isolation entre bandes et entre faces (étape 1.5)
+
+Valeurs au **bout optimiste** de chaque plage (décision de l'utilisateur). Le modèle (`core/isolation.py`) est décrit au §7.8.
+
+| Variable | Définition | Valeur | Statut | Justification |
+|---|---|---|---|---|
+| `interface_mode` | Partage d'une bande par les faces. | "sync" | V | **C, Q1-Q2.** Cadence commune d'émission et de réception de toutes les faces, par bande : aucune face ne reçoit une bande pendant qu'une autre l'émet. Il faudrait environ 143 dB d'isolation pour s'en passer, hors de portée physique. L'annulation active ("cancel") est **à revoir avec l'ordonnanceur** (étape 4.3) ; elle n'est pas implémentée et le chargeur la refuse. |
+| `coupling_adjacent_db` | De la puissance d'émission totale d'une face à **un** élément d'une face voisine. | 90 dB | V | Bout optimiste de 60 à 90 dB (normales à 80°, champ proche, lobes lointains, élément rasant). Ordre de grandeur : une simulation électromagnétique serait nécessaire (point ouvert). |
+| `coupling_opposite_db` | Idem vers la face opposée. | 120 dB | V | Bout optimiste de 90 à 120 dB (normales à 130°, coque entre les deux). |
+| `intra_trsa_s_to_ku_db` | Même TRSA : un élément S vers les éléments Ku voisins (fondamentale et harmonique). | −30 dB | V | Bout optimiste de −15 à −30 dB. |
+| `intra_trsa_ku_to_s_db` | Même TRSA : les 25 TRM Ku d'une maille S vers l'élément S. | −30 dB | V | Bout optimiste de −15 à −30 dB. |
+| `desens_margin_db` | Une fuite **dans** le canal reçu doit rester à cette distance sous le bruit. | 6 dB | V | Bout optimiste, c'est-à-dire le moins strict, de 6 à 15 dB : hausse du bruit d'environ 1 dB à la limite (0,4 dB avec 10 dB). |
+| `lna_block_backoff_db` | Marge sous la compression du LNA pour une fuite hors canal. | 6 dB | V | Bout optimiste de 6 à 15 dB. |
+
+Les autres entrées de l'isolation sont dans les chaînes : `preselect_rej_db` et `post_rej_db` (§5.11, §5.12), `harmonic_in_ku_dbc` et `harmonic_filter_rej_in_ku_db` (`[band.S.tx]`).
 
 ---
 
@@ -451,7 +515,17 @@ Ces valeurs ne servent aujourd'hui qu'à la vue 3D. Le masquage des champs de vu
 | Perte de grille de réception | 1,672 × 0,5² | 0,42 dB |
 | Gain en S à 2,8 GHz, dans l'axe | 4πAη/λ² | émission 41,62 dBi, réception 41,03 dBi (−25 dB) |
 | Gain d'émission en Ku à 14 GHz | idem | 55,60 dBi |
-| T_sys | cascade de Friis | S 154,3 K, Ku 238,7 K |
+| T_sys (ciel froid) | cascade de Friis | S 144,5 K, Ku 230,8 K (154,3 et 238,7 K avant l'étape 1.5) ; le ciel devant la face s'y ajoute par direction |
+| Facteur de bruit du CAN | P_FS − (6,02·ENOB + 1,76) − 10 log(k T₀ fs) | 20,0 dB en S et en Ku (13 bits, +10 dBm, 250 Méch/s). Un bit de plus vaut −6 dB, 6 dB de pleine échelle en plus valent +6 dB : ici ils se compensent |
+| Gain jusqu'au CAN | −L_pré + G_LNA + G_post | S 46,65 dB, Ku 43,8 dB |
+| Bruit au CAN | k T_sys fs + gain − P_FS | S −56,4 dBFS, Ku −57,2 dBFS (24 dB au-dessus du bruit de quantification) |
+| Niveau d'écrêtage à l'élément | P_FS − 3 dB − gain | S −39,6 dBm, soit 53,4 dB au-dessus du bruit ; Ku −36,8 dBm, 54,2 dB |
+| Portée minimale non saturée (axe, pleine puissance, sans perte) | écho par élément = écrêtage | S : ST 12,2 km, KKV 1,3 km, SHIP 16,1 km ; Ku : ST 10,2 km, KKV 1,1 km, SHIP 13,5 km |
+| Perte de polarisation (GLRT) | SNR_req(n + 1) − SNR_req(n), Shnidman | 0,54 dB pour un échantillon cohérent (valeur exacte 0,42 dB), 0,06 dB pour 24 impulsions non cohérentes ; 0,05 dB en poursuite |
+| Soleil dans l'axe (−25 dB) | §7.8 | S 6 670 K (+16,7 dB), Ku 10 000 K (+16,5 dB) : aveuglé |
+| Lune dans l'axe | §7.8 | S 15 K (+0,4 dB), Ku 188 K (+2,6 dB) |
+| Normalisation de l'intégrale du bruit | corps couvrant tout le demi-espace avant | 1,00 à 1,04 × T_b selon le faisceau |
+| Fond galactique au pire cas | T_centre − T_haut | +7,5 K en S (T_sys du bilan 152,1 K, +0,22 dB), +0,13 K en Ku |
 | TX_chain | somme des composants | S 0,6 dB, Ku 0,95 dB |
 | Pertes fixes (hors polarisation) | somme | S 3,80 dB, Ku 4,55 dB |
 | Pas moyen des éléments | pas des TRSA / TRM par côté | S 52,1 mm, Ku 10,42 mm (52,5 et 10,9 mm de part et d'autre d'un jeu) |
@@ -557,6 +631,45 @@ R⁴ = P_faisceau · G_TX · G_RX · λ² · σ · τ · N / ((4π)³ · k · T_
 - Le secteur A couvre le besoin de B si : R_AB − v_B · rr_A ≥ R_B − v_B · rr_B (à 1 % près), avec en plus une PRI non ambiguë et une résolution suffisante.
 - R_AB est calculé avec la forme d'onde de A, la cible de B et **la pondération de réception de B**, puisque la réception numérique peut appliquer les deux sur la même observation.
 
+### 7.8 Réception (étape 1.5)
+
+**Bruit du ciel** (`core/sky.py`). La hausse de la température d'antenne quand les faisceaux de réception d'une face pointent dans une direction vaut ΔT = (1/4π) ∫ T_b G dΩ. Avec G = G₀ · w · g(ρ) (diagramme d'élément cos θ) et dΩ = du dv / w, le facteur w s'élimine :
+
+ΔT = T_b · (A_émissive · η_RX · η_ohmic / D_env²) · ∫ g(ρ) dρ²,
+
+l'intégrale portant sur le corps vu dans le plan (u, v) de la face, moitié avant seulement, avec ρ la distance à l'axe du faisceau en λ/D_env. g est le **diagramme de réception moyenné en azimut** (`core/antenna.py`) : fenêtre proche au pas de 0,01 λ/D, moyennes par anneau au-delà. Par Parseval, (Aη/D²) ∫ g = 1 sur tout le plan : un corps qui couvre tout le demi-espace avant ajoute T_b (vérifié à 1,00 à 1,04 près). Le lobe principal est donc **exact**, et non un lobe gaussien.
+- Petits corps (rayon ≤ 2 λ/D, le Soleil, la Lune) : échantillons fins sur le disque, tout le diagramme.
+- Grands corps (la Terre) : grille polaire autour de l'axe du faisceau dans la fenêtre proche (points à l'intérieur du corps), anneaux d'échantillons sur le disque au-delà.
+- Fond galactique : T_gal(l, b) − T_haut à la direction du faisceau, × (f / 2,8 GHz)^−2,5 ; pire cas constant sans repère galactique.
+- T_sys(direction) = T_sys froid + ΔT × 10^(numérique/10).
+
+**Bilan d'un secteur** (`optimizer.sector_sky`). T_sys est évalué tous les 0,5 HPBW_TX sur les pointages balayés, pondérés par leur densité (w dΩ). Un pointage dont la hausse dépasse `blind_rise_db` est **aveuglé** : retiré des pointages et signalé avec le corps qui domine. Le **T_sys du bilan** est le centile (1 − `short_tol`) des autres pointages, soit le pire point à 1 % près ; la règle du « pire point hors aveuglés » seule aurait imposé à tout secteur voyant le Soleil la hausse de la frange, près de 10 dB (décision de l'utilisateur). Toutes les portées du secteur sont multipliées par (T_froid / T_bilan)^(1/4) ; les pointages au-dessus du bilan sont signalés quand ils le dépassent de plus de `tool.alerts.sky_above_budget_db`. Même règle en Ku pour la confirmation et la poursuite du secteur (`tracking.sector_budget`).
+
+**CAN et dynamique.** NF_CAN = P_FS − (6,02 ENOB + 1,76) − 10 log(k T₀ fs), fs = 1,25 × B_inst (I/Q). Niveaux ramenés au port d'antenne : écrêtage = P_FS − 3 dB − gain, bruit = k T_sys fs. Portée minimale non saturée : l'écho crête par élément (face entière en un faisceau, pleine puissance, aucune perte, A_él = pas² cos θ) atteint l'écrêtage ; R ∝ σ^(1/4). La numérisation se fait à l'élément, **avant** la formation de faisceau : une source forte dans n'importe quelle direction avant atteint tous les CAN. Gain fixe (un atténuateur commutable est une option de l'étape 3.3) ; alerte quand une tranche de poursuite descend sous la portée non saturée Ku. Récepteur sourd pendant τ + récupération du limiteur (`rx_deaf_us`, sortie pour l'étape 2.1).
+
+**Polarisation.** Deux voies par TRM. Observation de détection : détecteur GLRT sur la polarisation inconnue de l'écho, estimée sur toute l'observation (une inconnue complexe de plus) : perte = SNR_req(n + 1) − SNR_req(n), n = 1 pour une observation cohérente, n impulsions sinon. Observation de poursuite : polarisation connue, `pol_track_est_loss_db`. Récepteur monopolarisation : `pol_loss_single_db`. La rotation de Faraday ne coûte rien en détection avec deux voies. Le gain de diversité de polarisation face au cas de Swerling reste à l'étape 2.4 : aucun gain n'est compté d'ici là.
+
+**Isolation** (`core/isolation.py`). Pour chaque paire (bande émise, bande reçue, faces : même face, voisines, opposées), fuite vers un élément de réception :
+- même face, autre bande : un TRM S + `intra_trsa_s_to_ku_db`, ou les 25 TRM Ku d'une maille S + `intra_trsa_ku_to_s_db` ;
+- autre face : puissance crête totale de la face − couplage.
+Trois contrôles : blocage du LNA (fuite après présélection si hors bande ≤ P1dB − 6 dB), écrêtage du CAN (fuite après présélection et réjection ≤ écrêtage), désensibilisation (fuite dans le canal ≤ bruit − 6 dB). L'harmonique S dans la bande Ku (rang dérivé des bandes) est dans la bande Ku : niveau = fuite + `harmonic_in_ku_dbc` − `harmonic_filter_rej_in_ku_db`, même couplage supposé à l'harmonique.
+
+| Émission → réception | Même face | Faces voisines | Faces opposées |
+|---|---|---|---|
+| S → S | éclipsage (étape 2.1) | **interdite** : +9,9 dBm, LNA bloqué (−5 dB) | **interdite** : −20 dBm, CAN écrêté (−20 dB) |
+| Ku → Ku | éclipsage | **interdite** (LNA −9 dB) | **interdite** (CAN −16 dB) |
+| S → Ku | **règle de fréquence** : harmonique à −92 dBm, 5 dB au-dessus du seuil de désensibilisation | autorisée (+18 dB) | autorisée |
+| Ku → S | autorisée (LNA +52 dB) | autorisée | autorisée |
+
+Règles pour l'ordonnanceur (`scheduler_rules`, étape 4.3) : cadence commune d'émission et de réception de toutes les faces, par bande ; pas de réception Ku sur la face pendant une émission S dont l'harmonique [5(f − B/2), 5(f + B/2)] recouvre le canal Ku (ainsi un signal S de 75 MHz à 2,8 GHz occupe 13,81-14,19 GHz et couvre le canal Ku de 14,0 GHz : signalé par secteur). Le modèle ne les impose pas encore.
+
+Estimation grossière du coût de la synchronisation par rapport au modèle « pur » (faces indépendantes), donnée à l'étape 1.5 :
+- émissions alignées : perte d'énergie nulle ; coût du partage de τ et de la PRI au même instant, 0 à 1 dB selon la diversité des secteurs ;
+- émissions non alignées avec masquage : perte −10 log(1 − Σ_autres d_j), 0,1 à 0,9 dB sur les missions de test, 2,6 dB à pleine puissance sur les 4 faces ;
+- ordre de grandeur réaliste 0,5 à 1,5 dB en forte charge, négligeable en faible charge. Aucune perte n'est mise dans le bilan avant l'ordonnanceur (étape 4.3).
+
+Coûts de l'annulation active, si elle est reprise à l'étape 4.3 : perte d'insertion avant le LNA (0,3 à 1 dB, versée dans T_sys en permanence), puissance injectée égale à la fuite (environ 1 W par élément à 70 dB de couplage, environ 1 mW à 100 dB), calcul (à faire dans l'espace des faisceaux), temps d'adaptation à chaque changement de pointage (quelques %), masse et fiabilité ; une solution mixte (synchronisation entre faces voisines, annulation entre faces opposées) avait été proposée.
+
 ---
 
 ## 8. Paramètres de l'outil (`[tool.*]`)
@@ -580,6 +693,8 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 | `tool.cost_table` | `freq_ghz`, `range_km`, `rcs_m2`, `v_mps`, `theta_deg` | 2,8 GHz et grilles | Table calculée à 2,8 GHz seulement (optimiste à 2,7 et 2,9 GHz) ; à recaler à l'étape 5.5. |
 | `tool.pattern` | `r_max_lam_d`, `r_step_lam_d`, `phi_step_deg`, `fit_tol_db`, `far_step_lam_d` | 8, 0,01, 1,5°, 0,05 dB, 0,125 | Étapes 1.1 et 1.2 : précision du calcul du diagramme et pas de la grille des lobes lointains. |
 | `tool.alerts` | `mismatch_db_per_pass` | 3,0 dB | **Étape 1.2, Q5** : seuil d'alerte de la désadaptation par passage. |
+| | `sky_above_budget_db` | 1,0 dB | **Étape 1.5** : les pointages au-dessus du T_sys du bilan ne sont signalés que si le pire le dépasse de plus que cela (sinon le centile signalerait toujours 1 % des pointages). |
+| `tool.sky` | `eval_step_hpbw`, `near_r_step_lam_d`, `near_phi_step_deg`, `body_ring_lam_d`, `small_body_lam_d`, `body_rings_max`, `chunk` | 0,5, 0,05, 10°, 2,0, 2,0, 16, 2048 | **Étape 1.5** : pas d'évaluation du T_sys sur un secteur (A5) et précision de l'intégrale du bruit. |
 | `tool.display` | `grid_res_deg`, `viz_freq_ghz` | 0,5°, 2,8 GHz | Trame 3D et estimation rapide. |
 | `tool.mission_defaults` | voir §9 | | Valeurs d'une nouvelle mission. |
 
@@ -593,6 +708,7 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 |---|---|---|
 | `eps_min_deg` / `eps_max_deg` | −90° / +90° (pas de limite) | Fenêtre d'élévation de la mission, envoyée à l'ordonnanceur. Le plancher physique est d'environ −55°. |
 | `face_elec_mw` | 2,0 MW | Doit être strictement positive et ne pas dépasser 8 MW (validation provisoire). |
+| **`sky`** | absent | **Étape 1.5.** Ciel dans le **repère du vaisseau**, rempli plus tard par le simulateur global de scénario : `bodies` (id, type de `[sky.tb_k]`, `phi_deg`, `eps_deg`, `angular_radius_deg`, `tb_k` facultatif) et `galactic` facultatif (directions du pôle et du centre galactiques, à 90° l'une de l'autre). Sans ciel : ciel froid et fond galactique au pire cas. L'interface ne l'édite pas ; elle le conserve. |
 
 ### 9.2 Secteur (volume de veille)
 
@@ -615,7 +731,7 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 ### 9.3 Formats
 
 - Fichiers JSON (complets) ou CSV (tableau des secteurs, avec les tranches de poursuite en JSON dans une seule colonne). Les deux restent compatibles avec l'entrée de l'optimiseur.
-- La validation (« Validate mission prep ») vérifie : identifiants uniques, bornes, φ et ε, v_min ≤ v_max, valeurs strictement positives, tranches de poursuite sans chevauchement et dans la portée, `rx_sll_db` parmi les options.
+- La validation (« Validate mission prep ») vérifie : identifiants uniques, bornes, φ et ε, v_min ≤ v_max, valeurs strictement positives, tranches de poursuite sans chevauchement et dans la portée, `rx_sll_db` parmi les options, et le ciel (champs, types connus ou température donnée, repère galactique cohérent).
 
 ---
 
@@ -628,8 +744,8 @@ La feuille de route complète, avec le contenu détaillé de chaque étape, se t
 | Phase | Étapes |
 |---|---|
 | 0, fondations | 0.1 fichier unique ✔ ; 0.2 banc de tests ✔ ; 0.3 revue des valeurs ✔ |
-| 1, antenne et RF | 1.1 géométrie et diagramme réel ✔ ; **1.2 diagramme : lobes de réseau, désadaptation active \|Γ(θ, f)\|, polarisation ✔** ; **1.3 TRM et chaîne d'émission ✔** ; **1.4 bande ✔** ; 1.5 réception (T_sys selon la direction, CAN, isolation, bruit de phase de l'oscillateur, deux voies de polarisation) |
-| 2, signal et détection | 2.1 formes d'onde paramétriques ; 2.2 traitement (bancs de vitesse, CFAR, modèle de cohérence) ; 2.3 critère de détection ; 2.4 modèles de cibles ; 2.5 environnement (masquage par le vaisseau, Faraday, brouillage) |
+| 1, antenne et RF | 1.1 géométrie et diagramme réel ✔ ; **1.2 diagramme : lobes de réseau, désadaptation active \|Γ(θ, f)\|, polarisation ✔** ; **1.3 TRM et chaîne d'émission ✔** ; **1.4 bande ✔** ; **1.5 réception ✔** (T_sys selon la direction, CAN, isolation, deux voies de polarisation ; le bruit de phase de l'oscillateur est passé en 2.2) |
+| 2, signal et détection | 2.1 formes d'onde paramétriques ; 2.2 traitement (bancs de vitesse, CFAR, modèle de cohérence et bruit de phase de l'oscillateur) ; 2.3 critère de détection ; 2.4 modèles de cibles ; 2.5 environnement (masquage par le vaisseau, Faraday, brouillage) |
 | 3, fonctions radar | 3.1 veille S (multifaisceau, grille de fréquences fine) ; 3.2 confirmation Ku (fréquence Ku choisie, connaissance du spectre) ; 3.3 poursuite (Kalman ou IMM) ; 3.4 fonctions annexes |
 | 4, ressources | 4.1 puissance (bus de 8 MW, répartition entre faces) ; 4.2 thermique ; 4.3 ordonnanceur et latence ; 4.4 calcul et données |
 | 5, mission et validation | 5.1 modèle de mission enrichi et bibliothèque de menaces ; 5.2 optimiseur global ; 5.3 moteur de validation ; 5.4 simulation Monte-Carlo ; 5.5 interface opérateur ; 5.6 vérification, validation et documentation |
@@ -640,7 +756,7 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 
 | Sujet | État actuel | Étape |
 |---|---|---|
-| Polarisation | Linéaire selon e_v (D) ; 0,5 dB provisoire pour la recombinaison des voies. Commutation e_u / e_v à rappeler en 3.3. | 1.5, 2.4, 2.5, 3.2-3.3 |
+| Polarisation | Linéaire selon e_v (D). Recombinaison des deux voies par le GLRT depuis l'étape 1.5 (perte calculée), sans gain de diversité. Commutation e_u / e_v à rappeler en 3.3. | 2.4 (diversité), 2.5 (Faraday), 3.2-3.3 |
 | Élément rayonnant | Éléments isotropes dans le calcul du facteur de réseau ; seule la projection cos θ et la désadaptation interviennent. | à placer |
 | Zone aveugle et éclipse | Non vérifiées : impulsions de 2 ms (300 km aveugles), facteur de forme jusqu'à 0,65. La zone aveugle sera jugée par rapport au besoin du secteur ; migration et Doppler dans l'impulsion (50 m à 25 km/s). | 2.1, 2.2 |
 | PAE en fonction du recul du PA | PAE constante sous réduction de puissance ; loi nécessaire au multifaisceau par superposition. | 3.1 |
@@ -650,7 +766,16 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 | Limite de 70° au-dessus de la fréquence de rupture | Gardée à l'étape 1.4 tant que le diagramme de l'élément n'est pas modélisé (flanc du lobe de réseau à l'horizon). | avec le diagramme de l'élément (à placer) |
 | Fréquences candidates de la veille S | 2,7 / 2,8 / 2,9 GHz : depuis l'étape 1.4, aucun signal ne tient aux bords de bande (2,7 et 2,9 GHz), seule 2,8 GHz est jouable. | 3.1 (grille fine dans la bande) |
 | Plafond de cohérence | Provisoire, 149 ms ; t₀ et p sans source. | 2.2 |
-| Bruit de phase de l'oscillateur sur l'aller-retour | Non modélisé (53 ms à 8 000 km). | 1.5, 2.2 |
+| Bruit de phase de l'oscillateur (spectre et aller-retour) | Non modélisé (53 ms à 8 000 km) ; sujet entier passé en 2.2 à l'étape 1.5. | 2.2 |
+| Synchronisation des faces par bande | Règle signalée (`scheduler_rules`), non imposée ; aucune perte dans le bilan. Annulation active à revoir. | 4.3 |
+| Harmonique 5 de la S dans le canal Ku | Règle de fréquence signalée par secteur. | 3.2, 4.3 |
+| Pire point ou moyenne du T_sys d'un secteur | Centile (1 − `short_tol`) des pointages non aveuglés. | 2.3 |
+| Bruit de la structure du vaisseau | Non modélisé ; avec le masquage. | 2.5 |
+| Fouillis terrestre et saturation des CAN qu'il cause | La Terre n'est qu'une source de bruit. | 2.5 |
+| Récupération du limiteur | Sortie `rx_deaf_us`, pas encore dans l'éclipsage. | 2.1 |
+| Atténuateur commutable (poursuite rapprochée) | Gain fixe, alerte de saturation des tranches de poursuite. | 3.3 |
+| CAN : nombre, débit, consommation | 2 CAN par TRM (deux voies). | 4.4 |
+| Estimation rapide au ciel froid | Sans le bruit du ciel. | 5.5 |
 | Multifaisceau | Loi unique, statut ?. Modes à évaluer par l'optimiseur. | 3.1, 5.2 |
 | Fréquence Ku | Fixée à 14,0 GHz, provisoire. | 3.2 |
 | Masquage par le vaisseau | Seul le plancher arrière est modélisé. | 2.5 |
@@ -672,7 +797,10 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 - **(h)** **Masse des réserves d'énergie** (étape 1.3) : 122 kJ par face en S et 147 kJ en Ku, soit environ 270 kg par face à 1 J/g (hypothèse 2050), environ 1,1 t pour les 4 faces ; aucun bilan de masse n'est prévu dans la feuille de route.
 - **(i)** Le jeu de 0,5 mm suppose des matériaux appariés en dilatation (étape 4.2).
 - **(j)** `mission_detection_envelope.csv` (racine de `V1`), artefact périmé d'avant la feuille de route (modèle V6.0.12), lu par aucun code et sans outil de génération : **supprimé** sur décision de l'utilisateur (20 octobre 2026). Il reste dans l'historique git.
-- **(k)** Le couplage mutuel au bord des tuiles et le diagramme réel de l'élément rayonnant ne sont pas modélisés (éléments isotropes dans le facteur de réseau).
+- **(k)** Le couplage mutuel au bord des tuiles et le diagramme réel de l'élément rayonnant ne sont pas modélisés (éléments isotropes dans le facteur de réseau ; l'intégrale du bruit du ciel prend un élément en cos θ, rien vers l'arrière, depuis l'étape 1.5).
+- **(l)** Les couplages de l'isolation (étape 1.5 : 90 et 120 dB entre faces, −30 dB dans une TRSA) sont des ordres de grandeur pris au bout optimiste ; les faces sont dans le champ proche l'une de l'autre (limite de Fraunhofer d'environ 325 m en S) : une simulation électromagnétique serait nécessaire.
+- **(m)** Les erreurs aléatoires d'amplitude et de phase des TRM ne sont pas modélisées (environ 0,2 % de la puissance hors du lobe pour 0,2 dB et 2° rms : négligeable devant les 2 à 5 % de la pondération pour le bruit du ciel).
+- **(n)** Correction à l'étape 1.5 : lors des questions, le facteur de bruit du CAN avait été annoncé à environ 8 dB avec 13 bits et +10 dBm. C'est faux : il reste à 20 dB, car 6 dB de pleine échelle en plus coûtent ce que le 13ᵉ bit rapporte. Les valeurs de T_sys annoncées (144,5 et 230,8 K) étaient justes ; la marge avant écrêtage gagne bien 6 dB.
 
 ---
 
@@ -787,3 +915,45 @@ Effet sur les missions de test (valeurs de test seulement) :
 Effet sur les missions de test (valeurs de test seulement) :
 - l'optimiseur garde 2,8 GHz (bande centrale, sans perte de bord) : énergie par face de 0 à −1,5 %, temps S de −2,0 à +0,5 %, temps Ku de 0 à −7 % ;
 - le secteur A3_HIBAND de `mission_redundancy_demo`, qui impose 2,9 GHz (le bord haut), n'a plus de forme d'onde jouable : il est conservé tel quel et exerce ce cas.
+
+### Étape 1.5 : la réception (21 octobre 2026)
+
+Questions de cadrage :
+
+| Question | Décision de l'utilisateur |
+|---|---|
+| Q1, bruit de phase de l'oscillateur | **Tout passer en 2.2**, avec la cohérence. |
+| Q2, position des corps | Le simulateur radar sera une partie d'un **simulateur global de scénario**, qui lui donnera la position de tous les objets ; le radar travaille dans le **repère du vaisseau** et ne calcule pas où sont les objets. Rien n'est repris du prototype (`RADARv5/SIMULATOR/10-BLEEDING EDGE`, preuve de concept en retard d'un an sur la RF). |
+| Q2a, températures de brillance | (c) Table par type et par bande dans le fichier, surcharge possible par le scénario. |
+| Q2b, fond galactique | (a) Repère galactique donné par le scénario (pôle et centre), profil en latitude et longitude ; pire cas constant sans repère. |
+| Q3, T_sys d'un secteur | Pas de cône d'exclusion fixe : pointages **aveuglés** au-delà d'un seuil de hausse ; bilan au **centile (1 − `short_tol`)** des autres pointages (la règle du pire point seul aurait imposé la frange du Soleil, près de 10 dB, à tout le secteur). |
+| Q4, harmonique S dans la bande Ku | Matrice d'isolation complète, avec l'harmonique. |
+| Valeurs | « Prendre les valeurs optimistes à chaque fois » : bout optimiste de chaque plage, aussi pour le sujet B déjà validé. |
+
+Variables (toutes validées) :
+
+| Sujet | Décision |
+|---|---|
+| A1 ciel froid | S 3,2 K, Ku 2,8 K. |
+| A2 fond galactique | 0,5 / 2 / 8 K à 2,8 GHz, σ_b 3°, σ_l 30°, indice 2,5. |
+| A3 températures de brillance | Table du §5.16. |
+| A4 diagramme pour le bruit | Élément cos θ, rien vers l'arrière ; erreurs aléatoires non modélisées. Le lobe principal est le diagramme réel moyenné en azimut (plus exact que le lobe gaussien proposé, signalé à l'utilisateur). |
+| A5 aveuglement, évaluation | 10 dB ; pas de 0,5 HPBW_TX ; pire point (centile) ; même règle en Ku. |
+| A6 structure du vaisseau | Bruit thermique de la structure traité à l'étape 2.5 avec le masquage. |
+| B1 numérisation | I/Q en bande de base, fs = 1,25 × bande instantanée. |
+| B2 CAN | 13 bits, +10 dBm ; facteur de bruit dérivé (20 dB, la valeur de 8 dB annoncée pendant les questions était une erreur, voir §10.3 n). |
+| B3 marge d'écrêtage | 3 dB. |
+| B4 compression | LNA +10 / +5 dBm (S / Ku), chaîne après le LNA +15 dBm. |
+| B5 limiteur | 50 / 25 ns. |
+| B6 gain | Fixe ; atténuateur à évaluer en 3.3 ; portée minimale non saturée par secteur, alerte des tranches de poursuite. |
+| C isolation | Couplages 90 / 120 dB entre faces, −30 dB dans une TRSA, harmonique −45 dBc, filtre 80 dB, réjections 80 / 80 dB, marges 6 / 6 dB. |
+| C mode d'interface | **Synchronisation** pour l'instant ; l'annulation active est à revoir à l'étape 4.3. Avant de décider, l'utilisateur a demandé comment font les radars multifaces (SPY-1 : un émetteur commun, une face à la fois ; SPY-6 et Sea Fire 500 : rien de public), les coûts de l'annulation active et une estimation grossière du coût de la synchronisation (§7.8). |
+| E1 recombinaison des voies | GLRT sur la polarisation inconnue, perte calculée. |
+| E2 poursuite | 0,05 dB. |
+| E3-E4 | `pol_loss_dual_db` supprimé, `pol_loss_single_db` gardé ; déséquilibre des voies pour 3.3 ; Faraday sans coût en détection ; diversité en 2.4 ; nombre de CAN pour 4.4. |
+
+Effet sur les missions de test (valeurs de test seulement) :
+- T_sys froid S 154,3 → 144,5 K, Ku 238,7 → 230,8 K ; perte de polarisation de 0,5 dB à 0,06 dB sur WF-LRS : portées de WF-LRS +4,28 % (ST 6 890 → 7 185 km) ;
+- missions sans repère galactique : fond galactique au pire cas (+7,5 K en S, T_sys du bilan 152,1 K) ; portées +0,1 à +2,4 %, énergie par face −0,6 à −1,1 %, temps S 0 à −11 %, temps Ku 0 à −9 % ; une forme d'onde de CONE_D1-D4 passe de cohérente à non cohérente (la perte GLRT est plus faible en non cohérent) ;
+- nouvelle mission de test `mission_sky_demo.json` (Soleil, Lune, limbe de la Terre, repère galactique) : environ 1 % des pointages du secteur SUN aveuglés et T_sys du bilan +4,7 dB (la frange du Soleil dépasse 1 % d'un petit secteur), EARTH +2,5 dB, MOON +0,3 dB ;
+- toutes les missions de test : règles pour l'ordonnanceur (synchronisation par bande ; le signal S de 75 MHz à 2,8 GHz met son harmonique sur le canal Ku de 14,0 GHz).

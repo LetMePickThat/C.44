@@ -172,3 +172,23 @@ Model changes (radar_model V6.4.0, see its header):
   more, the sector is now NO_WAVEFORM ("no playable waveform in the search space"). Kept as is (it now exercises that
   path); move it inside the band (e.g. 2.86 GHz) if a playable high-band sector is wanted.
 - core/cost_table.json regenerated.
+
+## 2026-10-21 -- roadmap step 1.5 (the receive chain)
+
+Model changes (radar_model V6.5.0, see its header; optimistic end of every range, user):
+- Cold-sky T_sys: t_ant_k S 10 -> 3.2 K, Ku 5 -> 2.8 K; ADC noise figure derived from the converter (13 ENOB,
+  +10 dBm, 250 Msps: 20.0 dB, was 27.5 dB entered). T_sys S 154.3 -> 144.5 K, Ku 238.7 -> 230.8 K.
+- Polarisation: the 0.5 dB placeholder replaced by the GLRT loss SNR_req(n + 1) - SNR_req(n) (0.54 dB on one
+  coherent sample, 0.06 dB on the 24 noncoherent pulses of WF-LRS), 0.05 dB on TRACK looks.
+- Together WF-LRS ranges +4.28 % (ST 6890 -> 7185 km at 0 deg).
+- Missions: sky noise by direction (core/sky.py). Without a galactic frame (every test mission but the new one) the
+  worst-case galactic rise is applied everywhere: +7.5 K in S, budget T_sys 152.1 K (+0.22 dB over the cold sky);
+  so the mission ranges move only +0.1 to +2.4 %, face energy -0.6 to -1.1 %, S time 0 to -11 %, Ku time 0 to -9 %.
+- Waveform sets that changed: mission_veille500 / CONE_D1..D4, second waveform COHE 2ms x3 -> NONC 2ms x3 (the GLRT
+  loss is smaller on noncoherent trains).
+- New test mission mission_sky_demo.json (Sun, Moon, Earth limb, galactic frame): blinded positions, budget quantile,
+  Ku sky, AT bracket below the Ku saturation range.
+- New outputs: sector "sky" (S) and tracking "ku_sky" summaries, ADC saturation ranges, rx_deaf_us per waveform, the
+  isolation matrix and the scheduler rules (sync per band, S harmonic in the Ku channel).
+- core/antenna_cache.json rebuilt (ALGO_VERSION 5: azimuthal-mean pattern profiles); core/cost_table.json regenerated
+  (fast estimate: cold sky, the sky noise is not in it).

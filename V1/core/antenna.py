@@ -13,6 +13,10 @@ frequency, only on the element layout, so one computation per band holds for its
             that the ACHIEVED peak sidelobe level of the real octagon equals each operator option of
             aperture.rx_sll_options_db (per watch volume, mission key "rx_sll_db") -> eta_illum_rx, RX beamwidth
   x_rms   : RMS extent of the aperture -> Cramer-Rao bound of the angle (radar_model.tracking_snr_req)
+  mean    : (step 1.5) AZIMUTHAL MEAN of the power pattern vs the distance r to the beam axis, near window (step
+            R_STEP, from the cuts) and visible region (step FAR_PROFILE_STEP, annulus means of the 2D grid): the noise
+            a body in front of the face sends into the beam (core/sky.py) is T_b x (A eta / D_env^2) x the integral of
+            this mean over the body seen in (u, v), in lambda / D_env units (normalisation exact by Parseval)
   far     : (step 1.2) sidelobes over the whole visible region of the band (radius (1 + sin scan limit) D / lambda
             at the top of the band), as a profile: peak level of the lobes within a distance r of the beam axis
             (cumulative maximum, step FAR_PROFILE_STEP). A lobe at distance r is visible once scanned to theta with
@@ -50,7 +54,7 @@ except ImportError:            # imported by core/radar_model.py run as a script
     import params
     from params import P
 
-ALGO_VERSION = 4                     # bump when the computation below changes (invalidates the cache)
+ALGO_VERSION = 5                    # bump when the computation below changes (invalidates the cache)
 CACHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "antenna_cache.json")
 _T = "tool.pattern."
 R_MAX = P.get(_T + "r_max_lam_d")            # evaluated radius around boresight, lambda / D_env
@@ -73,6 +77,8 @@ class Beam:
     far_sll_db: Optional[float] = None   # peak sidelobe beyond the near window, over the visible region (step 1.2)
     far_sll_r: Optional[float] = None    # its distance to the beam axis, lambda / D_env
     far_profile_db: Optional[Tuple[float, ...]] = None   # peak level of the lobes within i x FAR_PROFILE_STEP
+    mean_near: Optional[Tuple[float, ...]] = None   # azimuthal mean power (linear, peak = 1) at r = i x R_STEP <= R_MAX
+    mean_far: Optional[Tuple[float, ...]] = None    # annulus mean power for r in [i, i + 1) x FAR_PROFILE_STEP, > R_MAX
 
 
 @dataclass(frozen=True)
@@ -176,15 +182,19 @@ def _analyse(xs, ys, mult, present, w, d_env, symmetric_xy: bool, design: Option
         if rising.size:
             sll = max(sll, float(row[i + rising[0]:].max()))
     hp = np.array(hp)
+    wphi = np.ones(len(phis))                      # trapezoid weights: the cuts span one symmetry sector end to end
+    wphi[[0, -1]] = 0.5
+    mean_near = tuple(float(x) for x in (wphi[:, None] * g).sum(axis=0) / wphi.sum())
     eta = float((mult * w).sum() ** 2 / ((mult * present).sum() * (mult * w * w).sum()))
     return Beam(eta=eta, hpbw=float(hp.min()), hpbw_x=float(hp[0]), hpbw_diag=float(np.interp(45.0, phis, hp)),
-                hpbw_max=float(hp.max()), sll_db=10.0 * math.log10(sll), design_sll_db=design)
+                hpbw_max=float(hp.max()), sll_db=10.0 * math.log10(sll), design_sll_db=design, mean_near=mean_near)
 
 
-def _far(xs, ys, wm, d_env: float, r_vis: float, d_mean: float) -> Tuple[float, float, Tuple[float, ...]]:
+def _far(xs, ys, wm, d_env: float, r_vis: float, d_mean: float) -> Tuple[float, float, Tuple[float, ...], Tuple[float, ...]]:
     """Peak power (dB) and radius (lambda / D_env) of the strongest lobe beyond the near window R_MAX, over the
-    visible region r <= r_vis of one quadrant (2D grid, AF = Cy W Cx^T), grating-lobe neighbourhoods excluded, and
-    the cumulative profile (peak dB within i x FAR_PROFILE_STEP; -inf inside the near window)."""
+    visible region r <= r_vis of one quadrant (2D grid, AF = Cy W Cx^T), grating-lobe neighbourhoods excluded, the
+    cumulative profile (peak dB within i x FAR_PROFILE_STEP; -inf inside the near window) and the annulus means
+    (linear; 0 inside the near window and in bins without a kept point)."""
     r = np.arange(0.0, r_vis + FAR_STEP / 2, FAR_STEP)
     cx = np.cos(2.0 * math.pi * np.outer(r, xs) / d_env)
     cy = np.cos(2.0 * math.pi * np.outer(r, ys) / d_env)
@@ -205,7 +215,12 @@ def _far(xs, ys, wm, d_env: float, r_vis: float, d_mean: float) -> Tuple[float, 
     prof = np.maximum.accumulate(peak)
     with np.errstate(divide="ignore"):
         prof_db = tuple(float(x) for x in 10.0 * np.log10(prof))
-    return 10.0 * math.log10(float(g.flat[k])), float(rad.flat[k]), prof_db
+    wq = np.where(uu == 0.0, 0.5, 1.0) * np.where(vv == 0.0, 0.5, 1.0)   # axis points are shared by two quadrants
+    s_g, s_w = np.zeros(n_bins), np.zeros(n_bins)
+    np.add.at(s_g, idx[keep], (wq * g)[keep])
+    np.add.at(s_w, idx[keep], wq[keep])
+    mean = tuple(float(x) for x in np.divide(s_g, s_w, out=np.zeros(n_bins), where=s_w > 0))
+    return 10.0 * math.log10(float(g.flat[k])), float(rad.flat[k]), prof_db, mean
 
 
 def _fit_taylor(xs, ys, mult, present, d_env, sym, target_db: float, nbar: int, edge_r: float) -> Tuple[Beam, np.ndarray]:
@@ -257,8 +272,8 @@ def _compute(rows, trsa_side_m, gap_m, n_sub, d_env, sll_options, nbar, edge, r_
     d_mean = (trsa_side_m + gap_m) / n_sub
 
     def with_far(b: Beam, w: np.ndarray) -> Beam:
-        far_db, far_r, prof = _far(xs, ys, mult * w, d_env, r_vis, d_mean)
-        return replace(b, far_sll_db=far_db, far_sll_r=far_r, far_profile_db=prof)
+        far_db, far_r, prof, mean = _far(xs, ys, mult * w, d_env, r_vis, d_mean)
+        return replace(b, far_sll_db=far_db, far_sll_r=far_r, far_profile_db=prof, mean_far=mean)
 
     tx = with_far(_analyse(xs, ys, mult, present, present, d_env, sym, None), present)
     rx = {float(s): with_far(*_fit_taylor(xs, ys, mult, present, d_env, sym, float(s), nbar, edge_r))
@@ -302,7 +317,7 @@ def _read_cache(key: str) -> Optional[Dict[str, BandPattern]]:
     if d.get("key") != key:
         return None
     def beam(v: dict) -> Beam:
-        return Beam(**{**v, "far_profile_db": tuple(v["far_profile_db"]) if v.get("far_profile_db") else None})
+        return Beam(**{**v, **{k: tuple(v[k]) if v.get(k) else None for k in ("far_profile_db", "mean_near", "mean_far")}})
 
     return {b: BandPattern(n_elements=p["n_elements"], x_rms_m=p["x_rms_m"], tx=beam(p["tx"]),
                            rx={float(s): beam(v) for s, v in p["rx"].items()}, d_mean_m=p["d_mean_m"],

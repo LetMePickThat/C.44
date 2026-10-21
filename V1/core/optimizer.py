@@ -62,6 +62,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from . import radar_model as rm
+from . import sky as skym
 from .params import P
 
 # Values from radar_system.toml ([geometry], [tool.optimizer], [tool.mission_defaults]).
@@ -90,6 +91,7 @@ SHORT_TOL = P.get(_T + "short_tol")                  # positions-short-of-range 
 ALPHAS = np.linspace(0.0, 1.0, P.get(_T + "n_alphas"))   # energy weight of the scalarised energy/time cost
 SHORT_PENALTY = P.get(_T + "short_penalty")          # DP penalty per fraction of positions short of range (ranks range before cost)
 TRACK_MARGIN_WARN = P.get(_T + "track_margin_warn")  # warn when a face keeps less than this fraction of its power for tracking
+SKY_ABOVE_BUDGET_ALERT_DB = P.get("tool.alerts.sky_above_budget_db")   # flag positions this far above the sky budget
 
 
 # ----------------------------------------------------------------------------- geometry
@@ -141,6 +143,7 @@ class Sphere:
             self.w[ok] = w[ok]
         self.theta = np.degrees(np.arccos(np.clip(self.w, 0.0, 1.0)))
         self.scan_zone = self.scanned(eps_min, eps_max)
+        self.window = (eps_min, eps_max, res_deg)
         self._masks: Dict[tuple, np.ndarray] = {}
 
     def scanned(self, eps_min: float = -90.0, eps_max: float = 90.0) -> np.ndarray:
@@ -192,6 +195,63 @@ def positions_table(sph: Sphere, m: np.ndarray, f_ghz: float) -> Tuple[Dict[int,
         np.add.at(out[k], idx, wgt)
     scanned_om = float((sph.d_omega * sel).sum())
     return out, (1.0 - scanned_om / tot_om) if tot_om > 0 else 1.0
+
+
+# ----------------------------------------------------------------------------- sky noise (step 1.5)
+_SKY_CACHE: Dict[tuple, Tuple[dict, np.ndarray]] = {}
+
+
+def sector_sky(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, band_name: str, sky: Optional[dict]) -> Tuple[dict, np.ndarray]:
+    """T_sys over the sector's scanned positions at f in a band (core/sky.py): (summary, blinded mask on the raster).
+    T_sys is evaluated every sky.EVAL_STEP_HPBW TX beamwidths (blocks of raster cells share the value of their block
+    centre), weighted by the position density w dOmega; the budget is the (1 - short_tol) position quantile of the
+    positions not blinded. Cached per process (sky, sector geometry, raster, frequency, band, RX option)."""
+    sll, tol = rx_sll_db(sec), sec.get("short_tol", SHORT_TOL)
+    key = (skym.sky_key(sky), sector_geometry_key(sec), sph.window, f_ghz, band_name, sll, tol)
+    hit = _SKY_CACHE.get(key)
+    if hit is not None:
+        return hit
+    band = rm.BANDS[band_name]
+    sky_obj = skym.parse(sky)
+    sel = m & sph.scan_zone & (sph.theta <= band.scan_limit_deg(f_ghz))
+    ii, jj = np.nonzero(sel)
+    blind = np.zeros(sph.phi.shape, dtype=bool)
+    if ii.size == 0:
+        res = ({"band": band_name, "t_sys_cold_k": band.t_sys_k, "t_sys_budget_k": band.t_sys_k, "rise_db": 0.0,
+                "blinded_pct": 0.0, "blinded_by": [], "above_budget_pct": 0.0, "worst_rise_db": 0.0,
+                "galactic": sky_obj.galactic, "blind_rise_db": skym.BLIND_RISE_DB}, blind)
+    else:
+        stride = max(1, int(round(skym.EVAL_STEP_HPBW * rm.hpbw_deg(f_ghz) / (360.0 / sph.n_phi))))
+        ri = np.minimum(ii // stride * stride + stride // 2, sph.n_phi - 1)
+        rj = np.minimum(jj // stride * stride + stride // 2, sph.n_eps - 1)
+        own = sph.owner[ii, jj].astype(np.int64)
+        uk, inv = np.unique((ri * sph.n_eps + rj) * 4 + own, return_inverse=True)
+        cell, r_own = uk // 4, uk % 4
+        dirs = skym.unit(sph.phi.flat[cell], sph.eps.flat[cell])
+        rise, parts = skym.rise_k(sky_obj, band_name, f_ghz, sll, [face_frame(p) for p in FACE_PHI], dirs, r_own)
+        t_sys = rm.t_sys_with_rise(band, rise)[inv]
+        summary, b = skym.summarise(band, t_sys, (sph.w * sph.d_omega)[ii, jj], {k: v[inv] for k, v in parts.items()},
+                                    tol, sky_obj)
+        blind[ii[b], jj[b]] = True
+        res = (summary, blind)
+    blind.setflags(write=False)
+    if len(_SKY_CACHE) >= MASK_CACHE_SIZE:
+        _SKY_CACHE.clear()
+    _SKY_CACHE[key] = res
+    return res
+
+
+def search_positions(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, sky: Optional[dict]):
+    """Search positions per face and scan bin, the unscanned fraction (geometry: scan limit, eps window), the S sky
+    summary and the range factor of the sky noise, (T_sys cold / T_sys budget)^(1/4). Blinded positions are not
+    scanned (removed from the positions, reported in the summary)."""
+    pos, unscanned = positions_table(sph, m, f_ghz)
+    summary, blind = sector_sky(sec, sph, m, f_ghz, "S", sky)
+    if blind.any():
+        pos, _ = positions_table(sph, m & ~blind, f_ghz)
+    t_b = summary["t_sys_budget_k"]
+    factor = (summary["t_sys_cold_k"] / t_b) ** 0.25 if t_b else 1.0
+    return pos, unscanned, summary, factor
 
 
 # ----------------------------------------------------------------------------- optimiser
@@ -394,12 +454,14 @@ def _wf_dict(name: str, w, f: float, v_max: float) -> dict:
             "tau_us": round(w.tau_s * 1e6, 1), "n_pulses": w.n, "pri_ms": round(w.pri_s * 1e3, 3),
             "sig_bw_mhz": w.sig_bw_mhz, "b_tx": w.b_tx,
             "dwell_ms": round(w.dwell_s * 1e3, 1), "duty_pct": round(100 * w.duty, 3), "pae": rm.pae_wf(w),
+            "rx_deaf_us": round(rm.rx_deaf_after_pulse_s(rm.BAND_S, w.tau_s) * 1e6, 3),
             "unamb_range_km": round(C * w.pri_s / 2e3), "doppler_max_kHz": round(2 * v_max / rm.lambda_m(f) / 1e3, 1)}
 
 
-def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float):
-    """Frequency and waveform plan chosen for a sector: (f, P, unscanned, plan, cands), or a status dict
-    (NO_POSITIONS / NO_WAVEFORM) when there is none."""
+def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: Optional[dict] = None):
+    """Frequency and waveform plan chosen for a sector: (f, P, unscanned, plan, cands, sky summary), or a status dict
+    (NO_POSITIONS / NO_WAVEFORM) when there is none. sky: the mission sky (core/sky.py; None = cold sky with the
+    worst-case galactic rise): blinded positions are left out, ranges scale with the sector's budget T_sys."""
     tgt = rm.Target(sec["id"], sec["rcs_m2"], int(sec.get("swerling", 1)), sec["v_close_max_mps"])
     r_want, rr = sec["range_km"], sec["rr_target_s"]
     max_wf = max(1, int(sec.get("max_wf_per_sector", MAX_WF_PER_SECTOR)))
@@ -412,49 +474,50 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float):
     for f in sec.get("freq_ghz_candidates", FREQ_CANDIDATES):
         if rm.band_for_frequency(f) is not rm.BAND_S:
             continue                                   # outside the (possibly redefined) S band
-        pos, unscanned = positions_table(sph, m, f)
+        pos, unscanned, sky_s, factor = search_positions(sec, sph, m, f, sky)
         P = np.array([pos[k] for k in range(4)])
         if P.sum() > 0 and cands:
-            per_f.append((f, P, unscanned, _range_matrix(cands, f, tgt, P.shape[1], rx_sll_db(sec))))
+            per_f.append((f, P, unscanned, _range_matrix(cands, f, tgt, P.shape[1], rx_sll_db(sec)) * factor, sky_s))
     if not per_f:
-        return {"id": sec["id"], "status": "NO_POSITIONS", "note": "empty sector or fully unscanned"}
+        return {"id": sec["id"], "status": "NO_POSITIONS", "note": "empty sector, fully unscanned or blinded by the sky"}
     min_uns = min(x[2] for x in per_f)
     best = None
-    for f, P, unscanned, r in per_f:
+    for f, P, unscanned, r, sky_s in per_f:
         plan = _plan_waveforms(P, r, e_pos, t_pos, r_want, rr, p_avg_max_w, max_wf, short_tol)
         if plan is None:
             continue
         # [D] a frequency that leaves more of the sector unscanned (e.g. > 2.85 GHz, 70 deg scan limit) never wins
         key = (round(unscanned - min_uns, 3), round(plan.short_frac / short_tol), plan.objective)
         if best is None or key < best[0]:
-            best = (key, f, P, unscanned, plan)
+            best = (key, f, P, unscanned, plan, sky_s)
     if best is None:
         return {"id": sec["id"], "status": "NO_WAVEFORM", "note": "no playable waveform in the search space"}
-    _, f, P, unscanned, plan = best
+    _, f, P, unscanned, plan, sky_s = best
     plan.pae = pae
-    return f, P, unscanned, plan, cands
+    return f, P, unscanned, plan, cands, sky_s
 
 
-def sector_plan(sec: dict, eps_min: float, eps_max: float, p_avg_max_w: float) -> Optional[dict]:
+def sector_plan(sec: dict, eps_min: float, eps_max: float, p_avg_max_w: float,
+                sky: Optional[dict] = None) -> Optional[dict]:
     """The waveform plan run() would choose for this sector (same code path), per 1-deg scan bin: "wf" (Waveform or
     None where the sector has no position), "power_scale" (power fraction actually transmitted, "no excess energy"),
     "short" (the sector's own range is not reached there, even at full power), and "freq_ghz". None if the sector
     has no plan. Used to test whether this sector also meets another one's need."""
     sph = _sphere(eps_min, eps_max)
-    best = _best_plan(sec, sph, sph.mask(sec), p_avg_max_w)
+    best = _best_plan(sec, sph, sph.mask(sec), p_avg_max_w, sky)
     if isinstance(best, dict):
         return None
-    f, _, _, plan, cands = best
+    f, _, _, plan, cands, _ = best
     return {"freq_ghz": f, "wf": [cands[c] if c >= 0 else None for c in plan.choice],
             "power_scale": [float(s) for s in plan.s_bin],
             "short": [bool(r < sec["range_km"]) for r in plan.r_bin]}   # NaN (no position) compares False
 
 
-def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float) -> dict:
-    best = _best_plan(sec, sph, m, p_avg_max_w)
+def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: Optional[dict] = None) -> dict:
+    best = _best_plan(sec, sph, m, p_avg_max_w, sky)
     if isinstance(best, dict):
         return best
-    f, P, unscanned, plan, cands = best
+    f, P, unscanned, plan, cands, sky_s = best
     r_want, rr = sec["range_km"], sec["rr_target_s"]
     v_max = sec["v_close_max_mps"]
     p_tot = P.sum(axis=0)
@@ -520,6 +583,8 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float) -
         "rx_beams_per_position": rm.rx_beams_per_position(f, sll),
         "rx_sll_held_up_to_deg": sll_held,
         "mismatch_db_per_pass_max": mismatch_max,
+        "sky": sky_s,
+        "s_min_unsaturated_range_km": rm.min_unsaturated_range_km(f, 0.0, sec["rcs_m2"]),
         "faces": {str(k): v for k, v in faces.items()},
         "rr_target_s": rr,
         "rr_alone_s": rr * load,                               # RR if this sector had the face to itself (energy and time)
@@ -543,6 +608,20 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float) -
         out["flags"].append(f"S RX sidelobes {sll:g} dB held only up to {sll_held:g} deg scan at {f} GHz (worst visible "
                             f"sidelobe {rm.sidelobe_visible_db(f, th_max, 'rx', sll):.1f} dB at {th_max:g} deg: TRSA "
                             f"gap lobes)")
+    out["flags"].extend(sky_flags(sky_s, "S"))
+    return out
+
+
+def sky_flags(s: dict, label: str) -> List[str]:
+    """Operator flags of a sector sky summary (sector_sky)."""
+    out = []
+    if s["blinded_pct"] > 0:
+        out.append(f"{s['blinded_pct']:.2f} % of the {label} positions blinded by the sky ("
+                   f"{', '.join(s['blinded_by'])}: T_sys rise above {s['blind_rise_db']:g} dB), not scanned")
+    if (s["above_budget_pct"] > 0 and s["worst_rise_db"] is not None
+            and s["worst_rise_db"] - s["rise_db"] > SKY_ABOVE_BUDGET_ALERT_DB):
+        out.append(f"{s['above_budget_pct']:.2f} % of the {label} positions above the budget T_sys "
+                   f"({s['t_sys_budget_k']:.1f} K): sky noise up to +{s['worst_rise_db']:.1f} dB, range reduced there")
     return out
 
 
@@ -560,10 +639,10 @@ def _sphere(eps_min: float, eps_max: float) -> Sphere:
     return _SPHERES[key]
 
 
-def _optimise_task(sec: dict, eps_min: float, eps_max: float, p_avg_max: float) -> dict:
+def _optimise_task(sec: dict, eps_min: float, eps_max: float, p_avg_max: float, sky: Optional[dict] = None) -> dict:
     """Worker-process entry point (module level so it can be pickled)."""
     sph = _sphere(eps_min, eps_max)
-    return optimise_sector(sec, sph, sph.mask(sec), p_avg_max)
+    return optimise_sector(sec, sph, sph.mask(sec), p_avg_max, sky)
 
 
 def _executor() -> ProcessPoolExecutor:
@@ -573,18 +652,19 @@ def _executor() -> ProcessPoolExecutor:
     return _EXECUTOR
 
 
-def _run_sequential(sectors, eps_min, eps_max, p_avg_max, progress_cb, cancel_cb) -> Tuple[List[dict], bool]:
+def _run_sequential(sectors, eps_min, eps_max, p_avg_max, progress_cb, cancel_cb, sky=None) -> Tuple[List[dict], bool]:
     results = []
     for i, sec in enumerate(sectors):
         if cancel_cb is not None and cancel_cb():
             return results, True
-        results.append(_optimise_task(sec, eps_min, eps_max, p_avg_max))
+        results.append(_optimise_task(sec, eps_min, eps_max, p_avg_max, sky))
         if progress_cb is not None:
             progress_cb(i + 1, len(sectors), sec["id"])
     return results, False
 
 
-def _run_parallel(sectors, eps_min, eps_max, p_avg_max, progress_cb, cancel_cb, idle=None) -> Tuple[List[dict], bool]:
+def _run_parallel(sectors, eps_min, eps_max, p_avg_max, progress_cb, cancel_cb, idle=None,
+                  sky=None) -> Tuple[List[dict], bool]:
     """Sectors spread over the worker pool. Cancel is polled every 0.2 s: queued sectors are dropped at once,
     sectors already running finish in the background and their results are discarded. idle() is a short
     main-process job run while waiting (returns False when it has nothing left to do)."""
@@ -592,7 +672,7 @@ def _run_parallel(sectors, eps_min, eps_max, p_avg_max, progress_cb, cancel_cb, 
     out: List[Optional[dict]] = [None] * len(sectors)
     try:
         ex = _executor()
-        index = {ex.submit(_optimise_task, sec, eps_min, eps_max, p_avg_max): i for i, sec in enumerate(sectors)}
+        index = {ex.submit(_optimise_task, sec, eps_min, eps_max, p_avg_max, sky): i for i, sec in enumerate(sectors)}
         pending, n_done = set(index), 0
         while pending:
             if cancel_cb is not None and cancel_cb():
@@ -652,6 +732,8 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
     elec = g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW)
     p_avg_max = rm.face_elec_avail_w(elec)
+    sky = g.get("sky")
+    skym.parse(sky)                  # refuses an invalid sky before any work
     sectors = mission["sectors"]
     parallel = (len(sectors) >= PARALLEL_MIN_SECTORS) if workers is None else workers > 1
     masks: Dict[str, np.ndarray] = {}
@@ -666,9 +748,9 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
 
     if parallel and len(sectors) > 1:
         results, cancelled = _run_parallel(sectors, eps_min, eps_max, p_avg_max, progress_cb, cancel_cb,
-                                           idle=build_next_mask)
+                                           idle=build_next_mask, sky=sky)
     else:
-        results, cancelled = _run_sequential(sectors, eps_min, eps_max, p_avg_max, progress_cb, cancel_cb)
+        results, cancelled = _run_sequential(sectors, eps_min, eps_max, p_avg_max, progress_cb, cancel_cb, sky)
     sph = _sphere(eps_min, eps_max)
     done_ids = {r["id"] for r in results}
     for sec in sectors:   # masks not built yet (sequential run, or workers faster than the main process)
@@ -708,7 +790,9 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
                         f"({v['p_available_kW']:.0f} kW left for Ku)")
     out = {"global": {"eps_min_deg": eps_min, "eps_max_deg": eps_max, "face_elec_mw": elec,
                       "face_elec_avail_kW": p_avg_max / 1e3, "objective": "max(energy,time)",
-                      "bin_deg": BIN_DEG, "max_wf_per_sector": MAX_WF_PER_SECTOR},
+                      "bin_deg": BIN_DEG, "max_wf_per_sector": MAX_WF_PER_SECTOR,
+                      "sky_bodies": [b["id"] for b in (sky or {}).get("bodies", [])],
+                      "sky_galactic": skym.parse(sky).galactic},
            "cancelled": cancelled,
            "sectors": results,
            "faces_total": {str(k): {kk: round(vv, 4) for kk, vv in v.items()} for k, v in tot.items()},
@@ -763,6 +847,11 @@ def print_report(res: dict) -> None:
         print(f"     Range: wanted {rg['requested']:.0f} km | worst scan {rg['at_worst_scan']} km | best scan {rg['at_best_scan']} km"
               f" | positions: {r['positions_total']:.0f} | RX sidelobes {r['rx_sll_db']:g} dB, "
               f"{r['rx_beams_per_position']:.1f} RX beams / position")
+        sk = r["sky"]
+        if sk["t_sys_budget_k"] is not None:
+            print(f"     Sky (S): budget T_sys {sk['t_sys_budget_k']:.1f} K (cold sky {sk['t_sys_cold_k']:.1f} K, "
+                  f"+{sk['rise_db']:.2f} dB) | blinded {sk['blinded_pct']:.2f} % | galactic {sk['galactic']} | "
+                  f"ADC unsaturated beyond {r['s_min_unsaturated_range_km']:.1f} km")
         for k, fc in r["faces"].items():
             print(f"     face {k}: {fc['positions']:.0f} pos, theta<={fc['theta_max_deg']:.0f} deg | energy {100*fc['energy_fraction']:.1f} % "
                   f"| avg {fc['avg_power_kW']:.0f} kW elec | heat {fc['dissipation_kW']:.0f} kW | time on air "
@@ -801,6 +890,8 @@ def print_report(res: dict) -> None:
                 print(f" face {k}: energy {100 * v['total_energy']:.1f} % (search {100 * v['search_energy']:.1f} + confirm "
                       f"{100 * v['confirm_energy']:.1f} + AT {100 * v['at_energy']:.1f}) | S time {100 * v['total_s_time']:.1f} % "
                       f"| Ku time {100 * v['total_ku_time']:.1f} % -> {v['status']} (load {v['load']:.2f}, {v['binding']})")
+        for rule in trk.get("scheduler_rules", []):
+            print(" SCHEDULER RULE (step 4.3):", rule)
     for wmsg in res["warnings"]:
         print(" WARNING:", wmsg)
 

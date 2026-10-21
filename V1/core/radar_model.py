@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.4.0
+# Radar Performance Model - V6.5.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,21 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.4.0 -> V6.5.0 (roadmap step 1.5: the receive chain; optimistic end of every range, user)
+#   - T_sys by direction: band.<b>.rx.t_ant_k is the COLD sky (S 10 -> 3.2 K, Ku 5 -> 2.8 K); core/sky.py adds the
+#     galactic rise (profile in galactic latitude / longitude, worst case 8 K at 2.8 GHz without a galactic frame) and
+#     every body of the mission sky (ship frame): T_b x (A eta / D^2) x integral of the azimuthal-mean RX pattern
+#     (core/antenna.py) over the body in (u, v). solve() takes t_sys_k (None = the cold-sky band value). Positions
+#     above sky.blind_rise_db (10 dB) are blinded; the sector budget uses the (1 - short_tol) quantile (optimizer).
+#   - ADC noise figure DERIVED from the converter (13 ENOB, +10 dBm full scale, fs = 1.25 x 200 MHz): 20.0 dB, was
+#     27.5 dB entered (+6 dB of full scale cost what the 13th bit gains); T_sys cold sky S 154.3 -> 144.5 K, Ku 238.7 -> 230.8 K. Dynamic range of the chain (clipping
+#     level at the antenna port, noise in dBFS, LNA compression) and the shortest unsaturated range of a target
+#     (min_unsaturated_range_km); limiter recovery (receiver deaf for tau + recovery, used at step 2.1).
+#   - Polarisation: the 0.5 dB placeholder is replaced by the GLRT on the unknown polarisation of the echo (both RX
+#     channels, polarisation estimated over the dwell): SNR_req(n + 1) - SNR_req(n), n = noncoherent samples (0.54 dB
+#     at n = 1 with the Shnidman fit, the exact value is 0.42 dB); TRACK looks: pol_track_est_loss_db 0.05 dB.
+#   - Isolation between bands and faces: core/isolation.py (matrix, sync rule, S harmonic in the Ku channel).
 #
 # Changes V6.3.0 -> V6.4.0 (roadmap step 1.4: the band)
 #   - Edge derating per band: raised cosine between the core band (core_lo_ghz / core_hi_ghz, in GHz: S 2.74-2.86,
@@ -233,7 +248,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import antenna
     from params import P
 
-MODEL_VERSION = "6.4.0"
+MODEL_VERSION = "6.5.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -276,10 +291,7 @@ FRAME_INTERLEAVED: bool = P.get("search_grid.frame_interleaved")   # else the fr
 MB_L8_DB: float = P.get("multibeam.l8_db")
 MB_P: float = P.get("multibeam.p")
 
-# --- S-band RX polarisation / energy buffer: legacy S-only aliases (V6.0.x); the model uses the BandConfig values ---
-POL_RX_DUAL: bool = P.get("band.S.pol_rx_dual")
-_POL_DUAL_DB, _POL_SINGLE_DB = P.get("band.S.pol_loss_dual_db"), P.get("band.S.pol_loss_single_db")
-POL_LOSS_DB: float = _POL_DUAL_DB if POL_RX_DUAL else _POL_SINGLE_DB
+# --- S-band energy buffer: legacy S-only alias (V6.0.x); the model uses the BandConfig values ---
 E_BUF_TRM_J: float = P.get("band.S.e_buf_trm_j")
 
 # --- Coherence / phase noise (V5.4.0 model, applied to COHERENT integration only) ---
@@ -385,15 +397,37 @@ class BandConfig:
     pae_t_edge_s: float          # DC-on time per pulse without full RF (edges, bias / phase settling)
     pae_duty_slope: float        # relative PAE loss per unit duty above PAE_DUTY_REF (channel heating)
     eta_illum_tx: float          # (eta_illum_rx is derived from the volume's RX weighting: rx_beam())
-    t_sys_k: float
+    t_sys_k: float               # cold sky (the sky in front of the face is added by direction: core/sky.py)
     losses_db: Dict[str, float]  # fixed implementation losses (summed)
     allowed_roles: Tuple[str, ...]
-    pol_loss_db: float = 0.0      # polarisation mismatch (0 = included in the lumped losses)
+    pol_rx_dual: bool = True      # two RX polarisation channels per TRM (GLRT recombination, step 1.5)
+    pol_loss_single_db: float = 0.0   # loss of a single-pol receiver (pol_rx_dual false)
+    pol_track_est_loss_db: float = 0.0   # TRACK looks with dual pol: polarisation known, estimation residual
     e_buf_trm_j: float = 0.0      # per-TRM energy buffer, J (0 = droop not modelled)
     buffer_max_fraction: float = 0.5   # solve() refuses a pulse drawing more than this fraction of the buffer
     bi_max_mhz: float = 0.0       # instantaneous bandwidth ceiling, MHz (0 = not defined)
     true_time_delay: str = "digital_per_trm"   # or "none": phase steering, bandwidth limited by the aperture fill time
     duty_max: float = 0.0         # TRM duty ceiling on pulse trains (0 = not defined), checked by Waveform
+    # receive chain dynamic range (step 1.5), levels referred to the antenna port (element output, as T_sys)
+    digital_noise_db: float = 0.0     # factor on any antenna-temperature rise (T_sys = (...) x 10^(digital/10))
+    adc_nf_db: float = 0.0            # derived from ENOB, full scale and sample rate
+    adc_fs_hz: float = 0.0            # complex sample rate
+    gain_to_adc_db: float = 0.0       # antenna port -> ADC input: -L_pre + G_LNA + G_post
+    clip_ant_dbm: float = 0.0         # clipping level (P_FS - clip_backoff) referred to the antenna port
+    lna_p1db_ant_dbm: float = 0.0     # LNA input P1dB referred to the antenna port
+    preselect_rej_db: float = 0.0     # rejection of the other band before the LNA
+    post_rej_db: float = 0.0          # rejection of the other band before the ADC
+    limiter_recovery_s: float = 0.0   # receiver deaf for tau + this after each pulse (eclipsing, step 2.1)
+
+    @property
+    def noise_ant_dbm(self) -> float:
+        """Cold-sky noise power at the antenna port over the ADC band, k T_sys fs (dBm)."""
+        return 10.0 * math.log10(K_BOLTZ * self.t_sys_k * self.adc_fs_hz * 1e3)
+
+    @property
+    def clip_headroom_db(self) -> float:
+        """Largest echo per element and sample above the noise before the ADC clips (dB)."""
+        return self.clip_ant_dbm - self.noise_ant_dbm
 
     def contains(self, f_ghz: float) -> bool:
         return self.usable_lo_ghz <= f_ghz <= self.usable_hi_ghz
@@ -444,17 +478,31 @@ class BandConfig:
 T0_REF_K = 290.0   # IEEE reference temperature of a noise figure
 
 
-def t_sys_cascade(rx: Dict[str, float]) -> float:
-    """System noise temperature at the antenna port (Friis) from the receive-chain contributors of [band.<b>.rx]:
-    the losses before the LNA attenuate the signal and add (L - 1) T_phys, the later stages count divided by the gain
-    ahead of them, and the digital processing raises the total by digital_noise_db."""
-    l_pre = db_to_lin(rx["circulator_loss_db"] + rx["limiter_loss_db"] + rx["pre_lna_line_db"])
+def pre_lna_loss_db(rx: Dict[str, float]) -> float:
+    """Circulator + limiter + line before the LNA (attenuates the signal and adds noise, inside T_sys)."""
+    return rx["circulator_loss_db"] + rx["limiter_loss_db"] + rx["pre_lna_line_db"]
+
+
+def adc_noise_figure_db(rx: Dict[str, float], bi_max_mhz: float) -> float:
+    """ADC noise figure from the converter (step 1.5): quantisation noise P_FS - (6.02 ENOB + 1.76) spread over the
+    complex sample rate fs = adc_oversampling x bi_max, against k T0 fs: NF = P_FS - SNR_FS - 10 log10(k T0 fs 1e3)."""
+    fs = rx["adc_oversampling"] * bi_max_mhz * 1e6
+    snr_fs = 6.02 * rx["adc_enob"] + 1.76
+    return rx["adc_fullscale_dbm"] - snr_fs - 10.0 * math.log10(K_BOLTZ * T0_REF_K * fs * 1e3)
+
+
+def t_sys_cascade(rx: Dict[str, float], bi_max_mhz: float) -> float:
+    """System noise temperature at the antenna port (Friis), cold sky, from the receive-chain contributors of
+    [band.<b>.rx]: the losses before the LNA attenuate the signal and add (L - 1) T_phys, the later stages count divided
+    by the gain ahead of them (the ADC with its derived noise figure), and the digital processing raises the total by
+    digital_noise_db."""
+    l_pre = db_to_lin(pre_lna_loss_db(rx))
     t_nf = lambda nf_db: T0_REF_K * (db_to_lin(nf_db) - 1.0)          # noqa: E731
     g_lna, g_post = db_to_lin(rx["lna_gain_db"]), db_to_lin(rx["post_lna_gain_db"])
-    t_rx = t_nf(rx["lna_nf_db"]) + t_nf(rx["post_lna_nf_db"]) / g_lna + t_nf(rx["adc_nf_db"]) / (g_lna * g_post)
+    t_adc = t_nf(adc_noise_figure_db(rx, bi_max_mhz))
+    t_rx = t_nf(rx["lna_nf_db"]) + t_nf(rx["post_lna_nf_db"]) / g_lna + t_adc / (g_lna * g_post)
     t = rx["t_ant_k"] + (l_pre - 1.0) * rx["t_phys_frontend_k"] + l_pre * t_rx
     return t * db_to_lin(rx["digital_noise_db"])
-
 
 
 
@@ -483,10 +531,16 @@ def _band(name: str) -> BandConfig:
         errs.append(f"scan_break_ghz ({brk}) must lie inside the usable band {lo}-{hi} GHz")
     if ttd not in TTD_MODES:
         errs.append(f"true_time_delay '{ttd}' must be one of {TTD_MODES}")
+    rx = P.section(b + "rx")
+    if rx["post_lna_op1db_dbm"] < rx["adc_fullscale_dbm"] + rx["clip_backoff_db"]:
+        errs.append(f"rx.post_lna_op1db_dbm ({rx['post_lna_op1db_dbm']:g}) must reach adc_fullscale_dbm + clip_backoff_db "
+                    f"({rx['adc_fullscale_dbm'] + rx['clip_backoff_db']:g} dBm): the analog chain would compress before "
+                    f"the ADC clips")
     if errs:
         raise ValueError(f"{P.path}: [band.{name}] " + "; ".join(errs))
-    pol_dual, pol_single = P.get(b + "pol_loss_dual_db"), P.get(b + "pol_loss_single_db")
-    pol = pol_dual if P.get(b + "pol_rx_dual") else pol_single
+    bi = P.get(b + "bi_max_mhz")
+    l_pre = pre_lna_loss_db(rx)
+    gain = -l_pre + rx["lna_gain_db"] + rx["post_lna_gain_db"]
     return BandConfig(
         name=name, usable_lo_ghz=lo, usable_hi_ghz=hi, core_lo_ghz=clo, core_hi_ghz=chi,
         edge_derating_db=P.get(b + "edge_derating_db"),
@@ -495,11 +549,18 @@ def _band(name: str) -> BandConfig:
         n_trm=N_TRM[name], p_pk_trm_w=P.get(b + "p_pk_trm_w"), pae_sat=P.get(b + "pae_sat"),
         pae_t_edge_s=P.get(b + "pae_t_edge_s"), pae_duty_slope=P.get(b + "pae_duty_slope"),
         eta_illum_tx=P.get(b + "eta_illum_tx"),
-        t_sys_k=t_sys_cascade(P.section(b + "rx")),
-        losses_db={**P.section(b + "losses_db"), "TX_chain": tx_chain_loss_db(P.section(b + "tx"), P.section(b + "rx"))},
+        t_sys_k=t_sys_cascade(rx, bi),
+        losses_db={**P.section(b + "losses_db"), "TX_chain": tx_chain_loss_db(P.section(b + "tx"), rx)},
         allowed_roles=tuple(P.get(b + "allowed_roles")),
-        pol_loss_db=pol, e_buf_trm_j=P.get(b + "e_buf_trm_j"), buffer_max_fraction=P.get(b + "buffer_max_fraction"),
-        bi_max_mhz=P.get(b + "bi_max_mhz"), duty_max=P.get(b + "duty_max"), true_time_delay=ttd,
+        pol_rx_dual=P.get(b + "pol_rx_dual"), pol_loss_single_db=P.get(b + "pol_loss_single_db"),
+        pol_track_est_loss_db=P.get(b + "pol_track_est_loss_db"),
+        e_buf_trm_j=P.get(b + "e_buf_trm_j"), buffer_max_fraction=P.get(b + "buffer_max_fraction"),
+        bi_max_mhz=bi, duty_max=P.get(b + "duty_max"), true_time_delay=ttd,
+        digital_noise_db=rx["digital_noise_db"], adc_nf_db=adc_noise_figure_db(rx, bi),
+        adc_fs_hz=rx["adc_oversampling"] * bi * 1e6, gain_to_adc_db=gain,
+        clip_ant_dbm=rx["adc_fullscale_dbm"] - rx["clip_backoff_db"] - gain,
+        lna_p1db_ant_dbm=rx["lna_p1db_in_dbm"] + l_pre, preselect_rej_db=rx["preselect_rej_db"],
+        post_rej_db=rx["post_rej_db"], limiter_recovery_s=rx["limiter_recovery_s"],
     )
 
 
@@ -831,6 +892,55 @@ def detect_snr_req_db(integration: str, n: int, swerling: int) -> float:
     return shnidman_total_snr_db(DETECT_PD, DETECT_PFA, n, swerling)
 
 
+def pol_recombination_loss_db(band: BandConfig, role: str, integration: str, n: int, swerling: int) -> float:
+    """Polarisation loss of a look (step 1.5). Dual-pol RX: a detection look recombines the two channels by the GLRT
+    on the unknown polarisation of the echo, estimated over the whole dwell (one more unknown complex amplitude):
+    SNR_req(n_nc + 1) - SNR_req(n_nc), n_nc = 1 for a coherent dwell, n for a noncoherent one (Shnidman fit, as the
+    detection; 0.54 dB at n_nc = 1, the exact steady-target value is 0.42 dB); a TRACK look knows the polarisation
+    from the previous looks: pol_track_est_loss_db. Single-pol RX: pol_loss_single_db."""
+    if not band.pol_rx_dual:
+        return band.pol_loss_single_db
+    if role == "TRACK":
+        return band.pol_track_est_loss_db
+    n_nc = 1 if integration == "COHERENT" else n
+    return (shnidman_total_snr_db(DETECT_PD, DETECT_PFA, n_nc + 1, swerling)
+            - shnidman_total_snr_db(DETECT_PD, DETECT_PFA, n_nc, swerling))
+
+
+# -----------------------------------------------------------------------------
+# Receive chain: dynamic range (step 1.5)
+# -----------------------------------------------------------------------------
+ELEMENT_PITCH_M: Dict[str, float] = {"S": S_TRM_PITCH_M, "Ku": KU_TRM_PITCH_M}
+
+
+def t_sys_with_rise(band: BandConfig, d_t_ant_k: float) -> float:
+    """T_sys at the antenna port when the antenna temperature rises by d_t_ant_k over the cold sky (core/sky.py)."""
+    return band.t_sys_k + d_t_ant_k * db_to_lin(band.digital_noise_db)
+
+
+def echo_peak_dbm_per_element(f_ghz: float, theta_deg: float, rcs_m2: float, r_km: float) -> float:
+    """Peak echo power at ONE element (antenna port) of a target at r_km, the whole face transmitting one beam at full
+    peak power, before any loss (upper bound): P G_tx sigma A_el / ((4 pi)^2 R^4), A_el = pitch^2 cos(theta)."""
+    band = band_for_frequency(f_ghz)
+    a_el = ELEMENT_PITCH_M[band.name] ** 2 * max(math.cos(math.radians(theta_deg)), 1e-6) * ETA_OHMIC
+    p = band.p_pk_total_w * gain_lin(band.eta_illum_tx, f_ghz, theta_deg) * rcs_m2 * a_el \
+        / ((4.0 * math.pi) ** 2 * (r_km * 1e3) ** 4)
+    return 10.0 * math.log10(p * 1e3)
+
+
+def min_unsaturated_range_km(f_ghz: float, theta_deg: float, rcs_m2: float) -> float:
+    """Shortest range at which the echo of a target stays below the ADC clipping level (echo_peak_dbm_per_element =
+    clip_ant_dbm); closer, the per-element ADCs clip before the digital beamforming (fixed gain, step 1.5)."""
+    band = band_for_frequency(f_ghz)
+    r1 = echo_peak_dbm_per_element(f_ghz, theta_deg, rcs_m2, 1.0)
+    return 10.0 ** ((r1 - band.clip_ant_dbm) / 40.0)
+
+
+def rx_deaf_after_pulse_s(band: BandConfig, tau_s: float) -> float:
+    """Time the receiver is deaf from the start of a pulse: the pulse itself plus the limiter recovery (step 2.1)."""
+    return tau_s + band.limiter_recovery_s
+
+
 # -----------------------------------------------------------------------------
 # Tracking requirement (Ku TRACK waveforms; formulas from V5.4.0)
 # -----------------------------------------------------------------------------
@@ -954,11 +1064,14 @@ class Result:
     frame: Optional[Dict[str, float]]
     pae: float = 0.0             # PAE of the waveform
     p_diss_trm_w: float = 0.0    # heat per TRM during the dwell
+    t_sys_k: float = 0.0         # system noise temperature used
 
 
 def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
-          elec_mw: float = FACE_ELEC_POWER_MW, rx_sll_db: Optional[float] = None) -> Result:
-    """rx_sll_db: RX peak sidelobe level of the watch volume (an option of RX_SLL_OPTIONS_DB, None = default)."""
+          elec_mw: float = FACE_ELEC_POWER_MW, rx_sll_db: Optional[float] = None,
+          t_sys_k: Optional[float] = None) -> Result:
+    """rx_sll_db: RX peak sidelobe level of the watch volume (an option of RX_SLL_OPTIONS_DB, None = default).
+    t_sys_k: system noise temperature of the look direction (sky noise, core/sky.py); None = the band's cold sky."""
     band = band_for_frequency(f_ghz)
     if band is None or band.name != wf.band:
         raise ValueError(f"{wf.name}: {f_ghz} GHz is not in its {wf.band} band")
@@ -985,8 +1098,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     t_span = wf.dwell_s
     losses: Dict[str, float] = dict(band.losses_db)
     losses["edge"] = band.edge_loss_db(f_ghz, wf.sig_bw_mhz)
-    if band.pol_loss_db > 0:
-        losses["polarisation"] = band.pol_loss_db
+    losses["polarisation"] = pol_recombination_loss_db(band, wf.role, wf.integration, wf.n, sw)
     if band.e_buf_trm_j > 0:
         x_buf = pulse_elec_energy_trm_j(wf) / band.e_buf_trm_j
         if x_buf > band.buffer_max_fraction * (1.0 + 1e-12):     # tolerance: tau_max_s() sits exactly on the limit
@@ -1007,8 +1119,9 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     g_tx = gain_lin(band.eta_illum_tx, f_ghz, theta_deg)
     g_rx = gain_lin(rx_beam(band.name, rx_sll_db).eta, f_ghz, theta_deg)
     p_beam = band.p_pk_total_w / wf.b_tx
+    t_sys = band.t_sys_k if t_sys_k is None else float(t_sys_k)
     num = p_beam * g_tx * g_rx * lambda_m(f_ghz) ** 2 * target.rcs_m2 * wf.tau_s * wf.n
-    den = (4.0 * math.pi) ** 3 * K_BOLTZ * band.t_sys_k * db_to_lin(l_tot) * db_to_lin(snr_db)
+    den = (4.0 * math.pi) ** 3 * K_BOLTZ * t_sys * db_to_lin(l_tot) * db_to_lin(snr_db)
     r_km = (num / den) ** 0.25 / 1000.0
 
     eta = pae_wf(wf)
@@ -1025,7 +1138,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
                  "rx_beams_per_position": rx_beams_per_position(f_ghz, rx_sll_db)}
 
     return Result(wf, target, snr_db, driver, r_km, losses, l_tot, p_avg_used, p_avg_max,
-                  C_MPS * wf.pri_s / 2.0 / 1000.0, n_cells, frame, eta, trm_dissipation_w(wf))
+                  C_MPS * wf.pri_s / 2.0 / 1000.0, n_cells, frame, eta, trm_dissipation_w(wf), t_sys)
 
 
 # -----------------------------------------------------------------------------
@@ -1051,7 +1164,12 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
     print(f"TRM: {TRM_TECHNOLOGY} | PAE sat {band.pae_sat:g} at duty {PAE_DUTY_REF:g} | buffer {band.e_buf_trm_j:g} J "
           f"(max {band.buffer_max_fraction:g} per pulse -> tau max {1e3 * tau_max_s(band):.2f} ms) | duty max {band.duty_max:g}")
     print(f"Band {band.name}: {band.n_trm} TRM x {band.p_pk_trm_w:.0f} W = {band.p_pk_total_w/1e6:.2f} MW peak/face | "
-          f"scan limit {lim:.0f} deg | T_sys {band.t_sys_k:.1f} K | fixed losses {band.l_fixed_db:.2f} dB")
+          f"scan limit {lim:.0f} deg | T_sys {band.t_sys_k:.1f} K (cold sky) | fixed losses {band.l_fixed_db:.2f} dB")
+    print(f"RX chain: ADC NF {band.adc_nf_db:.1f} dB at {band.adc_fs_hz / 1e6:.0f} Msps | noise "
+          f"{band.noise_ant_dbm + band.gain_to_adc_db - P.get(f'band.{band.name}.rx.adc_fullscale_dbm'):.1f} dBFS | "
+          f"clipping {band.clip_ant_dbm:.1f} dBm at the element, {band.clip_headroom_db:.1f} dB above the noise | LNA P1dB "
+          f"{band.lna_p1db_ant_dbm:.1f} dBm | limiter recovery {band.limiter_recovery_s * 1e9:.0f} ns | unsaturated beyond "
+          + ", ".join(f"{n} {min_unsaturated_range_km(f_ghz, 0.0, t.rcs_m2):.1f} km" for n, t in TARGETS.items()))
     rx = rx_beam(band.name)
     print(f"Gain TX {lin_to_db(gain_lin(band.eta_illum_tx, f_ghz, theta_deg)):.2f} dBi | "
           f"RX {lin_to_db(gain_lin(rx.eta, f_ghz, theta_deg)):.2f} dBi (sidelobes {RX_SLL_DEFAULT_DB:g} dB, eta "
@@ -1066,6 +1184,16 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
         print(f"Worst visible sidelobe at {theta_deg:g} deg: TX {sidelobe_visible_db(f_ghz, theta_deg, 'tx'):.1f} dB, RX "
               f"{sidelobe_visible_db(f_ghz, theta_deg):.1f} dB (option {RX_SLL_DEFAULT_DB:g} dB held up to "
               f"{rx_sll_held_up_to_deg(f_ghz, RX_SLL_DEFAULT_DB, lim):g} deg)")
+    try:
+        from . import isolation
+    except ImportError:            # run as a script: import the package (core.isolation uses relative imports)
+        import os
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from core import isolation
+    print("Isolation (leak to one RX element; margins LNA / ADC / desensitisation, dB): " + " | ".join(
+        f"{p['tx']}->{p['rx']} {p['relation']} {p['verdict']}" for p in isolation.matrix()))
+    for rule in isolation.scheduler_rules():
+        print(f"  scheduler rule (4.3): {rule}")
     if abs(theta_deg) > lim:
         print(f"-> scan angle {theta_deg} deg exceeds the {lim:.0f} deg limit at {f_ghz} GHz. Nothing playable.")
         return
@@ -1177,17 +1305,28 @@ def selftest() -> int:
     lam = C_MPS / 2.8e9
     gt = 4 * math.pi * PHYS_AREA_M2 * 1.0 * ETA_OHMIC / lam ** 2
     gr = 4 * math.pi * PHYS_AREA_M2 * PATTERNS["S"].rx[-25.0].eta * ETA_OHMIC / lam ** 2
-    l_db = (2.0 + 0.5 + 0.5 + 0.2 + 0.6 + 0.5)      # DSP CFAR calibration Ku_blockage TX_chain pol (pre-LNA is in T_sys)
+    pol_glrt = shnidman_total_snr_db(DETECT_PD, DETECT_PFA, 25, 1) - shnidman_total_snr_db(DETECT_PD, DETECT_PFA, 24, 1)
+    l_db = (2.0 + 0.5 + 0.5 + 0.2 + 0.6 + pol_glrt)  # DSP CFAR calibration Ku_blockage TX_chain pol (pre-LNA is in T_sys)
     l_db += -20 * math.log10(1 - ((1 - math.cos(math.radians(45))) / (1 + math.cos(math.radians(45)))) ** 2)   # WAIM
     l_db += -10 * math.log10(1 - (2000 * 200.2e-6 / 0.8 / 25.0) / 2) + MB_L8_DB * (2.0 / 3.0) ** MB_P + MIGRATION_RESIDUAL_DB + 1.672 * (BEAM_SPACING_HPBW ** 2 + 0.5 ** 2)
     snr = db_to_lin(shnidman_total_snr_db(DETECT_PD, DETECT_PFA, 24, 1))
     r_hand = ((9.8e6 / 4) * gt * gr * lam ** 2 * 1000.0 * 200e-6 * 24
               / ((4 * math.pi) ** 3 * K_BOLTZ * BAND_S.t_sys_k * db_to_lin(l_db) * snr)) ** 0.25 / 1000.0
     l_pre = 10 ** ((0.3 + 0.35 + 0.2) / 10)
-    t_hand = (10.0 + (l_pre - 1) * 320.0 + l_pre * (290 * (10 ** 0.075 - 1) + 290 * (10 ** 0.8 - 1) / 10 ** 2.75
-                                                    + 290 * (10 ** 2.75 - 1) / 10 ** 4.75)) * 10 ** 0.005
-    check("S-band T_sys from the receive-chain cascade, hand calculation (0.1 %)", abs(BAND_S.t_sys_k / t_hand - 1) < 1e-3,
+    nf_adc = 10.0 - (6.02 * 13 + 1.76) - 10 * math.log10(1.380649e-23 * 290 * 250e6 * 1e3)   # 13 bits, +10 dBm, 250 Msps
+    check("ADC noise figure derived from the converter: 20.0 dB (13 ENOB, +10 dBm, 250 Msps)",
+          abs(BAND_S.adc_nf_db - nf_adc) < 1e-9 and abs(nf_adc - 20.0) < 0.05, f"({BAND_S.adc_nf_db:.2f} dB)")
+    t_hand = (3.2 + (l_pre - 1) * 320.0 + l_pre * (290 * (10 ** 0.075 - 1) + 290 * (10 ** 0.8 - 1) / 10 ** 2.75
+                                                   + 290 * (10 ** (nf_adc / 10) - 1) / 10 ** 4.75)) * 10 ** 0.005
+    check("S-band T_sys from the receive-chain cascade, hand calculation (0.1 %), cold sky 144.5 K",
+          abs(BAND_S.t_sys_k / t_hand - 1) < 1e-3 and abs(BAND_S.t_sys_k - 144.5) < 0.1,
           f"({BAND_S.t_sys_k:.1f} vs {t_hand:.1f} K)")
+    check("Dual-pol GLRT loss 0.54 dB on one coherent sample (Shnidman, SW1), track looks 0.05 dB",
+          abs(pol_recombination_loss_db(BAND_S, "SEARCH", "COHERENT", 12, 1) - 0.536) < 0.005
+          and pol_recombination_loss_db(BAND_KU, "TRACK", "COHERENT", 128, 1) == 0.05)
+    check("ADC noise at about -56.4 dBFS, clipping about 53.4 dB above the noise (S)",
+          abs(BAND_S.noise_ant_dbm + BAND_S.gain_to_adc_db - 10.0 + 56.37) < 0.05 and abs(BAND_S.clip_headroom_db - 53.37) < 0.05,
+          f"({BAND_S.noise_ant_dbm + BAND_S.gain_to_adc_db - 10.0:.1f} dBFS, headroom {BAND_S.clip_headroom_db:.1f} dB)")
     check("Radar equation matches an independent hand derivation (0.5 %)", abs(lrs.range_km / r_hand - 1) < 0.005,
           f"({lrs.range_km:.1f} vs {r_hand:.1f} km)")
     # coarse plausibility bracket (test value): 5682 km with T_sys 346.5 K, 7099 km after review 0.3, 6916 km at 1.1,

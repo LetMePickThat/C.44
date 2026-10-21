@@ -108,7 +108,7 @@ class Finding:
 def mission_signature(mission: dict) -> str:
     """Everything find_redundancies() depends on: a result is current while the signature is unchanged."""
     g = mission.get("global", {})
-    return json.dumps({"g": [g.get("eps_min_deg"), g.get("eps_max_deg"), g.get("face_elec_mw")],
+    return json.dumps({"g": [g.get("eps_min_deg"), g.get("eps_max_deg"), g.get("face_elec_mw"), g.get("sky")],
                        "s": [[s.get("id")] + [s.get(f) for f in PLAN_FIELDS] for s in mission.get("sectors", [])]},
                       default=str)
 
@@ -117,12 +117,12 @@ def sector_signature(sec: dict) -> str:
     return json.dumps([sec.get("id")] + [sec.get(f) for f in PLAN_FIELDS], default=str)
 
 
-def _plan(sec: dict, eps_min: float, eps_max: float, p_avg_max_w: float) -> Optional[dict]:
-    key = json.dumps([sec.get(f) for f in PLAN_FIELDS] + [eps_min, eps_max, p_avg_max_w], default=str)
+def _plan(sec: dict, eps_min: float, eps_max: float, p_avg_max_w: float, sky: Optional[dict] = None) -> Optional[dict]:
+    key = json.dumps([sec.get(f) for f in PLAN_FIELDS] + [eps_min, eps_max, p_avg_max_w, sky], default=str)
     if key not in _PLANS:
         if len(_PLANS) >= _PLAN_CACHE_MAX:
             _PLANS.clear()
-        _PLANS[key] = mo.sector_plan(sec, eps_min, eps_max, p_avg_max_w)
+        _PLANS[key] = mo.sector_plan(sec, eps_min, eps_max, p_avg_max_w, sky)
     return _PLANS[key]
 
 
@@ -223,7 +223,8 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid) -> Tuple[List[Finding
             inter = ma & mb
             if not inter.any():
                 continue
-            met, short, worst, reason_cells = need_met(grid, sa, _plan(sa, eps_min, eps_max, p_avg_max_w), sb, inter)
+            met, short, worst, reason_cells = need_met(grid, sa, _plan(sa, eps_min, eps_max, p_avg_max_w, g.get("sky")),
+                                                       sb, inter)
             om_met = float((grid.d_omega * met).sum())
             om_inter = float((grid.d_omega * inter).sum())
             pair_notes[(sa["id"], sb["id"])] = _pair_note(sa["id"], sb["id"], om_met, om_inter, reason_cells,
