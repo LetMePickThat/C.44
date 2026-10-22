@@ -178,12 +178,12 @@ def _ku_candidates(integ: str, pack: Optional[rm.TrackingPack]) -> Tuple[Tuple[r
 
 
 @functools.lru_cache(maxsize=1 << 17)
-def _ku_reach(w: rm.Waveform, theta: float, rcs_m2: float, swerling: int, v_mps: float,
-              rx_sll_db: float, t_sys_k: Optional[float] = None, v_span_mps: Optional[float] = None) -> Tuple[float, str]:
-    """Range at full power and SNR driver of one Ku waveform (0 if not playable)."""
+def _ku_reach(w: rm.Waveform, theta: float, tgt: rm.Target, rx_sll_db: float, t_sys_k: Optional[float] = None,
+              v_span_mps: Optional[float] = None) -> Tuple[float, str]:
+    """Range at full power and SNR driver of one Ku waveform (0 if not playable). tgt: frozen, named "ku" by the
+    caller so that sectors sharing a threat share the cache."""
     try:
-        r = rm.solve(w, KU_FREQ_GHZ, theta, rm.Target("ku", rcs_m2, swerling, v_mps), rm.FACE_ELEC_POWER_MW, rx_sll_db,
-                     t_sys_k, v_span_mps)
+        r = rm.solve(w, KU_FREQ_GHZ, theta, tgt, rm.FACE_ELEC_POWER_MW, rx_sll_db, t_sys_k, v_span_mps)
         return r.range_km, r.driver
     except ValueError:
         return 0.0, "-"
@@ -203,15 +203,16 @@ def ku_look(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: float,
     target speed, 0 = velocity known, e.g. a track update)."""
     sll = rm.RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
     best = None
-    for det, trk in _ku_candidates(_ku_integration(tgt.swerling), pack):
+    tgt_c = dataclasses.replace(tgt, name="ku")
+    for det, trk in _ku_candidates(_ku_integration(tgt.swerling_case(KU_FREQ_GHZ)), pack):
         if r_min_km is not None and rm.blind_range_km(rm.BAND_KU, det.tau_s) > r_min_km + 1e-9:
             continue
         if det.n > 1 and det.pri_s < rm.unambiguous_pri_s(rm.BAND_KU, r_km, det.tau_s):
             det = dataclasses.replace(det, staggered=True)
             trk = None if trk is None else dataclasses.replace(trk, staggered=True)
-        r_eff, driver = _ku_reach(det, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps, sll, t_sys_k, v_span_mps)
+        r_eff, driver = _ku_reach(det, theta, tgt_c, sll, t_sys_k, v_span_mps)
         if trk is not None:
-            r_trk, d_trk = _ku_reach(trk, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps, sll, t_sys_k, v_span_mps)
+            r_trk, d_trk = _ku_reach(trk, theta, tgt_c, sll, t_sys_k, v_span_mps)
             if r_trk < r_eff:
                 r_eff, driver = r_trk, d_trk.replace("Track-", "")
             else:
@@ -255,8 +256,8 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
     """Confirmation (all modes) and AT loads per face of one sector, per second, as fractions of the face resources:
     "e" = energy (shared S + Ku), "ts" = S TX time, "tk" = Ku TX time. ku_sky: the sector's Ku sky summary
     (optimizer.sector_sky): every Ku look uses its budget T_sys."""
-    sw = int(sec.get("swerling", 1))
-    tgt = rm.Target(sec["id"], sec["rcs_m2"], sw, sec["v_close_max_mps"])
+    tgt = mo.sector_target(sec)                      # class + sector values (step 2.4)
+    sw = tgt.swerling_case(KU_FREQ_GHZ)             # closed-form confirmation statistics: nearest Swerling case
     r_det, rr = sec["range_km"], sec["rr_target_s"]
     sll = mo.rx_sll_db(sec)
     f_s = r["wf"]["freq_ghz"]
@@ -268,7 +269,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
     t_ku = ku_sky["t_sys_budget_k"] if ku_sky is not None else None
     if ku_sky is not None:
         flags.extend(mo.sky_flags(ku_sky, "Ku"))
-    r_sat_ku = rm.min_unsaturated_range_km(KU_FREQ_GHZ, 0.0, sec["rcs_m2"])
+    r_sat_ku = rm.min_unsaturated_range_km(KU_FREQ_GHZ, 0.0, tgt.rcs_at(KU_FREQ_GHZ))
     r_min_sec = mo.range_min_km(sec)          # shortest range of interest: Ku blind range limit (step 2.1)
     angle_cells = rm.rx_beams_per_position(f_s, sll) * rm.RX_BEAM_SPACING_HPBW ** 2   # independent cells per position
     for b in sec.get("tracking", []):
@@ -277,7 +278,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                          f"interest ({r_min_sec:.0f} km, range_min_km): Ku looks only need a blind range below that")
         if b["r_min_km"] < r_sat_ku:
             flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: below {r_sat_ku:.1f} km the Ku echo of "
-                         f"{sec['rcs_m2']:g} m2 clips the per-element ADCs (fixed gain; attenuator option at 3.3)")
+                         f"{tgt.rcs_at(KU_FREQ_GHZ):g} m2 clips the per-element ADCs (fixed gain; attenuator option at 3.3)")
 
     # --- confirmation: per scan-angle group, true detections and false alarms per face (per refresh), with the
     #     look costs at the design point (Ku look at the sector's detection range, S touch = the search look
@@ -289,8 +290,9 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
     ku_missing = 0.0
     for gr in groups:
         w = gr["wf"]
-        cells = rm.independent_cells(r_min_sec, r_det, w["sig_bw_mhz"], w["pulses_per_block"], w["velocity_hypotheses"],
-                                     angle_cells)          # independent cells per position (step 2.2, E1-E5)
+        cells = rm.independent_cells(r_min_sec, r_det, w["sig_bw_mhz"], w["pulses_per_block"],
+                                     w["velocity_hypotheses"] * w.get("acceleration_hypotheses", 1),
+                                     angle_cells)          # independent cells per position (step 2.2 E1-E5, 2.4 C2)
         fa_g = gr["pos"] * cells * w.get("pfa", rm.DETECT_PFA)    # Pfa per cell of the waveform (step 2.3)
         fa += fa_g
         look = (ku_look(gr["theta"], tgt, r_det, p_avg_max_w, rx_sll_db=sll, t_sys_k=t_ku, r_min_km=r_min_sec,

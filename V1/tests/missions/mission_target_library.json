@@ -1,0 +1,98 @@
+{
+  "global": {
+    "eps_min_deg": -40.0,
+    "eps_max_deg": 90.0,
+    "face_elec_mw": 2.0
+  },
+  "sectors": [
+    {
+      "id": "T_KKV",
+      "shape": "box",
+      "phi_min_deg": 300.0,
+      "phi_max_deg": 60.0,
+      "eps_min_deg": -20.0,
+      "eps_max_deg": 50.0,
+      "target_type": "KKV",
+      "range_km": 500.0,
+      "rr_target_s": 20.0,
+      "v_close_min_mps": 1000.0,
+      "v_close_max_mps": 25000.0,
+      "confirm_mode": "auto",
+      "new_targets_per_rr": 1.0,
+      "tracking": []
+    },
+    {
+      "id": "T_KKV_RETRO",
+      "shape": "cap",
+      "phi0_deg": 180.0,
+      "eps0_deg": 20.0,
+      "radius_deg": 25.0,
+      "target_type": "KKV",
+      "optics_retro_eff": 1.0,
+      "range_km": 800.0,
+      "rr_target_s": 30.0,
+      "v_close_min_mps": 1000.0,
+      "v_close_max_mps": 25000.0,
+      "confirm_mode": "auto",
+      "new_targets_per_rr": 1.0,
+      "tracking": []
+    },
+    {
+      "id": "T_SHIP",
+      "shape": "cap",
+      "phi0_deg": 90.0,
+      "eps0_deg": 80.0,
+      "radius_deg": 20.0,
+      "target_type": "SHIP",
+      "range_km": 8000.0,
+      "rr_target_s": 120.0,
+      "v_close_min_mps": 1000.0,
+      "v_close_max_mps": 5000.0,
+      "confirm_mode": "auto",
+      "new_targets_per_rr": 1.0,
+      "tracking": []
+    },
+    {
+      "id": "T_DEBRIS",
+      "shape": "box",
+      "phi_min_deg": 60.0,
+      "phi_max_deg": 150.0,
+      "eps_min_deg": 0.0,
+      "eps_max_deg": 40.0,
+      "target_type": "DEBRIS",
+      "range_km": 300.0,
+      "rr_target_s": 30.0,
+      "v_close_min_mps": 0.0,
+      "v_close_max_mps": 15000.0,
+      "confirm_mode": "auto",
+      "new_targets_per_rr": 1.0,
+      "tracking": []
+    },
+    {
+      "id": "T_DECOY",
+      "shape": "box",
+      "phi_min_deg": 200.0,
+      "phi_max_deg": 260.0,
+      "eps_min_deg": -10.0,
+      "eps_max_deg": 30.0,
+      "target_type": "DECOY",
+      "range_km": 1000.0,
+      "rr_target_s": 30.0,
+      "v_close_min_mps": 1000.0,
+      "v_close_max_mps": 25000.0,
+      "confirm_mode": "auto",
+      "new_targets_per_rr": 1.0,
+      "tracking": [
+        {
+          "r_min_km": 200.0,
+          "r_max_km": 600.0,
+          "n_targets": 2.0,
+          "rr_s": 2.0,
+          "angle_zone_deg": 0.2,
+          "range_acc_m": 10.0,
+          "vr_acc_mps": 5.0
+        }
+      ]
+    }
+  ]
+}

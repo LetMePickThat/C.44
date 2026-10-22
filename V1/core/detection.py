@@ -13,6 +13,9 @@ The fluctuating cases are mixtures of that law over the target power, Gamma dist
   Swerling 4: one draw per sample, shape 2n (equal-probability quantiles of the Gamma law)
 (the noncentral sum only depends on the total noncentrality, so per-sample draws enter through their sum). Valid for
 any Pfa (the Shnidman fit of radar_model holds for Pfa >= 1e-9 only; it stays as a cross-check).
+Step 2.4: a look's fluctuation may also be given as Fluct(k), the Gamma shape of the target power over the look
+(k = 1 SW1, 2 SW3, n SW2, 2n SW4, infinite = steady), so that partial decorrelation (1 + T_obs / T0 independent
+samples) and the polarisation diversity of the two receive channels enter as a non-integer shape.
 
 Criterion (step 2.3): the Pd of a look is AVERAGED over the random position of the target (search grid cell, range /
 Doppler straddle, velocity-filter offset), given as a discrete distribution of losses; the search requirement is
@@ -24,7 +27,8 @@ from __future__ import annotations
 
 import functools
 import math
-from typing import Sequence, Tuple
+from dataclasses import dataclass
+from typing import Sequence, Tuple, Union
 
 import numpy as np
 
@@ -32,6 +36,27 @@ SNR_GRID_DB = np.arange(-40.0, 60.0 + 1e-9, 0.05)        # total SNR grid of the
 _LAGUERRE = np.polynomial.laguerre.laggauss(64)
 _N_GAMMA_Q = 96                                           # quantiles of the Swerling 4 mixture
 _N_PHASES = 16                                            # phases of the looks (cumulative criterion)
+_STEADY_SHAPE = 1e4                                       # Gamma shapes above this are taken as a steady target
+
+
+@dataclass(frozen=True)
+class Fluct:
+    """Fluctuation of a look as the Gamma shape k of the target power over its n samples (step 2.4): math.inf =
+    steady. A Swerling case is the special value k = 1 (SW1), 2 (SW3), n (SW2), 2n (SW4)."""
+    k: float
+
+
+Fluctuation = Union[int, Fluct]                            # a Swerling case 0..4, or a Gamma shape
+
+
+def shape_of(fluct: Fluctuation, n: int) -> float:
+    """Gamma shape of the target power over n samples (math.inf = steady)."""
+    if isinstance(fluct, Fluct):
+        return fluct.k
+    k = {0: math.inf, 1: 1.0, 2: float(n), 3: 2.0, 4: 2.0 * n}.get(fluct)
+    if k is None:
+        raise ValueError(f"Swerling case {fluct} must be 0..4")
+    return k
 
 
 def _log_poisson_cdf(m_max: int, t: float) -> np.ndarray:
@@ -99,23 +124,31 @@ def _gamma_quantiles(shape: int, count: int) -> np.ndarray:
     return np.array(out)
 
 
-@functools.lru_cache(maxsize=512)
-def pd_curve(n: int, swerling: int, pfa: float) -> np.ndarray:
-    """Pd on SNR_GRID_DB (total SNR) for n noncoherent samples, Swerling case 0..4, false-alarm probability pfa."""
+@functools.lru_cache(maxsize=256)
+def _steady_curve(n: int, pfa: float) -> np.ndarray:
+    """Steady-target Pd on SNR_GRID_DB (the base of every fluctuating law of the same n and Pfa)."""
+    out = _pd_steady(n, threshold(n, pfa), 10.0 ** (SNR_GRID_DB / 10.0))
+    out.setflags(write=False)
+    return out
+
+
+@functools.lru_cache(maxsize=1024)
+def pd_curve(n: int, swerling: Fluctuation, pfa: float) -> np.ndarray:
+    """Pd on SNR_GRID_DB (total SNR) for n noncoherent samples, Swerling case 0..4 or Fluct(k), false-alarm
+    probability pfa."""
     t = threshold(n, pfa)
     snr = 10.0 ** (SNR_GRID_DB / 10.0)
-    if swerling == 2:      # Z / (1 + x / n) ~ Gamma(n, 1): Pd = P(Poisson(T / (1 + x / n)) <= n - 1)
+    shape = shape_of(swerling, n)                           # power of the target, Gamma(shape) with mean x
+    # SW2 (or a shape of exactly n): Z / (1 + x / n) ~ Gamma(n, 1): Pd = P(Poisson(T / (1 + x / n)) <= n - 1)
+    if swerling == 2 or (isinstance(swerling, Fluct) and shape == float(n)):
         return np.clip(np.exp([_log_poisson_cdf(n - 1, t / (1.0 + x / n))[-1] for x in snr]), 0.0, 1.0)
-    pd0 = _pd_steady(n, t, snr)
-    if swerling == 0:
+    pd0 = _steady_curve(n, pfa)
+    if shape > _STEADY_SHAPE:                              # spread of the power below the 0.05 dB grid: steady
         return pd0
-    shape = {1: 1.0, 3: 2.0, 4: 2.0 * n}.get(swerling)     # power of the target, Gamma(shape) with mean x
-    if shape is None:
-        raise ValueError(f"Swerling case {swerling} must be 0..4")
     return _mixture_db(pd0, shape, pfa)
 
 
-def pd_at(n: int, swerling: int, pfa: float, snr_db) -> np.ndarray:
+def pd_at(n: int, swerling: Fluctuation, pfa: float, snr_db) -> np.ndarray:
     """Pd at total SNR snr_db (scalar or array)."""
     return np.interp(snr_db, SNR_GRID_DB, pd_curve(n, swerling, pfa))
 
@@ -131,13 +164,13 @@ def _invert(curve: np.ndarray, p: float) -> float:
     return float(np.interp(p, [c[i - 1], c[i]], [SNR_GRID_DB[i - 1], SNR_GRID_DB[i]]))
 
 
-def snr_req_db(n: int, swerling: int, pfa: float, pd: float) -> float:
+def snr_req_db(n: int, swerling: Fluctuation, pfa: float, pd: float) -> float:
     """Total SNR for Pd on one look, no position offset (exact law)."""
     return _invert(pd_curve(n, swerling, pfa), pd)
 
 
 @functools.lru_cache(maxsize=4096)
-def _mean_curve_cached(n: int, swerling: int, pfa: float, losses_db: Tuple[float, ...],
+def _mean_curve_cached(n: int, swerling: Fluctuation, pfa: float, losses_db: Tuple[float, ...],
                        weights: Tuple[float, ...]) -> np.ndarray:
     base = pd_curve(n, swerling, pfa)
     out = np.zeros_like(base)
@@ -147,7 +180,7 @@ def _mean_curve_cached(n: int, swerling: int, pfa: float, losses_db: Tuple[float
     return out
 
 
-def mean_curve(n: int, swerling: int, pfa: float, losses_db: Sequence[float], weights: Sequence[float]) -> np.ndarray:
+def mean_curve(n: int, swerling: Fluctuation, pfa: float, losses_db: Sequence[float], weights: Sequence[float]) -> np.ndarray:
     """Pd averaged over the target position: sum_j w_j Pd(SNR - loss_j), on SNR_GRID_DB (cached)."""
     return _mean_curve_cached(n, swerling, pfa, tuple(float(x) for x in losses_db), tuple(float(x) for x in weights))
 
@@ -187,7 +220,7 @@ def _look_shifts(q: float, floor_db_span: float = 60.0) -> np.ndarray:
     return 40.0 * np.log10(1.0 + (k[None, :] + phases[:, None]) * q)
 
 
-def required_snr_db(n: int, swerling: int, pfa: float, p_target: float, losses_db: Sequence[float] = (0.0,),
+def required_snr_db(n: int, swerling: Fluctuation, pfa: float, p_target: float, losses_db: Sequence[float] = (0.0,),
                     weights: Sequence[float] = (1.0,), q: float = 0.0, floor: float = 1e-3) -> float:
     """Mean total SNR (at the requirement range, before the position losses) meeting p_target: one look (q = 0) or
     cumulative over looks spaced q = v RR / R, Pd averaged over the position losses. The cumulative probability is

@@ -50,6 +50,7 @@ Performance:
     its own solve() cache and sphere raster between runs.
 """
 import csv
+import dataclasses
 import functools
 import json
 import math
@@ -94,6 +95,7 @@ ALPHAS = np.linspace(0.0, 1.0, P.get(_T + "n_alphas"))   # energy weight of the 
 SHORT_PENALTY = P.get(_T + "short_penalty")          # DP penalty per fraction of positions short of range (ranks range before cost)
 TRACK_MARGIN_WARN = P.get(_T + "track_margin_warn")  # warn when a face keeps less than this fraction of its power for tracking
 SKY_ABOVE_BUDGET_ALERT_DB = P.get("tool.alerts.sky_above_budget_db")   # flag positions this far above the sky budget
+RR_T0_RATIO = P.get("tool.alerts.rr_t0_ratio")       # flag a revisit below this x the target T0 (step 2.4, B4)
 
 
 # ----------------------------------------------------------------------------- geometry
@@ -274,13 +276,11 @@ def resolution_m(sec: dict, sig_bw_mhz: float) -> float:
 
 
 @functools.lru_cache(maxsize=SOLVE_CACHE_SIZE)
-def _range_cached(w, f: float, theta: float, rcs_m2: float, swerling: int, v_close_mps: float,
-                  rx_sll_db: float, v_span_mps: Optional[float] = None, pfa: Optional[float] = None,
-                  cum: Optional[Tuple[float, float, float]] = None) -> Optional[float]:
-    """Keyed on everything the range depends on (Waveform is a frozen dataclass; the target name is irrelevant).
-    The model's module constants are assumed fixed for the life of the process."""
+def _range_cached(w, f: float, theta: float, tgt, rx_sll_db: float, v_span_mps: Optional[float] = None,
+                  pfa: Optional[float] = None, cum: Optional[Tuple[float, float, float]] = None) -> Optional[float]:
+    """Keyed on everything the range depends on (Waveform and Target are frozen dataclasses; the target name is set
+    to a constant by range_at). The model's module constants are assumed fixed for the life of the process."""
     try:
-        tgt = rm.Target("cache", rcs_m2, swerling, v_close_mps)
         return rm.solve(w, f, theta, tgt, rm.FACE_ELEC_POWER_MW, rx_sll_db, v_span_mps=v_span_mps, pfa=pfa,
                         cum=cum).range_km
     except ValueError:
@@ -299,7 +299,7 @@ def velocity_span_mps(sec: dict) -> float:
 
 def range_at(w, f, theta, tgt, rx_sll: Optional[float] = None, v_span: Optional[float] = None,
              pfa: Optional[float] = None, cum: Optional[Tuple[float, float, float]] = None):
-    return _range_cached(w, f, theta, tgt.rcs_m2, tgt.swerling, tgt.v_close_mps,
+    return _range_cached(w, f, theta, tgt if tgt.name == "cache" else dataclasses.replace(tgt, name="cache"),
                          rm.RX_SLL_DEFAULT_DB if rx_sll is None else float(rx_sll), v_span, pfa, cum)
 
 
@@ -315,10 +315,10 @@ def search_criterion(sec: dict) -> Tuple[float, float, float]:
 
 def cells_per_position(sec: dict, w, f: float) -> float:
     """Independent cells a search position of this waveform tests (step 2.2, E1-E5)."""
-    d = _processing_dict(w, sec)
+    d = _processing_dict(w, sec, f)
     angle = rm.rx_beams_per_position(f, rx_sll_db(sec)) * rm.RX_BEAM_SPACING_HPBW ** 2
     return rm.independent_cells(range_min_km(sec), sec["range_km"], w.sig_bw_mhz, d["pulses_per_block"],
-                                d["velocity_hypotheses"], angle)
+                                d["velocity_hypotheses"] * d["acceleration_hypotheses"], angle)
 
 
 def candidate_pfas(sec: dict, cands: List, f: float, positions: float) -> List[float]:
@@ -511,24 +511,37 @@ def _wf_dict(name: str, w, f: float, sec: dict) -> dict:
             "blind_range_km": rm.blind_range_km(rm.BAND_S, w.tau_s), "staggered": w.staggered,
             "cells_in_pulse": rm.cells_in_pulse(v_max, w.tau_s, w.sig_bw_mhz),
             "velocity_hypotheses_1db": rm.velocity_hypotheses(v_max - v_min, w.tau_s, w.sig_bw_mhz),
-            **_processing_dict(w, sec)}
+            **_processing_dict(w, sec, f)}
 
 
-def _processing_dict(w, sec: dict) -> dict:
-    """Step 2.2 processing of a search waveform for this sector: coherent blocks, velocity bank (hypotheses over the
-    sector's span), independent cells per position (range from range_min, Doppler, velocity, angle)."""
-    sw = int(sec.get("swerling", 1))
-    m, t_b = rm.coherent_blocks(w.n, w.pri_s, w.tau_s, w.integration, sw)
+@functools.lru_cache(maxsize=1 << 14)
+def _sector_target(sec_key: Tuple) -> "rm.Target":
+    return dataclasses.replace(rm.target_for_sector(dict(sec_key)), name="cache")
+
+
+def sector_target(sec: dict) -> "rm.Target":
+    """The sector's target (radar_model.target_for_sector, step 2.4), cached on its target keys; named "cache" so that
+    sectors sharing a threat share the range cache."""
+    keys = ("v_close_max_mps",) + rm.SECTOR_TARGET_KEYS
+    return _sector_target(tuple((k, sec[k]) for k in keys if k in sec))
+
+
+def _processing_dict(w, sec: dict, f: float) -> dict:
+    """Step 2.2 processing of a search waveform for this sector at f: coherent blocks (with the target's T0 and
+    fluctuation, step 2.4), velocity bank (hypotheses over the sector's span), acceleration hypotheses (step 2.4)."""
+    tgt = sector_target(sec)
+    m, t_b = rm.coherent_blocks(w.n, w.pri_s, w.tau_s, w.integration, tgt.swerling, tgt, f)
     n_hyp = rm.velocity_bank(round(velocity_span_mps(sec), 6), w.tau_s, w.sig_bw_mhz, w.dwell_s, w.n, m == 1)[0]         if rm.MIGRATION_MODE.upper() == "COMPENSATED" else 1
+    n_acc = rm.acceleration_bank(tgt.accel_max_mps2, f, t_b if m < w.n else 0.0, w.dwell_s, w.sig_bw_mhz, m == 1)[0]
     return {"coherent_blocks": m, "pulses_per_block": w.n // m, "block_ms": round(t_b * 1e3, 3),
-            "velocity_hypotheses": n_hyp}
+            "velocity_hypotheses": n_hyp, "acceleration_hypotheses": n_acc}
 
 
 def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: Optional[dict] = None):
     """Frequency and waveform plan chosen for a sector: (f, P, unscanned, plan, cands, sky summary), or a status dict
     (NO_POSITIONS / NO_WAVEFORM) when there is none. sky: the mission sky (core/sky.py; None = cold sky with the
     worst-case galactic rise): blinded positions are left out, ranges scale with the sector's budget T_sys."""
-    tgt = rm.Target(sec["id"], sec["rcs_m2"], int(sec.get("swerling", 1)), sec["v_close_max_mps"])
+    tgt = sector_target(sec)
     r_want, rr = sec["range_km"], sec["rr_target_s"]
     max_wf = max(1, int(sec.get("max_wf_per_sector", MAX_WF_PER_SECTOR)))
     short_tol = sec.get("short_tol", SHORT_TOL)
@@ -595,6 +608,7 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
     f, P, unscanned, plan, cands, sky_s, pfas = best
     r_want, rr = sec["range_km"], sec["rr_target_s"]
     v_max = sec["v_close_max_mps"]
+    tgt = sector_target(sec)
     p_tot = P.sum(axis=0)
     populated = np.flatnonzero(p_tot > 0)
 
@@ -663,7 +677,8 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
         "rx_sll_held_up_to_deg": sll_held,
         "mismatch_db_per_pass_max": mismatch_max,
         "sky": sky_s,
-        "s_min_unsaturated_range_km": rm.min_unsaturated_range_km(f, 0.0, sec["rcs_m2"]),
+        "s_min_unsaturated_range_km": rm.min_unsaturated_range_km(f, 0.0, tgt.rcs_at(f)),
+        "target": target_summary(tgt, f),
         "faces": {str(k): v for k, v in faces.items()},
         "rr_target_s": rr,
         "rr_alone_s": rr * load,                               # RR if this sector had the face to itself (energy and time)
@@ -691,8 +706,21 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
         out["flags"].append(f"S RX sidelobes {sll:g} dB held only up to {sll_held:g} deg scan at {f} GHz (worst visible "
                             f"sidelobe {rm.sidelobe_visible_db(f, th_max, 'rx', sll):.1f} dB at {th_max:g} deg: TRSA "
                             f"gap lobes)")
+    if rr < RR_T0_RATIO * tgt.t0_s(f):
+        out["flags"].append(f"revisit {rr:g} s below {RR_T0_RATIO:g} x the target coherence time T0 {tgt.t0_s(f):.2f} s "
+                            f"at {f} GHz: successive looks are correlated (the cumulative criterion assumes them "
+                            f"independent)")
     out["flags"].extend(sky_flags(sky_s, "S"))
     return out
+
+
+def target_summary(tgt: "rm.Target", f: float) -> dict:
+    """Target model of a sector at f (step 2.4): class, RCS (body + optics), fluctuation, T0, depolarisation,
+    acceleration."""
+    return {"type": tgt.target_type, "rcs_m2": tgt.rcs_at(f), "optics_rcs_m2": tgt.optics_rcs_m2(f),
+            "swerling": tgt.swerling, "fluctuation": tgt.fluctuation(f) if tgt.swerling is None else f"SW{tgt.swerling}",
+            "t0_s": tgt.t0_s(f), "depol_db": rm.lin_to_db(tgt.depol_lin(f)),
+            "accel_max_mps2": tgt.accel_max_mps2}
 
 
 def sky_flags(s: dict, label: str) -> List[str]:
@@ -896,7 +924,7 @@ def load_mission(path: str) -> dict:
                 for k, v in row.items():
                     if v is None or v == "":
                         continue
-                    if k in ("id", "shape", "confirm_mode"):
+                    if k in ("id", "shape", "confirm_mode", "target_type", "fluctuation"):
                         s[k] = v
                     elif k == "allow_ambiguous":
                         s[k] = v.lower() == "true"
@@ -930,6 +958,9 @@ def print_report(res: dict) -> None:
         print(f"     Range: wanted {rg['requested']:.0f} km | worst scan {rg['at_worst_scan']} km | best scan {rg['at_best_scan']} km"
               f" | positions: {r['positions_total']:.0f} | RX sidelobes {r['rx_sll_db']:g} dB, "
               f"{r['rx_beams_per_position']:.1f} RX beams / position")
+        tg = r["target"]
+        print(f"     Target: {tg['type']} | RCS {tg['rcs_m2']:.4g} m2 (optics {tg['optics_rcs_m2']:.3g}) | {tg['fluctuation']} | "
+              f"T0 {tg['t0_s']:.2f} s | depol {tg['depol_db']:g} dB | accel max {tg['accel_max_mps2']:g} m/s2")
         sk = r["sky"]
         if sk["t_sys_budget_k"] is not None:
             print(f"     Sky (S): budget T_sys {sk['t_sys_budget_k']:.1f} K (cold sky {sk['t_sys_cold_k']:.1f} K, "

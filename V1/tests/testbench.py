@@ -42,7 +42,8 @@ ABS_TOL = 1e-15         # below this, two numbers are equal (zeros computed thro
 GRID_RES_DEG = 0.5      # raster of the redundancy check and the fast estimate (= tool.display.grid_res_deg default)
 
 MISSIONS = ("mission_example.json", "mission_example.csv", "mission_veille500.json",
-            "mission_redundancy_demo.json", "mission_synthetic_mix.json", "mission_sky_demo.json")
+            "mission_redundancy_demo.json", "mission_synthetic_mix.json", "mission_sky_demo.json",
+            "mission_target_library.json")
 # Bodies on the face 0 boresight (phi 0, eps = tilt) for the sky-noise terms of the model case (step 1.5)
 SKY_BODIES = {"sun": 0.267, "moon": 0.26, "earth": 60.0}
 

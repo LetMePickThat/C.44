@@ -5,11 +5,11 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 79.82058192189712,
-    "energy_fraction": 0.04352777556905369,
-    "energy_j_per_refresh": 1596411.6384379424,
+    "avg_power_kw": 53.55073848151062,
+    "energy_fraction": 0.029202299332533873,
+    "energy_j_per_refresh": 1071014.7696302123,
     "positions": 996.1985040129617,
-    "time_fraction_min": 0.0065159658711752754,
+    "time_fraction_min": 0.00437148885563352,
     "unreachable_pct": 0.0
    }
   },
@@ -18,11 +18,11 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 36.264801573303856,
-    "energy_fraction": 0.019775928788436953,
-    "energy_j_per_refresh": 181324.00786651927,
+    "avg_power_kw": 23.50951959863626,
+    "energy_fraction": 0.012820215891522869,
+    "energy_j_per_refresh": 117547.59799318129,
     "positions": 174.89380211360498,
-    "time_fraction_min": 0.0029603919651676617,
+    "time_fraction_min": 0.0019191444570315316,
     "unreachable_pct": 0.0
    }
   }
@@ -35,24 +35,24 @@
   "cancelled": false,
   "faces_total": {
    "0": {
-    "avg_power_kW": 5.107,
-    "dissipation_kW": 1.0377,
-    "energy_fraction": 0.0028,
-    "ku_duty_pct": 12.9376,
-    "p_available_kW": 1828.678,
+    "avg_power_kW": 4.7549,
+    "dissipation_kW": 0.9661,
+    "energy_fraction": 0.0026,
+    "ku_duty_pct": 12.9401,
+    "p_available_kW": 1829.0301,
     "positions": 996.2,
-    "power_margin": 0.9972,
+    "power_margin": 0.9974,
     "time_fraction": 0.0025,
     "time_margin_s": 0.9975
    },
    "1": {
-    "avg_power_kW": 13.3031,
-    "dissipation_kW": 2.703,
-    "energy_fraction": 0.0073,
-    "ku_duty_pct": 12.8796,
-    "p_available_kW": 1820.4819,
+    "avg_power_kW": 11.3848,
+    "dissipation_kW": 2.3132,
+    "energy_fraction": 0.0062,
+    "ku_duty_pct": 12.8932,
+    "p_available_kW": 1822.4002,
     "positions": 174.4,
-    "power_margin": 0.9927,
+    "power_margin": 0.9938,
     "time_fraction": 0.0017,
     "time_margin_s": 0.9983
    },
@@ -94,11 +94,11 @@
    {
     "faces": {
      "0": {
-      "avg_power_kW": 5.107043987042559,
-      "dissipation_kW": 1.0376862284429098,
-      "dissipation_kW_m2": 0.07804264526059007,
-      "energy_J_per_refresh": 102140.87974085117,
-      "energy_fraction": 0.002784974240187677,
+      "avg_power_kW": 4.7548729700172565,
+      "dissipation_kW": 0.9661295676130676,
+      "dissipation_kW_m2": 0.07266098850915041,
+      "energy_J_per_refresh": 95097.45940034512,
+      "energy_fraction": 0.0025929282713171155,
       "positions": 996.2,
       "theta_max_deg": 51.0,
       "time_fraction": 0.0024904793291787167
@@ -111,8 +111,8 @@
     "mismatch_db_per_pass_max": 0.1297354438199937,
     "positions_total": 996.2,
     "range_km": {
-     "at_best_scan": 8286,
-     "at_worst_scan": 6699,
+     "at_best_scan": 8435,
+     "at_worst_scan": 6819,
      "positions_short_of_range_pct": 0.0,
      "requested": 5000.0
     },
@@ -121,7 +121,7 @@
      "achieved": 2.3657535483634393,
      "requested": 2.0
     },
-    "rr_alone_s": 0.05569948480375354,
+    "rr_alone_s": 0.05185856542634231,
     "rr_est_mission_s": 20.0,
     "rr_target_s": 20.0,
     "rx_beams_per_position": 6.118998226960277,
@@ -141,9 +141,20 @@
      "worst_rise_db": 0.222291576594411
     },
     "status": "OK",
+    "target": {
+     "accel_max_mps2": 9.80665,
+     "depol_db": -10.0,
+     "fluctuation": "SW1",
+     "optics_rcs_m2": 0.0,
+     "rcs_m2": 1000.0,
+     "swerling": 1,
+     "t0_s": 1.0224311055507733,
+     "type": "GENERIC"
+    },
     "time_to_impact_at_detection_s": 980.0,
     "unscanned_pct": 0.0,
     "wf": {
+     "acceleration_hypotheses": 1,
      "b_tx": 1,
      "band": "S",
      "blind_range_km": 7.50230626145,
@@ -174,11 +185,12 @@
     "wf_by_bin": [
      {
       "positions": 19.9,
-      "power_scale": 0.133,
-      "range_km_at_bin_max": 8276,
+      "power_scale": 0.124,
+      "range_km_at_bin_max": 8425,
       "theta_hi_deg": 5.0,
       "theta_lo_deg": 0.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -209,11 +221,12 @@
      },
      {
       "positions": 59.0,
-      "power_scale": 0.136,
-      "range_km_at_bin_max": 8239,
+      "power_scale": 0.126,
+      "range_km_at_bin_max": 8387,
       "theta_hi_deg": 10.0,
       "theta_lo_deg": 5.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -244,11 +257,12 @@
      },
      {
       "positions": 96.3,
-      "power_scale": 0.14,
-      "range_km_at_bin_max": 8175,
+      "power_scale": 0.13,
+      "range_km_at_bin_max": 8322,
       "theta_hi_deg": 15.0,
       "theta_lo_deg": 10.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -279,11 +293,12 @@
      },
      {
       "positions": 130.7,
-      "power_scale": 0.146,
-      "range_km_at_bin_max": 8082,
+      "power_scale": 0.136,
+      "range_km_at_bin_max": 8228,
       "theta_hi_deg": 20.0,
       "theta_lo_deg": 15.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -314,11 +329,12 @@
      },
      {
       "positions": 161.1,
-      "power_scale": 0.156,
-      "range_km_at_bin_max": 7960,
+      "power_scale": 0.145,
+      "range_km_at_bin_max": 8103,
       "theta_hi_deg": 25.0,
       "theta_lo_deg": 20.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -349,11 +365,12 @@
      },
      {
       "positions": 160.4,
-      "power_scale": 0.168,
-      "range_km_at_bin_max": 7805,
+      "power_scale": 0.157,
+      "range_km_at_bin_max": 7945,
       "theta_hi_deg": 30.0,
       "theta_lo_deg": 25.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -384,11 +401,12 @@
      },
      {
       "positions": 157.4,
-      "power_scale": 0.186,
-      "range_km_at_bin_max": 7613,
+      "power_scale": 0.173,
+      "range_km_at_bin_max": 7750,
       "theta_hi_deg": 35.0,
       "theta_lo_deg": 30.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -419,11 +437,12 @@
      },
      {
       "positions": 137.6,
-      "power_scale": 0.211,
-      "range_km_at_bin_max": 7381,
+      "power_scale": 0.196,
+      "range_km_at_bin_max": 7514,
       "theta_hi_deg": 40.0,
       "theta_lo_deg": 35.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -454,11 +473,12 @@
      },
      {
       "positions": 62.2,
-      "power_scale": 0.245,
-      "range_km_at_bin_max": 7103,
+      "power_scale": 0.229,
+      "range_km_at_bin_max": 7231,
       "theta_hi_deg": 45.0,
       "theta_lo_deg": 40.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -489,11 +509,12 @@
      },
      {
       "positions": 11.7,
-      "power_scale": 0.297,
-      "range_km_at_bin_max": 6772,
+      "power_scale": 0.277,
+      "range_km_at_bin_max": 6894,
       "theta_hi_deg": 50.0,
       "theta_lo_deg": 45.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -524,11 +545,12 @@
      },
      {
       "positions": 0.0,
-      "power_scale": 0.31,
-      "range_km_at_bin_max": 6699,
+      "power_scale": 0.289,
+      "range_km_at_bin_max": 6819,
       "theta_hi_deg": 55.0,
       "theta_lo_deg": 50.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -560,6 +582,7 @@
     ],
     "wf_set": [
      {
+      "acceleration_hypotheses": 1,
       "b_tx": 1,
       "band": "S",
       "blind_range_km": 7.50230626145,
@@ -595,11 +618,11 @@
    {
     "faces": {
      "1": {
-      "avg_power_kW": 13.303141697485199,
-      "dissipation_kW": 2.70302879112249,
-      "dissipation_kW_m2": 0.20329027339148115,
-      "energy_J_per_refresh": 66515.70848742599,
-      "energy_fraction": 0.007254471869649496,
+      "avg_power_kW": 11.38478584949579,
+      "dissipation_kW": 2.3132433399373906,
+      "dissipation_kW_m2": 0.17397516169319444,
+      "energy_J_per_refresh": 56923.929247478954,
+      "energy_fraction": 0.006208353678046114,
       "positions": 174.4,
       "theta_max_deg": 20.0,
       "time_fraction": 0.0017444786786899702
@@ -612,8 +635,8 @@
     "mismatch_db_per_pass_max": 0.1297354438199937,
     "positions_total": 174.4,
     "range_km": {
-     "at_best_scan": 568,
-     "at_worst_scan": 554,
+     "at_best_scan": 591,
+     "at_worst_scan": 576,
      "positions_short_of_range_pct": 0.0,
      "requested": 500.0
     },
@@ -622,7 +645,7 @@
      "achieved": 2.3657535483634393,
      "requested": 2.0
     },
-    "rr_alone_s": 0.03627235934824748,
+    "rr_alone_s": 0.031041768390230567,
     "rr_est_mission_s": 5.0,
     "rr_target_s": 5.0,
     "rx_beams_per_position": 6.118998226960277,
@@ -642,9 +665,20 @@
      "worst_rise_db": 0.222291576594411
     },
     "status": "OK",
+    "target": {
+     "accel_max_mps2": 9.80665,
+     "depol_db": -10.0,
+     "fluctuation": "SW1",
+     "optics_rcs_m2": 0.0,
+     "rcs_m2": 0.135,
+     "swerling": 1,
+     "t0_s": 1.0224311055507733,
+     "type": "GENERIC"
+    },
     "time_to_impact_at_detection_s": 15.0,
     "unscanned_pct": 0.0,
     "wf": {
+     "acceleration_hypotheses": 1,
      "b_tx": 1,
      "band": "S",
      "blind_range_km": 7.50230626145,
@@ -675,11 +709,12 @@
     "wf_by_bin": [
      {
       "positions": 19.9,
-      "power_scale": 0.602,
-      "range_km_at_bin_max": 568,
+      "power_scale": 0.515,
+      "range_km_at_bin_max": 590,
       "theta_hi_deg": 5.0,
       "theta_lo_deg": 0.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -710,11 +745,12 @@
      },
      {
       "positions": 59.0,
-      "power_scale": 0.612,
-      "range_km_at_bin_max": 565,
+      "power_scale": 0.524,
+      "range_km_at_bin_max": 588,
       "theta_hi_deg": 10.0,
       "theta_lo_deg": 5.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -745,11 +781,12 @@
      },
      {
       "positions": 59.8,
-      "power_scale": 0.632,
-      "range_km_at_bin_max": 561,
+      "power_scale": 0.541,
+      "range_km_at_bin_max": 583,
       "theta_hi_deg": 15.0,
       "theta_lo_deg": 10.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -780,11 +817,12 @@
      },
      {
       "positions": 35.8,
-      "power_scale": 0.661,
-      "range_km_at_bin_max": 554,
+      "power_scale": 0.566,
+      "range_km_at_bin_max": 576,
       "theta_hi_deg": 20.0,
       "theta_lo_deg": 15.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -816,6 +854,7 @@
     ],
     "wf_set": [
      {
+      "acceleration_hypotheses": 1,
       "b_tx": 1,
       "band": "S",
       "blind_range_km": 7.50230626145,
@@ -857,35 +896,35 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 2.5738438875468295e-05,
-     "confirm_ku_time": 1.4439851821967659e-06,
-     "confirm_s_time": 3.187334017690551e-06,
-     "dissipation_kW": 1.0484899037505504,
-     "dissipation_kW_m2": 0.07885517160664168,
-     "load": 0.0028257384388754685,
-     "p_left_kW": 1828.6032032368664,
-     "search_energy": 0.0028,
+     "confirm_energy": 2.225678313353873e-05,
+     "confirm_ku_time": 9.419168304516763e-07,
+     "confirm_s_time": 2.6443158322237747e-06,
+     "dissipation_kW": 0.9756475668624656,
+     "dissipation_kW_m2": 0.07337682130971282,
+     "load": 0.002622256783133539,
+     "p_left_kW": 1828.9763448449412,
+     "search_energy": 0.0026,
      "search_s_time": 0.0025,
      "status": "OK",
-     "total_energy": 0.0028257384388754685,
-     "total_ku_time": 1.4439851821967659e-06,
-     "total_s_time": 0.0025031873340176907
+     "total_energy": 0.002622256783133539,
+     "total_ku_time": 9.419168304516763e-07,
+     "total_s_time": 0.0025026443158322237
     },
     "1": {
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 6.42880352430843e-05,
+     "confirm_energy": 4.315126909067858e-05,
      "confirm_ku_time": 0.00015697487213360458,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 2.745020352965313,
-     "dissipation_kW_m2": 0.20644838850856723,
-     "load": 0.007364288035243085,
-     "p_left_kW": 1820.2804790652913,
-     "search_energy": 0.0073,
+     "dissipation_kW": 2.341404805936834,
+     "dissipation_kW_m2": 0.17609313843873786,
+     "load": 0.006243151269090678,
+     "p_left_kW": 1822.3364028500102,
+     "search_energy": 0.0062,
      "search_s_time": 0.0017,
      "status": "OK",
-     "total_energy": 0.007364288035243085,
+     "total_energy": 0.006243151269090678,
      "total_ku_time": 0.00015697487213360458,
      "total_s_time": 0.0017
     },
@@ -941,17 +980,17 @@
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.0074,
+       "mission_max_load": 0.0062,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.0074,
+       "mission_max_load": 0.0062,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.0074,
+       "mission_max_load": 0.0062,
        "why_not": ""
       }
      },
@@ -961,18 +1000,18 @@
       "admissible": true,
       "faces": {
        "0": {
-        "energy_fraction": 2.5738438875468295e-05,
-        "ku_time_fraction": 1.4439851821967659e-06,
-        "s_time_fraction": 3.187334017690551e-06
+        "energy_fraction": 2.225678313353873e-05,
+        "ku_time_fraction": 9.419168304516763e-07,
+        "s_time_fraction": 2.6443158322237747e-06
        }
       },
       "ku_looks_fa": 0.0,
-      "ku_looks_true": 1.4188815891038624,
+      "ku_looks_true": 1.2302013387280784,
       "margin_db": [
-       4.0,
-       3.0
+       3.5,
+       5.5
       ],
-      "success": 0.9801100270361242,
+      "success": 0.980117396003542,
       "why_not": ""
      },
      "false_alarms_per_rr": 9.7,
@@ -1001,17 +1040,17 @@
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.0074,
+       "mission_max_load": 0.0062,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.0075,
+       "mission_max_load": 0.0064,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.0076,
+       "mission_max_load": 0.0064,
        "why_not": ""
       }
      },
@@ -1021,7 +1060,7 @@
       "admissible": true,
       "faces": {
        "1": {
-        "energy_fraction": 6.42880352430843e-05,
+        "energy_fraction": 4.315126909067858e-05,
         "ku_time_fraction": 0.00015697487213360458,
         "s_time_fraction": 0.0
        }

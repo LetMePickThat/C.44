@@ -10,6 +10,11 @@ Active tracking (AT) and confirmation inputs, per sector (core/tracking.py):
               +/-2 sigma), range_acc_m and vr_acc_mps (1 sigma)};
   "confirm_mode": "auto" (default) or a forced mode of tracking.CONFIRM_MODES;
   "new_targets_per_rr": true targets newly detected per refresh (confirmed like the false alarms).
+Target, per sector (step 2.4): "target_type" = a class of the library ([targets.*] of radar_system.toml: class means),
+completed or overridden by the sector's own values: rcs_m2 (both bands), swerling (a declared case; absent with a
+class = derived from its fluctuation and T0), fluctuation, depol_db, length_m, rotation_dps, accel_max_mps2,
+optics_diameter_m, optics_f_ratio, optics_retro_eff. Without a class, the sector's rcs_m2 / swerling (default 1) are
+used with the other values of tool.targets.default_type (GENERIC).
 RX weighting, per sector: "rx_sll_db" = RX peak sidelobe level, one of RX_SLL_CHOICES (S and Ku; default -25 dB).
 Shortest range of interest, per sector: "range_min_km" (step 2.1; default tool.mission_defaults.range_min_frac x
 range_km): the blind range c (tau + limiter recovery) / 2 of the sector's waveforms must stay under it.
@@ -156,8 +161,7 @@ def validate_sector(sec: dict, index: int) -> List[str]:
         if "radius_deg" in sec and not (0.0 < sec["radius_deg"] <= 180.0):
             errs.append(f"{tag}: radius_deg ({sec['radius_deg']}) must be in ]0, 180] deg")
 
-    if sec.get("rcs_m2", 0) is None or sec.get("rcs_m2", 0) <= 0:
-        errs.append(f"{tag}: rcs_m2 must be > 0")
+    errs.extend(validate_target(sec, tag))
     if sec.get("range_km", 0) is None or sec.get("range_km", 0) <= 0:
         errs.append(f"{tag}: range_km must be > 0")
     if sec.get("rr_target_s", 0) is None or sec.get("rr_target_s", 0) <= 0:
@@ -172,9 +176,6 @@ def validate_sector(sec: dict, index: int) -> List[str]:
             errs.append(f"{tag}: v_close_max_mps must be > 0 (sizes migration, Doppler and time to impact)")
         if vmin > vmax:
             errs.append(f"{tag}: v_close_min_mps ({vmin}) > v_close_max_mps ({vmax})")
-    sw = sec.get("swerling", 1)
-    if sw not in (0, 1, 2, 3, 4):
-        errs.append(f"{tag}: swerling ({sw}) must be 0..4")
     res_max = sec.get("res_max_m")
     if res_max is not None and res_max <= 0:
         errs.append(f"{tag}: res_max_m must be > 0")
@@ -190,6 +191,33 @@ def validate_sector(sec: dict, index: int) -> List[str]:
         errs.append(f"{tag}: RX sidelobe level rx_sll_db ({sll}) must be one of "
                     f"{', '.join(f'{s:g}' for s in RX_SLL_CHOICES)} dB")
     errs.extend(validate_tracking(sec, tag))
+    return errs
+
+
+def validate_target(sec: dict, tag: str) -> List[str]:
+    """Target of one sector (step 2.4): a class of the library ("target_type", optional) and the values the sector
+    overrides; without a class, rcs_m2 is required (and swerling defaults to 1)."""
+    errs = []
+    t_type = sec.get("target_type")
+    if t_type is not None and t_type not in mo.rm.TARGETS:
+        errs.append(f"{tag}: unknown target_type '{t_type}' (classes: {', '.join(mo.rm.TARGETS)})")
+    rcs = sec.get("rcs_m2")
+    if (t_type is None and (rcs is None or rcs <= 0)) or (rcs is not None and rcs <= 0):
+        errs.append(f"{tag}: rcs_m2 must be > 0" + ("" if t_type is not None else " (or name a target_type)"))
+    sw = sec.get("swerling", 1 if t_type is None else None)
+    if sw is not None and sw not in (0, 1, 2, 3, 4):
+        errs.append(f"{tag}: swerling ({sw}) must be 0..4")
+    fl = sec.get("fluctuation")
+    if fl is not None and fl not in mo.rm.FLUCTUATIONS:
+        errs.append(f"{tag}: fluctuation '{fl}' must be one of {', '.join(mo.rm.FLUCTUATIONS)}")
+    for k in ("length_m", "optics_f_ratio"):
+        if sec.get(k) is not None and sec[k] <= 0:
+            errs.append(f"{tag}: {k} must be > 0")
+    for k in ("rotation_dps", "accel_max_mps2", "optics_diameter_m"):
+        if sec.get(k) is not None and sec[k] < 0:
+            errs.append(f"{tag}: {k} must be >= 0")
+    if sec.get("optics_retro_eff") is not None and not 0.0 <= sec["optics_retro_eff"] <= 1.0:
+        errs.append(f"{tag}: optics_retro_eff must be in [0, 1]")
     return errs
 
 
@@ -264,7 +292,8 @@ def save_mission_json(path: str, mission: dict) -> None:
 
 _CSV_FIELDS = [
     "id", "shape", "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg",
-    "phi0_deg", "eps0_deg", "radius_deg", "rcs_m2", "swerling", "range_km", "rr_target_s",
+    "phi0_deg", "eps0_deg", "radius_deg", "target_type", "rcs_m2", "swerling", "fluctuation", "depol_db", "length_m",
+    "rotation_dps", "accel_max_mps2", "optics_diameter_m", "optics_f_ratio", "optics_retro_eff", "range_km", "rr_target_s",
     "v_close_min_mps", "v_close_max_mps", "res_max_m", "range_min_km", "fa_per_rr", "allow_ambiguous", "rx_sll_db",
     "confirm_mode", "new_targets_per_rr", "tracking",
 ]

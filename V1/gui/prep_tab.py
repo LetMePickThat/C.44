@@ -520,8 +520,13 @@ class PrepTab(QWidget):
             self.sb_phi0.setValue(sec.get("phi0_deg", md.SECTOR_DEFAULTS_CAP["phi0_deg"]))
             self.sb_eps0.setValue(sec.get("eps0_deg", md.SECTOR_DEFAULTS_CAP["eps0_deg"]))
             self.sb_radius.setValue(sec.get("radius_deg", md.SECTOR_DEFAULTS_CAP["radius_deg"]))
-            self.sb_rcs.setValue(sec.get("rcs_m2", md.SECTOR_DEFAULTS_BOX["rcs_m2"]))
-            self.sb_swerling.setValue(int(sec.get("swerling", md.SECTOR_DEFAULTS_BOX["swerling"])))
+            # a sector naming a target class (step 2.4) shows the class values; the class itself is chosen at 5.1
+            cls = rm.TARGETS.get(sec.get("target_type"))
+            rcs_shown = sec.get("rcs_m2", cls.rcs_m2 if cls else md.SECTOR_DEFAULTS_BOX["rcs_m2"])
+            sw_shown = sec.get("swerling", cls.swerling_case(2.8) if cls else md.SECTOR_DEFAULTS_BOX["swerling"])
+            self.sb_rcs.setValue(rcs_shown)
+            self.sb_swerling.setValue(int(sw_shown))
+            self._target_shown = (self.sb_rcs.value(), self.sb_swerling.value())
             self.sb_range.setValue(sec.get("range_km", md.SECTOR_DEFAULTS_BOX["range_km"]))
             self.sb_rr.setValue(sec.get("rr_target_s", md.SECTOR_DEFAULTS_BOX["rr_target_s"]))
             self.sb_vmin.setValue(sec.get("v_close_min_mps", md.SECTOR_DEFAULTS_BOX["v_close_min_mps"]))
@@ -621,8 +626,11 @@ class PrepTab(QWidget):
             sec["radius_deg"] = self.sb_radius.value()
             for f in ("phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg"):
                 sec.pop(f, None)
-        sec["rcs_m2"] = self.sb_rcs.value()
-        sec["swerling"] = self.sb_swerling.value()
+        # a class sector keeps its class values until the operator edits them (they then become sector overrides)
+        if sec.get("target_type") is None or self.sb_rcs.value() != getattr(self, "_target_shown", (None, None))[0]:
+            sec["rcs_m2"] = self.sb_rcs.value()
+        if sec.get("target_type") is None or self.sb_swerling.value() != getattr(self, "_target_shown", (None, None))[1]:
+            sec["swerling"] = self.sb_swerling.value()
         sec["range_km"] = self.sb_range.value()
         sec["rr_target_s"] = self.sb_rr.value()
         sec["v_close_min_mps"] = self.sb_vmin.value()
@@ -858,7 +866,9 @@ class PrepTab(QWidget):
         if f is None:
             return
         sid, by = sec["id"], ", ".join(f.by)
-        need = (f"RCS {sec['rcs_m2']:g} m2 SW{sec.get('swerling', 1)} at {sec['range_km']:.0f} km, "
+        tgt = mo.sector_target(sec)
+        need = (f"{tgt.target_type} RCS {tgt.rcs_at(2.8):g} m2 "
+                f"{'SW%d' % tgt.swerling if tgt.swerling is not None else tgt.fluct_s} at {sec['range_km']:.0f} km, "
                 f"RR {sec['rr_target_s']:.0f} s, closing up to {sec['v_close_max_mps']:.0f} m/s")
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Warning)

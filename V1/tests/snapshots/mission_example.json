@@ -5,11 +5,11 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 79.82058192189712,
-    "energy_fraction": 0.04352777556905369,
-    "energy_j_per_refresh": 1596411.6384379424,
+    "avg_power_kw": 53.55073848151062,
+    "energy_fraction": 0.029202299332533873,
+    "energy_j_per_refresh": 1071014.7696302123,
     "positions": 996.1985040129617,
-    "time_fraction_min": 0.0065159658711752754,
+    "time_fraction_min": 0.00437148885563352,
     "unreachable_pct": 0.0
    }
   },
@@ -18,11 +18,11 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 36.264801573303856,
-    "energy_fraction": 0.019775928788436953,
-    "energy_j_per_refresh": 181324.00786651927,
+    "avg_power_kw": 23.50951959863626,
+    "energy_fraction": 0.012820215891522869,
+    "energy_j_per_refresh": 117547.59799318129,
     "positions": 174.89380211360498,
-    "time_fraction_min": 0.0029603919651676617,
+    "time_fraction_min": 0.0019191444570315316,
     "unreachable_pct": 0.0
    }
   },
@@ -31,44 +31,44 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 77.6801089648506,
-    "energy_fraction": 0.042360532431474036,
-    "energy_j_per_refresh": 9321613.075782072,
+    "avg_power_kw": 50.1013078092468,
+    "energy_fraction": 0.027321255114011078,
+    "energy_j_per_refresh": 6012156.937109616,
     "positions": 1633.413234047153,
-    "time_fraction_min": 0.006341233384885764,
+    "time_fraction_min": 0.004089902678305861,
     "unreachable_pct": 0.0
    },
    "1": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 77.6801089648506,
-    "energy_fraction": 0.042360532431474036,
-    "energy_j_per_refresh": 9321613.075782072,
+    "avg_power_kw": 50.1013078092468,
+    "energy_fraction": 0.027321255114011078,
+    "energy_j_per_refresh": 6012156.937109616,
     "positions": 1633.4132340471533,
-    "time_fraction_min": 0.006341233384885764,
+    "time_fraction_min": 0.004089902678305861,
     "unreachable_pct": 0.0
    },
    "2": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 77.6801089648506,
-    "energy_fraction": 0.042360532431474036,
-    "energy_j_per_refresh": 9321613.075782072,
+    "avg_power_kw": 50.1013078092468,
+    "energy_fraction": 0.027321255114011078,
+    "energy_j_per_refresh": 6012156.937109616,
     "positions": 1633.4132340471533,
-    "time_fraction_min": 0.006341233384885764,
+    "time_fraction_min": 0.004089902678305861,
     "unreachable_pct": 0.0
    },
    "3": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 77.6801089648506,
-    "energy_fraction": 0.042360532431474036,
-    "energy_j_per_refresh": 9321613.075782072,
+    "avg_power_kw": 50.101307809246805,
+    "energy_fraction": 0.02732125511401108,
+    "energy_j_per_refresh": 6012156.937109617,
     "positions": 1633.413234047153,
-    "time_fraction_min": 0.006341233384885764,
+    "time_fraction_min": 0.004089902678305862,
     "unreachable_pct": 0.0
    }
   }
@@ -86,48 +86,48 @@
   "cancelled": false,
   "faces_total": {
    "0": {
-    "avg_power_kW": 17.3202,
-    "dissipation_kW": 3.4946,
-    "energy_fraction": 0.0094,
-    "ku_duty_pct": 12.8512,
-    "p_available_kW": 1816.4648,
+    "avg_power_kW": 15.6754,
+    "dissipation_kW": 3.1633,
+    "energy_fraction": 0.0085,
+    "ku_duty_pct": 12.8628,
+    "p_available_kW": 1818.1096,
     "positions": 2629.6,
-    "power_margin": 0.9906,
-    "time_fraction": 0.0045,
-    "time_margin_s": 0.9955
+    "power_margin": 0.9915,
+    "time_fraction": 0.0043,
+    "time_margin_s": 0.9957
    },
    "1": {
-    "avg_power_kW": 25.5163,
-    "dissipation_kW": 5.16,
-    "energy_fraction": 0.0139,
-    "ku_duty_pct": 12.7932,
-    "p_available_kW": 1808.2687,
+    "avg_power_kW": 22.3053,
+    "dissipation_kW": 4.5105,
+    "energy_fraction": 0.0122,
+    "ku_duty_pct": 12.8159,
+    "p_available_kW": 1811.4797,
     "positions": 1807.8,
-    "power_margin": 0.9861,
-    "time_fraction": 0.0037,
-    "time_margin_s": 0.9963
+    "power_margin": 0.9878,
+    "time_fraction": 0.0036,
+    "time_margin_s": 0.9964
    },
    "2": {
-    "avg_power_kW": 12.2131,
-    "dissipation_kW": 2.457,
-    "energy_fraction": 0.0067,
-    "ku_duty_pct": 12.8873,
-    "p_available_kW": 1821.5719,
+    "avg_power_kW": 10.9205,
+    "dissipation_kW": 2.1972,
+    "energy_fraction": 0.006,
+    "ku_duty_pct": 12.8965,
+    "p_available_kW": 1822.8645,
     "positions": 1633.4,
-    "power_margin": 0.9933,
-    "time_fraction": 0.002,
-    "time_margin_s": 0.998
+    "power_margin": 0.994,
+    "time_fraction": 0.0018,
+    "time_margin_s": 0.9982
    },
    "3": {
-    "avg_power_kW": 12.2131,
-    "dissipation_kW": 2.457,
-    "energy_fraction": 0.0067,
-    "ku_duty_pct": 12.8873,
-    "p_available_kW": 1821.5719,
+    "avg_power_kW": 10.9205,
+    "dissipation_kW": 2.1972,
+    "energy_fraction": 0.006,
+    "ku_duty_pct": 12.8965,
+    "p_available_kW": 1822.8645,
     "positions": 1633.4,
-    "power_margin": 0.9933,
-    "time_fraction": 0.002,
-    "time_margin_s": 0.998
+    "power_margin": 0.994,
+    "time_fraction": 0.0018,
+    "time_margin_s": 0.9982
    }
   },
   "global": {
@@ -145,11 +145,11 @@
    {
     "faces": {
      "0": {
-      "avg_power_kW": 5.107043987042559,
-      "dissipation_kW": 1.0376862284429098,
-      "dissipation_kW_m2": 0.07804264526059007,
-      "energy_J_per_refresh": 102140.87974085117,
-      "energy_fraction": 0.002784974240187677,
+      "avg_power_kW": 4.7548729700172565,
+      "dissipation_kW": 0.9661295676130676,
+      "dissipation_kW_m2": 0.07266098850915041,
+      "energy_J_per_refresh": 95097.45940034512,
+      "energy_fraction": 0.0025929282713171155,
       "positions": 996.2,
       "theta_max_deg": 51.0,
       "time_fraction": 0.0024904793291787167
@@ -162,8 +162,8 @@
     "mismatch_db_per_pass_max": 0.1297354438199937,
     "positions_total": 996.2,
     "range_km": {
-     "at_best_scan": 8286,
-     "at_worst_scan": 6699,
+     "at_best_scan": 8435,
+     "at_worst_scan": 6819,
      "positions_short_of_range_pct": 0.0,
      "requested": 5000
     },
@@ -172,7 +172,7 @@
      "achieved": 2.3657535483634393,
      "requested": 2.0
     },
-    "rr_alone_s": 0.05569948480375354,
+    "rr_alone_s": 0.05185856542634231,
     "rr_est_mission_s": 20.0,
     "rr_target_s": 20,
     "rx_beams_per_position": 6.118998226960277,
@@ -192,9 +192,20 @@
      "worst_rise_db": 0.222291576594411
     },
     "status": "OK",
+    "target": {
+     "accel_max_mps2": 9.80665,
+     "depol_db": -10.0,
+     "fluctuation": "SW1",
+     "optics_rcs_m2": 0.0,
+     "rcs_m2": 1000.0,
+     "swerling": 1,
+     "t0_s": 1.0224311055507733,
+     "type": "GENERIC"
+    },
     "time_to_impact_at_detection_s": 980.0,
     "unscanned_pct": 0.0,
     "wf": {
+     "acceleration_hypotheses": 1,
      "b_tx": 1,
      "band": "S",
      "blind_range_km": 7.50230626145,
@@ -225,11 +236,12 @@
     "wf_by_bin": [
      {
       "positions": 19.9,
-      "power_scale": 0.133,
-      "range_km_at_bin_max": 8276,
+      "power_scale": 0.124,
+      "range_km_at_bin_max": 8425,
       "theta_hi_deg": 5.0,
       "theta_lo_deg": 0.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -260,11 +272,12 @@
      },
      {
       "positions": 59.0,
-      "power_scale": 0.136,
-      "range_km_at_bin_max": 8239,
+      "power_scale": 0.126,
+      "range_km_at_bin_max": 8387,
       "theta_hi_deg": 10.0,
       "theta_lo_deg": 5.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -295,11 +308,12 @@
      },
      {
       "positions": 96.3,
-      "power_scale": 0.14,
-      "range_km_at_bin_max": 8175,
+      "power_scale": 0.13,
+      "range_km_at_bin_max": 8322,
       "theta_hi_deg": 15.0,
       "theta_lo_deg": 10.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -330,11 +344,12 @@
      },
      {
       "positions": 130.7,
-      "power_scale": 0.146,
-      "range_km_at_bin_max": 8082,
+      "power_scale": 0.136,
+      "range_km_at_bin_max": 8228,
       "theta_hi_deg": 20.0,
       "theta_lo_deg": 15.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -365,11 +380,12 @@
      },
      {
       "positions": 161.1,
-      "power_scale": 0.156,
-      "range_km_at_bin_max": 7960,
+      "power_scale": 0.145,
+      "range_km_at_bin_max": 8103,
       "theta_hi_deg": 25.0,
       "theta_lo_deg": 20.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -400,11 +416,12 @@
      },
      {
       "positions": 160.4,
-      "power_scale": 0.168,
-      "range_km_at_bin_max": 7805,
+      "power_scale": 0.157,
+      "range_km_at_bin_max": 7945,
       "theta_hi_deg": 30.0,
       "theta_lo_deg": 25.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -435,11 +452,12 @@
      },
      {
       "positions": 157.4,
-      "power_scale": 0.186,
-      "range_km_at_bin_max": 7613,
+      "power_scale": 0.173,
+      "range_km_at_bin_max": 7750,
       "theta_hi_deg": 35.0,
       "theta_lo_deg": 30.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -470,11 +488,12 @@
      },
      {
       "positions": 137.6,
-      "power_scale": 0.211,
-      "range_km_at_bin_max": 7381,
+      "power_scale": 0.196,
+      "range_km_at_bin_max": 7514,
       "theta_hi_deg": 40.0,
       "theta_lo_deg": 35.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -505,11 +524,12 @@
      },
      {
       "positions": 62.2,
-      "power_scale": 0.245,
-      "range_km_at_bin_max": 7103,
+      "power_scale": 0.229,
+      "range_km_at_bin_max": 7231,
       "theta_hi_deg": 45.0,
       "theta_lo_deg": 40.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -540,11 +560,12 @@
      },
      {
       "positions": 11.7,
-      "power_scale": 0.297,
-      "range_km_at_bin_max": 6772,
+      "power_scale": 0.277,
+      "range_km_at_bin_max": 6894,
       "theta_hi_deg": 50.0,
       "theta_lo_deg": 45.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -575,11 +596,12 @@
      },
      {
       "positions": 0.0,
-      "power_scale": 0.31,
-      "range_km_at_bin_max": 6699,
+      "power_scale": 0.289,
+      "range_km_at_bin_max": 6819,
       "theta_hi_deg": 55.0,
       "theta_lo_deg": 50.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -611,6 +633,7 @@
     ],
     "wf_set": [
      {
+      "acceleration_hypotheses": 1,
       "b_tx": 1,
       "band": "S",
       "blind_range_km": 7.50230626145,
@@ -646,11 +669,11 @@
    {
     "faces": {
      "1": {
-      "avg_power_kW": 13.303141697485199,
-      "dissipation_kW": 2.70302879112249,
-      "dissipation_kW_m2": 0.20329027339148115,
-      "energy_J_per_refresh": 66515.70848742599,
-      "energy_fraction": 0.007254471869649496,
+      "avg_power_kW": 11.38478584949579,
+      "dissipation_kW": 2.3132433399373906,
+      "dissipation_kW_m2": 0.17397516169319444,
+      "energy_J_per_refresh": 56923.929247478954,
+      "energy_fraction": 0.006208353678046114,
       "positions": 174.4,
       "theta_max_deg": 20.0,
       "time_fraction": 0.0017444786786899702
@@ -663,8 +686,8 @@
     "mismatch_db_per_pass_max": 0.1297354438199937,
     "positions_total": 174.4,
     "range_km": {
-     "at_best_scan": 568,
-     "at_worst_scan": 554,
+     "at_best_scan": 591,
+     "at_worst_scan": 576,
      "positions_short_of_range_pct": 0.0,
      "requested": 500
     },
@@ -673,7 +696,7 @@
      "achieved": 2.3657535483634393,
      "requested": 2.0
     },
-    "rr_alone_s": 0.03627235934824748,
+    "rr_alone_s": 0.031041768390230567,
     "rr_est_mission_s": 5.0,
     "rr_target_s": 5,
     "rx_beams_per_position": 6.118998226960277,
@@ -693,9 +716,20 @@
      "worst_rise_db": 0.222291576594411
     },
     "status": "OK",
+    "target": {
+     "accel_max_mps2": 9.80665,
+     "depol_db": -10.0,
+     "fluctuation": "SW1",
+     "optics_rcs_m2": 0.0,
+     "rcs_m2": 0.135,
+     "swerling": 1,
+     "t0_s": 1.0224311055507733,
+     "type": "GENERIC"
+    },
     "time_to_impact_at_detection_s": 15.0,
     "unscanned_pct": 0.0,
     "wf": {
+     "acceleration_hypotheses": 1,
      "b_tx": 1,
      "band": "S",
      "blind_range_km": 7.50230626145,
@@ -726,11 +760,12 @@
     "wf_by_bin": [
      {
       "positions": 19.9,
-      "power_scale": 0.602,
-      "range_km_at_bin_max": 568,
+      "power_scale": 0.515,
+      "range_km_at_bin_max": 590,
       "theta_hi_deg": 5.0,
       "theta_lo_deg": 0.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -761,11 +796,12 @@
      },
      {
       "positions": 59.0,
-      "power_scale": 0.612,
-      "range_km_at_bin_max": 565,
+      "power_scale": 0.524,
+      "range_km_at_bin_max": 588,
       "theta_hi_deg": 10.0,
       "theta_lo_deg": 5.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -796,11 +832,12 @@
      },
      {
       "positions": 59.8,
-      "power_scale": 0.632,
-      "range_km_at_bin_max": 561,
+      "power_scale": 0.541,
+      "range_km_at_bin_max": 583,
       "theta_hi_deg": 15.0,
       "theta_lo_deg": 10.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -831,11 +868,12 @@
      },
      {
       "positions": 35.8,
-      "power_scale": 0.661,
-      "range_km_at_bin_max": 554,
+      "power_scale": 0.566,
+      "range_km_at_bin_max": 576,
       "theta_hi_deg": 20.0,
       "theta_lo_deg": 15.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 7.50230626145,
@@ -867,6 +905,7 @@
     ],
     "wf_set": [
      {
+      "acceleration_hypotheses": 1,
       "b_tx": 1,
       "band": "S",
       "blind_range_km": 7.50230626145,
@@ -902,44 +941,44 @@
    {
     "faces": {
      "0": {
-      "avg_power_kW": 12.213121635707344,
-      "dissipation_kW": 2.4569630944803476,
-      "dissipation_kW_m2": 0.18478408399870247,
-      "energy_J_per_refresh": 1465574.5962848812,
-      "energy_fraction": 0.006660061913314453,
+      "avg_power_kW": 10.92054211630632,
+      "dissipation_kW": 2.197206889702531,
+      "dissipation_kW_m2": 0.16524825439235666,
+      "energy_J_per_refresh": 1310465.0539567585,
+      "energy_fraction": 0.005955192193363083,
       "positions": 1633.4,
       "theta_max_deg": 75.0,
-      "time_fraction": 0.0019661679462399315
+      "time_fraction": 0.001834459685236918
      },
      "1": {
-      "avg_power_kW": 12.213121635707344,
-      "dissipation_kW": 2.4569630944803484,
-      "dissipation_kW_m2": 0.18478408399870253,
-      "energy_J_per_refresh": 1465574.5962848812,
-      "energy_fraction": 0.006660061913314453,
+      "avg_power_kW": 10.920542116306324,
+      "dissipation_kW": 2.1972068897025316,
+      "dissipation_kW_m2": 0.16524825439235669,
+      "energy_J_per_refresh": 1310465.053956759,
+      "energy_fraction": 0.005955192193363085,
       "positions": 1633.4,
       "theta_max_deg": 75.0,
-      "time_fraction": 0.001966167946239932
+      "time_fraction": 0.0018344596852369187
      },
      "2": {
-      "avg_power_kW": 12.213121635707344,
-      "dissipation_kW": 2.4569630944803484,
-      "dissipation_kW_m2": 0.18478408399870253,
-      "energy_J_per_refresh": 1465574.5962848812,
-      "energy_fraction": 0.006660061913314453,
+      "avg_power_kW": 10.920542116306324,
+      "dissipation_kW": 2.1972068897025316,
+      "dissipation_kW_m2": 0.16524825439235669,
+      "energy_J_per_refresh": 1310465.053956759,
+      "energy_fraction": 0.005955192193363085,
       "positions": 1633.4,
       "theta_max_deg": 75.0,
-      "time_fraction": 0.001966167946239932
+      "time_fraction": 0.0018344596852369185
      },
      "3": {
-      "avg_power_kW": 12.213121635707344,
-      "dissipation_kW": 2.4569630944803484,
-      "dissipation_kW_m2": 0.18478408399870253,
-      "energy_J_per_refresh": 1465574.5962848812,
-      "energy_fraction": 0.006660061913314453,
+      "avg_power_kW": 10.920542116306324,
+      "dissipation_kW": 2.1972068897025316,
+      "dissipation_kW_m2": 0.16524825439235669,
+      "energy_J_per_refresh": 1310465.053956759,
+      "energy_fraction": 0.005955192193363085,
       "positions": 1633.4,
       "theta_max_deg": 75.0,
-      "time_fraction": 0.001966167946239932
+      "time_fraction": 0.0018344596852369185
      }
     },
     "flags": [
@@ -949,8 +988,8 @@
     "mismatch_db_per_pass_max": 0.9902829396719732,
     "positions_total": 6533.6,
     "range_km": {
-     "at_best_scan": 10118,
-     "at_worst_scan": 9412,
+     "at_best_scan": 10391,
+     "at_worst_scan": 9666,
      "positions_short_of_range_pct": 0.0,
      "requested": 8000
     },
@@ -959,7 +998,7 @@
      "achieved": 2.3657535483634393,
      "requested": 2.0
     },
-    "rr_alone_s": 0.7992074295977344,
+    "rr_alone_s": 0.7146230632035702,
     "rr_est_mission_s": 120.0,
     "rr_target_s": 120,
     "rx_beams_per_position": 6.118998226960277,
@@ -979,9 +1018,20 @@
      "worst_rise_db": 0.222291576594411
     },
     "status": "OK",
+    "target": {
+     "accel_max_mps2": 9.80665,
+     "depol_db": -10.0,
+     "fluctuation": "SW1",
+     "optics_rcs_m2": 0.0,
+     "rcs_m2": 3000.0,
+     "swerling": 1,
+     "t0_s": 1.0224311055507733,
+     "type": "GENERIC"
+    },
     "time_to_impact_at_detection_s": 1480.0,
     "unscanned_pct": 0.1,
     "wf": {
+     "acceleration_hypotheses": 1,
      "b_tx": 1,
      "band": "S",
      "blind_range_km": 14.99711771145,
@@ -1012,11 +1062,12 @@
     "wf_by_bin": [
      {
       "positions": 79.4,
-      "power_scale": 0.393,
-      "range_km_at_bin_max": 10105,
+      "power_scale": 0.353,
+      "range_km_at_bin_max": 10378,
       "theta_hi_deg": 5.0,
       "theta_lo_deg": 0.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 14.99711771145,
@@ -1047,11 +1098,12 @@
      },
      {
       "positions": 235.9,
-      "power_scale": 0.4,
-      "range_km_at_bin_max": 10060,
+      "power_scale": 0.359,
+      "range_km_at_bin_max": 10332,
       "theta_hi_deg": 10.0,
       "theta_lo_deg": 5.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 14.99711771145,
@@ -1082,11 +1134,12 @@
      },
      {
       "positions": 385.0,
-      "power_scale": 0.413,
-      "range_km_at_bin_max": 9982,
+      "power_scale": 0.371,
+      "range_km_at_bin_max": 10252,
       "theta_hi_deg": 15.0,
       "theta_lo_deg": 10.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 14.99711771145,
@@ -1117,11 +1170,12 @@
      },
      {
       "positions": 522.7,
-      "power_scale": 0.432,
-      "range_km_at_bin_max": 9869,
+      "power_scale": 0.388,
+      "range_km_at_bin_max": 10136,
       "theta_hi_deg": 20.0,
       "theta_lo_deg": 15.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 14.99711771145,
@@ -1152,11 +1206,12 @@
      },
      {
       "positions": 644.6,
-      "power_scale": 0.459,
-      "range_km_at_bin_max": 9719,
+      "power_scale": 0.413,
+      "range_km_at_bin_max": 9982,
       "theta_hi_deg": 25.0,
       "theta_lo_deg": 20.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 14.99711771145,
@@ -1187,11 +1242,12 @@
      },
      {
       "positions": 745.5,
-      "power_scale": 0.497,
-      "range_km_at_bin_max": 9530,
+      "power_scale": 0.446,
+      "range_km_at_bin_max": 9787,
       "theta_hi_deg": 30.0,
       "theta_lo_deg": 25.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 14.99711771145,
@@ -1222,11 +1278,12 @@
      },
      {
       "positions": 825.6,
-      "power_scale": 0.549,
-      "range_km_at_bin_max": 9296,
+      "power_scale": 0.493,
+      "range_km_at_bin_max": 9547,
       "theta_hi_deg": 35.0,
       "theta_lo_deg": 30.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 14.99711771145,
@@ -1257,11 +1314,12 @@
      },
      {
       "positions": 879.8,
-      "power_scale": 0.621,
-      "range_km_at_bin_max": 9013,
+      "power_scale": 0.558,
+      "range_km_at_bin_max": 9257,
       "theta_hi_deg": 40.0,
       "theta_lo_deg": 35.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 14.99711771145,
@@ -1292,11 +1350,12 @@
      },
      {
       "positions": 673.9,
-      "power_scale": 0.724,
-      "range_km_at_bin_max": 8673,
+      "power_scale": 0.651,
+      "range_km_at_bin_max": 8908,
       "theta_hi_deg": 45.0,
       "theta_lo_deg": 40.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 14.99711771145,
@@ -1327,11 +1386,12 @@
      },
      {
       "positions": 505.4,
-      "power_scale": 0.876,
-      "range_km_at_bin_max": 8269,
+      "power_scale": 0.787,
+      "range_km_at_bin_max": 8493,
       "theta_hi_deg": 50.0,
       "theta_lo_deg": 45.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 14.99711771145,
@@ -1362,11 +1422,12 @@
      },
      {
       "positions": 390.5,
-      "power_scale": 0.574,
-      "range_km_at_bin_max": 9192,
+      "power_scale": 0.516,
+      "range_km_at_bin_max": 9441,
       "theta_hi_deg": 55.0,
       "theta_lo_deg": 50.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 29.98674061145,
@@ -1397,11 +1458,12 @@
      },
      {
       "positions": 295.7,
-      "power_scale": 0.778,
-      "range_km_at_bin_max": 8518,
+      "power_scale": 0.699,
+      "range_km_at_bin_max": 8749,
       "theta_hi_deg": 60.0,
       "theta_lo_deg": 55.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 29.98674061145,
@@ -1432,34 +1494,35 @@
      },
      {
       "positions": 214.6,
-      "power_scale": 0.406,
-      "range_km_at_bin_max": 10024,
+      "power_scale": 0.529,
+      "range_km_at_bin_max": 9379,
       "theta_hi_deg": 65.0,
       "theta_lo_deg": 60.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
-       "blind_range_km": 89.94523221145,
-       "block_ms": 0.6,
-       "cells_in_pulse": 1.501038428391684,
+       "blind_range_km": 59.965986411450004,
+       "block_ms": 0.4,
+       "cells_in_pulse": 1.0006922855944562,
        "coherent_blocks": 1,
        "doppler_max_kHz": 93.4,
-       "duty_pct": 60.0,
-       "dwell_ms": 0.6,
+       "duty_pct": 40.0,
+       "dwell_ms": 0.4,
        "freq_ghz": 2.8,
        "integration": "COHERENT",
        "modulation": "nlfm",
        "n_pulses": 1,
        "name": "WF-S03-3",
-       "pae": 0.7997334221926025,
+       "pae": 0.79960019990005,
        "pfa": 2.81838e-10,
        "pri_ms": 1.0,
        "pulses_per_block": 1,
        "range_resolution_m": 2.3657535483634393,
-       "rx_deaf_us": 600.05,
+       "rx_deaf_us": 400.05,
        "sig_bw_mhz": 75.0,
        "staggered": false,
-       "tau_us": 600.0,
+       "tau_us": 400.0,
        "unamb_range_km": 150,
        "velocity_hypotheses": 1,
        "velocity_hypotheses_1db": 1
@@ -1467,34 +1530,35 @@
      },
      {
       "positions": 101.5,
-      "power_scale": 0.691,
-      "range_km_at_bin_max": 8774,
+      "power_scale": 0.902,
+      "range_km_at_bin_max": 8209,
       "theta_hi_deg": 70.0,
       "theta_lo_deg": 65.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
-       "blind_range_km": 89.94523221145,
-       "block_ms": 0.6,
-       "cells_in_pulse": 1.501038428391684,
+       "blind_range_km": 59.965986411450004,
+       "block_ms": 0.4,
+       "cells_in_pulse": 1.0006922855944562,
        "coherent_blocks": 1,
        "doppler_max_kHz": 93.4,
-       "duty_pct": 60.0,
-       "dwell_ms": 0.6,
+       "duty_pct": 40.0,
+       "dwell_ms": 0.4,
        "freq_ghz": 2.8,
        "integration": "COHERENT",
        "modulation": "nlfm",
        "n_pulses": 1,
        "name": "WF-S03-3",
-       "pae": 0.7997334221926025,
+       "pae": 0.79960019990005,
        "pfa": 2.81838e-10,
        "pri_ms": 1.0,
        "pulses_per_block": 1,
        "range_resolution_m": 2.3657535483634393,
-       "rx_deaf_us": 600.05,
+       "rx_deaf_us": 400.05,
        "sig_bw_mhz": 75.0,
        "staggered": false,
-       "tau_us": 600.0,
+       "tau_us": 400.0,
        "unamb_range_km": 150,
        "velocity_hypotheses": 1,
        "velocity_hypotheses_1db": 1
@@ -1502,11 +1566,12 @@
      },
      {
       "positions": 33.5,
-      "power_scale": 0.522,
-      "range_km_at_bin_max": 9412,
+      "power_scale": 0.469,
+      "range_km_at_bin_max": 9666,
       "theta_hi_deg": 75.0,
       "theta_lo_deg": 70.0,
       "wf": {
+       "acceleration_hypotheses": 1,
        "b_tx": 1,
        "band": "S",
        "blind_range_km": 299.76997356565,
@@ -1538,6 +1603,7 @@
     ],
     "wf_set": [
      {
+      "acceleration_hypotheses": 1,
       "b_tx": 1,
       "band": "S",
       "blind_range_km": 14.99711771145,
@@ -1569,6 +1635,7 @@
       "velocity_hypotheses_1db": 1
      },
      {
+      "acceleration_hypotheses": 1,
       "b_tx": 1,
       "band": "S",
       "blind_range_km": 29.98674061145,
@@ -1600,30 +1667,31 @@
       "velocity_hypotheses_1db": 1
      },
      {
+      "acceleration_hypotheses": 1,
       "b_tx": 1,
       "band": "S",
-      "blind_range_km": 89.94523221145,
-      "block_ms": 0.6,
-      "cells_in_pulse": 1.501038428391684,
+      "blind_range_km": 59.965986411450004,
+      "block_ms": 0.4,
+      "cells_in_pulse": 1.0006922855944562,
       "coherent_blocks": 1,
       "doppler_max_kHz": 93.4,
-      "duty_pct": 60.0,
-      "dwell_ms": 0.6,
+      "duty_pct": 40.0,
+      "dwell_ms": 0.4,
       "freq_ghz": 2.8,
       "integration": "COHERENT",
       "modulation": "nlfm",
       "n_pulses": 1,
       "name": "WF-S03-3",
-      "pae": 0.7997334221926025,
+      "pae": 0.79960019990005,
       "pfa": 2.81838e-10,
       "positions": 316.1,
       "pri_ms": 1.0,
       "pulses_per_block": 1,
       "range_resolution_m": 2.3657535483634393,
-      "rx_deaf_us": 600.05,
+      "rx_deaf_us": 400.05,
       "sig_bw_mhz": 75.0,
       "staggered": false,
-      "tau_us": 600.0,
+      "tau_us": 400.0,
       "theta_hi_deg": 70.0,
       "theta_lo_deg": 60.0,
       "unamb_range_km": 150,
@@ -1631,6 +1699,7 @@
       "velocity_hypotheses_1db": 1
      },
      {
+      "acceleration_hypotheses": 1,
       "b_tx": 1,
       "band": "S",
       "blind_range_km": 299.76997356565,
@@ -1672,73 +1741,73 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 2.9796095486593768e-05,
-     "confirm_ku_time": 1.040076365503243e-05,
-     "confirm_s_time": 3.187334017690551e-06,
-     "dissipation_kW": 3.508003085736858,
-     "dissipation_kW_m2": 0.26383104342053926,
-     "load": 0.009429796095486593,
-     "p_left_kW": 1816.4927813670379,
-     "search_energy": 0.0094,
-     "search_s_time": 0.0045,
+     "confirm_energy": 2.4981260952136005e-05,
+     "confirm_ku_time": 7.017357416310012e-06,
+     "confirm_s_time": 2.6443158322237747e-06,
+     "dissipation_kW": 3.174605442948574,
+     "dissipation_kW_m2": 0.23875676445869362,
+     "load": 0.008524981260952138,
+     "p_left_kW": 1818.1520172383846,
+     "search_energy": 0.0085,
+     "search_s_time": 0.0043,
      "status": "OK",
-     "total_energy": 0.009429796095486593,
-     "total_ku_time": 1.040076365503243e-05,
-     "total_s_time": 0.00450318733401769
+     "total_energy": 0.008524981260952138,
+     "total_ku_time": 7.017357416310012e-06,
+     "total_s_time": 0.004302644315832224
     },
     "1": {
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 6.834569185420977e-05,
-     "confirm_ku_time": 0.00016593165060644024,
+     "confirm_energy": 4.587574690927586e-05,
+     "confirm_ku_time": 0.00016305031271946293,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 5.20463353495162,
-     "dissipation_kW_m2": 0.39143178115517135,
-     "load": 0.013968345691854208,
-     "p_left_kW": 1808.1700571954627,
-     "search_energy": 0.0139,
-     "search_s_time": 0.0037,
+     "dissipation_kW": 4.540462682022942,
+     "dissipation_kW_m2": 0.3414806024204252,
+     "load": 0.012245875746909277,
+     "p_left_kW": 1811.3286967434537,
+     "search_energy": 0.0122,
+     "search_s_time": 0.0036,
      "status": "OK",
-     "total_energy": 0.013968345691854208,
-     "total_ku_time": 0.00016593165060644024,
-     "total_s_time": 0.0037
+     "total_energy": 0.012245875746909277,
+     "total_ku_time": 0.00016305031271946293,
+     "total_s_time": 0.0036
     },
     "2": {
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 4.057656611125473e-06,
-     "confirm_ku_time": 8.956778472835663e-06,
+     "confirm_energy": 2.724477818597278e-06,
+     "confirm_ku_time": 6.075440585858338e-06,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 2.459613181986307,
-     "dissipation_kW_m2": 0.1849833926466041,
-     "load": 0.006704057656611126,
-     "p_left_kW": 1821.4911996301712,
-     "search_energy": 0.0067,
-     "search_s_time": 0.002,
+     "dissipation_kW": 2.198957876086108,
+     "dissipation_kW_m2": 0.16537994314898077,
+     "load": 0.006002724477818597,
+     "p_left_kW": 1822.7772938934431,
+     "search_energy": 0.006,
+     "search_s_time": 0.0018,
      "status": "OK",
-     "total_energy": 0.006704057656611126,
-     "total_ku_time": 8.956778472835663e-06,
-     "total_s_time": 0.002
+     "total_energy": 0.006002724477818597,
+     "total_ku_time": 6.075440585858338e-06,
+     "total_s_time": 0.0018
     },
     "3": {
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 4.057656611125473e-06,
-     "confirm_ku_time": 8.956778472835663e-06,
+     "confirm_energy": 2.7244778185972782e-06,
+     "confirm_ku_time": 6.075440585858338e-06,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 2.459613181986307,
-     "dissipation_kW_m2": 0.1849833926466041,
-     "load": 0.006704057656611126,
-     "p_left_kW": 1821.4911996301712,
-     "search_energy": 0.0067,
-     "search_s_time": 0.002,
+     "dissipation_kW": 2.198957876086108,
+     "dissipation_kW_m2": 0.16537994314898077,
+     "load": 0.006002724477818597,
+     "p_left_kW": 1822.7772938934431,
+     "search_energy": 0.006,
+     "search_s_time": 0.0018,
      "status": "OK",
-     "total_energy": 0.006704057656611126,
-     "total_ku_time": 8.956778472835663e-06,
-     "total_s_time": 0.002
+     "total_energy": 0.006002724477818597,
+     "total_ku_time": 6.075440585858338e-06,
+     "total_s_time": 0.0018
     }
    },
    "ku_freq_ghz": 14.0,
@@ -1760,17 +1829,17 @@
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.014,
+       "mission_max_load": 0.0122,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.014,
+       "mission_max_load": 0.0122,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.014,
+       "mission_max_load": 0.0122,
        "why_not": ""
       }
      },
@@ -1780,18 +1849,18 @@
       "admissible": true,
       "faces": {
        "0": {
-        "energy_fraction": 2.5738438875468295e-05,
-        "ku_time_fraction": 1.4439851821967659e-06,
-        "s_time_fraction": 3.187334017690551e-06
+        "energy_fraction": 2.225678313353873e-05,
+        "ku_time_fraction": 9.419168304516763e-07,
+        "s_time_fraction": 2.6443158322237747e-06
        }
       },
       "ku_looks_fa": 0.0,
-      "ku_looks_true": 1.4188815891038624,
+      "ku_looks_true": 1.2302013387280784,
       "margin_db": [
-       4.0,
-       3.0
+       3.5,
+       5.5
       ],
-      "success": 0.9801100270361242,
+      "success": 0.980117396003542,
       "why_not": ""
      },
      "false_alarms_per_rr": 9.7,
@@ -1820,17 +1889,17 @@
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.014,
+       "mission_max_load": 0.0122,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.0141,
+       "mission_max_load": 0.0124,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.0142,
+       "mission_max_load": 0.0124,
        "why_not": ""
       }
      },
@@ -1840,7 +1909,7 @@
       "admissible": true,
       "faces": {
        "1": {
-        "energy_fraction": 6.42880352430843e-05,
+        "energy_fraction": 4.315126909067858e-05,
         "ku_time_fraction": 0.00015697487213360458,
         "s_time_fraction": 0.0
        }
@@ -1877,17 +1946,17 @@
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.014,
+       "mission_max_load": 0.0122,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.014,
+       "mission_max_load": 0.0123,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.014,
+       "mission_max_load": 0.0123,
        "why_not": ""
       }
      },
@@ -1897,23 +1966,23 @@
       "admissible": true,
       "faces": {
        "0": {
-        "energy_fraction": 4.057656611125473e-06,
-        "ku_time_fraction": 8.956778472835665e-06,
+        "energy_fraction": 2.7244778185972774e-06,
+        "ku_time_fraction": 6.075440585858335e-06,
         "s_time_fraction": 0.0
        },
        "1": {
-        "energy_fraction": 4.057656611125473e-06,
-        "ku_time_fraction": 8.956778472835663e-06,
+        "energy_fraction": 2.7244778185972782e-06,
+        "ku_time_fraction": 6.075440585858338e-06,
         "s_time_fraction": 0.0
        },
        "2": {
-        "energy_fraction": 4.057656611125473e-06,
-        "ku_time_fraction": 8.956778472835663e-06,
+        "energy_fraction": 2.724477818597278e-06,
+        "ku_time_fraction": 6.075440585858338e-06,
         "s_time_fraction": 0.0
        },
        "3": {
-        "energy_fraction": 4.057656611125473e-06,
-        "ku_time_fraction": 8.956778472835663e-06,
+        "energy_fraction": 2.7244778185972782e-06,
+        "ku_time_fraction": 6.075440585858338e-06,
         "s_time_fraction": 0.0
        }
       },

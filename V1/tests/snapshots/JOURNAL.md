@@ -249,3 +249,25 @@ Model changes (radar_model V6.8.0, see its header):
   (mission_veille500, mission_synthetic_mix). Ku time mostly -80 to -99 % (10 false alarms per revisit instead of
   hundreds), +1000 % on one face of mission_example_csv. Many confirmation modes change (KU7 -> KU1+7 or S2).
 - core/cost_table.json regenerated (fast estimate: still single look at detection.pfa, see the renvoi to 5.5).
+
+## 2026-10-22 -- roadmap step 2.4 (target models)
+
+Model changes (radar_model V6.9.0, see its header; target classes are CLASS MEANS, user):
+- Target library [targets.*] (schema checked at load, classes added in the file only): ST (reference), GENERIC
+  (completes a sector naming no class), KKV, SHIP, DEBRIS, DECOY; sector key target_type with overrides.
+- T0 = lambda / (2 L omega) per class and band in the coherence loss (was the provisional t0 0.25 s); fluctuation as a
+  Gamma shape (declared case, or family x min(n, 1 + T_obs / T0)) x the polarisation diversity (1 + rho)^2 / (1 + rho^2);
+  cross-polar energy collected: loss target_depolarisation -10 log(1 + rho); acceleration loss / bank (multiplies the
+  velocity hypotheses); KKV seeker optics (frontal RCS 1.27 m2 in S, 13.8 m2 in Ku); SHIP frontal RCS 300 m2 (was the
+  lateral 3000 m2). Outputs: masking envelopes, OS-CFAR option, alert below 3 T0.
+- WF-LRS benchmark (CLI, reference classes): ST 7479 -> 8743 km (+16.9 %: SW1/2 with 1.2 independent samples over the
+  dwell, diversity x1.2, cross-polar energy -0.41 dB); KKV 806 -> 1801 km (+123 %: optics); SHIP 9843 -> 8089 km (-17.8 %:
+  frontal RCS).
+- Test missions (sectors without class: their RCS / Swerling, GENERIC for the rest, i.e. -10 dB depolarisation, T0
+  1.0 s in S / 0.2 s in Ku, 1 g): ranges +0.4 to +5 % at the same power, face energy -5 to -24 % (mission_synthetic_mix
+  F3 -50 %), S time 0 to -28 %, Ku time +3 to -35 %. No confirmation-mode change.
+- Waveform sets that changed: mission_example / S03 (third WF 600 -> 400 us), mission_veille500 / VEILLE_KV and
+  mission_synthetic_mix / KV (shorter coherent trains added), mission_redundancy_demo / B5_LONG (+ a 20 us x 8 beams WF),
+  mission_sky_demo / SUN (drops its 600 us x2 train) and EARTH (third WF 800 -> 600 us x6).
+- New test mission mission_target_library.json (KKV, KKV with eta_r 1 override, SHIP, DEBRIS, DECOY sectors).
+- core/cost_table.json regenerated (GENERIC SW1, see the renvoi to 5.5).

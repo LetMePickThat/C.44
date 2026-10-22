@@ -210,6 +210,19 @@ class FaceBudgetEstimate:
     at_unreachable_tracks: float = 0.0  # AT tracks (target-count units) short of their bracket's range
 
 
+def _sector_target(sec: dict) -> rm.Target:
+    """The sector's target (radar_model.target_for_sector) for live editing: an incomplete sector falls back to its
+    own RCS / Swerling / speed with the default class."""
+    s = {"v_close_max_mps": 1000.0, **sec}
+    if s.get("target_type") is None:
+        s.setdefault("rcs_m2", 1.0)
+    try:
+        return rm.target_for_sector(s)
+    except (KeyError, ValueError, TypeError):
+        return rm.Target(str(sec.get("id", "?")), float(sec.get("rcs_m2", 1.0) or 1.0), int(sec.get("swerling", 1) or 1),
+                         float(sec.get("v_close_max_mps", 1000.0) or 1000.0))
+
+
 def _estimate_at_faces(sec: dict, grid: geo.SphereGrid, face_sel: Dict[int, Tuple[np.ndarray, np.ndarray]],
                         npos_all: float, p_avg_max_w: float) -> Dict[int, Tuple[float, float, float]]:
     """Approximate per-face active-tracking (AT) power and Ku duty cycle of one sector's range brackets: one
@@ -221,8 +234,7 @@ def _estimate_at_faces(sec: dict, grid: geo.SphereGrid, face_sel: Dict[int, Tupl
     brackets = sec.get("tracking", [])
     if not brackets or npos_all <= 0:
         return {}
-    sw = int(sec.get("swerling", 1))
-    tgt = rm.Target(str(sec.get("id", "?")), sec.get("rcs_m2", 1.0), sw, sec.get("v_close_max_mps", 1000.0))
+    tgt = _sector_target(sec)
     ku_lim = rm.BAND_KU.scan_limit_deg(trk.KU_FREQ_GHZ)
     out: Dict[int, Tuple[float, float, float]] = {}
     for k, (sel, w_sel) in face_sel.items():
@@ -263,7 +275,7 @@ def estimate_sector_faces(table: CostTable, sec: dict, grid: geo.SphereGrid, eps
     # the sector's range is the table's at the equivalent range R (eta_table / eta)^(1/4)
     eta_ratio = (rm.rx_beam("S", table.rx_sll_db).eta / rm.rx_beam("S", sec.get("rx_sll_db")).eta)
     r_want = sec.get("range_km", 0.0) * eta_ratio ** 0.25
-    rcs = sec.get("rcs_m2", 1.0)
+    rcs = _sector_target(sec).rcs_at(f_ghz)          # S frontal RCS of the sector's target (class + values, 2.4)
     v = sec.get("v_close_max_mps", 1000.0)
     th_grid = np.array(table.TH, dtype=float)
     log_e_at_th, feas_at_th = energy_profile_by_theta(table, r_want, rcs, v)

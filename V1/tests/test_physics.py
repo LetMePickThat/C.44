@@ -656,8 +656,9 @@ def test_polarisation_glrt_replaces_the_placeholder():
                                - detection.snr_req_db(1, 1, rm.DETECT_PFA, rm.DETECT_PD))
     assert 0.4 < g1 < 0.6 and rm.pol_recombination_loss_db(s, "SEARCH", 24, 1) < 0.1
     assert rm.pol_recombination_loss_db(rm.BAND_KU, "TRACK", 1, 1) == 0.05
-    assert rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"]).losses["polarisation"] == pytest.approx(
-        rm.pol_recombination_loss_db(s, "SEARCH", 24, 1))
+    r = rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"])          # ST: its Gamma shape since step 2.4
+    assert r.losses["polarisation"] == pytest.approx(
+        rm.pol_recombination_loss_db(s, "SEARCH", 24, detection.Fluct(r.pulse["target"]["gamma_shape"])))
     assert "pol_loss_dual_db" not in {p.path.split(".")[-1] for p in params.P}
 
 
@@ -923,7 +924,8 @@ def test_coherent_blocks_replace_the_coherence_floor():
     r = rm.solve(w, 2.8, 0.0, rm.TARGETS["ST"])
     assert r.pulse["coherent_blocks"] == m_long or r.pulse["coherent_blocks"] > 1
     from core import detection
-    assert r.snr_req_db == pytest.approx(detection.snr_req_db(r.pulse["coherent_blocks"], 1, rm.DETECT_PFA, rm.DETECT_PD))
+    fl = detection.Fluct(r.pulse["target"]["gamma_shape"])        # ST: SW1/2 with its T0 and diversity (step 2.4)
+    assert r.snr_req_db == pytest.approx(detection.snr_req_db(r.pulse["coherent_blocks"], fl, rm.DETECT_PFA, rm.DETECT_PD))
 
 
 def test_estimator_constants_share_one_margin_over_the_bounds():
@@ -958,6 +960,133 @@ def test_tracking_loads_add_up(runs):
 def test_parallel_run_equals_sequential():
     m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_redundancy_demo.json"))
     assert json.dumps(mo.run(m, workers=1), sort_keys=True) == json.dumps(mo.run(m, workers=2), sort_keys=True)
+
+
+# ----------------------------------------------------------------------------- target models (step 2.4)
+def _target_toml(name: str, extra: str = "") -> str:
+    """A target class appended to the default parameter file (the library is extended in the file only)."""
+    band = ('rcs_m2 = { value = 2.0, unit = "m2", status = "D", source = "t", date = "" }\n'
+            'fluctuation = { value = "SW1/2", unit = "", status = "D", source = "t", date = "" }\n'
+            'depol_db = { value = -10.0, unit = "dB", status = "D", source = "t", date = "" }\n')
+    return (_default_toml() + f"\n[targets.{name}]\n"
+            'v_close_mps = { value = 7000.0, unit = "m/s", status = "D", source = "t", date = "" }\n'
+            'length_m = { value = 2.0, unit = "m", status = "D", source = "t", date = "" }\n'
+            'rotation_dps = { value = 2.0, unit = "deg/s", status = "D", source = "t", date = "" }\n'
+            f'{extra}accel_max_mps2 = {{ value = 0.0, unit = "m/s2", status = "D", source = "t", date = "" }}\n'
+            f"[targets.{name}.band.S]\n{band}[targets.{name}.band.Ku]\n{band}")
+
+
+def test_target_library_classes_and_derived_values():
+    """Every class of the file is loaded; T0 = lambda / (2 L omega); the KKV seeker optics add max(pi (2f)^2,
+    eta_r 4 pi A^2 / lambda^2) to the frontal RCS (about 1.3 m2 in S, 14 m2 in Ku with the class means)."""
+    assert {"ST", "GENERIC", "KKV", "SHIP", "DEBRIS", "DECOY"} <= set(rm.TARGETS) and rm.DEFAULT_TARGET_TYPE == "GENERIC"
+    st = rm.TARGETS["ST"]
+    assert st.t0_s(2.8) == pytest.approx(rm.lambda_m(2.8) / (2 * 10.0 * math.radians(0.1)), rel=1e-12)
+    assert st.t0_s(14.0) == pytest.approx(st.t0_s(2.8) * 2.8 / 14.0, rel=1e-12)
+    kkv = rm.TARGETS["KKV"]
+    a = math.pi * 0.3 ** 2 / 4
+    assert kkv.optics_rcs_m2(2.8) == pytest.approx(max(math.pi * 0.6 ** 2, 0.1 * 4 * math.pi * a * a / rm.lambda_m(2.8) ** 2))
+    assert kkv.rcs_at(2.8) == pytest.approx(1.27, abs=0.01) and kkv.rcs_at(14.0) == pytest.approx(13.8, abs=0.1)
+    assert rm.TARGETS["DECOY"].optics_rcs_m2(14.0) == 0.0 and rm.TARGETS["SHIP"].rcs_at(2.8) == 300.0
+    assert rm.Target("x", 1.0, 1, 5000.0).target_type == rm.DEFAULT_TARGET_TYPE      # former form: default class
+
+
+def test_target_class_added_in_the_file_only(tmp_path):
+    """A new class needs no code change; an incomplete class is refused at load time with a clear message."""
+    code = ("from core import radar_model as rm\nt = rm.target_for_sector({'target_type': 'TESTCLASS', 'v_close_max_mps': 3000.0})\n"
+            "print(t.rcs_at(2.8), t.v_close_mps, round(t.t0_s(2.8), 4))")
+    out = _run_with_params(_target_toml("TESTCLASS"), code, tmp_path).split()
+    assert out == ["2.0", "3000.0", str(round(rm.lambda_m(2.8) / (2 * 2.0 * math.radians(2.0)), 4))]
+    bad = _target_toml("BAD")
+    bad = bad[:bad.rindex("depol_db")]                                        # last band entry missing
+    path = tmp_path / "bad.toml"
+    path.write_text(bad, encoding="utf-8")
+    res = subprocess.run([PYTHON, "-c", "import core.radar_model"], cwd=tb.ROOT, capture_output=True, text=True,
+                         env={**os.environ, params.PARAMS_ENV: str(path)}, timeout=120)
+    assert res.returncode != 0 and "target class 'BAD' misses" in res.stderr
+
+
+def test_sector_target_resolution():
+    """No class: the sector's RCS and Swerling (default 1) with the default class for the rest (former behaviour);
+    a class: its values, each overridable by the sector."""
+    t = rm.target_for_sector({"id": "A", "rcs_m2": 50.0, "v_close_max_mps": 4000.0})
+    assert (t.rcs_m2, t.rcs_ku_m2, t.swerling, t.v_close_mps, t.target_type) == (50.0, None, 1, 4000.0, "GENERIC")
+    k = rm.target_for_sector({"id": "B", "target_type": "KKV", "v_close_max_mps": 20000.0})
+    assert k.swerling is None and k.rcs_at(14.0) == rm.TARGETS["KKV"].rcs_at(14.0) and k.v_close_mps == 20000.0
+    o = rm.target_for_sector({"id": "C", "target_type": "KKV", "v_close_max_mps": 2e4, "rcs_m2": 0.5, "swerling": 2,
+                              "optics_retro_eff": 1.0, "depol_db": -6.0})
+    a = math.pi * 0.3 ** 2 / 4
+    assert o.rcs_at(2.8) == pytest.approx(0.5 + max(math.pi * 0.6 ** 2, 4 * math.pi * a * a / rm.lambda_m(2.8) ** 2))
+    assert o.swerling == 2 and o.optics_retro_eff == 1.0 and o.depol_ku_db == -6.0 and o.rcs_ku_m2 is None
+    with pytest.raises(ValueError, match="unknown target_type"):
+        rm.target_for_sector({"target_type": "NOPE", "v_close_max_mps": 1.0})
+
+
+def test_fluctuation_shape_of_a_look():
+    """Declared case: k = 1, 2, n, 2n (inf for SW0); class: family x min(n, 1 + T_obs / T0); both x the
+    polarisation diversity (1 + rho)^2 / (1 + rho^2); the Gamma-shape laws reproduce the Swerling cases exactly."""
+    from core import detection
+    for sw in range(5):
+        assert detection.snr_req_db(6, detection.Fluct(detection.shape_of(sw, 6)), 1e-8, 0.9) == \
+            detection.snr_req_db(6, sw, 1e-8, 0.9)
+    g = rm.TARGETS["GENERIC"]
+    div = (1.1 ** 2) / 1.01
+    assert rm.diversity_factor(g, 2.8) == pytest.approx(div)
+    assert rm.look_fluctuation(g, 2.8, 2, 8, 0.1).k == pytest.approx(8 * div, rel=0.03)
+    t0 = g.t0_s(2.8)
+    assert rm.look_fluctuation(g, 2.8, None, 8, t0).k == pytest.approx(2.0 * div, rel=0.03)      # 1 + T / T0 = 2
+    assert rm.look_fluctuation(g, 2.8, None, 8, 100 * t0).k == pytest.approx(8.0 * div, rel=0.03)  # capped at n
+    assert math.isinf(rm.look_fluctuation(rm.TARGETS["DECOY"], 2.8, None, 8, 1.0).k)
+    assert rm.look_fluctuation(rm.TARGETS["KKV"], 14.0, None, 1, 0.0).k == pytest.approx(
+        2.0 * rm.diversity_factor(rm.TARGETS["KKV"], 14.0), rel=0.03)
+
+
+def test_target_coherence_time_drives_the_coherence_loss():
+    fast = rm.Target("f", 1.0, 1, 5000.0, length_m=50.0, rotation_dps=5.0)
+    assert rm.coherence_loss_db(2.8, 0.05, target=fast) > rm.coherence_loss_db(2.8, 0.05)
+    assert rm.coherence_loss_db(2.8, 0.05, target=rm.Target("s", 1.0, 1, 5000.0, rotation_dps=0.0)) < 1e-3
+    assert rm.coherence_loss_db(14.0, 0.05) > rm.coherence_loss_db(2.8, 0.05)                 # T0 ~ lambda
+
+
+def test_depolarisation_gain_and_acceleration_bank():
+    """The dual-pol receiver collects 1 + rho of the copolar energy; the acceleration bank grows with a_max and a
+    TRACK look knows the acceleration."""
+    a = rm.solve(rm.WF_LRS, 2.8, 0.0, rm.Target("a", 10.0, 1, 5000.0, depol_s_db=-3.0, accel_max_mps2=0.0))
+    assert a.losses["target_depolarisation"] == pytest.approx(-10 * math.log10(1 + 10 ** -0.3))
+    assert a.losses["acceleration"] == 0.0 and a.pulse["acceleration_hypotheses"] == 1
+    n1, l1 = rm.acceleration_bank(10.0, 2.8, 0.0, 0.6, 75.0, False)
+    n2, l2 = rm.acceleration_bank(1000.0, 2.8, 0.0, 0.6, 75.0, False)
+    assert n1 <= n2 and n2 > 1 and 0.0 < l2 <= rm.BANK_MAX_LOSS_DB
+    assert rm.acceleration_loss_db(9.8, 2.8, 0.1, 0.1, 75.0, True) == pytest.approx(
+        rm.velocity_mismatch_loss_db(round(9.8 * 0.01 / rm.lambda_m(2.8), 6))
+        + rm.walk_loss_db(9.8 * 0.01 / (8 * rm.C_MPS / 150e6), True), abs=1e-3)
+    r = rm.solve(tb.KU_TRACK, 14.0, 0.0, rm.TARGETS["KKV"])
+    assert r.pulse["acceleration_max_mps2"] == 0.0 and r.losses["acceleration"] == 0.0
+
+
+def test_os_cfar_and_masking_outputs():
+    """OS-CFAR costs more than CA-CFAR on homogeneous noise and less with fewer cells; masking envelopes: unweighted
+    Doppler -13.26 dB beyond one cell, range at the volume's sidelobe level far out."""
+    assert rm.os_cfar_loss_db(1024, 1e-8) > rm.cfar_loss_db(1024, 1e-8) > 0.0
+    assert rm.os_cfar_loss_db(64, 1e-8) > rm.os_cfar_loss_db(1024, 1e-8)
+    lv = rm.masking_levels_db(-30.0, True)
+    assert lv["doppler"]["1 cells"] == pytest.approx(-13.26, abs=0.02)
+    assert lv["range"]["3 cells"] == pytest.approx(-30.0, abs=1.5) and "doppler" not in rm.masking_levels_db(-30.0, False)
+
+
+def test_sector_with_a_target_class_runs_and_is_valid():
+    sec = {**md.new_sector([], "box"), "target_type": "KKV", "range_km": 500.0, "rr_target_s": 20.0,
+           "v_close_max_mps": 25000.0}
+    sec.pop("rcs_m2")
+    sec.pop("swerling")
+    m = md.empty_mission()
+    m["sectors"] = [sec]
+    assert md.validate_mission(m) == []
+    r = mo.run(m, workers=1)["sectors"][0]
+    assert r["status"] == "OK" and r["target"]["type"] == "KKV" and r["target"]["fluctuation"] == "SW3/4"
+    assert r["target"]["rcs_m2"] == pytest.approx(rm.TARGETS["KKV"].rcs_at(r["wf"]["freq_ghz"]))
+    m["sectors"][0]["target_type"] = "NOPE"
+    assert any("unknown target_type" in e for e in md.validate_mission(m))
 
 
 # ----------------------------------------------------------------------------- confirmation

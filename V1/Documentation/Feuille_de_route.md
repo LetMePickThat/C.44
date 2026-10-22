@@ -17,7 +17,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 
 (D) signale une étape qui demande une décision ou des données de l'utilisateur. Le détail des choix déjà faits est dans `Choix_architecturaux.md`.
 
-## État d'avancement (21 octobre 2026)
+## État d'avancement (22 octobre 2026)
 
 | Étape | État |
 |---|---|
@@ -32,7 +32,8 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 2.1 | ✔ fait (commit d1654ac) |
 | 2.2 | ✔ fait (commit 90573c9) |
 | 2.3 | ✔ fait (commit 102ea6f) |
-| 2.4 et suivantes | à faire, la prochaine étant 2.4 |
+| 2.4 | ✔ fait |
+| 2.5 et suivantes | à faire, la prochaine étant 2.5 |
 
 ---
 
@@ -180,7 +181,17 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Renvois de l'étape 2.2** : moyenne ou pire point aussi pour le chevauchement et le banc de vitesses (pertes moyennes aujourd'hui) ; **politique de fausses alarmes** : Pfa par case fixe (aujourd'hui) ou taux de fausses alarmes fixé par position ou par période, la Pfa par case s'en déduisant (le seuil monte avec le nombre de cases au lieu des fausses alarmes).
   - **Renvoi de l'étape 1.5** : T_sys du bilan d'un secteur au centile (1 − `short_tol`) des pointages non aveuglés, c'est-à-dire le pire point à 1 % près ; le choix entre moyenne et pire point est à revoir ici.
 
-- **2.4 Modèles de cibles** (D).
+- **2.4 Modèles de cibles** (D). ✔
+
+  Décisions prises :
+  - **bibliothèque de classes** dans `radar_system.toml` (`[targets.<NOM>]` et `[targets.<NOM>.band.S|Ku]`), schéma contrôlé au chargement ; **une classe s'ajoute ou se modifie dans le fichier seul** (exigence de l'utilisateur) ; classes ST (référence), GENERIC (complète un secteur sans classe), KKV, SHIP, DEBRIS, DECOY ;
+  - les classes sont des **valeurs moyennes, pas absolues** (l'armement de l'adversaire n'est pas connu) : milieu de chaque plage, toute valeur surchargeable par secteur (`target_type` + surcharges) ;
+  - SER copolaire **frontale** par bande ; SHIP 300 m² de face ; KKV : corps 0,135 m² + **autodirecteur IR à miroir** (D 0,3 m, f/D 1, œil de chat η_r 0,1), soit 1,27 m² en S et 13,8 m² en Ku ;
+  - T₀ = λ / (2 L ω) par classe et par bande (remplace t₀ 0,25 s) ; fluctuation en forme Gamma : famille × min(n, 1 + T_obs / T₀), ou cas déclaré ; diversité de polarisation (1 + ρ)² / (1 + ρ²) et énergie croisée 1 + ρ ;
+  - accélération : perte (phase quadratique, courbure) sous 1 dB, sinon banc d'hypothèses qui multiplie celles de vitesse ;
+  - masquage par une cible forte et OS-CFAR (rang 3/4, option) en sortie ; alerte si la revisite est sous 3 T₀.
+
+  Contenu prévu à l'origine :
   - SER selon l'aspect et la bande, cas de Swerling par bande, cinématique et manœuvre.
   - Un **temps de cohérence T₀ par type de cible** (rotation, accélération, décorrélation de scintillation), au lieu du `coherence.t0_s` = 0,25 s global (provisoire depuis l'étape 2.2, qui a mis en place les blocs cohérents).
   - **Renvois de l'étape 2.2** : accélération et manœuvre dans le banc de vitesses (courbure en distance : 10 g sur 1,7 s font 140 m) ; masquage d'une cible faible par les lobes Doppler (plancher de bruit de phase, transformée sans fenêtre) et par les lobes en distance ; CFAR robuste (OS, GO) en présence de cibles voisines.
@@ -226,11 +237,13 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Temps réel** : connaissance du spectre. Il faut mesurer quelles parties des bandes S et Ku sont brouillées ou perturbées et restreindre le choix des fréquences au spectre utilisable (liens avec 2.5 pour le brouillage, 4.3 pour l'ordonnanceur et 5.2 pour l'optimiseur).
   - Le toucher S2 de confirmation est une observation S hors de la règle des rôles S (non vérifiée, sans objet Waveform). Les rôles TWS et PROMOTE existent mais aucune forme d'onde ne les utilise.
   - **Renvoi de l'étape 1.5** : le choix de la fréquence Ku doit éviter l'harmonique 5 des émissions S de la même face, [5(f − B/2), 5(f + B/2)] (règle de fréquence de la matrice d'isolation, signalée par secteur dans `scheduler_rules`).
+  - **Renvoi de l'étape 2.4** : les tables de confirmation gardent le cas de Swerling le plus proche (sans décorrélation partielle ni diversité, que `solve()` compte pour les observations Ku).
 
 - **3.3 Poursuite.**
   - **Rappel à faire à l'utilisateur (décidé en 1.2)** : la polarisation d'émission est linéaire selon e_v ; la commutation e_u / e_v à chaque observation (un seul PA aiguillé vers les deux ports de l'élément, environ 0,1 à 0,2 dB de plus dans TX_chain) reste une **option à évaluer** pour la polarimétrie.
   - Filtre de Kalman ou IMM ; cadence de mise à jour selon la précision et la manœuvre ; initialisation, maintien et perte de piste.
   - **Polarisation** (avec 3.2) : usage polarimétrique des deux voies pour la confirmation, la discrimination des leurres et la classification ; le déséquilibre entre les deux voies (non modélisé, sans effet sur le GLRT) y comptera.
+  - **Renvois de l'étape 2.4** : table d'aspect de la SER (clé réservée, SER frontale seule aujourd'hui) ; accélération supposée connue par la piste sur une observation de poursuite (optimiste) ; discrimination KKV / leurre (fluctuation SW3/4 contre SW0, dépolarisation, retour optique).
   - **Renvoi de l'étape 2.1** : résidu du couplage distance-Doppler (c·τ·σ_fd / 2B) dans la précision en distance.
   - **Renvoi de l'étape 1.5** : atténuateur commutable par observation (ou STC) pour la poursuite rapprochée ; aujourd'hui le gain est fixe et une alerte signale les tranches de poursuite sous la portée non saturée Ku.
 
@@ -266,7 +279,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 - **5.1 Modèle de mission enrichi.**
   - Menaces, priorités, phases temporelles et modes, avec des fichiers qui restent compatibles.
   - **Volumes par défaut** (idée de l'utilisateur, étape 2.3) : des volumes types prêts à l'emploi pour les besoins récurrents, par exemple l'autoprotection du vaisseau contre un KKV ; leurs paramètres standards (portée, revisite, etc.) seront discutés à ce moment-là, pas pendant la construction de l'outil.
-  - **Bibliothèque de menaces** : l'opérateur choisit un type de cible par secteur au lieu de ressaisir SER, Swerling et vitesse. Aujourd'hui, `[targets.*]` ne sert qu'au rapport en ligne de commande et aux tests.
+  - **Bibliothèque de menaces** : l'opérateur choisit un type de cible par secteur au lieu de ressaisir SER, Swerling et vitesse. **Depuis l'étape 2.4**, la bibliothèque existe (`[targets.*]`, clé de secteur `target_type`) et entre dans le bilan ; reste l'interface : liste des classes, affichage des valeurs, surcharges (aujourd'hui l'interface conserve la clé, et une SER ou un Swerling modifié devient une surcharge).
   - **Renvoi de l'étape 2.2 (sujet des fausses alarmes, décision de l'utilisateur : 2.3, 5.1, 5.2)** : réglage de la politique de fausses alarmes dans la mission (taux toléré par secteur ou par période).
   - **Renvois de l'étape 2.3** : Pd cumulée et taux de fausses alarmes **par secteur** ; **plafond du nombre d'observations** pour une cible surgissante (sortie d'horizon, lancement), aujourd'hui sans plafond (bout optimiste) ; la Pd cumulée suppose que la cible est présente sur toute son approche.
   - `confirmation.p_min` (0,98) comme réglage de mission, avec en **option à étudier** un réglage par volume (secteur).
@@ -274,8 +287,10 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 - **5.2 Optimiseur global.** Répartition conjointe de la veille, de la confirmation et de la poursuite sur toutes les ressources et toutes les faces, **y compris la répartition à la demande des 8 MW du vaisseau entre les faces** (voir 4.1). **Renvoi de l'étape 2.2** : l'optimiseur doit compter le **coût de confirmation des fausses alarmes** dans le choix des formes d'onde de veille (les bancs de vitesses des trains multiplient les fausses alarmes par 50 à 535).
 
 - **5.3 Moteur de validation.** Verdict par contrainte, ressource limitante, conseil chiffré de relâchement, redondances et recouvrements.
+  - **Renvoi de l'étape 2.4** : les classes de cibles étant des moyennes, **sensibilité du verdict aux valeurs de la menace** (de combien la SER et les autres valeurs peuvent baisser avant que le secteur ne tienne plus).
 
 - **5.4 Simulation Monte-Carlo à événements discrets.** C'est l'arbitre final du bilan statistique.
+  - **Renvoi de l'étape 2.4** : effet réel du masquage par les cibles voisines (lobes Doppler et en distance, bruit de phase) et du CFAR (CA ou OS) sur une scène dense.
 
 - **5.5 Interface opérateur.**
   - Préparation, estimation rapide recalée, diagnostic par contrainte, chronologies, export du rapport.
@@ -284,6 +299,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Renvois de l'étape 2.1** : les vues (3D, interface) n'affichent que le **volume utile**, sans la zone aveugle (demande de l'utilisateur) ; édition de `range_min_km` dans l'interface.
   - **Renvoi de l'étape 2.3** : l'estimation rapide reste au critère d'une observation à `detection.pfa` ; à recaler sur la Pd cumulée et le taux de fausses alarmes.
   - **Renvoi de l'étape 1.5** : l'estimation rapide (`cost_table.json`) est au ciel froid, sans le bruit du ciel ni l'aveuglement ; l'interface n'édite pas le ciel de la mission (il viendra du simulateur de scénario), elle le conserve.
+  - **Renvoi de l'étape 2.4** : la table de coût est calculée sur GENERIC en Swerling 1 ; un secteur à classe y entre par sa SER frontale en S.
 
 - **5.6 Vérification, validation et documentation.** Cas de référence figés, traçabilité des paramètres, manuel de l'opérateur, note de modèle.
 

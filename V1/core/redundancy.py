@@ -87,8 +87,8 @@ REASON_TEXT = {
 
 # every sector field the optimiser's plan, the need test or the shape depends on
 PLAN_FIELDS = geo.SECTOR_GEOMETRY_FIELDS + (
-    "rcs_m2", "swerling", "range_km", "rr_target_s", "v_close_max_mps", "res_max_m", "range_min_km", "allow_ambiguous",
-    "max_wf_per_sector", "short_tol", "freq_ghz_candidates", "rx_sll_db")
+    "range_km", "rr_target_s", "v_close_max_mps", "res_max_m", "range_min_km", "allow_ambiguous",
+    "max_wf_per_sector", "short_tol", "freq_ghz_candidates", "rx_sll_db") + rm.SECTOR_TARGET_KEYS
 
 _PLANS: Dict[str, Optional[dict]] = {}
 _PLAN_CACHE_MAX = P.get("tool.redundancy.plan_cache_max")
@@ -144,7 +144,7 @@ def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dic
         z = np.zeros_like(cells)
         return z, z, None, np.where(cells, REASON_NO_WAVEFORM, REASON_NONE).astype(np.int8)
     v_b = sec_b["v_close_max_mps"]
-    tgt_b = rm.Target("need", sec_b["rcs_m2"], int(sec_b.get("swerling", 1)), v_b)
+    tgt_b = mo.sector_target(sec_b)                      # B's target: class + sector values (step 2.4)
     g_need = sec_b["range_km"] * (1.0 - RANGE_TOL)          # A's cumulative reach on B's need (step 2.3)
     cum = (float(v_b), float(sec_a["rr_target_s"]), float(sec_b["range_km"]))   # A's revisit, B's target and range
     res_b = sec_b.get("res_max_m", mo.RES_MAX_M_DEFAULT)

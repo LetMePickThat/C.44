@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.8.0
+# Radar Performance Model - V6.9.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,28 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.8.0 -> V6.9.0 (roadmap step 2.4: target models)
+#   - Target library: one class per [targets.<NAME>] of the file (CLASS MEANS, the adversary's hardware being unknown),
+#     schema checked at load, new classes in the file only: ST (reference), GENERIC (default of a sector naming no
+#     class), KKV, SHIP, DEBRIS, DECOY. Per band: copolar frontal RCS, fluctuation family (SW0 / SW1/2 / SW3/4),
+#     depolarisation; common: closing speed, length L, rotation omega, line-of-sight acceleration, optional seeker
+#     optics. A sector names a class (target_type) and may override any value (target_for_sector); a sector without
+#     class keeps its rcs_m2 / swerling (default SW1) with the GENERIC values for the rest.
+#   - Coherence time per class and band, T0 = t0_k x lambda / (2 L omega), in the coherence loss exp(-(T / T0)^2) of
+#     the coherent blocks (replaces the provisional t0 0.25 s of step 2.2).
+#   - Fluctuation of a look as a Gamma shape (core/detection.Fluct): a declared case (k = 1, 2, n, 2n, SW0 steady), else
+#     the family x min(blocks, 1 + T_obs / T0) independent samples; times the polarisation diversity of the two RX
+#     channels (1 + rho)^2 / (1 + rho^2). The dual-pol receiver also collects the cross-polar energy: loss
+#     "target_depolarisation" = -10 log(1 + rho).
+#   - Seeker optics (KKV): frontal RCS + max(pi (2 f)^2, eta_r 4 pi A^2 / lambda^2) (direct reflection on the primary,
+#     cat's-eye retro-reflection): KKV class 1.27 m2 in S, 13.8 m2 in Ku (body 0.135 m2).
+#   - Acceleration: quadratic phase over a coherent block (law of the velocity mismatch, a T_b^2 / lambda) + range
+#     curvature over the dwell (a T^2 / 8); mean loss "acceleration" while a_max costs <= 1 dB, else a bank of
+#     acceleration hypotheses (1 dB at half a step) that multiplies the velocity hypotheses (false alarms, compute load).
+#     TRACK looks: acceleration known from the track (optimistic until 3.3).
+#   - Outputs: masking envelopes by a strong neighbour (range: the look's weighting; Doppler: unweighted transform,
+#     -13.3 dB beyond one cell); OS-CFAR option (processing.cfar_type 'OS', rank 3/4, exact Swerling 1 loss).
 #
 # Changes V6.7.0 -> V6.8.0 (roadmap step 2.3: detection criterion)
 #   - Exact detection laws, Swerling 0 to 4, any Pfa (core/detection.py); Shnidman kept as a cross-check.
@@ -273,6 +295,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import functools
 import math
 import sys
@@ -290,7 +313,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.8.0"
+MODEL_VERSION = "6.9.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -299,7 +322,7 @@ MODEL_VERSION = "6.8.0"
 # --- Scenario (CLI defaults) ---
 FREQUENCY_GHZ: float = P.get("tool.cli.frequency_ghz")     # selects the band and playable waveforms
 SCAN_ANGLE_DEG: float = P.get("tool.cli.scan_angle_deg")
-TARGET_NAME: str = P.get("tool.cli.target")                # "ST" | "KKV" | "SHIP"
+TARGET_NAME: str = P.get("tool.cli.target")                # a class of [targets.*] (ST = reference target)
 FACE_ELEC_POWER_MW: float = P.get("power.face_elec_mw")    # electrical power allocated to one face
 
 # --- Detection ---
@@ -348,10 +371,11 @@ MB_P: float = P.get("multibeam.p")
 # --- S-band energy buffer: legacy S-only alias (V6.0.x); the model uses the BandConfig values ---
 E_BUF_TRM_J: float = P.get("band.S.e_buf_trm_j")
 
-# --- Coherence (step 2.2): coherent blocks of optimal length, noncoherent beyond; loss = provisional target law
+# --- Coherence (step 2.2): coherent blocks of optimal length, noncoherent beyond; target law exp(-(T / T0)^p) with
+# --- T0 = t0_k x lambda / (2 L omega) of the target class (step 2.4)
 # exp(-(T / t0)^p) (per target type at 2.4) + LO phase noise through the round trip + residual platform motion ---
 ENABLE_COH_LOSS: bool = P.get("coherence.enable")
-COH_T0_S: float = P.get("coherence.t0_s")
+COH_T0_K: float = P.get("coherence.t0_k")
 COH_P: float = P.get("coherence.p")
 LO_REF_GHZ: float = P.get("coherence.lo_ref_ghz")
 LO_OFFSETS_HZ: Tuple[float, ...] = tuple(P.get("coherence.lo_offsets_hz"))
@@ -366,10 +390,14 @@ DOPPLER_ZERO_PADDING: float = P.get("processing.doppler_zero_padding")
 DOPPLER_WINDOW: str = P.get("processing.doppler_window")
 CFAR_TYPE: str = P.get("processing.cfar_type")
 CFAR_REF_CELLS: int = P.get("processing.cfar_ref_cells")
-if DOPPLER_WINDOW != "none" or CFAR_TYPE != "CA":
-    raise ValueError(f"{P.path}: [processing] only doppler_window 'none' and cfar_type 'CA' are implemented")
+CFAR_OS_RANK_FRAC: float = P.get("processing.cfar_os_rank_frac")
+MASKING_OFFSETS_CELLS: Tuple[int, ...] = tuple(P.get("tool.detection.masking_offsets_cells"))
+if DOPPLER_WINDOW != "none" or CFAR_TYPE not in ("CA", "OS"):
+    raise ValueError(f"{P.path}: [processing] only doppler_window 'none' and cfar_type 'CA' / 'OS' are implemented")
 if RANGE_GRID_OVERSAMPLING < 1.0 or DOPPLER_ZERO_PADDING < 1.0 or CFAR_REF_CELLS < 2:
     raise ValueError(f"{P.path}: [processing] grid factors must be >= 1 and cfar_ref_cells >= 2")
+if not 0.0 < CFAR_OS_RANK_FRAC <= 1.0:
+    raise ValueError(f"{P.path}: processing.cfar_os_rank_frac must be in ]0, 1]")
 
 # --- Aperture physics: derived from the array build-up (bi-band TRSA tiles in an approximate octagon) ---
 KU_TRM_PITCH_M: float = P.get("aperture.ku_trm_pitch_m")
@@ -702,19 +730,158 @@ def band_for_frequency(f_ghz: float) -> Optional[BandConfig]:
 # -----------------------------------------------------------------------------
 # Targets
 # -----------------------------------------------------------------------------
+# Target library (step 2.4): one class per [targets.<NAME>] table of radar_system.toml (CLASS MEANS, not one weapon's
+# specification); a class is added or changed in the file only. A sector names a class ("target_type") and may override
+# any value (target_for_sector). Fluctuation families: SW0 steady, SW1/2 many scatterers, SW3/4 one dominant scatterer.
+FLUCTUATIONS: Dict[str, float] = {"SW0": math.inf, "SW1/2": 1.0, "SW3/4": 2.0}   # Gamma shape per independent sample
+_TARGET_KEYS = ("v_close_mps", "length_m", "rotation_dps", "accel_max_mps2")
+_TARGET_BAND_KEYS = ("rcs_m2", "fluctuation", "depol_db")
+_TARGET_OPTICS = {"optics_diameter_m": 0.0, "optics_f_ratio": 1.0, "optics_retro_eff": 0.0}   # absent = no optics
+DEFAULT_TARGET_TYPE: str = P.get("tool.targets.default_type")
+TARGET_TYPES: Tuple[str, ...] = tuple(dict.fromkeys(p.path.split(".")[1] for p in P if p.path.startswith("targets.")))
+
+
+def _target_class_values(name: str) -> Dict[str, object]:
+    """The values of one class, checked against the schema (an incomplete or inconsistent class is refused)."""
+    pre = f"targets.{name}"
+    keys = {p.path[len(pre) + 1:] for p in P if p.path.startswith(pre + ".")}
+    need = set(_TARGET_KEYS) | {f"band.{b}.{k}" for b in BANDS for k in _TARGET_BAND_KEYS}
+    missing, extra = sorted(need - keys), sorted(keys - need - set(_TARGET_OPTICS))
+    if missing or extra:
+        raise ValueError(f"{P.path}: target class '{name}' " + (f"misses {missing}" if missing else f"has unknown keys {extra}")
+                         + f" (schema: {', '.join(_TARGET_KEYS)}, optional {', '.join(_TARGET_OPTICS)}, and per band "
+                         f"[{pre}.band.<S|Ku>] {', '.join(_TARGET_BAND_KEYS)})")
+    v: Dict[str, object] = {k: P.get(f"{pre}.{k}") for k in _TARGET_KEYS}
+    v.update({k: P.get(f"{pre}.{k}") if k in keys else d for k, d in _TARGET_OPTICS.items()})
+    for b in BANDS:
+        fl = P.get(f"{pre}.band.{b}.fluctuation")
+        if fl not in FLUCTUATIONS:
+            raise ValueError(f"{P.path}: {pre}.band.{b}.fluctuation '{fl}' must be one of {', '.join(FLUCTUATIONS)}")
+        if P.get(f"{pre}.band.{b}.rcs_m2") <= 0:
+            raise ValueError(f"{P.path}: {pre}.band.{b}.rcs_m2 must be > 0")
+        v[f"rcs_{b.lower()}"] = float(P.get(f"{pre}.band.{b}.rcs_m2"))
+        v[f"fluct_{b.lower()}"] = fl
+        v[f"depol_{b.lower()}_db"] = float(P.get(f"{pre}.band.{b}.depol_db"))
+    if v["length_m"] <= 0 or v["rotation_dps"] < 0 or v["accel_max_mps2"] < 0 or v["v_close_mps"] <= 0:
+        raise ValueError(f"{P.path}: target class '{name}': length_m and v_close_mps must be > 0, rotation_dps and "
+                         f"accel_max_mps2 >= 0")
+    if v["optics_diameter_m"] < 0 or v["optics_f_ratio"] <= 0 or not 0.0 <= v["optics_retro_eff"] <= 1.0:
+        raise ValueError(f"{P.path}: target class '{name}': optics_diameter_m >= 0, optics_f_ratio > 0, "
+                         f"optics_retro_eff in [0, 1]")
+    return v
+
+
+if DEFAULT_TARGET_TYPE not in TARGET_TYPES:
+    raise ValueError(f"{P.path}: tool.targets.default_type '{DEFAULT_TARGET_TYPE}' is not a class of [targets.*] "
+                     f"({', '.join(TARGET_TYPES)})")
+_DEF = _target_class_values(DEFAULT_TARGET_TYPE)
+
+
 @dataclass(frozen=True)
 class Target:
+    """A target as seen by one look. The first four fields keep the former form Target(name, rcs, swerling, v): the
+    other values then come from the default class (tool.targets.default_type). rcs_m2 is the copolar frontal RCS of the
+    body in S (and in Ku when rcs_ku_m2 is None); swerling = a declared case 0..4, or None = derived from the band's
+    fluctuation family and the coherence time T0 (step 2.4)."""
     name: str
     rcs_m2: float
-    swerling: int
+    swerling: Optional[int]
     v_close_mps: float
+    rcs_ku_m2: Optional[float] = None
+    fluct_s: str = _DEF["fluct_s"]
+    fluct_ku: str = _DEF["fluct_ku"]
+    depol_s_db: float = _DEF["depol_s_db"]
+    depol_ku_db: float = _DEF["depol_ku_db"]
+    length_m: float = _DEF["length_m"]
+    rotation_dps: float = _DEF["rotation_dps"]
+    accel_max_mps2: float = _DEF["accel_max_mps2"]
+    optics_diameter_m: float = _DEF["optics_diameter_m"]
+    optics_f_ratio: float = _DEF["optics_f_ratio"]
+    optics_retro_eff: float = _DEF["optics_retro_eff"]
+    target_type: str = DEFAULT_TARGET_TYPE
+
+    def _ku(self, f_ghz: float) -> bool:
+        band = band_for_frequency(f_ghz)
+        return band is not None and band.name == "Ku"
+
+    def body_rcs_m2(self, f_ghz: float) -> float:
+        return (self.rcs_m2 if self.rcs_ku_m2 is None else self.rcs_ku_m2) if self._ku(f_ghz) else self.rcs_m2
+
+    def optics_rcs_m2(self, f_ghz: float) -> float:
+        """Frontal return of a focusing optic facing the radar (step 2.4, K): the larger of the direct reflection on the
+        concave primary pi (2 f)^2 (geometrical optics) and the cat's-eye retro-reflection eta_r 4 pi A^2 / lambda^2."""
+        if self.optics_diameter_m <= 0.0:
+            return 0.0
+        d = self.optics_diameter_m
+        a = math.pi * d * d / 4.0
+        return max(math.pi * (2.0 * self.optics_f_ratio * d) ** 2,
+                   self.optics_retro_eff * 4.0 * math.pi * a * a / lambda_m(f_ghz) ** 2)
+
+    def rcs_at(self, f_ghz: float) -> float:
+        """Copolar frontal RCS at f: body + seeker optics."""
+        return self.body_rcs_m2(f_ghz) + self.optics_rcs_m2(f_ghz)
+
+    def t0_s(self, f_ghz: float) -> float:
+        """Coherence time T0 = t0_k x lambda / (2 L omega) (step 2.4, B1); infinite for a non-rotating target."""
+        w = math.radians(self.rotation_dps)
+        return math.inf if w <= 0.0 else COH_T0_K * lambda_m(f_ghz) / (2.0 * self.length_m * w)
+
+    def fluctuation(self, f_ghz: float) -> str:
+        return self.fluct_ku if self._ku(f_ghz) else self.fluct_s
+
+    def depol_lin(self, f_ghz: float) -> float:
+        """Cross-polar / copolar RCS ratio rho at f."""
+        return db_to_lin(self.depol_ku_db if self._ku(f_ghz) else self.depol_s_db)
+
+    def swerling_case(self, f_ghz: float) -> int:
+        """Nearest Swerling case of one short look (the declared case, else the family: SW0 0, SW1/2 1, SW3/4 3), for
+        the closed-form confirmation statistics of core/tracking.py."""
+        if self.swerling is not None:
+            return self.swerling
+        return {"SW0": 0, "SW1/2": 1, "SW3/4": 3}[self.fluctuation(f_ghz)]
 
 
-TARGETS: Dict[str, Target] = {
-    name: Target(name, P.get(f"targets.{name}.rcs_m2"), P.get(f"targets.{name}.swerling"),
-                 P.get(f"targets.{name}.v_close_mps"))
-    for name in dict.fromkeys(p.path.split(".")[1] for p in P if p.path.startswith("targets."))
-}
+def _target_of_class(name: str) -> Target:
+    v = _target_class_values(name)
+    return Target(name, v["rcs_s"], None, v["v_close_mps"], rcs_ku_m2=v["rcs_ku"], fluct_s=v["fluct_s"],
+                  fluct_ku=v["fluct_ku"], depol_s_db=v["depol_s_db"], depol_ku_db=v["depol_ku_db"],
+                  length_m=v["length_m"], rotation_dps=v["rotation_dps"], accel_max_mps2=v["accel_max_mps2"],
+                  optics_diameter_m=v["optics_diameter_m"], optics_f_ratio=v["optics_f_ratio"],
+                  optics_retro_eff=v["optics_retro_eff"], target_type=name)
+
+
+TARGETS: Dict[str, Target] = {name: _target_of_class(name) for name in TARGET_TYPES}
+
+# Sector keys overriding a class value (step 2.4, A2); rcs_m2, depol_db and fluctuation apply to both bands.
+SECTOR_TARGET_KEYS = ("target_type", "rcs_m2", "swerling", "fluctuation", "depol_db", "length_m", "rotation_dps",
+                      "accel_max_mps2", "optics_diameter_m", "optics_f_ratio", "optics_retro_eff")
+
+
+def target_for_sector(sec: dict) -> Target:
+    """The target of a sector (step 2.4, A2-A3): its class "target_type" (else the default class, keeping the
+    sector's own rcs_m2 and swerling, default SW1: the former behaviour), then every value the sector gives. The
+    closing speed is the sector's v_close_max_mps."""
+    name = sec.get("target_type")
+    if name is not None and name not in TARGETS:
+        raise ValueError(f"unknown target_type '{name}' (classes: {', '.join(TARGETS)})")
+    base = TARGETS[name or DEFAULT_TARGET_TYPE]
+    kw: Dict[str, object] = {"name": str(sec.get("id", base.name)),
+                             "v_close_mps": float(sec.get("v_close_max_mps", base.v_close_mps))}
+    if name is None:
+        kw.update(rcs_m2=float(sec["rcs_m2"]), rcs_ku_m2=None, swerling=int(sec.get("swerling", 1)))
+    else:
+        if sec.get("rcs_m2") is not None:
+            kw.update(rcs_m2=float(sec["rcs_m2"]), rcs_ku_m2=None)
+        if sec.get("swerling") is not None:
+            kw["swerling"] = int(sec["swerling"])
+    if "fluctuation" in sec:
+        kw.update(fluct_s=sec["fluctuation"], fluct_ku=sec["fluctuation"])
+    if "depol_db" in sec:
+        kw.update(depol_s_db=float(sec["depol_db"]), depol_ku_db=float(sec["depol_db"]))
+    for k in ("length_m", "rotation_dps", "accel_max_mps2", "optics_diameter_m", "optics_f_ratio", "optics_retro_eff"):
+        if k in sec:
+            kw[k] = float(sec[k])
+    return dataclasses.replace(base, **kw)
 
 
 # -----------------------------------------------------------------------------
@@ -918,11 +1085,11 @@ def multibeam_tx_loss_db(b_tx: int) -> float:
     return MB_L8_DB * (math.log2(b_tx) / 3.0) ** MB_P
 
 
-def target_coherence_loss_db(t_block_s: float) -> float:
-    """Provisional target decorrelation over a coherent block: -10 log exp(-(T / t0)^p) (per target type at 2.4)."""
-    if not ENABLE_COH_LOSS or t_block_s <= 0.0:
+def target_coherence_loss_db(t_block_s: float, t0_s: float) -> float:
+    """Target decorrelation over a coherent block: -10 log exp(-(T / T0)^p), T0 of the target class (step 2.4)."""
+    if not ENABLE_COH_LOSS or t_block_s <= 0.0 or math.isinf(t0_s):
         return 0.0
-    return 10.0 * math.log10(math.e) * (t_block_s / COH_T0_S) ** COH_P
+    return 10.0 * math.log10(math.e) * (t_block_s / t0_s) ** COH_P
 
 
 def lo_ssb_dbc_hz(f_hz, carrier_ghz: float):
@@ -943,11 +1110,14 @@ def oscillator_phase_var(f_ghz: float, t_block_s: float, r_km: float, sig_bw_mhz
     return lo + (4.0 * math.pi * PLATFORM_MOTION_RMS_M / lambda_m(f_ghz)) ** 2
 
 
-def coherence_loss_db(f_ghz: float, t_block_s: float, r_km: float = 0.0, sig_bw_mhz: float = 0.0) -> float:
-    """Loss of a coherent block: target decorrelation + oscillator and platform residual phase (4.34 sigma^2)."""
+def coherence_loss_db(f_ghz: float, t_block_s: float, r_km: float = 0.0, sig_bw_mhz: float = 0.0,
+                      target: Optional[Target] = None) -> float:
+    """Loss of a coherent block: target decorrelation (T0 of the target at f; None = the default class) + oscillator
+    and platform residual phase (4.34 sigma^2)."""
     if not ENABLE_COH_LOSS or t_block_s <= 0.0:
         return 0.0
-    return (target_coherence_loss_db(t_block_s)
+    t0 = (target or TARGETS[DEFAULT_TARGET_TYPE]).t0_s(f_ghz)
+    return (target_coherence_loss_db(t_block_s, t0)
             + 10.0 * math.log10(math.e) * oscillator_phase_var(f_ghz, t_block_s, r_km, sig_bw_mhz))
 
 
@@ -1014,19 +1184,106 @@ def velocity_bank(v_span_mps: float, tau_s: float, sig_bw_mhz: float, t_obs_s: f
     return n_hyp, mean, half_eff
 
 
-def coherent_blocks(n: int, pri_s: float, tau_s: float, integration: str, swerling: int) -> Tuple[int, float]:
-    """Number of coherent blocks M (a divisor of N) and the block duration (step 2.2, A7): NONCOHERENT or a fast-
-    fluctuating target (SW2 / SW4) = pulse by pulse; COHERENT = the M minimising SNR_req(M noncoherent blocks) +
-    target coherence loss of one block (the oscillator term is negligible and left out of the choice)."""
-    if integration != "COHERENT" or n == 1 or swerling not in (0, 1, 3):
+def _quantise_shape(k: float) -> float:
+    """Gamma shape rounded to 1/100 of a decade (2.3 % steps, a few 0.01 dB): bounded number of detection laws."""
+    return k if math.isinf(k) or k <= 0.0 else float(10.0 ** (round(math.log10(k) * 100.0) / 100.0))
+
+
+def diversity_factor(target: Target, f_ghz: float) -> float:
+    """Polarisation diversity of the two receive channels (step 2.4, E2): the copolar and cross-polar returns fluctuate
+    independently, so the degrees of freedom grow by (1 + rho)^2 / (1 + rho^2), rho = cross / copolar RCS. 1 with a
+    single-polarisation receiver."""
+    band = band_for_frequency(f_ghz)
+    if band is None or not band.pol_rx_dual:
+        return 1.0
+    rho = target.depol_lin(f_ghz)
+    return (1.0 + rho) ** 2 / (1.0 + rho * rho)
+
+
+def look_fluctuation(target: Target, f_ghz: float, swerling: Optional[int], n_samples: int,
+                     t_obs_s: float) -> detection.Fluct:
+    """Fluctuation of a look of n_samples noncoherent samples spread over t_obs_s (step 2.4, B3 + E2), as the Gamma
+    shape of the target power: a declared Swerling case (k = 1, 2, n or 2n, infinite for SW0), else the band's family
+    x the independent samples min(n, 1 + T_obs / T0) (SW1/2: 1 per sample, SW3/4: 2, SW0: steady); times the
+    polarisation diversity."""
+    if swerling is not None:
+        k = detection.shape_of(swerling, n_samples)
+    else:
+        base = FLUCTUATIONS[target.fluctuation(f_ghz)]
+        t0 = target.t0_s(f_ghz)
+        k = base * min(float(n_samples), 1.0 + (0.0 if math.isinf(t0) else t_obs_s / t0))
+    return detection.Fluct(_quantise_shape(k * diversity_factor(target, f_ghz)))
+
+
+def coherent_blocks(n: int, pri_s: float, tau_s: float, integration: str, swerling: Optional[int],
+                    target: Optional[Target] = None, f_ghz: Optional[float] = None) -> Tuple[int, float]:
+    """Number of coherent blocks M (a divisor of N) and the block duration (step 2.2, A7): NONCOHERENT or a declared
+    fast-fluctuating case (SW2 / SW4) = pulse by pulse; COHERENT = the M minimising SNR_req(M noncoherent blocks, with
+    the look's fluctuation over M blocks, step 2.4) + target coherence loss of one block (T0 of the target at f; the
+    oscillator term is negligible and left out of the choice). target None = the default class, f None = the CLI
+    frequency."""
+    if integration != "COHERENT" or n == 1 or swerling in (2, 4):
         return n, tau_s
+    tgt = target or TARGETS[DEFAULT_TARGET_TYPE]
+    f = FREQUENCY_GHZ if f_ghz is None else f_ghz
+    t0 = tgt.t0_s(f)
+    t_span = (n - 1) * pri_s + tau_s
     best = None
     for m in (d for d in range(1, n + 1) if n % d == 0):
         t_b = (n // m - 1) * pri_s + tau_s
-        cost = shnidman_total_snr_db(DETECT_PD, DETECT_PFA, m, swerling) + target_coherence_loss_db(t_b)
+        cost = (shnidman_total_snr_db(DETECT_PD, DETECT_PFA, m, look_fluctuation(tgt, f, swerling, m, t_span))
+                + target_coherence_loss_db(t_b, t0))
         if best is None or cost < best[0] - 1e-12:
             best = (cost, m, t_b)
     return best[1], best[2]
+
+
+def acceleration_loss_db(a_mps2: float, f_ghz: float, t_block_s: float, t_span_s: float, sig_bw_mhz: float,
+                         coherent: bool) -> float:
+    """Loss of a filter matched to the wrong line-of-sight acceleration a (step 2.4, C1): quadratic phase over a
+    coherent block, 2 pi (a T_b^2 / lambda) x^2 (same law as the velocity mismatch, 2.1), plus the range curvature
+    over the dwell left by the linear (velocity) compensation, a T^2 / 8 in cells c / 2B (walk law of 2.2)."""
+    if a_mps2 <= 0.0:
+        return 0.0
+    dr = C_MPS / (2.0 * sig_bw_mhz * 1e6)
+    phase = _quadratic_phase_loss_db(a_mps2 * t_block_s ** 2 / lambda_m(f_ghz)) if t_block_s > 0 else 0.0
+    return phase + walk_loss_db(a_mps2 * t_span_s ** 2 / (8.0 * dr), coherent)
+
+
+@functools.lru_cache(maxsize=1)
+def _quadratic_phase_table() -> Tuple[np.ndarray, np.ndarray]:
+    n = np.linspace(0.0, 16.0, 3201)
+    x = (np.arange(4001) + 0.5) / 4001 - 0.5              # same sampling as velocity_mismatch_loss_db
+    loss = np.concatenate([-20.0 * np.log10(np.abs(np.exp(2j * math.pi * c[:, None] * x * x).mean(axis=1)))
+                           for c in np.array_split(n, 16)])
+    return n, loss
+
+
+def _quadratic_phase_loss_db(n_c: float) -> float:
+    """velocity_mismatch_loss_db interpolated on a 0.005 grid up to n_c = 16 (exact beyond): the acceleration bank
+    evaluates it for continuous values (step 2.4)."""
+    grid, loss = _quadratic_phase_table()
+    return float(np.interp(n_c, grid, loss)) if n_c <= grid[-1] else velocity_mismatch_loss_db(round(n_c, 6))
+
+
+@functools.lru_cache(maxsize=1 << 14)
+def acceleration_bank(a_max_mps2: float, f_ghz: float, t_block_s: float, t_span_s: float, sig_bw_mhz: float,
+                      coherent: bool) -> Tuple[int, float]:
+    """Acceleration hypotheses over +/- a_max (step 2.4, C2): none while a_max itself costs at most BANK_MAX_LOSS_DB
+    (mean loss over a uniform in [0, a_max] to the budget), else a bank whose step leaves BANK_MAX_LOSS_DB at half a
+    step (mean loss over the half step). Returns (hypotheses, mean loss dB); they multiply the velocity hypotheses."""
+    if a_max_mps2 <= 0.0:
+        return 1, 0.0
+    f = lambda a: acceleration_loss_db(a, f_ghz, t_block_s, t_span_s, sig_bw_mhz, coherent)   # noqa: E731
+    half = a_max_mps2
+    if f(a_max_mps2) > BANK_MAX_LOSS_DB:
+        lo, hi = 0.0, a_max_mps2
+        for _ in range(50):
+            mid = 0.5 * (lo + hi)
+            lo, hi = (mid, hi) if f(mid) <= BANK_MAX_LOSS_DB else (lo, mid)
+        half = max(lo, 1e-12)
+    n_hyp = max(1, int(math.ceil(a_max_mps2 / half - 1e-9)))
+    return n_hyp, float(np.mean([f(a) for a in np.linspace(0.0, half, 21)]))
 
 
 def _sampled_mean_loss_db(response, half: float) -> float:
@@ -1070,9 +1327,52 @@ def cfar_loss_db(n_ref: int = CFAR_REF_CELLS, pfa: Optional[float] = None) -> fl
     alpha = N (Pfa^(-1/N) - 1), Pd = (1 + alpha / (N (1 + S)))^(-N), against the known-noise SNR ln Pfa / ln Pd - 1."""
     pfa = DETECT_PFA if pfa is None else pfa
     ideal = math.log(pfa) / math.log(DETECT_PD) - 1.0
+    if CFAR_TYPE == "OS":
+        return os_cfar_loss_db(n_ref, pfa)
     alpha = n_ref * (pfa ** (-1.0 / n_ref) - 1.0)
     s = alpha / (n_ref * (DETECT_PD ** (-1.0 / n_ref) - 1.0)) - 1.0
     return 10.0 * math.log10(s / ideal)
+
+
+@functools.lru_cache(maxsize=64)
+def os_cfar_loss_db(n_ref: int = CFAR_REF_CELLS, pfa: Optional[float] = None) -> float:
+    """OS-CFAR loss (step 2.4, D3), exact for Swerling 1 on one sample: the threshold is T x the k-th smallest of the
+    N reference cells, k = CFAR_OS_RANK_FRAC x N; Pfa(T) = prod_{i<k} (N - i) / (N - i + T) and Pd = Pfa(T / (1 + S)),
+    against the known-noise SNR ln Pfa / ln Pd - 1. Robust to neighbouring targets in the reference window."""
+    pfa = DETECT_PFA if pfa is None else pfa
+    k = min(n_ref, max(1, int(round(CFAR_OS_RANK_FRAC * n_ref))))
+    i = np.arange(k)
+
+    def log_p(t: float) -> float:
+        return float(np.sum(np.log((n_ref - i) / (n_ref - i + t))))
+
+    def solve_t(target_log: float) -> float:
+        lo, hi = 0.0, 1.0
+        while log_p(hi) > target_log:
+            hi *= 2.0
+        for _ in range(200):
+            mid = 0.5 * (lo + hi)
+            lo, hi = (mid, hi) if log_p(mid) > target_log else (lo, mid)
+        return 0.5 * (lo + hi)
+
+    t = solve_t(math.log(pfa))
+    s = t / solve_t(math.log(DETECT_PD)) - 1.0
+    return 10.0 * math.log10(s / (math.log(pfa) / math.log(DETECT_PD) - 1.0))
+
+
+@functools.lru_cache(maxsize=32)
+def masking_levels_db(psl_db: float, doppler: bool) -> Dict[str, Dict[str, float]]:
+    """Masking by a strong neighbour (step 2.4, D1-D2, output only: the scene is not known): envelope of the strong
+    target's response (dB under its peak) at MASKING_OFFSETS_CELLS cells or more, in range (compressed pulse with the
+    look's weighting) and in Doppler (unweighted transform of a coherent block, doppler_window 'none'). A target
+    fainter than the neighbour by more than this, that far or farther, may be hidden."""
+    u = np.arange(0.0, 12.0, 0.005)
+    rng = 10.0 * np.log10(np.maximum(_range_response(psl_db)(u), 1e-30))
+    out = {"range": {f"{k} cells": float(rng[u >= k].max()) for k in MASKING_OFFSETS_CELLS}}
+    if doppler:
+        dop = 10.0 * np.log10(np.maximum(np.sinc(u) ** 2, 1e-30))
+        out["doppler"] = {f"{k} cells": float(dop[u >= k].max()) for k in MASKING_OFFSETS_CELLS}
+    return out
 
 
 # -----------------------------------------------------------------------------
@@ -1163,10 +1463,11 @@ def range_weighting(psl_db: float) -> Dict[str, float]:
         den = np.prod([1.0 - m ** 2 / k ** 2 for k in ms if k != m])
         w += 2.0 * (-1) ** (m + 1) * num / (2.0 * den) * np.cos(2.0 * math.pi * m * x)
     u = np.arange(0.0, 1.5, 1e-4)                     # main lobe, in resolution cells (1 / pulse spectrum width)
-    cu = np.cos(2.0 * math.pi * np.outer(u, x))
 
     def half_power(win: np.ndarray) -> float:
-        g = (cu @ win / win.sum()) ** 2
+        # row blocks of cos(2 pi u x) @ win: same values, without a 15000 x 4096 matrix in memory
+        g = np.concatenate([np.cos(2.0 * math.pi * np.outer(c, x)) @ win for c in np.array_split(u, 30)])
+        g = (g / win.sum()) ** 2
         i = int(np.argmax(g < 0.5))
         return float(np.interp(0.5, [g[i], g[i - 1]], [u[i], u[i - 1]]))
 
@@ -1275,16 +1576,17 @@ def albersheim_total_snr_db(pd: float, pfa: float, n: int) -> float:
     return per_pulse_db + 10.0 * math.log10(n)
 
 
-def shnidman_total_snr_db(pd: float, pfa: float, n: int, swerling: int) -> float:
+def shnidman_total_snr_db(pd: float, pfa: float, n: int, swerling: "detection.Fluctuation") -> float:
     """Shnidman empirical fit; returns the SNR required on the TOTAL energy of n noncoherently
-    integrated pulses (= n x per-pulse SNR). Cases 0..4 (0 = steady)."""
+    integrated pulses (= n x per-pulse SNR). Cases 0..4 (0 = steady), or a Gamma shape detection.Fluct(k) (step 2.4:
+    the fit is written in k)."""
     if not (0.1 <= pd <= 0.99) or not (1e-9 <= pfa <= 1e-2) or n < 1:
         raise ValueError("Shnidman fit outside validity range")
     eta = math.sqrt(-0.8 * math.log(4.0 * pfa * (1.0 - pfa))) \
         + (1.0 if pd > 0.5 else -1.0) * math.sqrt(-0.8 * math.log(4.0 * pd * (1.0 - pd)))
     alpha = 0.25 if n > 40 else 0.0
     x_inf = eta * (eta + 2.0 * math.sqrt(n / 2.0 + (alpha - 0.25)))
-    k = {0: math.inf, 1: 1.0, 2: float(n), 3: 2.0, 4: 2.0 * n}[swerling]
+    k = detection.shape_of(swerling, n)
     c_db = 0.0
     if math.isfinite(k):
         c1 = (((17.7006 * pd - 18.4496) * pd + 14.5339) * pd - 3.525) / k
@@ -1304,9 +1606,9 @@ def detect_snr_req_db(integration: str, n: int, swerling: int, blocks: Optional[
     return shnidman_total_snr_db(DETECT_PD, DETECT_PFA, n, swerling)
 
 
-def pol_recombination_loss_db(band: BandConfig, role: str, n_nc: int, swerling: int,
+def pol_recombination_loss_db(band: BandConfig, role: str, n_nc: int, swerling: "detection.Fluctuation",
                               pfa: Optional[float] = None) -> float:
-    """Polarisation loss of a look (step 1.5). Dual-pol RX: a detection look recombines the two channels by the GLRT
+    """Polarisation loss of a look (step 1.5; swerling = a case 0..4 or the look's Gamma shape since step 2.4). Dual-pol RX: a detection look recombines the two channels by the GLRT
     on the unknown polarisation of the echo, estimated over the whole dwell (one more unknown complex amplitude):
     SNR_req(n_nc + 1) - SNR_req(n_nc), n_nc = samples integrated noncoherently (the coherent blocks since step 2.2;
     exact laws at the look's Pfa since step 2.3, core/detection.py); a TRACK look knows the polarisation from the
@@ -1512,20 +1814,24 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
         if wf.sig_bw_mhz > b_fill:
             raise ValueError(f"{wf.name}: {wf.sig_bw_mhz:g} MHz exceeds the aperture-fill bandwidth {b_fill:.0f} MHz "
                              f"at {theta_deg} deg (no true-time delay)")
-    sw = wf.swerling if wf.swerling is not None else target.swerling
+    sw = wf.swerling if wf.swerling is not None else target.swerling     # None = derived from the class (step 2.4)
     psl = range_psl_db(rx_sll_db)
     mod = wf.modulation or modulation_for(f_ghz, wf.sig_bw_mhz, target.v_close_mps)
     wgt = range_weighting(psl)
 
-    n_blocks, t_block = coherent_blocks(wf.n, wf.pri_s, wf.tau_s, wf.integration, sw)
+    n_blocks, t_block = coherent_blocks(wf.n, wf.pri_s, wf.tau_s, wf.integration, sw, target, f_ghz)
     ppb = wf.n // n_blocks                                     # pulses per coherent block (Doppler cells)
     t_span = wf.dwell_s
+    fl = look_fluctuation(target, f_ghz, sw, n_blocks, t_span)   # Gamma shape of the look (step 2.4, B3 + E2)
     pfa_l = DETECT_PFA if pfa is None else float(pfa)
     # velocity bank (COMPENSATED migration): over the span, one hypothesis on a TRACK look (step 2.2)
     span = (target.v_close_mps if v_span_mps is None else float(v_span_mps)) if wf.role != "TRACK" else 0.0
     n_hyp, bank_half = 1, 0.0
     if MIGRATION_MODE.upper() == "COMPENSATED":
         n_hyp, _, bank_half = velocity_bank(round(span, 6), wf.tau_s, wf.sig_bw_mhz, t_span, wf.n, n_blocks == 1)
+    # acceleration (step 2.4, C1-C2): bank over +/- a_max; a TRACK look knows it from the track (optimistic until 3.3)
+    a_max = target.accel_max_mps2 if wf.role != "TRACK" else 0.0
+    n_acc, acc_loss = acceleration_bank(a_max, f_ghz, t_block if ppb > 1 else 0.0, t_span, wf.sig_bw_mhz, n_blocks == 1)
     search = wf.role in ("SEARCH", "TWS")
     sll_key = RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
     pos_l, pos_w, pos_parts = position_losses(band.name, sll_key, psl, search, ppb > 1,
@@ -1533,8 +1839,8 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     q = cum[0] * cum[1] / (cum[2] * 1e3) if (cum is not None and search) else 0.0
     if wf.role in DETECT_ROLES:
         # exact law (step 2.3), n = coherent blocks integrated noncoherently, Pd averaged over the position
-        snr_db = detection.required_snr_db(n_blocks, sw, pfa_l, DETECT_PD, q=q, floor=CUM_PD_FLOOR)
-        positions_db = detection.required_snr_db(n_blocks, sw, pfa_l, DETECT_PD, pos_l, pos_w, q, CUM_PD_FLOOR) - snr_db
+        snr_db = detection.required_snr_db(n_blocks, fl, pfa_l, DETECT_PD, q=q, floor=CUM_PD_FLOOR)
+        positions_db = detection.required_snr_db(n_blocks, fl, pfa_l, DETECT_PD, pos_l, pos_w, q, CUM_PD_FLOOR) - snr_db
         driver = ("Detect-CUM-" if q > 0 else "Detect-") + wf.integration[:4]
     else:
         snr_lin, dom = tracking_snr_req(wf.tracking_pack, f_ghz, theta_deg, wf.dwell_s, wf.sig_bw_mhz,
@@ -1546,7 +1852,10 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     losses["compression"] = compression_loss_db(mod, f_ghz, wf.sig_bw_mhz, target.v_close_mps, psl)
     if wf.staggered and wf.n > 1:
         losses["eclipsing"] = eclipsing_loss_db(band, wf.tau_s, wf.pri_s)
-    losses["polarisation"] = pol_recombination_loss_db(band, wf.role, n_blocks, sw, pfa_l)
+    losses["polarisation"] = pol_recombination_loss_db(band, wf.role, n_blocks, fl, pfa_l)
+    # the dual-pol receiver also collects the cross-polar return of the target: x (1 + rho) (step 2.4, E1)
+    rho = target.depol_lin(f_ghz) if band.pol_rx_dual else 0.0
+    losses["target_depolarisation"] = -10.0 * math.log10(1.0 + rho)
     x_buf = 0.0
     if band.e_buf_trm_j > 0:
         x_buf = pulse_elec_energy_trm_j(wf) / band.e_buf_trm_j
@@ -1561,7 +1870,8 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     losses["cfar"] = cfar_loss_db(CFAR_REF_CELLS, pfa_l)
     r_listen_km = C_MPS * wf.pri_s / 2.0 / 1000.0          # oscillator round trip at the listening range (upper bound)
     if ppb > 1:
-        losses["coherence"] = coherence_loss_db(f_ghz, t_block, r_listen_km, wf.sig_bw_mhz)
+        losses["coherence"] = coherence_loss_db(f_ghz, t_block, r_listen_km, wf.sig_bw_mhz, target)
+    losses["acceleration"] = acc_loss
     # migration: compensation residual (the velocity-filter offset is in 'positions'), or the uncompensated law
     dr = C_MPS / (2.0 * wf.sig_bw_mhz * 1e6)
     n_cells = 1.0 + target.v_close_mps * t_span / dr
@@ -1575,7 +1885,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     g_rx = gain_lin(rx_beam(band.name, rx_sll_db).eta, f_ghz, theta_deg)
     p_beam = band.p_pk_total_w / wf.b_tx
     t_sys = band.t_sys_k if t_sys_k is None else float(t_sys_k)
-    num = p_beam * g_tx * g_rx * lambda_m(f_ghz) ** 2 * target.rcs_m2 * wf.tau_s * wf.n
+    num = p_beam * g_tx * g_rx * lambda_m(f_ghz) ** 2 * target.rcs_at(f_ghz) * wf.tau_s * wf.n
     den = (4.0 * math.pi) ** 3 * K_BOLTZ * t_sys * db_to_lin(l_tot) * db_to_lin(snr_db)
     r_km = (num / den) ** 0.25 / 1000.0
 
@@ -1609,8 +1919,16 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
              "pfa": pfa_l, "criterion": "cumulative" if q > 0 else "single look", "look_spacing_q": q,
              "position_losses_mean_db": pos_parts,
              "pd_per_look_at_range": float(np.interp(snr_db + positions_db, detection.SNR_GRID_DB,
-                                                     detection.mean_curve(n_blocks, sw, pfa_l, pos_l, pos_w)))
-             if wf.role in DETECT_ROLES else None}
+                                                     detection.mean_curve(n_blocks, fl, pfa_l, pos_l, pos_w)))
+             if wf.role in DETECT_ROLES else None,
+             # target model (step 2.4)
+             "target": {"type": target.target_type, "rcs_m2": target.rcs_at(f_ghz),
+                        "optics_rcs_m2": target.optics_rcs_m2(f_ghz), "t0_s": target.t0_s(f_ghz),
+                        "swerling": sw, "fluctuation": target.fluctuation(f_ghz) if sw is None else f"SW{sw}",
+                        "gamma_shape": fl.k, "depol_db": lin_to_db(target.depol_lin(f_ghz)),
+                        "diversity": diversity_factor(target, f_ghz)},
+             "acceleration_max_mps2": a_max, "acceleration_hypotheses": n_acc,
+             "masking_db": masking_levels_db(psl, ppb > 1)}
     return Result(wf, target, snr_db, driver, r_km, losses, l_tot, p_avg_used, p_avg_max,
                   C_MPS * wf.pri_s / 2.0 / 1000.0, n_cells, frame, eta, trm_dissipation_w(wf), t_sys, pulse)
 
@@ -1624,9 +1942,12 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
     print("=" * 100)
     print(f" RADAR PERFORMANCE MODEL V{MODEL_VERSION}")
     print("=" * 100)
-    print(f"Frequency {f_ghz} GHz | scan {theta_deg} deg | target {tgt.name} "
-          f"(RCS {tgt.rcs_m2} m2, SW{tgt.swerling}, {tgt.v_close_mps:.0f} m/s) | "
+    print(f"Frequency {f_ghz} GHz | scan {theta_deg} deg | target {tgt.name} | "
           f"Pd {DETECT_PD}, Pfa {DETECT_PFA:g} | face electrical power {elec_mw} MW")
+    if band is not None:
+        print("Target classes (class means; frontal copolar RCS, fluctuation, T0, depolarisation, LOS acceleration): "
+              + " | ".join(f"{n} {t.rcs_at(f_ghz):.4g} m2 {t.fluctuation(f_ghz)} T0 {t.t0_s(f_ghz):.2f} s "
+                           f"{lin_to_db(t.depol_lin(f_ghz)):g} dB {t.accel_max_mps2:g} m/s2" for n, t in TARGETS.items()))
     if band is None:
         print(f"-> {f_ghz} GHz is outside every band (S {_S_LO}-{_S_HI}, Ku {_KU_LO}-{_KU_HI} GHz). Nothing playable.")
         return
@@ -1643,7 +1964,7 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
           f"{band.noise_ant_dbm + band.gain_to_adc_db - P.get(f'band.{band.name}.rx.adc_fullscale_dbm'):.1f} dBFS | "
           f"clipping {band.clip_ant_dbm:.1f} dBm at the element, {band.clip_headroom_db:.1f} dB above the noise | LNA P1dB "
           f"{band.lna_p1db_ant_dbm:.1f} dBm | limiter recovery {band.limiter_recovery_s * 1e9:.0f} ns | unsaturated beyond "
-          + ", ".join(f"{n} {min_unsaturated_range_km(f_ghz, 0.0, t.rcs_m2):.1f} km" for n, t in TARGETS.items()))
+          + ", ".join(f"{n} {min_unsaturated_range_km(f_ghz, 0.0, t.rcs_at(f_ghz)):.1f} km" for n, t in TARGETS.items()))
     rx = rx_beam(band.name)
     print(f"Gain TX {lin_to_db(gain_lin(band.eta_illum_tx, f_ghz, theta_deg)):.2f} dBi | "
           f"RX {lin_to_db(gain_lin(rx.eta, f_ghz, theta_deg)):.2f} dBi (sidelobes {RX_SLL_DEFAULT_DB:g} dB, eta "
@@ -1681,7 +2002,8 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
     print("-" * 100)
     for w in wfs:
         r = solve(w, f_ghz, theta_deg, tgt, elec_mw)
-        print(f"{w.name} [{w.role}, {w.band}, {w.integration}, SW{w.swerling if w.swerling is not None else tgt.swerling}] "
+        tg = r.pulse["target"]
+        print(f"{w.name} [{w.role}, {w.band}, {w.integration}, {tg['fluctuation']} -> Gamma shape {tg['gamma_shape']:.3g}] "
               f"tau {w.tau_s*1e6:.0f} us, N {w.n}, PRI {w.pri_s*1e3:.1f} ms, B {w.sig_bw_mhz:.0f} MHz, Btx {w.b_tx}")
         print(f"  Required SNR (total energy): {r.snr_req_db:.2f} dB   driver: {r.driver}")
         print(f"  Range on {tgt.name}: {r.range_km:,.0f} km")
@@ -1698,6 +2020,10 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
               f"({pu['block_s'] * 1e3:.1f} ms) | velocity bank {pu['velocity_hypotheses']} hypotheses over "
               f"{pu['velocity_span_mps']:.0f} m/s | Doppler floor "
               + (", ".join(f"{k} {v:.0f} dBc" for k, v in pu['doppler_floor_dbc'].items()) or "-"))
+        print(f"  Target: T0 {tg['t0_s']:.2f} s | diversity x{tg['diversity']:.3f} | acceleration {pu['acceleration_max_mps2']:g} "
+              f"m/s2 -> {pu['acceleration_hypotheses']} hypotheses | masking by a strong neighbour (dB under its peak): "
+              + " ; ".join(f"{dim} " + ", ".join(f"{k} {v:.1f}" for k, v in lv.items())
+                           for dim, lv in pu["masking_db"].items()))
         print(f"  Electrical power: {r.p_avg_used_w/1e3:.1f} kW used of {r.p_avg_max_w/1e3:.0f} kW available "
               f"({100*r.p_avg_used_w/r.p_avg_max_w:.1f} %) | duty {100*w.duty:.2f} % | PAE {r.pae:.3f} | "
               f"TRM heat {r.p_diss_trm_w:.1f} W during the dwell")
@@ -1793,16 +2119,22 @@ def selftest() -> int:
     lam = C_MPS / 2.8e9
     gt = 4 * math.pi * PHYS_AREA_M2 * 1.0 * ETA_OHMIC / lam ** 2
     gr = 4 * math.pi * PHYS_AREA_M2 * PATTERNS["S"].rx[-25.0].eta * ETA_OHMIC / lam ** 2
-    pol_glrt = detection.snr_req_db(25, 1, DETECT_PFA, DETECT_PD) - detection.snr_req_db(24, 1, DETECT_PFA, DETECT_PD)
+    # step 2.4: ST (L 10 m, 0.1 deg/s, SW1/2, depol -10 dB): T0 = lambda / (2 L omega), 1 + dwell / T0 independent
+    # samples over the 24 pulses, x the polarisation diversity (1 + rho)^2 / (1 + rho^2); cross-polar energy 1 + rho
+    rho = 0.1
+    lam_st = C_MPS / 2.8e9
+    t0_st = lam_st / (2.0 * 10.0 * math.radians(0.1))
+    fl_st = detection.Fluct(_quantise_shape(min(24.0, 1.0 + WF_LRS.dwell_s / t0_st) * (1 + rho) ** 2 / (1 + rho ** 2)))
+    pol_glrt = detection.snr_req_db(25, fl_st, DETECT_PFA, DETECT_PD) - detection.snr_req_db(24, fl_st, DETECT_PFA, DETECT_PD)
     # finite precision, calibration, Ku_blockage, TX_chain, pol, compression (NLFM: f_d 93 kHz << 2 % of 75 MHz); the
     # pre-LNA path is in T_sys; CA-CFAR; compensation residual. Step 2.3: exact law, Pd averaged over the position of
     # the target (search grid, range straddle, velocity filter over 0-5 km/s; checked on their own in the tests)
-    l_db = (0.3 + 0.5 + 0.2 + 0.6 + pol_glrt + 0.1) + cfar_loss_db() + MIGRATION_RESIDUAL_DB
+    l_db = (0.3 + 0.5 + 0.2 + 0.6 + pol_glrt + 0.1) + cfar_loss_db() + MIGRATION_RESIDUAL_DB - 10 * math.log10(1 + rho)
     l_db += -20 * math.log10(1 - ((1 - math.cos(math.radians(45))) / (1 + math.cos(math.radians(45)))) ** 2)   # WAIM
     l_db += -10 * math.log10(1 - (2000 * 200.2e-6 / 0.8 / 25.0) / 2) + MB_L8_DB * (2.0 / 3.0) ** MB_P
     half = velocity_bank(5000.0, 200e-6, 75.0, WF_LRS.dwell_s, 24, False)[2]
     law = position_losses("S", -25.0, -25.0, True, False, (round(half, 9), 200e-6, 75.0, WF_LRS.dwell_s, 24, False))
-    snr_mean_db = detection.required_snr_db(24, 1, DETECT_PFA, DETECT_PD, law[0], law[1])
+    snr_mean_db = detection.required_snr_db(24, fl_st, DETECT_PFA, DETECT_PD, law[0], law[1])
     check("Step 2.2 processing terms: CA-CFAR 0.04 dB (1024 cells), range straddle 0.05 dB (x4 grid, -25 dB), Doppler "
           "straddle 0.07 dB (x4 padding)", abs(cfar_loss_db() - 0.039) < 0.002 and abs(straddle_range_db(-25.0) - 0.054)
           < 0.005 and abs(straddle_doppler_db() - 0.07) < 0.005,

@@ -145,10 +145,10 @@ Procédure d'une étape :
 | Outil | `pytest`, déclaré dans `requirements-dev.txt`. |
 | Famille 1 : valeurs figées | `tests/test_snapshots.py`. Toutes les sorties numériques de l'outil sont comparées avec une **tolérance relative de 1e-9**. |
 | Famille 2 : physique et invariants | `tests/test_physics.py`. Lois qui doivent tenir quelles que soient les valeurs : R ∝ σ^¼, R ∝ P^¼, cohérence du nombre de pointages, du cache, de la borne de Cramér-Rao, des options de lobes, etc. Le self-test du modèle est conservé. |
-| Missions de test | `mission_example` (en JSON et en CSV), `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`, `mission_sky_demo` (étape 1.5 : un ciel avec le Soleil, la Lune, le limbe de la Terre et un repère galactique). Les deux premières ont été récupérées dans l'historique git. |
+| Missions de test | `mission_example` (en JSON et en CSV), `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`, `mission_sky_demo` (étape 1.5 : un ciel avec le Soleil, la Lune, le limbe de la Terre et un repère galactique), `mission_target_library` (étape 2.4 : un secteur par classe de cible, plus un KKV surchargé). Les deux premières ont été récupérées dans l'historique git. |
 | Rapport d'impact | `python tests/impact_report.py`, à chaque étape, avant de régénérer les valeurs figées : chiffres clés, et pour chaque mission de test les formes d'onde de veille et les modes de confirmation qui changent. |
 | Régénération | `python tests/update_snapshots.py`. Chaque régénération est consignée dans `tests/snapshots/JOURNAL.md`, avec sa cause et les formes d'onde ou modes qui ont changé. |
-| État | 108 tests passent après l'étape 2.3. |
+| État | 117 tests passent après l'étape 2.4 (la suite prend environ 30 minutes sur ce poste). |
 
 ---
 
@@ -430,15 +430,30 @@ TX_chain Ku dérivée = 0,2 + 0,45 + 0,1 + 0,2 = **0,95 dB**.
 | `cal_coupler_db` | 0,1 dB |
 | `line_to_element_db` | 0,2 dB |
 
-### 5.13 `[targets.*]` : cibles de référence
+### 5.13 `[targets.*]` : bibliothèque de cibles (étape 2.4)
 
-Elles ne servent qu'au rapport en ligne de commande et aux tests. Une mission utilise la SER, le cas de Swerling et la vitesse propres à chaque secteur. Une bibliothèque de menaces est prévue à l'étape 5.1.
+Une table par **classe** de cible. Ce sont des **valeurs moyennes de classe**, pas la fiche d'une arme précise : l'armement de l'adversaire n'est pas connu, et toutes les valeurs d'une plage plausible sont possibles (décision de l'utilisateur). Pour une menace, la valeur retenue est le milieu de la plage ; le bout optimiste reste réservé à nos technologies. Un secteur désigne une classe (clé `target_type`) et peut surcharger n'importe quelle valeur (§9.2). **Une classe s'ajoute ou se modifie dans le fichier seul**, sans toucher au code ; le chargeur refuse une classe incomplète avec un message clair.
 
-| Cible | SER | Swerling | Vitesse de rapprochement | Statuts et justification |
-|---|---|---|---|---|
-| ST (cible standard) | 1000 m² | 1 | 5000 m/s | V, V, V |
-| KKV | 0,135 m² | 1 | 25 000 m/s | SER V (milieu de 0,12 à 0,15 m²) ; Swerling D (supposé, modèles de cible à l'étape 2.4) ; vitesse V (15 km/s de croisement maximal en orbite basse + 7 km/s de vitesse terminale du KKV + marge) |
-| SHIP | 3000 m² | 1 | 5000 m/s | SER V (SER latérale) ; Swerling D et vitesse D (étape 2.4) |
+Schéma d'une classe :
+- `[targets.<NOM>]` : `v_close_mps`, `length_m` (L), `rotation_dps` (ω), `accel_max_mps2` (accélération sur la ligne de visée) ; facultatives : `optics_diameter_m`, `optics_f_ratio`, `optics_retro_eff` (absentes = pas d'optique) ;
+- `[targets.<NOM>.band.S]` et `[targets.<NOM>.band.Ku]` : `rcs_m2` (SER **copolaire**, selon e_v, **frontale** : l'aspect d'une cible qui se rapproche), `fluctuation` ("SW0" stable, "SW1/2" nombreux réflecteurs, "SW3/4" un réflecteur dominant), `depol_db` (SER croisée / copolaire).
+
+Rôles : **ST** est la cible conventionnelle de **référence** (banc WF-LRS, self-test, rapport en ligne de commande), pas une classe de menace. **GENERIC** complète un secteur qui ne désigne aucune classe (`tool.targets.default_type`).
+
+| Classe | v (km/s) | L (m) | ω (°/s) | a_max | SER frontale S / Ku | Fluctuation | Dépol. | T₀ S / Ku |
+|---|---|---|---|---|---|---|---|---|
+| ST (référence) | 5 | 10 | 0,1 | 0 | 1 000 / 1 000 m² | SW1/2 | −10 dB | 3,1 / 0,6 s |
+| GENERIC | 10 (toujours surchargée) | 3 | 1 | 1 g | 1 / 1 m² (toujours surchargée) | SW1/2 | −10 dB | 1,0 / 0,20 s |
+| KKV | 25 | 1,5 | 1 | 10 g | corps 0,135 + optique, soit **1,27 / 13,8 m²** | SW3/4 | −20 dB | 2,0 / 0,41 s |
+| SHIP | 5 | 100 | 0,1 | 1 g | **300 / 300 m²** (frontale ; 3 000 m² en latéral) | SW1/2 | −6 dB | 0,31 / 0,06 s |
+| DEBRIS | 15 | 0,5 | 10 (culbute) | 0 | 0,01 / 0,01 m² | SW1/2 | −3 dB | 0,61 / 0,12 s |
+| DECOY | 25 | 1,5 | 0,5 | 0 | 0,135 / 0,135 m² | SW0 (ballon) | −20 dB | 4,1 / 0,82 s |
+
+Toutes ces valeurs sont V (étape 2.4). Justifications :
+- **KKV** : la face avant est un **autodirecteur IR à miroir de grand diamètre** (concept proche du KKV de l'intercepteur GBI), métallique donc conducteur parfait aux fréquences radar, et pointé vers sa cible. Composante optique (moyennes de classe) : D = 0,3 m (milieu de 0,2 à 0,4), f/D = 1 (0,8 à 1,5), fraction rétroréfléchie par l'ensemble focal η_r = 0,1 (moyenne logarithmique de 0,01 à 1), sans contre-mesure RF. Une contre-mesure, ou un leurre qui imite l'optique, se décrit par une surcharge de secteur. Le réflecteur dominant donne SW3/4 dans les deux bandes ; sa réflexion spéculaire garde la polarisation (−20 dB). En S, le miroir ne mesure que 2 à 4 λ (zone de résonance) : c'est un ordre de grandeur.
+- **SHIP** : SER frontale de 300 m² (décision de l'utilisateur).
+- **DECOY** : imite le corps du KKV sans son retour optique ; stable et peu dépolarisant, ce qui servira à la discrimination (étape 3.3).
+- **ST** : mêmes SER et famille dans les deux bandes, pour la continuité du banc de référence.
 
 ### 5.14 `[confirmation]` et `[tracking]`
 
@@ -727,7 +742,7 @@ Coûts de l'annulation active, si elle est reprise à l'étape 4.3 : perte d'ins
 
 ### 7.10 Traitement (étape 2.2)
 
-**Blocs cohérents.** Une forme d'onde COHERENT de N impulsions est découpée en M blocs (M diviseur de N) : M minimise SNR_req(M blocs intégrés de façon non cohérente, Shnidman) + perte de cohérence d'un bloc de durée (N/M − 1)·PRI + τ. NONCOHERENT, ou cible de Swerling 2 ou 4 : M = N. Perte d'un bloc = cible exp(−(T/t₀)²) (provisoire, t₀ 0,25 s jusqu'à l'étape 2.4) + 4,34·σ², σ² = bruit de phase de l'oscillateur filtré par l'aller-retour (4 sin²(π f τ_rt), de 1/T à B/2, à la distance d'écoute c·PRI/2) + (4π δ / λ)² de la plateforme. Le plancher Doppler (bruit résiduel dans une case de 1/T, à 100 Hz, 1 kHz et 10 kHz) est donné en sortie. La perte de polarisation (GLRT) prend n_nc = M.
+**Blocs cohérents.** Une forme d'onde COHERENT de N impulsions est découpée en M blocs (M diviseur de N) : M minimise SNR_req(M blocs intégrés de façon non cohérente, Shnidman avec la fluctuation de l'observation depuis l'étape 2.4) + perte de cohérence d'un bloc de durée (N/M − 1)·PRI + τ. NONCOHERENT, ou cas déclaré de Swerling 2 ou 4 : M = N. Perte d'un bloc = cible exp(−(T/T₀)²) (T₀ de la classe et de la bande depuis l'étape 2.4) + 4,34·σ², σ² = bruit de phase de l'oscillateur filtré par l'aller-retour (4 sin²(π f τ_rt), de 1/T à B/2, à la distance d'écoute c·PRI/2) + (4π δ / λ)² de la plateforme. Le plancher Doppler (bruit résiduel dans une case de 1/T, à 100 Hz, 1 kHz et 10 kHz) est donné en sortie. La perte de polarisation (GLRT) prend n_nc = M.
 
 **Banc de vitesses** (mode COMPENSATED). Perte d'un filtre décalé de Δv : loi dans l'impulsion de l'étape 2.1 (n_c = 2 Δv τ B / c) + glissement de m = Δv·T_obs / (c/2B) cases sur l'observation, −20 log(moyenne de sinc(m x)) si l'observation est un seul bloc cohérent, −10 log(moyenne de sinc²(m x)) sinon. Pas : perte de `bank_max_loss_db` (1 dB) à mi-pas ; hypothèses = étendue / pas, sur [v_close_min, v_close_max] du secteur en veille et en confirmation, une seule en poursuite. Bilan : perte moyenne sur le pas + `residual_db` (0,1 dB) si la cible traverse plus de 1,5 case. Mode UNCOMPENSATED : 10 log(min(cases, N)), inchangé.
 
@@ -747,6 +762,26 @@ Coûts de l'annulation active, si elle est reprise à l'étape 4.3 : perte d'ins
 
 **Fausses alarmes.** Mode « fa_rate » : Pfa par case = `fa_per_rr` / (positions du secteur × cases indépendantes de la forme d'onde), bornée et arrondie au vingtième de décade ; le nombre de fausses alarmes à confirmer est alors le taux toléré. Les observations Ku gardent `detection.pfa`.
 
+### 7.12 Modèles de cibles (étape 2.4)
+
+**Cible d'un secteur** (`target_for_sector`). Avec `target_type` : les valeurs de la classe, puis celles que donne le secteur (`rcs_m2`, `depol_db` et `fluctuation` s'appliquent aux deux bandes). Sans classe : la SER et le Swerling du secteur (SW1 par défaut, le comportement d'avant), et les autres grandeurs de GENERIC. La vitesse est toujours `v_close_max_mps` du secteur.
+
+**SER frontale.** Corps + optique de l'autodirecteur : σ_opt = max(π (2f)², η_r · 4π A² / λ²), avec f = (f/D)·D et A = π D² / 4. Le premier terme est la réflexion directe sur le primaire concave (optique géométrique, indépendante de λ) ; le second est l'effet « œil de chat » d'un ensemble focal réfléchissant, en 1/λ², donc surtout en Ku. Le lobe du retour, de largeur λ/D (20° en S, 4° en Ku pour 0,3 m), contient la direction du radar pour un KKV qui le vise.
+
+**Temps de cohérence.** T₀ = `t0_k` · λ / (2 L ω) ; infini pour ω = 0. Il remplace le t₀ global provisoire dans la perte des blocs cohérents.
+
+**Fluctuation d'une observation** (forme Gamma k de la puissance de la cible sur l'observation, `detection.Fluct`). Cas déclaré : k = 1 (SW1), 2 (SW3), n (SW2), 2n (SW4), infini (SW0). Sinon : famille × min(n, 1 + T_obs / T₀) échantillons indépendants, avec n = blocs cohérents et T_obs = durée de l'observation (SW1/2 : 1 par échantillon ; SW3/4 : 2 ; SW0 : stable). k est ensuite multiplié par la **diversité de polarisation** (1 + ρ)² / (1 + ρ²), ρ = SER croisée / copolaire, puisque les deux voies de réception fluctuent indépendamment. k est arrondi au centième de décade. Les lois exactes et l'ajustement de Shnidman sont écrits en k. Les tables de confirmation de `core/tracking.py` gardent le cas de Swerling le plus proche (famille ou cas déclaré).
+
+**Dépolarisation.** Le récepteur à deux voies recueille aussi l'énergie croisée de la cible : perte « target_depolarisation » = −10 log(1 + ρ), c'est-à-dire un gain. Avec un récepteur à une seule polarisation : 0, et pas de diversité.
+
+**Accélération** (sur la ligne de visée, a_max de la classe). Perte d'un filtre adapté à une autre accélération : phase quadratique sur un bloc cohérent 2π (a T_b² / λ) x² (même loi que l'écart de vitesse de l'étape 2.1) + courbure en distance laissée par la compensation linéaire, a T² / 8 sur l'observation (loi de glissement de l'étape 2.2). Si a_max coûte au plus `bank_max_loss_db` : pas de banc, et la perte moyenne sur a uniforme dans [0, a_max] va au bilan (« acceleration »). Sinon : banc d'hypothèses d'accélération sur ±a_max, de pas tel que la perte à mi-pas vaille 1 dB, et perte moyenne sur le demi-pas au bilan. Ces hypothèses **multiplient celles de vitesse** pour les fausses alarmes et pour la charge de calcul (étape 4.4). Une observation de poursuite connaît l'accélération par la piste (optimiste jusqu'à l'étape 3.3).
+
+**Masquage** (sortie, la scène n'étant pas connue). Enveloppe de la réponse d'une cible forte, en dB sous son pic, à 1, 2 et 3 cellules ou plus : en distance avec la pondération de l'observation, en Doppler avec la transformée sans fenêtre d'un bloc (−13,3 dB au-delà d'une cellule). Une cible plus faible que sa voisine de plus de ce niveau, à cette distance ou plus loin, peut être masquée. Le plancher de bruit de phase est en sortie depuis l'étape 2.2.
+
+**OS-CFAR** (option `processing.cfar_type` = "OS"). Seuil = T × la k-ième plus petite des N cellules, k = 0,75 N : Pfa(T) = Π_{i<k} (N − i) / (N − i + T), Pd = Pfa(T / (1 + S)), comparé au SNR à bruit connu.
+
+**Alerte** : une revisite inférieure à `tool.alerts.rr_t0_ratio` (3) × T₀ est signalée, car le critère cumulé suppose des observations indépendantes.
+
 ---
 
 ## 8. Paramètres de l'outil (`[tool.*]`)
@@ -755,7 +790,7 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 
 | Section | Variable | Valeur | Rôle et renvoi |
 |---|---|---|---|
-| `tool.cli` | `refresh_s`, `frequency_ghz`, `scan_angle_deg`, `target` | 120 s, 2,8 GHz, 0°, "ST" | Valeurs par défaut de `python core/radar_model.py`. |
+| `tool.cli` | `refresh_s`, `frequency_ghz`, `scan_angle_deg`, `target` | 120 s, 2,8 GHz, 0°, "ST" | Valeurs par défaut de `python core/radar_model.py`. Le rapport donne aussi, pour chaque classe, la SER frontale, la fluctuation, T₀, la dépolarisation et l'accélération (étape 2.4). |
 | `tool.optimizer` | `freq_candidates_ghz` | [2,7, 2,8, 2,9] | À remplacer à l'étape 3.1 par une grille fine au pas de **5 ou 10 MHz**, restreinte au spectre utilisable. Le but est d'éviter les brouilleurs étroits de forte puissance tout en gardant plus de cases fréquence qu'un masquage par multiples de 25 MHz. |
 | | `tau_s` | 20 à 800 µs, plus la limite de la réserve (2,0 ms depuis l'étape 1.3) | La plus longue impulsion est **calculée** à partir de la réserve d'énergie. |
 | | `n_pulses`, `b_tx`, `sig_bw_mhz` | {1 … 32}, {1, 2, 4, 8}, {10 … 75} MHz | Bandes au-delà de 75 MHz possibles (bi_max 200) : à traiter à l'étape 3.1, avec l'étape 2.1. |
@@ -770,7 +805,10 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 | `tool.cost_table` | `freq_ghz`, `range_km`, `rcs_m2`, `v_mps`, `theta_deg` | 2,8 GHz et grilles | Table calculée à 2,8 GHz seulement (optimiste à 2,7 et 2,9 GHz) ; à recaler à l'étape 5.5. |
 | `tool.pattern` | `r_max_lam_d`, `r_step_lam_d`, `phi_step_deg`, `fit_tol_db`, `far_step_lam_d` | 8, 0,01, 1,5°, 0,05 dB, 0,125 | Étapes 1.1 et 1.2 : précision du calcul du diagramme et pas de la grille des lobes lointains. |
 | `tool.detection` | `offset_quantiles` | 16 | **Étape 2.3, B4** : quantiles de chaque écart de position. |
+| | `masking_offsets_cells` | [1, 2, 3] | **Étape 2.4, D1-D2** : écarts (en cellules) des niveaux de masquage donnés en sortie. |
+| `tool.targets` | `default_type` | "GENERIC" | **Étape 2.4, A3** : classe qui complète un secteur sans `target_type` (sa SER et son Swerling sont gardés). |
 | `tool.alerts` | `mismatch_db_per_pass` | 3,0 dB | **Étape 1.2, Q5** : seuil d'alerte de la désadaptation par passage. |
+| | `rr_t0_ratio` | 3 | **Étape 2.4, B4** : alerte quand la revisite d'un secteur est inférieure à 3 T₀ (observations corrélées). |
 | | `sky_above_budget_db` | 1,0 dB | **Étape 1.5** : les pointages au-dessus du T_sys du bilan ne sont signalés que si le pire le dépasse de plus que cela (sinon le centile signalerait toujours 1 % des pointages). |
 | `tool.sky` | `eval_step_hpbw`, `near_r_step_lam_d`, `near_phi_step_deg`, `body_ring_lam_d`, `small_body_lam_d`, `body_rings_max`, `chunk` | 0,5, 0,05, 10°, 2,0, 2,0, 16, 2048 | **Étape 1.5** : pas d'évaluation du T_sys sur un secteur (A5) et précision de l'intégrale du bruit. |
 | `tool.display` | `grid_res_deg`, `viz_freq_ghz` | 0,5°, 2,8 GHz | Trame 3D et estimation rapide. |
@@ -795,7 +833,9 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 | `id`, `shape` | S01…, "box" | Une boîte (φ, ε) ou une calotte (centre, rayon). |
 | `phi_min_deg`, `phi_max_deg`, `eps_min_deg`, `eps_max_deg` | 0°, 90°, 0°, 60° | Boîte. φ_min > φ_max est accepté et signifie un passage par 0°. |
 | `phi0_deg`, `eps0_deg`, `radius_deg` | 0°, 20°, 15° | Calotte. |
-| `rcs_m2`, `swerling` | 1000 m², 1 | Menace. |
+| **`target_type`** | absent | **Étape 2.4.** Classe de la bibliothèque (§5.13). Absente : la SER et le Swerling du secteur, avec les autres valeurs de GENERIC. L'interface ne propose pas encore le choix de la classe (étape 5.1) : elle conserve la clé, montre les valeurs de la classe, et une SER ou un Swerling modifié devient une surcharge. |
+| `rcs_m2`, `swerling` | 1000 m², 1 | Menace : SER copolaire frontale (les deux bandes) et cas de Swerling déclaré. Avec une classe, ce sont des surcharges facultatives ; sans `swerling`, la fluctuation se déduit de la classe et de T₀. |
+| `fluctuation`, `depol_db`, `length_m`, `rotation_dps`, `accel_max_mps2`, `optics_diameter_m`, `optics_f_ratio`, `optics_retro_eff` | ceux de la classe | **Étape 2.4.** Surcharges facultatives des valeurs de la classe (par exemple un KKV à contre-mesure, ou un leurre qui imite l'optique). |
 | `range_km`, `rr_target_s` | 2000 km, 30 s | Portée exigée et période de revisite visée. Depuis l'étape 2.3, la portée est atteinte en Pd **cumulée** (`detection.pd`) sur les observations espacées de v_close_max × revisite. |
 | `v_close_min_mps`, `v_close_max_mps` | 1000 et 5000 m/s | La vitesse maximale dimensionne la migration, le Doppler et le temps avant impact. |
 | `res_max_m` | 2 m | Résolution en distance demandée, **physique** depuis l'étape 2.1 (élargissement de la pondération compris : 2 m demandent 89 MHz à −25 dB, au-delà des 75 MHz de l'espace de recherche ; le secteur est signalé jusqu'à l'étape 3.1). |
@@ -811,7 +851,7 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 ### 9.3 Formats
 
 - Fichiers JSON (complets) ou CSV (tableau des secteurs, avec les tranches de poursuite en JSON dans une seule colonne). Les deux restent compatibles avec l'entrée de l'optimiseur.
-- La validation (« Validate mission prep ») vérifie : identifiants uniques, bornes, φ et ε, v_min ≤ v_max, valeurs strictement positives, tranches de poursuite sans chevauchement et dans la portée, `rx_sll_db` parmi les options, et le ciel (champs, types connus ou température donnée, repère galactique cohérent).
+- La validation (« Validate mission prep ») vérifie : identifiants uniques, bornes, φ et ε, v_min ≤ v_max, valeurs strictement positives, la classe de cible (connue) et ses surcharges (étape 2.4), tranches de poursuite sans chevauchement et dans la portée, `rx_sll_db` parmi les options, et le ciel (champs, types connus ou température donnée, repère galactique cohérent).
 
 ---
 
@@ -825,7 +865,7 @@ La feuille de route complète, avec le contenu détaillé de chaque étape, se t
 |---|---|
 | 0, fondations | 0.1 fichier unique ✔ ; 0.2 banc de tests ✔ ; 0.3 revue des valeurs ✔ |
 | 1, antenne et RF | 1.1 géométrie et diagramme réel ✔ ; **1.2 diagramme : lobes de réseau, désadaptation active \|Γ(θ, f)\|, polarisation ✔** ; **1.3 TRM et chaîne d'émission ✔** ; **1.4 bande ✔** ; **1.5 réception ✔** (T_sys selon la direction, CAN, isolation, deux voies de polarisation ; le bruit de phase de l'oscillateur est passé en 2.2) |
-| 2, signal et détection | **2.1 formes d'onde paramétriques ✔** ; **2.2 traitement ✔** ; **2.3 critère de détection ✔** ; 2.4 modèles de cibles ; 2.5 environnement (masquage par le vaisseau, Faraday, brouillage) |
+| 2, signal et détection | **2.1 formes d'onde paramétriques ✔** ; **2.2 traitement ✔** ; **2.3 critère de détection ✔** ; **2.4 modèles de cibles ✔** ; 2.5 environnement (masquage par le vaisseau, Faraday, brouillage) |
 | 3, fonctions radar | 3.1 veille S (multifaisceau, grille de fréquences fine) ; 3.2 confirmation Ku (fréquence Ku choisie, connaissance du spectre) ; 3.3 poursuite (Kalman ou IMM) ; 3.4 fonctions annexes |
 | 4, ressources | 4.1 puissance (bus de 8 MW, répartition entre faces) ; 4.2 thermique ; 4.3 ordonnanceur et latence ; 4.4 calcul et données |
 | 5, mission et validation | 5.1 modèle de mission enrichi et bibliothèque de menaces ; 5.2 optimiseur global ; 5.3 moteur de validation ; 5.4 simulation Monte-Carlo ; 5.5 interface opérateur ; 5.6 vérification, validation et documentation |
@@ -836,11 +876,11 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 
 | Sujet | État actuel | Étape |
 |---|---|---|
-| Polarisation | Linéaire selon e_v (D). Recombinaison des deux voies par le GLRT depuis l'étape 1.5 (perte calculée), sans gain de diversité. Commutation e_u / e_v à rappeler en 3.3. | 2.4 (diversité), 2.5 (Faraday), 3.2-3.3 |
+| Polarisation | Linéaire selon e_v (D). Recombinaison des deux voies par le GLRT depuis l'étape 1.5 (perte calculée) ; **depuis l'étape 2.4**, énergie croisée recueillie (1 + ρ) et gain de diversité sur la fluctuation. Commutation e_u / e_v à rappeler en 3.3 ; usage polarimétrique (discrimination des leurres) en 3.3. | 2.5 (Faraday), 3.2-3.3 |
 | Élément rayonnant | Éléments isotropes dans le calcul du facteur de réseau ; seule la projection cos θ et la désadaptation interviennent. | à placer |
 | Zone aveugle et éclipse | Depuis l'étape 2.1 : zone aveugle ≤ `range_min_km`, pas d'auto-éclipsage des trains non ambigus, perte moyenne des trains échelonnés. Reste l'éclipsage par les autres observations et les autres faces. | 4.3 |
 | Coût des fausses alarmes dans le choix des formes d'onde de veille | Depuis l'étape 2.2, les bancs de vitesses des trains multiplient les fausses alarmes (×50 à ×535) ; l'optimiseur de veille ne compte pas le coût de confirmation qui en découle. | 2.3 (politique de fausses alarmes), 5.1 (réglage de mission), 5.2 (coût de confirmation dans l'optimiseur) : décision de l'utilisateur |
-| Accélération des cibles (courbure en distance) | Non modélisée dans le banc de vitesses. | 2.4 |
+| Accélération des cibles | **Modélisée à l'étape 2.4** (phase quadratique, courbure, banc d'hypothèses). Une observation de poursuite la suppose connue par la piste (optimiste). | 3.3 |
 | Capacité du formateur de faisceaux et charge de détection | Faisceaux par position calculés (≈ 3,4) ; nombre de faisceaux simultanés (positions en attente d'écho, multifaisceau, deux voies, Ku) non modélisé ; hypothèses de vitesse et grilles ×4 multiplient la charge. Capacité à fixer comme ressource. | 4.3, 4.4 |
 | Bandes au-delà de 75 MHz, impulsions plus courtes que 20 µs | Modèle valide jusqu'à 200 MHz ; secteurs « résolution non tenue » signalés ; un secteur de 20 km (B2_AUTOPROT) n'a plus de forme d'onde (20 µs laissent 3 km aveugles). | 3.1 |
 | Multiplexage en temps ou en fréquence du multifaisceau | Passé de l'étape 2.1 à l'étape 3.1, avec le reste du multifaisceau. | 3.1 |
@@ -852,8 +892,13 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 | Thermique | Chaleur calculée (≈ 370 W par TRM S en pointe) ; capacité des microcanaux et constantes de temps non modélisées. Densité de puissance d'environ 104 kW/m² de RF moyenne. | 4.2 |
 | Limite de 70° au-dessus de la fréquence de rupture | Gardée à l'étape 1.4 tant que le diagramme de l'élément n'est pas modélisé (flanc du lobe de réseau à l'horizon). | avec le diagramme de l'élément (à placer) |
 | Fréquences candidates de la veille S | 2,7 / 2,8 / 2,9 GHz : depuis l'étape 1.4, aucun signal ne tient aux bords de bande (2,7 et 2,9 GHz), seule 2,8 GHz est jouable. | 3.1 (grille fine dans la bande) |
-| Temps de cohérence de la cible | Loi provisoire unique, t₀ 0,25 s, p 2, sans source ; plafond de 149 ms supprimé à l'étape 2.2 (blocs cohérents). | 2.4 |
-| Bruit de phase de l'oscillateur | Modélisé à l'étape 2.2 (négligeable sur la cohérence) ; plancher Doppler en sortie, son effet de masquage avec les cibles. | 2.4 |
+| Temps de cohérence de la cible | **Par classe et par bande depuis l'étape 2.4** (T₀ = λ / 2Lω). | — |
+| Masquage par une cible forte (lobes Doppler et en distance, bruit de phase) | Niveaux en sortie depuis l'étape 2.4 ; OS-CFAR en option. Effet sur une scène dense non compté. | 5.4 |
+| Table d'aspect de la SER | Clé réservée (SER frontale seule dans le bilan). | 3.3 |
+| Tables de confirmation | Cas de Swerling le plus proche (famille ou cas déclaré) : sans décorrélation partielle ni diversité de polarisation, que `solve()` compte pour les observations Ku. | 3.2 |
+| Choix de la classe dans l'interface | L'interface conserve `target_type`, montre les valeurs de la classe ; une SER ou un Swerling modifié devient une surcharge. | 5.1 |
+| Estimation rapide | Table de coût calculée sur GENERIC en Swerling 1 ; un secteur à classe y entre par sa SER frontale en S. | 5.5 |
+| Sensibilité du verdict aux valeurs de la menace | Les classes sont des moyennes : le moteur de validation dira de combien la SER (et les autres valeurs) peut baisser avant que le secteur ne tienne plus. | 5.3 |
 | Synchronisation des faces par bande | Règle signalée (`scheduler_rules`), non imposée ; aucune perte dans le bilan. Annulation active à revoir. | 4.3 |
 | Harmonique 5 de la S dans le canal Ku | Règle de fréquence signalée par secteur. | 3.2, 4.3 |
 | T_sys du ciel d'un secteur | Centile (1 − `short_tol`) des pointages non aveuglés, gardé à l'étape 2.3 (effet spatial, pas aléatoire). | — |
@@ -1137,3 +1182,19 @@ Effet sur les missions de test (valeurs de test seulement) :
 - deux régimes selon q = v·RR / R : les secteurs à longue portée (8 000 km, 120 s, 5 km/s : q = 0,075, des dizaines d'observations) demandent beaucoup moins d'énergie : **−69 à −96 %** par face ; les secteurs anti-KKV (500 km, 20 s, 25 km/s : **q = 1**, la cible parcourt toute la portée demandée entre deux observations) en demandent beaucoup plus : **+280 à +305 %** sur les faces qu'ils dominent. L'ancien critère, une observation exactement à R, était optimiste pour eux (la redondance leur donnait déjà une portée garantie nulle, R − v·RR = 0) ;
 - temps Ku −80 à −99 % sur la plupart des faces (10 fausses alarmes par revisite au lieu de centaines) ; plusieurs modes de confirmation changent ;
 - le banc de référence WF-LRS (une observation, sans paramètre de secteur) perd 10 % de portée : perte « positions » de 4,6 dB avec la grille de 1,4 à Pd 0,9 sur une observation.
+
+### Étape 2.4 : les modèles de cibles (22 octobre 2026)
+
+Questions de cadrage (validées) : Q1 clé de secteur `target_type`, valeurs explicites en surcharge ; Q2 SER frontale par bande (table d'aspect réservée à la poursuite) ; Q3 cas de Swerling calculé à partir de la famille et de T₀ ; Q4 T₀ = λ / (2 L ω) ; Q5 perte d'accélération sous une cellule, banc au-delà ; Q6 niveaux de masquage en sortie et OS-CFAR en option, effet sur une scène dense à l'étape 5.4 ; Q7 dépolarisation et diversité ; Q8 classes ST, KKV, SHIP, plus débris et leurres (utilisateur), et le code doit accepter de nouveaux types et des changements de valeurs dans le fichier seul.
+
+Variables (toutes validées) : A1 schéma d'une classe ; A2 `target_type` et surcharges ; A3 classe par défaut, puis **GENERIC** dédiée (utilisateur : ST reste la référence) ; A4 SER copolaire frontale ; A5 table d'aspect réservée ; B1 T₀ = k λ / 2Lω, k = 1 ; B2 p = 2 ; B3 fluctuation continue ; B4 alerte sous 3 T₀ ; C1-C2 accélération et banc (1 dB à mi-pas) ; D1-D3 masquage, OS-CFAR rang 3/4 ; E1-E2 énergie croisée et diversité ; F valeurs des classes.
+
+Décisions de l'utilisateur en cours d'étape :
+- SHIP : SER **frontale** 300 m².
+- KKV : la face avant est un autodirecteur IR à **miroir de grand diamètre** (concept du KKV du GBI). Le modèle ajoute une composante optique générique (réflexion directe et œil de chat), utilisable par toute classe.
+- **Les classes sont des valeurs moyennes, pas absolues** : on ne peut pas présupposer de l'armement de l'adversaire, toutes les valeurs sont possibles. D'où le milieu de chaque plage (D 0,3 m, f/D 1, η_r 0,1 en moyenne logarithmique), une contre-mesure ou un leurre qui imite l'optique décrits par surcharge, et le renvoi vers l'étape 5.3 (sensibilité du verdict aux valeurs de la menace).
+- Usage des classes rappelé : avant l'étape, elles ne servaient qu'au rapport en ligne de commande et aux tests ; désormais elles entrent dans le bilan des missions (classe nommée, ou GENERIC pour compléter un secteur sans classe).
+
+Mise au point pendant le codage : le surcoût de calcul a été ramené à environ 10 % (loi stable mise en cache, table de la phase quadratique pour l'accélération, cible du secteur mise en cache).
+
+Effet sur les missions de test (valeurs de test seulement) : voir `tests/snapshots/JOURNAL.md`. Nouvelle mission de test `mission_target_library.json` (secteurs KKV, KKV avec η_r = 1 en surcharge, SHIP, DEBRIS, DECOY).
