@@ -10,6 +10,7 @@ import math
 import os
 import subprocess
 import sys
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import pytest
@@ -834,7 +835,10 @@ def test_tilt_change_propagates_to_the_model(tmp_path):
 # ----------------------------------------------------------------------------- optimiser invariants
 @pytest.fixture(scope="module")
 def runs():
-    return {n: mo.run(md.load_mission(os.path.join(tb.MISSIONS_DIR, n)), workers=1) for n in tb.MISSIONS}
+    """Every test mission through optimizer.run(), one process per mission (same results as one after the other:
+    test_parallel_run_equals_sequential); the tests using it run in one xdist worker (tests/conftest.py)."""
+    with ProcessPoolExecutor(max_workers=len(tb.MISSIONS)) as ex:
+        return dict(zip(tb.MISSIONS, ex.map(tb.run_mission, tb.MISSIONS)))
 
 
 def test_time_on_air_at_least_energy_over_peak_power(runs):

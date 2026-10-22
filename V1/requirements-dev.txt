@@ -1,3 +1,4 @@
 # Developer tools (not installed by the launcher): python -m pip install --user -r requirements-dev.txt
 -r requirements.txt
 pytest>=8
+pytest-xdist>=3

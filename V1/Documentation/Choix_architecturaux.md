@@ -122,7 +122,7 @@ Procédure d'une étape :
 | `python tools/gen_cost_table.py` (32 processus) | environ 1 min 40 |
 | `python tests/impact_report.py` | environ 2 min 40 |
 | `python tests/update_snapshots.py` | environ 3 min |
-| `python -m pytest -q` (144 tests) | environ 6 min 30 (fixe 9800X3D, étape 3.0) ; environ 6 min sur le portable à l'étape 2.5 |
+| `python -m pytest -q` (144 tests) | environ **2 min** en parallèle (6 processus, fixe 9800X3D, après l'étape 3.0) ; 6 min 30 en séquentiel (`-n 0`) |
 | reconstruction automatique de `core/structure_cache.npz` / `core/antenna_cache.json` | environ 23 s (modèle 3D) / 8 s |
 
 **Fichiers dérivés** (§2.2) : `antenna_cache.json` et `structure_cache.npz` se reconstruisent seuls quand leurs entrées changent, et ne sont réécrits que pour le fichier de paramètres par défaut. Ils sont versionnés : les commiter avec l'étape qui les change. `cost_table.json` et les valeurs figées se régénèrent à la main (procédure, points 4 à 6).
@@ -199,13 +199,13 @@ Procédure d'une étape :
 
 | Élément | Choix |
 |---|---|
-| Outil | `pytest`, déclaré dans `requirements-dev.txt`. |
+| Outil | `pytest` et `pytest-xdist`, déclarés dans `requirements-dev.txt`. **Exécution parallèle** (22 octobre 2026, `pytest.ini` : `-n 6 --dist loadgroup`) : les tests sont indépendants (entrées propres, `tmp_path`, fichiers de paramètres passés par `RADAR_PARAMS` à des sous-processus) ; les caches dérivés s'écrivent de façon atomique (fichier temporaire puis remplacement) ; les tests qui utilisent la fixture `runs` restent dans un même processus (`tests/conftest.py`), et cette fixture calcule les missions en parallèle, un processus par mission (résultat identique au séquentiel, vérifié par `test_parallel_run_equals_sequential`). Le chemin critique est le plus long test isolé (`mission_redundancy_demo`, environ 1 min) : au-delà de 6 processus, rien ne se gagne. Séquentiel : `python -m pytest -n 0`. |
 | Famille 1 : valeurs figées | `tests/test_snapshots.py`. Toutes les sorties numériques de l'outil sont comparées avec une **tolérance relative de 1e-9**. |
 | Famille 2 : physique et invariants | `tests/test_physics.py`. Lois qui doivent tenir quelles que soient les valeurs : R ∝ σ^¼, R ∝ P^¼, cohérence du nombre de pointages, du cache, de la borne de Cramér-Rao, des options de lobes, etc. Le self-test du modèle est conservé. |
 | Missions de test | `mission_example` (en JSON et en CSV), `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`, `mission_sky_demo` (étape 1.5 : un ciel avec le Soleil, la Lune, le limbe de la Terre et un repère galactique), `mission_target_library` (étape 2.4 : un secteur par classe de cible, plus un KKV surchargé), `mission_environment` (étape 2.5), `mission_frames` (étape 3.0 : orbite basse terrestre à 400 km, vaisseau pointé vers le nadir, un secteur par repère, ciel inertiel). Les deux premières ont été récupérées dans l'historique git. |
 | Rapport d'impact | `python tests/impact_report.py`, à chaque étape, avant de régénérer les valeurs figées : chiffres clés, et pour chaque mission de test les formes d'onde de veille et les modes de confirmation qui changent. |
 | Régénération | `python tests/update_snapshots.py`. Chaque régénération est consignée dans `tests/snapshots/JOURNAL.md`, avec sa cause et les formes d'onde ou modes qui ont changé. |
-| État | 144 tests passent après l'étape 3.0 (environ 6 min 30 sur le fixe 9800X3D ; voir §1.5 pour les écarts de durée selon la machine). |
+| État | 144 tests passent après l'étape 3.0 (environ 2 min en parallèle sur le fixe 9800X3D, 6 min 30 en séquentiel ; voir §1.5 pour les écarts de durée selon la machine). |
 
 ---
 
@@ -1393,7 +1393,7 @@ Mise en œuvre : `[ship.hull]` et `[ship.parts]` supprimés ; lancer de rayons e
 
 Effet (valeurs de test seulement) : constats inchangés (aucun pointage masqué, radiateurs jamais vus) ; cellules bloquées par face 735 → 621 ; chiffres clés des missions de test à moins de 0,01 % ; aucune forme d'onde ni mode de confirmation ne change (voir `tests/snapshots/JOURNAL.md`).
 
-### Étape 3.0 : repères des volumes et navigation (22 octobre 2026, modèle V6.11.0)
+### Étape 3.0 : repères des volumes et navigation (22 octobre 2026, modèle V6.11.0, commit 22114fd)
 
 Constat de l'utilisateur : les volumes étaient définis dans le repère du vaisseau ; si le vaisseau tourne, la région veillée tourne avec lui, ce qui n'a pas de sens opérationnel. Étape ajoutée avant la 3.1.
 

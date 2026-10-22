@@ -200,6 +200,11 @@ def model_case() -> dict:
     return to_plain(out)
 
 
+def run_mission(name: str) -> dict:
+    """optimizer.run() of one test mission, sequential (module level: a process-pool task)."""
+    return mo.run(md.load_mission(os.path.join(MISSIONS_DIR, name)), workers=1)
+
+
 def mission_case(name: str, grid: "geo.SphereGrid", table) -> dict:
     """One test mission through every calculation of the tool."""
     m = md.load_mission(os.path.join(MISSIONS_DIR, name))

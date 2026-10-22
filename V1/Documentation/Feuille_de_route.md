@@ -34,7 +34,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 2.3 | ✔ fait (commit 102ea6f) |
 | 2.4 | ✔ fait (commit 008d583) |
 | 2.5 | ✔ fait (commit baeadcf) |
-| 3.0 | ✔ fait (ajoutée le 22 octobre 2026) |
+| 3.0 | ✔ fait (commit 22114fd ; ajoutée le 22 octobre 2026) |
 | 3.1 et suivantes | à faire, la prochaine étant 3.1 (jalon A atteint) |
 
 ---

@@ -303,8 +303,10 @@ def face_patterns(rows: Sequence[int], trsa_side_m: float, gap_m: float, n_sub: 
     out = {b: _compute(rows, trsa_side_m, gap_m, k, d_env, sll_options, nbar, edge, visible_r[b])
            for b, k in n_sub.items()}
     if os.path.normcase(os.path.abspath(P.path)) == os.path.normcase(os.path.abspath(params.DEFAULT_PATH)):
-        with open(CACHE_PATH, "w", encoding="utf-8") as fh:
+        tmp = f"{CACHE_PATH}.{os.getpid()}.tmp"   # atomic: parallel test workers may rebuild it at the same time
+        with open(tmp, "w", encoding="utf-8") as fh:
             json.dump({"key": key, "inputs": inputs, "bands": {b: asdict(p) for b, p in out.items()}}, fh)
+        os.replace(tmp, CACHE_PATH)
     return out
 
 

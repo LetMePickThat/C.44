@@ -393,7 +393,10 @@ def tables() -> Dict[str, np.ndarray]:
             pass
     t = _build_tables()
     if os.path.abspath(P.path) == os.path.abspath(DEFAULT_PATH):
-        np.savez_compressed(CACHE_PATH, fingerprint=np.array(fp), **t)
+        tmp = f"{CACHE_PATH}.{os.getpid()}.tmp"   # atomic: parallel test workers may rebuild it at the same time
+        with open(tmp, "wb") as fh:
+            np.savez_compressed(fh, fingerprint=np.array(fp), **t)
+        os.replace(tmp, CACHE_PATH)
     return t
 
 
