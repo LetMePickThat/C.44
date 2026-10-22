@@ -3008,8 +3008,8 @@
   "60.0 deg | 800.0 km | track": {
    "cost": 2e-05,
    "driver": "DET",
-   "energy_J": 4.393717814281487,
-   "energy_rf_J": 2.827640177507887,
+   "energy_J": 4.393717890559163,
+   "energy_rf_J": 2.8276402265974805,
    "pae": 0.6435643564356435,
    "time_s": 2e-05,
    "wf": "14.0 GHz COHE tau 10 us x N 2 @ PRI 0.5 ms B 50 MHz"
@@ -3037,7 +3037,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.032077481867326,
+   "l_tot_db": 6.032077674360785,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -3051,7 +3051,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05996193212718737,
-    "positions": 5.081983166573476,
+    "positions": 5.081983359066935,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -1.7643486243648532
    },
@@ -3083,13 +3083,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -3111,7 +3111,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 617.9690891960029,
+   "range_km": 617.9690823484023,
    "snr_req_db": 19.986150353766654,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -3127,7 +3127,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.638078917264322,
+   "l_tot_db": 8.638079076956563,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -3141,7 +3141,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.043213737826425784
    },
@@ -3179,7 +3179,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -3201,7 +3201,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1196.6377334400954,
+   "range_km": 1196.637722439854,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -3217,11 +3217,11 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.156926553380397,
+   "l_tot_db": 7.15692688913546,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -3231,7 +3231,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06068918040400462,
-    "positions": 4.832943639367674,
+    "positions": 4.832943835320144,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.4139268515822508
    },
@@ -3269,7 +3269,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -3291,7 +3291,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1635.0402875430616,
+   "range_km": 1635.0402559416327,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -3307,11 +3307,11 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.981572845650681,
+   "l_tot_db": 7.98157323038811,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -3321,7 +3321,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060415886863218304,
-    "positions": 4.960440393431238,
+    "positions": 4.960440588943037,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.043213737826425784
    },
@@ -3359,7 +3359,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -3381,7 +3381,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1768.0674987239654,
+   "range_km": 1768.067459566103,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -3397,11 +3397,11 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.929946083654577,
+   "l_tot_db": 6.9299464152909245,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -3411,7 +3411,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05974218150853261,
-    "positions": 5.166211254042029,
+    "positions": 5.166211445875785,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.9732279370869544
    },
@@ -3449,7 +3449,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -3471,7 +3471,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7926.648478886634,
+   "range_km": 7926.6483275627725,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -3487,7 +3487,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.030403172695695,
+   "l_tot_db": 7.030403372402758,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -3501,7 +3501,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.4139268515822508
    },
@@ -3539,7 +3539,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -3561,7 +3561,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8585.915966392198,
+   "range_km": 8585.91586768797,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -3577,7 +3577,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.861646005769744,
+   "l_tot_db": 5.8616461982632035,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -3591,7 +3591,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05996193212718737,
-    "positions": 5.081983166573476,
+    "positions": 5.081983359066935,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -1.7643486243648532
    },
@@ -3623,13 +3623,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -3651,7 +3651,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 580.7548628533007,
+   "range_km": 580.7548564180638,
    "snr_req_db": 19.986150353766654,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -3667,7 +3667,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.46764744116674,
+   "l_tot_db": 8.467647600858982,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -3681,7 +3681,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.043213737826425784
    },
@@ -3719,7 +3719,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -3741,7 +3741,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1124.5759616767286,
+   "range_km": 1124.5759513389241,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -3757,11 +3757,11 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.986495077282815,
+   "l_tot_db": 6.986495413037877,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -3771,7 +3771,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06068918040400462,
-    "positions": 4.832943639367674,
+    "positions": 4.832943835320144,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.4139268515822508
    },
@@ -3809,7 +3809,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -3831,7 +3831,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1536.5778233132924,
+   "range_km": 1536.577793614908,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -3847,11 +3847,11 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.811141369553099,
+   "l_tot_db": 7.811141754290529,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -3861,7 +3861,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060415886863218304,
-    "positions": 4.960440393431238,
+    "positions": 4.960440588943037,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.043213737826425784
    },
@@ -3899,7 +3899,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -3921,7 +3921,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1661.594108327864,
+   "range_km": 1661.5940715280965,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -3937,11 +3937,11 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.759514607556994,
+   "l_tot_db": 6.759514939193343,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -3951,7 +3951,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05974218150853261,
-    "positions": 5.166211254042029,
+    "positions": 5.166211445875785,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.9732279370869544
    },
@@ -3989,7 +3989,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -4011,7 +4011,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7449.304068317317,
+   "range_km": 7449.303926106209,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -4027,7 +4027,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.859971696598113,
+   "l_tot_db": 6.859971896305177,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -4041,7 +4041,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.4139268515822508
    },
@@ -4079,7 +4079,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -4101,7 +4101,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8068.870331393781,
+   "range_km": 8068.870238633543,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -4117,7 +4117,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.032077481893841,
+   "l_tot_db": 6.032077674387301,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -4131,7 +4131,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05996193212718737,
-    "positions": 5.081983166573476,
+    "positions": 5.081983359066935,
     "scan_mismatch": 0.25952763034197845,
     "target_depolarisation": -1.7643486243648532
    },
@@ -4163,13 +4163,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -4191,7 +4191,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 436.97013353350115,
+   "range_km": 436.97012869151627,
    "snr_req_db": 19.986150353766654,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -4207,7 +4207,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.638078917290837,
+   "l_tot_db": 8.638079076983079,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -4221,7 +4221,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 0.25952763034197845,
     "target_depolarisation": -0.043213737826425784
    },
@@ -4259,7 +4259,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -4281,7 +4281,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 846.1506559379003,
+   "range_km": 846.1506481595552,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -4297,11 +4297,11 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.156926553406913,
+   "l_tot_db": 7.1569268891619755,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -4311,7 +4311,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06068918040400462,
-    "positions": 4.832943639367674,
+    "positions": 4.832943835320144,
     "scan_mismatch": 0.25952763034197845,
     "target_depolarisation": -0.4139268515822508
    },
@@ -4349,7 +4349,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -4371,7 +4371,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1156.1480748331367,
+   "range_km": 1156.1480524875521,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -4387,11 +4387,11 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.981572845677197,
+   "l_tot_db": 7.981573230414626,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -4401,7 +4401,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060415886863218304,
-    "positions": 4.960440393431238,
+    "positions": 4.960440588943037,
     "scan_mismatch": 0.25952763034197845,
     "target_depolarisation": -0.043213737826425784
    },
@@ -4439,7 +4439,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -4461,7 +4461,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1250.2125179413451,
+   "range_km": 1250.2124902525554,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -4477,11 +4477,11 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.929946083681092,
+   "l_tot_db": 6.92994641531744,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -4491,7 +4491,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05974218150853261,
-    "positions": 5.166211254042029,
+    "positions": 5.166211445875785,
     "scan_mismatch": 0.25952763034197845,
     "target_depolarisation": -0.9732279370869544
    },
@@ -4529,7 +4529,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -4551,7 +4551,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 5604.986891494216,
+   "range_km": 5604.986784492087,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -4567,7 +4567,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.0304031727222105,
+   "l_tot_db": 7.030403372429274,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -4581,7 +4581,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 0.25952763034197845,
     "target_depolarisation": -0.4139268515822508
    },
@@ -4619,7 +4619,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -4641,7 +4641,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 6071.159402524507,
+   "range_km": 6071.159332730078,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -4657,7 +4657,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.893737642245147,
+   "l_tot_db": 6.893737834738606,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -4671,7 +4671,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05996193212718737,
-    "positions": 5.081983166573476,
+    "positions": 5.081983359066935,
     "scan_mismatch": 1.1211877906932841,
     "target_depolarisation": -1.7643486243648532
    },
@@ -4703,13 +4703,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -4731,7 +4731,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 343.91497811795,
+   "range_km": 343.9149743070921,
    "snr_req_db": 19.986150353766654,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -4747,7 +4747,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.499739077642143,
+   "l_tot_db": 9.499739237334385,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -4761,7 +4761,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 1.1211877906932841,
     "target_depolarisation": -0.043213737826425784
    },
@@ -4799,7 +4799,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -4821,7 +4821,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 665.9582932320972,
+   "range_km": 665.9582871101928,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -4837,11 +4837,11 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.018586713758218,
+   "l_tot_db": 8.01858704951328,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -4851,7 +4851,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06068918040400462,
-    "positions": 4.832943639367674,
+    "positions": 4.832943835320144,
     "scan_mismatch": 1.1211877906932841,
     "target_depolarisation": -0.4139268515822508
    },
@@ -4889,7 +4889,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -4911,7 +4911,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 909.9400836438729,
+   "range_km": 909.9400660569014,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -4927,11 +4927,11 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.843233006028502,
+   "l_tot_db": 8.843233390765931,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -4941,7 +4941,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060415886863218304,
-    "positions": 4.960440393431238,
+    "positions": 4.960440588943037,
     "scan_mismatch": 1.1211877906932841,
     "target_depolarisation": -0.043213737826425784
    },
@@ -4979,7 +4979,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -5001,7 +5001,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 983.9729943868595,
+   "range_km": 983.9729725945473,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -5017,11 +5017,11 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.791606244032398,
+   "l_tot_db": 7.791606575668746,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -5031,7 +5031,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05974218150853261,
-    "positions": 5.166211254042029,
+    "positions": 5.166211445875785,
     "scan_mismatch": 1.1211877906932841,
     "target_depolarisation": -0.9732279370869544
    },
@@ -5069,7 +5069,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -5091,7 +5091,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4411.3745911008455,
+   "range_km": 4411.374506885398,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -5107,7 +5107,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.892063333073517,
+   "l_tot_db": 7.89206353278058,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -5121,7 +5121,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 1.1211877906932841,
     "target_depolarisation": -0.4139268515822508
    },
@@ -5159,7 +5159,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -5181,7 +5181,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4778.273142344464,
+   "range_km": 4778.273087413136,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -5197,7 +5197,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.63250730356087,
+   "l_tot_db": 7.6325074960543295,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -5211,7 +5211,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05996193212718737,
-    "positions": 5.081983166573476,
+    "positions": 5.081983359066935,
     "scan_mismatch": 1.8599574520090076,
     "target_depolarisation": -1.7643486243648532
    },
@@ -5243,13 +5243,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -5271,7 +5271,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 295.88642748500234,
+   "range_km": 295.8864242063398,
    "snr_req_db": 19.986150353766654,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -5287,7 +5287,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 10.238508738957867,
+   "l_tot_db": 10.238508898650108,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -5301,7 +5301,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 1.8599574520090076,
     "target_depolarisation": -0.043213737826425784
    },
@@ -5339,7 +5339,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -5361,7 +5361,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 572.9556221040035,
+   "range_km": 572.9556168370377,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -5377,11 +5377,11 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.757356375073941,
+   "l_tot_db": 8.757356710829004,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -5391,7 +5391,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06068918040400462,
-    "positions": 4.832943639367674,
+    "positions": 4.832943835320144,
     "scan_mismatch": 1.8599574520090076,
     "target_depolarisation": -0.4139268515822508
    },
@@ -5429,7 +5429,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -5451,7 +5451,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 782.8647709622313,
+   "range_km": 782.8647558313226,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -5467,11 +5467,11 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.582002667344225,
+   "l_tot_db": 9.582003052081655,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -5481,7 +5481,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060415886863218304,
-    "positions": 4.960440393431238,
+    "positions": 4.960440588943037,
     "scan_mismatch": 1.8599574520090076,
     "target_depolarisation": -0.043213737826425784
    },
@@ -5519,7 +5519,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -5541,7 +5541,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 846.5588083546522,
+   "range_km": 846.5587896056887,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -5557,11 +5557,11 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.530375905348121,
+   "l_tot_db": 8.53037623698447,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -5571,7 +5571,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05974218150853261,
-    "positions": 5.166211254042029,
+    "positions": 5.166211445875785,
     "scan_mismatch": 1.8599574520090076,
     "target_depolarisation": -0.9732279370869544
    },
@@ -5609,7 +5609,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -5631,7 +5631,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 3795.3155608456354,
+   "range_km": 3795.3154883910775,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -5647,7 +5647,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.63083299438924,
+   "l_tot_db": 8.630833194096303,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -5661,7 +5661,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 1.8599574520090076,
     "target_depolarisation": -0.4139268515822508
    },
@@ -5699,7 +5699,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -5721,7 +5721,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4110.975850406113,
+   "range_km": 4110.975803146077,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -5737,7 +5737,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.04145721822783,
+   "l_tot_db": 6.041457410148983,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -5751,7 +5751,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.059956167359466406,
-    "positions": 5.091368667701701,
+    "positions": 5.091368859622854,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -1.7643486243648532
    },
@@ -5783,13 +5783,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.9,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -5811,7 +5811,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 625.2760645061065,
+   "range_km": 625.2760575981382,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -5827,7 +5827,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.638078917264322,
+   "l_tot_db": 8.638079076956563,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -5841,7 +5841,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.043213737826425784
    },
@@ -5879,7 +5879,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -5901,7 +5901,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1207.6668857921084,
+   "range_km": 1207.66687469048,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -5917,11 +5917,11 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.156926553380397,
+   "l_tot_db": 7.15692688913546,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -5931,7 +5931,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06068918040400462,
-    "positions": 4.832943639367674,
+    "positions": 4.832943835320144,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.4139268515822508
    },
@@ -5969,7 +5969,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -5991,7 +5991,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1650.1101018478048,
+   "range_km": 1650.1100699551125,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -6007,11 +6007,11 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.981572845650681,
+   "l_tot_db": 7.98157323038811,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -6021,7 +6021,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060415886863218304,
-    "positions": 4.960440393431238,
+    "positions": 4.960440588943037,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.043213737826425784
    },
@@ -6059,7 +6059,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -6081,7 +6081,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1784.3633961932933,
+   "range_km": 1784.3633566745216,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -6097,11 +6097,11 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.929946083654577,
+   "l_tot_db": 6.9299464152909245,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -6111,7 +6111,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05974218150853261,
-    "positions": 5.166211254042029,
+    "positions": 5.166211445875785,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.9732279370869544
    },
@@ -6149,7 +6149,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -6171,7 +6171,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7999.706691302486,
+   "range_km": 7999.706538583905,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -6187,7 +6187,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.030403172695695,
+   "l_tot_db": 7.030403372402758,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -6201,7 +6201,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.4139268515822508
    },
@@ -6239,7 +6239,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -6261,7 +6261,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8665.050505299547,
+   "range_km": 8665.050405685584,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -6277,7 +6277,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.871025742130248,
+   "l_tot_db": 5.871025934051401,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -6291,7 +6291,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.059956167359466406,
-    "positions": 5.091368667701701,
+    "positions": 5.091368859622854,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -1.7643486243648532
    },
@@ -6323,13 +6323,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.9,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -6351,7 +6351,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 587.6218105992027,
+   "range_km": 587.6218041072336,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -6367,7 +6367,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.46764744116674,
+   "l_tot_db": 8.467647600858982,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -6381,7 +6381,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.043213737826425784
    },
@@ -6419,7 +6419,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -6441,7 +6441,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1134.940936193358,
+   "range_km": 1134.9409257602724,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -6457,11 +6457,11 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.986495077282815,
+   "l_tot_db": 6.986495413037877,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -6471,7 +6471,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06068918040400462,
-    "positions": 4.832943639367674,
+    "positions": 4.832943835320144,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.4139268515822508
    },
@@ -6509,7 +6509,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -6531,7 +6531,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1550.7401302842807,
+   "range_km": 1550.7401003121727,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -6547,11 +6547,11 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.811141369553099,
+   "l_tot_db": 7.811141754290529,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -6561,7 +6561,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060415886863218304,
-    "positions": 4.960440393431238,
+    "positions": 4.960440588943037,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.043213737826425784
    },
@@ -6599,7 +6599,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -6621,7 +6621,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1676.9086634817209,
+   "range_km": 1676.9086263427778,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -6637,11 +6637,11 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.759514607556994,
+   "l_tot_db": 6.759514939193343,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -6651,7 +6651,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05974218150853261,
-    "positions": 5.166211254042029,
+    "positions": 5.166211445875785,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.9732279370869544
    },
@@ -6689,7 +6689,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -6711,7 +6711,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7517.962700073603,
+   "range_km": 7517.962556551765,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -6727,7 +6727,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.859971696598113,
+   "l_tot_db": 6.859971896305177,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -6741,7 +6741,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.4139268515822508
    },
@@ -6779,7 +6779,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -6801,7 +6801,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8143.239372003708,
+   "range_km": 8143.239278388518,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -6817,7 +6817,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.041457219505221,
+   "l_tot_db": 6.041457411426374,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -6831,7 +6831,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.059956167359466406,
-    "positions": 5.091368667701701,
+    "positions": 5.091368859622854,
     "scan_mismatch": 0.2595276315928544,
     "target_depolarisation": -1.7643486243648532
    },
@@ -6863,13 +6863,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.9,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -6891,7 +6891,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 442.13694529339364,
+   "range_km": 442.1369404087223,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -6907,7 +6907,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.638078918541712,
+   "l_tot_db": 8.638079078233954,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -6921,7 +6921,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 0.2595276315928544,
     "target_depolarisation": -0.043213737826425784
    },
@@ -6959,7 +6959,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -6981,7 +6981,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 853.9494442952465,
+   "range_km": 853.94943644521,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -6997,11 +6997,11 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.1569265546577885,
+   "l_tot_db": 7.156926890412851,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -7011,7 +7011,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06068918040400462,
-    "positions": 4.832943639367674,
+    "positions": 4.832943835320144,
     "scan_mismatch": 0.2595276315928544,
     "target_depolarisation": -0.4139268515822508
    },
@@ -7049,7 +7049,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -7071,7 +7071,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1166.8040426352095,
+   "range_km": 1166.8040200836704,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -7087,11 +7087,11 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.9815728469280725,
+   "l_tot_db": 7.981573231665502,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -7101,7 +7101,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060415886863218304,
-    "positions": 4.960440393431238,
+    "positions": 4.960440588943037,
     "scan_mismatch": 0.2595276315928544,
     "target_depolarisation": -0.043213737826425784
    },
@@ -7139,7 +7139,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -7161,7 +7161,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1261.7354574565572,
+   "range_km": 1261.7354295125658,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -7177,11 +7177,11 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.929946084931968,
+   "l_tot_db": 6.929946416568316,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -7191,7 +7191,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05974218150853261,
-    "positions": 5.166211254042029,
+    "positions": 5.166211445875785,
     "scan_mismatch": 0.2595276315928544,
     "target_depolarisation": -0.9732279370869544
    },
@@ -7229,7 +7229,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -7251,7 +7251,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 5656.646848507441,
+   "range_km": 5656.646740519096,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -7267,7 +7267,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.030403173973086,
+   "l_tot_db": 7.03040337368015,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -7281,7 +7281,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 0.2595276315928544,
     "target_depolarisation": -0.4139268515822508
    },
@@ -7319,7 +7319,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -7341,7 +7341,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 6127.115971170689,
+   "range_km": 6127.11590073298,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -7357,7 +7357,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.903119358040219,
+   "l_tot_db": 6.903119549961372,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -7371,7 +7371,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.059956167359466406,
-    "positions": 5.091368667701701,
+    "positions": 5.091368859622854,
     "scan_mismatch": 1.121189770127852,
     "target_depolarisation": -1.7643486243648532
    },
@@ -7403,13 +7403,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.9,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -7431,7 +7431,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 347.98144971789094,
+   "range_km": 347.9814458734373,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -7447,7 +7447,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.49974105707671,
+   "l_tot_db": 9.499741216768951,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -7461,7 +7461,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 1.121189770127852,
     "target_depolarisation": -0.043213737826425784
    },
@@ -7499,7 +7499,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -7521,7 +7521,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 672.0962108571554,
+   "range_km": 672.0962046788273,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -7537,11 +7537,11 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.018588693192786,
+   "l_tot_db": 8.018589028947849,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -7551,7 +7551,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06068918040400462,
-    "positions": 4.832943639367674,
+    "positions": 4.832943835320144,
     "scan_mismatch": 1.121189770127852,
     "target_depolarisation": -0.4139268515822508
    },
@@ -7589,7 +7589,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -7611,7 +7611,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 918.3267008448363,
+   "range_km": 918.3266830957715,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -7627,11 +7627,11 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.84323498546307,
+   "l_tot_db": 8.8432353702005,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -7641,7 +7641,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060415886863218304,
-    "positions": 4.960440393431238,
+    "positions": 4.960440588943037,
     "scan_mismatch": 1.121189770127852,
     "target_depolarisation": -0.043213737826425784
    },
@@ -7679,7 +7679,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -7701,7 +7701,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 993.0419484733332,
+   "range_km": 993.0419264801685,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -7717,11 +7717,11 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.791608223466966,
+   "l_tot_db": 7.791608555103314,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -7731,7 +7731,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05974218150853261,
-    "positions": 5.166211254042029,
+    "positions": 5.166211445875785,
     "scan_mismatch": 1.121189770127852,
     "target_depolarisation": -0.9732279370869544
    },
@@ -7769,7 +7769,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -7791,7 +7791,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4452.03277364564,
+   "range_km": 4452.032688654008,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -7807,7 +7807,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.892065312508084,
+   "l_tot_db": 7.892065512215147,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -7821,7 +7821,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 1.121189770127852,
     "target_depolarisation": -0.4139268515822508
    },
@@ -7859,7 +7859,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -7881,7 +7881,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4822.312907650782,
+   "range_km": 4822.31285221317,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -7897,7 +7897,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.641904150889272,
+   "l_tot_db": 7.641904342810425,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -7911,7 +7911,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.059956167359466406,
-    "positions": 5.091368667701701,
+    "positions": 5.091368859622854,
     "scan_mismatch": 1.8599745629769053,
     "target_depolarisation": -1.7643486243648532
    },
@@ -7943,13 +7943,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.9,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -7971,7 +7971,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 299.38474580718434,
+   "range_km": 299.3847424996207,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -7987,7 +7987,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 10.238525849925765,
+   "l_tot_db": 10.238526009618006,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -8001,7 +8001,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 1.8599745629769053,
     "target_depolarisation": -0.043213737826425784
    },
@@ -8039,7 +8039,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -8061,7 +8061,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 578.2358611603199,
+   "range_km": 578.2358558448148,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -8077,11 +8077,11 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.757373486041839,
+   "l_tot_db": 8.757373821796902,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -8091,7 +8091,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06068918040400462,
-    "positions": 4.832943639367674,
+    "positions": 4.832943835320144,
     "scan_mismatch": 1.8599745629769053,
     "target_depolarisation": -0.4139268515822508
    },
@@ -8129,7 +8129,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -8151,7 +8151,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 790.0794887867445,
+   "range_km": 790.0794735163925,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -8167,11 +8167,11 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.582019778312123,
+   "l_tot_db": 9.582020163049553,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -8181,7 +8181,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060415886863218304,
-    "positions": 4.960440393431238,
+    "positions": 4.960440588943037,
     "scan_mismatch": 1.8599745629769053,
     "target_depolarisation": -0.043213737826425784
    },
@@ -8219,7 +8219,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -8241,7 +8241,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 854.3605170924562,
+   "range_km": 854.3604981707063,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -8257,11 +8257,11 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.530393016316019,
+   "l_tot_db": 8.530393347952367,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -8271,7 +8271,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05974218150853261,
-    "positions": 5.166211254042029,
+    "positions": 5.166211445875785,
     "scan_mismatch": 1.8599745629769053,
     "target_depolarisation": -0.9732279370869544
    },
@@ -8309,7 +8309,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -8331,7 +8331,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 3830.292394447216,
+   "range_km": 3830.2923213249323,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -8347,7 +8347,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.630850105357137,
+   "l_tot_db": 8.6308503050642,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -8361,7 +8361,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 1.8599745629769053,
     "target_depolarisation": -0.4139268515822508
    },
@@ -8399,7 +8399,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -8421,7 +8421,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4148.861743147989,
+   "range_km": 4148.861695452414,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -8437,7 +8437,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.04145721822783,
+   "l_tot_db": 6.041457410148983,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -8451,7 +8451,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.059956167359466406,
-    "positions": 5.091368667701701,
+    "positions": 5.091368859622854,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -1.7643486243648532
    },
@@ -8483,13 +8483,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.9,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -8511,7 +8511,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 630.9347867652439,
+   "range_km": 630.9347797947587,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -8527,7 +8527,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.638078917264322,
+   "l_tot_db": 8.638079076956563,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -8541,7 +8541,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.043213737826425784
    },
@@ -8579,7 +8579,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -8601,7 +8601,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1218.5962206510283,
+   "range_km": 1218.5962094489307,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -8617,11 +8617,11 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.156926553380397,
+   "l_tot_db": 7.15692688913546,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -8631,7 +8631,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06068918040400462,
-    "positions": 4.832943639367674,
+    "positions": 4.832943835320144,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.4139268515822508
    },
@@ -8669,7 +8669,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -8691,7 +8691,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1665.0435293263204,
+   "range_km": 1665.0434971450004,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -8707,11 +8707,11 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.981572845650681,
+   "l_tot_db": 7.98157323038811,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -8721,7 +8721,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060415886863218304,
-    "positions": 4.960440393431238,
+    "positions": 4.960440588943037,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.043213737826425784
    },
@@ -8759,7 +8759,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -8781,7 +8781,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1800.511810376402,
+   "range_km": 1800.511770499987,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -8797,11 +8797,11 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.939333795916748,
+   "l_tot_db": 6.939334126300992,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -8811,7 +8811,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05969422514967704,
-    "positions": 5.175646922663056,
+    "positions": 5.1756471132447075,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.9732279370869544
    },
@@ -8849,7 +8849,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -8871,7 +8871,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8088.884844581548,
+   "range_km": 8088.884690743531,
    "snr_req_db": 19.48911591038871,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -8887,7 +8887,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.030403172695695,
+   "l_tot_db": 7.030403372402758,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -8901,7 +8901,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.4139268515822508
    },
@@ -8939,7 +8939,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -8961,7 +8961,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8743.46885033826,
+   "range_km": 8743.468749822796,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -8977,7 +8977,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.871025742130248,
+   "l_tot_db": 5.871025934051401,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -8991,7 +8991,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.059956167359466406,
-    "positions": 5.091368667701701,
+    "positions": 5.091368859622854,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -1.7643486243648532
    },
@@ -9023,13 +9023,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.9,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -9051,7 +9051,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 592.9397634337139,
+   "range_km": 592.9397568829928,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -9067,7 +9067,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.46764744116674,
+   "l_tot_db": 8.467647600858982,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -9081,7 +9081,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.043213737826425784
    },
@@ -9119,7 +9119,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -9141,7 +9141,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1145.2121042469703,
+   "range_km": 1145.2120937194657,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -9157,11 +9157,11 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.986495077282815,
+   "l_tot_db": 6.986495413037877,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -9171,7 +9171,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06068918040400462,
-    "positions": 4.832943639367674,
+    "positions": 4.832943835320144,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.4139268515822508
    },
@@ -9209,7 +9209,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -9231,7 +9231,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1564.7742636719204,
+   "range_km": 1564.774233428566,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -9247,11 +9247,11 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.811141369553099,
+   "l_tot_db": 7.811141754290529,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -9261,7 +9261,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060415886863218304,
-    "positions": 4.960440393431238,
+    "positions": 4.960440588943037,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.043213737826425784
    },
@@ -9299,7 +9299,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -9321,7 +9321,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1692.0846168233534,
+   "range_km": 1692.0845793483043,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -9337,11 +9337,11 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.768902319819166,
+   "l_tot_db": 6.76890265020341,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -9351,7 +9351,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05969422514967704,
-    "positions": 5.175646922663056,
+    "positions": 5.1756471132447075,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.9732279370869544
    },
@@ -9389,7 +9389,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -9411,7 +9411,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7601.770526520833,
+   "range_km": 7601.770381946973,
    "snr_req_db": 19.48911591038871,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -9427,7 +9427,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.859971696598113,
+   "l_tot_db": 6.859971896305177,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -9441,7 +9441,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.4139268515822508
    },
@@ -9479,7 +9479,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -9501,7 +9501,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8216.93534808787,
+   "range_km": 8216.935253625466,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -9517,7 +9517,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.859971696598113,
+   "l_tot_db": 6.859971896305177,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -9531,7 +9531,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.4139268515822508
    },
@@ -9569,7 +9569,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -9591,7 +9591,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8216.93534808787,
+   "range_km": 8216.935253625466,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -9607,7 +9607,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.857384684804136,
+   "l_tot_db": 6.8573848903164505,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -9621,7 +9621,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.726380000762941,
+    "positions": 4.726380206275255,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.4139268515822508
    },
@@ -9659,7 +9659,7 @@
      "grid_rx": 0.40393824975103615,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.04783506420391502,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -30.0,
@@ -9681,7 +9681,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7971.277696621545,
+   "range_km": 7971.277602319419,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -9697,7 +9697,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.855431230074328,
+   "l_tot_db": 6.855431433134226,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -9711,7 +9711,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.724426546033133,
+    "positions": 4.7244267490930305,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.4139268515822508
    },
@@ -9749,7 +9749,7 @@
      "grid_rx": 0.4056036103607174,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.042907734264614174,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -35.0,
@@ -9771,7 +9771,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7757.882419584467,
+   "range_km": 7757.882328902057,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -9787,7 +9787,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.041457271814311,
+   "l_tot_db": 6.041457463735464,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -9801,7 +9801,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.059956167359466406,
-    "positions": 5.091368667701701,
+    "positions": 5.091368859622854,
     "scan_mismatch": 0.2595276839019442,
     "target_depolarisation": -1.7643486243648532
    },
@@ -9833,13 +9833,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.9,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -9861,7 +9861,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 446.138264831996,
+   "range_km": 446.13825990311864,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -9877,7 +9877,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.638078970850803,
+   "l_tot_db": 8.638079130543044,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -9891,7 +9891,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 0.2595276839019442,
     "target_depolarisation": -0.043213737826425784
    },
@@ -9929,7 +9929,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -9951,7 +9951,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 861.6776484926356,
+   "range_km": 861.6776405715566,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -9967,11 +9967,11 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.156926606966878,
+   "l_tot_db": 7.156926942721941,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -9981,7 +9981,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06068918040400462,
-    "positions": 4.832943639367674,
+    "positions": 4.832943835320144,
     "scan_mismatch": 0.2595276839019442,
     "target_depolarisation": -0.4139268515822508
    },
@@ -10019,7 +10019,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -10041,7 +10041,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1177.3635669256266,
+   "range_km": 1177.363544169997,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -10057,11 +10057,11 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.981572899237163,
+   "l_tot_db": 7.981573283974591,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -10071,7 +10071,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060415886863218304,
-    "positions": 4.960440393431238,
+    "positions": 4.960440588943037,
     "scan_mismatch": 0.2595276839019442,
     "target_depolarisation": -0.043213737826425784
    },
@@ -10109,7 +10109,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -10131,7 +10131,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1273.1541067963406,
+   "range_km": 1273.1540785994573,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -10147,11 +10147,11 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.939333849503229,
+   "l_tot_db": 6.9393341798874735,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -10161,7 +10161,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05969422514967704,
-    "positions": 5.175646922663056,
+    "positions": 5.1756471132447075,
     "scan_mismatch": 0.2595276839019442,
     "target_depolarisation": -0.9732279370869544
    },
@@ -10199,7 +10199,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -10221,7 +10221,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 5719.705308197212,
+   "range_km": 5719.705199417307,
    "snr_req_db": 19.48911591038871,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -10237,7 +10237,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.030403226282177,
+   "l_tot_db": 7.03040342598924,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -10251,7 +10251,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 0.2595276839019442,
     "target_depolarisation": -0.4139268515822508
    },
@@ -10289,7 +10289,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -10311,7 +10311,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 6182.566096096256,
+   "range_km": 6182.566025021089,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -10327,7 +10327,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.903202134322996,
+   "l_tot_db": 6.903202326244148,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -10341,7 +10341,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.059956167359466406,
-    "positions": 5.091368667701701,
+    "positions": 5.091368859622854,
     "scan_mismatch": 1.1212725464106283,
     "target_depolarisation": -1.7643486243648532
    },
@@ -10373,13 +10373,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.9,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -10401,7 +10401,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 351.1289941701522,
+   "range_km": 351.1289902909249,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -10417,7 +10417,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.499823833359487,
+   "l_tot_db": 9.499823993051729,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -10431,7 +10431,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 1.1212725464106283,
     "target_depolarisation": -0.043213737826425784
    },
@@ -10469,7 +10469,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -10491,7 +10491,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 678.1754219805766,
+   "range_km": 678.1754157463646,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -10507,11 +10507,11 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.018671469475562,
+   "l_tot_db": 8.018671805230625,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -10521,7 +10521,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06068918040400462,
-    "positions": 4.832943639367674,
+    "positions": 4.832943835320144,
     "scan_mismatch": 1.1212725464106283,
     "target_depolarisation": -0.4139268515822508
    },
@@ -10559,7 +10559,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -10581,7 +10581,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 926.6331037147331,
+   "range_km": 926.6330858051255,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -10597,11 +10597,11 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.843317761745846,
+   "l_tot_db": 8.843318146483275,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -10611,7 +10611,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060415886863218304,
-    "positions": 4.960440393431238,
+    "positions": 4.960440588943037,
     "scan_mismatch": 1.1212725464106283,
     "target_depolarisation": -0.043213737826425784
    },
@@ -10649,7 +10649,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -10671,7 +10671,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1002.0241619744089,
+   "range_km": 1002.0241397823128,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -10687,11 +10687,11 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.801078712011913,
+   "l_tot_db": 7.801079042396157,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -10701,7 +10701,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05969422514967704,
-    "positions": 5.175646922663056,
+    "positions": 5.1756471132447075,
     "scan_mismatch": 1.1212725464106283,
     "target_depolarisation": -0.9732279370869544
    },
@@ -10739,7 +10739,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -10761,7 +10761,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4501.641150582009,
+   "range_km": 4501.641064967792,
    "snr_req_db": 19.48911591038871,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -10777,7 +10777,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.892148088790861,
+   "l_tot_db": 7.892148288497924,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -10791,7 +10791,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 1.1212725464106283,
     "target_depolarisation": -0.4139268515822508
    },
@@ -10829,7 +10829,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -10851,7 +10851,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4865.931451834241,
+   "range_km": 4865.931395895189,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -10867,7 +10867,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.64261972652326,
+   "l_tot_db": 7.642619918444413,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -10881,7 +10881,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.059956167359466406,
-    "positions": 5.091368667701701,
+    "positions": 5.091368859622854,
     "scan_mismatch": 1.860690138610893,
     "target_depolarisation": -1.7643486243648532
    },
@@ -10913,13 +10913,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.9,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -10941,7 +10941,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 302.0817216885039,
+   "range_km": 302.08171835114433,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -10957,7 +10957,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 10.23924142555975,
+   "l_tot_db": 10.239241585251992,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -10971,7 +10971,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 1.860690138610893,
     "target_depolarisation": -0.043213737826425784
    },
@@ -11009,7 +11009,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -11031,7 +11031,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 583.4448378804221,
+   "range_km": 583.444832517033,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -11047,11 +11047,11 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.758089061675827,
+   "l_tot_db": 8.75808939743089,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -11061,7 +11061,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06068918040400462,
-    "positions": 4.832943639367674,
+    "positions": 4.832943835320144,
     "scan_mismatch": 1.860690138610893,
     "target_depolarisation": -0.4139268515822508
    },
@@ -11099,7 +11099,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -11121,7 +11121,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 797.196836465358,
+   "range_km": 797.1968210574446,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -11137,11 +11137,11 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.582735353946111,
+   "l_tot_db": 9.58273573868354,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -11151,7 +11151,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060415886863218304,
-    "positions": 4.960440393431238,
+    "positions": 4.960440588943037,
     "scan_mismatch": 1.860690138610893,
     "target_depolarisation": -0.043213737826425784
    },
@@ -11189,7 +11189,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -11211,7 +11211,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 862.0569336294363,
+   "range_km": 862.0569145372317,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -11227,11 +11227,11 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.540496304212178,
+   "l_tot_db": 8.540496634596423,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -11241,7 +11241,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05969422514967704,
-    "positions": 5.175646922663056,
+    "positions": 5.1756471132447075,
     "scan_mismatch": 1.860690138610893,
     "target_depolarisation": -0.9732279370869544
    },
@@ -11279,7 +11279,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -11301,7 +11301,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 3872.831727854008,
+   "range_km": 3872.831654198768,
    "snr_req_db": 19.48911591038871,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -11317,7 +11317,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.631565680991125,
+   "l_tot_db": 8.631565880698188,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -11331,7 +11331,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 1.860690138610893,
     "target_depolarisation": -0.4139268515822508
    },
@@ -11369,7 +11369,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -11391,7 +11391,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4186.2363262318095,
+   "range_km": 4186.236278106574,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -11407,7 +11407,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.225802039060051,
+   "l_tot_db": 6.225802230329551,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -11421,7 +11421,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.059945831516149184,
-    "positions": 5.100750184056999,
+    "positions": 5.100750375326498,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -1.7643486243648532
    },
@@ -11453,13 +11453,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.9,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -11481,7 +11481,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 635.0703049828236,
+   "range_km": 635.0702979904726,
    "snr_req_db": 19.878798109780288,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -11497,7 +11497,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.813052557584562,
+   "l_tot_db": 8.813052717276804,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -11511,7 +11511,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.043213737826425784
    },
@@ -11549,7 +11549,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -11571,7 +11571,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1223.4964513993991,
+   "range_km": 1223.496440152256,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -11587,11 +11587,11 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.340736118478362,
+   "l_tot_db": 7.340736456131924,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -11601,7 +11601,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060650236460507045,
-    "positions": 4.841818508088895,
+    "positions": 4.841818705939865,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.4139268515822508
    },
@@ -11639,7 +11639,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -11661,7 +11661,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1680.0254796992297,
+   "range_km": 1680.02544704474,
    "snr_req_db": 21.864101542409625,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -11677,11 +11677,11 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.165522659666221,
+   "l_tot_db": 8.165523041716328,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -11691,7 +11691,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060281804343446765,
-    "positions": 4.969550649646308,
+    "positions": 4.969550842470785,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.043213737826425784
    },
@@ -11723,13 +11723,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -11751,7 +11751,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1814.1537737344763,
+   "range_km": 1814.1537338365692,
    "snr_req_db": 20.72923152833155,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -11767,11 +11767,11 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.123725040021083,
+   "l_tot_db": 7.123725369092144,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -11781,7 +11781,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05974964671935368,
-    "positions": 5.185009104877473,
+    "positions": 5.185009294145942,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.9732279370869544
    },
@@ -11813,13 +11813,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -11841,7 +11841,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8137.880996730922,
+   "range_km": 8137.88084257624,
    "snr_req_db": 19.44450651543535,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -11857,7 +11857,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.205376813015936,
+   "l_tot_db": 7.205377012722999,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -11871,7 +11871,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.4139268515822508
    },
@@ -11909,7 +11909,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -11931,7 +11931,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8778.628170695387,
+   "range_km": 8778.628069775727,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -11947,7 +11947,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.0553705629624694,
+   "l_tot_db": 6.055370754231969,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -11961,7 +11961,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.059945831516149184,
-    "positions": 5.100750184056999,
+    "positions": 5.100750375326498,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -1.7643486243648532
    },
@@ -11993,13 +11993,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.9,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -12021,7 +12021,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 596.8262398890373,
+   "range_km": 596.826233317767,
    "snr_req_db": 19.878798109780288,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -12037,7 +12037,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.64262108148698,
+   "l_tot_db": 8.642621241179222,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -12051,7 +12051,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.043213737826425784
    },
@@ -12089,7 +12089,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -12111,7 +12111,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1149.8172420863439,
+   "range_km": 1149.8172315165061,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -12127,11 +12127,11 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.17030464238078,
+   "l_tot_db": 7.1703049800343415,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -12141,7 +12141,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060650236460507045,
-    "positions": 4.841818508088895,
+    "positions": 4.841818705939865,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.4139268515822508
    },
@@ -12179,7 +12179,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -12201,7 +12201,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1578.8539978952194,
+   "range_km": 1578.8539672071902,
    "snr_req_db": 21.864101542409625,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -12217,11 +12217,11 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.995091183568639,
+   "l_tot_db": 7.995091565618746,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -12231,7 +12231,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060281804343446765,
-    "positions": 4.969550649646308,
+    "positions": 4.969550842470785,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.043213737826425784
    },
@@ -12263,13 +12263,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -12291,7 +12291,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1704.90505832695,
+   "range_km": 1704.9050208317033,
    "snr_req_db": 20.72923152833155,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -12307,11 +12307,11 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.9532935639235,
+   "l_tot_db": 6.953293892994562,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -12321,7 +12321,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05974964671935368,
-    "positions": 5.185009104877473,
+    "positions": 5.185009294145942,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.9732279370869544
    },
@@ -12353,13 +12353,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -12381,7 +12381,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7647.816120255739,
+   "range_km": 7647.815975384284,
    "snr_req_db": 19.44450651543535,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -12397,7 +12397,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.034945336918354,
+   "l_tot_db": 7.034945536625417,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -12411,7 +12411,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 0.08909615421788107,
     "target_depolarisation": -0.4139268515822508
    },
@@ -12449,7 +12449,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -12471,7 +12471,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8249.977366902409,
+   "range_km": 8249.977272060152,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -12487,7 +12487,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.225818191131313,
+   "l_tot_db": 6.225818382400813,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -12501,7 +12501,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.059945831516149184,
-    "positions": 5.100750184056999,
+    "positions": 5.100750375326498,
     "scan_mismatch": 0.25954378238672443,
     "target_depolarisation": -1.7643486243648532
    },
@@ -12533,13 +12533,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.9,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -12561,7 +12561,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 449.0621016508328,
+   "range_km": 449.06209670649855,
    "snr_req_db": 19.878798109780288,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -12577,7 +12577,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.813068709655823,
+   "l_tot_db": 8.813068869348065,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -12591,7 +12591,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 0.25954378238672443,
     "target_depolarisation": -0.043213737826425784
    },
@@ -12629,7 +12629,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -12651,7 +12651,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 865.1418331433559,
+   "range_km": 865.141825190432,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -12667,11 +12667,11 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.340752270549624,
+   "l_tot_db": 7.340752608203185,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -12681,7 +12681,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060650236460507045,
-    "positions": 4.841818508088895,
+    "positions": 4.841818705939865,
     "scan_mismatch": 0.25954378238672443,
     "target_depolarisation": -0.4139268515822508
    },
@@ -12719,7 +12719,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -12741,7 +12741,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1187.9563047135218,
+   "range_km": 1187.9562816233324,
    "snr_req_db": 21.864101542409625,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -12757,11 +12757,11 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.165538811737482,
+   "l_tot_db": 8.16553919378759,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -12771,7 +12771,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060281804343446765,
-    "positions": 4.969550649646308,
+    "positions": 4.969550842470785,
     "scan_mismatch": 0.25954378238672443,
     "target_depolarisation": -0.043213737826425784
    },
@@ -12803,13 +12803,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -12831,7 +12831,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1282.799242790965,
+   "range_km": 1282.7992145789106,
    "snr_req_db": 20.72923152833155,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -12847,11 +12847,11 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.123741192092344,
+   "l_tot_db": 7.123741521163406,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -12861,7 +12861,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05974964671935368,
-    "positions": 5.185009104877473,
+    "positions": 5.185009294145942,
     "scan_mismatch": 0.25954378238672443,
     "target_depolarisation": -0.9732279370869544
    },
@@ -12893,13 +12893,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -12921,7 +12921,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 5754.345486953922,
+   "range_km": 5754.3453779502015,
    "snr_req_db": 19.44450651543535,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -12937,7 +12937,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.2053929650871975,
+   "l_tot_db": 7.205393164794261,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -12951,7 +12951,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 0.25954378238672443,
     "target_depolarisation": -0.4139268515822508
    },
@@ -12989,7 +12989,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -13011,7 +13011,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 6207.42173742527,
+   "range_km": 6207.421666064362,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -13027,7 +13027,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.113059458615053,
+   "l_tot_db": 7.113059649884553,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -13041,7 +13041,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.059945831516149184,
-    "positions": 5.100750184056999,
+    "positions": 5.100750375326498,
     "scan_mismatch": 1.1467850498704648,
     "target_depolarisation": -1.7643486243648532
    },
@@ -13073,13 +13073,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.9,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -13101,7 +13101,7 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 352.9118270674699,
+   "range_km": 352.91182318178454,
    "snr_req_db": 19.878798109780288,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -13117,7 +13117,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.700309977139565,
+   "l_tot_db": 9.700310136831806,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -13131,7 +13131,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05691865011761976,
-    "positions": 5.969892997441612,
+    "positions": 5.969893157133853,
     "scan_mismatch": 1.1467850498704648,
     "target_depolarisation": -0.043213737826425784
    },
@@ -13169,7 +13169,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -13191,7 +13191,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 679.903255885356,
+   "range_km": 679.9032496352607,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -13207,11 +13207,11 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.227993538033363,
+   "l_tot_db": 8.227993875686925,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -13221,7 +13221,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060650236460507045,
-    "positions": 4.841818508088895,
+    "positions": 4.841818705939865,
     "scan_mismatch": 1.1467850498704648,
     "target_depolarisation": -0.4139268515822508
    },
@@ -13259,7 +13259,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -13281,7 +13281,7 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 933.5987793927688,
+   "range_km": 933.5987612465016,
    "snr_req_db": 21.864101542409625,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -13297,11 +13297,11 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.052780079221222,
+   "l_tot_db": 9.052780461271329,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.34944929565113514,
+    "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -13311,7 +13311,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.060281804343446765,
-    "positions": 4.969550649646308,
+    "positions": 4.969550842470785,
     "scan_mismatch": 1.1467850498704648,
     "target_depolarisation": -0.043213737826425784
    },
@@ -13343,13 +13343,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -13371,7 +13371,7 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1008.1345606094676,
+   "range_km": 1008.1345384379958,
    "snr_req_db": 20.72923152833155,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -13387,11 +13387,11 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.010982459576084,
+   "l_tot_db": 8.010982788647146,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
-    "acceleration": 0.022739577659453905,
+    "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
     "calibration": 0.5,
     "cfar": 0.03912038775132617,
@@ -13401,7 +13401,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.05974964671935368,
-    "positions": 5.185009104877473,
+    "positions": 5.185009294145942,
     "scan_mismatch": 1.1467850498704648,
     "target_depolarisation": -0.9732279370869544
    },
@@ -13433,13 +13433,13 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9000000000000001,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -13461,7 +13461,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4522.262225898956,
+   "range_km": 4522.262140234407,
    "snr_req_db": 19.44450651543535,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -13477,7 +13477,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.092634232570937,
+   "l_tot_db": 8.092634432278,
    "losses": {
     "Ku_blockage": 0.2,
     "TX_chain": 0.6,
@@ -13491,7 +13491,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.5121410670891829,
     "polarisation": 0.06088200418951217,
-    "positions": 4.728967012556918,
+    "positions": 4.728967212263981,
     "scan_mismatch": 1.1467850498704648,
     "target_depolarisation": -0.4139268515822508
    },
@@ -13529,7 +13529,7 @@
      "grid_rx": 0.40170113393368617,
      "grid_tx": 3.367696579867608,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3414849105490106
+     "velocity_filter": 0.341485109716384
     },
     "pulses_per_block": 1,
     "range_psl_db": -25.0,
@@ -13551,7 +13551,7 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4878.3287181879205,
+   "range_km": 4878.328662106347,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -13596,11 +13596,11 @@
   "TEST-KU-CONF 13.6 GHz | 0.0 deg | KKV": {
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 4.035987526136124,
+   "l_tot_db": 4.035987601251473,
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.01637991900540651,
+    "acceleration": 0.016379919007126313,
     "buffer_droop": 0.02095087551886922,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -13611,7 +13611,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.0,
     "polarisation": 0.46349963054485954,
-    "positions": 0.47834648076865705,
+    "positions": 0.47834655588228614,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.043213737826425784
    },
@@ -13652,12 +13652,12 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "straddle_doppler": 0.07464585358194228,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3340140810407992
+     "velocity_filter": 0.3340141518827832
     },
     "pulses_per_block": 8,
     "range_psl_db": -25.0,
@@ -13679,7 +13679,7 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 8089.054094040318,
+   "range_km": 8089.054059063353,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -13688,11 +13688,11 @@
   "TEST-KU-CONF 13.6 GHz | 50.0 deg | KKV": {
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 3.796201800870415,
+   "l_tot_db": 3.796201875985764,
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.01637991900540651,
+    "acceleration": 0.016379919007126313,
     "buffer_droop": 0.02095087551886922,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -13703,7 +13703,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.0,
     "polarisation": 0.46349963054485954,
-    "positions": 0.47834648076865705,
+    "positions": 0.47834655588228614,
     "scan_mismatch": 0.01974190504975368,
     "target_depolarisation": -0.043213737826425784
    },
@@ -13744,12 +13744,12 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "straddle_doppler": 0.07464585358194228,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3340140810407992
+     "velocity_filter": 0.3340141518827832
     },
     "pulses_per_block": 8,
     "range_psl_db": -25.0,
@@ -13771,7 +13771,7 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 6575.459863698265,
+   "range_km": 6575.459835266061,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -13780,11 +13780,11 @@
   "TEST-KU-CONF 13.6 GHz | 70.0 deg | KKV": {
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 4.897647845638698,
+   "l_tot_db": 4.897647920754046,
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.01637991900540651,
+    "acceleration": 0.016379919007126313,
     "buffer_droop": 0.02095087551886922,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -13795,7 +13795,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.0,
     "polarisation": 0.46349963054485954,
-    "positions": 0.47834648076865705,
+    "positions": 0.47834655588228614,
     "scan_mismatch": 1.1211879498180364,
     "target_depolarisation": -0.043213737826425784
    },
@@ -13836,12 +13836,12 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "straddle_doppler": 0.07464585358194228,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3340140810407992
+     "velocity_filter": 0.3340141518827832
     },
     "pulses_per_block": 8,
     "range_psl_db": -25.0,
@@ -13863,7 +13863,7 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 4501.757264078818,
+   "range_km": 4501.757244613277,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -13872,11 +13872,11 @@
   "TEST-KU-CONF 14.0 GHz | 0.0 deg | KKV": {
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 3.787047545487732,
+   "l_tot_db": 3.787047620603081,
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.01735778657154688,
+    "acceleration": 0.017357786573266688,
     "buffer_droop": 0.02095087551886922,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -13887,7 +13887,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.0,
     "polarisation": 0.46349963054485954,
-    "positions": 0.47834648076865705,
+    "positions": 0.47834655588228614,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.043213737826425784
    },
@@ -13928,12 +13928,12 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "straddle_doppler": 0.07464585358194228,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3340140810407992
+     "velocity_filter": 0.3340141518827832
     },
     "pulses_per_block": 8,
     "range_psl_db": -25.0,
@@ -13955,7 +13955,7 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 8445.922942145595,
+   "range_km": 8445.922905625534,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -13964,11 +13964,11 @@
   "TEST-KU-CONF 14.0 GHz | 50.0 deg | KKV": {
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 3.547261820224455,
+   "l_tot_db": 3.547261895339804,
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.01735778657154688,
+    "acceleration": 0.017357786573266688,
     "buffer_droop": 0.02095087551886922,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -13979,7 +13979,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.0,
     "polarisation": 0.46349963054485954,
-    "positions": 0.47834648076865705,
+    "positions": 0.47834655588228614,
     "scan_mismatch": 0.019741905052185447,
     "target_depolarisation": -0.043213737826425784
    },
@@ -14020,12 +14020,12 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "straddle_doppler": 0.07464585358194228,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3340140810407992
+     "velocity_filter": 0.3340141518827832
     },
     "pulses_per_block": 8,
     "range_psl_db": -25.0,
@@ -14047,7 +14047,7 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 6865.5527175761445,
+   "range_km": 6865.5526878895835,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -14056,11 +14056,11 @@
   "TEST-KU-CONF 14.0 GHz | 70.0 deg | KKV": {
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 4.6487924615828975,
+   "l_tot_db": 4.648792536698247,
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.01735778657154688,
+    "acceleration": 0.017357786573266688,
     "buffer_droop": 0.02095087551886922,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -14071,7 +14071,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.0,
     "polarisation": 0.46349963054485954,
-    "positions": 0.47834648076865705,
+    "positions": 0.47834655588228614,
     "scan_mismatch": 1.1212725464106283,
     "target_depolarisation": -0.043213737826425784
    },
@@ -14112,12 +14112,12 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "straddle_doppler": 0.07464585358194228,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3340140810407992
+     "velocity_filter": 0.3340141518827832
     },
     "pulses_per_block": 8,
     "range_psl_db": -25.0,
@@ -14139,7 +14139,7 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 4700.340652825074,
+   "range_km": 4700.340632500862,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -14148,11 +14148,11 @@
   "TEST-KU-CONF 14.4 GHz | 0.0 deg | KKV": {
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 4.038138493659229,
+   "l_tot_db": 4.0381385687745786,
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.01836420174640479,
+    "acceleration": 0.018364201748124597,
     "buffer_droop": 0.02095087551886922,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -14163,7 +14163,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.0,
     "polarisation": 0.46349963054485954,
-    "positions": 0.47834648076865705,
+    "positions": 0.47834655588228614,
     "scan_mismatch": 0.25952763031546294,
     "target_depolarisation": -0.043213737826425784
    },
@@ -14204,12 +14204,12 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "straddle_doppler": 0.07464585358194228,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3340140810407992
+     "velocity_filter": 0.3340141518827832
     },
     "pulses_per_block": 8,
     "range_psl_db": -25.0,
@@ -14231,7 +14231,7 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 8561.42803872266,
+   "range_km": 8561.428001703154,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -14240,11 +14240,11 @@
   "TEST-KU-CONF 14.4 GHz | 50.0 deg | KKV": {
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 3.798352769128214,
+   "l_tot_db": 3.7983528442435626,
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.01836420174640479,
+    "acceleration": 0.018364201748124597,
     "buffer_droop": 0.02095087551886922,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -14255,7 +14255,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.0,
     "polarisation": 0.46349963054485954,
-    "positions": 0.47834648076865705,
+    "positions": 0.47834655588228614,
     "scan_mismatch": 0.01974190578444746,
     "target_depolarisation": -0.043213737826425784
    },
@@ -14296,12 +14296,12 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "straddle_doppler": 0.07464585358194228,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3340140810407992
+     "velocity_filter": 0.3340141518827832
     },
     "pulses_per_block": 8,
     "range_psl_db": -25.0,
@@ -14323,7 +14323,7 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 6959.444922448598,
+   "range_km": 6959.4448923560485,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -14332,11 +14332,11 @@
   "TEST-KU-CONF 14.4 GHz | 70.0 deg | KKV": {
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 4.925395913214232,
+   "l_tot_db": 4.925395988329581,
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.01836420174640479,
+    "acceleration": 0.018364201748124597,
     "buffer_droop": 0.02095087551886922,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -14347,7 +14347,7 @@
     "migration": 0.1,
     "multibeam_tx": 0.0,
     "polarisation": 0.46349963054485954,
-    "positions": 0.47834648076865705,
+    "positions": 0.47834655588228614,
     "scan_mismatch": 1.146785049870466,
     "target_depolarisation": -0.043213737826425784
    },
@@ -14388,12 +14388,12 @@
      }
     },
     "modulation": "nlfm",
-    "pd_per_look_at_range": 0.9,
+    "pd_per_look_at_range": 0.8999999999999999,
     "pfa": 1e-08,
     "position_losses_mean_db": {
      "straddle_doppler": 0.07464585358194228,
      "straddle_range": 0.05443263167112234,
-     "velocity_filter": 0.3340140810407992
+     "velocity_filter": 0.3340141518827832
     },
     "pulses_per_block": 8,
     "range_psl_db": -25.0,
@@ -14415,7 +14415,7 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 4757.629490382167,
+   "range_km": 4757.629469810239,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",

@@ -789,6 +789,48 @@ def _processing_dict(w, sec: dict, f: float) -> dict:
             "velocity_hypotheses": n_hyp, "acceleration_hypotheses": n_acc}
 
 
+def _freq_ranges(sec: dict, sph: Sphere, m: np.ndarray, f: float, sky: Optional[dict], cands: List, tgt,
+                 excl) -> Optional[tuple]:
+    """(P, unscanned, ranges, sky summary, Pfas, T_sys factor) of a sector at one centre, None if nothing to scan.
+    Step 3.1, X1: only the candidates whose occupied band fits at f are solved (the others are unplayable there)."""
+    if rm.band_for_frequency(f) is not rm.BAND_S:
+        return None                                    # outside the (possibly redefined) S band
+    pos, unscanned, sky_s, factor = search_positions(sec, sph, m, f, sky)
+    P = np.array([pos[k] for k in range(4)])
+    if P.sum() <= 0:
+        return None
+    pfas = candidate_pfas(sec, cands, f, float(P.sum()))
+    fit = [c for c, w in enumerate(cands) if signal_fits(f, w.occupied_mhz, excl)
+           and not (w.staggered and sky_s.get("main_lobe_surface"))]   # A2, B8; step 2.5 C2 (folded clutter)
+    r = np.full((len(cands), P.shape[1]), np.nan)
+    if fit:
+        r[fit] = _range_matrix([cands[c] for c in fit], f, tgt, P.shape[1], rx_sll_db(sec), velocity_span_mps(sec),
+                               [pfas[c] for c in fit], search_criterion(sec)) * factor
+    return P, unscanned, r, sky_s, pfas, factor
+
+
+def _freq_task(sec: dict, eps_min: float, eps_max: float, f: float, sky: Optional[dict]) -> Optional[tuple]:
+    """Worker entry point of the parallel frequency evaluation (X3)."""
+    sph = _sphere(eps_min, eps_max)
+    return _freq_ranges(sec, sph, sph.mask(sec), f, sky, candidate_waveforms(sec), sector_target(sec),
+                        exclusions_s(sec))
+
+
+_IN_POOL_WORKER = False
+
+
+def _mark_pool_worker() -> None:
+    global _IN_POOL_WORKER
+    _IN_POOL_WORKER = True
+
+
+def _freq_parallel_ok(n_freqs: int) -> bool:
+    """Frequencies of one sector in parallel: in the main process only (not inside a sector worker, nor under the
+    parallel test runner, whose workers already fill the machine), with several frequencies and workers."""
+    return (not _IN_POOL_WORKER and MAX_WORKERS > 1 and n_freqs > 2 and not os.environ.get("PYTEST_XDIST_WORKER")
+            and os.environ.get("RADAR_FREQ_PARALLEL", "1") != "0")
+
+
 def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: Optional[dict] = None):
     """Frequency and waveform plan chosen for a sector: (f, P, unscanned, plan, cands, sky summary), or a status dict
     (NO_POSITIONS / NO_WAVEFORM) when there is none. sky: the mission sky (core/sky.py; None = cold sky with the
@@ -810,28 +852,28 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
     bw_min = min(w.sig_bw_mhz for w in cands)
     evaluated: Dict[float, Optional[tuple]] = {}
 
-    def evaluate(f: float) -> None:
-        """Positions, ranges and plan at one centre (None: no position or no plan there)."""
-        if f in evaluated:
+    def evaluate_all(fs) -> None:
+        """Positions, ranges and plan at each new centre (None: no position or no plan there); the ranges are computed
+        in parallel processes when allowed (step 3.1, X3: identical results)."""
+        fs = [f for f in fs if f not in evaluated]
+        if not fs:
             return
-        evaluated[f] = None
-        if rm.band_for_frequency(f) is not rm.BAND_S:
-            return                                     # outside the (possibly redefined) S band
-        pos, unscanned, sky_s, factor = search_positions(sec, sph, m, f, sky)
-        P = np.array([pos[k] for k in range(4)])
-        if P.sum() <= 0:
-            return
-        pfas = candidate_pfas(sec, cands, f, float(P.sum()))
-        r = _range_matrix(cands, f, tgt, P.shape[1], rx_sll_db(sec), velocity_span_mps(sec), pfas,
-                          search_criterion(sec)) * factor
-        r[[c for c, w in enumerate(cands) if not signal_fits(f, w.occupied_mhz, excl)]] = np.nan   # step 3.1, A2, B8
-        if sky_s.get("main_lobe_surface"):              # step 2.5, C2: folded main-lobe clutter on ambiguous trains
-            r[[c for c, w in enumerate(cands) if w.staggered]] = np.nan
+        if _freq_parallel_ok(len(fs)):
+            ex = _executor()
+            res = list(ex.map(_freq_task, [sec] * len(fs), [sph.window[0]] * len(fs), [sph.window[1]] * len(fs), fs,
+                              [sky] * len(fs)))
+        else:
+            res = [_freq_ranges(sec, sph, m, f, sky, cands, tgt, excl) for f in fs]
+        for f, x in zip(fs, res):
+            evaluated[f] = None if x is None else _freq_plan(f, x)
+
+    def _freq_plan(f: float, x: tuple) -> tuple:
+        P, unscanned, r, sky_s, pfas, factor = x
         keep = prune_dominated(r, e_pos, t_pos)                 # step 3.1, E9 (exact)
         plan = _plan_waveforms(P, r[keep], e_pos[keep], t_pos[keep], r_want, rr, p_avg_max_w, max_wf, short_tol)
         if plan is not None:
             plan.choice = np.where(plan.choice >= 0, keep[np.maximum(plan.choice, 0)], -1)
-        evaluated[f] = (f, P, unscanned, plan, sky_s, pfas, factor)
+        return (f, P, unscanned, plan, sky_s, pfas, factor)
 
     def best_of() -> Optional[tuple]:
         done = [x for x in evaluated.values() if x is not None]
@@ -850,15 +892,12 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
 
     forced = sec.get("freq_ghz_candidates")
     if forced is not None:
-        for f in forced:
-            evaluate(float(f))
+        evaluate_all([float(f) for f in forced])
     else:
-        for f in coarse_centres(bw_min, excl):
-            evaluate(f)
+        evaluate_all(coarse_centres(bw_min, excl))
         b = best_of()
         if b is not None:
-            for f in fine_centres(b[0], bw_min, excl, evaluated):
-                evaluate(f)
+            evaluate_all(fine_centres(b[0], bw_min, excl, evaluated))
     if not evaluated:
         return {"id": sec["id"], "status": "NO_WAVEFORM",
                 "note": f"no S centre where a signal of the search space ({bw_min:g} MHz at least) fits inside the band "
@@ -1123,7 +1162,7 @@ def _optimise_task(sec: dict, eps_min: float, eps_max: float, p_avg_max: float, 
 def _executor() -> ProcessPoolExecutor:
     global _EXECUTOR
     if _EXECUTOR is None:
-        _EXECUTOR = ProcessPoolExecutor(max_workers=MAX_WORKERS)   # workers are spawned on demand
+        _EXECUTOR = ProcessPoolExecutor(max_workers=MAX_WORKERS, initializer=_mark_pool_worker)   # spawned on demand
     return _EXECUTOR
 
 

@@ -5,11 +5,11 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 330.3384825101039,
-    "energy_fraction": 0.18014024681743168,
-    "energy_j_per_refresh": 39640617.90121247,
+    "avg_power_kw": 330.33849750149614,
+    "energy_fraction": 0.18014025499254066,
+    "energy_j_per_refresh": 39640619.70017953,
     "positions": 261.3869693675255,
-    "time_fraction_min": 0.02696640673551869,
+    "time_fraction_min": 0.026966407959305803,
     "unreachable_pct": 2.421927743670948
    }
   },
@@ -18,33 +18,33 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 20.65119026296881,
-    "energy_fraction": 0.011261511171139918,
-    "energy_j_per_refresh": 1239071.4157781287,
+    "avg_power_kw": 20.65119059025989,
+    "energy_fraction": 0.011261511349618355,
+    "energy_j_per_refresh": 1239071.4354155934,
     "positions": 55.30954530222215,
-    "time_fraction_min": 0.0016858114500382703,
+    "time_fraction_min": 0.0016858114767559097,
     "unreachable_pct": 0.0
    },
    "2": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 226.93810262089647,
-    "energy_fraction": 0.12375393114290743,
-    "energy_j_per_refresh": 13616286.157253789,
+    "avg_power_kw": 226.9381062179417,
+    "energy_fraction": 0.12375393310444885,
+    "energy_j_per_refresh": 13616286.373076502,
     "positions": 865.6044172219271,
-    "time_fraction_min": 0.018525559397624205,
+    "time_fraction_min": 0.01852555969126055,
     "unreachable_pct": 0.0
    },
    "3": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 320.97603311531964,
-    "energy_fraction": 0.1750347140560751,
-    "energy_j_per_refresh": 19258561.986919176,
+    "avg_power_kw": 320.97603820273946,
+    "energy_fraction": 0.17503471683034788,
+    "energy_j_per_refresh": 19258562.292164367,
     "positions": 1172.0843526559001,
-    "time_fraction_min": 0.02620212515227099,
+    "time_fraction_min": 0.026202125567570567,
     "unreachable_pct": 0.0
    }
   },
@@ -70,11 +70,11 @@
   "cancelled": false,
   "faces_total": {
    "0": {
-    "avg_power_kW": 37.7125,
+    "avg_power_kW": 37.7126,
     "dissipation_kW": 7.5475,
     "energy_fraction": 0.0206,
     "ku_duty_pct": 12.7069,
-    "p_available_kW": 1796.0725,
+    "p_available_kW": 1796.0724,
     "positions": 273.4,
     "power_margin": 0.9794,
     "time_fraction": 0.0043,
@@ -142,11 +142,11 @@
     },
     "faces": {
      "0": {
-      "avg_power_kW": 28.898339272799387,
-      "dissipation_kW": 5.7831192065420804,
-      "dissipation_kW_m2": 0.4349387207471256,
-      "energy_J_per_refresh": 3467800.7127359263,
-      "energy_fraction": 0.015758848105311904,
+      "avg_power_kW": 28.8983408681346,
+      "dissipation_kW": 5.783119525742211,
+      "dissipation_kW_m2": 0.43493874475363337,
+      "energy_J_per_refresh": 3467800.9041761523,
+      "energy_fraction": 0.01575884897528042,
       "positions": 216.7,
       "theta_max_deg": 75.0,
       "time_fraction": 0.0035013217295871194
@@ -184,7 +184,7 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 1.8910617726374284,
+    "rr_alone_s": 1.8910618770336505,
     "rr_est_mission_s": 120.0,
     "rr_target_s": 120.0,
     "rx_beams_per_position": 6.118998226960277,
@@ -751,7 +751,7 @@
    },
    {
     "environment": {
-     "burn_through_best_km": 113.37714793230248,
+     "burn_through_best_km": 113.37714709142848,
      "burn_through_km": 10.908595352394913,
      "faraday_deg": null,
      "jammer_type": "SPJ_KKV",
@@ -2069,17 +2069,17 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 0.0002081094834320723,
+     "confirm_energy": 0.00020810949321003333,
      "confirm_ku_time": 0.0003340515317266465,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 7.6834936054963165,
-     "dissipation_kW_m2": 0.5778627000914771,
-     "load": 0.020808109483432074,
-     "p_left_kW": 1795.6274009509243,
+     "dissipation_kW": 7.6834936118874495,
+     "dissipation_kW_m2": 0.5778627005721435,
+     "load": 0.020808109493210034,
+     "p_left_kW": 1795.6274009329939,
      "search_energy": 0.0206,
      "search_s_time": 0.0043,
      "status": "OK",
-     "total_energy": 0.020808109483432074,
+     "total_energy": 0.020808109493210034,
      "total_ku_time": 0.0003340515317266465,
      "total_s_time": 0.0043
     },
@@ -2177,7 +2177,7 @@
       "admissible": true,
       "faces": {
        "0": {
-        "energy_fraction": 0.0002048202815954276,
+        "energy_fraction": 0.0002048202913733886,
         "ku_time_fraction": 0.0003317048870114515,
         "s_time_fraction": 0.0
        }

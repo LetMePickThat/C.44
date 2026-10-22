@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.11.3
+# Radar Performance Model - V6.11.4
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,12 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.11.3 -> V6.11.4 (roadmap step 3.1: runtime, user decision X1, X2, X3, X5; no accuracy given up)
+#   - walk_loss_db in closed form (sine integral, |error| < 5e-7; the former 401-point mean differed by < 2e-5 dB).
+#   - optimizer: only the candidates whose occupied band fits at a centre are solved (X1); the centres of a sector are
+#     evaluated in parallel processes from the main process (X3, identical results; off inside sector workers, under
+#     pytest-xdist, or with RADAR_FREQ_PARALLEL=0).
 #
 # Changes V6.11.2 -> V6.11.3 (roadmap step 3.1, pass P2: S waveform space)
 #   - Pulses + 5, 10 us (2 km self-defence minimum range) and 1.0, 1.2, 1.5 ms; bandwidths + 100, 150, 200 MHz.
@@ -374,7 +380,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.11.3"
+MODEL_VERSION = "6.11.4"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -1206,15 +1212,38 @@ def migration_loss_db(v_mps: float, t_span_s: float, sig_bw_mhz: float, n_pulses
 # -----------------------------------------------------------------------------
 # Processing (step 2.2): coherent blocks, velocity bank, straddle, CFAR, independent cells
 # -----------------------------------------------------------------------------
+def sine_integral(x: float) -> float:
+    """Si(x) = int_0^x sin(t) / t dt, x >= 0: power series up to 4, beyond pi/2 - f cos x - g sin x with the rational
+    auxiliary functions of Abramowitz & Stegun 5.2.38-39 (|error| < 5e-7)."""
+    if x <= 4.0:
+        term, total, k, x2 = x, x, 0, x * x
+        while abs(term) > 1e-17 * max(1.0, abs(total)):
+            term *= -x2 * (2 * k + 1) / ((2 * k + 2) * (2 * k + 3) ** 2)
+            total += term
+            k += 1
+        return total
+    x2 = x * x
+    f = ((((x2 + 38.027264) * x2 + 265.187033) * x2 + 335.677320) * x2 + 38.102495) / \
+        (x * ((((x2 + 40.021433) * x2 + 322.624911) * x2 + 570.236280) * x2 + 157.105423))
+    g = ((((x2 + 42.242855) * x2 + 302.757865) * x2 + 352.018498) * x2 + 21.821899) / \
+        (x2 * ((((x2 + 48.196927) * x2 + 482.485984) * x2 + 1114.978885) * x2 + 449.690326))
+    return math.pi / 2.0 - f * math.cos(x) - g * math.sin(x)
+
+
 @functools.lru_cache(maxsize=1 << 16)   # pure; asked ~10^5 times per sector (step 3.1)
 def walk_loss_db(m_cells: float, coherent: bool) -> float:
     """Loss of a target walking m cells (c / 2B) across a dwell, relative to the bank filter: the compressed range
-    response sinc(m x), x in [-1/2, 1/2], summed coherently (-20 log mean sinc) or in power (-10 log mean sinc^2)."""
+    response sinc(m x), x in [-1/2, 1/2], summed coherently (-20 log mean sinc) or in power (-10 log mean sinc^2).
+    Closed forms (step 3.1, X2; were a 401-point mean): mean sinc = 2 Si(pi m / 2) / (pi m), mean sinc^2 =
+    2 [Si(pi m) - sin^2(pi m / 2) / (pi m / 2)] / (pi m)."""
     if m_cells <= 0.0:
         return 0.0
-    x = (np.arange(401) + 0.5) / 401 - 0.5
-    r = np.sinc(m_cells * x)
-    return -20.0 * math.log10(max(abs(r.mean()), 1e-12)) if coherent else -10.0 * math.log10(max((r * r).mean(), 1e-12))
+    a = math.pi * m_cells
+    if coherent:
+        mean = 2.0 * sine_integral(a / 2.0) / a
+        return -20.0 * math.log10(max(abs(mean), 1e-12))
+    mean = 2.0 * (sine_integral(a) - math.sin(a / 2.0) ** 2 / (a / 2.0)) / a
+    return -10.0 * math.log10(max(mean, 1e-12))
 
 
 def bank_mismatch_loss_db(dv_mps: float, tau_s: float, sig_bw_mhz: float, t_obs_s: float, n: int,

@@ -341,3 +341,9 @@ dominated candidates. Most test sectors now pick one 5 us pulse at 100 MHz (defa
 snapshots refrozen, core/cost_table.json regenerated. 157 tests pass, 7 min 06 s in parallel (budget 3 min exceeded:
 accelerations X1, X2, X3, X5 decided for the next pass).
 
+## 2026-10-22 -- step 3.1: runtime X1, X2, X3, X5 (radar_model V6.11.4)
+
+walk_loss_db in closed form (sine integral): values move by < 2e-5 dB, so the snapshots of the model case and of the
+missions with migration losses were refrozen; no waveform or decision is meant to change. X1, X3, X5 change no value.
+core/cost_table.json regenerated.
+
