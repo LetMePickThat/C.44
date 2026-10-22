@@ -311,3 +311,16 @@ frame with the mission navigation (global key nav, sector key frame, sky key fra
 - New test mission mission_frames.json (LEO 400 km, ship pointed nadir, one sector per frame, inertial sky):
   snapshot frozen alone (python tests/update_snapshots.py mission_frames).
 - core/cost_table.json unchanged (tool.frames is outside the fingerprint of the derived files).
+
+## 2026-10-22 -- step 3.1 pass P1: S frequency grid (radar_model V6.11.1)
+
+Model changes (see the header of core/radar_model.py): S centre frequencies derived from the band (5 MHz step, the
+signal inside the band and outside spectrum_exclusions_ghz), two-pass search (20 MHz then 5 MHz), deterministic tie
+breaking (snapped costs, secondary key), exact cache of detection.required_snr_db.
+- Test mission change: mission_redundancy_demo / A3_HIBAND forced 2.9 -> 2.86 GHz (no signal fits at 2.9 GHz; the
+  forced frequency is now checked at load). It is now OK (3 waveforms, 15 % unscanned at the 70 deg limit).
+- Frequencies leave 2.80 GHz (e.g. mission_example 2.825 / 2.785 / 2.825 GHz): ranges and face loads within about
+  +/-2 %; mission_sky_demo face loads -11 to -14 % (frequency away from the Sun's worst rise), mission_frames up to
+  -8 %. Waveform sets changed: VEILLE_KV (pulse counts), B5_LONG, SUN, EARTH, HORIZON, AXIS (one pulse length).
+- core/cost_table.json regenerated (tool.optimizer settings changed: fingerprint). Model case unchanged.
+

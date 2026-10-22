@@ -35,7 +35,8 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 2.4 | ✔ fait (commit 008d583) |
 | 2.5 | ✔ fait (commit baeadcf) |
 | 3.0 | ✔ fait (commit 22114fd ; ajoutée le 22 octobre 2026) |
-| 3.1 et suivantes | à faire, la prochaine étant 3.1 (jalon A atteint) |
+| 3.1 | en cours : variables validées, passe P1 (grille de fréquences) faite |
+| 3.2 et suivantes | à faire |
 
 ---
 
@@ -252,7 +253,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 
   Renvois : enveloppe d'attitudes au pire cas par face → **5.3** ; profil d'attitude dans le temps et réaffectation des secteurs aux faces en vol → **4.3**, **5.2** ; volume lié à une piste ou à une désignation → **3.3** ; régions non centrées sur le vaisseau (parallaxe) et erreurs de navigation → simulateur global ; l'interface ne saisit pas encore le ciel (JSON seulement, comme avant).
 
-- **3.1 Veille S reconstruite sur les nouveaux modèles** (optimizer.py).
+- **3.1 Veille S reconstruite sur les nouveaux modèles** (optimizer.py). En cours : cadrage et variables des blocs A à E validés (détail dans `Choix_architecturaux.md` §11) ; codage en six passes avec pause (P1 grille de fréquences ✔, P2 formes d'onde, P3 multifaisceau, P4 environnement, P5 ciel et pas de grille, P6 rapport et documentation) ; avant P2, élargissement de la bande S (décision de l'utilisateur).
   - **Renvois de l'étape 1.3** : loi de PAE en fonction du recul du PA (multifaisceau par superposition, et réduction de puissance « pas d'énergie en trop », aujourd'hui à PAE constante) ; impulsions candidates entre 0,8 et 2 ms.
   - **Multifaisceau en émission** : tous les modes de formation sont possibles, et l'optimiseur doit les évaluer et choisir selon le contexte :
     - (a) superposition de B faisceaux par TRM : enveloppe non constante, donc recul du PA, qui demande le modèle de PA de l'étape 1.3 ;
@@ -273,6 +274,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 
 - **3.2 Confirmation Ku reconstruite** (tracking.py).
   - **Renvoi de l'étape 1.3** : impulsions Ku au-delà de 400 µs (τ_max Ku = 2,08 ms).
+  - **Renvoi de l'étape 3.1 (multifaisceau Ku)** : la grappe KU7 / KU1+7 est aujourd'hui comptée comme 7 observations successives à pleine puissance. Étudier les modes de multifaisceau d'émission de la 3.1 (phase seule, partition, multiplexage en temps ; code indépendant de la bande, table de pertes partagée à confirmer ou spécialiser pour la Ku). Pas de gain d'énergie attendu (même énergie pour un même SNR par case) ; gains en **latence** (une seule observation pour la grappe), pour les observations à énergie en trop (impulsion minimale), et pour plusieurs pistes proches en angle (chronologie, 4.3).
   - Passage de S à Ku, biais S/Ku, étalonnage.
   - Élargir l'espace des observations Ku (`ku_tau`, `ku_n`, `ku_pri`, `ku_sig_bw` : 2 bandes et 3 PRI aujourd'hui) et revoir `margin_db_step` = 0,5 dB, qui crée des sauts.
   - **L'optimiseur doit choisir la fréquence Ku**, comme il le fait déjà pour la S. Aujourd'hui `confirmation.ku_freq_ghz` est fixée à 14,0 GHz, à titre provisoire.
@@ -365,6 +367,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 |---|---|
 | Égalités exactes de l'optimiseur départagées par le bruit d'arrondi (candidats cohérents au plancher de cohérence) : il faut un critère secondaire. | 3.1 (ou plus tôt si l'utilisateur le souhaite) |
 | Le nombre de faces (4) est écrit en dur dans le code. | à placer |
+| **Révision de la dalle** (22 octobre 2026) : la composition (`[aperture]`) est entièrement dérivée par le code, dans la famille actuelle (TRSA carrées d'un seul type, rangées centrées et symétriques, ouverture S / Ku partagée). À faire lors d'une révision réelle (décision de l'utilisateur) : contrôle au chargement que la dalle tient sur le panneau du modèle 3D (aujourd'hui seul le centre est contrôlé) et test de bout en bout d'une composition modifiée ; revoir alors les valeurs par TRM et par face (puissance, réserve, allocation électrique, masse). | à la révision de la dalle |
 | Densité de puissance d'environ 104 kW/m² de RF moyenne. | 4.2 |
 | Masse des réserves d'énergie des TRM : environ 270 kg par face à 1 J/g (hypothèse 2050), 1,1 t pour les 4 faces. | à placer (pas de bilan de masse dans la feuille de route) |
 | `power_scale` arrondi à 3 décimales dans la sortie de l'optimiseur. | 5.5 |

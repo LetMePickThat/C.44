@@ -536,7 +536,12 @@ scan_angle_deg = 0.0
 target = "ST"                    # a class of [targets.*] (ST = the reference target)
 
 [tool.optimizer]              # S search waveform space and ranking (core/optimizer.py)
-freq_candidates_ghz  = [2.7, 2.8, 2.9]
+freq_step_mhz        = 5.0      # S centre-frequency grid, DERIVED from the band: usable_lo + k x step, the signal inside the
+                                # band and outside the mission's spectrum_exclusions_ghz (step 3.1, A1-A2)
+freq_coarse_mhz      = 20.0     # first pass over the valid centres on this step, + the centre-most one of every free fragment (A5-A6)
+freq_fine_span_mhz   = 20.0     # second pass at freq_step_mhz within +/- this of the best coarse centre (A5)
+excluded_flag_frac   = 0.5      # flag a sector when the exclusions remove more than this fraction of the valid centres (A10)
+tie_rel_tol          = 1e-9     # costs equal within this relative tolerance are ties, broken by the secondary criterion (E6)
 tau_s                = [20e-6, 50e-6, 100e-6, 200e-6, 400e-6, 600e-6, 800e-6]   # + the TRM buffer limit, added by the code
 n_pulses             = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32]
 b_tx                 = [1, 2, 4, 8]

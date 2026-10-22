@@ -224,7 +224,14 @@ def required_snr_db(n: int, swerling: Fluctuation, pfa: float, p_target: float, 
                     weights: Sequence[float] = (1.0,), q: float = 0.0, floor: float = 1e-3) -> float:
     """Mean total SNR (at the requirement range, before the position losses) meeting p_target: one look (q = 0) or
     cumulative over looks spaced q = v RR / R, Pd averaged over the position losses. The cumulative probability is
-    solved by bisection on the SNR at R, all looks and phases at once; looks below `floor` do not count."""
+    solved by bisection on the SNR at R, all looks and phases at once; looks below `floor` do not count. Cached
+    (exact): the optimiser asks the same few hundred laws tens of thousands of times (step 3.1)."""
+    return _required_snr_db(n, swerling, pfa, p_target, tuple(float(x) for x in losses_db),
+                            tuple(float(x) for x in weights), float(q), float(floor))
+
+
+@functools.lru_cache(maxsize=8192)
+def _required_snr_db(n, swerling, pfa, p_target, losses_db, weights, q, floor) -> float:
     curve = mean_curve(n, swerling, pfa, losses_db, weights)
     if q <= 0.0:
         return _invert(curve, p_target)

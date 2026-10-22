@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.11.0
+# Radar Performance Model - V6.11.1
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,17 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.11.0 -> V6.11.1 (roadmap step 3.1, pass P1: S frequency grid; core/optimizer.py)
+#   - The S centre frequencies are DERIVED from the band: usable_lo + k x tool.optimizer.freq_step_mhz (5 MHz), kept
+#     where the signal [f - B/2, f + B/2] fits inside the usable band and touches none of the mission's
+#     spectrum_exclusions_ghz["S"] (new global key); tool.optimizer.freq_candidates_ghz removed. Two-pass search:
+#     the valid centres on freq_coarse_mhz (20 MHz) + the centre-most valid one of every free fragment, then the step
+#     within +/- freq_fine_span_mhz of the best. Forced centres (sector freq_ghz_candidates) are checked at load.
+#   - Ties (costs within tool.optimizer.tie_rel_tol, relative) are broken deterministically: the DP and the plan
+#     keys compare snapped costs (first = simplest candidate wins), the frequency key adds energy, time, number of
+#     waveforms and the distance to the core-band centre.
+#   - detection.required_snr_db is cached (exact: the same few hundred laws are asked tens of thousands of times).
 #
 # Changes V6.10.1 -> V6.11.0 (roadmap step 3.0: frames of the volumes and navigation message; core/frames.py)
 #   - Architecture truth / knowledge (Documentation/Feuille_de_route.md, step 3.0): this tool is the RADAR COMPUTER in
@@ -350,7 +361,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.11.0"
+MODEL_VERSION = "6.11.1"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

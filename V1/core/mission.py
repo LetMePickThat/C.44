@@ -126,6 +126,25 @@ def validate_global(g: dict) -> List[str]:
         errs.append(f"electrical power per face ({elec} MW) exceeds the ship total budget ({SHIP_ELEC_TOTAL_MW:g} MW)")
     errs.extend(sky.validate(g.get("sky")))
     errs.extend(frames.validate_nav(g.get("nav")) + frames.validate_sky_frame(g.get("sky")))   # step 3.0
+    errs.extend(validate_spectrum(g.get("spectrum_exclusions_ghz")))                           # step 3.1
+    return errs
+
+
+def validate_spectrum(ex) -> List[str]:
+    """Global key spectrum_exclusions_ghz (step 3.1, A3): {"S": [[lo, hi], ...], "Ku": [...]}, intervals in GHz."""
+    if ex is None:
+        return []
+    if not isinstance(ex, dict) or not set(ex) <= {"S", "Ku"}:
+        return ["spectrum_exclusions_ghz must be {\"S\": [[lo, hi], ...], \"Ku\": [...]}"]
+    errs = []
+    for band, ivs in ex.items():
+        if not isinstance(ivs, list):
+            errs.append(f"spectrum_exclusions_ghz.{band} must be a list of [lo, hi] intervals")
+            continue
+        for iv in ivs:
+            if not (isinstance(iv, (list, tuple)) and len(iv) == 2 and all(isinstance(x, (int, float)) for x in iv)
+                    and iv[0] < iv[1]):
+                errs.append(f"spectrum_exclusions_ghz.{band}: {iv} is not an interval [lo, hi] with lo < hi (GHz)")
     return errs
 
 
@@ -302,6 +321,9 @@ def validate_mission(mission: dict) -> List[str]:
     for i, sec in enumerate(sectors):
         errs.extend(validate_sector(sec, i))
         errs.extend(frames.validate_sector(sec, mission.get("global", {}), f"sector #{i + 1} ({sec.get('id')})"))
+    if not validate_spectrum(mission.get("global", {}).get("spectrum_exclusions_ghz")):
+        for i, sec in enumerate(mo.with_spectrum(mission).get("sectors", [])):
+            errs.extend(f"sector #{i + 1} ({sec.get('id')}): {e}" for e in mo.validate_frequencies(sec, mo.exclusions_s(sec)))
     return errs
 
 

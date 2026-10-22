@@ -89,7 +89,7 @@ REASON_TEXT = {
 # every sector field the optimiser's plan, the need test or the shape depends on
 PLAN_FIELDS = geo.SECTOR_GEOMETRY_FIELDS + frames.SECTOR_FRAME_FIELDS + (
     "range_km", "rr_target_s", "v_close_max_mps", "res_max_m", "range_min_km", "allow_ambiguous",
-    "max_wf_per_sector", "short_tol", "freq_ghz_candidates", "rx_sll_db") + rm.SECTOR_TARGET_KEYS
+    "max_wf_per_sector", "short_tol", "freq_ghz_candidates", "spectrum_exclusions_ghz", "rx_sll_db") + rm.SECTOR_TARGET_KEYS
 
 _PLANS: Dict[str, Optional[dict]] = {}
 _PLAN_CACHE_MAX = P.get("tool.redundancy.plan_cache_max")
@@ -111,7 +111,8 @@ class Finding:
 def mission_signature(mission: dict) -> str:
     """Everything find_redundancies() depends on: a result is current while the signature is unchanged."""
     g = mission.get("global", {})
-    return json.dumps({"g": [g.get("eps_min_deg"), g.get("eps_max_deg"), g.get("face_elec_mw"), g.get("sky"), g.get("nav")],
+    return json.dumps({"g": [g.get("eps_min_deg"), g.get("eps_max_deg"), g.get("face_elec_mw"), g.get("sky"), g.get("nav"),
+                             g.get("spectrum_exclusions_ghz")],
                        "s": [[s.get("id")] + [s.get(f) for f in PLAN_FIELDS] for s in mission.get("sectors", [])]},
                       default=str)
 
@@ -209,6 +210,7 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid) -> Tuple[List[Finding
         mission, _ = frames.resolve(mission)
     except ValueError:
         return [], {}
+    mission = mo.with_spectrum(mission)
     g = mission.get("global", {})
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
     p_avg_max_w = rm.face_elec_avail_w(g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW))

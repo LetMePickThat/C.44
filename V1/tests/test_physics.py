@@ -1242,6 +1242,63 @@ def test_environment_mission_outputs(runs):
     assert t5["confirm_energy"] > t0["confirm_energy"]
 
 
+# ----------------------------------------------------------------------------- S frequency grid (step 3.1, A)
+def test_frequency_grid_is_derived_from_the_band_and_the_exclusions():
+    grid = mo.centre_grid()
+    assert grid[0] == rm.BAND_S.usable_lo_ghz and grid[-1] == pytest.approx(rm.BAND_S.usable_hi_ghz)
+    assert len(grid) == round((rm.BAND_S.usable_hi_ghz - rm.BAND_S.usable_lo_ghz) / mo.FREQ_STEP_GHZ) + 1
+    assert mo.signal_fits(2.8, 200.0, ()) and not mo.signal_fits(2.805, 200.0, ())
+    assert not mo.signal_fits(2.8, 20.0, ((2.79, 2.795),)) and mo.signal_fits(2.8, 10.0, ((2.79, 2.795),))
+    # every free fragment keeps a centre in the coarse pass, even one narrower than the coarse step
+    excl = ((2.705, 2.795), (2.805, 2.9))
+    assert mo.coarse_centres(10.0, excl) == [2.8]
+    assert all(mo.signal_fits(f, 10.0, excl) for f in mo.valid_centres(10.0, excl))
+
+
+def test_two_pass_frequency_search_matches_the_exhaustive_one():
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_example.json"))
+    sec = m["sectors"][0]
+    sph = mo._sphere(-90.0, 90.0)
+    p_avg = rm.face_elec_avail_w(m["global"].get("face_elec_mw", rm.FACE_ELEC_POWER_MW))
+    two = mo._best_plan(sec, sph, sph.mask(sec), p_avg)
+    cands = mo.candidate_waveforms(sec)
+    allf = mo.valid_centres(min(w.sig_bw_mhz for w in cands), ())
+    full = mo._best_plan(dict(sec, freq_ghz_candidates=allf), sph, sph.mask(sec), p_avg)
+    assert two[3].objective == pytest.approx(full[3].objective, rel=1e-2)
+    assert two[3].short_frac == full[3].short_frac
+
+
+def test_ties_are_broken_deterministically():
+    assert mo.snap(1.0 + 1e-13) == mo.snap(1.0) and mo.snap(1.0 + 1e-6) > mo.snap(1.0)
+    assert np.array_equal(mo.snap(np.array([3.0, 3.0 * (1 + 1e-14)])), np.array([3.0, 3.0]))
+
+
+@pytest.mark.parametrize("glob,sec,msg", [
+    ({"spectrum_exclusions_ghz": {"S": [[2.8, 2.7]]}}, {}, "lo < hi"),
+    ({"spectrum_exclusions_ghz": {"X": []}}, {}, "spectrum_exclusions_ghz must be"),
+    ({}, {"freq_ghz_candidates": [3.5]}, "outside the S band"),
+    ({}, {"freq_ghz_candidates": [2.7]}, "no signal of the search space fits"),
+    ({"spectrum_exclusions_ghz": {"S": [[2.7, 2.9]]}}, {"freq_ghz_candidates": [2.8]}, "no signal of the search space fits"),
+])
+def test_invalid_spectrum_inputs_are_refused(glob, sec, msg):
+    m = md.empty_mission()
+    m["global"].update(glob)
+    m["sectors"] = [{**md.new_sector([], "box"), **sec}]
+    assert any(msg in e for e in md.validate_mission(m)), md.validate_mission(m)
+
+
+def test_exclusions_move_the_frequency_and_are_flagged():
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_example.json"))
+    m["sectors"] = m["sectors"][:1]
+    m["global"]["spectrum_exclusions_ghz"] = {"S": [[2.80, 2.83]]}
+    s = mo.run(m, workers=1)["sectors"][0]
+    lo, hi = s["frequency"]["occupied_ghz"]
+    assert s["status"] == "OK" and (hi <= 2.80 or lo >= 2.83)
+    assert s["frequency"]["centres_excluded"] > 0 and any("spectrum exclusions remove" in f for f in s["flags"])
+    m["global"]["spectrum_exclusions_ghz"] = {"S": [[2.74, 2.86]]}
+    assert mo.run(m, workers=1)["sectors"][0]["status"] == "NO_WAVEFORM"
+
+
 # ----------------------------------------------------------------------------- frames and navigation (step 3.0)
 def _quat_z(deg: float) -> list:
     h = math.radians(deg) / 2.0

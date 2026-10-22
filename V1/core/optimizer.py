@@ -73,7 +73,13 @@ from .params import P
 _T = "tool.optimizer."
 FACE_PHI = tuple(P.get("geometry.face_phi_deg"))
 D_RES_DEG = P.get(_T + "sphere_res_deg")             # raster step (deg) on the (phi, eps) sphere
-FREQ_CANDIDATES = tuple(P.get(_T + "freq_candidates_ghz"))
+FREQ_STEP_GHZ = P.get(_T + "freq_step_mhz") / 1e3      # S centre grid derived from the band (step 3.1, A1-A2)
+FREQ_COARSE_GHZ = P.get(_T + "freq_coarse_mhz") / 1e3
+FREQ_FINE_SPAN_GHZ = P.get(_T + "freq_fine_span_mhz") / 1e3
+EXCLUDED_FLAG_FRAC = P.get(_T + "excluded_flag_frac")
+TIE_REL_TOL = P.get(_T + "tie_rel_tol")
+if FREQ_COARSE_GHZ < FREQ_STEP_GHZ or abs(FREQ_COARSE_GHZ / FREQ_STEP_GHZ - round(FREQ_COARSE_GHZ / FREQ_STEP_GHZ)) > 1e-9:
+    raise ValueError(f"{P.path}: tool.optimizer.freq_coarse_mhz must be a multiple of freq_step_mhz")
 # Pulse lengths of the file below the TRM buffer limit, plus the limit itself (derived: 2.0 ms since step 1.3, follows
 # the buffer, the PAE and the TRM peak power)
 TAU_CAND = tuple(sorted({t for t in P.get(_T + "tau_s") if t < rm.tau_max_s(rm.BAND_S)}
@@ -99,6 +105,99 @@ SHORT_PENALTY = P.get(_T + "short_penalty")          # DP penalty per fraction o
 TRACK_MARGIN_WARN = P.get(_T + "track_margin_warn")  # warn when a face keeps less than this fraction of its power for tracking
 SKY_ABOVE_BUDGET_ALERT_DB = P.get("tool.alerts.sky_above_budget_db")   # flag positions this far above the sky budget
 RR_T0_RATIO = P.get("tool.alerts.rr_t0_ratio")       # flag a revisit below this x the target T0 (step 2.4, B4)
+
+
+# ----------------------------------------------------------------------------- S frequency grid (step 3.1, A)
+def snap(x):
+    """Costs rounded to TIE_REL_TOL (relative): equal costs computed through different paths compare equal, and the
+    first candidate (simplest, by the order of the search space) wins the tie (E6)."""
+    m, e = np.frexp(np.asarray(x, dtype=float))
+    q = 2.0 ** max(1, int(round(-math.log2(TIE_REL_TOL))))
+    out = np.ldexp(np.round(m * q) / q, e)
+    return float(out) if np.ndim(out) == 0 else out
+
+
+def exclusions_s(sec: dict) -> Tuple[Tuple[float, float], ...]:
+    """The S spectrum the sector must not touch (GHz): sector key spectrum_exclusions_ghz, a copy of the mission's
+    global "spectrum_exclusions_ghz"["S"] made by with_spectrum()."""
+    return tuple((float(a), float(b)) for a, b in sec.get("spectrum_exclusions_ghz", ()))
+
+
+def with_spectrum(mission: dict) -> dict:
+    """The mission with its global S exclusions copied into every sector (sector-level functions see them)."""
+    ex = (mission.get("global", {}).get("spectrum_exclusions_ghz") or {}).get("S")
+    if not ex:
+        return mission
+    out = dict(mission)
+    out["sectors"] = [dict(s, spectrum_exclusions_ghz=[list(x) for x in ex]) for s in mission.get("sectors", [])]
+    return out
+
+
+def signal_fits(f: float, bw_mhz: float, excl: Tuple[Tuple[float, float], ...], band=None) -> bool:
+    """[f - B/2, f + B/2] inside the usable band (step 1.4 hard rule) and touching no exclusion (step 3.1, A2)."""
+    band = band or rm.BAND_S
+    lo, hi = f - bw_mhz / 2e3, f + bw_mhz / 2e3
+    if lo < band.usable_lo_ghz - 1e-12 or hi > band.usable_hi_ghz + 1e-12:
+        return False
+    return all(hi <= a + 1e-12 or lo >= b - 1e-12 for a, b in excl)
+
+
+def centre_grid(band=None) -> List[float]:
+    """Every centre of the derived grid: usable_lo + k x step, up to usable_hi."""
+    band = band or rm.BAND_S
+    n = int(math.floor((band.usable_hi_ghz - band.usable_lo_ghz) / FREQ_STEP_GHZ + 1e-9))
+    return [round(band.usable_lo_ghz + k * FREQ_STEP_GHZ, 9) for k in range(n + 1)]
+
+
+def free_fragments(excl: Tuple[Tuple[float, float], ...], band=None) -> List[Tuple[float, float]]:
+    band = band or rm.BAND_S
+    out, lo = [], band.usable_lo_ghz
+    for a, b in sorted(excl):
+        if a > lo:
+            out.append((lo, min(a, band.usable_hi_ghz)))
+        lo = max(lo, b)
+    if lo < band.usable_hi_ghz:
+        out.append((lo, band.usable_hi_ghz))
+    return [(a, b) for a, b in out if b > a]
+
+
+def valid_centres(bw_min_mhz: float, excl) -> List[float]:
+    """Centres where at least the narrowest signal of the search space fits."""
+    return [f for f in centre_grid() if signal_fits(f, bw_min_mhz, excl)]
+
+
+def coarse_centres(bw_min_mhz: float, excl) -> List[float]:
+    """First pass (A5-A6): the valid centres on the coarse step, plus the valid centre nearest the middle of every
+    free fragment."""
+    valid = valid_centres(bw_min_mhz, excl)
+    lo, k = rm.BAND_S.usable_lo_ghz, int(round(FREQ_COARSE_GHZ / FREQ_STEP_GHZ))
+    out = {f for f in valid if int(round((f - lo) / FREQ_STEP_GHZ)) % k == 0}
+    for a, b in free_fragments(excl):
+        inside = [f for f in valid if a <= f <= b]
+        if inside:
+            out.add(min(inside, key=lambda f: (abs(f - (a + b) / 2.0), f)))
+    return sorted(out)
+
+
+def fine_centres(f_best: float, bw_min_mhz: float, excl, done) -> List[float]:
+    """Second pass: the valid centres within +/- FREQ_FINE_SPAN_GHZ of the best coarse one, not yet evaluated."""
+    return [f for f in valid_centres(bw_min_mhz, excl)
+            if abs(f - f_best) <= FREQ_FINE_SPAN_GHZ + 1e-9 and f not in done]
+
+
+def validate_frequencies(sec: dict, excl) -> List[str]:
+    """Forced centres (sector key freq_ghz_candidates, A9): in the S band, and at least one where a signal of the
+    search space fits outside the exclusions."""
+    fs = sec.get("freq_ghz_candidates")
+    if fs is None:
+        return []
+    if not isinstance(fs, (list, tuple)) or not fs or not all(isinstance(f, (int, float)) for f in fs):
+        return ["freq_ghz_candidates must be a list of frequencies (GHz)"]
+    out = [f"freq_ghz_candidates: {f:g} GHz is outside the S band" for f in fs if not rm.BAND_S.contains(f)]
+    if not out and not any(signal_fits(f, min(SIGBW_CAND), excl) for f in fs):
+        out.append("freq_ghz_candidates: no signal of the search space fits at these frequencies (band edges or "
+                   "spectrum exclusions)")
+    return out
 
 
 # ----------------------------------------------------------------------------- geometry
@@ -573,7 +672,7 @@ def _plan_waveforms(P, r, e_pos, t_pos, r_want, rr, p_avg_max_w, max_wf, short_t
     for alpha in ALPHAS:
         pick = {}
         for (a, b), (e_s, t_s, adm, play, sh) in seg.items():
-            cost = alpha * e_s + (1.0 - alpha) * t_s
+            cost = snap(alpha * e_s + (1.0 - alpha) * t_s)
             if adm.any():
                 c = int(np.argmin(np.where(adm, cost, np.inf)))
                 pick[a, b] = (c, float(cost[c]))
@@ -590,7 +689,7 @@ def _plan_waveforms(P, r, e_pos, t_pos, r_want, rr, p_avg_max_w, max_wf, short_t
                     prev, p = dp[m - 1][a], pick.get((a, j - 1))
                     if p is None or prev[0] == math.inf:
                         continue
-                    cost = prev[0] + p[1]
+                    cost = snap(prev[0] + p[1])
                     if cost < dp[m][j][0]:
                         dp[m][j] = (cost, (a, p[0]))
         m_best = min(range(1, max_wf + 1), key=lambda m: dp[m][n_g][0])
@@ -604,7 +703,7 @@ def _plan_waveforms(P, r, e_pos, t_pos, r_want, rr, p_avg_max_w, max_wf, short_t
                 choice[g] = c
             j, m = a, m - 1
         plan = _Plan(choice, P, r, e_pos, t_pos, r_want, rr, p_avg_max_w)
-        key = (round(plan.short_frac / short_tol), plan.objective)
+        key = (round(plan.short_frac / short_tol), snap(plan.objective))
         if best is None or key < best[0]:
             best = (key, plan)
     return best[1] if best else None
@@ -666,35 +765,73 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
     pae = np.array([rm.pae_wf(w) for w in cands])
     e_pos = np.array([rm.BAND_S.p_pk_total_w * w.n * w.tau_s / w.b_tx for w in cands]) / pae   # electrical J / position
     t_pos = np.array([w.n * w.tau_s / w.b_tx for w in cands])                            # s of TX time per position
-    per_f = []
-    for f in sec.get("freq_ghz_candidates", FREQ_CANDIDATES):
+    excl = exclusions_s(sec)
+    bw_min = min(w.sig_bw_mhz for w in cands)
+    evaluated: Dict[float, Optional[tuple]] = {}
+
+    def evaluate(f: float) -> None:
+        """Positions, ranges and plan at one centre (None: no position or no plan there)."""
+        if f in evaluated:
+            return
+        evaluated[f] = None
         if rm.band_for_frequency(f) is not rm.BAND_S:
-            continue                                   # outside the (possibly redefined) S band
+            return                                     # outside the (possibly redefined) S band
         pos, unscanned, sky_s, factor = search_positions(sec, sph, m, f, sky)
         P = np.array([pos[k] for k in range(4)])
-        if P.sum() > 0 and cands:
-            pfas = candidate_pfas(sec, cands, f, float(P.sum()))
-            r = _range_matrix(cands, f, tgt, P.shape[1], rx_sll_db(sec), velocity_span_mps(sec), pfas,
-                              search_criterion(sec)) * factor
-            if sky_s.get("main_lobe_surface"):          # step 2.5, C2: folded main-lobe clutter on ambiguous trains
-                r[[c for c, w in enumerate(cands) if w.staggered]] = np.nan
-            per_f.append((f, P, unscanned, r, sky_s, pfas))
-    if not per_f:
-        return {"id": sec["id"], "status": "NO_POSITIONS", "note": "empty sector, fully unscanned or blinded by the sky"}
-    min_uns = min(x[2] for x in per_f)
-    best = None
-    for f, P, unscanned, r, sky_s, pfas in per_f:
+        if P.sum() <= 0:
+            return
+        pfas = candidate_pfas(sec, cands, f, float(P.sum()))
+        r = _range_matrix(cands, f, tgt, P.shape[1], rx_sll_db(sec), velocity_span_mps(sec), pfas,
+                          search_criterion(sec)) * factor
+        r[[c for c, w in enumerate(cands) if not signal_fits(f, w.sig_bw_mhz, excl)]] = np.nan   # step 3.1, A2
+        if sky_s.get("main_lobe_surface"):              # step 2.5, C2: folded main-lobe clutter on ambiguous trains
+            r[[c for c, w in enumerate(cands) if w.staggered]] = np.nan
         plan = _plan_waveforms(P, r, e_pos, t_pos, r_want, rr, p_avg_max_w, max_wf, short_tol)
-        if plan is None:
-            continue
-        # [D] a frequency that leaves more of the sector unscanned (e.g. > 2.85 GHz, 70 deg scan limit) never wins
-        key = (round(unscanned - min_uns, 3), round(plan.short_frac / short_tol), plan.objective)
-        if best is None or key < best[0]:
-            best = (key, f, P, unscanned, plan, sky_s, pfas)
+        evaluated[f] = (f, P, unscanned, plan, sky_s, pfas, factor)
+
+    def best_of() -> Optional[tuple]:
+        done = [x for x in evaluated.values() if x is not None]
+        if not done:
+            return None
+        min_uns = min(x[2] for x in done)
+        ranked = [x for x in done if x[3] is not None]
+        # [D] a frequency that leaves more of the sector unscanned (e.g. > 2.85 GHz, 70 deg scan limit) never wins;
+        # then range, cost, and the secondary criterion of E6 (energy, time, distinct waveforms, the frequency
+        # nearest the centre of the core band)
+        core = (rm.BAND_S.core_lo_ghz + rm.BAND_S.core_hi_ghz) / 2.0
+        return min(ranked, key=lambda x: (round(x[2] - min_uns, 3), round(x[3].short_frac / short_tol),
+                                          snap(x[3].objective), snap(float(x[3].fe.sum())),
+                                          snap(float(x[3].ft.sum())), len(set(x[3].choice[x[3].choice >= 0])),
+                                          round(abs(x[0] - core), 9), x[0]), default=None)
+
+    forced = sec.get("freq_ghz_candidates")
+    if forced is not None:
+        for f in forced:
+            evaluate(float(f))
+    else:
+        for f in coarse_centres(bw_min, excl):
+            evaluate(f)
+        b = best_of()
+        if b is not None:
+            for f in fine_centres(b[0], bw_min, excl, evaluated):
+                evaluate(f)
+    if not evaluated:
+        return {"id": sec["id"], "status": "NO_WAVEFORM",
+                "note": f"no S centre where a signal of the search space ({bw_min:g} MHz at least) fits inside the band "
+                        f"and outside the spectrum exclusions"}
+    if not any(x is not None for x in evaluated.values()):
+        return {"id": sec["id"], "status": "NO_POSITIONS", "note": "empty sector, fully unscanned or blinded by the sky"}
+    best = best_of()
     if best is None:
         return {"id": sec["id"], "status": "NO_WAVEFORM", "note": "no playable waveform in the search space"}
-    _, f, P, unscanned, plan, sky_s, pfas = best
+    f, P, unscanned, plan, sky_s, pfas, _ = best
     plan.pae = pae
+    plan.freq_info = {"evaluated": len(evaluated), "valid_centres": len(valid_centres(bw_min, excl)),
+                      "valid_centres_unexcluded": len(valid_centres(bw_min, ())),
+                      "occupied_ghz": [round(f - max(cands[c].sig_bw_mhz for c in set(plan.choice[plan.choice >= 0]))
+                                             / 2e3, 6),
+                                       round(f + max(cands[c].sig_bw_mhz for c in set(plan.choice[plan.choice >= 0]))
+                                             / 2e3, 6)]}
     return f, P, unscanned, plan, cands, sky_s, pfas
 
 
@@ -780,6 +917,10 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
         "wf": {k: v for k, v in main.items() if k not in ("theta_lo_deg", "theta_hi_deg", "positions")},
         "wf_set": wf_set,
         "wf_by_bin": wf_by_bin,
+        "frequency": {"freq_ghz": f, "occupied_ghz": plan.freq_info["occupied_ghz"],
+                      "centres_evaluated": plan.freq_info["evaluated"],
+                      "centres_valid": plan.freq_info["valid_centres"],
+                      "centres_excluded": plan.freq_info["valid_centres_unexcluded"] - plan.freq_info["valid_centres"]},
         "range_km": {"requested": r_want, "at_best_scan": round(r_best), "at_worst_scan": round(r_worst),
                      "positions_short_of_range_pct": round(100 * plan.short_frac, 1)},
         "unscanned_pct": round(100 * unscanned, 1),
@@ -836,6 +977,10 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
                             f"at {f} GHz: successive looks are correlated (the cumulative criterion assumes them "
                             f"independent)")
     out["flags"].extend(sky_flags(sky_s, "S"))
+    fi = plan.freq_info
+    if fi["valid_centres_unexcluded"] and (fi["valid_centres_unexcluded"] - fi["valid_centres"]) >             EXCLUDED_FLAG_FRAC * fi["valid_centres_unexcluded"]:
+        out["flags"].append(f"spectrum exclusions remove {fi['valid_centres_unexcluded'] - fi['valid_centres']} of the "
+                            f"{fi['valid_centres_unexcluded']} valid S centres (step 3.1, A10)")
     return out
 
 
@@ -1017,6 +1162,7 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
     Step 3.0: the volumes and the sky are first turned into the ship frame with the mission navigation (core/frames.py)."""
     framed = frames.uses_frames(mission)
     mission, frame_alerts = frames.resolve(mission)
+    mission = with_spectrum(mission)                 # step 3.1: the S exclusions seen by every sector
     g = mission.get("global", {})
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
     elec = g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW)
