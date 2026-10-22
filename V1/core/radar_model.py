@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.10.0
+# Radar Performance Model - V6.10.1
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,16 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.10.0 -> V6.10.1 (ship geometry: the 3D model)
+#   - The low-poly 3D model assets/models/LP_NISO.obj (ship.model_path) replaces the [ship] primitives as the reference
+#     geometry of the masking, the structure noise, the element positions and the 3D view (user): exact ray-triangle
+#     casting on its triangles, materials by region (radiator wings), placement in the ship frame by
+#     ship.model_nose_axis and ship.model_array_station_z_m. Locked dimensions from the model: length 149.46 m, width
+#     74.68 m, hull diameter 17.22 m; aperture centres at 5.248 m from the axis (front face of the radar panels).
+#     Load-time checks: length and width, and each aperture on a panel front face of the model whose normal is the face
+#     normal at geometry.tilt_deg (a tilt that no longer matches the model is refused). Same conclusions as 2.5: no owned
+#     direction blocked (blocked directions from 71.7 deg off the face normal), radiator wings never seen.
 #
 # Changes V6.9.0 -> V6.10.0 (roadmap step 2.5: environment; core/environment.py, wired in core/optimizer.sector_sky)
 #   - Ship structure as primitives in [ship] (hull of revolution + parts, materials), the same ones for the masking,
@@ -327,7 +337,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.10.0"
+MODEL_VERSION = "6.10.1"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

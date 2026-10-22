@@ -34,7 +34,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 2.3 | ✔ fait (commit 102ea6f) |
 | 2.4 | ✔ fait (commit 008d583) |
 | 2.5 | ✔ fait (commit baeadcf) |
-| 3.1 et suivantes | à faire, la prochaine étant 3.1 (jalon A atteint) |
+| 3.0 et suivantes | à faire, la prochaine étant 3.0 (ajoutée le 22 octobre 2026 ; jalon A atteint) |
 
 ---
 
@@ -201,7 +201,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 - **2.5 Environnement.** ✔
 
   Décisions prises :
-  - **structure du vaisseau en primitives** dans `[ship]` (coque de révolution, télescopes, ailettes, tourelles, mâts, rails, ailes de radiateurs en 4 étages, d'après le dessin validé ; pas de repliement) ; **la géométrie se modifie dans le fichier seul** (exigence de l'utilisateur), et la vue 3D est construite sur les mêmes primitives ;
+  - **structure du vaisseau** dans `[ship]`, d'après le **modèle 3D `assets/models/LP_NISO.obj` depuis le 22 octobre 2026** (référence de tous les calculs de masquage et de position des éléments ; auparavant des primitives) (coque de révolution, télescopes, ailettes, tourelles, mâts, rails, ailes de radiateurs en 4 étages, d'après le dessin validé ; pas de repliement) ; **la géométrie se modifie dans le fichier seul** (exigence de l'utilisateur), et la vue 3D est construite sur les mêmes primitives ;
   - masquage par la fraction bloquée du tube d'ouverture (champ proche), perte −20 log(1 − f) par passage, masqué au-delà de 3 dB ; constat : aucun pointage masqué et radiateurs jamais vus avec l'inclinaison de 25° ;
   - bruit de la structure : coque ε 0,01 / 290 K, radiateurs ε 0,05 / **750 K** (médiane d'un vaisseau nucléaire) ; réflexions non comptées (5.4) ;
   - surfaces (`[sky.surface]`, γ Terre −12 / −10 dB, Lune −11,5 dB) : masque derrière la surface, fouillis par l'anneau d'égale distance traité comme un bruit (limité par le fouillis au-delà), rejet Doppler si le scénario donne la bande de la surface, alerte de saturation des CAN, trains ambigus retirés face à une surface ;
@@ -222,6 +222,30 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
     Elle dépend des positions du vaisseau et de la cible.
 
 ## Phase 3 : fonctions radar
+
+- **3.0 Repère de mission et attitude** (ajoutée le 22 octobre 2026, à la demande de l'utilisateur). Constat : les volumes, les tranches de poursuite et le ciel sont donnés dans le repère du vaisseau ; si le vaisseau tourne, la région veillée tourne avec lui, ce qui n'a pas de sens opérationnel. Décisions de cadrage (validées par l'utilisateur) :
+  - **repère des volumes** choisi par mission : inertiel centré sur le vaisseau (ICRF / J2000), orbital local (LVLH / RTN) ou défini par deux directions (axe de menace, corps) ; chaque secteur peut rester dans le repère du **vaisseau** (volumes liés au vaisseau) ;
+  - **attitude** : une seule par mission maintenant (a), puis une enveloppe d'attitudes validée au pire cas par face et par contrainte (b, étape 5.3), puis le profil d'attitude dans le temps fourni par le simulateur global (c, étapes 4.3 et 5.4). L'architecture le prévoit dès 3.0 : attitude rangée dans une liste (quaternion, date facultative, étiquette), une seule fonction de passage au repère du vaisseau, tout le calcul en aval reste dans le repère du vaisseau, résultat calculé pour une attitude donnée ; le chargeur refuse plusieurs attitudes tant que b n'est pas fait ;
+  - **le radar applique la rotation** des volumes à partir de l'attitude fournie (rotation seule, sans éphéméride) ; le simulateur global reste la source de l'attitude et des positions des objets ;
+  - **le ciel** (corps, repère galactique) est donné dans le **même repère de mission** que les secteurs ;
+  - les régions **non centrées sur le vaisseau** (parallaxe) sont renvoyées au simulateur global : en préparation de mission, les volumes restent centrés sur le vaisseau (direction et portée).
+
+  Architecture de la simulation globale (D1 à D6, validés par l'utilisateur le 22 octobre 2026), fondée sur la séparation entre **vérité** (connue de la seule simulation) et **connaissance** (ce que le vaisseau peut savoir) :
+
+  | # | Couche | Côté | Connaît | Produit |
+  |---|---|---|---|---|
+  | 1 | Simulation globale | simulation (vérité) | orbites, objets et leurs caractéristiques (attitude, SER selon l'aspect, température, manœuvres), propagation newtonienne | états vrais au cours du temps |
+  | 2 | Convertisseur | simulation (vérité) | états vrais | (a) pour la simulation RF : positions et vitesses relatives des objets en repère vaisseau, corps du ciel ; (b) pour le calculateur : un **message de navigation** (attitude, état d'orbite propre, corps), plus tard avec les erreurs de navigation |
+  | 3 | Calculateur radar | vaisseau (connaissance) | profil de mission (Pmiss), message de navigation, détections reçues | conversion des volumes en repère vaisseau, ordonnancement, formes d'onde, ordres de pointage, pistes |
+  | 4 | Simulation RF | simulation | ordres du calculateur, vérité en repère vaisseau (2a) | émission, échos, bruit, ciel, détections et fausses alarmes renvoyées au calculateur |
+
+  - le calculateur ne lit **jamais** la vérité des cibles : il ne les connaît que par ses détections ; l'attitude, l'orbite propre et les éphémérides des grands corps sont des connaissances de bord légitimes (navigation) ;
+  - le glissement des volumes et des poursuites avec l'orientation est un **pilotage par le calculateur**, à partir de la navigation (la décision Q3 se lit ainsi) ;
+  - calculateur et simulation RF partagent les mêmes modèles (`radar_model`, `radar_system.toml`) : le premier pour prévoir, la seconde pour jouer ;
+  - l'outil actuel est la couche 3 en préparation de mission, sur un instantané du message de navigation saisi par l'opérateur ; la liste d'attitudes de Q2 devient une **liste de messages de navigation** (un seul tant que 5.3 n'est pas faite) ;
+  - en préparation de mission, le ciel est **prévu** par le calculateur (saisie de l'opérateur, en repère inertiel ou de mission) ; dans la simulation, sa vérité passe par 2a vers la couche 4 ;
+  - **repères des volumes** (D4) : vaisseau (protection), inertiel (« coin de ciel »), orbital local RTN, **limbe du corps** (veille de découverte sur l'horizon : bande d'élévation par rapport au limbe, qui suit l'altitude), deux directions (axe de menace) ; le volume lié à une piste ou à une désignation va en 3.3. Le type de repère entre dans le calcul (repères dynamiques) ;
+  - **périmètre de la 3.0** (D5) : l'architecture écrite dans la documentation (la simulation n'est pas construite), le message de navigation, la bibliothèque de repères et la conversion des volumes dans la couche calculateur ; les couches 1, 2 et 4 restent à faire.
 
 - **3.1 Veille S reconstruite sur les nouveaux modèles** (optimizer.py).
   - **Renvois de l'étape 1.3** : loi de PAE en fonction du recul du PA (multifaisceau par superposition, et réduction de puissance « pas d'énergie en trop », aujourd'hui à PAE constante) ; impulsions candidates entre 0,8 et 2 ms.

@@ -38,9 +38,9 @@ from .params import P
 FACE_PHI_DEG: Tuple[float, float, float, float] = mo.FACE_PHI
 VIZ_FREQ_GHZ = P.get("tool.display.viz_freq_ghz")   # reference frequency used for the viz-only scan limit
 
-# Ship model: built from the structure primitives of radar_system.toml ([ship], core/environment.py), the same ones the
-# masking and the structure noise use, so the picture never drifts from the calculation (step 2.5). Scene units: the
-# ship is SHIP_LENGTH long, the centre of the radar arrays (z = 0, the arrays' axial station) at the origin.
+# Ship model: the 3D model of radar_system.toml ([ship] model_path, placed by core/environment.py), the same triangles
+# the masking and the structure noise use, so the picture never drifts from the calculation. Scene units: the ship is
+# SHIP_LENGTH long, the centre of the radar apertures (z = 0, their axial station) at the origin.
 SHIP_LENGTH = 1.1
 SHIP_LENGTH_M = P.get("ship.length_m")
 _M = SHIP_LENGTH / SHIP_LENGTH_M              # scene units per metre
@@ -256,7 +256,7 @@ def build_axes(length: float = 1.35) -> List[dict]:
         {"line": pv.Line((0, 0, 0), (0, 0, length)), "color": COLORS["axis_z"], "text": "Z (nose)",
          "label_pos": (0, 0, length * 1.1)},
         {"line": None, "color": COLORS["muted"], "text": "-Z thrusters",
-         "label_pos": (0, 0, _z(1023) - 0.08), "no_line": True},
+         "label_pos": (0, 0, float(env.MODEL_VERTICES[:, 2].min()) * _M - 0.08), "no_line": True},   # aft end
     ]
 
 
@@ -272,60 +272,34 @@ def build_face_normals(length: float = 1.12) -> List[dict]:
     return out
 
 
-def _lathe(z_m: List[float], r_m: List[float], n_theta: int = 48) -> pv.PolyData:
-    """Surface of revolution about Z of a (z, r) profile in metres (repeat a z for a step, r = 0 closes an end)."""
-    t = np.linspace(0.0, 2 * math.pi, n_theta + 1)
-    r = np.array(r_m)[:, None] * _M
-    x, yy = r * np.cos(t), r * np.sin(t)
-    z = np.repeat(np.array(z_m)[:, None] * _M, n_theta + 1, axis=1)
-    return pv.StructuredGrid(x, yy, z).extract_surface(algorithm="dataset_surface").clean()
-
-
 def _flat(mesh: pv.PolyData) -> pv.PolyData:
     """Per-face normals, so smooth shading keeps flat panels flat."""
     return mesh.compute_normals(split_vertices=True, feature_angle=30.0)
 
 
-def _part_meshes(part: "env.Part") -> List[pv.PolyData]:
-    """Meshes of one structure part of [ship.parts], at each of its azimuths."""
-    out = []
-    for az in part.azimuths_deg:
-        c, s_ = math.cos(math.radians(az)), math.sin(math.radians(az))
-        er, et, ez = np.array([c, s_, 0.0]), np.array([-s_, c, 0.0]), np.array([0.0, 0.0, 1.0])
-        if part.type == "box_rad":
-            box = pv.Box(bounds=(part.v("r_min_m") * _M, part.v("r_max_m") * _M, -part.v("half_width_m") * _M,
-                                 part.v("half_width_m") * _M, part.v("z_min_m") * _M, part.v("z_max_m") * _M))
-            m = np.eye(4)
-            m[:3, :3] = np.array((er, et, ez)).T
-            out.append(_flat(box.transform(m, inplace=False)))
-            continue
-        centre = er * part.v("radial_m") * _M + ez * part.v("z_m") * _M
-        if part.type == "sphere":
-            out.append(pv.Sphere(center=centre, radius=part.v("radius_m") * _M))
-        else:
-            out.append(pv.Cylinder(center=centre, direction=ez if part.type == "cylinder_z" else er,
-                                   radius=part.v("radius_m") * _M, height=part.v("length_m") * _M))
-    return out
-
-
 def build_ship() -> dict:
-    """Ship from the structure primitives of the parameter file (core/environment.py): hull of revolution, parts
-    (telescopes, fins, laser turrets, booms, radiator rails and wings...), and the four radar arrays on the
-    radar-mount cone (one per face, envelope of the real aperture)."""
-    hull = [{"mesh": _lathe(list(env.HULL_Z), list(env.HULL_R)), "color": SHIP_COLORS["hull"]}]
-    for part in env.PARTS:
-        hull.extend({"mesh": m, "color": SHIP_COLORS["hull"]} for m in _part_meshes(part))
+    """Ship from the 3D model of the parameter file (ship.model_path, placed in the ship frame by
+    core/environment.py: the same triangles as the masking and the structure noise), and the four radar apertures on
+    the model's radar panels (one per face, envelope of the real aperture, rimmed in the face colour)."""
+    faces = np.c_[np.full(len(env.MODEL_FACES), 3), env.MODEL_FACES].ravel()
+    hull = [{"mesh": _flat(pv.PolyData(env.MODEL_VERTICES * _M, faces)), "color": SHIP_COLORS["hull"]}]
     arrays = []
-    rad = rm.ARRAY_ENVELOPE_M / 2.0 * _M
     for k, pk in enumerate(FACE_PHI_DEG):
         n = face_normal(pk)
-        center = array_centre(pk)
-        # hull-coloured array plate on a slightly larger plate in the face colour (F1..F4 rim)
-        arrays.append({"k": k, "mesh": pv.Cylinder(center=center, direction=n, radius=rad * 1.06,
-                                                   height=0.25 * _M, resolution=8), "color": FACE_COLORS[k]})
-        hull.append({"mesh": pv.Cylinder(center=np.array(center) + n * 0.15 * _M, direction=n, radius=rad,
-                                         height=0.1 * _M, resolution=8), "color": SHIP_COLORS["hull"]})
+        centre = np.asarray(array_centre(pk))
+        corners = env.panel_corners_m(k) * _M             # the model's panel front face, same orientation
+        # on the panel: a slab of its own outline in the face colour (F1..F4 rim), a hull-coloured one inside
+        arrays.append({"k": k, "mesh": _panel_slab(corners, centre, n, 0.97, 0.01, 0.11), "color": FACE_COLORS[k]})
+        hull.append({"mesh": _panel_slab(corners, centre, n, 0.88, 0.11, 0.16), "color": SHIP_COLORS["hull"]})
     return {"hull": hull, "arrays": arrays}
+
+
+def _panel_slab(corners: np.ndarray, centre: np.ndarray, n: np.ndarray, scale: float, z0_m: float,
+                z1_m: float) -> pv.PolyData:
+    """Prism of the panel outline shrunk by scale about its centre, from z0_m to z1_m in front of the face."""
+    base = centre + (corners - centre) * scale + n * z0_m * _M
+    poly = pv.PolyData(base, faces=np.r_[len(base), np.arange(len(base))])
+    return _flat(poly.extrude(n * (z1_m - z0_m) * _M, capping=True))
 
 
 def km_axes_step(max_range_km: float) -> Tuple[float, int]:

@@ -5,28 +5,28 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 248.00634352333066,
-    "energy_fraction": 0.13524286845149824,
-    "energy_j_per_refresh": 4960126.870466613,
+    "avg_power_kw": 248.00634352333117,
+    "energy_fraction": 0.13524286845149852,
+    "energy_j_per_refresh": 4960126.870466623,
     "positions": 160.49983493289184,
-    "time_fraction_min": 0.020245415797822915,
+    "time_fraction_min": 0.020245415797822953,
     "unreachable_pct": 0.0
    },
    "3": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 46.902275383501006,
-    "energy_fraction": 0.025576758116955377,
-    "energy_j_per_refresh": 938045.5076700201,
+    "avg_power_kw": 46.9022753835011,
+    "energy_fraction": 0.025576758116955423,
+    "energy_j_per_refresh": 938045.5076700218,
     "positions": 18.072134127578927,
-    "time_fraction_min": 0.0038287571741633477,
+    "time_fraction_min": 0.003828757174163355,
     "unreachable_pct": 0.0
    }
   },
   "MOON": {
    "1": {
-    "at_avg_power_kw": 0.005221778193603615,
+    "at_avg_power_kw": 0.005221778193603617,
     "at_ku_time_fraction": 2e-05,
     "at_unreachable_tracks": 0.0,
     "avg_power_kw": 36.29122118405842,
@@ -42,22 +42,22 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 32.29781325465367,
-    "energy_fraction": 0.017612649931509787,
-    "energy_j_per_refresh": 645956.2650930734,
+    "avg_power_kw": 32.29781325465371,
+    "energy_fraction": 0.017612649931509808,
+    "energy_j_per_refresh": 645956.2650930742,
     "positions": 57.82447516131592,
-    "time_fraction_min": 0.0026365561840533606,
+    "time_fraction_min": 0.002636556184053364,
     "unreachable_pct": 0.0
    },
    "1": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 32.29781325465367,
-    "energy_fraction": 0.017612649931509787,
-    "energy_j_per_refresh": 645956.2650930734,
+    "avg_power_kw": 32.29781325465371,
+    "energy_fraction": 0.017612649931509808,
+    "energy_j_per_refresh": 645956.2650930742,
     "positions": 57.82447516131592,
-    "time_fraction_min": 0.0026365561840533606,
+    "time_fraction_min": 0.002636556184053364,
     "unreachable_pct": 0.0
    }
   }
@@ -140,21 +140,21 @@
     },
     "faces": {
      "0": {
-      "avg_power_kW": 18.098079434012657,
-      "dissipation_kW": 3.6242430025127157,
-      "dissipation_kW_m2": 0.2725732530995394,
-      "energy_J_per_refresh": 361961.58868025313,
-      "energy_fraction": 0.009869248267388303,
+      "avg_power_kW": 18.09807979293515,
+      "dissipation_kW": 3.624243074388981,
+      "dissipation_kW_m2": 0.27257325850523306,
+      "energy_J_per_refresh": 361961.595858703,
+      "energy_fraction": 0.009869248463115989,
       "positions": 57.3,
       "theta_max_deg": 46.0,
       "time_fraction": 0.0017935424185660334
      },
      "1": {
-      "avg_power_kW": 18.076219507986004,
-      "dissipation_kW": 3.619866646414903,
-      "dissipation_kW_m2": 0.27224411467877796,
-      "energy_J_per_refresh": 361524.3901597201,
-      "energy_fraction": 0.009857327608190712,
+      "avg_power_kW": 18.076219866474975,
+      "dissipation_kW": 3.6198667182043756,
+      "dissipation_kW_m2": 0.2722441200779441,
+      "energy_J_per_refresh": 361524.3973294995,
+      "energy_fraction": 0.00985732780368199,
       "positions": 57.2,
       "theta_max_deg": 46.0,
       "time_fraction": 0.0017912418697182346
@@ -179,7 +179,7 @@
      "achieved": 2.3657535483634393,
      "requested": 2.0
     },
-    "rr_alone_s": 0.19738496534776606,
+    "rr_alone_s": 0.19738496926231977,
     "rr_est_mission_s": 20.0,
     "rr_target_s": 20.0,
     "rx_beams_per_position": 6.118998226960277,
@@ -200,8 +200,8 @@
      "limbs": [],
      "main_lobe_surface": false,
      "masked_by_structure_pct": 0.0,
-     "rise_db": 4.744266835894425,
-     "structure_rise_k_max": 4.9240490685679354e-05,
+     "rise_db": 4.744266922024039,
+     "structure_rise_k_max": 6.211588182336426e-05,
      "surfaces": {
       "EARTH": {
        "clutter_ratio_max_db": -52.63904784990438,
@@ -211,9 +211,9 @@
        "shadowed_pct": 0.0
       }
      },
-     "t_sys_budget_k": 430.71229236800724,
+     "t_sys_budget_k": 430.71230090992646,
      "t_sys_cold_k": 144.46431510192332,
-     "worst_rise_db": 9.995169918818078
+     "worst_rise_db": 9.995169944525719
     },
     "status": "OK",
     "target": {
@@ -516,21 +516,21 @@
     },
     "faces": {
      "2": {
-      "avg_power_kW": 283.8041671178619,
-      "dissipation_kW": 56.817580070334266,
-      "dissipation_kW_m2": 4.273155145026794,
-      "energy_J_per_refresh": 5676083.342357237,
-      "energy_fraction": 0.1547641447159083,
+      "avg_power_kW": 283.8041644544106,
+      "dissipation_kW": 56.81757953711145,
+      "dissipation_kW_m2": 4.273155104923998,
+      "energy_J_per_refresh": 5676083.289088212,
+      "energy_fraction": 0.15476414326347454,
       "positions": 128.3,
       "theta_max_deg": 70.0,
       "time_fraction": 0.032946231128004475
      },
      "3": {
-      "avg_power_kW": 56.6746647830904,
-      "dissipation_kW": 11.346265056549717,
-      "dissipation_kW_m2": 0.8533336133502089,
-      "energy_J_per_refresh": 1133493.295661808,
-      "energy_fraction": 0.030905839443059253,
+      "avg_power_kW": 56.67466425120882,
+      "dissipation_kW": 11.346264950067049,
+      "dissipation_kW_m2": 0.8533336053418255,
+      "energy_J_per_refresh": 1133493.2850241764,
+      "energy_fraction": 0.030905839153013478,
       "positions": 14.8,
       "theta_max_deg": 69.0,
       "time_fraction": 0.006381977062966335
@@ -559,7 +559,7 @@
      "achieved": 2.5313270711437923,
      "requested": 2.0
     },
-    "rr_alone_s": 3.095282894318166,
+    "rr_alone_s": 3.095282865269491,
     "rr_est_mission_s": 20.0,
     "rr_target_s": 20.0,
     "rx_beams_per_position": 5.337709563128769,
@@ -582,8 +582,8 @@
      ],
      "main_lobe_surface": true,
      "masked_by_structure_pct": 0.0,
-     "rise_db": 8.391708901408311,
-     "structure_rise_k_max": 9.052273671196782e-05,
+     "rise_db": 8.391708860650555,
+     "structure_rise_k_max": 9.594714810147551e-05,
      "surfaces": {
       "EARTH": {
        "clutter_ratio_max_db": 58.72185147704532,
@@ -593,9 +593,9 @@
        "shadowed_pct": 5.949700313668533
       }
      },
-     "t_sys_budget_k": 997.5426501126449,
+     "t_sys_budget_k": 997.5426407508866,
      "t_sys_cold_k": 144.46431510192332,
-     "worst_rise_db": 9.99295674754712
+     "worst_rise_db": 9.992956740661459
     },
     "status": "OK",
     "target": {
@@ -1070,11 +1070,11 @@
     },
     "faces": {
      "1": {
-      "avg_power_kW": 2.457964469270696,
-      "dissipation_kW": 0.49551778721824413,
-      "dissipation_kW_m2": 0.03726706380811679,
-      "energy_J_per_refresh": 24579.644692706963,
-      "energy_fraction": 0.0013403776720120933,
+      "avg_power_kW": 2.457964611620134,
+      "dissipation_kW": 0.49551781591543625,
+      "dissipation_kW_m2": 0.037267065966384606,
+      "energy_J_per_refresh": 24579.646116201344,
+      "energy_fraction": 0.001340377749638117,
       "positions": 28.2,
       "theta_max_deg": 17.0,
       "time_fraction": 0.00028192289334737447
@@ -1098,7 +1098,7 @@
      "achieved": 2.3657535483634393,
      "requested": 2.0
     },
-    "rr_alone_s": 0.013403776720120934,
+    "rr_alone_s": 0.013403777496381171,
     "rr_est_mission_s": 10.0,
     "rr_target_s": 10.0,
     "rx_beams_per_position": 6.118998226960277,
@@ -1119,8 +1119,8 @@
      ],
      "main_lobe_surface": false,
      "masked_by_structure_pct": 0.0,
-     "rise_db": 0.31857938656295004,
-     "structure_rise_k_max": 7.822354515517792e-05,
+     "rise_db": 0.31857963807826906,
+     "structure_rise_k_max": 8.98808328635617e-05,
      "surfaces": {
       "EARTH": {
        "clutter_ratio_max_db": -58.80143605660207,
@@ -1130,9 +1130,9 @@
        "shadowed_pct": 0.0
       }
      },
-     "t_sys_budget_k": 155.45994925533498,
+     "t_sys_budget_k": 155.45995825857162,
      "t_sys_cold_k": 144.46431510192332,
-     "worst_rise_db": 0.36620708046768485
+     "worst_rise_db": 0.36620732923978405
     },
     "status": "OK",
     "target": {
@@ -1366,53 +1366,53 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 9.498380685154953e-05,
+     "confirm_energy": 9.498380815553233e-05,
      "confirm_ku_time": 0.00010841306922702583,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 3.6853889399671047,
-     "dissipation_kW_m2": 0.2771719367623646,
-     "load": 0.00999498380685155,
-     "p_left_kW": 1815.4563486197524,
+     "dissipation_kW": 3.6853889408071354,
+     "dissipation_kW_m2": 0.2771719368255419,
+     "load": 0.009994983808155533,
+     "p_left_kW": 1815.456348617361,
      "search_energy": 0.0099,
      "search_s_time": 0.0018,
      "status": "OK",
-     "total_energy": 0.00999498380685155,
+     "total_energy": 0.009994983808155533,
      "total_ku_time": 0.00010841306922702583,
      "total_s_time": 0.0018
     },
     "1": {
-     "at_energy": 2.807935818663742e-06,
+     "at_energy": 2.8079358492929783e-06,
      "at_ku_time": 2e-05,
      "binding": "energy",
-     "confirm_energy": 0.0005183795124463197,
-     "confirm_ku_time": 0.00012033154163602693,
+     "confirm_energy": 0.0005183795147619704,
+     "confirm_ku_time": 0.00012033154176722461,
      "confirm_s_time": 4.939404732287363e-05,
-     "dissipation_kW": 4.360415888756501,
-     "dissipation_kW_m2": 0.32793958430526315,
-     "load": 0.011721187448264983,
-     "p_left_kW": 1812.2908622751831,
+     "dissipation_kW": 4.360415890268272,
+     "dissipation_kW_m2": 0.3279395844189609,
+     "load": 0.011721187450611263,
+     "p_left_kW": 1812.2908622708808,
      "search_energy": 0.0112,
      "search_s_time": 0.0021,
      "status": "OK",
-     "total_energy": 0.011721187448264983,
-     "total_ku_time": 0.00014033154163602693,
+     "total_energy": 0.011721187450611263,
+     "total_ku_time": 0.0001403315417672246,
      "total_s_time": 0.0021493940473228737
     },
     "2": {
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 0.001303805865346861,
+     "confirm_energy": 0.0013038058203940672,
      "confirm_ku_time": 0.0010203600091705436,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 57.65660440112126,
-     "dissipation_kW_m2": 4.336256761312931,
-     "load": 0.15610380586534686,
-     "p_left_kW": 1547.5241823612146,
+     "dissipation_kW": 57.65660437219395,
+     "dissipation_kW_m2": 4.336256759137356,
+     "load": 0.15610380582039407,
+     "p_left_kW": 1547.5241824436487,
      "search_energy": 0.1548,
      "search_s_time": 0.0329,
      "status": "OK",
-     "total_energy": 0.15610380586534686,
+     "total_energy": 0.15610380582039407,
      "total_ku_time": 0.0010203600091705436,
      "total_s_time": 0.0329
     },
@@ -1420,17 +1420,17 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 0.00026487527133107856,
+     "confirm_energy": 0.00026487526219867345,
      "confirm_ku_time": 0.00020836001745848146,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 11.517250218369593,
-     "dissipation_kW_m2": 0.8661931213237863,
-     "load": 0.031164875271331077,
-     "p_left_kW": 1776.635319200562,
+     "dissipation_kW": 11.517250212475549,
+     "dissipation_kW_m2": 0.8661931208805052,
+     "load": 0.031164875262198674,
+     "p_left_kW": 1776.6353192173087,
      "search_energy": 0.0309,
      "search_s_time": 0.0064,
      "status": "OK",
-     "total_energy": 0.031164875271331077,
+     "total_energy": 0.031164875262198674,
      "total_ku_time": 0.00020836001745848146,
      "total_s_time": 0.0064
     }
@@ -1475,12 +1475,12 @@
       "admissible": true,
       "faces": {
        "0": {
-        "energy_fraction": 9.498380685154953e-05,
+        "energy_fraction": 9.498380815553233e-05,
         "ku_time_fraction": 0.00010841306922702583,
         "s_time_fraction": 0.0
        },
        "1": {
-        "energy_fraction": 9.486637925522736e-05,
+        "energy_fraction": 9.486638055759807e-05,
         "ku_time_fraction": 0.00010830399204353957,
         "s_time_fraction": 0.0
        }
@@ -1513,8 +1513,8 @@
       "limbs": [],
       "main_lobe_surface": false,
       "masked_by_structure_pct": 0.0,
-      "rise_db": 0.07749278585789815,
-      "structure_rise_k_max": 1.5677828111465966e-05,
+      "rise_db": 0.07749284547990298,
+      "structure_rise_k_max": 1.881452322721346e-05,
       "surfaces": {
        "EARTH": {
         "clutter_ratio_max_db": -84.11779363980585,
@@ -1524,9 +1524,9 @@
         "shadowed_pct": 0.0
        }
       },
-      "t_sys_budget_k": 234.9470217836435,
+      "t_sys_budget_k": 234.94702500910756,
       "t_sys_cold_k": 230.7919548038089,
-      "worst_rise_db": 9.171210220645726
+      "worst_rise_db": 9.171210227991454
      },
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
@@ -1558,12 +1558,12 @@
       "admissible": true,
       "faces": {
        "2": {
-        "energy_fraction": 0.001303805865346861,
+        "energy_fraction": 0.0013038058203940672,
         "ku_time_fraction": 0.0010203600091705436,
         "s_time_fraction": 0.0
        },
        "3": {
-        "energy_fraction": 0.00026487527133107856,
+        "energy_fraction": 0.00026487526219867345,
         "ku_time_fraction": 0.00020836001745848146,
         "s_time_fraction": 0.0
        }
@@ -1601,8 +1601,8 @@
       ],
       "main_lobe_surface": true,
       "masked_by_structure_pct": 0.0,
-      "rise_db": 5.556238133775553,
-      "structure_rise_k_max": 0.0002368383026784943,
+      "rise_db": 5.556237984038912,
+      "structure_rise_k_max": 0.00033110257528899684,
       "surfaces": {
        "EARTH": {
         "clutter_ratio_max_db": 55.58999048702481,
@@ -1612,9 +1612,9 @@
         "shadowed_pct": 5.958996373812824
        }
       },
-      "t_sys_budget_k": 829.5536509103289,
+      "t_sys_budget_k": 829.553622308866,
       "t_sys_cold_k": 230.7919548038089,
-      "worst_rise_db": 9.970542305913375
+      "worst_rise_db": 9.970542736609207
      },
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
@@ -1645,12 +1645,12 @@
      "at": [
       {
        "angle_zone_deg": 0.2,
-       "avg_power_kW": 0.005149150585228289,
+       "avg_power_kW": 0.005149150641395724,
        "driver": "DET",
-       "energy_per_update_J": 5.1491505852282895,
+       "energy_per_update_J": 5.149150641395724,
        "faces": {
         "1": {
-         "energy_fraction": 2.807935818663742e-06,
+         "energy_fraction": 2.8079358492929783e-06,
          "ku_time_fraction": 2e-05
         }
        },
@@ -1670,8 +1670,8 @@
       "admissible": true,
       "faces": {
        "1": {
-        "energy_fraction": 0.0004235131331910923,
-        "ku_time_fraction": 1.2027549592487367e-05,
+        "energy_fraction": 0.00042351313420437226,
+        "ku_time_fraction": 1.2027549723685044e-05,
         "s_time_fraction": 4.939404732287363e-05
        }
       },
@@ -1681,7 +1681,7 @@
        3.5,
        5.5
       ],
-      "success": 0.980117396003542,
+      "success": 0.9801173960035421,
       "why_not": ""
      },
      "false_alarms_per_rr": 10.4,
@@ -1707,8 +1707,8 @@
       ],
       "main_lobe_surface": true,
       "masked_by_structure_pct": 0.0,
-      "rise_db": 0.009496520735950193,
-      "structure_rise_k_max": 1.804661139886514e-05,
+      "rise_db": 0.009496568109209378,
+      "structure_rise_k_max": 2.3472537683397963e-05,
       "surfaces": {
        "EARTH": {
         "clutter_ratio_max_db": -92.14908390531136,
@@ -1725,9 +1725,9 @@
         "shadowed_pct": 0.0
        }
       },
-      "t_sys_budget_k": 231.2971692818966,
+      "t_sys_budget_k": 231.29717180490837,
       "t_sys_cold_k": 230.7919548038089,
-      "worst_rise_db": 2.253447205744575
+      "worst_rise_db": 2.253447234002366
      },
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [

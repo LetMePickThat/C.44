@@ -290,3 +290,15 @@ Model changes (radar_model V6.10.0, core/environment.py wired in optimizer.secto
 - New test mission mission_environment.json (Earth and Moon surfaces, two stand-off jammers, a KKV with SPJ_KKV,
   objects and Faraday inputs). New derived file core/structure_cache.npz.
 - core/cost_table.json regenerated (fingerprint: new parameters; the fast estimate has no environment, see 5.5).
+
+## 2026-10-22 -- ship geometry: the 3D model (radar_model V6.10.1)
+
+Model changes (see the header of core/radar_model.py):
+- The low-poly 3D model assets/models/LP_NISO.obj replaces the [ship] primitives (masking, structure noise, element
+  positions, 3D view; user). Length 149.46 m (was 136.4), width 74.68 m (was 76.5), hull diameter 17.22 m (was 16.8),
+  aperture centres 5.248 m from the axis (was 4.926), all taken from the model; load-time checks of the dimensions and
+  of the four apertures (on the panel front faces, normal at the 25 deg tilt).
+- Model case: blocked cells per face 735 -> 621, structure directions seen from the arrays about 310 -> 335 (hull only,
+  e T 2.9 K); still no owned direction blocked and the radiator wings never seen.
+- Test missions: structure noise through the far sidelobes only, every key figure within 0.01 %; no waveform or
+  confirmation-mode change. core/structure_cache.npz rebuilt; core/cost_table.json regenerated (parameter fingerprint).

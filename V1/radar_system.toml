@@ -498,39 +498,28 @@ fa_r4_mean       = { value = 0.2, unit = "-", status = "V", source = "false alar
 angle_zone_sigmas = { value = 4.0, unit = "sigma", status = "V", source = "angular zone opening = full width at +/-2 sigma (convention); confirmed in review 0.3", date = "2026-10-19" }
 
 # --- ship (step 2.5: structure masking, structure noise, 3D view) -------------------------------------------------
-# The ship structure as simple primitives, in metres, SHIP frame (Z = ship axis, +Z = nose; z = 0 = the axial station
-# of the four radar arrays; r = distance to the axis; azimuth from +X toward +Y, faces at geometry.face_phi_deg).
-# Source: the reference drawing traced in the former 3D model (user, step 2.5, A1-A3). The code computes everything
-# from these entries (masking, noise, 3D view): edit, add or remove a part here only. Part types (core/environment.py):
-#   cylinder_z   : axis parallel to Z at distance radial_m, centred at z_m, radius_m, length_m
-#   cylinder_rad : axis along the azimuth, centred at radial_m, z_m, radius_m, length_m
-#   box_rad      : radial r_min_m..r_max_m, tangential +/- half_width_m, axial z_min_m..z_max_m
-#   sphere       : centre at radial_m, z_m, radius_m
-# each repeated at azimuths_deg, made of a material of [ship.materials.*].
+# The ship structure is the low-poly 3D model model_path (Wavefront OBJ, metres), the REFERENCE for the masking, the
+# structure noise, the positions of the elements and the 3D view (user, 2026-10-22). The code places it in the SHIP
+# frame (Z = ship axis, +Z = nose; z = 0 = the axial station of the four radar apertures; r = distance to the axis;
+# azimuth from +X toward +Y, faces at geometry.face_phi_deg) with model_nose_axis and model_array_station_z_m, and
+# checks at load time the overall dimensions below and the four apertures (centre on the panel front face of the
+# model, normal at geometry.tilt_deg): a new model only needs these entries (and the material regions) updated.
 [ship]
-length_m        = { value = 136.4, unit = "m", status = "V", source = "hull length (locked spec); checked against the hull profile", date = "2026-10-20" }
-hull_diameter_m = { value = 16.8, unit = "m", status = "V", source = "max hull diameter; checked against the hull profile", date = "2026-10-20" }
-width_m         = { value = 76.5, unit = "m", status = "V", source = "max overall width (radiator wings); checked against the radiator tips", date = "2026-10-20" }
-array_radius_m  = { value = 4.926, unit = "m", status = "V", source = "distance of the array centres to the ship axis at z = 0, on the tilt-angle radar-mount cone (drawing, step 2.5 A1)", date = "2026-10-22" }
+model_path      = { value = "assets/models/LP_NISO.obj", unit = "", status = "V", source = "low-poly 3D model of the ship, reference geometry (user, 2026-10-22); path relative to the application folder", date = "2026-10-22" }
+model_nose_axis = { value = "-Z", unit = "", status = "V", source = "the nose of the model is toward its -Z (radiator wings toward +Z); the ship frame is the model turned 180 deg about X", date = "2026-10-22" }
+model_array_station_z_m = { value = -59.298, unit = "m", status = "V", source = "model z of the front-face centres of the four radar panels (octagons, 25 deg tilt), the z = 0 of the ship frame", date = "2026-10-22" }
+length_m        = { value = 149.46, unit = "m", status = "V", source = "overall length of the 3D model (user, 2026-10-22; was 136.4 m from the former drawing); checked against the model (1 %)", date = "2026-10-22" }
+hull_diameter_m = { value = 17.22, unit = "m", status = "V", source = "max diameter of the hull body of the 3D model (its longest connected piece, r 8.612 m near the aft end; was 16.8 m); checked against the model (1 %)", date = "2026-10-22" }
+width_m         = { value = 74.68, unit = "m", status = "V", source = "max overall width of the 3D model (radiator wing tips, +/- 37.34 m; was 76.5 m); checked against the model (1 %)", date = "2026-10-22" }
+array_radius_m  = { value = 5.248, unit = "m", status = "V", source = "distance of the aperture centres (front face of the radar panels of the 3D model) to the ship axis at z = 0 (was 4.926 m)", date = "2026-10-22" }
 block_mask_db   = { value = 3.0, unit = "dB", status = "V", source = "a position is masked (not scanned) when the structure blocks more than this per pass: blocked fraction f of the aperture tube (near field), loss -20 log(1 - f) per pass (step 2.5, A4)", date = "2026-10-22" }
+default_material = { value = "hull", unit = "", status = "V", source = "material of every triangle of the model outside the material regions (step 2.5, B3)", date = "2026-10-22" }
 
-[ship.hull]
-profile_z_m = { value = [14.358, 14.071, 13.496, 12.491, 11.199, 10.481, 9.763, 8.758, 8.184, 2.441, -2.441, -2.441, -31.157, -31.157, -45.515, -59.872, -105.1, -105.818, -110.125, -118.022, -122.042, -122.042, -120.463, -120.463], unit = "m", status = "V", source = "body of revolution, nose to aft (a repeated z = a step): laser turret nose, neck, radar-mount cone (25 deg), shoulder, long cone, fin band, main cylinder, widest point, engine cone, aerospike (drawing, step 2.5 A1)", date = "2026-10-22" }
-profile_r_m = { value = [0.0, 1.326, 2.063, 2.8, 3.095, 2.947, 2.505, 2.653, 3.537, 3.537, 5.873, 6.337, 7.074, 7.368, 7.368, 7.663, 7.663, 8.4, 8.4, 5.895, 2.505, 1.768, 1.326, 0.0], unit = "m", status = "V", source = "radius of the profile points (drawing, step 2.5 A1)", date = "2026-10-22" }
-material    = { value = "hull", unit = "", status = "V", source = "step 2.5, B3", date = "2026-10-22" }
-
-[ship.parts]
-telescopes    = { value = { type = "cylinder_z", radial_m = 8.547, z_m = -19.67, radius_m = 1.842, length_m = 6.317, azimuths_deg = [0.0, 90.0, 180.0, 270.0], material = "hull" }, unit = "m", status = "V", source = "four telescopes, objective toward the nose, in the azimuth of each face (drawing, step 2.5 A2)", date = "2026-10-22" }
-fins          = { value = { type = "box_rad", r_min_m = 7.074, r_max_m = 9.874, half_width_m = 0.442, z_min_m = -45.515, z_max_m = -31.157, azimuths_deg = [0.0, 90.0, 180.0, 270.0], material = "hull" }, unit = "m", status = "V", source = "ribbed fin band (drawing, step 2.5 A2)", date = "2026-10-22" }
-turret_arms   = { value = { type = "cylinder_rad", radial_m = 8.916, z_m = -56.283, radius_m = 2.063, length_m = 2.653, azimuths_deg = [0.0, 90.0, 180.0, 270.0], material = "hull" }, unit = "m", status = "V", source = "laser turret arms (drawing, step 2.5 A2)", date = "2026-10-22" }
-turret_domes  = { value = { type = "sphere", radial_m = 10.242, z_m = -56.283, radius_m = 2.063, azimuths_deg = [0.0, 90.0, 180.0, 270.0], material = "hull" }, unit = "m", status = "V", source = "laser turret domes, reach r = 12.3 m (drawing, step 2.5 A2)", date = "2026-10-22" }
-booms         = { value = { type = "cylinder_rad", radial_m = 14.295, z_m = -56.283, radius_m = 0.221, length_m = 9.726, azimuths_deg = [45.0, 135.0, 225.0, 315.0], material = "hull" }, unit = "m", status = "V", source = "45 deg booms, r 9.4 to 19.2 m (drawing, step 2.5 A2)", date = "2026-10-22" }
-boom_fittings = { value = { type = "sphere", radial_m = 8.547, z_m = -56.283, radius_m = 1.179, azimuths_deg = [45.0, 135.0, 225.0, 315.0], material = "hull" }, unit = "m", status = "V", source = "boom root fittings (drawing, step 2.5 A2)", date = "2026-10-22" }
-radiator_rails = { value = { type = "box_rad", r_min_m = 7.074, r_max_m = 9.726, half_width_m = 2.947, z_min_m = -105.1, z_max_m = -59.872, azimuths_deg = [0.0, 180.0], material = "hull" }, unit = "m", status = "V", source = "radiator root rails along +/-X (drawing, step 2.5 A2)", date = "2026-10-22" }
-radiator_1    = { value = { type = "box_rad", r_min_m = 8.842, r_max_m = 31.018, half_width_m = 0.221, z_min_m = -69.492, z_max_m = -60.877, azimuths_deg = [0.0, 180.0], material = "radiator" }, unit = "m", status = "V", source = "radiator wing tier 1, plane XZ (drawing, step 2.5 A3); no folding (user)", date = "2026-10-22" }
-radiator_2    = { value = { type = "box_rad", r_min_m = 8.842, r_max_m = 38.25, half_width_m = 0.221, z_min_m = -87.152, z_max_m = -69.779, azimuths_deg = [0.0, 180.0], material = "radiator" }, unit = "m", status = "V", source = "radiator wing tier 2, the widest (overall width 76.5 m) (drawing, step 2.5 A3)", date = "2026-10-22" }
-radiator_3    = { value = { type = "box_rad", r_min_m = 8.842, r_max_m = 30.054, half_width_m = 0.221, z_min_m = -96.198, z_max_m = -87.44, azimuths_deg = [0.0, 180.0], material = "radiator" }, unit = "m", status = "V", source = "radiator wing tier 3 (drawing, step 2.5 A3)", date = "2026-10-22" }
-radiator_4    = { value = { type = "box_rad", r_min_m = 8.842, r_max_m = 21.857, half_width_m = 0.221, z_min_m = -105.1, z_max_m = -96.485, azimuths_deg = [0.0, 180.0], material = "radiator" }, unit = "m", status = "V", source = "radiator wing tier 4 (drawing, step 2.5 A3)", date = "2026-10-22" }
+# Material regions of the model (the OBJ carries no material): a triangle whose centroid lies in a region (SHIP frame,
+# optional bounds abs_x_min_m / abs_x_max_m / abs_y_min_m / abs_y_max_m / z_min_m / z_max_m) is of its material; the
+# first matching region wins, else default_material.
+[ship.material_regions]
+radiator = { value = { material = "radiator", abs_x_min_m = 9.6, abs_y_max_m = 0.3, z_min_m = -116.5, z_max_m = -66.0 }, unit = "m", status = "V", source = "the radiator wings of the model (plane XZ, tiers from z -66.6 to -115.7 m, tips 30.4 / 37.3 / 29.3 / 21.2 m) beyond the root rails (|x| <= 9.53 m); confirmed by the user 2026-10-22", date = "2026-10-22" }
 
 [ship.materials.hull]
 emissivity = { value = [0.01, 0.01], unit = "-", status = "V", source = "RF emissivity [S, Ku] of a conductive skin (hull and appendages), optimistic end of 0.001-0.05 (step 2.5, B1)", date = "2026-10-22" }

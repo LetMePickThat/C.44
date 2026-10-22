@@ -6,9 +6,11 @@ ENVIRONMENT -- what surrounds a face (roadmap step 2.5): the ship structure, the
 Everything is in the SHIP frame (core/optimizer.face_frame); positions of bodies and jammers come from the mission sky
 (later the global scenario simulator): the radar model never computes where an object is.
 
-Ship structure ([ship] of radar_system.toml: a hull of revolution and parts, each of a material):
+Ship structure ([ship] of radar_system.toml: the low-poly 3D model ship.model_path, triangles placed in the ship frame,
+each of a material by region; the overall dimensions and the four apertures are checked against it at load time):
   masking   the aperture is a TUBE in the near field (Fraunhofer limit ~325 m in S): rays from points of the aperture
-            (hexagonal rings) along the beam direction; f = fraction of rays hitting the structure; loss per pass
+            (hexagonal rings) along the beam direction, exact ray-triangle test on the model; f = fraction of rays
+            hitting the structure; loss per pass
             -20 log(1 - f); a position is MASKED (not scanned) above ship.block_mask_db per pass. Table per face on a
             (u, v) grid, cached in core/structure_cache.npz (rebuilt when the geometry changes).
   noise     main lobe: f x (emissivity x T_phys of the parts hit) x the near-zone share of the RX pattern; far
@@ -46,13 +48,7 @@ from .params import P, DEFAULT_PATH
 BANDS = ("S", "Ku")
 K_BOLTZ = rm.K_BOLTZ
 
-# ----------------------------------------------------------------------------- ship structure (parameter file)
-PART_TYPES = {"cylinder_z": ("radial_m", "z_m", "radius_m", "length_m"),
-              "cylinder_rad": ("radial_m", "z_m", "radius_m", "length_m"),
-              "box_rad": ("r_min_m", "r_max_m", "half_width_m", "z_min_m", "z_max_m"),
-              "sphere": ("radial_m", "z_m", "radius_m")}
-
-
+# ----------------------------------------------------------------------------- ship structure (3D model)
 @dataclass(frozen=True)
 class Material:
     emissivity: Tuple[float, float]       # RF emissivity [S, Ku]
@@ -60,18 +56,6 @@ class Material:
 
     def eps_t(self, band: str) -> float:
         return self.emissivity[BANDS.index(band)] * self.t_phys_k
-
-
-@dataclass(frozen=True)
-class Part:
-    name: str
-    type: str
-    material: str
-    values: Tuple[Tuple[str, float], ...]
-    azimuths_deg: Tuple[float, ...]
-
-    def v(self, key: str) -> float:
-        return dict(self.values)[key]
 
 
 def _load_materials() -> Dict[str, Material]:
@@ -87,197 +71,210 @@ def _load_materials() -> Dict[str, Material]:
 
 
 MATERIALS: Dict[str, Material] = _load_materials()
-HULL_Z: Tuple[float, ...] = tuple(float(x) for x in P.get("ship.hull.profile_z_m"))
-HULL_R: Tuple[float, ...] = tuple(float(x) for x in P.get("ship.hull.profile_r_m"))
-HULL_MATERIAL: str = P.get("ship.hull.material")
+MATERIAL_NAMES: Tuple[str, ...] = tuple(MATERIALS)
+APP_DIR = os.path.dirname(os.path.abspath(DEFAULT_PATH))
+MODEL_PATH: str = os.path.join(APP_DIR, P.get("ship.model_path"))
+MODEL_NOSE_AXIS: str = P.get("ship.model_nose_axis")
+MODEL_ARRAY_Z_M: float = P.get("ship.model_array_station_z_m")
 ARRAY_RADIUS_M: float = P.get("ship.array_radius_m")
 BLOCK_MASK_DB: float = P.get("ship.block_mask_db")
+DEFAULT_MATERIAL: str = P.get("ship.default_material")
+_REGION_BOUNDS = ("abs_x_min_m", "abs_x_max_m", "abs_y_min_m", "abs_y_max_m", "z_min_m", "z_max_m")
 
 
-def _load_parts() -> Tuple[Part, ...]:
+def load_obj(path: str) -> Tuple[np.ndarray, np.ndarray]:
+    """Vertices (model frame) and triangles (vertex indices; polygons split in fans) of a Wavefront OBJ."""
+    v, tris = [], []
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if line.startswith("v "):
+                    v.append(line.split()[1:4])
+                elif line.startswith("f "):
+                    idx = [int(t.split("/")[0]) for t in line.split()[1:]]
+                    idx = [i - 1 if i > 0 else len(v) + i for i in idx]          # OBJ: 1-based, negative = relative
+                    tris.extend((idx[0], idx[i], idx[i + 1]) for i in range(1, len(idx) - 1))
+    except OSError as e:
+        raise ValueError(f"{P.path}: ship.model_path: cannot read the 3D model {path} ({e})") from e
+    if not v or not tris:
+        raise ValueError(f"{P.path}: ship.model_path: {path} holds no vertices or faces")
+    return np.array(v, dtype=float), np.array(tris, dtype=np.int64)
+
+
+def _to_ship_frame(v: np.ndarray) -> np.ndarray:
+    """Model frame -> ship frame: nose toward +Z, z = 0 at the aperture station (a '-Z' nose: 180 deg about X)."""
+    if MODEL_NOSE_AXIS == "-Z":
+        return np.c_[v[:, 0], -v[:, 1], -(v[:, 2] - MODEL_ARRAY_Z_M)]
+    if MODEL_NOSE_AXIS == "+Z":
+        return np.c_[v[:, 0], v[:, 1], v[:, 2] - MODEL_ARRAY_Z_M]
+    raise ValueError(f"{P.path}: ship.model_nose_axis '{MODEL_NOSE_AXIS}' must be '-Z' or '+Z'")
+
+
+def _load_regions() -> Tuple[Tuple[str, str, Dict[str, float]], ...]:
+    try:
+        regions = P.section("ship.material_regions")
+    except KeyError:
+        return ()
     out = []
-    for name, v in P.section("ship.parts").items():
-        if not isinstance(v, dict) or v.get("type") not in PART_TYPES:
-            raise ValueError(f"{P.path}: ship.parts.{name}: 'type' must be one of {', '.join(PART_TYPES)}")
-        keys = PART_TYPES[v["type"]]
-        missing = [k for k in keys + ("azimuths_deg", "material") if k not in v]
-        extra = sorted(set(v) - set(keys) - {"type", "azimuths_deg", "material"})
-        if missing or extra:
-            raise ValueError(f"{P.path}: ship.parts.{name} ({v['type']}) " + (f"misses {missing}" if missing
-                             else f"has unknown keys {extra}") + f" (needs {', '.join(keys)}, azimuths_deg, material)")
-        if v["material"] not in MATERIALS:
-            raise ValueError(f"{P.path}: ship.parts.{name}: unknown material '{v['material']}' ({', '.join(MATERIALS)})")
-        out.append(Part(name, v["type"], v["material"], tuple((k, float(v[k])) for k in keys),
-                        tuple(float(a) for a in v["azimuths_deg"])))
+    for name, v in regions.items():
+        if not isinstance(v, dict) or v.get("material") not in MATERIALS:
+            raise ValueError(f"{P.path}: ship.material_regions.{name}: 'material' must be one of {', '.join(MATERIALS)}")
+        extra = sorted(set(v) - set(_REGION_BOUNDS) - {"material"})
+        if extra:
+            raise ValueError(f"{P.path}: ship.material_regions.{name} has unknown keys {extra} (bounds: "
+                             f"{', '.join(_REGION_BOUNDS)})")
+        out.append((name, v["material"], {k: float(v[k]) for k in _REGION_BOUNDS if k in v}))
     return tuple(out)
 
 
-PARTS: Tuple[Part, ...] = _load_parts()
+MATERIAL_REGIONS = _load_regions()
 
 
-def _check_ship() -> None:
-    """The profile and parts must match the locked overall dimensions of [ship] (1 %)."""
-    if len(HULL_Z) != len(HULL_R) or len(HULL_Z) < 2 or min(HULL_R) < 0 or HULL_MATERIAL not in MATERIALS:
-        raise ValueError(f"{P.path}: [ship.hull]: profile_z_m (nose to aft) and profile_r_m (>= 0) of the same length, "
-                         f"and a known material, are needed")
-    checks = {"length_m": max(HULL_Z) - min(HULL_Z), "hull_diameter_m": 2.0 * max(HULL_R),
-              "width_m": 2.0 * max([max(HULL_R)] + [_part_reach(p) for p in PARTS])}
-    for k, v in checks.items():
-        ref = P.get(f"ship.{k}")
-        if abs(v / ref - 1.0) > 0.01:
-            raise ValueError(f"{P.path}: the ship geometry gives {k} = {v:.2f} m, ship.{k} is {ref} m (1 % tolerance)")
+def _triangle_materials(tri: np.ndarray) -> np.ndarray:
+    """Material index of each triangle: the first region holding its centroid, else ship.default_material."""
+    if DEFAULT_MATERIAL not in MATERIALS:
+        raise ValueError(f"{P.path}: ship.default_material '{DEFAULT_MATERIAL}' is not one of {', '.join(MATERIALS)}")
+    c = tri.mean(axis=1)
+    ax, ay, z = np.abs(c[:, 0]), np.abs(c[:, 1]), c[:, 2]
+    out = np.full(len(tri), MATERIAL_NAMES.index(DEFAULT_MATERIAL), dtype=np.int16)
+    done = np.zeros(len(tri), dtype=bool)
+    for _, mat, b in MATERIAL_REGIONS:
+        sel = ~done
+        for arr, name, lower in ((ax, "abs_x_min_m", True), (ax, "abs_x_max_m", False), (ay, "abs_y_min_m", True),
+                                 (ay, "abs_y_max_m", False), (z, "z_min_m", True), (z, "z_max_m", False)):
+            if name in b:
+                sel &= arr >= b[name] if lower else arr <= b[name]
+        out[sel] = MATERIAL_NAMES.index(mat)
+        done |= sel
+    return out
 
 
-def _part_reach(p: Part) -> float:
-    """Largest distance of a part to the ship axis."""
-    if p.type == "box_rad":
-        return math.hypot(p.v("r_max_m"), p.v("half_width_m"))
-    if p.type == "cylinder_rad":
-        return p.v("radial_m") + p.v("length_m") / 2.0
-    return p.v("radial_m") + p.v("radius_m")
-
-
-_check_ship()
+_V_MODEL, MODEL_FACES = load_obj(MODEL_PATH)
+MODEL_VERTICES: np.ndarray = _to_ship_frame(_V_MODEL)      # ship frame, metres
+TRIANGLES: np.ndarray = MODEL_VERTICES[MODEL_FACES]         # (triangles, 3 corners, xyz)
+TRI_MATERIAL: np.ndarray = _triangle_materials(TRIANGLES)
+del _V_MODEL
 
 
 def ship_fingerprint() -> str:
-    """Hash of everything the structure tables depend on."""
-    vals = {k: P.get(k) for k in ("ship.hull.profile_z_m", "ship.hull.profile_r_m", "ship.array_radius_m",
-                                  "geometry.face_phi_deg", "geometry.tilt_deg", "tool.environment.aperture_ray_rings",
-                                  "tool.environment.block_grid_step_uv", "tool.environment.struct_noise_dirs")}
-    vals["parts"] = [(p.name, p.type, p.material, p.values, p.azimuths_deg) for p in PARTS]
+    """Hash of everything the structure tables depend on (the model file itself, its placement, the materials)."""
+    vals = {k: P.get(k) for k in ("ship.model_nose_axis", "ship.model_array_station_z_m", "ship.array_radius_m",
+                                  "ship.default_material", "geometry.face_phi_deg", "geometry.tilt_deg",
+                                  "tool.environment.aperture_ray_rings", "tool.environment.block_grid_step_uv",
+                                  "tool.environment.struct_noise_dirs")}
+    with open(MODEL_PATH, "rb") as fh:
+        vals["model_sha256"] = hashlib.sha256(fh.read()).hexdigest()
+    vals["regions"] = MATERIAL_REGIONS
+    vals["materials"] = MATERIAL_NAMES
     vals["envelope"] = rm.ARRAY_ENVELOPE_M
-    vals["algo"] = 2                       # 2: rays parallel to a box face outside it no longer hit (step 2.5)
+    vals["algo"] = 3                       # 3: the 3D model (triangles) replaces the primitives
     return hashlib.sha256(json.dumps(vals, sort_keys=True, default=str).encode()).hexdigest()[:16]
 
 
 # ----------------------------------------------------------------------------- ray casting
-_EPS_T = 1e-6
-
-
-def _first_root(a: np.ndarray, b: np.ndarray, c: np.ndarray, valid) -> np.ndarray:
-    """Smallest root t > eps of a t^2 + 2 b t + c = 0 where valid(t) holds (inf otherwise)."""
-    out = np.full(a.shape, np.inf)
-    disc = b * b - a * c
-    ok = (disc >= 0.0) & (np.abs(a) > 1e-14)
-    sq = np.sqrt(np.where(ok, disc, 0.0))
-    for sgn in (-1.0, 1.0):
-        t = np.where(ok, (-b + sgn * sq) / np.where(ok, a, 1.0), np.inf)
-        good = ok & (t > _EPS_T) & valid(t)
-        out = np.where(good & (t < out), t, out)
-    return out
-
-
-def _hit_disc(o, d, z0, r_lo, r_hi) -> np.ndarray:
-    """Annulus r_lo <= r <= r_hi in the plane z = z0 (a step of the hull profile, a cylinder cap)."""
-    with np.errstate(divide="ignore", invalid="ignore"):
-        t = (z0 - o[:, 2]) / d[:, 2]
-    x, y = o[:, 0] + t * d[:, 0], o[:, 1] + t * d[:, 1]
-    r = np.hypot(x, y)
-    return np.where(np.isfinite(t) & (t > _EPS_T) & (r >= r_lo - 1e-9) & (r <= r_hi + 1e-9), t, np.inf)
-
-
-def _hit_hull(o, d) -> np.ndarray:
-    out = np.full(len(o), np.inf)
-    for (z1, r1), (z2, r2) in zip(zip(HULL_Z, HULL_R), zip(HULL_Z[1:], HULL_R[1:])):
-        if abs(z1 - z2) < 1e-12:
-            out = np.minimum(out, _hit_disc(o, d, z1, min(r1, r2), max(r1, r2)))
+def _first_hits(o: np.ndarray, dirs: np.ndarray, idx: Optional[np.ndarray] = None,
+                chunk: int = 2048) -> Tuple[np.ndarray, np.ndarray]:
+    """Nearest hit of rays from ONE origin o along the unit directions dirs on the model triangles idx (all when
+    None): (distance, triangle index, -1 = no hit). Exact: a ray hits a triangle when its direction lies in the cone
+    the triangle spans from o (the three triple products d.(b x c), d.(c x a), d.(a x b) have the sign of
+    a.(b x c)); the distance is a.(b x c) / d.n, n = the triangle normal."""
+    ids = np.arange(len(TRIANGLES)) if idx is None else np.asarray(idx)
+    tri = TRIANGLES[ids]
+    a, b, c = (tri[:, i] - o for i in range(3))
+    bc, ca, ab = np.cross(b, c), np.cross(c, a), np.cross(a, b)
+    tr = np.einsum("ij,ij->i", a, bc)
+    keep = np.abs(tr) > 1e-12                                  # o in the plane of the triangle: no crossing
+    sg = np.sign(tr[keep])[:, None]
+    ids, tr = ids[keep], np.abs(tr[keep])
+    m = np.concatenate([bc[keep] * sg, ca[keep] * sg, ab[keep] * sg]).T     # (3, 3 k)
+    k = len(ids)
+    t_out = np.full(len(dirs), np.inf)
+    i_out = np.full(len(dirs), -1, dtype=np.int64)
+    if k == 0:
+        return t_out, i_out
+    for lo in range(0, len(dirs), chunk):
+        s = dirs[lo:lo + chunk] @ m
+        h = (s[:, :k] >= 0.0) & (s[:, k:2 * k] >= 0.0) & (s[:, 2 * k:] >= 0.0)
+        rows = np.flatnonzero(h.any(axis=1))
+        if not len(rows):
             continue
-        b = (r2 - r1) / (z2 - z1)
-        a0 = r1 - b * z1
-        k0 = a0 + b * o[:, 2]
-        qa = d[:, 0] ** 2 + d[:, 1] ** 2 - b * b * d[:, 2] ** 2
-        qb = o[:, 0] * d[:, 0] + o[:, 1] * d[:, 1] - b * k0 * d[:, 2]
-        qc = o[:, 0] ** 2 + o[:, 1] ** 2 - k0 * k0
-        zlo, zhi = min(z1, z2), max(z1, z2)
-
-        def valid(t, o=o, d=d, zlo=zlo, zhi=zhi, a0=a0, b=b):
-            z = o[:, 2] + t * d[:, 2]
-            return (z >= zlo - 1e-9) & (z <= zhi + 1e-9) & (a0 + b * z >= 0.0)
-        out = np.minimum(out, _first_root(qa, qb, qc, valid))
-    return out
+        sr = s[rows]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            dist = np.where(h[rows], tr / (sr[:, :k] + sr[:, k:2 * k] + sr[:, 2 * k:]), np.inf)
+        j = np.argmin(dist, axis=1)
+        t_out[lo + rows] = dist[np.arange(len(rows)), j]
+        i_out[lo + rows] = ids[j]
+    return t_out, i_out
 
 
-def _local(o, d, az_deg):
-    """Coordinates along (e_r, e_t, z) of the azimuth az."""
-    c, s = math.cos(math.radians(az_deg)), math.sin(math.radians(az_deg))
-    er, et = np.array([c, s, 0.0]), np.array([-s, c, 0.0])
-    return (o @ er, o @ et, o[:, 2]), (d @ er, d @ et, d[:, 2])
-
-
-def _hit_part(p: Part, o, d) -> np.ndarray:
-    out = np.full(len(o), np.inf)
-    for az in p.azimuths_deg:
-        (os_, ot, oz), (ds, dt, dz) = _local(o, d, az)
-        if p.type == "sphere":
-            cs, cz, rad = p.v("radial_m"), p.v("z_m"), p.v("radius_m")
-            ps, pz = os_ - cs, oz - cz
-            t = _first_root(ds * ds + dt * dt + dz * dz, ps * ds + ot * dt + pz * dz, ps * ps + ot * ot + pz * pz - rad * rad,
-                            lambda t: np.ones(t.shape, bool))
-        elif p.type == "cylinder_z":
-            cs, cz, rad, ln = p.v("radial_m"), p.v("z_m"), p.v("radius_m"), p.v("length_m")
-            ps = os_ - cs
-            zlo, zhi = cz - ln / 2.0, cz + ln / 2.0
-            t = _first_root(ds * ds + dt * dt, ps * ds + ot * dt, ps * ps + ot * ot - rad * rad,
-                            lambda t, oz=oz, dz=dz, zlo=zlo, zhi=zhi: (oz + t * dz >= zlo) & (oz + t * dz <= zhi))
-            for zc in (zlo, zhi):
-                with np.errstate(divide="ignore", invalid="ignore"):
-                    tc = (zc - oz) / dz
-                hit = np.isfinite(tc) & (tc > _EPS_T) & ((ps + tc * ds) ** 2 + (ot + tc * dt) ** 2 <= rad * rad)
-                t = np.minimum(t, np.where(hit, tc, np.inf))
-        elif p.type == "cylinder_rad":
-            cs, cz, rad, ln = p.v("radial_m"), p.v("z_m"), p.v("radius_m"), p.v("length_m")
-            slo, shi = cs - ln / 2.0, cs + ln / 2.0
-            pz = oz - cz
-            t = _first_root(dt * dt + dz * dz, ot * dt + pz * dz, ot * ot + pz * pz - rad * rad,
-                            lambda t, os_=os_, ds=ds, slo=slo, shi=shi: (os_ + t * ds >= slo) & (os_ + t * ds <= shi))
-            for sc in (slo, shi):
-                with np.errstate(divide="ignore", invalid="ignore"):
-                    tc = (sc - os_) / ds
-                hit = np.isfinite(tc) & (tc > _EPS_T) & ((ot + tc * dt) ** 2 + (pz + tc * dz) ** 2 <= rad * rad)
-                t = np.minimum(t, np.where(hit, tc, np.inf))
-        else:                                                     # box_rad: slab method
-            lo = np.array([p.v("r_min_m"), -p.v("half_width_m"), p.v("z_min_m")])
-            hi = np.array([p.v("r_max_m"), p.v("half_width_m"), p.v("z_max_m")])
-            tn, tf = np.full(len(o), -np.inf), np.full(len(o), np.inf)
-            miss = np.zeros(len(o), dtype=bool)
-            for oc, dc, a, b in ((os_, ds, lo[0], hi[0]), (ot, dt, lo[1], hi[1]), (oz, dz, lo[2], hi[2])):
-                par = np.abs(dc) < 1e-15
-                miss |= par & ((oc < a) | (oc > b))           # parallel to this slab and outside it: no hit
-                with np.errstate(divide="ignore", invalid="ignore"):
-                    t1 = np.where(par, -np.inf, (a - oc) / np.where(par, 1.0, dc))
-                    t2 = np.where(par, np.inf, (b - oc) / np.where(par, 1.0, dc))
-                tn, tf = np.maximum(tn, np.minimum(t1, t2)), np.minimum(tf, np.maximum(t1, t2))
-            t = np.where(~miss & (tf >= tn) & (tf > _EPS_T), np.where(tn > _EPS_T, tn, tf), np.inf)
-        out = np.minimum(out, t)
-    return out
-
-
-def cast(o: np.ndarray, d: np.ndarray, chunk: int = 200_000) -> Tuple[np.ndarray, np.ndarray]:
+def cast(o: np.ndarray, d: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """First hit of rays (origins o, unit directions d) on the structure: (distance, material index into
     MATERIAL_NAMES, -1 = no hit)."""
+    o, d = np.atleast_2d(np.asarray(o, float)), np.atleast_2d(np.asarray(d, float))
     t_all = np.full(len(o), np.inf)
     m_all = np.full(len(o), -1, dtype=np.int16)
-    with np.errstate(invalid="ignore", divide="ignore"):    # parallel rays give inf x 0 in the masked branches
-        _cast_chunks(o, d, chunk, t_all, m_all)
+    uo, inv = np.unique(o, axis=0, return_inverse=True)
+    for i, oo in enumerate(uo):
+        sel = np.flatnonzero(inv.ravel() == i)
+        t, j = _first_hits(oo, d[sel])
+        t_all[sel] = t
+        m_all[sel] = np.where(j >= 0, TRI_MATERIAL[np.maximum(j, 0)], -1)
     return t_all, m_all
 
 
-def _cast_chunks(o, d, chunk, t_all, m_all) -> None:
-    for lo in range(0, len(o), chunk):
-        sl = slice(lo, lo + chunk)
-        oo, dd = o[sl], d[sl]
-        best = _hit_hull(oo, dd)
-        mat = np.where(np.isfinite(best), MATERIAL_NAMES.index(HULL_MATERIAL), -1)
-        for p in PARTS:
-            t = _hit_part(p, oo, dd)
-            closer = t < best
-            best = np.where(closer, t, best)
-            mat = np.where(closer, MATERIAL_NAMES.index(p.material), mat)
-        t_all[sl], m_all[sl] = best, mat
+def _front_triangles(k: int) -> np.ndarray:
+    """Triangles with a corner in front of the aperture plane of face k (the only ones its rays can meet)."""
+    n = face_frame(k)[0]
+    return np.flatnonzero(((TRIANGLES - array_centre_m(k)) @ n > 1e-4).any(axis=1))
 
 
-MATERIAL_NAMES: Tuple[str, ...] = tuple(MATERIALS)
+def _hull_body_vertices() -> np.ndarray:
+    """Vertices of the hull body: the connected piece of the model with the longest axial extent (labels spread
+    along the triangle edges, smallest label wins)."""
+    lab = np.arange(len(MODEL_VERTICES))
+    f = MODEL_FACES
+    while True:
+        m = lab[f].min(axis=1)
+        new = lab.copy()
+        for i in range(3):
+            np.minimum.at(new, f[:, i], m)
+        new = new[new]                                         # pointer jumping
+        if np.array_equal(new, lab):
+            break
+        lab = new
+    best, ext = None, -1.0
+    for g in np.unique(lab):
+        z = MODEL_VERTICES[lab == g, 2]
+        if np.ptp(z) > ext:
+            best, ext = g, float(np.ptp(z))
+    return MODEL_VERTICES[lab == best]
+
+
+def _check_ship() -> None:
+    """The model must match the locked overall dimensions of [ship] (1 %), and each aperture centre must sit on a
+    radar panel front face of the model whose normal is the face normal (geometry.tilt_deg, face_phi_deg) within
+    0.5 deg: a tilt or an array position that no longer matches the model is refused."""
+    hull = _hull_body_vertices()
+    checks = {"length_m": float(np.ptp(MODEL_VERTICES[:, 2])),
+              "width_m": 2.0 * float(np.hypot(MODEL_VERTICES[:, 0], MODEL_VERTICES[:, 1]).max()),
+              "hull_diameter_m": 2.0 * float(np.hypot(hull[:, 0], hull[:, 1]).max())}
+    for k, v in checks.items():
+        ref = P.get(f"ship.{k}")
+        if abs(v / ref - 1.0) > 0.01:
+            raise ValueError(f"{P.path}: the 3D model gives {k} = {v:.2f} m, ship.{k} is {ref} m (1 % tolerance)")
+    for k in range(len(face_phis())):
+        n = face_frame(k)[0]
+        t, j = _first_hits(array_centre_m(k) + 0.05 * n, -n[None, :])
+        if j[0] < 0 or abs(t[0] - 0.05) > 0.02:
+            raise ValueError(f"{P.path}: face {k}: the aperture centre (ship.array_radius_m {ARRAY_RADIUS_M} m at the "
+                             f"station ship.model_array_station_z_m) is not on a panel front face of the 3D model")
+        tri = TRIANGLES[j[0]]
+        nt = np.cross(tri[1] - tri[0], tri[2] - tri[0])
+        ang = math.degrees(math.acos(min(1.0, abs(float(nt @ n)) / float(np.linalg.norm(nt)))))
+        if ang > 0.5:
+            raise ValueError(f"{P.path}: face {k}: the radar panel of the 3D model is {ang:.1f} deg away from the face "
+                             f"normal (geometry.tilt_deg {rm.SECTOR_TILT_DEG}, geometry.face_phi_deg)")
+
 
 # ----------------------------------------------------------------------------- per-face structure tables
 _TE = "tool.environment."
@@ -319,6 +316,18 @@ def aperture_points(k: int) -> np.ndarray:
     return np.array([c + x * eu + y * ev for x, y in pts])
 
 
+_check_ship()
+
+
+def panel_corners_m(k: int) -> np.ndarray:
+    """Corners of the radar panel front face of face k in the 3D model (ship frame), in order around the normal."""
+    n, eu, ev = face_frame(k)
+    d = MODEL_VERTICES - array_centre_m(k)
+    p = MODEL_VERTICES[(np.abs(d @ n) < 2e-3) & (np.linalg.norm(d, axis=1) < 2.0 * rm.ARRAY_ENVELOPE_M)]
+    q = p - array_centre_m(k)
+    return p[np.argsort(np.arctan2(q @ ev, q @ eu))]
+
+
 def _grid_uv() -> Tuple[np.ndarray, np.ndarray]:
     g = np.arange(-1.0, 1.0 + 1e-9, GRID_STEP_UV)
     return np.meshgrid(g, g, indexing="ij")
@@ -346,10 +355,11 @@ def _build_tables() -> Dict[str, np.ndarray]:
         ww = np.sqrt(np.where(inside, q, 0.0))
         dirs = (uu[inside, None] * eu + vv[inside, None] * ev + ww[inside, None] * n)
         org = aperture_points(k)
-        o = np.repeat(org[None, :, :], len(dirs), axis=0).reshape(-1, 3)
-        d = np.repeat(dirs[:, None, :], len(org), axis=1).reshape(-1, 3)
-        _, mat = cast(o, d)
-        mat = mat.reshape(len(dirs), len(org))
+        tri_front = _front_triangles(k)
+        mat = np.full((len(dirs), len(org)), -1, dtype=np.int16)
+        for i, o in enumerate(org):
+            _, j = _first_hits(o, dirs, tri_front)
+            mat[:, i] = np.where(j >= 0, TRI_MATERIAL[np.maximum(j, 0)], -1)
         hit = mat >= 0
         f = np.zeros(uu.shape)
         f[inside] = hit.mean(axis=1)
@@ -361,11 +371,11 @@ def _build_tables() -> Dict[str, np.ndarray]:
         out[f"f_{k}"] = f
         front = fib @ n > 0.0
         fd = fib[front]
-        _, m1 = cast(np.repeat((array_centre_m(k) + _ORIGIN_OFFSET_M * n)[None, :], len(fd), axis=0), fd)
-        sel = m1 >= 0
+        _, j1 = _first_hits(array_centre_m(k) + _ORIGIN_OFFSET_M * n, fd, tri_front)
+        sel = j1 >= 0
         out[f"sdirs_{k}"] = fd[sel]
         for bi, b in enumerate(BANDS):
-            out[f"sepst_{b}_{k}"] = epst[m1[sel], bi]
+            out[f"sepst_{b}_{k}"] = epst[TRI_MATERIAL[j1[sel]], bi]
     return out
 
 

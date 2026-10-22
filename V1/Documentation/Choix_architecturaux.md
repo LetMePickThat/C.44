@@ -67,7 +67,7 @@ Rien de ce qui a été décidé ne vit seulement dans une conversation :
 | `Documentation/Choix_architecturaux.md` (ce document) | Toutes les variables, leurs valeurs et leurs raisons, les formules, les dispositions provisoires, les points ouverts et l'historique des décisions, question par question. |
 | `Documentation/Feuille_de_route.md` | La feuille de route, l'état d'avancement et, pour chaque étape, les décisions prises et les renvois reçus d'autres étapes. |
 | `radar_system.toml` | Les valeurs elles-mêmes ; le champ `source` de chaque entrée résume sa justification. |
-| En-tête de `core/radar_model.py` | Le journal des versions du modèle (V6.0.0 à V6.10.0) et ce que chaque version a changé. |
+| En-tête de `core/radar_model.py` | Le journal des versions du modèle (V6.0.0 à V6.10.1) et ce que chaque version a changé. |
 | `tests/snapshots/JOURNAL.md` | Chaque régénération des valeurs figées de test et ses causes. |
 | Mémoire de l'assistant (hors dépôt) | Locale à chaque machine, **non partagée** : elle n'est qu'un raccourci. Tout ce qui est nécessaire pour reprendre est dans le dépôt (ce tableau, §1.3, §1.5, §1.6) ; en cas d'écart, le dépôt fait foi. |
 
@@ -94,7 +94,7 @@ Procédure d'une étape :
 |---|---|---|
 | Durée de la suite de tests | Trois runs complets sur le même portable (14900HX ; la machine habituelle est un 9800X3D fixe) : le matin avant l'étape 2.4, **sur batterie**, 108 tests en 5 min 53 ; l'après-midi après l'étape 2.4, **sur batterie**, 117 tests en environ 30 min ; le soir après l'étape 2.5, **sur secteur, mode performance**, 126 tests en 6 min 10. **Le code n'est pas en cause** : le dernier run contient tout le code des étapes 2.4 et 2.5. **La machine était ralentie l'après-midi**, à code identique : la version 2.4 commitée mettait 70 s sur `mission_example`, contre 19,6 s le matin, sur batterie dans les deux cas (relevé l'après-midi : mode « Legion Balance », 37 %, en décharge). La batterie seule n'explique donc pas l'écart (le matin, sur batterie, la suite était rapide) ; la cause précise (mode d'alimentation, niveau de charge, température, autre bridage) **n'est pas identifiée**. | Rien d'obligatoire. Pour identifier la cause, mesurer `mission_example` (référence : environ 20 s) dans chaque état de la machine (secteur ou batterie, mode d'alimentation, niveau de charge). |
 | Hash des étapes | 2.4 : commit `008d583`. 2.5 : commit `baeadcf`, reporté dans `Feuille_de_route.md`. | — |
-| Prochaine étape | 3.1, veille S reconstruite : cadrage **pas encore commencé**. Elle reçoit le plus de renvois (multifaisceau à trois modes et loi PAE / recul, grille de fréquences fine, bandes au-delà de 75 MHz, impulsions de moins de 20 µs, critère secondaire de l'optimiseur, fouillis par forme d'onde, exigence de portée devant une surface, réponse au brouillage d'autoprotection, pas de grille par secteur) : voir `Feuille_de_route.md`. | Commencer par la procédure d'une étape (§1.4). |
+| Prochaine étape | **3.0, repère de mission et attitude** (ajoutée le 22 octobre 2026 ; cadrage Q1 à Q6 et architecture à 4 couches D1 à D6 validés, voir `Feuille_de_route.md` ; variables pas encore posées), puis 3.1, veille S reconstruite (cadrage proposé : blocs A grille de fréquences, B espace des formes d'onde, C multifaisceau, D environnement par forme d'onde, E règles de l'optimiseur). Elle reçoit le plus de renvois (multifaisceau à trois modes et loi PAE / recul, grille de fréquences fine, bandes au-delà de 75 MHz, impulsions de moins de 20 µs, critère secondaire de l'optimiseur, fouillis par forme d'onde, exigence de portée devant une surface, réponse au brouillage d'autoprotection, pas de grille par secteur) : voir `Feuille_de_route.md`. | Commencer par la procédure d'une étape (§1.4). |
 | Sauvegardes locales de la réécriture d'historique | Sur le portable seulement : branche `backup-before-rewrite` et `refs/original/`, gardées à la demande de l'utilisateur. | Les supprimer quand l'utilisateur le dira ; rien à faire sur une autre machine. |
 | Documentation de l'étape 2.4 | Une partie des mises à jour de ce document (en-tête, modules, bilan des entrées, lignes CFAR et cohérence) n'avait pas été appliquée au commit `008d583` ; rattrapée avec l'étape 2.5. | Vérifier, à chaque étape, que chaque remplacement de la documentation a bien été appliqué. |
 | Copies locales hors dépôt | `PROJECT_CONTEXT.md`, `README.txt`, `radar_params_restore.md` à la racine, exclus par `.git/info/exclude` : antérieurs à la feuille de route, remplacés par `Documentation/`. | Ne pas les commiter ; ils peuvent manquer sur une autre machine sans conséquence. |
@@ -123,7 +123,7 @@ Procédure d'une étape :
 | `python tests/impact_report.py` | environ 2 min 40 |
 | `python tests/update_snapshots.py` | environ 3 min |
 | `python -m pytest -q` (126 tests) | environ 6 min |
-| reconstruction automatique de `core/structure_cache.npz` / `core/antenna_cache.json` | environ 10 à 15 s / 8 s |
+| reconstruction automatique de `core/structure_cache.npz` / `core/antenna_cache.json` | environ 23 s (modèle 3D) / 8 s |
 
 **Fichiers dérivés** (§2.2) : `antenna_cache.json` et `structure_cache.npz` se reconstruisent seuls quand leurs entrées changent, et ne sont réécrits que pour le fichier de paramètres par défaut. Ils sont versionnés : les commiter avec l'étape qui les change. `cost_table.json` et les valeurs figées se régénèrent à la main (procédure, points 4 à 6).
 
@@ -140,10 +140,10 @@ Procédure d'une étape :
 | Module | Rôle |
 |---|---|
 | `core/params.py` | Charge `radar_system.toml`, une seule fois par processus. Expose `P.get`, `P.meta`, `P.section` et l'empreinte des paramètres (`fingerprint`). La variable d'environnement `RADAR_PARAMS` permet de désigner un autre fichier. |
-| `core/radar_model.py` | Modèle radar V6.10.0 : GO-CFAR (étape 2.5) ; bibliothèque de cibles (classes lues dans le fichier, cible d'un secteur, T₀ par classe et par bande, fluctuation en forme Gamma, optique de l'autodirecteur, accélération, dépolarisation et diversité, CFAR OS, masquage ; étape 2.4), critère de détection (Pd moyennée sur la position de la cible, Pd cumulée de la veille, politique de fausses alarmes, grille de veille à 1,4 lobe ; étape 2.3), traitement (blocs cohérents de taille optimale, oscillateur et plateforme, banc de vitesses, chevauchement et CFAR calculés, cases indépendantes pour les fausses alarmes ; étape 2.2), formes d'onde paramétriques (modulation LFM ou NLFM, pondération et perte de compression, k_r et résolution physique, effets dans l'impulsion, zone aveugle, éclipsage des trains échelonnés ; étape 2.1), chaîne de réception (T_sys de ciel froid, facteur de bruit du CAN dérivé du convertisseur, dynamique et portée minimale non saturée, récupération du limiteur, perte de recombinaison des deux voies de polarisation ; étape 1.5), bande (loi de bord par bande, occupation du spectre, retard vrai, contrôles de cohérence au chargement ; étape 1.4), bilan électrique et PAE variable par bande (étape 1.3), désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
+| `core/radar_model.py` | Modèle radar V6.10.1 (géométrie du vaisseau : modèle 3D) : GO-CFAR (étape 2.5) ; bibliothèque de cibles (classes lues dans le fichier, cible d'un secteur, T₀ par classe et par bande, fluctuation en forme Gamma, optique de l'autodirecteur, accélération, dépolarisation et diversité, CFAR OS, masquage ; étape 2.4), critère de détection (Pd moyennée sur la position de la cible, Pd cumulée de la veille, politique de fausses alarmes, grille de veille à 1,4 lobe ; étape 2.3), traitement (blocs cohérents de taille optimale, oscillateur et plateforme, banc de vitesses, chevauchement et CFAR calculés, cases indépendantes pour les fausses alarmes ; étape 2.2), formes d'onde paramétriques (modulation LFM ou NLFM, pondération et perte de compression, k_r et résolution physique, effets dans l'impulsion, zone aveugle, éclipsage des trains échelonnés ; étape 2.1), chaîne de réception (T_sys de ciel froid, facteur de bruit du CAN dérivé du convertisseur, dynamique et portée minimale non saturée, récupération du limiteur, perte de recombinaison des deux voies de polarisation ; étape 1.5), bande (loi de bord par bande, occupation du spectre, retard vrai, contrôles de cohérence au chargement ; étape 1.4), bilan électrique et PAE variable par bande (étape 1.3), désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
 | `core/detection.py` | **Étape 2.3.** Lois de détection exactes (Swerling 0 à 4, toute Pfa), Pd moyennée sur une loi discrète de pertes de position, Pd cumulée sur les observations d'une cible qui se rapproche. **Étape 2.4** : fluctuation donnée aussi par sa forme Gamma `Fluct(k)` (non entière), qui reproduit exactement les cas de Swerling. |
 | `core/antenna.py` | **Étapes 1.1 et 1.2.** Diagramme de rayonnement calculé à partir de la composition des TRSA : faisceau d'émission uniforme, pondération de réception par niveau de lobes, étendue RMS de l'ouverture, profil des lobes lointains sur tout l'espace visible (lobes de jeu compris). Profils **moyennés en azimut** du diagramme de réception, pour l'intégrale du bruit du ciel (étape 1.5). Résultat mis en cache dans `core/antenna_cache.json`. |
-| `core/environment.py` | **Étape 2.5.** Environnement d'une face : structure du vaisseau en primitives (`[ship]`), lancer de rayons, masquage par fraction bloquée du tube d'ouverture, bruit de la structure (lobe principal et lobes lointains) ; surfaces des corps (masque, fouillis sur l'anneau d'égale distance, saturation des CAN) ; brouilleurs (classes `[jammers.*]`, bruit par le diagramme, annulation, portée de percée) ; rotation de Faraday. Tables de structure mises en cache dans `core/structure_cache.npz`. Branché dans `core/optimizer.sector_sky` (S et Ku). |
+| `core/environment.py` | **Étape 2.5.** Environnement d'une face : structure du vaisseau d'après le **modèle 3D** `assets/models/LP_NISO.obj` (`[ship]`, depuis le 22 octobre 2026 ; primitives auparavant), lancer de rayons exact sur ses triangles, masquage par fraction bloquée du tube d'ouverture, bruit de la structure (lobe principal et lobes lointains) ; surfaces des corps (masque, fouillis sur l'anneau d'égale distance, saturation des CAN) ; brouilleurs (classes `[jammers.*]`, bruit par le diagramme, annulation, portée de percée) ; rotation de Faraday. Tables de structure mises en cache dans `core/structure_cache.npz`. Branché dans `core/optimizer.sector_sky` (S et Ku). |
 | `core/sky.py` | **Étape 1.5.** Hausse de la température d'antenne selon la direction : fond galactique et corps du ciel de la mission (Soleil, Terre, Lune...), donnés dans le repère du vaisseau ; aveuglement et centile du bilan d'un secteur. |
 | `core/isolation.py` | **Étape 1.5.** Fuites entre bandes et entre faces : matrice des verdicts, règles pour l'ordonnanceur (cadence commune par bande, harmonique S dans le canal Ku). |
 | `core/optimizer.py` | Optimiseur de la veille S. Choisit pour chaque secteur la fréquence et les formes d'onde par tranche d'angle de dépointage, et établit le bilan énergie et temps par face. Depuis l'étape 1.5, il évalue le T_sys du ciel sur le secteur (`sector_sky`), retire les pointages aveuglés et met les portées à l'échelle du T_sys du bilan. |
@@ -151,7 +151,7 @@ Procédure d'une étape :
 | `core/cost_estimate.py` | Estimation rapide pour l'interface, à partir de `core/cost_table.json`. Elle n'est pas faite pour décider : seul le calcul exact fait foi. |
 | `core/mission.py` | Modèle de mission : valeurs par défaut, validation, chargement et sauvegarde JSON et CSV. |
 | `core/redundancy.py` | Détecte si un secteur couvre déjà le besoin d'un autre, dans les deux sens. |
-| `core/geometry.py` | Trame de la sphère des directions pour la 3D et l'estimation rapide. Modèle 3D du vaisseau, **construit depuis l'étape 2.5 à partir des primitives de `[ship]`**, les mêmes que le masquage. |
+| `core/geometry.py` | Trame de la sphère des directions pour la 3D et l'estimation rapide. Vue 3D du vaisseau : **les triangles du modèle 3D de `[ship]`**, placés par `core/environment.py`, les mêmes que le masquage. |
 | `gui/` | Interface PyQt5 : préparation, résultats, vue 3D (pyvista). |
 | `tools/gen_cost_table.py` | Reconstruit `core/cost_table.json`. |
 | `tests/` | Banc de tests (§4). |
@@ -190,7 +190,7 @@ Procédure d'une étape :
 | Autre fichier | Variable d'environnement `RADAR_PARAMS=<chemin>`, héritée par les processus de l'optimiseur. |
 | Revue | Toutes les valeurs ont été validées une par une lors de la revue 0.3. Les ajouts des étapes 1.1 à 2.3 ont été validés pendant chacune de ces étapes. |
 
-**Bilan actuel (étape 2.5) : 295 entrées système, dont 252 V, 41 D et 2 ?.** Les deux entrées « ? » sont `multibeam.l8_db` et `multibeam.p`.
+**Bilan actuel (étape 2.5, modèle 3D du vaisseau) : 286 entrées système, dont 243 V, 41 D et 2 ?.** Les deux entrées « ? » sont `multibeam.l8_db` et `multibeam.p`.
 
 ---
 
@@ -525,23 +525,38 @@ Toutes ces valeurs sont V (étape 2.4). Justifications :
 
 Supprimée lors de la revue 0.3 : `latency_max_frac`, la règle de latence. Elle ne limitait jamais rien (2nv/c) et ignorait les vraies causes. La latence sera **reconstruite de zéro à l'étape 4.3** : attente dans la file de l'ordonnanceur, traitement et allers-retours, comparés à une exigence de délai par secteur.
 
-### 5.15 `[ship]` : structure du vaisseau (étape 2.5)
+### 5.15 `[ship]` : structure du vaisseau (étape 2.5 ; modèle 3D depuis le 22 octobre 2026)
 
-La structure est décrite par des **primitives simples**, en mètres, dans le repère du vaisseau : Z est l'axe (+Z vers la proue), **z = 0 est la station axiale des antennes**, r est la distance à l'axe. Le masquage, le bruit de la structure et la vue 3D sont **calculés à partir de ces seules entrées** : on modifie, ajoute ou retire un élément dans le fichier, sans toucher au code (exigence de l'utilisateur). Le chargeur vérifie que le profil et les parties redonnent la longueur, le diamètre et l'envergure verrouillés (à 1 % près). Source : le dessin de référence, déjà tracé dans l'ancien modèle 3D, validé à l'étape 2.5 (A1 à A3), sans repliement des radiateurs.
+**Référence : le modèle 3D basse résolution `assets/models/LP_NISO.obj`** (Wavefront OBJ exporté de Blender, en mètres, 62 098 triangles), fourni par l'utilisateur le 22 octobre 2026. Il sert à **tous** les calculs qui dépendent de la géométrie du vaisseau : masquage, bruit de la structure, position des éléments, vue 3D. Il remplace les primitives tirées du dessin à l'étape 2.5. Le code place le modèle dans le repère du vaisseau : Z est l'axe (+Z vers la proue), **z = 0 est la station des ouvertures**, r est la distance à l'axe. Dans le modèle, la proue est vers −Z : le repère du vaisseau est le modèle tourné de 180° autour de X. Pour un nouveau modèle, il suffit de remplacer le fichier et de mettre à jour les entrées ci-dessous.
+
+Le chargeur contrôle, et refuse avec un message clair :
+- la longueur, l'envergure et le diamètre de la coque du modèle, contre les cotes verrouillées (à 1 % près) ;
+- pour chaque face, que le centre de l'ouverture est sur la face avant d'un panneau radar du modèle, et que la normale de ce panneau est la normale de la face à `geometry.tilt_deg` (à 0,5° près). Un changement d'inclinaison ou de position des antennes qui ne correspond plus au modèle est donc refusé.
 
 | Entrée | Contenu | Valeur | Statut |
 |---|---|---|---|
-| `length_m`, `hull_diameter_m`, `width_m` | Cotes verrouillées, contrôlées contre la géométrie | 136,4 m, 16,8 m, 76,5 m | V |
-| `array_radius_m` | Distance du centre des antennes à l'axe, sur le cône porte-antennes | 4,926 m | V |
+| `model_path` | Fichier du modèle 3D, relatif au dossier de l'application | `assets/models/LP_NISO.obj` | V |
+| `model_nose_axis` | Sens de la proue dans le modèle | "−Z" | V |
+| `model_array_station_z_m` | z du modèle des centres des faces avant des quatre panneaux radar (le z = 0 du repère du vaisseau) | −59,298 m | V |
+| `length_m` | Longueur hors tout, contrôlée contre le modèle | **149,46 m** (136,4 m avant) | V |
+| `width_m` | Envergure hors tout (bouts des radiateurs, ±37,34 m), contrôlée contre le modèle | **74,68 m** (76,5 m avant) | V |
+| `hull_diameter_m` | Plus grand diamètre du corps de la coque (la pièce du modèle la plus longue selon l'axe, r 8,612 m vers l'arrière), contrôlé contre le modèle | **17,22 m** (16,8 m avant) | V |
+| `array_radius_m` | Distance à l'axe du centre des ouvertures (face avant des panneaux) | **5,248 m** (4,926 m avant) | V |
 | `block_mask_db` | Seuil de masquage : un pointage est retiré du balayage quand la structure coûte plus que cela par passage | 3 dB (f ≈ 0,29) | V |
-| `[ship.hull]` | Corps de révolution : `profile_z_m`, `profile_r_m` (du nez à l'arrière, une même z répétée = une marche), `material` | nez (tourelle laser) z +14,4 m ; col r 3,54 m ; cône porte-antennes 3,54 → 5,87 m entre z +2,4 et −2,4 m ; épaulement 5,87 → 6,34 m ; long cône jusqu'à z −31,2 m ; bande à ailettes r 7,37 m ; cylindre principal r 7,66 m jusqu'à z −105,1 m ; plus grand diamètre r 8,4 m ; cône moteur et aérospike jusqu'à z −122,0 m | V |
-| `[ship.parts]` | Une entrée par élément : `type` (`cylinder_z`, `cylinder_rad`, `box_rad`, `sphere`), dimensions, `azimuths_deg` (répétition), `material` | télescopes ×4 (0/90/180/270°, r 8,55 m, z −19,7 m, rayon 1,84 m, 6,3 m) ; ailettes ×4 ; bras et dômes des tourelles laser ×4 (z −56,3 m, jusqu'à r 12,3 m) ; mâts ×4 à 45° (r 9,4 → 19,2 m) et leurs ferrures ; rails de radiateurs ×2 (±X, z −59,9 → −105,1 m) ; ailes de radiateurs en 4 étages ×2 (±X, plan XZ, bouts à 31,0, **38,25**, 30,1 et 21,9 m) | V |
+| `default_material` | Matériau des triangles hors des régions | "hull" | V |
+| `[ship.material_regions]` | Le fichier OBJ ne porte pas de matériau : un triangle dont le centre de gravité est dans une région (bornes facultatives `abs_x_min_m`, `abs_x_max_m`, `abs_y_min_m`, `abs_y_max_m`, `z_min_m`, `z_max_m`, repère du vaisseau) prend son matériau ; la première région qui convient l'emporte | `radiator` : \|x\| ≥ 9,6 m, \|y\| ≤ 0,3 m, z de −116,5 à −66,0 m (ailes de radiateurs au-delà des rails) | V (confirmé par l'utilisateur le 22 octobre 2026) |
 | `[ship.materials.hull]` | Émissivité RF [S, Ku] et température physique | 0,01 / 0,01 ; 290 K | V (B1, B2 : bout optimiste) |
 | `[ship.materials.radiator]` | Idem | 0,05 / 0,05 ; **750 K** (médiane d'un vaisseau nucléaire, utilisateur) | V |
 
-Correction de lecture : en présentant le bloc A, j'avais annoncé un cône porte-antennes de 3,5 à 4,7 m puis un épaulement de 4,7 à 6,3 m ; le dessin donne 3,54 → 5,87 m puis 5,87 → 6,34 m. Ce sont les valeurs du dessin validé qui sont dans le fichier.
+Éléments du modèle, dans le repère du vaisseau :
+- **Panneaux radar** ×4 (0, 90, 180, 270°) : octogones de 5,17 m aux sommets (4,91 m aux plats), 0,75 m d'épaisseur, inclinés de **25,00°** vers la proue (confirmé par le concepteur de la géométrie). L'ouverture modélisée (enveloppe de 4,17 m tirée de la composition des TRSA) est centrée sur leur face avant.
+- **Coque** : pointe de la tourelle de nez à z +15,4 m ; autour des antennes, cône de pente 11,35° (r 4,3 à 6,1 m), sur lequel les panneaux à 25° sont posés en coin ; cylindre principal r 8,42 m de z −54,3 à −121,6 m environ ; plus grand rayon 8,61 m ; cône moteur jusqu'à z −134,0 m.
+- **Ailes de radiateurs** ×2 (±X, plan XZ), 4 étages de z −66,6 à −115,7 m, bouts à 30,40, **37,34**, 29,27 et 21,21 m.
+- **Tourelles latérales** ×4 (0, 90, 180, 270°) vers z −61,9 m, dômes jusqu'à r 16,66 m ; mâts à 45° ×4 vers z −96,6 à −105,9 m, jusqu'à r 20,4 m.
 
-**Constat.** Avec l'inclinaison de 25° vers l'avant, la structure ne bloque que des directions de 71 à 90° de la normale d'une face, toutes attribuées à une autre face qui les voit avec un dépointage plus faible : **aucun pointage n'est masqué**, et **les ailes de radiateurs ne sont jamais vues** par les faces (cachées par la coque). Le bruit de la structure se réduit à celui de la coque (ε·T = 2,9 K, par les lobes lointains : négligeable). Une modification de la géométrie ou de l'inclinaison peut changer ce constat : le calcul suit le fichier. Changer `geometry.tilt_deg` demande de modifier aussi le cône porte-antennes et `array_radius_m`, que le code ne déduit plus de l'inclinaison.
+**Lancer de rayons.** Exact sur les triangles : un rayon issu d'un point touche un triangle quand sa direction est dans le cône que le triangle sous-tend depuis ce point (les trois produits mixtes ont le signe du triangle). Seuls les triangles devant le plan de l'ouverture d'une face sont testés (environ 1 100). Tables reconstruites en environ 23 s.
+
+**Constat (inchangé avec le modèle).** Avec l'inclinaison de 25° vers l'avant, la structure ne bloque que des directions à plus de 71,7° de la normale d'une face, toutes attribuées à une autre face qui les voit avec un dépointage plus faible : **aucun pointage n'est masqué**, et **les ailes de radiateurs ne sont jamais vues** par les faces. Le bruit de la structure se réduit à celui de la coque (ε·T = 2,9 K, par les lobes lointains : négligeable). Le calcul suit le modèle : un autre modèle peut changer ce constat.
 
 ### 5.16 `[sky]` et `[sky.tb_k]` : bruit du ciel (étape 1.5)
 
@@ -1032,7 +1047,7 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 | Estimation rapide au ciel froid | Sans le bruit du ciel. | 5.5 |
 | Multifaisceau | Loi unique, statut ?. Modes à évaluer par l'optimiseur. | 3.1, 5.2 |
 | Fréquence Ku | Fixée à 14,0 GHz, provisoire. | 3.2 |
-| Masquage par le vaisseau | Modélisé à l'étape 2.5 (primitives, tube d'ouverture) : aucun pointage masqué avec la géométrie actuelle. Diffraction en champ proche et couplage avec la structure non modélisés. | — |
+| Masquage par le vaisseau | Modélisé à l'étape 2.5 (tube d'ouverture ; modèle 3D `LP_NISO.obj` depuis le 22 octobre 2026) : aucun pointage masqué avec la géométrie actuelle. Diffraction en champ proche et couplage avec la structure non modélisés. | — |
 | Réflexions sur la structure | Soleil, Terre et autres faces réfléchis par la coque ou les radiateurs : non comptés. | 5.4 |
 | Fouillis d'une forme d'onde | Évalué à la portée exigée avec la bande la plus étroite admissible, sans le choix de la forme d'onde par pointage ; rejet Doppler en tout ou rien. | 3.1 |
 | Portée exigée derrière une surface | Signalée, mais l'exigence n'est pas réduite à la distance de la surface sur ces pointages. | 3.1 |
@@ -1342,3 +1357,14 @@ Mise au point : en ajoutant le GO-CFAR, le cache de `masking_levels_db` (étape 
 Effet sur les missions de test (valeurs de test seulement) : seul `mission_sky_demo` / EARTH change vraiment (Terre vue d'orbite basse : fouillis de l'anneau d'égale distance, T_sys du bilan 255 → 998 K, 19,8 % des pointages limités par le fouillis, énergie des faces 3 et 4 +160 à +170 %) ; voir `tests/snapshots/JOURNAL.md`.
 
 Nouvelle mission de test `mission_environment.json` (Terre, Lune, deux brouilleurs à distance, un KKV avec SPJ_KKV, objets et Faraday).
+
+### Géométrie du vaisseau : le modèle 3D (22 octobre 2026, modèle V6.10.1)
+
+Après la reprise sur une autre machine, un audit du code des étapes 2.4 et 2.5 a relevé que le cône porte-antennes des primitives (25,6°) ne correspondait pas exactement à l'inclinaison de 25°, sans contrôle au chargement. Décisions de l'utilisateur :
+- les antennes sont bien inclinées de **25°** (confirmé par le concepteur de la géométrie du vaisseau) ;
+- le modèle 3D basse résolution `assets/models/LP_NISO.obj` est désormais la **référence de tous les calculs** de masquage et de position des éléments ;
+- cotes du modèle contrôlées par l'utilisateur et validées (« go ») : longueur 149,46 m, envergure 74,68 m, diamètre de coque 17,22 m, antennes à 5,248 m de l'axe (face avant des panneaux).
+
+Mise en œuvre : `[ship.hull]` et `[ship.parts]` supprimés ; lancer de rayons exact sur les triangles du modèle ; matériaux par région (région des radiateurs confirmée par l'utilisateur : V) ; contrôles au chargement des cotes et des quatre ouvertures (sur la face avant d'un panneau, normale à `geometry.tilt_deg`), ce qui règle le point de l'audit. Le test du changement d'inclinaison vérifie désormais que le modèle radar suit l'inclinaison et que l'outil refuse une inclinaison qui ne correspond plus au modèle 3D.
+
+Effet (valeurs de test seulement) : constats inchangés (aucun pointage masqué, radiateurs jamais vus) ; cellules bloquées par face 735 → 621 ; chiffres clés des missions de test à moins de 0,01 % ; aucune forme d'onde ni mode de confirmation ne change (voir `tests/snapshots/JOURNAL.md`).

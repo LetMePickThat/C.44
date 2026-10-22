@@ -816,20 +816,19 @@ def test_faces_partition_the_scanned_sphere():
     assert (sph.theta[owned] <= rm.SECTOR_RADIUS_DEG + 1e-9).all()
 
 
-def test_tilt_change_propagates_to_model_optimiser_and_ship(tmp_path):
+def test_tilt_change_propagates_to_the_model(tmp_path):
+    """The model follows geometry.tilt_deg; the whole tool also needs the 3D model's panels at that tilt, else it
+    refuses the file (test_ship_model_matches_the_locked_dimensions_and_its_placement_is_checked)."""
     text = _replace_value(_default_toml(), "geometry", "tilt_deg ", "25.0", "20.0")
-    out = _run_with_params(text, "import json\nfrom core import radar_model as rm, optimizer as mo, geometry as geo\n"
-                                 "print(json.dumps([rm.SECTOR_TILT_DEG, rm.n_search_positions(2.8), "
-                                 "mo.face_frame(0.0)[0][2], geo.RP]))", tmp_path)
-    tilt, pos, nz, rp = json.loads(out)
-    assert tilt == 20.0 and nz == pytest.approx(math.sin(math.radians(20.0)))
+    out = _run_with_params(text, "import json\nfrom core import radar_model as rm\n"
+                                 "print(json.dumps([rm.SECTOR_TILT_DEG, rm.n_search_positions(2.8)]))", tmp_path)
+    tilt, pos = json.loads(out)
+    assert tilt == 20.0
     # 4308 at 20 deg in the model history (V6.0.10, HPBW 0.886 lambda / D, D = 4.19 m), x (0.886 / HPBW_TX)^2 since
     # step 1.1, x (D_env / 4.19)^2 since the 0.5 mm gaps (step 1.2)
     # and x (1.04 / 1.4)^2 since the search lattice of step 2.3
     assert abs(pos - 4308 * (0.886 / rm.PATTERNS["S"].tx.hpbw) ** 2 * (rm.ARRAY_ENVELOPE_M / 4.19) ** 2
                * (1.04 / rm.BEAM_SPACING_HPBW) ** 2) < 20
-    from core import geometry as geo
-    assert rp == pytest.approx(geo.RP)  # step 2.5: the ship geometry is in [ship] (a tilt change edits the hull there)
 
 
 # ----------------------------------------------------------------------------- optimiser invariants
@@ -1098,36 +1097,60 @@ def test_structure_cache_is_current():
     assert env.cache_is_current()
 
 
-def test_ship_geometry_matches_the_locked_dimensions_and_is_edited_in_the_file(tmp_path):
-    """The primitives give the locked length, hull diameter and width; a part edited in the file reaches the masking
-    and the 3D view; an inconsistent edit is refused at load time."""
-    assert max(env.HULL_Z) - min(env.HULL_Z) == pytest.approx(params.P.get("ship.length_m"), rel=0.01)
-    assert 2 * max(env.HULL_R) == pytest.approx(params.P.get("ship.hull_diameter_m"), rel=0.01)
-    bad = _default_toml().replace("r_max_m = 38.25,", "r_max_m = 45.0,")
-    path = tmp_path / "bad.toml"
-    path.write_text(bad, encoding="utf-8")
-    res = subprocess.run([PYTHON, "-c", "import core.environment"], cwd=tb.ROOT, capture_output=True, text=True,
-                         env={**os.environ, params.PARAMS_ENV: str(path)}, timeout=300)
-    assert res.returncode != 0 and "width_m" in res.stderr
-    good = bad.replace('width_m         = { value = 76.5,', 'width_m         = { value = 90.0,')
-    out = _run_with_params(good, "from core import environment as env, geometry as geo\nimport pyvista as pv\n"
-                                 "b = pv.MultiBlock([h['mesh'] for h in geo.build_ship()['hull']]).bounds\n"
-                                 "print(round(b[1] / geo._M, 2))", tmp_path)
-    assert float(out) == pytest.approx(45.0, abs=0.01)
+def test_ship_model_matches_the_locked_dimensions_and_its_placement_is_checked(tmp_path):
+    """The 3D model gives the locked length and width; a dimension, an aperture station or a tilt that no longer match
+    the model are refused at load time with a clear message; the 3D view shows the model's own triangles."""
+    assert np.ptp(env.MODEL_VERTICES[:, 2]) == pytest.approx(params.P.get("ship.length_m"), rel=0.01)
+    assert 2 * np.hypot(env.MODEL_VERTICES[:, 0], env.MODEL_VERTICES[:, 1]).max() == pytest.approx(
+        params.P.get("ship.width_m"), rel=0.01)
+    cases = ((_replace_value(_default_toml(), "ship", "width_m ", "74.68", "80.0"), "width_m"),
+             (_replace_value(_default_toml(), "ship", "model_array_station_z_m ", "-59.298", "-58.298"),
+              "not on a panel front face"),
+             (_replace_value(_default_toml(), "geometry", "tilt_deg ", "25.0", "20.0"), "deg away from the face normal"))
+    for i, (text, msg) in enumerate(cases):
+        path = tmp_path / f"bad{i}.toml"
+        path.write_text(text, encoding="utf-8")
+        res = subprocess.run([PYTHON, "-c", "import core.environment"], cwd=tb.ROOT, capture_output=True, text=True,
+                             env={**os.environ, params.PARAMS_ENV: str(path)}, timeout=300)
+        assert res.returncode != 0 and msg in res.stderr, (msg, res.stderr[-500:])
+    from core import geometry as geo
+    import pyvista as pv
+    b = pv.MultiBlock([h["mesh"] for h in geo.build_ship()["hull"]]).bounds
+    assert b[5] / geo._M - b[4] / geo._M == pytest.approx(np.ptp(env.MODEL_VERTICES[:, 2]), abs=1e-6)
 
 
-def test_ray_casting_on_the_primitives():
-    """A ray toward the axis meets the hull at the profile radius; a ray toward the axis at the radiator height meets
-    the widest wing at its tip; a ray away from the ship meets nothing."""
-    zh, rh = np.array(env.HULL_Z), np.array(env.HULL_R)
-    i = np.flatnonzero((zh[:-1] >= -50.0) & (zh[1:] <= -50.0))[0]
-    r50 = rh[i] + (rh[i + 1] - rh[i]) * (-50.0 - zh[i]) / (zh[i + 1] - zh[i])
-    o = np.array([[60.0, 0.0, -50.0], [60.0, 0.0, -80.0], [0.0, 60.0, 30.0]])
-    d = np.array([[-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+def test_static_3d_scene_builds():
+    """Every builder of the static 3D scene runs (the GUI opens on it; a stale helper once broke the start-up)."""
+    from core import geometry as geo
+    assert geo.build_axes() and geo.build_face_normals() and geo.build_ship()["hull"]
+
+
+def test_ray_casting_on_the_model():
+    """The exact cone test equals a brute-force Moller-Trumbore intersection on random rays; a ray toward the axis at
+    the widest radiator tier meets it at its tip (radiator material); a ray ahead of the nose meets nothing."""
+    rng = np.random.default_rng(1)
+    o = rng.uniform([-40.0, -40.0, -140.0], [40.0, 40.0, 20.0], size=(40, 3))
+    d = rng.normal(size=(40, 3))
+    d /= np.linalg.norm(d, axis=1)[:, None]
     t, mat = env.cast(o, d)
-    assert t[0] == pytest.approx(60.0 - r50, abs=1e-6) and env.MATERIAL_NAMES[mat[0]] == "hull"
-    assert t[1] == pytest.approx(60.0 - 38.25, abs=1e-6) and env.MATERIAL_NAMES[mat[1]] == "radiator"
-    assert not np.isfinite(t[2]) and mat[2] == -1
+    tri = env.TRIANGLES
+    for i in range(len(o)):
+        e1, e2 = tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0]
+        p = np.cross(d[i], e2)
+        det = np.einsum("ij,ij->i", e1, p)
+        ok = np.abs(det) > 1e-12
+        inv = np.where(ok, 1.0 / np.where(ok, det, 1.0), 0.0)
+        s = o[i] - tri[:, 0]
+        u = np.einsum("ij,ij->i", s, p) * inv
+        q = np.cross(s, e1)
+        v = (q @ d[i]) * inv
+        tt = np.einsum("ij,ij->i", e2, q) * inv
+        hit = ok & (u >= 0) & (v >= 0) & (u + v <= 1) & (tt > 1e-9)
+        ref = tt[hit].min() if hit.any() else np.inf
+        assert (t[i] == pytest.approx(ref, rel=1e-9)) if np.isfinite(ref) else not np.isfinite(t[i]), i
+    t, mat = env.cast(np.array([[60.0, 0.0, -85.0], [0.0, 60.0, 30.0]]), np.array([[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]]))
+    assert t[0] == pytest.approx(60.0 - 37.34, abs=0.05) and env.MATERIAL_NAMES[mat[0]] == "radiator"
+    assert not np.isfinite(t[1]) and mat[1] == -1
 
 
 def test_structure_masks_no_owned_direction_and_the_radiators_are_hidden():
