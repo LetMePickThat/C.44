@@ -542,10 +542,12 @@ freq_coarse_mhz      = 20.0     # first pass over the valid centres on this step
 freq_fine_span_mhz   = 20.0     # second pass at freq_step_mhz within +/- this of the best coarse centre (A5)
 excluded_flag_frac   = 0.5      # flag a sector when the exclusions remove more than this fraction of the valid centres (A10)
 tie_rel_tol          = 1e-9     # costs equal within this relative tolerance are ties, broken by the secondary criterion (E6)
-tau_s                = [20e-6, 50e-6, 100e-6, 200e-6, 400e-6, 600e-6, 800e-6]   # + the TRM buffer limit, added by the code
+tau_s                = [5e-6, 10e-6, 20e-6, 50e-6, 100e-6, 200e-6, 400e-6, 600e-6, 800e-6, 1.0e-3, 1.2e-3, 1.5e-3]
+                                # + the TRM buffer limit (2.0 ms), added by the code; 5 / 10 us (2 km self-defence minimum
+                                # range) and 1.0-1.5 ms added at step 3.1 (B1-B2)
 n_pulses             = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32]
 b_tx                 = [1, 2, 4, 8]
-sig_bw_mhz           = [10.0, 20.0, 30.0, 50.0, 75.0]
+sig_bw_mhz           = [10.0, 20.0, 30.0, 50.0, 75.0, 100.0, 150.0, 200.0]   # 100-200 MHz added at step 3.1 (B3)
 pri_min_s            = 1e-3     # PRI of single-pulse and range-ambiguous candidates
 theta_bin_deg        = 1.0      # scan-angle bin of the position count
 bin_deg              = 5        # 1-deg bins sharing one waveform

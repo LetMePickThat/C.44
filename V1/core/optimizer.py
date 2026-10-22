@@ -470,9 +470,24 @@ def search_positions(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, sky: O
 
 
 # ----------------------------------------------------------------------------- optimiser
-def make_wf(name, tau, n, pri, bw, b, integ, staggered=False):
+def make_wf(name, tau, n, pri, bw, b, integ, staggered=False, agility=0.0):
     return rm.Waveform(name=name, role="SEARCH", band="S", tau_s=tau, n=n, pri_s=pri, sig_bw_mhz=bw,
-                       b_tx=b, integration=integ, staggered=staggered)
+                       b_tx=b, integration=integ, staggered=staggered, agility_mhz=agility)
+
+
+def agility_for(sec: dict, n: int, bw_mhz: float) -> float:
+    """Excursion of the agile variant of a noncoherent train (step 3.1, B7-B8): enough for n independent draws,
+    (n - 1) c / 2L, within the usable band minus the signal, on the grid step; 0 if not even 2 draws fit."""
+    if n < 2 or ("rcs_m2" not in sec and "target_type" not in sec):
+        return 0.0                                     # no target given (partial sector): no agile variant
+    tgt = sector_target(sec)
+    if not tgt.length_m or tgt.length_m <= 0:
+        return 0.0
+    dfc = rm.C_MPS / (2.0 * tgt.length_m) / 1e6
+    width = (rm.BAND_S.usable_hi_ghz - rm.BAND_S.usable_lo_ghz) * 1e3 - bw_mhz
+    step = FREQ_STEP_GHZ * 1e3
+    a = math.floor(min((n - 1) * dfc, width) / step + 1e-9) * step
+    return a if a >= dfc - 1e-9 else 0.0
 
 
 def range_min_km(sec: dict) -> float:
@@ -557,12 +572,37 @@ def candidate_waveforms(sec: dict) -> List:
                             continue
                         pri_unamb = rm.unambiguous_pri_s(rm.BAND_S, r_want, tau)
                         pri = max(tau, PRI_MIN_S) if (n == 1 or sec.get("allow_ambiguous")) else max(tau, pri_unamb)
-                        try:
-                            w = make_wf("c", tau, n, pri, bw, b, integ, staggered=n > 1 and pri < pri_unamb)
-                        except ValueError:
-                            continue
-                        out.append(w)
+                        stag = n > 1 and pri < pri_unamb
+                        agile = agility_for(sec, n, bw) if integ == "NONCOHERENT" else 0.0
+                        for ag in ((0.0, agile) if agile > 0 else (0.0,)):
+                            try:
+                                w = make_wf("c", tau, n, pri, bw, b, integ, staggered=stag, agility=ag)
+                            except ValueError:
+                                continue
+                            out.append(w)
     return out
+
+
+def prune_dominated(r: np.ndarray, e_pos: np.ndarray, t_pos: np.ndarray) -> np.ndarray:
+    """Indices of the candidates kept (step 3.1, E9, exact): among candidates of equal energy and time per position,
+    one whose range is lower or equal in every bin (unplayable = lowest) than another's is removed; of identical
+    rows the first (simplest) is kept. The power scale e (r_want / r)^4, the admissibility and the short positions
+    can only be better for the one kept, so the optimum is unchanged."""
+    rr_ = np.where(np.isnan(r), -np.inf, r)
+    keep = np.ones(len(r), dtype=bool)
+    _, grp = np.unique(np.stack([e_pos, t_pos], axis=1), axis=0, return_inverse=True)
+    for g in np.unique(grp):
+        idx = np.flatnonzero(grp == g)
+        if len(idx) < 2:
+            continue
+        x = rr_[idx]
+        ge = (x[None, :, :] >= x[:, None, :]).all(axis=2)          # ge[i, j]: j >= i everywhere
+        gt = (x[None, :, :] > x[:, None, :]).any(axis=2)
+        earlier = np.arange(len(idx))[None, :] < np.arange(len(idx))[:, None]
+        dom = ge & (gt | earlier)
+        np.fill_diagonal(dom, False)
+        keep[idx[dom.any(axis=1)]] = False
+    return np.flatnonzero(keep)
 
 
 def _theta_centres(f: float, nb: int) -> np.ndarray:
@@ -720,6 +760,7 @@ def _wf_dict(name: str, w, f: float, sec: dict) -> dict:
             "modulation": w.modulation or rm.modulation_for(f, w.sig_bw_mhz, v_max),
             "range_resolution_m": resolution_m(sec, w.sig_bw_mhz),
             "blind_range_km": rm.blind_range_km(rm.BAND_S, w.tau_s), "staggered": w.staggered,
+            "agility_mhz": w.agility_mhz, "frequency_draws": rm.frequency_draws(sector_target(sec), w.agility_mhz),
             "cells_in_pulse": rm.cells_in_pulse(v_max, w.tau_s, w.sig_bw_mhz),
             "velocity_hypotheses_1db": rm.velocity_hypotheses(v_max - v_min, w.tau_s, w.sig_bw_mhz),
             **_processing_dict(w, sec, f)}
@@ -783,10 +824,13 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
         pfas = candidate_pfas(sec, cands, f, float(P.sum()))
         r = _range_matrix(cands, f, tgt, P.shape[1], rx_sll_db(sec), velocity_span_mps(sec), pfas,
                           search_criterion(sec)) * factor
-        r[[c for c, w in enumerate(cands) if not signal_fits(f, w.sig_bw_mhz, excl)]] = np.nan   # step 3.1, A2
+        r[[c for c, w in enumerate(cands) if not signal_fits(f, w.occupied_mhz, excl)]] = np.nan   # step 3.1, A2, B8
         if sky_s.get("main_lobe_surface"):              # step 2.5, C2: folded main-lobe clutter on ambiguous trains
             r[[c for c, w in enumerate(cands) if w.staggered]] = np.nan
-        plan = _plan_waveforms(P, r, e_pos, t_pos, r_want, rr, p_avg_max_w, max_wf, short_tol)
+        keep = prune_dominated(r, e_pos, t_pos)                 # step 3.1, E9 (exact)
+        plan = _plan_waveforms(P, r[keep], e_pos[keep], t_pos[keep], r_want, rr, p_avg_max_w, max_wf, short_tol)
+        if plan is not None:
+            plan.choice = np.where(plan.choice >= 0, keep[np.maximum(plan.choice, 0)], -1)
         evaluated[f] = (f, P, unscanned, plan, sky_s, pfas, factor)
 
     def best_of() -> Optional[tuple]:
@@ -828,9 +872,9 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
     plan.pae = pae
     plan.freq_info = {"evaluated": len(evaluated), "valid_centres": len(valid_centres(bw_min, excl)),
                       "valid_centres_unexcluded": len(valid_centres(bw_min, ())),
-                      "occupied_ghz": [round(f - max(cands[c].sig_bw_mhz for c in set(plan.choice[plan.choice >= 0]))
+                      "occupied_ghz": [round(f - max(cands[c].occupied_mhz for c in set(plan.choice[plan.choice >= 0]))
                                              / 2e3, 6),
-                                       round(f + max(cands[c].sig_bw_mhz for c in set(plan.choice[plan.choice >= 0]))
+                                       round(f + max(cands[c].occupied_mhz for c in set(plan.choice[plan.choice >= 0]))
                                              / 2e3, 6)]}
     return f, P, unscanned, plan, cands, sky_s, pfas
 

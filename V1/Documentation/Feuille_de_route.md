@@ -35,7 +35,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 2.4 | ✔ fait (commit 008d583) |
 | 2.5 | ✔ fait (commit baeadcf) |
 | 3.0 | ✔ fait (commit 22114fd ; ajoutée le 22 octobre 2026) |
-| 3.1 | en cours : variables validées, passe P1 (grille de fréquences) faite |
+| 3.1 | en cours : variables validées ; P1 (grille de fréquences), élargissement de la bande S et P2 (formes d'onde) faits ; accélérations X1, X2, X3, X5 à faire avant P3 |
 | 3.2 et suivantes | à faire |
 
 ---

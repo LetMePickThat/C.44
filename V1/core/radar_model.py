@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.11.2
+# Radar Performance Model - V6.11.3
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,12 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.11.2 -> V6.11.3 (roadmap step 3.1, pass P2: S waveform space)
+#   - Pulses + 5, 10 us (2 km self-defence minimum range) and 1.0, 1.2, 1.5 ms; bandwidths + 100, 150, 200 MHz.
+#   - Waveform.agility_mhz: carrier excursion over a noncoherent train; occupied band = B + excursion (band fit, edge
+#     loss); frequency_draws = floor(df / (c / 2L)) + 1 multiply the independent samples (declared SW1/3 -> SW2/4).
+#   - Exact pruning of dominated candidates (optimizer.prune_dominated); walk_loss_db / oscillator_phase_var cached.
 #
 # Changes V6.11.1 -> V6.11.2 (roadmap step 3.1: S band widened, values only; user W1-W7)
 #   - band.S usable 2.70-2.90 -> 2.60-2.93 GHz (D): no grating-lobe limit downward; upward the 52.1 mm mean pitch sets
@@ -368,7 +374,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.11.2"
+MODEL_VERSION = "6.11.3"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -1153,6 +1159,7 @@ def lo_ssb_dbc_hz(f_hz, carrier_ghz: float):
     return lf + 20.0 * math.log10(carrier_ghz / LO_REF_GHZ)
 
 
+@functools.lru_cache(maxsize=1 << 16)   # pure (step 3.1)
 def oscillator_phase_var(f_ghz: float, t_block_s: float, r_km: float, sig_bw_mhz: float) -> float:
     """Residual phase variance (rad^2) of a coherent block (step 2.2, A2-A3): one LO for TX and RX, its phase noise
     S = 2 x 10^(L/10) filtered by the round trip 4 sin^2(pi f tau_rt), from 1 / T_block (slower: absorbed by the
@@ -1199,6 +1206,7 @@ def migration_loss_db(v_mps: float, t_span_s: float, sig_bw_mhz: float, n_pulses
 # -----------------------------------------------------------------------------
 # Processing (step 2.2): coherent blocks, velocity bank, straddle, CFAR, independent cells
 # -----------------------------------------------------------------------------
+@functools.lru_cache(maxsize=1 << 16)   # pure; asked ~10^5 times per sector (step 3.1)
 def walk_loss_db(m_cells: float, coherent: bool) -> float:
     """Loss of a target walking m cells (c / 2B) across a dwell, relative to the bank filter: the compressed range
     response sinc(m x), x in [-1/2, 1/2], summed coherently (-20 log mean sinc) or in power (-10 log mean sinc^2)."""
@@ -1255,18 +1263,31 @@ def diversity_factor(target: Target, f_ghz: float) -> float:
     return (1.0 + rho) ** 2 / (1.0 + rho * rho)
 
 
+def frequency_draws(target: Target, agility_mhz: float) -> int:
+    """Independent target draws of a frequency excursion (step 3.1, B7): floor(df / (c / 2L)) + 1, L the target
+    length (decorrelation frequency c / 2L: 15 MHz at 10 m, 100 MHz at 1.5 m)."""
+    if agility_mhz <= 0 or not target.length_m or target.length_m <= 0:
+        return 1
+    return int(math.floor(agility_mhz * 1e6 / (C_MPS / (2.0 * target.length_m)) + 1e-9)) + 1
+
+
 def look_fluctuation(target: Target, f_ghz: float, swerling: Optional[int], n_samples: int,
-                     t_obs_s: float) -> detection.Fluct:
+                     t_obs_s: float, agility_mhz: float = 0.0) -> detection.Fluct:
     """Fluctuation of a look of n_samples noncoherent samples spread over t_obs_s (step 2.4, B3 + E2), as the Gamma
     shape of the target power: a declared Swerling case (k = 1, 2, n or 2n, infinite for SW0), else the band's family
     x the independent samples min(n, 1 + T_obs / T0) (SW1/2: 1 per sample, SW3/4: 2, SW0: steady); times the
-    polarisation diversity."""
+    polarisation diversity. Frequency agility (step 3.1, B7) multiplies the independent samples by its draws (capped
+    at n): a declared SW1 / SW3 then tends to SW2 / SW4."""
+    draws = frequency_draws(target, agility_mhz)
     if swerling is not None:
-        k = detection.shape_of(swerling, n_samples)
+        if swerling in (1, 3) and draws > 1:
+            k = detection.shape_of(swerling, 1) * min(float(n_samples), float(draws))
+        else:
+            k = detection.shape_of(swerling, n_samples)
     else:
         base = FLUCTUATIONS[target.fluctuation(f_ghz)]
         t0 = target.t0_s(f_ghz)
-        k = base * min(float(n_samples), 1.0 + (0.0 if math.isinf(t0) else t_obs_s / t0))
+        k = base * min(float(n_samples), (1.0 + (0.0 if math.isinf(t0) else t_obs_s / t0)) * draws)
     return detection.Fluct(_quantise_shape(k * diversity_factor(target, f_ghz)))
 
 
@@ -1796,6 +1817,7 @@ class Waveform:
     tracking_pack: Optional[TrackingPack] = None
     modulation: Optional[str] = None   # "lfm" | "nlfm" | None = chosen per look (modulation_for, step 2.1)
     staggered: bool = False            # range-ambiguous train staggered over STAGGER_N_PRI PRIs (eclipsing loss)
+    agility_mhz: float = 0.0           # carrier excursion over a noncoherent train, pulse to pulse (step 3.1, B7)
 
     def __post_init__(self) -> None:
         if self.modulation is not None and self.modulation not in MODULATIONS:
@@ -1818,6 +1840,13 @@ class Waveform:
             raise ValueError(f"{self.name}: bad integration mode")
         if not (0.0 < self.tau_s <= self.pri_s) or self.n < 1 or self.b_tx < 1:
             raise ValueError(f"{self.name}: inconsistent timing")
+        if self.agility_mhz < 0 or (self.agility_mhz > 0 and (self.integration != "NONCOHERENT" or self.n < 2)):
+            raise ValueError(f"{self.name}: frequency agility needs a noncoherent train of 2 pulses or more")
+
+    @property
+    def occupied_mhz(self) -> float:
+        """Spectrum the train occupies: the signal bandwidth plus the agility excursion (step 3.1, B8)."""
+        return self.sig_bw_mhz + self.agility_mhz
 
     @property
     def duty(self) -> float:
@@ -1895,8 +1924,8 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     if abs(theta_deg) > band.scan_limit_deg(f_ghz):
         raise ValueError(f"{wf.name}: scan {theta_deg} deg exceeds the {band.scan_limit_deg(f_ghz):.0f} deg "
                          f"limit at {f_ghz} GHz")
-    if not band.fits(f_ghz, wf.sig_bw_mhz):
-        raise ValueError(f"{wf.name}: {wf.sig_bw_mhz:g} MHz at {f_ghz} GHz leaves the usable {band.name} band "
+    if not band.fits(f_ghz, wf.occupied_mhz):
+        raise ValueError(f"{wf.name}: {wf.occupied_mhz:g} MHz at {f_ghz} GHz leaves the usable {band.name} band "
                          f"{band.usable_lo_ghz}-{band.usable_hi_ghz} GHz")
     if band.true_time_delay == "none" and abs(theta_deg) > 0:
         b_fill = C_MPS / (ARRAY_ENVELOPE_M * math.sin(math.radians(abs(theta_deg)))) / 1e6
@@ -1911,7 +1940,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     n_blocks, t_block = coherent_blocks(wf.n, wf.pri_s, wf.tau_s, wf.integration, sw, target, f_ghz)
     ppb = wf.n // n_blocks                                     # pulses per coherent block (Doppler cells)
     t_span = wf.dwell_s
-    fl = look_fluctuation(target, f_ghz, sw, n_blocks, t_span)   # Gamma shape of the look (step 2.4, B3 + E2)
+    fl = look_fluctuation(target, f_ghz, sw, n_blocks, t_span, wf.agility_mhz)   # Gamma shape (2.4 B3 + E2, 3.1 B7)
     pfa_l = DETECT_PFA if pfa is None else float(pfa)
     # velocity bank (COMPENSATED migration): over the span, one hypothesis on a TRACK look (step 2.2)
     span = (target.v_close_mps if v_span_mps is None else float(v_span_mps)) if wf.role != "TRACK" else 0.0
@@ -1937,7 +1966,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
         snr_db, driver = lin_to_db(snr_lin), "Track-" + dom
         positions_db = sum(pos_parts.values())               # accuracy-driven: mean position losses
     losses: Dict[str, float] = dict(band.losses_db)
-    losses["edge"] = band.edge_loss_db(f_ghz, wf.sig_bw_mhz)
+    losses["edge"] = band.edge_loss_db(f_ghz, wf.occupied_mhz)       # averaged over the hopped spectrum (3.1, B8)
     losses["compression"] = compression_loss_db(mod, f_ghz, wf.sig_bw_mhz, target.v_close_mps, psl)
     if wf.staggered and wf.n > 1:
         losses["eclipsing"] = eclipsing_loss_db(band, wf.tau_s, wf.pri_s)

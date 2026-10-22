@@ -497,10 +497,10 @@ def test_sector_range_min_and_resolution_flags():
     m = md.empty_mission()
     m["sectors"] = [dict(sec, range_min_km=2500.0)]
     assert any("range_min_km" in e for e in md.validate_mission(m))
+    res = mo.run({"global": md.empty_mission()["global"], "sectors": [dict(sec, res_max_m=0.3)]}, workers=1)
+    assert any("range resolution 0.3 m not met" in f for f in res["sectors"][0]["flags"])   # > 600 MHz needed
     res = mo.run({"global": md.empty_mission()["global"], "sectors": [dict(sec, res_max_m=2.0)]}, workers=1)
-    assert any("range resolution 2 m not met" in f for f in res["sectors"][0]["flags"])
-    res = mo.run({"global": md.empty_mission()["global"], "sectors": [dict(sec, res_max_m=3.0)]}, workers=1)
-    assert not any("range resolution" in f for f in res["sectors"][0]["flags"])
+    assert not any("range resolution" in f for f in res["sectors"][0]["flags"])            # 100 MHz since step 3.1
 
 
 # ----------------------------------------------------------------------------- detection criterion (step 2.3)
@@ -1291,13 +1291,61 @@ def test_invalid_spectrum_inputs_are_refused(glob, sec, msg):
 def test_exclusions_move_the_frequency_and_are_flagged():
     m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_example.json"))
     m["sectors"] = m["sectors"][:1]
-    m["global"]["spectrum_exclusions_ghz"] = {"S": [[2.66, 2.84]]}
+    m["global"]["spectrum_exclusions_ghz"] = {"S": [[2.70, 2.80]]}
     s = mo.run(m, workers=1)["sectors"][0]
     lo, hi = s["frequency"]["occupied_ghz"]
-    assert s["status"] == "OK" and (hi <= 2.66 or lo >= 2.84)
+    assert s["status"] == "OK" and (hi <= 2.70 or lo >= 2.80)
     assert s["frequency"]["centres_excluded"] > 0 and any("spectrum exclusions remove" in f for f in s["flags"])
     m["global"]["spectrum_exclusions_ghz"] = {"S": [[2.64, 2.88]]}     # free fragments of 40 and 50 MHz: no 75 MHz signal
     assert mo.run(m, workers=1)["sectors"][0]["status"] == "NO_WAVEFORM"
+
+
+# ----------------------------------------------------------------------------- S waveform space (step 3.1, B)
+def test_search_space_holds_the_short_and_long_pulses_and_wide_bands():
+    assert {5e-6, 10e-6, 1.0e-3, 1.2e-3, 1.5e-3} <= set(mo.TAU_CAND) and max(mo.TAU_CAND) == rm.tau_max_s(rm.BAND_S)
+    assert {100.0, 150.0, 200.0} <= set(mo.SIGBW_CAND)
+    assert rm.blind_range_km(rm.BAND_S, 10e-6) < 2.0 < rm.blind_range_km(rm.BAND_S, 20e-6)   # 2 km self-defence (B1)
+
+
+def test_frequency_agility_decorrelates_the_target():
+    """Draws = floor(df / (c / 2L)) + 1; a declared SW1 tends to SW2 (Gamma shape n) when every pulse is a draw."""
+    st = rm.TARGETS["ST"]                                    # L = 10 m: c / 2L = 15 MHz
+    assert rm.frequency_draws(st, 0.0) == 1 and rm.frequency_draws(st, 14.9) == 1 and rm.frequency_draws(st, 15.0) == 2
+    assert rm.look_fluctuation(st, 2.8, 1, 8, 1e-3, 7 * 15.0).k == pytest.approx(
+        rm.look_fluctuation(st, 2.8, 2, 8, 1e-3).k)
+    with pytest.raises(ValueError):
+        mo.make_wf("x", 50e-6, 4, 1e-3, 10.0, 1, "COHERENT", agility=30.0)
+    w0 = mo.make_wf("x", 50e-6, 8, 2e-3, 10.0, 1, "NONCOHERENT")
+    w1 = mo.make_wf("x", 50e-6, 8, 2e-3, 10.0, 1, "NONCOHERENT", agility=105.0)
+    sw1 = rm.Target("t", 10.0, 1, 3000.0, length_m=10.0)
+    assert w1.occupied_mhz == 115.0
+    assert rm.solve(w1, 2.77, 0.0, sw1).range_km > rm.solve(w0, 2.77, 0.0, sw1).range_km * 1.05
+
+
+def test_agile_variants_fit_the_band():
+    sec = dict(md.new_sector([]), res_max_m=20.0)
+    ag = [w for w in mo.candidate_waveforms(sec) if w.agility_mhz > 0]
+    width = (rm.BAND_S.usable_hi_ghz - rm.BAND_S.usable_lo_ghz) * 1e3
+    assert ag and all(w.integration == "NONCOHERENT" and w.n >= 2 and w.occupied_mhz <= width + 1e-9 for w in ag)
+
+
+def test_pruning_of_dominated_candidates_is_exact():
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_example.json"))
+    sec = m["sectors"][0]
+    sph = mo._sphere(-90.0, 90.0)
+    pos, _, _, factor = mo.search_positions(sec, sph, sph.mask(sec), 2.8, None)
+    P = np.array([pos[k] for k in range(4)])
+    cands = mo.candidate_waveforms(sec)
+    r = mo._range_matrix(cands, 2.8, mo.sector_target(sec), P.shape[1], mo.rx_sll_db(sec), mo.velocity_span_mps(sec),
+                         mo.candidate_pfas(sec, cands, 2.8, float(P.sum())), mo.search_criterion(sec)) * factor
+    e = np.array([rm.BAND_S.p_pk_total_w * w.n * w.tau_s / w.b_tx / rm.pae_wf(w) for w in cands])
+    t = np.array([w.n * w.tau_s / w.b_tx for w in cands])
+    p_avg = rm.face_elec_avail_w(2.0)
+    keep = mo.prune_dominated(r, e, t)
+    assert len(keep) < len(cands)
+    full = mo._plan_waveforms(P, r, e, t, sec["range_km"], sec["rr_target_s"], p_avg, 4, 0.01)
+    part = mo._plan_waveforms(P, r[keep], e[keep], t[keep], sec["range_km"], sec["rr_target_s"], p_avg, 4, 0.01)
+    assert part.objective == pytest.approx(full.objective, rel=1e-9) and part.short_frac == full.short_frac
 
 
 # ----------------------------------------------------------------------------- frames and navigation (step 3.0)

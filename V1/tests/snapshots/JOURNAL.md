@@ -333,3 +333,11 @@ Values only (user W1-W7): usable 2.70-2.90 -> 2.60-2.93 GHz, core 2.74-2.86 -> 2
   EARTH, ORBIT (one pulse length or count).
 - core/cost_table.json regenerated (band values changed). 153 tests pass (2 min 19 s in parallel).
 
+## 2026-10-22 -- step 3.1 pass P2: S waveform space (radar_model V6.11.3)
+
+Pulses 5 us to 2.0 ms (13 values), bandwidths 10-200 MHz, frequency agility on noncoherent trains, exact pruning of
+dominated candidates. Most test sectors now pick one 5 us pulse at 100 MHz (default 2 m resolution); B2_AUTOPROT
+(test sector, 20 km) gets a waveform; agility not chosen on the test missions. Impact report not run (token budget);
+snapshots refrozen, core/cost_table.json regenerated. 157 tests pass, 7 min 06 s in parallel (budget 3 min exceeded:
+accelerations X1, X2, X3, X5 decided for the next pass).
+
