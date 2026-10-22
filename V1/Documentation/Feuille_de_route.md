@@ -31,7 +31,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 1.5 | ✔ fait (commit d8245d1) |
 | 2.1 | ✔ fait (commit eb542ca) |
 | 2.2 | ✔ fait (commit 71c5b6b) |
-| 2.3 | ✔ fait |
+| 2.3 | ✔ fait (commit 7c70621) |
 | 2.4 et suivantes | à faire, la prochaine étant 2.4 |
 
 ---

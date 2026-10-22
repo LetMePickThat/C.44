@@ -825,7 +825,7 @@ La feuille de route complète, avec le contenu détaillé de chaque étape, se t
 |---|---|
 | 0, fondations | 0.1 fichier unique ✔ ; 0.2 banc de tests ✔ ; 0.3 revue des valeurs ✔ |
 | 1, antenne et RF | 1.1 géométrie et diagramme réel ✔ ; **1.2 diagramme : lobes de réseau, désadaptation active \|Γ(θ, f)\|, polarisation ✔** ; **1.3 TRM et chaîne d'émission ✔** ; **1.4 bande ✔** ; **1.5 réception ✔** (T_sys selon la direction, CAN, isolation, deux voies de polarisation ; le bruit de phase de l'oscillateur est passé en 2.2) |
-| 2, signal et détection | **2.1 formes d'onde paramétriques ✔** ; **2.2 traitement ✔** ; **2.3 critère de détection ✔** ; 2.2 traitement (bancs de vitesse, CFAR, modèle de cohérence et bruit de phase de l'oscillateur) ; 2.3 critère de détection ; 2.4 modèles de cibles ; 2.5 environnement (masquage par le vaisseau, Faraday, brouillage) |
+| 2, signal et détection | **2.1 formes d'onde paramétriques ✔** ; **2.2 traitement ✔** ; **2.3 critère de détection ✔** ; 2.4 modèles de cibles ; 2.5 environnement (masquage par le vaisseau, Faraday, brouillage) |
 | 3, fonctions radar | 3.1 veille S (multifaisceau, grille de fréquences fine) ; 3.2 confirmation Ku (fréquence Ku choisie, connaissance du spectre) ; 3.3 poursuite (Kalman ou IMM) ; 3.4 fonctions annexes |
 | 4, ressources | 4.1 puissance (bus de 8 MW, répartition entre faces) ; 4.2 thermique ; 4.3 ordonnanceur et latence ; 4.4 calcul et données |
 | 5, mission et validation | 5.1 modèle de mission enrichi et bibliothèque de menaces ; 5.2 optimiseur global ; 5.3 moteur de validation ; 5.4 simulation Monte-Carlo ; 5.5 interface opérateur ; 5.6 vérification, validation et documentation |
@@ -862,7 +862,7 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 | Estimation rapide avec le nouveau critère | La table de coût reste au critère d'une observation à `detection.pfa`, avec la grille de 1,4. | 5.5 |
 | Bruit de la structure du vaisseau | Non modélisé ; avec le masquage. | 2.5 |
 | Fouillis terrestre et saturation des CAN qu'il cause | La Terre n'est qu'une source de bruit. | 2.5 |
-| Récupération du limiteur | Sortie `rx_deaf_us`, pas encore dans l'éclipsage. | 2.1 |
+| Récupération du limiteur | Comptée depuis l'étape 2.1 (sortie `rx_deaf_us`) : zone aveugle c (τ + récupération) / 2, PRI des trains non ambigus ≥ 2R/c + τ + récupération, éclipsage moyen des trains échelonnés. Reste l'éclipsage par les autres observations et les autres faces (ligne « Zone aveugle et éclipse »). | ✔ 2.1 ; reste 4.3 |
 | Atténuateur commutable (poursuite rapprochée) | Gain fixe, alerte de saturation des tranches de poursuite. | 3.3 |
 | CAN : nombre, débit, consommation | 2 CAN par TRM (deux voies). | 4.4 |
 | Estimation rapide au ciel froid | Sans le bruit du ciel. | 5.5 |
