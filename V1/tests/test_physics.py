@@ -152,14 +152,14 @@ def test_true_time_delay_entry_and_phase_steering_limit(tmp_path):
 def test_band_can_be_redefined_in_the_file(tmp_path):
     """A wider S band (better TRMs) in the parameter file alone: the model, the optimiser and the search run, and an
     inconsistent band is refused at load time with a clear message."""
-    text = _replace_value(_default_toml(), "band.S", "usable_lo_ghz ", "2.7", "2.6")
-    text = _replace_value(text, "band.S", "usable_hi_ghz ", "2.9", "3.0")
+    text = _replace_value(_default_toml(), "band.S", "usable_lo_ghz ", "2.6", "2.5")
+    text = _replace_value(text, "band.S", "usable_hi_ghz ", "2.93", "3.0")
     code = ("from core import radar_model as rm, optimizer as mo, mission as md\n"
-            "print(rm.BAND_S.fits(2.7, 75.0), rm.BAND_S.edge_loss_db(2.6))\n"
+            "print(rm.BAND_S.fits(2.6, 75.0), rm.BAND_S.edge_loss_db(2.5))\n"
             "m = md.empty_mission(); m['sectors'].append(md.new_sector([]))\n"
             "r = mo.run(m, workers=1); print(r['sectors'][0]['status'])")
-    assert _run_with_params(text, code, tmp_path).split() == ["True", "0.5", "OK"]
-    bad = _replace_value(_default_toml(), "band.S", "core_lo_ghz ", "2.74", "2.65")
+    assert _run_with_params(text, code, tmp_path).split() == ["True", str(rm.BAND_S.edge_derating_db), "OK"]
+    bad = _replace_value(_default_toml(), "band.S", "core_lo_ghz ", "2.66", "2.55")
     path = tmp_path / "bad.toml"
     path.write_text(bad, encoding="utf-8")
     res = subprocess.run([PYTHON, "-c", "import core.radar_model"], cwd=tb.ROOT, capture_output=True, text=True,
@@ -1247,10 +1247,11 @@ def test_frequency_grid_is_derived_from_the_band_and_the_exclusions():
     grid = mo.centre_grid()
     assert grid[0] == rm.BAND_S.usable_lo_ghz and grid[-1] == pytest.approx(rm.BAND_S.usable_hi_ghz)
     assert len(grid) == round((rm.BAND_S.usable_hi_ghz - rm.BAND_S.usable_lo_ghz) / mo.FREQ_STEP_GHZ) + 1
-    assert mo.signal_fits(2.8, 200.0, ()) and not mo.signal_fits(2.805, 200.0, ())
+    lo = rm.BAND_S.usable_lo_ghz
+    assert mo.signal_fits(lo + 0.1, 200.0, ()) and not mo.signal_fits(lo + 0.095, 200.0, ())
     assert not mo.signal_fits(2.8, 20.0, ((2.79, 2.795),)) and mo.signal_fits(2.8, 10.0, ((2.79, 2.795),))
     # every free fragment keeps a centre in the coarse pass, even one narrower than the coarse step
-    excl = ((2.705, 2.795), (2.805, 2.9))
+    excl = ((rm.BAND_S.usable_lo_ghz, 2.795), (2.805, rm.BAND_S.usable_hi_ghz))
     assert mo.coarse_centres(10.0, excl) == [2.8]
     assert all(mo.signal_fits(f, 10.0, excl) for f in mo.valid_centres(10.0, excl))
 
@@ -1277,7 +1278,7 @@ def test_ties_are_broken_deterministically():
     ({"spectrum_exclusions_ghz": {"S": [[2.8, 2.7]]}}, {}, "lo < hi"),
     ({"spectrum_exclusions_ghz": {"X": []}}, {}, "spectrum_exclusions_ghz must be"),
     ({}, {"freq_ghz_candidates": [3.5]}, "outside the S band"),
-    ({}, {"freq_ghz_candidates": [2.7]}, "no signal of the search space fits"),
+    ({}, {"freq_ghz_candidates": [rm.BAND_S.usable_lo_ghz]}, "no signal of the search space fits"),
     ({"spectrum_exclusions_ghz": {"S": [[2.7, 2.9]]}}, {"freq_ghz_candidates": [2.8]}, "no signal of the search space fits"),
 ])
 def test_invalid_spectrum_inputs_are_refused(glob, sec, msg):
@@ -1290,12 +1291,12 @@ def test_invalid_spectrum_inputs_are_refused(glob, sec, msg):
 def test_exclusions_move_the_frequency_and_are_flagged():
     m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_example.json"))
     m["sectors"] = m["sectors"][:1]
-    m["global"]["spectrum_exclusions_ghz"] = {"S": [[2.80, 2.83]]}
+    m["global"]["spectrum_exclusions_ghz"] = {"S": [[2.66, 2.84]]}
     s = mo.run(m, workers=1)["sectors"][0]
     lo, hi = s["frequency"]["occupied_ghz"]
-    assert s["status"] == "OK" and (hi <= 2.80 or lo >= 2.83)
+    assert s["status"] == "OK" and (hi <= 2.66 or lo >= 2.84)
     assert s["frequency"]["centres_excluded"] > 0 and any("spectrum exclusions remove" in f for f in s["flags"])
-    m["global"]["spectrum_exclusions_ghz"] = {"S": [[2.74, 2.86]]}
+    m["global"]["spectrum_exclusions_ghz"] = {"S": [[2.64, 2.88]]}     # free fragments of 40 and 50 MHz: no 75 MHz signal
     assert mo.run(m, workers=1)["sectors"][0]["status"] == "NO_WAVEFORM"
 
 
@@ -1388,6 +1389,8 @@ def test_turning_the_ship_turns_the_faces():
     m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_sky_demo.json"))
     m["sectors"] = [s for s in m["sectors"] if s["id"] in ("SUN", "MOON")]
     m["global"]["sky"]["bodies"] = [b for b in m["global"]["sky"]["bodies"] if b["id"] == "MOON"]
+    for s in m["sectors"]:          # one frequency: the optimum is flat in frequency (step 3.1); the faces are tested
+        s["freq_ghz_candidates"] = [2.8]
     a = mo.run(_framed(m), workers=1)
     b = mo.run(_framed(m, [{"q_ship_to_icrf": _quat_z(90.0)}]), workers=1)
     for sa, sb in zip(a["sectors"], b["sectors"]):

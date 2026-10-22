@@ -107,44 +107,44 @@
   "cancelled": false,
   "faces_total": {
    "0": {
-    "avg_power_kW": 720.0206,
-    "dissipation_kW": 144.5793,
+    "avg_power_kW": 720.0196,
+    "dissipation_kW": 144.5791,
     "energy_fraction": 0.3926,
     "ku_duty_pct": 7.8797,
-    "p_available_kW": 1113.7644,
+    "p_available_kW": 1113.7654,
     "positions": 1689.1,
     "power_margin": 0.6074,
     "time_fraction": 0.0912,
     "time_margin_s": 0.9088
    },
    "1": {
-    "avg_power_kW": 720.0206,
-    "dissipation_kW": 144.5793,
+    "avg_power_kW": 720.0196,
+    "dissipation_kW": 144.5791,
     "energy_fraction": 0.3926,
     "ku_duty_pct": 7.8797,
-    "p_available_kW": 1113.7644,
+    "p_available_kW": 1113.7654,
     "positions": 1689.1,
     "power_margin": 0.6074,
     "time_fraction": 0.0912,
     "time_margin_s": 0.9088
    },
    "2": {
-    "avg_power_kW": 720.0206,
-    "dissipation_kW": 144.5793,
+    "avg_power_kW": 720.0196,
+    "dissipation_kW": 144.5791,
     "energy_fraction": 0.3926,
     "ku_duty_pct": 7.8797,
-    "p_available_kW": 1113.7644,
+    "p_available_kW": 1113.7654,
     "positions": 1689.1,
     "power_margin": 0.6074,
     "time_fraction": 0.0912,
     "time_margin_s": 0.9088
    },
    "3": {
-    "avg_power_kW": 720.0206,
-    "dissipation_kW": 144.5793,
+    "avg_power_kW": 720.0196,
+    "dissipation_kW": 144.5791,
     "energy_fraction": 0.3926,
     "ku_duty_pct": 7.8797,
-    "p_available_kW": 1113.7644,
+    "p_available_kW": 1113.7654,
     "positions": 1689.1,
     "power_margin": 0.6074,
     "time_fraction": 0.0912,
@@ -173,11 +173,11 @@
     },
     "faces": {
      "0": {
-      "avg_power_kW": 0.6554017426140055,
-      "dissipation_kW": 0.13132667908767812,
-      "dissipation_kW_m2": 0.009876859833314138,
-      "energy_J_per_refresh": 78648.20911368067,
-      "energy_fraction": 0.000357403808305775,
+      "avg_power_kW": 0.6544399333503531,
+      "dissipation_kW": 0.1311339557421352,
+      "dissipation_kW_m2": 0.0098623654329093,
+      "energy_J_per_refresh": 78532.79200204238,
+      "energy_fraction": 0.0003568793142873092,
       "positions": 24.2,
       "theta_max_deg": 65.0,
       "time_fraction": 8.552034128690329e-05
@@ -187,9 +187,9 @@
      "range resolution 2 m not met: 2.37 m at best with the search space up to 75 MHz (wider signals at step 3.1)"
     ],
     "frequency": {
-     "centres_evaluated": 13,
+     "centres_evaluated": 20,
      "centres_excluded": 0,
-     "centres_valid": 25,
+     "centres_valid": 51,
      "freq_ghz": 2.765,
      "occupied_ghz": [
       2.7275,
@@ -200,8 +200,8 @@
     "mismatch_db_per_pass_max": 0.26463480939946876,
     "positions_total": 24.2,
     "range_km": {
-     "at_best_scan": 9575,
-     "at_worst_scan": 8416,
+     "at_best_scan": 9579,
+     "at_worst_scan": 8419,
      "positions_short_of_range_pct": 0.0,
      "requested": 8000
     },
@@ -210,7 +210,7 @@
      "achieved": 2.3657535483634393,
      "requested": 2.0
     },
-    "rr_alone_s": 0.042888456996693004,
+    "rr_alone_s": 0.0428255177144771,
     "rr_est_mission_s": 120.0,
     "rr_target_s": 120,
     "rx_beams_per_position": 6.118998226960277,
@@ -281,8 +281,8 @@
     "wf_by_bin": [
      {
       "positions": 10.8,
-      "power_scale": 0.593,
-      "range_km_at_bin_max": 9118,
+      "power_scale": 0.592,
+      "range_km_at_bin_max": 9121,
       "theta_hi_deg": 55.0,
       "theta_lo_deg": 50.0,
       "wf": {
@@ -317,8 +317,8 @@
      },
      {
       "positions": 10.4,
-      "power_scale": 0.804,
-      "range_km_at_bin_max": 8449,
+      "power_scale": 0.803,
+      "range_km_at_bin_max": 8452,
       "theta_hi_deg": 60.0,
       "theta_lo_deg": 55.0,
       "wf": {
@@ -353,8 +353,8 @@
      },
      {
       "positions": 3.0,
-      "power_scale": 0.816,
-      "range_km_at_bin_max": 8416,
+      "power_scale": 0.815,
+      "range_km_at_bin_max": 8419,
       "theta_hi_deg": 65.0,
       "theta_lo_deg": 60.0,
       "wf": {
@@ -465,11 +465,11 @@
     },
     "faces": {
      "1": {
-      "avg_power_kW": 0.6554017243405238,
-      "dissipation_kW": 0.1313266754261137,
-      "dissipation_kW_m2": 0.009876859557934005,
-      "energy_J_per_refresh": 78648.20692086285,
-      "energy_fraction": 0.00035740379834087627,
+      "avg_power_kW": 0.6544399151036879,
+      "dissipation_kW": 0.13113395208594417,
+      "dissipation_kW_m2": 0.009862365157933288,
+      "energy_J_per_refresh": 78532.78981244254,
+      "energy_fraction": 0.00035687930433703403,
       "positions": 24.2,
       "theta_max_deg": 65.0,
       "time_fraction": 8.552034128690335e-05
@@ -479,9 +479,9 @@
      "range resolution 2 m not met: 2.37 m at best with the search space up to 75 MHz (wider signals at step 3.1)"
     ],
     "frequency": {
-     "centres_evaluated": 13,
+     "centres_evaluated": 20,
      "centres_excluded": 0,
-     "centres_valid": 25,
+     "centres_valid": 51,
      "freq_ghz": 2.765,
      "occupied_ghz": [
       2.7275,
@@ -492,8 +492,8 @@
     "mismatch_db_per_pass_max": 0.26463480939946876,
     "positions_total": 24.2,
     "range_km": {
-     "at_best_scan": 9575,
-     "at_worst_scan": 8416,
+     "at_best_scan": 9579,
+     "at_worst_scan": 8419,
      "positions_short_of_range_pct": 0.0,
      "requested": 8000
     },
@@ -502,7 +502,7 @@
      "achieved": 2.3657535483634393,
      "requested": 2.0
     },
-    "rr_alone_s": 0.042888455800905154,
+    "rr_alone_s": 0.042825516520444085,
     "rr_est_mission_s": 120.0,
     "rr_target_s": 120,
     "rx_beams_per_position": 6.118998226960277,
@@ -573,8 +573,8 @@
     "wf_by_bin": [
      {
       "positions": 10.8,
-      "power_scale": 0.593,
-      "range_km_at_bin_max": 9118,
+      "power_scale": 0.592,
+      "range_km_at_bin_max": 9121,
       "theta_hi_deg": 55.0,
       "theta_lo_deg": 50.0,
       "wf": {
@@ -609,8 +609,8 @@
      },
      {
       "positions": 10.4,
-      "power_scale": 0.804,
-      "range_km_at_bin_max": 8449,
+      "power_scale": 0.803,
+      "range_km_at_bin_max": 8452,
       "theta_hi_deg": 60.0,
       "theta_lo_deg": 55.0,
       "wf": {
@@ -645,8 +645,8 @@
      },
      {
       "positions": 3.0,
-      "power_scale": 0.816,
-      "range_km_at_bin_max": 8416,
+      "power_scale": 0.815,
+      "range_km_at_bin_max": 8419,
       "theta_hi_deg": 65.0,
       "theta_lo_deg": 60.0,
       "wf": {
@@ -757,11 +757,11 @@
     },
     "faces": {
      "2": {
-      "avg_power_kW": 0.655401743164486,
-      "dissipation_kW": 0.1313266791979811,
-      "dissipation_kW_m2": 0.009876859841609843,
-      "energy_J_per_refresh": 78648.20917973832,
-      "energy_fraction": 0.0003574038086059631,
+      "avg_power_kW": 0.654439933900026,
+      "dissipation_kW": 0.1311339558522763,
+      "dissipation_kW_m2": 0.009862365441192827,
+      "energy_J_per_refresh": 78532.79206800311,
+      "energy_fraction": 0.0003568793145870568,
       "positions": 24.2,
       "theta_max_deg": 65.0,
       "time_fraction": 8.552034128690335e-05
@@ -771,9 +771,9 @@
      "range resolution 2 m not met: 2.37 m at best with the search space up to 75 MHz (wider signals at step 3.1)"
     ],
     "frequency": {
-     "centres_evaluated": 13,
+     "centres_evaluated": 20,
      "centres_excluded": 0,
-     "centres_valid": 25,
+     "centres_valid": 51,
      "freq_ghz": 2.765,
      "occupied_ghz": [
       2.7275,
@@ -784,8 +784,8 @@
     "mismatch_db_per_pass_max": 0.26463480939946876,
     "positions_total": 24.2,
     "range_km": {
-     "at_best_scan": 9575,
-     "at_worst_scan": 8416,
+     "at_best_scan": 9579,
+     "at_worst_scan": 8419,
      "positions_short_of_range_pct": 0.0,
      "requested": 8000
     },
@@ -794,7 +794,7 @@
      "achieved": 2.3657535483634393,
      "requested": 2.0
     },
-    "rr_alone_s": 0.04288845703271557,
+    "rr_alone_s": 0.042825517750446816,
     "rr_est_mission_s": 120.0,
     "rr_target_s": 120,
     "rx_beams_per_position": 6.118998226960277,
@@ -865,8 +865,8 @@
     "wf_by_bin": [
      {
       "positions": 10.8,
-      "power_scale": 0.593,
-      "range_km_at_bin_max": 9118,
+      "power_scale": 0.592,
+      "range_km_at_bin_max": 9121,
       "theta_hi_deg": 55.0,
       "theta_lo_deg": 50.0,
       "wf": {
@@ -901,8 +901,8 @@
      },
      {
       "positions": 10.4,
-      "power_scale": 0.804,
-      "range_km_at_bin_max": 8449,
+      "power_scale": 0.803,
+      "range_km_at_bin_max": 8452,
       "theta_hi_deg": 60.0,
       "theta_lo_deg": 55.0,
       "wf": {
@@ -937,8 +937,8 @@
      },
      {
       "positions": 3.0,
-      "power_scale": 0.816,
-      "range_km_at_bin_max": 8416,
+      "power_scale": 0.815,
+      "range_km_at_bin_max": 8419,
       "theta_hi_deg": 65.0,
       "theta_lo_deg": 60.0,
       "wf": {
@@ -1049,11 +1049,11 @@
     },
     "faces": {
      "3": {
-      "avg_power_kW": 0.6554016656210391,
-      "dissipation_kW": 0.13132666366014725,
-      "dissipation_kW_m2": 0.009876858673035352,
-      "energy_J_per_refresh": 78648.1998745247,
-      "energy_fraction": 0.0003574037663199553,
+      "avg_power_kW": 0.6544398564703747,
+      "dissipation_kW": 0.13113394033724438,
+      "dissipation_kW_m2": 0.009862364274333232,
+      "energy_J_per_refresh": 78532.78277644496,
+      "energy_fraction": 0.00035687927236310407,
       "positions": 24.2,
       "theta_max_deg": 65.0,
       "time_fraction": 8.552034128690335e-05
@@ -1063,9 +1063,9 @@
      "range resolution 2 m not met: 2.37 m at best with the search space up to 75 MHz (wider signals at step 3.1)"
     ],
     "frequency": {
-     "centres_evaluated": 13,
+     "centres_evaluated": 20,
      "centres_excluded": 0,
-     "centres_valid": 25,
+     "centres_valid": 51,
      "freq_ghz": 2.765,
      "occupied_ghz": [
       2.7275,
@@ -1076,8 +1076,8 @@
     "mismatch_db_per_pass_max": 0.26463480939946876,
     "positions_total": 24.2,
     "range_km": {
-     "at_best_scan": 9575,
-     "at_worst_scan": 8416,
+     "at_best_scan": 9579,
+     "at_worst_scan": 8419,
      "positions_short_of_range_pct": 0.0,
      "requested": 8000
     },
@@ -1086,7 +1086,7 @@
      "achieved": 2.3657535483634393,
      "requested": 2.0
     },
-    "rr_alone_s": 0.042888451958394636,
+    "rr_alone_s": 0.042825512683572486,
     "rr_est_mission_s": 120.0,
     "rr_target_s": 120,
     "rx_beams_per_position": 6.118998226960277,
@@ -1157,8 +1157,8 @@
     "wf_by_bin": [
      {
       "positions": 10.8,
-      "power_scale": 0.593,
-      "range_km_at_bin_max": 9118,
+      "power_scale": 0.592,
+      "range_km_at_bin_max": 9121,
       "theta_hi_deg": 55.0,
       "theta_lo_deg": 50.0,
       "wf": {
@@ -1193,8 +1193,8 @@
      },
      {
       "positions": 10.4,
-      "power_scale": 0.804,
-      "range_km_at_bin_max": 8449,
+      "power_scale": 0.803,
+      "range_km_at_bin_max": 8452,
       "theta_hi_deg": 60.0,
       "theta_lo_deg": 55.0,
       "wf": {
@@ -1229,8 +1229,8 @@
      },
      {
       "positions": 3.0,
-      "power_scale": 0.816,
-      "range_km_at_bin_max": 8416,
+      "power_scale": 0.815,
+      "range_km_at_bin_max": 8419,
       "theta_hi_deg": 65.0,
       "theta_lo_deg": 60.0,
       "wf": {
@@ -1387,9 +1387,9 @@
      "14.4 % of the sector is outside the scanned zone (scan limit / eps window)"
     ],
     "frequency": {
-     "centres_evaluated": 13,
+     "centres_evaluated": 20,
      "centres_excluded": 0,
-     "centres_valid": 25,
+     "centres_valid": 51,
      "freq_ghz": 2.82,
      "occupied_ghz": [
       2.7825,
@@ -2163,8 +2163,8 @@
      "confirm_energy": 6.87010662102103e-05,
      "confirm_ku_time": 6.796239510705761e-05,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 144.6235563852265,
-     "dissipation_kW_m2": 10.876895730064264,
+     "dissipation_kW": 144.62335638522651,
+     "dissipation_kW_m2": 10.876880688398852,
      "load": 0.3926687010662102,
      "p_left_kW": 1113.7150260152996,
      "search_energy": 0.3926,
@@ -2181,8 +2181,8 @@
      "confirm_energy": 6.87010048365378e-05,
      "confirm_ku_time": 6.796239510705766e-05,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 144.6235563457371,
-     "dissipation_kW_m2": 10.876895727094332,
+     "dissipation_kW": 144.62335634573708,
+     "dissipation_kW_m2": 10.876880685428919,
      "load": 0.39266870100483653,
      "p_left_kW": 1113.7150261278457,
      "search_energy": 0.3926,
@@ -2199,8 +2199,8 @@
      "confirm_energy": 6.870103412412504e-05,
      "confirm_ku_time": 6.796239510705766e-05,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 144.62355636458145,
-     "dissipation_kW_m2": 10.876895728511585,
+     "dissipation_kW": 144.62335636458147,
+     "dissipation_kW_m2": 10.876880686846174,
      "load": 0.3926687010341241,
      "p_left_kW": 1113.7150260741387,
      "search_energy": 0.3926,
@@ -2217,8 +2217,8 @@
      "confirm_energy": 6.870103965813648e-05,
      "confirm_ku_time": 6.796239510705766e-05,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 144.6235563681422,
-     "dissipation_kW_m2": 10.876895728779385,
+     "dissipation_kW": 144.6233563681422,
+     "dissipation_kW_m2": 10.876880687113971,
      "load": 0.3926687010396581,
      "p_left_kW": 1113.7150260639903,
      "search_energy": 0.3926,

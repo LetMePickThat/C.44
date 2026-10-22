@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.11.1
+# Radar Performance Model - V6.11.2
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,13 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.11.1 -> V6.11.2 (roadmap step 3.1: S band widened, values only; user W1-W7)
+#   - band.S usable 2.70-2.90 -> 2.60-2.93 GHz (D): no grating-lobe limit downward; upward the 52.1 mm mean pitch sets
+#     the wall (active mismatch at 70 deg: 0.97 dB per pass at 2.93 GHz = the 75 deg value accepted at 2.7 GHz,
+#     2.35 dB at 2.95 GHz, grating lobe visible at 3.0 GHz). Core band 2.74-2.86 -> 2.66-2.88 GHz, edge loss 0.5 ->
+#     1.0 dB (12 % relative band); scan limits, instantaneous 200 MHz and pae_sat 0.80 kept (more optimistic).
+#     The 5 MHz grid has 67 centres; the self-test edge check now reads the band from the file.
 #
 # Changes V6.11.0 -> V6.11.1 (roadmap step 3.1, pass P1: S frequency grid; core/optimizer.py)
 #   - The S centre frequencies are DERIVED from the band: usable_lo + k x tool.optimizer.freq_step_mhz (5 MHz), kept
@@ -361,7 +368,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.11.1"
+MODEL_VERSION = "6.11.2"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -2149,10 +2156,12 @@ def selftest() -> int:
 
     check("S scan limit 75 deg at 2.8 GHz, 70 deg at 2.88 GHz",
           BAND_S.scan_limit_deg(2.8) == 75.0 and BAND_S.scan_limit_deg(2.88) == 70.0)
-    check("S core band has no edge loss; edges 0.5 dB; a 10 MHz signal averages the law; nothing outside the band",
-          BAND_S.edge_loss_db(2.8) == 0.0 and abs(BAND_S.edge_loss_db(2.7) - 0.5) < 1e-9
-          and abs(BAND_S.edge_loss_db(2.9) - 0.5) < 1e-9 and 0.0 < BAND_S.edge_loss_db(2.71, 10.0) < 0.5
-          and BAND_S.edge_loss_db(2.7, 10.0) == 100.0 and BAND_S.fits(2.8, 200.0) and not BAND_S.fits(2.8, 201.0))
+    _lo, _hi, _ed = BAND_S.usable_lo_ghz, BAND_S.usable_hi_ghz, BAND_S.edge_derating_db
+    check(f"S core band has no edge loss; edges {_ed:g} dB; a 10 MHz signal averages the law; nothing outside the band",
+          BAND_S.edge_loss_db((BAND_S.core_lo_ghz + BAND_S.core_hi_ghz) / 2) == 0.0
+          and abs(BAND_S.edge_loss_db(_lo) - _ed) < 1e-9 and abs(BAND_S.edge_loss_db(_hi) - _ed) < 1e-9
+          and 0.0 < BAND_S.edge_loss_db(_lo + 0.01, 10.0) < _ed and BAND_S.edge_loss_db(_lo, 10.0) == 100.0
+          and BAND_S.fits(_lo + 0.1, 200.0) and not BAND_S.fits(_lo + 0.1, 201.0))
     check("Search positions at 2.8 GHz in (u, v), spacing 1.4 HPBW_TX (real pattern), about 1664 (3016 at 1.04)",
           abs(n_search_positions(2.8) - 1664) < 25, f"({n_search_positions(2.8):.0f})")
     check("Exact detection laws: SW1 one sample = closed form at Pfa 1e-6 and 1e-12; SW1 = SW2 on one sample",

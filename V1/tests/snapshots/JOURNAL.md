@@ -324,3 +324,12 @@ breaking (snapped costs, secondary key), exact cache of detection.required_snr_d
   -8 %. Waveform sets changed: VEILLE_KV (pulse counts), B5_LONG, SUN, EARTH, HORIZON, AXIS (one pulse length).
 - core/cost_table.json regenerated (tool.optimizer settings changed: fingerprint). Model case unchanged.
 
+## 2026-10-22 -- step 3.1: S band widened to 2.60-2.93 GHz (radar_model V6.11.2)
+
+Values only (user W1-W7): usable 2.70-2.90 -> 2.60-2.93 GHz, core 2.74-2.86 -> 2.66-2.88 GHz, edge loss 0.5 -> 1.0 dB.
+- Model case: 204 values (edge-loss checks, the far-sidelobe visible region follows the band top, antenna cache rebuilt).
+- Test missions: face loads within about +/-1 % except mission_sky_demo faces 3-4 (-13 to -14 %, EARTH sector:
+  frequency farther from the worst rise) and mission_frames face 4 (-2.7 %). Waveform sets changed: S03, A5_SHORT,
+  EARTH, ORBIT (one pulse length or count).
+- core/cost_table.json regenerated (band values changed). 153 tests pass (2 min 19 s in parallel).
+
