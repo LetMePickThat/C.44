@@ -92,7 +92,7 @@ Procédure d'une étape :
 
 | Sujet | État | Quoi faire |
 |---|---|---|
-| Durée de la suite de tests | Environ 6 min avant l'étape 2.4, environ 30 min après, sur le même portable (14900HX ; la machine habituelle est un 9800X3D fixe). **Explication trouvée à l'étape 2.5** : le portable est passé sur batterie (mode « Legion Balance », 37 %, en décharge) ; la version 2.4 commitée met alors 70 s sur `mission_example`, contre 19,6 s le matin : la machine était environ 3,5 fois plus lente. Le code des étapes 2.4 et 2.5 ne coûte qu'environ 10 % (2.4) et rien de mesurable (2.5). **Après l'étape 2.5, sur secteur : 126 tests en 6 min 10.** | Si besoin, confirmer sur secteur ou sur le fixe : ancienne version (commit `672ac02`, dans un `git worktree` temporaire) puis nouvelle, dans les mêmes conditions. |
+| Durée de la suite de tests | Trois runs complets sur le même portable (14900HX ; la machine habituelle est un 9800X3D fixe) : le matin avant l'étape 2.4, **sur batterie**, 108 tests en 5 min 53 ; l'après-midi après l'étape 2.4, **sur batterie**, 117 tests en environ 30 min ; le soir après l'étape 2.5, **sur secteur, mode performance**, 126 tests en 6 min 10. **Le code n'est pas en cause** : le dernier run contient tout le code des étapes 2.4 et 2.5. **La machine était ralentie l'après-midi**, à code identique : la version 2.4 commitée mettait 70 s sur `mission_example`, contre 19,6 s le matin, sur batterie dans les deux cas (relevé l'après-midi : mode « Legion Balance », 37 %, en décharge). La batterie seule n'explique donc pas l'écart (le matin, sur batterie, la suite était rapide) ; la cause précise (mode d'alimentation, niveau de charge, température, autre bridage) **n'est pas identifiée**. | Rien d'obligatoire. Pour identifier la cause, mesurer `mission_example` (référence : environ 20 s) dans chaque état de la machine (secteur ou batterie, mode d'alimentation, niveau de charge). |
 | Hash des étapes | 2.4 : commit `008d583`. 2.5 : commit `baeadcf`, reporté dans `Feuille_de_route.md`. | — |
 | Prochaine étape | 3.1, veille S reconstruite : cadrage **pas encore commencé**. Elle reçoit le plus de renvois (multifaisceau à trois modes et loi PAE / recul, grille de fréquences fine, bandes au-delà de 75 MHz, impulsions de moins de 20 µs, critère secondaire de l'optimiseur, fouillis par forme d'onde, exigence de portée devant une surface, réponse au brouillage d'autoprotection, pas de grille par secteur) : voir `Feuille_de_route.md`. | Commencer par la procédure d'une étape (§1.4). |
 | Sauvegardes locales de la réécriture d'historique | Sur le portable seulement : branche `backup-before-rewrite` et `refs/original/`, gardées à la demande de l'utilisateur. | Les supprimer quand l'utilisateur le dira ; rien à faire sur une autre machine. |
@@ -114,7 +114,7 @@ Procédure d'une étape :
 - En insérant du code avant une fonction mise en cache, vérifier que le décorateur `@functools.lru_cache` reste sur la bonne fonction : `solve()` doit rester de l'ordre de la milliseconde.
 - Le profil `cProfile` d'une mission et les temps de référence ci-dessous détectent vite une régression.
 
-**Temps de référence** (portable 14900HX, 32 fils, branché sur secteur, étape 2.5 ; le fixe 9800X3D est plus rapide ; sur batterie, compter 3 à 4 fois plus) :
+**Temps de référence** (portable 14900HX, 32 fils, sur secteur en mode performance, étape 2.5 ; le fixe 9800X3D est plus rapide ; le portable a été une fois environ 3,5 fois plus lent sur batterie, sans cause identifiée, voir §1.5) :
 
 | Opération | Durée |
 |---|---|
@@ -204,7 +204,7 @@ Procédure d'une étape :
 | Missions de test | `mission_example` (en JSON et en CSV), `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`, `mission_sky_demo` (étape 1.5 : un ciel avec le Soleil, la Lune, le limbe de la Terre et un repère galactique), `mission_target_library` (étape 2.4 : un secteur par classe de cible, plus un KKV surchargé). Les deux premières ont été récupérées dans l'historique git. |
 | Rapport d'impact | `python tests/impact_report.py`, à chaque étape, avant de régénérer les valeurs figées : chiffres clés, et pour chaque mission de test les formes d'onde de veille et les modes de confirmation qui changent. |
 | Régénération | `python tests/update_snapshots.py`. Chaque régénération est consignée dans `tests/snapshots/JOURNAL.md`, avec sa cause et les formes d'onde ou modes qui ont changé. |
-| État | 126 tests passent après l'étape 2.5 (environ 6 min sur le portable branché sur secteur ; 3 à 4 fois plus sur batterie). |
+| État | 126 tests passent après l'étape 2.5 (environ 6 min sur le portable, sur secteur en mode performance ; voir §1.5 pour les écarts de durée). |
 
 ---
 
@@ -1335,7 +1335,7 @@ Explication demandée par l'utilisateur : le GO-CFAR (moitiés de fenêtre, plus
 
 Constats : aucun pointage masqué par la structure, radiateurs jamais vus (§5.15) ; sur la mission de test d'environnement, fouillis limitant près de l'anneau terrestre, brouilleurs à distance aveuglant quelques pointages malgré l'annulation, et portée de percée de SPJ_KKV de 11 km avec la forme d'onde choisie (114 km au mieux), contre 500 km exigés.
 
-Mesure de performance pendant le codage : le surcoût de l'étape est négligeable (70,6 s contre 70,4 s sur `mission_example`) ; la même mission prenait 19,6 s le matin sur le même portable, passé sur batterie (mode « Legion Balance », 37 %) : la machine était environ 3,5 fois plus lente, ce qui explique l'essentiel de l'allongement des tests (§1.5).
+Mesure de performance pendant le codage : le surcoût de l'étape est négligeable (70,6 s contre 70,4 s sur `mission_example`) ; la même mission prenait 19,6 s le matin sur le même portable, également sur batterie : la machine était environ 3,5 fois plus lente l'après-midi (relevé : mode « Legion Balance », 37 %), pour une cause non identifiée ; c'est elle, et non le code, qui a allongé la suite de tests de l'étape 2.4 (§1.5).
 
 Mise au point : en ajoutant le GO-CFAR, le cache de `masking_levels_db` (étape 2.4) s'était détaché de sa fonction, ce qui rendait chaque `solve()` 100 fois plus lent (une table de coût de plusieurs heures) ; corrigé avant la régénération des valeurs figées. Sur secteur, la table de coût se refait en 1 min 36 et le rapport d'impact en 2 min 39.
 
