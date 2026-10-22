@@ -896,16 +896,16 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 
 ## 11. Historique des décisions
 
-### Étape 0.1 : fichier de paramètres unique (commit 90a5fc4)
+### Étape 0.1 : fichier de paramètres unique (commit cc14375)
 - Toutes les constantes ont été déplacées dans `radar_system.toml`, sans changer de valeur. Les noms des constantes de module sont conservés (modèle V6.0.13).
 - La fenêtre ε de la mission est passée en argument, au lieu de réécrire des constantes du module.
 - Choix : TOML, un seul fichier monolithique, un bloc `[tool.*]` séparé, des entrées en valeur, unité, statut, source et date.
 
-### Étape 0.2 : banc de tests (commit c776688)
+### Étape 0.2 : banc de tests (commit 1fb4bc7)
 - Deux familles de tests, tolérance relative de 1e-9, rapport d'impact, `pytest` dans `requirements-dev.txt`.
 - Missions restaurées depuis l'historique git, en tant que **missions de test**.
 
-### Étape 0.3 : revue de toutes les valeurs (commits f205a23 et 7f6bd35)
+### Étape 0.3 : revue de toutes les valeurs (commits c5c2400 et e2ebb90)
 Revue en 10 lots, plus les réglages de l'outil. Principales décisions :
 - Ouverture dérivée de la composition des TRSA ; `eta_ohmic` porté à 1,0 ; `hpbw_factor` retiré du fichier.
 - Dépointage limité à la projection cos θ (exposant et loi de perte supprimés) ; rayon du secteur calculé.
@@ -1083,7 +1083,7 @@ Effet sur les missions de test (valeurs de test seulement) :
 
 #### Écart cumulé avec le modèle d'avant la feuille de route (demande de l'utilisateur, étape 2.1)
 
-Comparaison du modèle V6.0.12 (commit ad07412, avant l'étape 0.1) et du modèle V6.6.0, avec les mêmes formes d'onde et les mêmes missions de test (`mission_example`, `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`). **Valeurs de test seulement : ce ne sont ni des exigences ni des performances du radar.**
+Comparaison du modèle V6.0.12 (commit ac4d56e, avant l'étape 0.1) et du modèle V6.6.0, avec les mêmes formes d'onde et les mêmes missions de test (`mission_example`, `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`). **Valeurs de test seulement : ce ne sont ni des exigences ni des performances du radar.**
 
 | Grandeur | V6.0.12 | V6.6.0 | Écart |
 |---|---|---|---|

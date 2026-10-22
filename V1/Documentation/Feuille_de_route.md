@@ -21,17 +21,17 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 
 | Étape | État |
 |---|---|
-| 0.1 | ✔ fait (commit 90a5fc4) |
-| 0.2 | ✔ fait (commit c776688) |
-| 0.3 | ✔ fait (commits f205a23 et 7f6bd35) |
-| 1.1 | ✔ fait (commit 5b3df06) |
-| 1.2 | ✔ fait (commit e6ce750) |
-| 1.3 | ✔ fait (commit e242519) |
-| 1.4 | ✔ fait (commit 1feda84) |
-| 1.5 | ✔ fait (commit d8245d1) |
-| 2.1 | ✔ fait (commit eb542ca) |
-| 2.2 | ✔ fait (commit 71c5b6b) |
-| 2.3 | ✔ fait (commit 7c70621) |
+| 0.1 | ✔ fait (commit cc14375) |
+| 0.2 | ✔ fait (commit 1fb4bc7) |
+| 0.3 | ✔ fait (commits c5c2400 et e2ebb90) |
+| 1.1 | ✔ fait (commit fc511b3) |
+| 1.2 | ✔ fait (commit 32df57b) |
+| 1.3 | ✔ fait (commit c814182) |
+| 1.4 | ✔ fait (commit 7099b38) |
+| 1.5 | ✔ fait (commit 4bcaa5d) |
+| 2.1 | ✔ fait (commit d1654ac) |
+| 2.2 | ✔ fait (commit 90573c9) |
+| 2.3 | ✔ fait (commit 102ea6f) |
 | 2.4 et suivantes | à faire, la prochaine étant 2.4 |
 
 ---
@@ -44,7 +44,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 
 ## Phase 1 : antenne et RF
 
-- **1.1 Géométrie cohérente de l'antenne.** ✔ (commit 5b3df06)
+- **1.1 Géométrie cohérente de l'antenne.** ✔ (commit fc511b3)
   - Calculer le **vrai diagramme** à partir de la composition des TRSA (rangées de l'octogone, jeux, pas de 52 mm en S et 10,4 mm en Ku), au lieu de HPBW = 0,886 λ/D_env, qui est la valeur d'une ouverture rectangulaire.
   - Séparer le faisceau d'émission, uniforme et qui sert à la grille de veille, du faisceau de réception, défini par son niveau de lobes secondaires, dont on déduit `eta_illum_rx`.
   - Largeur de lobe sur deux axes en (u, v).
@@ -56,7 +56,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - grappe de faisceaux de réception au pas de 0,5 largeur de lobe ;
   - ouverture Ku partagée.
 
-- **1.2 Diagramme de rayonnement.** ✔ (commit e6ce750)
+- **1.2 Diagramme de rayonnement.** ✔ (commit 32df57b)
 
   Décisions prises :
   - feuille de courant avec WAIM adaptée à 45° (S et Ku), plus un terme de lobe de réseau exp(−g/0,02) dans le pire azimut ;
@@ -77,7 +77,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - Marge de lobe de réseau de 1,1 % à 2,9 GHz pour 75°.
   - Lobes du réseau périodique de jeux entre TRSA (hors de la fenêtre de 8 λ/D évaluée à l'étape 1.1).
 
-- **1.3 TRM et chaîne d'émission S et Ku.** ✔ (commit e242519)
+- **1.3 TRM et chaîne d'émission S et Ku.** ✔ (commit c814182)
 
   Décisions prises :
   - TRM GaN sur diamant avec microcanaux ; valeurs crédibles mais optimistes pour 2050-2060 ;
