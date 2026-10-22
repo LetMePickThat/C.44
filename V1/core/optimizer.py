@@ -64,6 +64,7 @@ import numpy as np
 
 from . import detection
 from . import environment as env
+from . import frames
 from . import radar_model as rm
 from . import sky as skym
 from .params import P
@@ -102,7 +103,7 @@ RR_T0_RATIO = P.get("tool.alerts.rr_t0_ratio")       # flag a revisit below this
 
 # ----------------------------------------------------------------------------- geometry
 SECTOR_GEOMETRY_FIELDS = ("shape", "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg",
-                          "phi0_deg", "eps0_deg", "radius_deg")
+                          "phi0_deg", "eps0_deg", "radius_deg", "frame_m", "frame_eps_offset_deg")
 MASK_CACHE_SIZE = P.get(_T + "mask_cache_size")   # sector masks kept per sphere raster (the same sector is masked several times per run)
 
 
@@ -168,20 +169,22 @@ class Sphere:
         return m
 
     def _mask(self, sec: dict) -> np.ndarray:
+        """Box or cap tested in the sector's own frame (step 3.0: the raster turned by frame_m, core/frames.py)."""
+        phi, eps, eps_off = frames.sector_angles(sec, self.phi, self.eps)
         shape = sec.get("shape", "box")
         if shape == "cap":
             p0, e0, rad = math.radians(sec["phi0_deg"]), math.radians(sec["eps0_deg"]), sec["radius_deg"]
-            p, e = np.radians(self.phi), np.radians(self.eps)
+            p, e = np.radians(phi), np.radians(eps)
             cosang = np.sin(e) * math.sin(e0) + np.cos(e) * math.cos(e0) * np.cos(p - p0)
             return np.degrees(np.arccos(np.clip(cosang, -1, 1))) <= rad
         p1, p2 = sec["phi_min_deg"] % 360.0, sec["phi_max_deg"] % 360.0
         if sec["phi_max_deg"] - sec["phi_min_deg"] >= 360.0:
-            mphi = np.ones(self.phi.shape, bool)
+            mphi = np.ones(phi.shape, bool)
         elif p1 <= p2:
-            mphi = (self.phi >= p1) & (self.phi <= p2)
+            mphi = (phi >= p1) & (phi <= p2)
         else:
-            mphi = (self.phi >= p1) | (self.phi <= p2)
-        return mphi & (self.eps >= sec["eps_min_deg"]) & (self.eps <= sec["eps_max_deg"])
+            mphi = (phi >= p1) | (phi <= p2)
+        return mphi & (eps >= sec["eps_min_deg"] + eps_off) & (eps <= sec["eps_max_deg"] + eps_off)
 
 
 def positions_table(sph: Sphere, m: np.ndarray, f_ghz: float) -> Tuple[Dict[int, np.ndarray], float]:
@@ -1010,7 +1013,10 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
     """progress_cb(done, total, sector_id) is called after each sector (optional, e.g. for a UI
     progress bar). cancel_cb() is polled between sectors (every 0.2 s in parallel mode); if it returns True,
     run() stops early and returns the partial result with "cancelled": True (sectors not computed are absent).
-    workers: None = automatic (parallel from PARALLEL_MIN_SECTORS sectors), 1 = sequential, > 1 = parallel."""
+    workers: None = automatic (parallel from PARALLEL_MIN_SECTORS sectors), 1 = sequential, > 1 = parallel.
+    Step 3.0: the volumes and the sky are first turned into the ship frame with the mission navigation (core/frames.py)."""
+    framed = frames.uses_frames(mission)
+    mission, frame_alerts = frames.resolve(mission)
     g = mission.get("global", {})
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
     elec = g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW)
@@ -1055,7 +1061,7 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
     # overlaps (only among sectors actually computed, in case of an early cancellation)
     warn = [f"sectors {a} / {b} share {ov:.3f} sr: each is budgeted independently there -- fine for intentional "
             f"layered coverage (different RCS/range/RR on the same sky), check for a duplicated requirement if not"
-            for a, b, ov in overlaps(sph.d_omega, masks)]
+            for a, b, ov in overlaps(sph.d_omega, masks)] + frame_alerts
     # tracking margin: power left after search (the S and Ku arrays only share the face's electrical power)
     for k, v in tot.items():
         p_avail_w = max(0.0, 1.0 - v["energy_fraction"]) * p_avg_max
@@ -1080,6 +1086,11 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
            "sectors": results,
            "faces_total": {str(k): {kk: round(vv, 4) for kk, vv in v.items()} for k, v in tot.items()},
            "warnings": warn}
+    if framed:   # step 3.0: the navigation used and each sector's frame (absent for a ship-frame mission)
+        out["global"]["nav"] = frames.parse_nav(g.get("nav")).summary()
+        fr = {sec["id"]: sec.get("frame", "ship") for sec in sectors}
+        for r in results:
+            r["frame"] = fr[r["id"]]
     from . import tracking   # imported here: core.tracking imports this module
     out["tracking"] = tracking.budget(mission, out)
     warn.extend(out["tracking"].pop("warnings"))
@@ -1096,7 +1107,7 @@ def load_mission(path: str) -> dict:
                 for k, v in row.items():
                     if v is None or v == "":
                         continue
-                    if k in ("id", "shape", "confirm_mode", "target_type", "fluctuation", "jammer_type"):
+                    if k in ("id", "shape", "confirm_mode", "target_type", "fluctuation", "jammer_type", "frame"):
                         s[k] = v
                     elif k == "allow_ambiguous":
                         s[k] = v.lower() == "true"

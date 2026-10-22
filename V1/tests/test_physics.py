@@ -1238,6 +1238,138 @@ def test_environment_mission_outputs(runs):
     assert t5["confirm_energy"] > t0["confirm_energy"]
 
 
+# ----------------------------------------------------------------------------- frames and navigation (step 3.0)
+def _quat_z(deg: float) -> list:
+    h = math.radians(deg) / 2.0
+    return [math.cos(h), 0.0, 0.0, math.sin(h)]
+
+
+def _framed(m: dict, nav=None) -> dict:
+    """The mission with every sector and the sky in ICRF axes (same angles), and the given navigation."""
+    m = json.loads(json.dumps(m))
+    for sec in m["sectors"]:
+        sec["frame"] = "inertial"
+    if m["global"].get("sky") is not None:
+        m["global"]["sky"]["frame"] = "inertial"
+    if nav is not None:
+        m["global"]["nav"] = nav
+    return m
+
+
+def _strip_frames(r: dict) -> dict:
+    r = json.loads(json.dumps(tb.to_plain(r)))
+    r["global"].pop("nav", None)
+    for s in r["sectors"]:
+        s.pop("frame", None)
+    return r
+
+
+def test_rotations_round_trip():
+    from core import frames
+    rng = np.random.default_rng(3)
+    for _ in range(20):
+        q = rng.normal(size=4)
+        q = list(q / np.linalg.norm(q) * (1 if q[0] >= 0 else -1))
+        m = frames.quat_to_matrix(q)
+        assert np.allclose(m @ m.T, np.eye(3), atol=1e-12) and np.linalg.det(m) == pytest.approx(1.0)
+        assert np.allclose(frames.matrix_to_quat(m), q, atol=1e-12)
+        y, p_, r_ = frames.euler_321_of(m)
+        assert np.allclose(frames.euler_321(y, p_, r_), m, atol=1e-12)
+    assert np.allclose(frames.quat_to_matrix(_quat_z(90.0)) @ [1, 0, 0], [0, 1, 0], atol=1e-15)
+
+
+def test_rtn_limb_and_two_dir_axes():
+    from core import frames
+    r_e = frames.BODY_RADIUS_KM["earth"]
+    a, i = r_e + 400.0, math.radians(30.0)
+    nav = frames.Nav({"q_ship_to_icrf": [1, 0, 0, 0], "central_body": "earth", "r_km": [0.0, a, 0.0],
+                      "v_kms": [-7.67 * math.cos(i), 0.0, 7.67 * math.sin(i)]})
+    rtn = nav.rtn()
+    assert np.allclose(rtn[0], [0, 1, 0]) and np.allclose(rtn[1], [-math.cos(i), 0, math.sin(i)])
+    assert np.allclose(rtn[2], np.cross(rtn[0], rtn[1]))
+    assert nav.limb_depression_deg(0.0) == pytest.approx(math.degrees(math.acos(r_e / a)), rel=1e-12)
+    assert nav.limb_depression_deg(100.0) < nav.limb_depression_deg(0.0)
+    sec = {"frame": "two_dir", "frame_p_ra_deg": 30.0, "frame_p_dec_deg": 10.0, "frame_s_ra_deg": 120.0,
+           "frame_s_dec_deg": 0.0}
+    m, off = frames.sector_matrix(sec, frames.Nav())
+    assert off == 0.0 and np.allclose(m @ frames.unit(30.0, 10.0), [0, 0, 1])
+    s_in = m @ frames.unit(120.0, 0.0)
+    assert abs(s_in[1]) < 1e-12 and s_in[0] > 0
+
+
+def test_limb_band_follows_the_altitude():
+    """A limb box is an eps band below the local horizontal, acos((R + h) / |r|) lower; ship pointed with +Z zenith."""
+    from core import frames
+    r_e = frames.BODY_RADIUS_KM["earth"]
+    sph = mo.Sphere(res_deg=1.0)
+    for alt in (400.0, 2000.0):
+        nav = [{"q_ship_to_icrf": [1, 0, 0, 0], "central_body": "earth", "r_km": [0.0, 0.0, r_e + alt],
+                "v_kms": [7.0, 0.0, 0.0]}]
+        sec = {"id": "H", "frame": "limb", "shape": "box", "phi_min_deg": 0.0, "phi_max_deg": 360.0,
+               "eps_min_deg": 0.0, "eps_max_deg": 5.0}
+        mk = sph.mask(frames.resolve_sector(sec, {"nav": nav}))
+        dep = math.degrees(math.acos(r_e / (r_e + alt)))
+        e = sph.eps[mk]
+        assert mk.sum() > 0 and e.min() >= -dep - 1e-9 and e.max() <= -dep + 5.0 + 1e-9
+
+
+def test_inertial_frame_with_identity_attitude_is_the_ship_frame():
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_sky_demo.json"))
+    ref = _strip_frames(mo.run(m, workers=1))
+    got = _strip_frames(mo.run(_framed(m, [{"q_ship_to_icrf": [1.0, 0.0, 0.0, 0.0]}]), workers=1))
+    assert tb.differences(ref, got) == []
+
+
+def test_turning_the_ship_turns_the_faces():
+    """Volumes and sky fixed in ICRF, ship turned 90 deg about its axis: face k now does what face k+1 did (within
+    the small asymmetry of the structure: radiator wings on +/-X, and the sampling of the sky noise, whose blocks
+    are not invariant by rotation: the Sun, a hot point source, is left out, the Moon moves the budget by < 1 %)."""
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_sky_demo.json"))
+    m["sectors"] = [s for s in m["sectors"] if s["id"] in ("SUN", "MOON")]
+    m["global"]["sky"]["bodies"] = [b for b in m["global"]["sky"]["bodies"] if b["id"] == "MOON"]
+    a = mo.run(_framed(m), workers=1)
+    b = mo.run(_framed(m, [{"q_ship_to_icrf": _quat_z(90.0)}]), workers=1)
+    for sa, sb in zip(a["sectors"], b["sectors"]):
+        assert sa["status"] == sb["status"] == "OK"
+        assert sa["wf"]["freq_ghz"] == sb["wf"]["freq_ghz"]
+        for k, fa in sa["faces"].items():
+            fb = sb["faces"][str((int(k) - 1) % 4)]
+            assert fb["positions"] == pytest.approx(fa["positions"], rel=1e-3)
+            assert fb["energy_fraction"] == pytest.approx(fa["energy_fraction"], rel=1e-2)
+
+
+@pytest.mark.parametrize("glob,sec,msg", [
+    ({"nav": [{"q_ship_to_icrf": [1, 0, 0, 0]}, {"q_ship_to_icrf": [1, 0, 0, 0]}]}, {}, "one only"),
+    ({"nav": [{"q_ship_to_icrf": [1.01, 0, 0, 0]}]}, {}, "not a unit quaternion"),
+    ({"nav": [{"q_ship_to_icrf": [1, 0, 0, 0], "epoch": "tomorrow"}]}, {}, "ISO 8601"),
+    ({"nav": [{"q_ship_to_icrf": [1, 0, 0, 0], "central_body": "earth", "r_km": [7000.0, 0, 0]}]}, {}, "together"),
+    ({"nav": [{"q_ship_to_icrf": [1, 0, 0, 0], "central_body": "earth", "r_km": [7000.0, 0, 0],
+               "v_kms": [7.0, 0, 0]}]}, {}, "no orbit plane"),
+    ({}, {"frame": "rtn"}, "needs the ship orbit"),
+    ({}, {"frame": "limb"}, "needs the ship orbit"),
+    ({}, {"frame": "galactic"}, "unknown frame"),
+    ({}, {"frame": "two_dir", "frame_p_ra_deg": 10.0, "frame_p_dec_deg": 0.0, "frame_s_ra_deg": 10.5,
+          "frame_s_dec_deg": 0.0}, "from aligned"),
+    ({}, {"frame": "two_dir"}, "needs frame_p_ra_deg"),
+])
+def test_invalid_frames_are_refused(glob, sec, msg):
+    m = md.empty_mission()
+    m["global"].update(glob)
+    m["sectors"] = [{**md.new_sector([], "box"), **sec}]
+    errs = md.validate_mission(m)
+    assert any(msg in e for e in errs), errs
+    with pytest.raises(ValueError):
+        mo.run(m, workers=1)
+
+
+def test_sky_inconsistent_with_the_navigation_is_flagged():
+    from core import frames
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_frames.json"))
+    assert frames.resolve(m)[1] == []
+    m["global"]["sky"]["bodies"][0]["phi_deg"] = 170.0
+    assert any("EARTH" in a for a in frames.resolve(m)[1])
+
+
 # ----------------------------------------------------------------------------- confirmation
 def test_confirmation_probability_grows_with_margin():
     for sw in (1, 3):

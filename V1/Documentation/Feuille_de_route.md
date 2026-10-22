@@ -34,7 +34,8 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 2.3 | ✔ fait (commit 102ea6f) |
 | 2.4 | ✔ fait (commit 008d583) |
 | 2.5 | ✔ fait (commit baeadcf) |
-| 3.0 et suivantes | à faire, la prochaine étant 3.0 (ajoutée le 22 octobre 2026 ; jalon A atteint) |
+| 3.0 | ✔ fait (ajoutée le 22 octobre 2026) |
+| 3.1 et suivantes | à faire, la prochaine étant 3.1 (jalon A atteint) |
 
 ---
 
@@ -223,7 +224,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 
 ## Phase 3 : fonctions radar
 
-- **3.0 Repère de mission et attitude** (ajoutée le 22 octobre 2026, à la demande de l'utilisateur). Constat : les volumes, les tranches de poursuite et le ciel sont donnés dans le repère du vaisseau ; si le vaisseau tourne, la région veillée tourne avec lui, ce qui n'a pas de sens opérationnel. Décisions de cadrage (validées par l'utilisateur) :
+- **3.0 Repère de mission et attitude** (ajoutée le 22 octobre 2026, à la demande de l'utilisateur). ✔ Constat : les volumes, les tranches de poursuite et le ciel sont donnés dans le repère du vaisseau ; si le vaisseau tourne, la région veillée tourne avec lui, ce qui n'a pas de sens opérationnel. Décisions de cadrage (validées par l'utilisateur) :
   - **repère des volumes** choisi par mission : inertiel centré sur le vaisseau (ICRF / J2000), orbital local (LVLH / RTN) ou défini par deux directions (axe de menace, corps) ; chaque secteur peut rester dans le repère du **vaisseau** (volumes liés au vaisseau) ;
   - **attitude** : une seule par mission maintenant (a), puis une enveloppe d'attitudes validée au pire cas par face et par contrainte (b, étape 5.3), puis le profil d'attitude dans le temps fourni par le simulateur global (c, étapes 4.3 et 5.4). L'architecture le prévoit dès 3.0 : attitude rangée dans une liste (quaternion, date facultative, étiquette), une seule fonction de passage au repère du vaisseau, tout le calcul en aval reste dans le repère du vaisseau, résultat calculé pour une attitude donnée ; le chargeur refuse plusieurs attitudes tant que b n'est pas fait ;
   - **le radar applique la rotation** des volumes à partir de l'attitude fournie (rotation seule, sans éphéméride) ; le simulateur global reste la source de l'attitude et des positions des objets ;
@@ -247,6 +248,10 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **repères des volumes** (D4) : vaisseau (protection), inertiel (« coin de ciel »), orbital local RTN, **limbe du corps** (veille de découverte sur l'horizon : bande d'élévation par rapport au limbe, qui suit l'altitude), deux directions (axe de menace) ; le volume lié à une piste ou à une désignation va en 3.3. Le type de repère entre dans le calcul (repères dynamiques) ;
   - **périmètre de la 3.0** (D5) : l'architecture écrite dans la documentation (la simulation n'est pas construite), le message de navigation, la bibliothèque de repères et la conversion des volumes dans la couche calculateur ; les couches 1, 2 et 4 restent à faire.
 
+  Fait (modèle V6.11.0, `core/frames.py`, détail dans `Choix_architecturaux.md` §7.14) : clé de mission `nav` (un message : quaternion vaisseau → ICRF, date, orbite facultative), clé de secteur `frame` (`ship`, `inertial`, `rtn`, `limb` avec `limb_alt_km` à 0 km par défaut, `two_dir`), clé `frame` du ciel ; passage au repère du vaisseau une seule fois avant tout calcul ; contrôles et alerte ciel / navigation ; interface (groupe Navigation, repère du secteur, vue 3D « ship » ou « ICRF ») ; mission de test `mission_frames.json`. Les missions existantes ne changent pas.
+
+  Renvois : enveloppe d'attitudes au pire cas par face → **5.3** ; profil d'attitude dans le temps et réaffectation des secteurs aux faces en vol → **4.3**, **5.2** ; volume lié à une piste ou à une désignation → **3.3** ; régions non centrées sur le vaisseau (parallaxe) et erreurs de navigation → simulateur global ; l'interface ne saisit pas encore le ciel (JSON seulement, comme avant).
+
 - **3.1 Veille S reconstruite sur les nouveaux modèles** (optimizer.py).
   - **Renvois de l'étape 1.3** : loi de PAE en fonction du recul du PA (multifaisceau par superposition, et réduction de puissance « pas d'énergie en trop », aujourd'hui à PAE constante) ; impulsions candidates entre 0,8 et 2 ms.
   - **Multifaisceau en émission** : tous les modes de formation sont possibles, et l'optimiseur doit les évaluer et choisir selon le contexte :
@@ -263,6 +268,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - La table de coût n'est calculée qu'à 2,8 GHz (optimiste pour les secteurs à 2,7 ou 2,9 GHz) : à recaler à l'étape 5.5. `track_margin_warn` → 5.3.
   - La plus longue impulsion S est déjà **calculée** à partir de la réserve des TRM (`radar_model.tau_max_s`).
   - Le pas des faisceaux de réception (0,5) pourra être réglé par l'optimiseur.
+  - **Renvoi de l'étape 3.0** (option 1 validée par l'utilisateur) : le bilan de bruit du ciel d'un secteur (`sector_sky`) est évalué au centre de blocs de la trame (φ, ε) du vaisseau (pas d'environ 0,5 lobe) ; avec un corps chaud ponctuel, il varie de 1 à 4 % selon l'attitude ou la position du corps (artefact de calcul). Correction : **raffinement local** (T_sys calculé à chaque pointage là où la hausse dépasse un seuil, blocs ailleurs) ; ensuite, le test de rotation inclura le Soleil avec une tolérance serrée.
   - **Renvoi de l'étape 2.3** : pas de la grille de veille propre à chaque secteur (1,4 en commun ; l'optimum va de 1,3 à 1,6 selon la Pd par observation).
 
 - **3.2 Confirmation Ku reconstruite** (tracking.py).

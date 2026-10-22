@@ -54,6 +54,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from . import frames
 from . import geometry as geo
 from . import mission as md
 from . import optimizer as mo
@@ -86,7 +87,7 @@ REASON_TEXT = {
 }
 
 # every sector field the optimiser's plan, the need test or the shape depends on
-PLAN_FIELDS = geo.SECTOR_GEOMETRY_FIELDS + (
+PLAN_FIELDS = geo.SECTOR_GEOMETRY_FIELDS + frames.SECTOR_FRAME_FIELDS + (
     "range_km", "rr_target_s", "v_close_max_mps", "res_max_m", "range_min_km", "allow_ambiguous",
     "max_wf_per_sector", "short_tol", "freq_ghz_candidates", "rx_sll_db") + rm.SECTOR_TARGET_KEYS
 
@@ -110,7 +111,7 @@ class Finding:
 def mission_signature(mission: dict) -> str:
     """Everything find_redundancies() depends on: a result is current while the signature is unchanged."""
     g = mission.get("global", {})
-    return json.dumps({"g": [g.get("eps_min_deg"), g.get("eps_max_deg"), g.get("face_elec_mw"), g.get("sky")],
+    return json.dumps({"g": [g.get("eps_min_deg"), g.get("eps_max_deg"), g.get("face_elec_mw"), g.get("sky"), g.get("nav")],
                        "s": [[s.get("id")] + [s.get(f) for f in PLAN_FIELDS] for s in mission.get("sectors", [])]},
                       default=str)
 
@@ -203,6 +204,11 @@ def _pair_note(sa_id: str, sb_id: str, om_met: float, om_inter: float, reason_ce
 
 
 def find_redundancies(mission: dict, grid: geo.SphereGrid) -> Tuple[List[Finding], Dict[Tuple[str, str], str]]:
+    """Step 3.0: computed on the mission turned into the ship frame (core/frames.py); nothing if its frames are invalid."""
+    try:
+        mission, _ = frames.resolve(mission)
+    except ValueError:
+        return [], {}
     g = mission.get("global", {})
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
     p_avg_max_w = rm.face_elec_avail_w(g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW))
@@ -307,10 +313,11 @@ def trim_proposal(sb: dict, clean: List[dict], grid: geo.SphereGrid, scanned: np
     piece keeps B's id; the others get B's id with a _2, _3... suffix."""
     if sb.get("shape", "box") != "box":
         return None, f"{sb['id']} is a cap; an automatic trim needs box shapes"
-    boxes = [a for a in clean if a.get("shape", "box") == "box"]
+    boxes = [a for a in clean if a.get("shape", "box") == "box" and frames.frame_key(a) == frames.frame_key(sb)]
     if not boxes:
-        return None, ("no earlier box sector meets the need over its whole overlap with "
-                      f"{sb['id']} (coverage depends on the scan angle, or the covering sector is a cap)")
+        return None, ("no earlier box sector in the same frame meets the need over its whole overlap with "
+                      f"{sb['id']} (coverage depends on the scan angle, or the covering sector is a cap or in "
+                      f"another frame)")
     e_lo, e_hi = sb["eps_min_deg"], sb["eps_max_deg"]
     edges = sorted({e_lo, e_hi} | {min(max(e, e_lo), e_hi) for a in boxes for e in (a["eps_min_deg"], a["eps_max_deg"])})
     bands: List[Tuple[float, float, Tuple]] = []
@@ -331,7 +338,7 @@ def trim_proposal(sb: dict, clean: List[dict], grid: geo.SphereGrid, scanned: np
             piece = dict(sb, phi_min_deg=round(p0, 6), phi_max_deg=round(p1, 6),
                          eps_min_deg=round(e0, 6), eps_max_deg=round(e1, 6))
             if (grid.sector_mask(piece) & scanned).any():
-                pieces.append(piece)
+                pieces.append(frames.unresolved(piece))
     if not pieces:
         return None, "nothing left to scan once the covered part is removed"
     taken = set(existing_ids) - {sb["id"]}

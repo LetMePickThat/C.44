@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.10.1
+# Radar Performance Model - V6.11.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,19 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.10.1 -> V6.11.0 (roadmap step 3.0: frames of the volumes and navigation message; core/frames.py)
+#   - Architecture truth / knowledge (Documentation/Feuille_de_route.md, step 3.0): this tool is the RADAR COMPUTER in
+#     mission prep; it knows its navigation (attitude, own orbit, central body), never the truth of the targets.
+#   - Mission key "nav": a list of navigation messages (one until step 5.3): q_ship_to_icrf [w, x, y, z] (Hamilton,
+#     |q| - 1 within tool.frames.q_norm_tol normalised, refused beyond), optional epoch, optional orbit (central_body of
+#     [sky.surface], r_km, v_kms in ICRF axes). No nav = identity attitude.
+#   - Sector key "frame": ship (default when absent), inertial (ICRF), rtn, limb (box, eps counted from the limb at
+#     limb_alt_km, acos((R + h_limb) / |r|) below the local horizontal), two_dir (two ICRF directions); sky key
+#     "frame": ship or inertial. core/frames.resolve() turns the mission into the ship frame once, before any
+#     computation; Sphere._mask tests box / cap in the sector's frame; downstream unchanged. A ship-frame mission
+#     gives exactly the former results.
+#   - Alert when the sky's central body differs from the navigation by more than tool.frames.sky_nav_tol_deg.
 #
 # Changes V6.10.0 -> V6.10.1 (ship geometry: the 3D model)
 #   - The low-poly 3D model assets/models/LP_NISO.obj (ship.model_path) replaces the [ship] primitives as the reference
@@ -337,7 +350,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.10.1"
+MODEL_VERSION = "6.11.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

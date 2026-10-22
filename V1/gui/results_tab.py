@@ -19,6 +19,7 @@ from PyQt5.QtWidgets import (
     QPushButton, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
+from core import frames
 from core import geometry as geo
 from core import radar_model as rm
 from gui.scene_view import SceneView, SectorDraw
@@ -62,7 +63,7 @@ class ResultsTab(QWidget):
         self.result = result
         self.partial = bool(result.get("cancelled"))
         self.exported = False                 # set once the result has been exported (closing asks otherwise)
-        self.sectors_by_id = {s["id"]: s for s in mission["sectors"]}
+        self.sectors_by_id = {s["id"]: s for s in frames.resolve(mission)[0]["sectors"]}   # ship frame (step 3.0)
         self.tracking_by_id = {s["id"]: s for s in result.get("tracking", {}).get("sectors", [])}
         self.grid = grid
         self.eps_min = result["global"]["eps_min_deg"]
@@ -102,6 +103,7 @@ class ResultsTab(QWidget):
         top.addStretch(1)
         lv.addLayout(top)
         self.view = SceneView(self.grid, face_opacity=0.18, sector_opacity=0.55)
+        self.view.set_navigation(frames.parse_nav(mission.get("global", {}).get("nav")).r_si)
         self.view.show_all_sectors.connect(lambda: self._set_all_sectors_visible(True))
         self.view.hide_all_sectors.connect(lambda: self._set_all_sectors_visible(False))
         lv.addWidget(self.view)

@@ -23,7 +23,9 @@ RX weighting, per sector: "rx_sll_db" = RX peak sidelobe level, one of RX_SLL_CH
 Shortest range of interest, per sector: "range_min_km" (step 2.1; default tool.mission_defaults.range_min_frac x
 range_km): the blind range c (tau + limiter recovery) / 2 of the sector's waveforms must stay under it.
 Sky, global key "sky" (step 1.5, core/sky.py): the bodies in front of the faces and the galactic frame, in the ship
-frame, filled later by the global scenario simulator (no sky = cold sky + worst-case galactic rise).
+frame or, sky key "frame" = "inertial" (step 3.0), in ICRF axes (no sky = cold sky + worst-case galactic rise).
+Frames (step 3.0, core/frames.py): global key "nav" (navigation message: attitude, optional orbit) and sector key
+"frame" (ship, inertial, rtn, limb with limb_alt_km, two_dir with frame_p/s_ra/dec_deg); absent = ship frame.
 
 Validation messages are operator-facing.
 """
@@ -37,6 +39,7 @@ import re
 from typing import Dict, List
 
 # Re-use the optimiser's loader so JSON/CSV parsing never diverges from what run() expects.
+from . import frames
 from . import optimizer as mo
 from . import sky
 from .params import P
@@ -122,6 +125,7 @@ def validate_global(g: dict) -> List[str]:
     elif elec > SHIP_ELEC_TOTAL_MW:
         errs.append(f"electrical power per face ({elec} MW) exceeds the ship total budget ({SHIP_ELEC_TOTAL_MW:g} MW)")
     errs.extend(sky.validate(g.get("sky")))
+    errs.extend(frames.validate_nav(g.get("nav")) + frames.validate_sky_frame(g.get("sky")))   # step 3.0
     return errs
 
 
@@ -297,6 +301,7 @@ def validate_mission(mission: dict) -> List[str]:
         errs.append(f"duplicate sector ids: {', '.join(sorted(dupes))}")
     for i, sec in enumerate(sectors):
         errs.extend(validate_sector(sec, i))
+        errs.extend(frames.validate_sector(sec, mission.get("global", {}), f"sector #{i + 1} ({sec.get('id')})"))
     return errs
 
 
@@ -319,7 +324,7 @@ _CSV_FIELDS = [
     "rotation_dps", "accel_max_mps2", "optics_diameter_m", "optics_f_ratio", "optics_retro_eff", "jammer_type",
     "jammer_erp_dbw_mhz", "objects_per_rr", "tec_tecu", "b_parallel_nt", "range_km", "rr_target_s",
     "v_close_min_mps", "v_close_max_mps", "res_max_m", "range_min_km", "fa_per_rr", "allow_ambiguous", "rx_sll_db",
-    "confirm_mode", "new_targets_per_rr", "tracking",
+    "confirm_mode", "new_targets_per_rr", "tracking", "frame", "limb_alt_km", *frames.TWO_DIR_KEYS,
 ]
 
 

@@ -67,7 +67,7 @@ Rien de ce qui a été décidé ne vit seulement dans une conversation :
 | `Documentation/Choix_architecturaux.md` (ce document) | Toutes les variables, leurs valeurs et leurs raisons, les formules, les dispositions provisoires, les points ouverts et l'historique des décisions, question par question. |
 | `Documentation/Feuille_de_route.md` | La feuille de route, l'état d'avancement et, pour chaque étape, les décisions prises et les renvois reçus d'autres étapes. |
 | `radar_system.toml` | Les valeurs elles-mêmes ; le champ `source` de chaque entrée résume sa justification. |
-| En-tête de `core/radar_model.py` | Le journal des versions du modèle (V6.0.0 à V6.10.1) et ce que chaque version a changé. |
+| En-tête de `core/radar_model.py` | Le journal des versions du modèle (V6.0.0 à V6.11.0) et ce que chaque version a changé. |
 | `tests/snapshots/JOURNAL.md` | Chaque régénération des valeurs figées de test et ses causes. |
 | Mémoire de l'assistant (hors dépôt) | Locale à chaque machine, **non partagée** : elle n'est qu'un raccourci. Tout ce qui est nécessaire pour reprendre est dans le dépôt (ce tableau, §1.3, §1.5, §1.6) ; en cas d'écart, le dépôt fait foi. |
 
@@ -94,7 +94,7 @@ Procédure d'une étape :
 |---|---|---|
 | Durée de la suite de tests | Trois runs complets sur le même portable (14900HX ; la machine habituelle est un 9800X3D fixe) : le matin avant l'étape 2.4, **sur batterie**, 108 tests en 5 min 53 ; l'après-midi après l'étape 2.4, **sur batterie**, 117 tests en environ 30 min ; le soir après l'étape 2.5, **sur secteur, mode performance**, 126 tests en 6 min 10. **Le code n'est pas en cause** : le dernier run contient tout le code des étapes 2.4 et 2.5. **La machine était ralentie l'après-midi**, à code identique : la version 2.4 commitée mettait 70 s sur `mission_example`, contre 19,6 s le matin, sur batterie dans les deux cas (relevé l'après-midi : mode « Legion Balance », 37 %, en décharge). La batterie seule n'explique donc pas l'écart (le matin, sur batterie, la suite était rapide) ; la cause précise (mode d'alimentation, niveau de charge, température, autre bridage) **n'est pas identifiée**. | Rien d'obligatoire. Pour identifier la cause, mesurer `mission_example` (référence : environ 20 s) dans chaque état de la machine (secteur ou batterie, mode d'alimentation, niveau de charge). |
 | Hash des étapes | 2.4 : commit `008d583`. 2.5 : commit `baeadcf`, reporté dans `Feuille_de_route.md`. | — |
-| Prochaine étape | **3.0, repère de mission et attitude** (ajoutée le 22 octobre 2026 ; cadrage Q1 à Q6 et architecture à 4 couches D1 à D6 validés, voir `Feuille_de_route.md` ; variables pas encore posées), puis 3.1, veille S reconstruite (cadrage proposé : blocs A grille de fréquences, B espace des formes d'onde, C multifaisceau, D environnement par forme d'onde, E règles de l'optimiseur). Elle reçoit le plus de renvois (multifaisceau à trois modes et loi PAE / recul, grille de fréquences fine, bandes au-delà de 75 MHz, impulsions de moins de 20 µs, critère secondaire de l'optimiseur, fouillis par forme d'onde, exigence de portée devant une surface, réponse au brouillage d'autoprotection, pas de grille par secteur) : voir `Feuille_de_route.md`. | Commencer par la procédure d'une étape (§1.4). |
+| Prochaine étape | **3.1, veille S reconstruite** : cadrage proposé (blocs A grille de fréquences, B espace des formes d'onde, C multifaisceau, D environnement par forme d'onde, E règles de l'optimiseur), pas encore validé ; l'étape 3.0 (repères et navigation) est faite. Elle reçoit le plus de renvois (multifaisceau à trois modes et loi PAE / recul, grille de fréquences fine, bandes au-delà de 75 MHz, impulsions de moins de 20 µs, critère secondaire de l'optimiseur, fouillis par forme d'onde, exigence de portée devant une surface, réponse au brouillage d'autoprotection, pas de grille par secteur) : voir `Feuille_de_route.md`. | Commencer par la procédure d'une étape (§1.4). |
 | Sauvegardes locales de la réécriture d'historique | Sur le portable seulement : branche `backup-before-rewrite` et `refs/original/`, gardées à la demande de l'utilisateur. | Les supprimer quand l'utilisateur le dira ; rien à faire sur une autre machine. |
 | Documentation de l'étape 2.4 | Une partie des mises à jour de ce document (en-tête, modules, bilan des entrées, lignes CFAR et cohérence) n'avait pas été appliquée au commit `008d583` ; rattrapée avec l'étape 2.5. | Vérifier, à chaque étape, que chaque remplacement de la documentation a bien été appliqué. |
 | Copies locales hors dépôt | `PROJECT_CONTEXT.md`, `README.txt`, `radar_params_restore.md` à la racine, exclus par `.git/info/exclude` : antérieurs à la feuille de route, remplacés par `Documentation/`. | Ne pas les commiter ; ils peuvent manquer sur une autre machine sans conséquence. |
@@ -122,7 +122,7 @@ Procédure d'une étape :
 | `python tools/gen_cost_table.py` (32 processus) | environ 1 min 40 |
 | `python tests/impact_report.py` | environ 2 min 40 |
 | `python tests/update_snapshots.py` | environ 3 min |
-| `python -m pytest -q` (126 tests) | environ 6 min |
+| `python -m pytest -q` (144 tests) | environ 6 min 30 (fixe 9800X3D, étape 3.0) ; environ 6 min sur le portable à l'étape 2.5 |
 | reconstruction automatique de `core/structure_cache.npz` / `core/antenna_cache.json` | environ 23 s (modèle 3D) / 8 s |
 
 **Fichiers dérivés** (§2.2) : `antenna_cache.json` et `structure_cache.npz` se reconstruisent seuls quand leurs entrées changent, et ne sont réécrits que pour le fichier de paramètres par défaut. Ils sont versionnés : les commiter avec l'étape qui les change. `cost_table.json` et les valeurs figées se régénèrent à la main (procédure, points 4 à 6).
@@ -140,10 +140,11 @@ Procédure d'une étape :
 | Module | Rôle |
 |---|---|
 | `core/params.py` | Charge `radar_system.toml`, une seule fois par processus. Expose `P.get`, `P.meta`, `P.section` et l'empreinte des paramètres (`fingerprint`). La variable d'environnement `RADAR_PARAMS` permet de désigner un autre fichier. |
-| `core/radar_model.py` | Modèle radar V6.10.1 (géométrie du vaisseau : modèle 3D) : GO-CFAR (étape 2.5) ; bibliothèque de cibles (classes lues dans le fichier, cible d'un secteur, T₀ par classe et par bande, fluctuation en forme Gamma, optique de l'autodirecteur, accélération, dépolarisation et diversité, CFAR OS, masquage ; étape 2.4), critère de détection (Pd moyennée sur la position de la cible, Pd cumulée de la veille, politique de fausses alarmes, grille de veille à 1,4 lobe ; étape 2.3), traitement (blocs cohérents de taille optimale, oscillateur et plateforme, banc de vitesses, chevauchement et CFAR calculés, cases indépendantes pour les fausses alarmes ; étape 2.2), formes d'onde paramétriques (modulation LFM ou NLFM, pondération et perte de compression, k_r et résolution physique, effets dans l'impulsion, zone aveugle, éclipsage des trains échelonnés ; étape 2.1), chaîne de réception (T_sys de ciel froid, facteur de bruit du CAN dérivé du convertisseur, dynamique et portée minimale non saturée, récupération du limiteur, perte de recombinaison des deux voies de polarisation ; étape 1.5), bande (loi de bord par bande, occupation du spectre, retard vrai, contrôles de cohérence au chargement ; étape 1.4), bilan électrique et PAE variable par bande (étape 1.3), désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
+| `core/radar_model.py` | Modèle radar V6.11.0 (repères des volumes et navigation : étape 3.0 ; géométrie du vaisseau : modèle 3D) : GO-CFAR (étape 2.5) ; bibliothèque de cibles (classes lues dans le fichier, cible d'un secteur, T₀ par classe et par bande, fluctuation en forme Gamma, optique de l'autodirecteur, accélération, dépolarisation et diversité, CFAR OS, masquage ; étape 2.4), critère de détection (Pd moyennée sur la position de la cible, Pd cumulée de la veille, politique de fausses alarmes, grille de veille à 1,4 lobe ; étape 2.3), traitement (blocs cohérents de taille optimale, oscillateur et plateforme, banc de vitesses, chevauchement et CFAR calculés, cases indépendantes pour les fausses alarmes ; étape 2.2), formes d'onde paramétriques (modulation LFM ou NLFM, pondération et perte de compression, k_r et résolution physique, effets dans l'impulsion, zone aveugle, éclipsage des trains échelonnés ; étape 2.1), chaîne de réception (T_sys de ciel froid, facteur de bruit du CAN dérivé du convertisseur, dynamique et portée minimale non saturée, récupération du limiteur, perte de recombinaison des deux voies de polarisation ; étape 1.5), bande (loi de bord par bande, occupation du spectre, retard vrai, contrôles de cohérence au chargement ; étape 1.4), bilan électrique et PAE variable par bande (étape 1.3), désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
 | `core/detection.py` | **Étape 2.3.** Lois de détection exactes (Swerling 0 à 4, toute Pfa), Pd moyennée sur une loi discrète de pertes de position, Pd cumulée sur les observations d'une cible qui se rapproche. **Étape 2.4** : fluctuation donnée aussi par sa forme Gamma `Fluct(k)` (non entière), qui reproduit exactement les cas de Swerling. |
 | `core/antenna.py` | **Étapes 1.1 et 1.2.** Diagramme de rayonnement calculé à partir de la composition des TRSA : faisceau d'émission uniforme, pondération de réception par niveau de lobes, étendue RMS de l'ouverture, profil des lobes lointains sur tout l'espace visible (lobes de jeu compris). Profils **moyennés en azimut** du diagramme de réception, pour l'intégrale du bruit du ciel (étape 1.5). Résultat mis en cache dans `core/antenna_cache.json`. |
 | `core/environment.py` | **Étape 2.5.** Environnement d'une face : structure du vaisseau d'après le **modèle 3D** `assets/models/LP_NISO.obj` (`[ship]`, depuis le 22 octobre 2026 ; primitives auparavant), lancer de rayons exact sur ses triangles, masquage par fraction bloquée du tube d'ouverture, bruit de la structure (lobe principal et lobes lointains) ; surfaces des corps (masque, fouillis sur l'anneau d'égale distance, saturation des CAN) ; brouilleurs (classes `[jammers.*]`, bruit par le diagramme, annulation, portée de percée) ; rotation de Faraday. Tables de structure mises en cache dans `core/structure_cache.npz`. Branché dans `core/optimizer.sector_sky` (S et Ku). |
+| `core/frames.py` | **Étape 3.0, couche calculateur.** Message de navigation (attitude, orbite facultative), repères des volumes (vaisseau, inertiel, RTN, limbe, deux directions) et du ciel ; `resolve()` passe la mission dans le repère du vaisseau, une seule fois, avant tout calcul (optimiseur, redondance, estimation rapide, vues 3D). Rotations : quaternion, matrice, angles 3-2-1. |
 | `core/sky.py` | **Étape 1.5.** Hausse de la température d'antenne selon la direction : fond galactique et corps du ciel de la mission (Soleil, Terre, Lune...), donnés dans le repère du vaisseau ; aveuglement et centile du bilan d'un secteur. |
 | `core/isolation.py` | **Étape 1.5.** Fuites entre bandes et entre faces : matrice des verdicts, règles pour l'ordonnanceur (cadence commune par bande, harmonique S dans le canal Ku). |
 | `core/optimizer.py` | Optimiseur de la veille S. Choisit pour chaque secteur la fréquence et les formes d'onde par tranche d'angle de dépointage, et établit le bilan énergie et temps par face. Depuis l'étape 1.5, il évalue le T_sys du ciel sur le secteur (`sector_sky`), retire les pointages aveuglés et met les portées à l'échelle du T_sys du bilan. |
@@ -201,10 +202,10 @@ Procédure d'une étape :
 | Outil | `pytest`, déclaré dans `requirements-dev.txt`. |
 | Famille 1 : valeurs figées | `tests/test_snapshots.py`. Toutes les sorties numériques de l'outil sont comparées avec une **tolérance relative de 1e-9**. |
 | Famille 2 : physique et invariants | `tests/test_physics.py`. Lois qui doivent tenir quelles que soient les valeurs : R ∝ σ^¼, R ∝ P^¼, cohérence du nombre de pointages, du cache, de la borne de Cramér-Rao, des options de lobes, etc. Le self-test du modèle est conservé. |
-| Missions de test | `mission_example` (en JSON et en CSV), `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`, `mission_sky_demo` (étape 1.5 : un ciel avec le Soleil, la Lune, le limbe de la Terre et un repère galactique), `mission_target_library` (étape 2.4 : un secteur par classe de cible, plus un KKV surchargé). Les deux premières ont été récupérées dans l'historique git. |
+| Missions de test | `mission_example` (en JSON et en CSV), `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`, `mission_sky_demo` (étape 1.5 : un ciel avec le Soleil, la Lune, le limbe de la Terre et un repère galactique), `mission_target_library` (étape 2.4 : un secteur par classe de cible, plus un KKV surchargé), `mission_environment` (étape 2.5), `mission_frames` (étape 3.0 : orbite basse terrestre à 400 km, vaisseau pointé vers le nadir, un secteur par repère, ciel inertiel). Les deux premières ont été récupérées dans l'historique git. |
 | Rapport d'impact | `python tests/impact_report.py`, à chaque étape, avant de régénérer les valeurs figées : chiffres clés, et pour chaque mission de test les formes d'onde de veille et les modes de confirmation qui changent. |
 | Régénération | `python tests/update_snapshots.py`. Chaque régénération est consignée dans `tests/snapshots/JOURNAL.md`, avec sa cause et les formes d'onde ou modes qui ont changé. |
-| État | 126 tests passent après l'étape 2.5 (environ 6 min sur le portable, sur secteur en mode performance ; voir §1.5 pour les écarts de durée). |
+| État | 144 tests passent après l'étape 3.0 (environ 6 min 30 sur le fixe 9800X3D ; voir §1.5 pour les écarts de durée selon la machine). |
 
 ---
 
@@ -912,6 +913,26 @@ Tous ces termes sont évalués par direction de pointage dans `sector_sky` (band
 
 **Rotation de Faraday.** Ω = 2 × 2,36·10⁴ · B∥ · TEC / f² (aller-retour, unités SI), à partir du contenu électronique et du champ le long de la ligne de visée donnés par le scénario (`tec_tecu`, `b_parallel_nt`) ; en sortie seulement : le GLRT à deux voies récupère l'énergie.
 
+### 7.14 Repères des volumes et navigation (étape 3.0, `core/frames.py`)
+
+**Architecture.** L'outil est la **couche calculateur** (couche 3 de l'architecture de la feuille de route, étape 3.0) en préparation de mission : il connaît sa navigation (attitude, orbite propre, corps central) et ses seules détections, jamais la vérité des cibles. Il fait suivre les volumes au vaisseau à partir de la navigation : c'est du pilotage. En préparation de mission, la navigation est un instantané saisi par l'opérateur ; plus tard, le message de navigation du simulateur global.
+
+**Passage au repère du vaisseau.** `frames.resolve(mission)` le fait une seule fois, avant tout calcul. Pour chaque secteur hors repère `ship`, la matrice M = A_repère←ICRF · R(q) (vaisseau → ICRF → repère du secteur) est attachée au secteur (`frame_m`), et la trame des directions (0,2°) est tournée par M avant le test de la boîte ou de la calotte : c'est exact, à la trame près. Le ciel inertiel (corps, repère galactique, brouilleurs à distance) est tourné par Rᵀ. Tout le calcul en aval (optimiseur, Ku, ciel, structure, vues 3D) reste dans le repère du vaisseau. Une mission sans clé de repère, ou une matrice identité, est traitée exactement comme avant.
+
+**Attitude.** Quaternion de Hamilton `q_ship_to_icrf` = [w, x, y, z], scalaire en premier : v_ICRF = R(q) v_vaisseau. Saisie dans l'interface en lacet, tangage et roulis (séquence 3-2-1 : R_réf←vaisseau = R_z(lacet) R_y(tangage) R_x(roulis)), par rapport à l'ICRF ou au RTN.
+
+| Repère | Axes (dans l'ICRF) | Remarque |
+|---|---|---|
+| `ship` | ceux du vaisseau | volumes liés au vaisseau (protection) |
+| `inertial` | ICRF : X vers le point vernal, Z vers le pôle céleste | φ = ascension droite, ε = déclinaison |
+| `rtn` | X = r / \|r\| ; Z = r × v / \|r × v\| ; Y = Z × X | demande l'orbite |
+| `limb` | Z = r / \|r\| (zénith local) ; X = projection de v sur l'horizontale locale ; Y = Z × X | boîte seule ; ε compté à partir du limbe, situé à arccos((R + h_limbe) / \|r\|) sous l'horizontale locale (19,8° à 400 km d'altitude au-dessus de la Terre, limbe à 0 km) ; la bande suit l'altitude ; demande l'orbite |
+| `two_dir` | Z = direction principale ; X dans le plan des deux directions, du côté de la seconde ; Y = Z × X | directions en ascension droite et déclinaison ; au moins 1° de l'alignement |
+
+Dans tous les repères, φ est compté autour de Z, de X vers Y, et ε à partir du plan XY, vers +Z.
+
+**Contrôles et alertes.** Navigation : un seul message (étape 5.3 pour l'enveloppe), norme du quaternion à 1e-3 près (normalisé), date ISO 8601, orbite complète (corps de `[sky.surface]`, r hors du corps, plan d'orbite défini). Secteur : repère connu, orbite donnée pour `rtn` et `limb`, vaisseau au-dessus de l'altitude du limbe, directions de `two_dir` données et non alignées. Alerte quand le corps central du ciel s'écarte de plus de 0,5° de la navigation (direction ou rayon apparent).
+
 ---
 
 ## 8. Paramètres de l'outil (`[tool.*]`)
@@ -938,6 +959,7 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 | | `masking_offsets_cells` | [1, 2, 3] | **Étape 2.4, D1-D2** : écarts (en cellules) des niveaux de masquage donnés en sortie. |
 | `tool.environment` | `aperture_ray_rings`, `block_grid_step_uv`, `struct_noise_dirs`, `clutter_ring_points` | 3, 0,01, 20 000, 720 | **Étape 2.5** : précision du lancer de rayons, de la table de blocage, de l'intégrale du bruit de la structure et de l'anneau de fouillis. |
 | `tool.targets` | `default_type` | "GENERIC" | **Étape 2.4, A3** : classe qui complète un secteur sans `target_type` (sa SER et son Swerling sont gardés). |
+| `tool.frames` | `q_norm_tol`, `two_dir_min_sep_deg`, `sky_nav_tol_deg`, `limb_alt_km` | 1e-3, 1°, 0,5°, 0 km | **Étape 3.0, B3, R5, R8, R4** : tolérance de la norme du quaternion (normalisé en deçà, refusé au-delà), écart minimal des deux directions, écart toléré entre le ciel et la navigation (alerte), altitude du limbe par défaut. Hors de l'empreinte des fichiers dérivés. |
 | `tool.alerts` | `mismatch_db_per_pass` | 3,0 dB | **Étape 1.2, Q5** : seuil d'alerte de la désadaptation par passage. |
 | | `rr_t0_ratio` | 3 | **Étape 2.4, B4** : alerte quand la revisite d'un secteur est inférieure à 3 T₀ (observations corrélées). |
 | | `sky_above_budget_db` | 1,0 dB | **Étape 1.5** : les pointages au-dessus du T_sys du bilan ne sont signalés que si le pire le dépasse de plus que cela (sinon le centile signalerait toujours 1 % des pointages). |
@@ -955,13 +977,15 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 |---|---|---|
 | `eps_min_deg` / `eps_max_deg` | −90° / +90° (pas de limite) | Fenêtre d'élévation de la mission, envoyée à l'ordonnanceur. Le plancher physique est d'environ −55°. |
 | `face_elec_mw` | 2,0 MW | Doit être strictement positive et ne pas dépasser 8 MW (validation provisoire). |
-| **`sky`** | absent | **Étape 2.5 :** aussi `jammers` (brouilleurs à distance) et, par corps, `closing_mps` / `closing_spread_mps`. **Étape 1.5.** Ciel dans le **repère du vaisseau**, rempli plus tard par le simulateur global de scénario : `bodies` (id, type de `[sky.tb_k]`, `phi_deg`, `eps_deg`, `angular_radius_deg`, `tb_k` facultatif) et `galactic` facultatif (directions du pôle et du centre galactiques, à 90° l'une de l'autre). Sans ciel : ciel froid et fond galactique au pire cas. L'interface ne l'édite pas ; elle le conserve. |
+| **`nav`** | absent (attitude identité, sans orbite) | **Étape 3.0.** Liste de messages de navigation, **un seul** jusqu'à l'étape 5.3 : `label`, `epoch` (ISO 8601, UTC, facultative), `q_ship_to_icrf` [w, x, y, z], orbite facultative (`central_body` de `[sky.surface]`, `r_km` et `v_kms` depuis le centre du corps, axes ICRF), `attitude_ref` (`icrf` ou `rtn`, affichage des angles dans l'interface seulement). §7.14. |
+| **`sky`** | absent | **Étape 3.0 :** clé `frame` = `ship` (par défaut) ou `inertial` (ciel en axes ICRF, tourné avec l'attitude). **Étape 2.5 :** aussi `jammers` (brouilleurs à distance) et, par corps, `closing_mps` / `closing_spread_mps`. **Étape 1.5.** Ciel dans le **repère du vaisseau**, rempli plus tard par le simulateur global de scénario : `bodies` (id, type de `[sky.tb_k]`, `phi_deg`, `eps_deg`, `angular_radius_deg`, `tb_k` facultatif) et `galactic` facultatif (directions du pôle et du centre galactiques, à 90° l'une de l'autre). Sans ciel : ciel froid et fond galactique au pire cas. L'interface ne l'édite pas ; elle le conserve. |
 
 ### 9.2 Secteur (volume de veille)
 
 | Clé | Défaut | Rôle |
 |---|---|---|
 | `id`, `shape` | S01…, "box" | Une boîte (φ, ε) ou une calotte (centre, rayon). |
+| **`frame`** | absent = `ship` ; **`inertial`** pour un nouveau secteur de l'interface | **Étape 3.0.** Repère du volume : `ship`, `inertial`, `rtn`, `limb` (avec `limb_alt_km`, 0 km par défaut), `two_dir` (avec `frame_p_ra_deg`, `frame_p_dec_deg`, `frame_s_ra_deg`, `frame_s_dec_deg`). La boîte ou la calotte est décrite dans ce repère (§7.14). |
 | `phi_min_deg`, `phi_max_deg`, `eps_min_deg`, `eps_max_deg` | 0°, 90°, 0°, 60° | Boîte. φ_min > φ_max est accepté et signifie un passage par 0°. |
 | `phi0_deg`, `eps0_deg`, `radius_deg` | 0°, 20°, 15° | Calotte. |
 | **`target_type`** | absent | **Étape 2.4.** Classe de la bibliothèque (§5.13). Absente : la SER et le Swerling du secteur, avec les autres valeurs de GENERIC. L'interface ne propose pas encore le choix de la classe (étape 5.1) : elle conserve la clé, montre les valeurs de la classe, et une SER ou un Swerling modifié devient une surcharge. |
@@ -985,7 +1009,7 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 ### 9.3 Formats
 
 - Fichiers JSON (complets) ou CSV (tableau des secteurs, avec les tranches de poursuite en JSON dans une seule colonne). Les deux restent compatibles avec l'entrée de l'optimiseur.
-- La validation (« Validate mission prep ») vérifie : identifiants uniques, bornes, φ et ε, v_min ≤ v_max, valeurs strictement positives, la classe de cible (connue) et ses surcharges (étape 2.4), tranches de poursuite sans chevauchement et dans la portée, `rx_sll_db` parmi les options, et le ciel (champs, types connus ou température donnée, repère galactique cohérent).
+- La validation (« Validate mission prep ») vérifie : identifiants uniques, bornes, φ et ε, v_min ≤ v_max, valeurs strictement positives, la classe de cible (connue) et ses surcharges (étape 2.4), tranches de poursuite sans chevauchement et dans la portée, `rx_sll_db` parmi les options, le ciel (champs, types connus ou température donnée, repère galactique cohérent), et depuis l'étape 3.0 la navigation et le repère de chaque secteur (§7.14). Le CSV porte `frame`, `limb_alt_km` et les quatre angles de `two_dir` ; la navigation et le ciel n'ont pas de colonne (JSON seulement).
 
 ---
 
@@ -1358,7 +1382,7 @@ Effet sur les missions de test (valeurs de test seulement) : seul `mission_sky_d
 
 Nouvelle mission de test `mission_environment.json` (Terre, Lune, deux brouilleurs à distance, un KKV avec SPJ_KKV, objets et Faraday).
 
-### Géométrie du vaisseau : le modèle 3D (22 octobre 2026, modèle V6.10.1)
+### Géométrie du vaisseau : le modèle 3D (22 octobre 2026, modèle V6.10.1, commit 9ea4985)
 
 Après la reprise sur une autre machine, un audit du code des étapes 2.4 et 2.5 a relevé que le cône porte-antennes des primitives (25,6°) ne correspondait pas exactement à l'inclinaison de 25°, sans contrôle au chargement. Décisions de l'utilisateur :
 - les antennes sont bien inclinées de **25°** (confirmé par le concepteur de la géométrie du vaisseau) ;
@@ -1368,3 +1392,27 @@ Après la reprise sur une autre machine, un audit du code des étapes 2.4 et 2.5
 Mise en œuvre : `[ship.hull]` et `[ship.parts]` supprimés ; lancer de rayons exact sur les triangles du modèle ; matériaux par région (région des radiateurs confirmée par l'utilisateur : V) ; contrôles au chargement des cotes et des quatre ouvertures (sur la face avant d'un panneau, normale à `geometry.tilt_deg`), ce qui règle le point de l'audit. Le test du changement d'inclinaison vérifie désormais que le modèle radar suit l'inclinaison et que l'outil refuse une inclinaison qui ne correspond plus au modèle 3D.
 
 Effet (valeurs de test seulement) : constats inchangés (aucun pointage masqué, radiateurs jamais vus) ; cellules bloquées par face 735 → 621 ; chiffres clés des missions de test à moins de 0,01 % ; aucune forme d'onde ni mode de confirmation ne change (voir `tests/snapshots/JOURNAL.md`).
+
+### Étape 3.0 : repères des volumes et navigation (22 octobre 2026, modèle V6.11.0)
+
+Constat de l'utilisateur : les volumes étaient définis dans le repère du vaisseau ; si le vaisseau tourne, la région veillée tourne avec lui, ce qui n'a pas de sens opérationnel. Étape ajoutée avant la 3.1.
+
+| Question | Décision |
+|---|---|
+| Q1 repère des volumes | Choisi par mission parmi inertiel, orbital local et deux directions ; chaque secteur peut rester dans le repère du vaisseau. |
+| Q2 attitude | Une seule par mission maintenant, puis une enveloppe (5.3), puis le profil dans le temps du simulateur global : l'architecture le prévoit dès 3.0 (liste, une seule fonction de rotation, calcul en aval dans le repère du vaisseau). |
+| Q3 qui fait la rotation | Le radar (le calculateur), à partir de l'attitude fournie ; le simulateur reste la source de l'attitude et des positions. |
+| Q4 ciel | Dans le même repère de mission que les secteurs. |
+| Q5 régions non centrées sur le vaisseau | Renvoyées au simulateur global (parallaxe). |
+| Q6 place | Nouvelle étape 3.0, avant la 3.1. |
+| D1 à D6 architecture | Quatre couches, vérité et connaissance séparées (Feuille_de_route.md, étape 3.0) ; le convertisseur et la simulation RF côté simulation ; le calculateur reçoit un message de navigation ; repères vaisseau, inertiel, RTN, limbe, deux directions (le volume lié à une piste en 3.3) ; périmètre réduit au calculateur ; ciel prévu par le calculateur, vérité par la simulation. |
+
+Question de fond de l'utilisateur : la chaîne simulation globale → repère du vaisseau → simulation radar → détection. Réponse : oui, avec le calculateur qui ne lit que la navigation ; dire si un objet donné est détecté relève d'un mode objet par objet (ordonnanceur 4.3, simulation à événements discrets 5.4), sans entrée séparée dans la feuille de route (décision de l'utilisateur) ; le simulateur devra fournir aussi la vitesse relative, la classe et, à terme, l'attitude de la cible (SER selon l'aspect).
+
+Variables (toutes les propositions acceptées) : N1 liste d'un seul message (`label`, `epoch`, `q_ship_to_icrf`) ; N2 quaternion de Hamilton, scalaire en premier, vaisseau → ICRF ; N3 tolérance de norme 1e-3 ; N4 orbite facultative (`central_body`, `r_km`, `v_kms`), obligatoire pour RTN et limbe ; N5 saisie en lacet, tangage, roulis 3-2-1 par rapport à l'ICRF ou au RTN, quaternion modifiable ; N6 compatibilité (sans `nav` ni `frame` : comme avant). R1 à R5 repères (RTN plutôt que le LVLH du CCSDS ; limbe : ε compté à partir du limbe, `limb_alt_km` **0 km par défaut**, boîte seule ; deux directions : au moins 1°) ; R6 nouveau secteur de l'interface en `inertial` ; R7 fenêtre de balayage globale dans le repère du vaisseau ; R8 ciel en `ship` ou `inertial`, alerte à 0,5° contre la navigation. T1 à T6 tests et mission de test.
+
+Mise en œuvre : `core/frames.py` (couche calculateur) ; `Sphere._mask` teste la boîte ou la calotte dans le repère du secteur ; `optimizer.run`, la redondance (la découpe automatique ne combine que des boîtes du même repère), l'estimation rapide et les vues 3D travaillent sur la mission passée dans le repère du vaisseau ; interface : groupe « Navigation », repère du secteur (avec l'altitude du limbe et les deux directions), vue 3D « ship » ou « ICRF » (caméra dans l'ICRF et axes ICRF) ; colonnes CSV ; `tool.frames` hors de l'empreinte des fichiers dérivés.
+
+Mise au point : le test de rotation de 90° a révélé une matrice de secteur appliquée dans le mauvais sens (vaisseau ← ICRF au lieu de vaisseau → ICRF ; le ciel était juste) ; corrigé. La mission de test, d'attitude symétrique (rotation de 180°), ne le montrait pas.
+
+Effet (valeurs de test seulement) : aucune valeur figée existante ne change (les missions sont dans le repère du vaisseau) ; nouvelle mission `mission_frames.json` et son instantané. Le test de rotation montre un écart de moins de 1 % sur le bilan du ciel d'un secteur qui contient la Lune, dû à l'échantillonnage du bruit du ciel par blocs, qui n'est pas invariant par rotation (et de 4 % avec le Soleil, source ponctuelle chaude) : effet de la trame, pas de la physique. C'est une limite du modèle (bilan de préparation de mission et future enveloppe d'attitudes), pas de la simulation objet par objet si elle calcule le T_sys à la direction exacte : correction par raffinement local autour des corps chauds en 3.1 (option 1, validée par l'utilisateur).

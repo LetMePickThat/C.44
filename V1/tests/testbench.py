@@ -25,6 +25,7 @@ import numpy as np  # noqa: E402
 
 from core import cost_estimate as ce  # noqa: E402
 from core import detection  # noqa: E402
+from core import frames  # noqa: E402
 from core import geometry as geo  # noqa: E402
 from core import isolation as iso  # noqa: E402
 from core import mission as md  # noqa: E402
@@ -43,7 +44,7 @@ GRID_RES_DEG = 0.5      # raster of the redundancy check and the fast estimate (
 
 MISSIONS = ("mission_example.json", "mission_example.csv", "mission_veille500.json",
             "mission_redundancy_demo.json", "mission_synthetic_mix.json", "mission_sky_demo.json",
-            "mission_target_library.json", "mission_environment.json")
+            "mission_target_library.json", "mission_environment.json", "mission_frames.json")
 # Bodies on the face 0 boresight (phi 0, eps = tilt) for the sky-noise terms of the model case (step 1.5)
 SKY_BODIES = {"sun": 0.267, "moon": 0.26, "earth": 60.0}
 
@@ -209,7 +210,7 @@ def mission_case(name: str, grid: "geo.SphereGrid", table) -> dict:
     out["redundancy"] = {"findings": findings, "pair_notes": {f"{a} > {b}": t for (a, b), t in notes.items()}}
     out["fast_estimate"] = {s["id"]: ce.estimate_sector_faces(table, s, grid, g["eps_min_deg"], g["eps_max_deg"],
                                                               rm.face_elec_avail_w(g["face_elec_mw"]))
-                            for s in m["sectors"]}
+                            for s in frames.resolve(m)[0]["sectors"]}   # the GUI also estimates in the ship frame
     return to_plain(out)
 
 

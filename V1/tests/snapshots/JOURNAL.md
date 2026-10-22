@@ -302,3 +302,12 @@ Model changes (see the header of core/radar_model.py):
   e T 2.9 K); still no owned direction blocked and the radiator wings never seen.
 - Test missions: structure noise through the far sidelobes only, every key figure within 0.01 %; no waveform or
   confirmation-mode change. core/structure_cache.npz rebuilt; core/cost_table.json regenerated (parameter fingerprint).
+
+## 2026-10-22 -- frames of the volumes and navigation message (radar_model V6.11.0, roadmap step 3.0)
+
+Model changes (see the header of core/radar_model.py): core/frames.py turns the volumes and the sky into the ship
+frame with the mission navigation (global key nav, sector key frame, sky key frame) before any computation.
+- Existing test missions: no frame key, so no change; their snapshots were NOT refrozen (pytest confirms them).
+- New test mission mission_frames.json (LEO 400 km, ship pointed nadir, one sector per frame, inertial sky):
+  snapshot frozen alone (python tests/update_snapshots.py mission_frames).
+- core/cost_table.json unchanged (tool.frames is outside the fingerprint of the derived files).

@@ -608,6 +608,12 @@ clutter_ring_points = 720       # points on the iso-range ring of a surface (sid
 [tool.targets]                # target library (step 2.4)
 default_type = "GENERIC"         # class completing a sector that names no target_type (its own rcs_m2 / swerling kept)
 
+[tool.frames]                 # frames of the volumes and navigation message (core/frames.py, step 3.0)
+q_norm_tol          = 1e-3      # attitude quaternion: |q| within 1 +/- this is normalised, beyond it is refused (B3)
+two_dir_min_sep_deg = 1.0       # frame 'two_dir': the two directions at least this far from aligned (R5)
+sky_nav_tol_deg     = 0.5       # alert when the sky's central body differs from the navigation by more (direction, radius) (R8)
+limb_alt_km         = 0.0       # frame 'limb': grazing altitude of the limb when the sector gives no limb_alt_km (R4)
+
 [tool.alerts]                 # validation thresholds (step 1.2)
 mismatch_db_per_pass = 3.0      # alert when the active-mismatch loss of a used scan direction exceeds this, per pass
 sky_above_budget_db  = 1.0      # flag the positions above a sector's sky-noise budget only when the worst is this far above (step 1.5)
@@ -635,6 +641,7 @@ confirm_mode = "auto"
 new_targets_per_rr = 1.0
 rx_sll_db = -25.0               # RX peak sidelobe level of the volume, one of aperture.rx_sll_options_db (S and Ku)
 fa_per_rr = 10.0                # false alarms tolerated per sector and per revisit (detection.fa_mode 'fa_rate', step 2.3 C2)
+frame = "inertial"              # frame of a new sector (core/frames.py, step 3.0 R6); a sector without the key is in the ship frame
 
 [tool.mission_defaults.box]
 phi_min_deg = 0.0

@@ -14,6 +14,9 @@ tied to it, and a double-click snaps a moved label back. PyVista's label actors 
 (add_point_labels always adds them non-pickable), so hit-testing estimates each label's on-screen box from its
 text instead of querying VTK -- see _label_hit. Dragged positions are in the current coordinate system (km in
 1:1 scale, unit-sphere otherwise) and are cleared on a scale-mode switch (_on_scale_changed).
+
+View frame (step 3.0): everything is drawn in the SHIP frame; the "ICRF" view only places the camera in the inertial
+frame of the mission navigation (set_navigation) and adds the ICRF axes, so the ship appears with its attitude.
 """
 from __future__ import annotations
 
@@ -25,7 +28,8 @@ from typing import Dict, Iterable, List, Optional, Set
 import numpy as np
 import pyvista as pv
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QCheckBox, QDoubleSpinBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import (QCheckBox, QComboBox, QDoubleSpinBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout,
+                             QWidget)
 from pyvistaqt import QtInteractor
 
 from core import geometry as geo
@@ -33,6 +37,8 @@ from gui.widgets import DecimalSpinBox
 
 KM_AXES_PREFIX = "km_axes_"
 KM_AXES_LINES = [f"{KM_AXES_PREFIX}{a}" for a in ("X", "Y", "Z")]   # the 3D axis meshes (labels are 2D actors)
+ICRF_AXES = (("X", "X ICRF (vernal equinox)"), ("Y", "Y ICRF"), ("Z", "Z ICRF (celestial pole)"))
+ICRF_AXIS_NAMES = [f"icrf_axis_{a}" for a, _ in ICRF_AXES]
 SECTOR_LABEL_FONT_SIZE = 13   # shared by _build_sectors (draws) and _label_hit (estimates the on-screen box)
 
 
@@ -45,6 +51,7 @@ class DisplayBar(QWidget):
     scale_axes_changed = pyqtSignal(bool)
     background_changed = pyqtSignal(bool)
     altitude_changed = pyqtSignal(float)
+    view_frame_changed = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -95,6 +102,14 @@ class DisplayBar(QWidget):
         self.cb_scale_axes.toggled.connect(self.scale_axes_changed)
         self.cb_true_scale.toggled.connect(self.cb_scale_axes.setEnabled)
         h.addWidget(self.cb_scale_axes)
+        h.addSpacing(16)
+        h.addWidget(QLabel("View:"))
+        self.cb_view_frame = QComboBox()
+        self.cb_view_frame.addItems(["ship", "ICRF"])
+        self.cb_view_frame.setToolTip("Ship: the ship frame. ICRF: the camera in the inertial frame of the mission "
+                                      "navigation (attitude), with the ICRF axes; the ship appears with its attitude")
+        self.cb_view_frame.currentTextChanged.connect(self.view_frame_changed)
+        h.addWidget(self.cb_view_frame)
         h.addStretch(1)
 
     def face_visible(self, k: int) -> bool:
@@ -175,17 +190,34 @@ def add_static_scene(plotter) -> None:
     plotter.set_background("white")
 
 
-def set_default_camera(plotter) -> None:
-    """Default iso view framing the unit sphere; its centre is the rotation pivot."""
+def set_default_camera(plotter, r_view: Optional[np.ndarray] = None) -> None:
+    """Default iso view framing the unit sphere; its centre is the rotation pivot. r_view (3x3, ship <- view frame,
+    e.g. ICRF): the same view taken in that frame."""
     r = 5.5
-    eye = (r * math.cos(math.radians(24)) * math.cos(math.radians(-58)),
-           r * math.cos(math.radians(24)) * math.sin(math.radians(-58)),
-           r * math.sin(math.radians(24)))
-    plotter.camera.up = (0, 0, 1)
-    plotter.camera.position = eye
-    plotter.camera.focal_point = (0, 0, 0.12)
+    eye = np.array((r * math.cos(math.radians(24)) * math.cos(math.radians(-58)),
+                    r * math.cos(math.radians(24)) * math.sin(math.radians(-58)),
+                    r * math.sin(math.radians(24))))
+    up, focal = np.array((0.0, 0.0, 1.0)), np.array((0.0, 0.0, 0.12))
+    if r_view is not None:
+        eye, up = r_view @ eye + focal, r_view @ up
+    plotter.camera.up = tuple(up)
+    plotter.camera.position = tuple(eye)
+    plotter.camera.focal_point = tuple(focal)
     plotter.camera.clipping_range = (0.05, 50.0)
-    plotter._pivot = (0.0, 0.0, 0.12)
+    plotter._pivot = tuple(focal)
+
+
+def set_icrf_axes(plotter, r_is: Optional[np.ndarray], length: float = 1.6) -> None:
+    """ICRF axes drawn in the ship frame (r_is: ship <- ICRF), or removed (None)."""
+    remove_actors(plotter, ICRF_AXIS_NAMES + [n + "_label" for n in ICRF_AXIS_NAMES])
+    if r_is is None:
+        return
+    for k, ((a, text), name) in enumerate(zip(ICRF_AXES, ICRF_AXIS_NAMES)):
+        tip = r_is[:, k] * length
+        plotter.add_mesh(pv.Line((0, 0, 0), tuple(tip)), color=geo.COLORS["muted"], line_width=2, name=name,
+                         render=False)
+        plotter.add_point_labels([tuple(tip * 1.08)], [text], text_color=geo.COLORS["muted"], font_size=11,
+                                 shape=None, show_points=False, name=name + "_label", render=False)
 
 
 def lock_pivot(plotter) -> None:
@@ -348,6 +380,7 @@ class SceneView(QWidget):
         self.display_bar.scale_axes_changed.connect(lambda _on: self.apply_visibility())
         self.display_bar.background_changed.connect(lambda _on: self._update_background())
         self.display_bar.altitude_changed.connect(lambda _v: self._update_background())
+        self.display_bar.view_frame_changed.connect(lambda _f: self._apply_view_frame())
         v.addWidget(self.display_bar)
         self.plotter = QtInteractor(self)
         self.plotter.setMinimumWidth(500)
@@ -367,7 +400,28 @@ class SceneView(QWidget):
 
         self._label_pos: Dict[str, np.ndarray] = {}   # sid -> dragged label point (world coords), only if moved
         self._drag: Optional[dict] = None              # active drag: {"sid", "z"} while the mouse button is down
+        self._r_is: Optional[np.ndarray] = None        # ship <- ICRF of the mission navigation (step 3.0)
         self._install_label_drag()
+
+    # ------------------------------------------------------------------ view frame (step 3.0)
+    def set_navigation(self, r_si: Optional[np.ndarray]) -> None:
+        """Attitude of the mission navigation (ship -> ICRF), None if invalid; the ICRF view follows it."""
+        r_is = None if r_si is None else np.asarray(r_si).T
+        same = (r_is is None and self._r_is is None) or (
+            r_is is not None and self._r_is is not None and np.array_equal(r_is, self._r_is))
+        self._r_is = r_is
+        self.display_bar.cb_view_frame.setEnabled(r_is is not None)
+        if not same and self.display_bar.cb_view_frame.currentText() == "ICRF":
+            self._apply_view_frame()
+
+    def _icrf_view(self) -> bool:
+        return self.display_bar.cb_view_frame.currentText() == "ICRF" and self._r_is is not None
+
+    def _apply_view_frame(self) -> None:
+        set_icrf_axes(self.plotter, self._r_is if self._icrf_view() else None)
+        if not self.display_bar.true_scale():
+            set_default_camera(self.plotter, self._r_is if self._icrf_view() else None)
+        self.apply_visibility()
 
     # ------------------------------------------------------------------ draggable labels
     def _install_label_drag(self) -> None:
@@ -505,7 +559,7 @@ class SceneView(QWidget):
         bar, p = self.display_bar, self.plotter
         for k in range(4):
             set_actors_visible(p, face_actor_names(k), bar.face_visible(k) and not bar.true_scale())
-        set_reference_scene_visible(p, not bar.true_scale())
+        set_reference_scene_visible(p, not bar.true_scale())   # ICRF axes included
         for key, actor in p.actors.items():
             if key.startswith(KM_AXES_PREFIX):
                 actor.SetVisibility(bar.scale_axes_visible())
@@ -597,7 +651,7 @@ class SceneView(QWidget):
             fit_camera_to_actors(self.plotter, [n for n in self._actor_names if n.endswith("_surf")]
                                  + (KM_AXES_LINES if self.display_bar.scale_axes_visible() else []))
         else:
-            set_default_camera(self.plotter)
+            set_default_camera(self.plotter, self._r_is if self._icrf_view() else None)
         self._update_background()
         self.apply_visibility()
 

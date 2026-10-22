@@ -1,0 +1,156 @@
+{
+ "_comment": "TEST mission (step 3.0): frames of the volumes. Low Earth orbit 400 km, 51.6 deg, ship pointed nadir (ship +X to the nadir, +Z along track); one sector per frame, an inertial sky (the Earth consistent with the navigation, the Sun, the galactic frame in ICRF). Test values only, not radar performance.",
+ "global": {
+  "eps_min_deg": -90.0,
+  "eps_max_deg": 90.0,
+  "face_elec_mw": 2.0,
+  "nav": [
+   {
+    "label": "LEO 400 km nadir",
+    "epoch": "2055-03-21T12:00:00Z",
+    "q_ship_to_icrf": [
+     0.0,
+     0.0,
+     0.328866646739,
+     0.944376370237
+    ],
+    "central_body": "earth",
+    "r_km": [
+     6771.0,
+     0.0,
+     0.0
+    ],
+    "v_kms": [
+     0.0,
+     4.765817619,
+     6.012965361
+    ]
+   }
+  ],
+  "sky": {
+   "frame": "inertial",
+   "bodies": [
+    {
+     "id": "EARTH",
+     "type": "earth",
+     "phi_deg": 180.0,
+     "eps_deg": 0.0,
+     "angular_radius_deg": 70.2074
+    },
+    {
+     "id": "SUN",
+     "type": "sun",
+     "phi_deg": 0.0,
+     "eps_deg": 0.0,
+     "angular_radius_deg": 0.267
+    }
+   ],
+   "galactic": {
+    "pole_phi_deg": 192.859,
+    "pole_eps_deg": 27.128,
+    "centre_phi_deg": 266.405,
+    "centre_eps_deg": -28.936
+   }
+  }
+ },
+ "sectors": [
+  {
+   "id": "PROT",
+   "frame": "ship",
+   "shape": "box",
+   "phi_min_deg": 0.0,
+   "phi_max_deg": 360.0,
+   "eps_min_deg": 20.0,
+   "eps_max_deg": 40.0,
+   "range_km": 300.0,
+   "rcs_m2": 1.0,
+   "swerling": 1,
+   "rr_target_s": 20.0,
+   "v_close_min_mps": 1000.0,
+   "v_close_max_mps": 7000.0,
+   "rx_sll_db": -25.0,
+   "confirm_mode": "auto",
+   "new_targets_per_rr": 1.0,
+   "tracking": []
+  },
+  {
+   "id": "DEEP",
+   "frame": "inertial",
+   "shape": "cap",
+   "phi0_deg": 100.0,
+   "eps0_deg": 20.0,
+   "radius_deg": 12.0,
+   "range_km": 3000.0,
+   "rcs_m2": 1.0,
+   "swerling": 1,
+   "rr_target_s": 20.0,
+   "v_close_min_mps": 1000.0,
+   "v_close_max_mps": 7000.0,
+   "rx_sll_db": -25.0,
+   "confirm_mode": "auto",
+   "new_targets_per_rr": 1.0,
+   "tracking": []
+  },
+  {
+   "id": "ORBIT",
+   "frame": "rtn",
+   "shape": "box",
+   "phi_min_deg": 75.0,
+   "phi_max_deg": 105.0,
+   "eps_min_deg": -10.0,
+   "eps_max_deg": 10.0,
+   "range_km": 2000.0,
+   "rcs_m2": 1.0,
+   "swerling": 1,
+   "rr_target_s": 20.0,
+   "v_close_min_mps": 1000.0,
+   "v_close_max_mps": 7000.0,
+   "rx_sll_db": -25.0,
+   "confirm_mode": "auto",
+   "new_targets_per_rr": 1.0,
+   "tracking": []
+  },
+  {
+   "id": "HORIZON",
+   "frame": "limb",
+   "limb_alt_km": 100.0,
+   "shape": "box",
+   "phi_min_deg": -30.0,
+   "phi_max_deg": 30.0,
+   "eps_min_deg": 0.5,
+   "eps_max_deg": 5.0,
+   "range_km": 2000.0,
+   "rcs_m2": 1.0,
+   "swerling": 1,
+   "rr_target_s": 20.0,
+   "v_close_min_mps": 1000.0,
+   "v_close_max_mps": 7000.0,
+   "rx_sll_db": -25.0,
+   "confirm_mode": "auto",
+   "new_targets_per_rr": 1.0,
+   "tracking": []
+  },
+  {
+   "id": "AXIS",
+   "frame": "two_dir",
+   "frame_p_ra_deg": 344.542,
+   "frame_p_dec_deg": 50.554,
+   "frame_s_ra_deg": 52.236,
+   "frame_s_dec_deg": 0.657,
+   "shape": "cap",
+   "phi0_deg": 0.0,
+   "eps0_deg": 90.0,
+   "radius_deg": 10.0,
+   "range_km": 2000.0,
+   "rcs_m2": 1.0,
+   "swerling": 1,
+   "rr_target_s": 20.0,
+   "v_close_min_mps": 1000.0,
+   "v_close_max_mps": 7000.0,
+   "rx_sll_db": -25.0,
+   "confirm_mode": "auto",
+   "new_targets_per_rr": 1.0,
+   "tracking": []
+  }
+ ]
+}
