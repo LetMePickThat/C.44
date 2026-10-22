@@ -271,3 +271,22 @@ Model changes (radar_model V6.9.0, see its header; target classes are CLASS MEAN
   mission_sky_demo / SUN (drops its 600 us x2 train) and EARTH (third WF 800 -> 600 us x6).
 - New test mission mission_target_library.json (KKV, KKV with eta_r 1 override, SHIP, DEBRIS, DECOY sectors).
 - core/cost_table.json regenerated (GENERIC SW1, see the renvoi to 5.5).
+
+## 2026-10-22 -- roadmap step 2.5 (environment)
+
+Model changes (radar_model V6.10.0, core/environment.py wired in optimizer.sector_sky; environment values are medians):
+- Ship structure as primitives in [ship] (also the 3D view): masking by the blocked fraction of the aperture tube
+  (none of the owned directions is blocked with the 25 deg tilt; the radiator wings are never seen), hull noise
+  through the far sidelobes (negligible: test missions move below 1e-6 relative).
+- Surfaces ([sky.surface], constant gamma): shadow, sidelobe clutter on the iso-range ring as noise (clutter-limited
+  positions blinded), Doppler rejection when the sky gives the surface's closing band, main-lobe ADC alert.
+- Jammers ([jammers.*] class means): stand-off ones in the mission sky (noise through the RX pattern, 40 dB sidelobe
+  nulling x 8 per face), self-protection ones by sector (burn-through output). Objects to confirm (objects_per_rr),
+  Faraday rotation output, GO-CFAR option and limb flag.
+- mission_sky_demo / EARTH (Earth seen from low orbit, angular radius 60 deg): sidelobe clutter of the Earth ring at
+  the sector range: budget T_sys 255 -> 998 K, 19.8 % of the positions clutter-limited (blinded), faces F3 / F4 energy
+  +168 / +160 %, S time +140 / +137 %, Ku time +57 %; waveform set: longer coherent trains (COHE 800us x4 / x8 / x12 /
+  x24). Every other test mission: no key figure changed.
+- New test mission mission_environment.json (Earth and Moon surfaces, two stand-off jammers, a KKV with SPJ_KKV,
+  objects and Faraday inputs). New derived file core/structure_cache.npz.
+- core/cost_table.json regenerated (fingerprint: new parameters; the fast estimate has no environment, see 5.5).

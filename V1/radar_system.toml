@@ -84,7 +84,7 @@ cum_pd_floor = { value = 1e-3, unit = "-", status = "V", source = "looks whose P
 range_grid_oversampling= { value = 4.0, unit = "-", status = "V", source = "detection grid in range, samples per c / 2B (digital interpolation of the ADC samples): mean straddle 0.05 dB at -25 dB (0.54 at 1.25, 0.22 at 2), step 2.2 C1, optimistic end", date = "2026-10-21" }
 doppler_zero_padding   = { value = 4.0, unit = "-", status = "V", source = "zero padding of the Doppler transform of a coherent block: mean straddle 0.07 dB (1.12 at 1, 0.29 at 2), step 2.2 C2, optimistic end", date = "2026-10-21" }
 doppler_window         = { value = "none", unit = "", status = "V", source = "Doppler weighting: none (no clutter to reject in space; Doppler sidelobes of strong targets at 2.4 / 2.5), step 2.2 C3", date = "2026-10-21" }
-cfar_type              = { value = "CA", unit = "", status = "V", source = "CA = cell-averaging CFAR (homogeneous thermal noise in space), step 2.2 D1; option OS = ordered statistic, robust to neighbouring targets (step 2.4, D3; GO / clutter at 2.5)", date = "2026-10-22" }
+cfar_type              = { value = "CA", unit = "", status = "V", source = "CA = cell-averaging CFAR (homogeneous thermal noise in space), step 2.2 D1; option OS = ordered statistic, robust to neighbouring targets (step 2.4, D3); option GO = greatest-of the two half windows, holds the Pfa at clutter edges (step 2.5, G1)", date = "2026-10-22" }
 cfar_os_rank_frac      = { value = 0.75, unit = "-", status = "V", source = "OS-CFAR rank k = this x the reference cells (step 2.4, D3), loss exact for Swerling 1 on one sample", date = "2026-10-22" }
 cfar_ref_cells         = { value = 1024, unit = "-", status = "V", source = "CFAR reference cells: loss 0.04 dB (0.64 at 64, 0.16 at 256), exact for Swerling 1 on one sample at the model Pd / Pfa and applied to every look (slightly prudent), step 2.2 D2-D3, optimistic end", date = "2026-10-21" }
 
@@ -259,8 +259,8 @@ finite_precision = { value = 0.3, unit = "dB", status = "D", source = "as S (ste
 calibration = { value = 0.8, unit = "dB", status = "D", source = "calibration residual; above S (0.5): same mechanical tolerances are 5x larger in phase at Ku, 25x more elements", date = "2026-10-20" }
 S_blockage  = { value = 0.3, unit = "dB", status = "D", source = "scattering by the S radiators interleaved in the bi-band TRSA (S has Ku_blockage 0.2)", date = "2026-10-20" }
 
-# Receive chain, referred to the antenna port (same Friis formula as S), MEDIAN of each Ku range (review 0.3, Claude
-# estimates to confirm): T_sys = 238.7 K (low end of the ranges ~138 K, high end ~387 K, the former block 400 K).
+# Receive chain, referred to the antenna port (same Friis formula as S), MEDIAN of each Ku range (review 0.3,
+# proposed estimates to confirm): T_sys = 238.7 K (low end of the ranges ~138 K, high end ~387 K, the former block 400 K).
 # Step 1.5 as S: cold-sky t_ant_k, ADC noise figure derived (20.0 dB), dynamic range: T_sys 230.8 K.
 [band.Ku.rx]
 t_ant_k            = { value = 2.8, unit = "K", status = "V", source = "COLD-SKY antenna temperature in Ku: CMB, galactic negligible (step 1.5; was 5 K); the sky in front of the face is added by direction ([sky])", date = "2026-10-21" }
@@ -320,6 +320,58 @@ earth      = { value = [290.0, 290.0], unit = "K", status = "V", source = "WORST
 earth_ocean = { value = [110.0, 150.0], unit = "K", status = "V", source = "low ocean emissivity in S; atmosphere and clouds in Ku", date = "2026-10-21" }
 earth_land = { value = [270.0, 275.0], unit = "K", status = "V", source = "land", date = "2026-10-21" }
 moon       = { value = [230.0, 230.0], unit = "K", status = "V", source = "disk mean, about +/- 30 K with the phase", date = "2026-10-21" }
+
+# Scattering surfaces of the body types (step 2.5, C3-C5): radius and 'constant gamma' backscatter sigma0 = gamma cos(theta_i),
+# gamma = the radar albedo of the body (sigma / pi R^2), [S, Ku] dB; median values (environment, not our technology).
+[sky.surface]
+earth       = { value = { radius_km = 6371.0, gamma_db = [-12.0, -10.0] }, unit = "km, dB", status = "V", source = "Earth mean of seas and lands (step 2.5, C3)", date = "2026-10-22" }
+earth_ocean = { value = { radius_km = 6371.0, gamma_db = [-12.0, -10.0] }, unit = "km, dB", status = "V", source = "as earth (one Earth mean, step 2.5, C3)", date = "2026-10-22" }
+earth_land  = { value = { radius_km = 6371.0, gamma_db = [-12.0, -10.0] }, unit = "km, dB", status = "V", source = "as earth (one Earth mean, step 2.5, C3)", date = "2026-10-22" }
+moon        = { value = { radius_km = 1737.4, gamma_db = [-11.5, -11.5] }, unit = "km, dB", status = "V", source = "measured lunar radar albedo ~0.07 at 12.6 and 3.8 cm (step 2.5, C3)", date = "2026-10-22" }
+
+# Jamming (step 2.5, D). Noise jammers: stand-off ("SOJ", own direction and range, given in the mission sky "jammers")
+# or self-protection ("SPJ", carried by the sector's target: sector key "jammer_type"). Classes = CLASS MEANS
+# (adversary unknown), added in the file only; density of EIRP in dBW/MHz per band, barrage over the whole usable band
+# unless cover_lo_ghz / cover_hi_ghz are given per band.
+[jamming]
+null_depth_db        = { value = 40.0, unit = "dB", status = "V", source = "adaptive sidelobe nulling of the digital array, optimistic end of 20-40 dB (step 2.5, D4); no null in the main lobe", date = "2026-10-22" }
+max_nulled           = { value = 8, unit = "-", status = "V", source = "jammers nulled per face at most, the strongest first (step 2.5, D4); compute load at 4.4", date = "2026-10-22" }
+null_min_offset_hpbw = { value = 1.0, unit = "-", status = "D", source = "a jammer is in the sidelobes (nullable) beyond this many RX beamwidths from the beam axis", date = "2026-10-22" }
+
+[jammers.SOJ_SHIP]
+nature = { value = "SOJ", unit = "", status = "V", source = "stand-off, dedicated electronic-warfare ship (step 2.5, D5)", date = "2026-10-22" }
+[jammers.SOJ_SHIP.band.S]
+erp_dbw_mhz = { value = 50.0, unit = "dBW/MHz", status = "V", source = "30 kW over 200 MHz, 30 dBi, median 2050-60 (step 2.5, D5)", date = "2026-10-22" }
+[jammers.SOJ_SHIP.band.Ku]
+erp_dbw_mhz = { value = 50.0, unit = "dBW/MHz", status = "V", source = "as S (step 2.5, D5)", date = "2026-10-22" }
+
+[jammers.SOJ_ESCORT]
+nature = { value = "SOJ", unit = "", status = "V", source = "stand-off, armed escort (step 2.5, D5)", date = "2026-10-22" }
+[jammers.SOJ_ESCORT.band.S]
+erp_dbw_mhz = { value = 40.0, unit = "dBW/MHz", status = "V", source = "3 kW over 200 MHz, 30 dBi (step 2.5, D5)", date = "2026-10-22" }
+[jammers.SOJ_ESCORT.band.Ku]
+erp_dbw_mhz = { value = 40.0, unit = "dBW/MHz", status = "V", source = "as S (step 2.5, D5)", date = "2026-10-22" }
+
+[jammers.SPJ_SHIP]
+nature = { value = "SPJ", unit = "", status = "V", source = "self-protection of a ship (step 2.5, D5)", date = "2026-10-22" }
+[jammers.SPJ_SHIP.band.S]
+erp_dbw_mhz = { value = 27.0, unit = "dBW/MHz", status = "V", source = "1 kW over 200 MHz, 20 dBi (step 2.5, D5)", date = "2026-10-22" }
+[jammers.SPJ_SHIP.band.Ku]
+erp_dbw_mhz = { value = 27.0, unit = "dBW/MHz", status = "V", source = "as S (step 2.5, D5)", date = "2026-10-22" }
+
+[jammers.SPJ_POD]
+nature = { value = "SPJ", unit = "", status = "V", source = "expendable pod flying with a KKV (step 2.5, D5)", date = "2026-10-22" }
+[jammers.SPJ_POD.band.S]
+erp_dbw_mhz = { value = 10.0, unit = "dBW/MHz", status = "V", source = "30 W over 200 MHz, 15 dBi (step 2.5, D5)", date = "2026-10-22" }
+[jammers.SPJ_POD.band.Ku]
+erp_dbw_mhz = { value = 10.0, unit = "dBW/MHz", status = "V", source = "as S (step 2.5, D5)", date = "2026-10-22" }
+
+[jammers.SPJ_KKV]
+nature = { value = "SPJ", unit = "", status = "V", source = "self-protection carried by the KKV (step 2.5, D5)", date = "2026-10-22" }
+[jammers.SPJ_KKV.band.S]
+erp_dbw_mhz = { value = 5.0, unit = "dBW/MHz", status = "V", source = "100 W over 200 MHz, 10 dBi (step 2.5, D5)", date = "2026-10-22" }
+[jammers.SPJ_KKV.band.Ku]
+erp_dbw_mhz = { value = 5.0, unit = "dBW/MHz", status = "V", source = "as S (step 2.5, D5)", date = "2026-10-22" }
 
 # Isolation between bands and faces (step 1.5; optimistic end of each range, user). Leak to ONE receive element,
 # three checks: LNA blocking (P1dB - lna_block_backoff_db), ADC clipping (clip level), desensitisation of the received
@@ -445,13 +497,47 @@ fa_r4_mean       = { value = 0.2, unit = "-", status = "V", source = "false alar
 [tracking]
 angle_zone_sigmas = { value = 4.0, unit = "sigma", status = "V", source = "angular zone opening = full width at +/-2 sigma (convention); confirmed in review 0.3", date = "2026-10-19" }
 
-# --- ship (3D view) -----------------------------------------------------------------------------------------------
+# --- ship (step 2.5: structure masking, structure noise, 3D view) -------------------------------------------------
+# The ship structure as simple primitives, in metres, SHIP frame (Z = ship axis, +Z = nose; z = 0 = the axial station
+# of the four radar arrays; r = distance to the axis; azimuth from +X toward +Y, faces at geometry.face_phi_deg).
+# Source: the reference drawing traced in the former 3D model (user, step 2.5, A1-A3). The code computes everything
+# from these entries (masking, noise, 3D view): edit, add or remove a part here only. Part types (core/environment.py):
+#   cylinder_z   : axis parallel to Z at distance radial_m, centred at z_m, radius_m, length_m
+#   cylinder_rad : axis along the azimuth, centred at radial_m, z_m, radius_m, length_m
+#   box_rad      : radial r_min_m..r_max_m, tangential +/- half_width_m, axial z_min_m..z_max_m
+#   sphere       : centre at radial_m, z_m, radius_m
+# each repeated at azimuths_deg, made of a material of [ship.materials.*].
 [ship]
-# 3D view only today. Possible later use: masking of the antenna fields of view by the ship (radiator wings, hull)
-# for the coverage computation (step 2.5); the rear elevation floor (~ -55 deg) is the only masking modelled.
-length_m        = { value = 136.4, unit = "m", status = "V", source = "hull length (locked spec)", date = "2026-10-20" }
-hull_diameter_m = { value = 16.8, unit = "m", status = "V", source = "max hull diameter", date = "2026-10-20" }
-width_m         = { value = 76.5, unit = "m", status = "V", source = "max overall width (radiator wings)", date = "2026-10-20" }
+length_m        = { value = 136.4, unit = "m", status = "V", source = "hull length (locked spec); checked against the hull profile", date = "2026-10-20" }
+hull_diameter_m = { value = 16.8, unit = "m", status = "V", source = "max hull diameter; checked against the hull profile", date = "2026-10-20" }
+width_m         = { value = 76.5, unit = "m", status = "V", source = "max overall width (radiator wings); checked against the radiator tips", date = "2026-10-20" }
+array_radius_m  = { value = 4.926, unit = "m", status = "V", source = "distance of the array centres to the ship axis at z = 0, on the tilt-angle radar-mount cone (drawing, step 2.5 A1)", date = "2026-10-22" }
+block_mask_db   = { value = 3.0, unit = "dB", status = "V", source = "a position is masked (not scanned) when the structure blocks more than this per pass: blocked fraction f of the aperture tube (near field), loss -20 log(1 - f) per pass (step 2.5, A4)", date = "2026-10-22" }
+
+[ship.hull]
+profile_z_m = { value = [14.358, 14.071, 13.496, 12.491, 11.199, 10.481, 9.763, 8.758, 8.184, 2.441, -2.441, -2.441, -31.157, -31.157, -45.515, -59.872, -105.1, -105.818, -110.125, -118.022, -122.042, -122.042, -120.463, -120.463], unit = "m", status = "V", source = "body of revolution, nose to aft (a repeated z = a step): laser turret nose, neck, radar-mount cone (25 deg), shoulder, long cone, fin band, main cylinder, widest point, engine cone, aerospike (drawing, step 2.5 A1)", date = "2026-10-22" }
+profile_r_m = { value = [0.0, 1.326, 2.063, 2.8, 3.095, 2.947, 2.505, 2.653, 3.537, 3.537, 5.873, 6.337, 7.074, 7.368, 7.368, 7.663, 7.663, 8.4, 8.4, 5.895, 2.505, 1.768, 1.326, 0.0], unit = "m", status = "V", source = "radius of the profile points (drawing, step 2.5 A1)", date = "2026-10-22" }
+material    = { value = "hull", unit = "", status = "V", source = "step 2.5, B3", date = "2026-10-22" }
+
+[ship.parts]
+telescopes    = { value = { type = "cylinder_z", radial_m = 8.547, z_m = -19.67, radius_m = 1.842, length_m = 6.317, azimuths_deg = [0.0, 90.0, 180.0, 270.0], material = "hull" }, unit = "m", status = "V", source = "four telescopes, objective toward the nose, in the azimuth of each face (drawing, step 2.5 A2)", date = "2026-10-22" }
+fins          = { value = { type = "box_rad", r_min_m = 7.074, r_max_m = 9.874, half_width_m = 0.442, z_min_m = -45.515, z_max_m = -31.157, azimuths_deg = [0.0, 90.0, 180.0, 270.0], material = "hull" }, unit = "m", status = "V", source = "ribbed fin band (drawing, step 2.5 A2)", date = "2026-10-22" }
+turret_arms   = { value = { type = "cylinder_rad", radial_m = 8.916, z_m = -56.283, radius_m = 2.063, length_m = 2.653, azimuths_deg = [0.0, 90.0, 180.0, 270.0], material = "hull" }, unit = "m", status = "V", source = "laser turret arms (drawing, step 2.5 A2)", date = "2026-10-22" }
+turret_domes  = { value = { type = "sphere", radial_m = 10.242, z_m = -56.283, radius_m = 2.063, azimuths_deg = [0.0, 90.0, 180.0, 270.0], material = "hull" }, unit = "m", status = "V", source = "laser turret domes, reach r = 12.3 m (drawing, step 2.5 A2)", date = "2026-10-22" }
+booms         = { value = { type = "cylinder_rad", radial_m = 14.295, z_m = -56.283, radius_m = 0.221, length_m = 9.726, azimuths_deg = [45.0, 135.0, 225.0, 315.0], material = "hull" }, unit = "m", status = "V", source = "45 deg booms, r 9.4 to 19.2 m (drawing, step 2.5 A2)", date = "2026-10-22" }
+boom_fittings = { value = { type = "sphere", radial_m = 8.547, z_m = -56.283, radius_m = 1.179, azimuths_deg = [45.0, 135.0, 225.0, 315.0], material = "hull" }, unit = "m", status = "V", source = "boom root fittings (drawing, step 2.5 A2)", date = "2026-10-22" }
+radiator_rails = { value = { type = "box_rad", r_min_m = 7.074, r_max_m = 9.726, half_width_m = 2.947, z_min_m = -105.1, z_max_m = -59.872, azimuths_deg = [0.0, 180.0], material = "hull" }, unit = "m", status = "V", source = "radiator root rails along +/-X (drawing, step 2.5 A2)", date = "2026-10-22" }
+radiator_1    = { value = { type = "box_rad", r_min_m = 8.842, r_max_m = 31.018, half_width_m = 0.221, z_min_m = -69.492, z_max_m = -60.877, azimuths_deg = [0.0, 180.0], material = "radiator" }, unit = "m", status = "V", source = "radiator wing tier 1, plane XZ (drawing, step 2.5 A3); no folding (user)", date = "2026-10-22" }
+radiator_2    = { value = { type = "box_rad", r_min_m = 8.842, r_max_m = 38.25, half_width_m = 0.221, z_min_m = -87.152, z_max_m = -69.779, azimuths_deg = [0.0, 180.0], material = "radiator" }, unit = "m", status = "V", source = "radiator wing tier 2, the widest (overall width 76.5 m) (drawing, step 2.5 A3)", date = "2026-10-22" }
+radiator_3    = { value = { type = "box_rad", r_min_m = 8.842, r_max_m = 30.054, half_width_m = 0.221, z_min_m = -96.198, z_max_m = -87.44, azimuths_deg = [0.0, 180.0], material = "radiator" }, unit = "m", status = "V", source = "radiator wing tier 3 (drawing, step 2.5 A3)", date = "2026-10-22" }
+radiator_4    = { value = { type = "box_rad", r_min_m = 8.842, r_max_m = 21.857, half_width_m = 0.221, z_min_m = -105.1, z_max_m = -96.485, azimuths_deg = [0.0, 180.0], material = "radiator" }, unit = "m", status = "V", source = "radiator wing tier 4 (drawing, step 2.5 A3)", date = "2026-10-22" }
+
+[ship.materials.hull]
+emissivity = { value = [0.01, 0.01], unit = "-", status = "V", source = "RF emissivity [S, Ku] of a conductive skin (hull and appendages), optimistic end of 0.001-0.05 (step 2.5, B1)", date = "2026-10-22" }
+t_phys_k   = { value = 290.0, unit = "K", status = "V", source = "physical temperature of the hull and appendages (step 2.5, B2)", date = "2026-10-22" }
+[ship.materials.radiator]
+emissivity = { value = [0.05, 0.05], unit = "-", status = "V", source = "RF emissivity [S, Ku] of the radiator panels, optimistic end of 0.01-0.3 (their high emissivity is in the infrared) (step 2.5, B1)", date = "2026-10-22" }
+t_phys_k   = { value = 750.0, unit = "K", status = "V", source = "radiator temperature, median for a nuclear ship (user, step 2.5, B2)", date = "2026-10-22" }
 
 # ------------------------------------------------------------------------------------------------------- tool
 [tool.cli]                    # defaults of: python core/radar_model.py
@@ -523,6 +609,12 @@ chunk           = 2048           # directions evaluated per numpy block
 [tool.detection]              # detection criterion (core/detection.py, step 2.3)
 offset_quantiles = 16           # quantiles of each random position loss (grid, straddle, velocity filter)
 masking_offsets_cells = [1, 2, 3]   # range / Doppler offsets (resolution cells) of the masking outputs (step 2.4, D1-D2)
+
+[tool.environment]            # structure, clutter and jamming evaluation (core/environment.py, step 2.5)
+aperture_ray_rings = 3          # hexagonal rings of rays over the aperture tube (1 + 3 r (r + 1) rays: 37)
+block_grid_step_uv = 0.01       # (u, v) step of the per-face blockage table
+struct_noise_dirs  = 20000      # directions over the sphere for the structure far-sidelobe noise integral
+clutter_ring_points = 720       # points on the iso-range ring of a surface (sidelobe clutter)
 
 [tool.targets]                # target library (step 2.4)
 default_type = "GENERIC"         # class completing a sector that names no target_type (its own rcs_m2 / swerling kept)

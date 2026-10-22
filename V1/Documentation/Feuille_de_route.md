@@ -33,7 +33,8 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 2.2 | ✔ fait (commit 90573c9) |
 | 2.3 | ✔ fait (commit 102ea6f) |
 | 2.4 | ✔ fait (commit 008d583) |
-| 2.5 et suivantes | à faire, la prochaine étant 2.5 |
+| 2.5 | ✔ fait |
+| 3.1 et suivantes | à faire, la prochaine étant 3.1 (jalon A atteint) |
 
 ---
 
@@ -197,7 +198,17 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Renvois de l'étape 2.2** : accélération et manœuvre dans le banc de vitesses (courbure en distance : 10 g sur 1,7 s font 140 m) ; masquage d'une cible faible par les lobes Doppler (plancher de bruit de phase, transformée sans fenêtre) et par les lobes en distance ; CFAR robuste (OS, GO) en présence de cibles voisines.
   - **Polarisation** : matrice de diffusion par type de cible (SER copolaire et croisée, dépolarisation selon l'aspect) et effet de la diversité de polarisation sur le cas de Swerling (perte de fluctuation). Depuis l'étape 1.5, la recombinaison des deux voies est le détecteur GLRT, sans gain de diversité : ce gain est à établir ici.
 
-- **2.5 Environnement.**
+- **2.5 Environnement.** ✔
+
+  Décisions prises :
+  - **structure du vaisseau en primitives** dans `[ship]` (coque de révolution, télescopes, ailettes, tourelles, mâts, rails, ailes de radiateurs en 4 étages, d'après le dessin validé ; pas de repliement) ; **la géométrie se modifie dans le fichier seul** (exigence de l'utilisateur), et la vue 3D est construite sur les mêmes primitives ;
+  - masquage par la fraction bloquée du tube d'ouverture (champ proche), perte −20 log(1 − f) par passage, masqué au-delà de 3 dB ; constat : aucun pointage masqué et radiateurs jamais vus avec l'inclinaison de 25° ;
+  - bruit de la structure : coque ε 0,01 / 290 K, radiateurs ε 0,05 / **750 K** (médiane d'un vaisseau nucléaire) ; réflexions non comptées (5.4) ;
+  - surfaces (`[sky.surface]`, γ Terre −12 / −10 dB, Lune −11,5 dB) : masque derrière la surface, fouillis par l'anneau d'égale distance traité comme un bruit (limité par le fouillis au-delà), rejet Doppler si le scénario donne la bande de la surface, alerte de saturation des CAN, trains ambigus retirés face à une surface ;
+  - brouilleurs de bruit en classes moyennes (`[jammers.*]` : SOJ_SHIP 50, SOJ_ESCORT 40, SPJ_SHIP 27, SPJ_POD 10, SPJ_KKV 5 dBW/MHz), à distance dans le ciel de la mission, d'autoprotection par secteur (portée de percée) ; annulation 40 dB × 8 par face ;
+  - objets non menaçants (`objects_per_rr`), rotation de Faraday en sortie (pas de perte avec le GLRT à deux voies), GO-CFAR en option et alerte de limbe ; point « bruit de fond » clos.
+
+  Contenu prévu à l'origine :
   - Bruit de fond.
   - **Masquage des champs de vue de l'antenne par le vaisseau** (ailes de radiateurs de 76,5 m, coque), d'après la géométrie `[ship]`, pour le calcul de la couverture. Aujourd'hui, seul le plancher arrière ε ≈ −55° est modélisé. **Avec le bruit thermique de la structure du vaisseau** dans le champ des faces (ailes de radiateurs chaudes, coque), même objet (décidé à l'étape 1.5) : la structure deviendra un « corps » du bruit du ciel (`core/sky.py`).
   - Fouillis terrestre : la Terre est déjà une source de bruit (étape 1.5) ; son écho (fouillis) et la saturation des CAN qu'il peut causer (numérisation à l'élément, avant la formation de faisceau) sont à traiter ici, comme le brouillage.
@@ -222,6 +233,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
     Cela remplace la loi unique `multibeam.l8_db` / `p` (statut ?). À reprendre aussi à l'étape 5.2.
   - **Grille de fréquences S** : remplacer `freq_candidates_ghz` (2,7, 2,8 et 2,9 GHz) par une grille fine au pas de 5 ou 10 MHz. Depuis l'étape 1.4, aucun signal ne tient à 2,7 ni à 2,9 GHz (bords de bande) : la grille doit se placer dans la bande, en tenant compte de la largeur du signal. Le but est d'éviter les brouilleurs étroits de forte puissance tout en gardant plus de cases fréquence qu'un masquage par multiples de 25 MHz. La grille est restreinte au spectre utilisable (connaissance du spectre, voir 3.2).
   - Bandes de signal au-delà de 75 MHz (bi_max 200 MHz) : plus de cases, donc plus de fausses alarmes. **Depuis l'étape 2.1**, le modèle est valide jusqu'à 200 MHz et la résolution est physique : 2 m demandent 89 MHz à −25 dB, et les secteurs qui demandent 2 m sont signalés tant que l'espace de recherche s'arrête à 75 MHz.
+  - **Renvois de l'étape 2.5** : fouillis évalué par forme d'onde et par pointage (aujourd'hui à la portée exigée, avec la bande admissible la plus étroite, et un rejet Doppler en tout ou rien) ; exigence de portée ramenée à la distance de la surface sur les pointages qui la regardent (aujourd'hui seulement signalé) ; réponse au brouillage d'autoprotection (formes d'onde plus énergétiques).
   - **Renvois de l'étape 2.1** : multiplexage en temps ou en fréquence du multifaisceau (tout le sujet ici) ; impulsions plus courtes que 20 µs pour les secteurs à courte portée (B2_AUTOPROT, 20 km, n'a plus de forme d'onde : 20 µs laissent 3 km aveugles) ; choix de la famille de modulation par l'optimiseur si utile.
   - Règles de l'optimiseur (`bin_deg`, `max_wf`, `short_tol`, `n_alphas`, `short_penalty`) et défaut des égalités exactes : il faut un critère secondaire (ici et en 5.2).
   - La table de coût n'est calculée qu'à 2,8 GHz (optimiste pour les secteurs à 2,7 ou 2,9 GHz) : à recaler à l'étape 5.5. `track_margin_warn` → 5.3.
@@ -237,12 +249,14 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Temps réel** : connaissance du spectre. Il faut mesurer quelles parties des bandes S et Ku sont brouillées ou perturbées et restreindre le choix des fréquences au spectre utilisable (liens avec 2.5 pour le brouillage, 4.3 pour l'ordonnanceur et 5.2 pour l'optimiseur).
   - Le toucher S2 de confirmation est une observation S hors de la règle des rôles S (non vérifiée, sans objet Waveform). Les rôles TWS et PROMOTE existent mais aucune forme d'onde ne les utilise.
   - **Renvoi de l'étape 1.5** : le choix de la fréquence Ku doit éviter l'harmonique 5 des émissions S de la même face, [5(f − B/2), 5(f + B/2)] (règle de fréquence de la matrice d'isolation, signalée par secteur dans `scheduler_rules`).
+  - **Renvoi de l'étape 2.5** : portée de percée des brouilleurs d'autoprotection pour les observations Ku (calculée seulement pour la veille S).
   - **Renvoi de l'étape 2.4** : les tables de confirmation gardent le cas de Swerling le plus proche (sans décorrélation partielle ni diversité, que `solve()` compte pour les observations Ku).
 
 - **3.3 Poursuite.**
   - **Rappel à faire à l'utilisateur (décidé en 1.2)** : la polarisation d'émission est linéaire selon e_v ; la commutation e_u / e_v à chaque observation (un seul PA aiguillé vers les deux ports de l'élément, environ 0,1 à 0,2 dB de plus dans TX_chain) reste une **option à évaluer** pour la polarimétrie.
   - Filtre de Kalman ou IMM ; cadence de mise à jour selon la précision et la manœuvre ; initialisation, maintien et perte de piste.
   - **Polarisation** (avec 3.2) : usage polarimétrique des deux voies pour la confirmation, la discrimination des leurres et la classification ; le déséquilibre entre les deux voies (non modélisé, sans effet sur le GLRT) y comptera.
+  - **Renvoi de l'étape 2.5** : brouillage trompeur (répéteurs, faux échos) ; effet de la rotation de Faraday sur l'usage polarimétrique.
   - **Renvois de l'étape 2.4** : table d'aspect de la SER (clé réservée, SER frontale seule aujourd'hui) ; accélération supposée connue par la piste sur une observation de poursuite (optimiste) ; discrimination KKV / leurre (fluctuation SW3/4 contre SW0, dépolarisation, retour optique).
   - **Renvoi de l'étape 2.1** : résidu du couplage distance-Doppler (c·τ·σ_fd / 2B) dans la précision en distance.
   - **Renvoi de l'étape 1.5** : atténuateur commutable par observation (ou STC) pour la poursuite rapprochée ; aujourd'hui le gain est fixe et une alerte signale les tranches de poursuite sous la portée non saturée Ku.
@@ -264,12 +278,14 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - Modèle des tâches, priorités, entrelacement contraint par les allers-retours, chronologies S et Ku par face, latence, politique de surcharge.
   - **Latence reconstruite de zéro.** L'ancienne règle `confirmation.latency_max_frac` (allers-retours comparés à 1 % du temps avant impact) a été supprimée lors de la revue 0.3 : elle ne limitait jamais rien (2nv/c) et ignorait les vraies causes. Il faut construire une vraie latence (attente dans la file de l'ordonnanceur, traitement, allers-retours) et la comparer à une exigence de délai par secteur.
   - Vérifier `frame_interleaved`.
+  - **Renvoi de l'étape 2.5** : choix du CFAR (CA, OS, GO) par pointage, GO près des limbes.
   - **Renvoi de l'étape 2.3** : décalage de la grille de veille à chaque trame (`grid_dithering`), supposé par le critère cumulé.
   - **Renvois de l'étape 1.5** : (1) **cadence commune d'émission et de réception de toutes les faces, par bande** (`isolation.interface_mode` = sync) : aucune face ne reçoit une bande pendant qu'une autre l'émet ; coût estimé de 0 à 1 dB si les émissions sont alignées, jusqu'à −10 log(1 − Σ des facteurs d'émission des autres faces) sinon (0,5 à 1,5 dB en forte charge), aucune perte comptée avant cette étape ; (2) pas de réception Ku sur une face pendant une émission S dont l'harmonique couvre le canal Ku ; (3) **annulation active à revoir ici** (coûts : perte avant le LNA versée dans T_sys, puissance injectée égale à la fuite, temps d'adaptation à chaque pointage, calcul dans l'espace des faisceaux ; solution mixte proposée : synchronisation entre faces voisines, annulation entre faces opposées) ; (4) pointages aveuglés par le Soleil à sortir du plan de balayage ; (5) **renvoi de l'étape 2.1** : éclipsage par les autres observations (positions entrelacées) et par les autres faces synchronisées.
 
 - **4.4 Calcul et données** (D).
   - Débits des CAN, faisceaux de réception numériques simultanés (dont les quelque 3,4 faisceaux par pointage de l'étape 1.1), charge de traitement, capacité du calculateur central.
   - **Entrée de l'étape 2.1** : nombre de filtres de vitesse par observation (`velocity_hypotheses_1db`).
+  - **Entrées des étapes 2.4 et 2.5** : hypothèses d'accélération (elles multiplient celles de vitesse) ; annulation adaptative des brouilleurs (8 par face).
   - **Entrées de l'étape 2.2** : hypothèses de vitesse par forme d'onde (`velocity_hypotheses`, jusqu'à plusieurs centaines), grilles de détection ×4 en distance et en Doppler, transformées par bloc cohérent. **Capacité du formateur de faisceaux** (faisceaux simultanés par face, débit) à fixer ici comme ressource et à comparer au besoin calculé par l'ordonnanceur (4.3) : question de l'utilisateur à l'étape 2.2.
   - **Entrées de l'étape 1.5** : deux CAN I/Q par TRM (deux voies de polarisation) à 250 Méch/s et 13 bits, soit 9 800 CAN en S et 245 000 en Ku par face, et une formation de faisceau doublée ; leur consommation est à budgéter.
   - Leur consommation électrique alimente le bilan de puissance de l'étape 4.1, à la place de `overhead_frac`.
@@ -290,6 +306,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Renvoi de l'étape 2.4** : les classes de cibles étant des moyennes, **sensibilité du verdict aux valeurs de la menace** (de combien la SER et les autres valeurs peuvent baisser avant que le secteur ne tienne plus).
 
 - **5.4 Simulation Monte-Carlo à événements discrets.** C'est l'arbitre final du bilan statistique.
+  - **Renvoi de l'étape 2.5** : réflexions sur la structure du vaisseau (Soleil, Terre, autres faces).
   - **Renvoi de l'étape 2.4** : effet réel du masquage par les cibles voisines (lobes Doppler et en distance, bruit de phase) et du CFAR (CA ou OS) sur une scène dense.
 
 - **5.5 Interface opérateur.**
@@ -322,7 +339,8 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | Masse des réserves d'énergie des TRM : environ 270 kg par face à 1 J/g (hypothèse 2050), 1,1 t pour les 4 faces. | à placer (pas de bilan de masse dans la feuille de route) |
 | `power_scale` arrondi à 3 décimales dans la sortie de l'optimiseur. | 5.5 |
 | `rx_taper_edge` = "inscribed" (statut D) à confirmer. | à placer |
-| **Lobes de jeu des TRSA** (étape 1.2) : traité en grande partie en ramenant le jeu à 0,5 mm. Restent en Ku au haut de la bande −30 dB tenu jusqu'à 64-68,5° et −35 dB jusqu'à 55-62°. Variante si la mécanique impose plus de jeu : maille d'éléments uniforme à travers les jeux. | lien avec 2.5 |
+| **Lobes de jeu des TRSA** (étape 1.2) : traité en grande partie en ramenant le jeu à 0,5 mm. Restent en Ku au haut de la bande −30 dB tenu jusqu'à 64-68,5° et −35 dB jusqu'à 55-62°. Variante si la mécanique impose plus de jeu : maille d'éléments uniforme à travers les jeux. | à placer (2.5 faite : les lobes lointains entrent déjà dans le bruit de structure et le fouillis) |
+| Inclinaison des faces et géométrie : changer `geometry.tilt_deg` demande de modifier aussi le cône porte-antennes et `ship.array_radius_m` (étape 2.5 : la géométrie n'est plus déduite de l'inclinaison). | à placer |
 | Matériaux appariés en dilatation, exigés par le jeu de 0,5 mm (à confirmer en mécanique). | 4.2 |
 | Limite de 70° au-dessus de la fréquence de rupture : gardée à l'étape 1.4 tant que le diagramme de l'élément n'est pas modélisé. | avec le diagramme de l'élément (à placer) |
 | Couplage mutuel au bord des tuiles et diagramme réel de l'élément rayonnant non modélisés (l'intégrale du bruit du ciel prend un élément en cos θ, rien vers l'arrière, depuis l'étape 1.5). | à placer |

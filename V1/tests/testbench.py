@@ -43,7 +43,7 @@ GRID_RES_DEG = 0.5      # raster of the redundancy check and the fast estimate (
 
 MISSIONS = ("mission_example.json", "mission_example.csv", "mission_veille500.json",
             "mission_redundancy_demo.json", "mission_synthetic_mix.json", "mission_sky_demo.json",
-            "mission_target_library.json")
+            "mission_target_library.json", "mission_environment.json")
 # Bodies on the face 0 boresight (phi 0, eps = tilt) for the sky-noise terms of the model case (step 1.5)
 SKY_BODIES = {"sun": 0.267, "moon": 0.26, "earth": 60.0}
 
@@ -52,6 +52,21 @@ KU_TRACK = rm.Waveform(name="TEST-KU-TRK", role="TRACK", band="Ku", tau_s=40e-6,
                        sig_bw_mhz=75.0, integration="COHERENT", tracking_pack=rm.TrackingPack(0.05, 2.0, 5.0))
 KU_CONFIRM = rm.Waveform(name="TEST-KU-CONF", role="CONFIRM", band="Ku", tau_s=100e-6, n=8, pri_s=1e-3,
                          sig_bw_mhz=200.0, integration="COHERENT")
+
+
+def environment_terms() -> dict:
+    """Step 2.5 terms of the model case: structure tables per face, CFAR variants, jammer classes, surfaces."""
+    from core import environment as env
+    t = env.tables()
+    out = {"cfar_db": {f"{kind} {n}": fn(n, 1e-8) for n in (64, 1024)
+                       for kind, fn in (("CA", rm.cfar_loss_db), ("OS", rm.os_cfar_loss_db), ("GO", rm.go_cfar_loss_db))},
+           "jammer_classes": env.JAMMER_CLASSES, "surfaces": env.SURFACES,
+           "faraday_deg": env.faraday_round_trip_deg(50.0, 20000.0, 2.8)}
+    for k in range(4):
+        out[f"face {k}"] = {"blocked_cells": int((t[f"f_{k}"] > 0).sum()), "blocked_sum": float(t[f"f_{k}"].sum()),
+                            "structure_dirs": int(len(t[f"sdirs_{k}"])),
+                            "structure_epst_sum": float(t[f"sepst_S_{k}"].sum())}
+    return out
 
 
 def to_plain(x: Any) -> Any:
@@ -156,6 +171,7 @@ def model_case() -> dict:
                         for n in (1, 8, 24, 128) for s in (0, 1, 2, 3, 4)},
         "bands": {b.name: b for b in rm.BANDS.values()}, "targets": rm.TARGETS,
         "ship_array_radius": geo.RP,
+        "environment": environment_terms(),
         "isolation": iso.matrix(), "scheduler_rules": iso.scheduler_rules(),
         "min_unsaturated_range_km": {f"{f} GHz | {n}": rm.min_unsaturated_range_km(f, 0.0, t.rcs_m2)
                                      for f in (2.8, 14.0) for n, t in rm.TARGETS.items()},

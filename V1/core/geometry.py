@@ -31,33 +31,20 @@ import pyvista as pv
 # One module object for the whole application, so a setting changed on the model (tilt, eps window...) applies
 # to the 3D view, the fast estimate and the exact calculation alike.
 from . import optimizer as mo
+from . import environment as env
 from . import radar_model as rm
 from .params import P
 
 FACE_PHI_DEG: Tuple[float, float, float, float] = mo.FACE_PHI
 VIZ_FREQ_GHZ = P.get("tool.display.viz_freq_ghz")   # reference frequency used for the viz-only scan limit
 
-# Ship model (cosmetic): traced from the reference side / front drawing, in drawing pixels (axial y downward from
-# the nose tip, radial r from the ship axis), scaled to SHIP_LENGTH and placed so the centre of the radar arrays sits at
-# the direction-sphere origin. RP = radial position of the face arrays.
+# Ship model: built from the structure primitives of radar_system.toml ([ship], core/environment.py), the same ones the
+# masking and the structure noise use, so the picture never drifts from the calculation (step 2.5). Scene units: the
+# ship is SHIP_LENGTH long, the centre of the radar arrays (z = 0, the arrays' axial station) at the origin.
 SHIP_LENGTH = 1.1
-_PX = SHIP_LENGTH / 950.0          # axial (Z) scale: nose tip y = 73 px, aft end y = 1023 px
-
-# Real hull proportions (locked spec): length 136.4 m; max hull diameter 16.8 m (the hull tapers along its
-# length, this is its widest point, y = 910/940 px in the drawing); max overall width 76.5 m, at the widest
-# point of the radiator wings (not the hull), y = 659-780 px tier. The drawing's own radial proportions are
-# only approximate, so the radial (X/Y) scale is recalibrated on the hull diameter rather than inherited
-# from _PX, and the radiator panels get a further, separate stretch recalibrated on the overall width;
-# everything else (telescopes, booms, rails, arrays) stays tied to the hull's radial scale.
-SHIP_LENGTH_M, HULL_DIAMETER_M, SHIP_WIDTH_M = P.get("ship.length_m"), P.get("ship.hull_diameter_m"), P.get("ship.width_m")
-_HULL_RADIUS_PX = 57.0
-_PX_R = (HULL_DIAMETER_M / 2.0 / SHIP_LENGTH_M * SHIP_LENGTH) / _HULL_RADIUS_PX
-_RADIATOR_SPAN_PX = 238.0
-_RADIATOR_SCALE = (SHIP_WIDTH_M / 2.0 / SHIP_LENGTH_M * SHIP_LENGTH) / (_RADIATOR_SPAN_PX * _PX_R)
-
-_Y_RADAR = 173.0                   # axial position of the four radar arrays (on the tilt-angle cone behind the nose)
-_TILT = math.tan(math.radians(rm.SECTOR_TILT_DEG))   # single source of truth: follows the model, never a separate figure
-RP = (24.0 + _TILT * (_Y_RADAR - 156.0) + 1.5) * _PX_R
+SHIP_LENGTH_M = P.get("ship.length_m")
+_M = SHIP_LENGTH / SHIP_LENGTH_M              # scene units per metre
+RP = env.ARRAY_RADIUS_M * _M                  # radial position of the face arrays
 
 # Palette (inherited from the volumes.html viewer).
 COLORS: Dict[str, str] = {
@@ -285,27 +272,13 @@ def build_face_normals(length: float = 1.12) -> List[dict]:
     return out
 
 
-def _z(y_px: float) -> float:
-    return (_Y_RADAR - y_px) * _PX
-
-
-def _lathe(profile: List[Tuple[float, float]], n_theta: int = 48) -> pv.PolyData:
-    """Surface of revolution about Z of a (y_px, r_px) profile (repeat a y for a step, r = 0 closes an end)."""
-    y, r = np.array(profile, dtype=float).T
+def _lathe(z_m: List[float], r_m: List[float], n_theta: int = 48) -> pv.PolyData:
+    """Surface of revolution about Z of a (z, r) profile in metres (repeat a z for a step, r = 0 closes an end)."""
     t = np.linspace(0.0, 2 * math.pi, n_theta + 1)
-    R = r[:, None] * _PX_R
-    x, yy = R * np.cos(t), R * np.sin(t)
-    z = np.repeat([[_z(v)] for v in y], n_theta + 1, axis=1)
+    r = np.array(r_m)[:, None] * _M
+    x, yy = r * np.cos(t), r * np.sin(t)
+    z = np.repeat(np.array(z_m)[:, None] * _M, n_theta + 1, axis=1)
     return pv.StructuredGrid(x, yy, z).extract_surface(algorithm="dataset_surface").clean()
-
-
-def _local_box(frame, lo, hi) -> pv.PolyData:
-    """Box with bounds lo..hi (px) in a local (e1, e2, e3) frame centred on the ship axis; e1/e2 (radial) use
-    the hull's radial scale, e3 (axial, always ez) uses the length scale."""
-    box = pv.Box(bounds=(lo[0] * _PX_R, hi[0] * _PX_R, lo[1] * _PX_R, hi[1] * _PX_R, lo[2] * _PX, hi[2] * _PX))
-    m = np.eye(4)
-    m[:3, :3] = np.array(frame).T
-    return _flat(box.transform(m, inplace=False))
 
 
 def _flat(mesh: pv.PolyData) -> pv.PolyData:
@@ -313,80 +286,45 @@ def _flat(mesh: pv.PolyData) -> pv.PolyData:
     return mesh.compute_normals(split_vertices=True, feature_angle=30.0)
 
 
+def _part_meshes(part: "env.Part") -> List[pv.PolyData]:
+    """Meshes of one structure part of [ship.parts], at each of its azimuths."""
+    out = []
+    for az in part.azimuths_deg:
+        c, s_ = math.cos(math.radians(az)), math.sin(math.radians(az))
+        er, et, ez = np.array([c, s_, 0.0]), np.array([-s_, c, 0.0]), np.array([0.0, 0.0, 1.0])
+        if part.type == "box_rad":
+            box = pv.Box(bounds=(part.v("r_min_m") * _M, part.v("r_max_m") * _M, -part.v("half_width_m") * _M,
+                                 part.v("half_width_m") * _M, part.v("z_min_m") * _M, part.v("z_max_m") * _M))
+            m = np.eye(4)
+            m[:3, :3] = np.array((er, et, ez)).T
+            out.append(_flat(box.transform(m, inplace=False)))
+            continue
+        centre = er * part.v("radial_m") * _M + ez * part.v("z_m") * _M
+        if part.type == "sphere":
+            out.append(pv.Sphere(center=centre, radius=part.v("radius_m") * _M))
+        else:
+            out.append(pv.Cylinder(center=centre, direction=ez if part.type == "cylinder_z" else er,
+                                   radius=part.v("radius_m") * _M, height=part.v("length_m") * _M))
+    return out
+
+
 def build_ship() -> dict:
-    """Ship hull traced from the reference drawing and renders (reference only): laser turret in the nose, body of
-    revolution built from straight cylinder/cone segments only (neck, tilt-angle radar-mount cone, long taper, fin-band
-    cylinder, main cylinder, taper to the widest point, widest-point cylinder, taper to the engine), four hexagonal
-    radar arrays on the tilt-angle cone just behind the nose (one per face), four cylindrical telescopes, four ball
-    turrets, four 45 deg booms, stepped radiator wings along +/-X, aerospike aft."""
-    nose = [(73, 0), (75, 9), (79, 14), (86, 19), (95, 21), (100, 20), (105, 17), (112, 18)]
-    body = [(112, 18),                          # nose / body junction
-            (116, 24),                          # neck: cone
-            (156, 24),                          # neck: cylinder
-            (190, 24 + _TILT * 34),             # radar-mount cone (slope = rm.SECTOR_TILT_DEG)
-            (190, 43),                          # shoulder step
-            (390, 48),                          # long cone
-            (390, 50),                          # fin-band step
-            (490, 50),                          # fin-band cylinder
-            (590, 52),                          # cone
-            (905, 52),                          # main cylinder (long, spans the radiator roots)
-            (910, 57),                          # cone to the widest point
-            (940, 57),                          # widest-point cylinder
-            (995, 40)]                          # cone down to the engine
-    engine = [(995, 40), (1023, 17), (1023, 12)]     # aerospike: annular throat around a recessed central plug
-    plug = [(1023, 12), (1012, 9), (1012, 0)]
-    hull = [{"mesh": _lathe([(112, 0)] + body + [(995, 0)]), "color": SHIP_COLORS["hull"]},
-            {"mesh": _lathe(nose + [(112, 0)]), "color": SHIP_COLORS["hull"]},
-            {"mesh": _lathe([(995, 0)] + engine), "color": SHIP_COLORS["hull"]},
-            {"mesh": _lathe(plug), "color": SHIP_COLORS["hull"]}]
-    z_tank = _z(565)
-    for k in range(4):
-        c, s_ = math.cos(k * math.pi / 2), math.sin(k * math.pi / 2)
-        er, et, ez = (c, s_, 0.0), (-s_, c, 0.0), (0.0, 0.0, 1.0)
-        # telescope: cylinder along the ship axis, objective facing the nose
-        hull.append({"mesh": pv.Cylinder(center=(58 * _PX_R * c, 58 * _PX_R * s_, _z(310)), direction=ez,
-                                         radius=12.5 * _PX_R, height=44 * _PX), "color": SHIP_COLORS["hull"]})
-        # ribbed band (fins) and laser turret on its arm: a half-pill (shaft + hemisphere cap, no stripe/disc),
-        # flush with the hull surface at z_tank (hull radius 51.5 px there)
-        hull.append({"mesh": _local_box((er, et, ez), (48, -3, _Y_RADAR - 490), (67, 3, _Y_RADAR - 390)),
-                     "color": SHIP_COLORS["hull"]})
-        hull.append({"mesh": pv.Cylinder(center=(60.5 * _PX_R * c, 60.5 * _PX_R * s_, z_tank), direction=er,
-                                         radius=14 * _PX_R, height=18 * _PX_R), "color": SHIP_COLORS["hull"]})
-        hull.append({"mesh": pv.Sphere(center=(69.5 * _PX_R * c, 69.5 * _PX_R * s_, z_tank), radius=14 * _PX_R,
-                                       direction=er, end_phi=90), "color": SHIP_COLORS["hull"]})
-        # 45 deg boom with its root fitting
-        cb, sb = math.cos(k * math.pi / 2 + math.pi / 4), math.sin(k * math.pi / 2 + math.pi / 4)
-        hull.append({"mesh": pv.Cylinder(center=(97 * _PX_R * cb, 97 * _PX_R * sb, z_tank), direction=(cb, sb, 0.0),
-                                         radius=1.5 * _PX_R, height=66 * _PX_R), "color": SHIP_COLORS["hull"]})
-        hull.append({"mesh": pv.Sphere(center=(58 * _PX_R * cb, 58 * _PX_R * sb, z_tank), radius=8 * _PX_R),
-                     "color": SHIP_COLORS["hull"]})
-    # radiator root rails along +/-X (the wide section of the side view; the body itself stays narrow, front view)
-    for sgn in (-1, 1):
-        hull.append({"mesh": _local_box(((sgn, 0, 0), (0, sgn, 0), (0, 0, 1)), (48, -20, _Y_RADAR - 905),
-                                        (66, 20, _Y_RADAR - 590)), "color": SHIP_COLORS["hull"]})
-    # radiator wings in the XZ plane: stepped tiers (y_top, y_bottom, half span), split into their panel rows;
-    # the root (60 px, near the hull) keeps the hull's radial scale, the tip (span) gets the extra stretch that
-    # recalibrates the panel on the real overall width (see _RADIATOR_SCALE above).
-    for y0, y1, span, rows in ((597, 657, 193, 3), (659, 780, 238, 2), (782, 843, 187, 1), (845, 905, 136, 1)):
-        for i in range(rows):
-            ya = y0 + (y1 - y0) * i / rows + 0.8
-            yb = y0 + (y1 - y0) * (i + 1) / rows - 0.8
-            for sgn in (-1, 1):
-                xa, xb = sorted((sgn * 60 * _PX_R, sgn * span * _PX_R * _RADIATOR_SCALE))
-                hull.append({"mesh": _flat(pv.Box(bounds=(xa, xb, -1.5 * _PX_R, 1.5 * _PX_R, _z(yb), _z(ya)))),
-                             "color": SHIP_COLORS["hull"]})
+    """Ship from the structure primitives of the parameter file (core/environment.py): hull of revolution, parts
+    (telescopes, fins, laser turrets, booms, radiator rails and wings...), and the four radar arrays on the
+    radar-mount cone (one per face, envelope of the real aperture)."""
+    hull = [{"mesh": _lathe(list(env.HULL_Z), list(env.HULL_R)), "color": SHIP_COLORS["hull"]}]
+    for part in env.PARTS:
+        hull.extend({"mesh": m, "color": SHIP_COLORS["hull"]} for m in _part_meshes(part))
     arrays = []
+    rad = rm.ARRAY_ENVELOPE_M / 2.0 * _M
     for k, pk in enumerate(FACE_PHI_DEG):
         n = face_normal(pk)
-        c, s_ = math.cos(math.radians(pk)), math.sin(math.radians(pk))
-        er, et, ez = (c, s_, 0.0), (-s_, c, 0.0), (0.0, 0.0, 1.0)
-        center = (RP * c, RP * s_, 0.0)
-        # hull-coloured array plate, on a slightly larger plate in the face colour (F1..F4 rim) -- the only
-        # accent kept outside of the ship's dominant colour
-        arrays.append({"k": k, "mesh": pv.Cylinder(center=center, direction=n, radius=18.5 * _PX_R, height=2 * _PX_R,
-                                                   resolution=6), "color": FACE_COLORS[k]})
-        hull.append({"mesh": pv.Cylinder(center=np.array(center) + n * 1.2 * _PX_R, direction=n, radius=16 * _PX_R,
-                                         height=1 * _PX_R, resolution=6), "color": SHIP_COLORS["hull"]})
+        center = array_centre(pk)
+        # hull-coloured array plate on a slightly larger plate in the face colour (F1..F4 rim)
+        arrays.append({"k": k, "mesh": pv.Cylinder(center=center, direction=n, radius=rad * 1.06,
+                                                   height=0.25 * _M, resolution=8), "color": FACE_COLORS[k]})
+        hull.append({"mesh": pv.Cylinder(center=np.array(center) + n * 0.15 * _M, direction=n, radius=rad,
+                                         height=0.1 * _M, resolution=8), "color": SHIP_COLORS["hull"]})
     return {"hull": hull, "arrays": arrays}
 
 

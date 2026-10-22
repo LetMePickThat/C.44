@@ -11151,6 +11151,138 @@
    "2.9 GHz | B 10 MHz": 100.0,
    "2.9 GHz | B 75 MHz": 100.0
   },
+  "environment": {
+   "cfar_db": {
+    "CA 1024": 0.03912038775132617,
+    "CA 64": 0.6398092021153591,
+    "GO 1024": 0.05115947369519536,
+    "GO 64": 0.7595841035536506,
+    "OS 1024": 0.060922735932290105,
+    "OS 64": 0.9686556659481429
+   },
+   "face 0": {
+    "blocked_cells": 735,
+    "blocked_sum": 197.54054054054052,
+    "structure_dirs": 309,
+    "structure_epst_sum": 896.0999999999999
+   },
+   "face 1": {
+    "blocked_cells": 735,
+    "blocked_sum": 197.54054054054052,
+    "structure_dirs": 308,
+    "structure_epst_sum": 893.1999999999998
+   },
+   "face 2": {
+    "blocked_cells": 735,
+    "blocked_sum": 197.54054054054052,
+    "structure_dirs": 312,
+    "structure_epst_sum": 904.7999999999997
+   },
+   "face 3": {
+    "blocked_cells": 735,
+    "blocked_sum": 197.54054054054052,
+    "structure_dirs": 317,
+    "structure_epst_sum": 919.2999999999997
+   },
+   "faraday_deg": 3.449439787012099,
+   "jammer_classes": {
+    "SOJ_ESCORT": {
+     "Ku": {
+      "erp_dbw_mhz": 40.0,
+      "hi": 14.5,
+      "lo": 13.5
+     },
+     "S": {
+      "erp_dbw_mhz": 40.0,
+      "hi": 2.9,
+      "lo": 2.7
+     },
+     "nature": "SOJ"
+    },
+    "SOJ_SHIP": {
+     "Ku": {
+      "erp_dbw_mhz": 50.0,
+      "hi": 14.5,
+      "lo": 13.5
+     },
+     "S": {
+      "erp_dbw_mhz": 50.0,
+      "hi": 2.9,
+      "lo": 2.7
+     },
+     "nature": "SOJ"
+    },
+    "SPJ_KKV": {
+     "Ku": {
+      "erp_dbw_mhz": 5.0,
+      "hi": 14.5,
+      "lo": 13.5
+     },
+     "S": {
+      "erp_dbw_mhz": 5.0,
+      "hi": 2.9,
+      "lo": 2.7
+     },
+     "nature": "SPJ"
+    },
+    "SPJ_POD": {
+     "Ku": {
+      "erp_dbw_mhz": 10.0,
+      "hi": 14.5,
+      "lo": 13.5
+     },
+     "S": {
+      "erp_dbw_mhz": 10.0,
+      "hi": 2.9,
+      "lo": 2.7
+     },
+     "nature": "SPJ"
+    },
+    "SPJ_SHIP": {
+     "Ku": {
+      "erp_dbw_mhz": 27.0,
+      "hi": 14.5,
+      "lo": 13.5
+     },
+     "S": {
+      "erp_dbw_mhz": 27.0,
+      "hi": 2.9,
+      "lo": 2.7
+     },
+     "nature": "SPJ"
+    }
+   },
+   "surfaces": {
+    "earth": [
+     6371.0,
+     [
+      -12.0,
+      -10.0
+     ]
+    ],
+    "earth_land": [
+     6371.0,
+     [
+      -12.0,
+      -10.0
+     ]
+    ],
+    "earth_ocean": [
+     6371.0,
+     [
+      -12.0,
+      -10.0
+     ]
+    ],
+    "moon": [
+     1737.4,
+     [
+      -11.5,
+      -11.5
+     ]
+    ]
+   }
+  },
   "exact_snr_req_db": {
    "N 1 SW0 Pfa 1e-08": 14.227645491685738,
    "N 1 SW0 Pfa 1e-12": 15.733303719063978,
@@ -25635,7 +25767,7 @@
    "S transmission and Ku reception on the same face(s) only if the S harmonic (order 5) misses the Ku channel"
   ],
   "sector_area_uv": 2.000551590818556,
-  "ship_array_radius": 0.039726759137596754,
+  "ship_array_radius": 0.0397258064516129,
   "shnidman_db": {
    "N 1 SW0": 14.101895189243637,
    "N 1 SW1": 22.648647599066706,

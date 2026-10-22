@@ -62,6 +62,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from . import detection
+from . import environment as env
 from . import radar_model as rm
 from . import sky as skym
 from .params import P
@@ -205,13 +207,81 @@ def positions_table(sph: Sphere, m: np.ndarray, f_ghz: float) -> Tuple[Dict[int,
 _SKY_CACHE: Dict[tuple, Tuple[dict, np.ndarray]] = {}
 
 
+def _env_key(sec: dict) -> tuple:
+    """Sector values the environment terms depend on (range, target, resolution, speeds)."""
+    keys = ("range_km", "res_max_m", "v_close_min_mps", "v_close_max_mps") + rm.SECTOR_TARGET_KEYS
+    return tuple(sec.get(k) for k in keys)
+
+
+def _environment(sec: dict, band_name: str, f_ghz: float, sll: float, dirs: np.ndarray, owners: np.ndarray,
+                 thetas: np.ndarray, sky: Optional[dict]) -> Tuple[Dict[str, np.ndarray], np.ndarray, np.ndarray, dict]:
+    """Environment terms at the evaluation directions (step 2.5, core/environment.py): rises in K (structure noise,
+    stand-off jammers), the noise factor of the blockage (two-way) and of the surface clutter, the structure mask, and
+    a summary (masked, shadowed and clutter-limited directions, main-lobe surfaces, limbs, ADC margin)."""
+    tgt = sector_target(sec)
+    jams = env.jammers(sky)
+    surf = env.surfaces(sky)
+    parts: Dict[str, np.ndarray] = {"structure": np.zeros(len(dirs))}
+    parts.update({f"jammer {j.id}": np.zeros(len(dirs)) for j in jams})
+    block = np.zeros(len(dirs))
+    for k in np.unique(owners):
+        s = owners == k
+        parts["structure"][s] = env.structure_rise_k(int(k), dirs[s], band_name, f_ghz, sll)
+        block[s] = env.blockage(int(k), dirs[s], band_name)[0]
+        for j, v in env.jammer_rise_k(jams, int(k), dirs[s], band_name, f_ghz, sll).items():
+            parts[f"jammer {j}"][s] = v
+    loss_pass = env.block_loss_db(block)
+    masked = loss_pass > env.BLOCK_MASK_DB
+    f_block = rm.db_to_lin(2.0 * loss_pass)
+    r_km = float(sec["range_km"])
+    if band_name == "S":
+        bws = [b for b in SIGBW_CAND if resolution_m(sec, b) <= sec.get("res_max_m", RES_MAX_M_DEFAULT) + 1e-9]
+        bw = min(bws) if bws else max(SIGBW_CAND)
+    else:
+        bw = min(P.get("tool.confirmation.ku_sig_bw_mhz"))
+    dr_m = C / (2.0 * bw * 1e6)
+    snr = rm.db_to_lin(detection.snr_req_db(1, tgt.swerling_case(f_ghz), rm.DETECT_PFA, rm.DETECT_PD))
+    x = np.zeros(len(dirs))
+    info = {"surfaces": {}, "limbs": [], "main_lobe_surface": False, "adc_margin_db_min": None}
+    hp = math.radians(rm.hpbw_deg(f_ghz))
+    v_min, v_max = float(sec.get("v_close_min_mps", 0.0)), float(sec["v_close_max_mps"])
+    for s_ in surf:
+        d = env.surface_distance_km(s_, dirs)
+        in_disk = np.isfinite(d)
+        rej = env.doppler_rejected(s_, v_min, v_max)
+        xs = np.zeros(len(dirs))
+        if not rej:
+            for k in np.unique(owners):
+                sel = owners == k
+                xs[sel] = env.clutter_over_signal(s_, int(k), dirs[sel], band_name, f_ghz, sll, r_km, dr_m,
+                                                  tgt.rcs_at(f_ghz)) * snr
+        x += xs
+        delta = np.arccos(np.clip(dirs @ np.array(s_.c), -1.0, 1.0))
+        a = math.asin(min(s_.radius_km / s_.dist_km, 1.0))
+        if np.any(np.abs(delta - a) < 2.0 * hp):
+            info["limbs"].append(s_.id)
+        if in_disk.any():
+            info["main_lobe_surface"] = True
+            adc = env.main_lobe_adc_margin_db(s_, dirs, thetas, f_ghz)
+            m_ = float(np.min(adc))
+            info["adc_margin_db_min"] = m_ if info["adc_margin_db_min"] is None else min(info["adc_margin_db_min"], m_)
+        relevant = bool(in_disk.any()) or s_.d_min_km < r_km < s_.d_horizon_km    # main lobe or iso-range ring
+        info["surfaces"][s_.id] = {"in_disk": in_disk, "shadowed": in_disk & (d < r_km), "distance_km": d,
+                                   "doppler_rejected": rej and relevant, "relevant": relevant, "x": xs}
+    f_clutter = env.clutter_noise_factor(x)
+    return parts, f_block * f_clutter, masked, {**info, "x": x, "f_block": f_block}
+
+
 def sector_sky(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, band_name: str, sky: Optional[dict]) -> Tuple[dict, np.ndarray]:
     """T_sys over the sector's scanned positions at f in a band (core/sky.py): (summary, blinded mask on the raster).
     T_sys is evaluated every sky.EVAL_STEP_HPBW TX beamwidths (blocks of raster cells share the value of their block
     centre), weighted by the position density w dOmega; the budget is the (1 - short_tol) position quantile of the
-    positions not blinded. Cached per process (sky, sector geometry, raster, frequency, band, RX option)."""
+    positions not blinded. Step 2.5: the environment (core/environment.py) adds the structure noise and the stand-off
+    jammers to the rise, and the blockage and surface clutter as noise factors (an effective T_sys: the range scales as
+    its fourth root as for the sky); positions masked by the structure are removed with the blinded ones. Cached per
+    process (sky, sector geometry and environment values, raster, frequency, band, RX option)."""
     sll, tol = rx_sll_db(sec), sec.get("short_tol", SHORT_TOL)
-    key = (skym.sky_key(sky), sector_geometry_key(sec), sph.window, f_ghz, band_name, sll, tol)
+    key = (skym.sky_key(sky), sector_geometry_key(sec), _env_key(sec), sph.window, f_ghz, band_name, sll, tol)
     hit = _SKY_CACHE.get(key)
     if hit is not None:
         return hit
@@ -223,7 +293,7 @@ def sector_sky(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, band_name: s
     if ii.size == 0:
         res = ({"band": band_name, "t_sys_cold_k": band.t_sys_k, "t_sys_budget_k": band.t_sys_k, "rise_db": 0.0,
                 "blinded_pct": 0.0, "blinded_by": [], "above_budget_pct": 0.0, "worst_rise_db": 0.0,
-                "galactic": sky_obj.galactic, "blind_rise_db": skym.BLIND_RISE_DB}, blind)
+                "galactic": sky_obj.galactic, "blind_rise_db": skym.BLIND_RISE_DB, **_EMPTY_ENV}, blind)
     else:
         stride = max(1, int(round(skym.EVAL_STEP_HPBW * rm.hpbw_deg(f_ghz) / (360.0 / sph.n_phi))))
         ri = np.minimum(ii // stride * stride + stride // 2, sph.n_phi - 1)
@@ -233,9 +303,21 @@ def sector_sky(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, band_name: s
         cell, r_own = uk // 4, uk % 4
         dirs = skym.unit(sph.phi.flat[cell], sph.eps.flat[cell])
         rise, parts = skym.rise_k(sky_obj, band_name, f_ghz, sll, [face_frame(p) for p in FACE_PHI], dirs, r_own)
-        t_sys = rm.t_sys_with_rise(band, rise)[inv]
-        summary, b = skym.summarise(band, t_sys, (sph.w * sph.d_omega)[ii, jj], {k: v[inv] for k, v in parts.items()},
-                                    tol, sky_obj)
+        e_parts, factor, masked, info = _environment(sec, band_name, f_ghz, sll, dirs, r_own, sph.theta.flat[cell], sky)
+        parts.update(e_parts)
+        rise = rise + sum(e_parts.values())
+        t_base = rm.t_sys_with_rise(band, rise)
+        with np.errstate(invalid="ignore"):
+            parts["blockage"] = t_base * (info["f_block"] - 1.0)
+            parts["clutter"] = np.where(np.isfinite(factor), t_base * (factor - info["f_block"]), np.inf)
+        t_sys = (t_base * factor)[inv]
+        weights = (sph.w * sph.d_omega)[ii, jj]
+        mk = masked[inv]
+        summary, b = skym.summarise(band, np.where(mk, 0.0, t_sys), np.where(mk, 0.0, weights),
+                                    {k: v[inv] for k, v in parts.items()}, tol, sky_obj)
+        w_all = float(weights.sum())
+        summary.update(_env_summary(info, inv, mk, weights, w_all, parts["structure"][inv], band, sec))
+        b = b | mk
         blind[ii[b], jj[b]] = True
         res = (summary, blind)
     blind.setflags(write=False)
@@ -243,6 +325,33 @@ def sector_sky(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, band_name: s
         _SKY_CACHE.clear()
     _SKY_CACHE[key] = res
     return res
+
+
+_EMPTY_ENV = {"masked_by_structure_pct": 0.0, "structure_rise_k_max": 0.0, "surfaces": {}, "limbs": [],
+              "main_lobe_surface": False, "adc_margin_db_min": None, "clutter_limited_pct": 0.0}
+
+
+def _env_summary(info: dict, inv: np.ndarray, masked: np.ndarray, weights: np.ndarray, w_all: float,
+                 structure_k: np.ndarray, band: "rm.BandConfig", sec: dict) -> dict:
+    """Environment part of a sector sky summary (step 2.5)."""
+    pct = lambda sel: 100.0 * float(weights[sel].sum()) / w_all if w_all > 0 else 0.0   # noqa: E731
+    out = {"masked_by_structure_pct": pct(masked),
+           "structure_rise_k_max": float(structure_k[~masked].max()) if (~masked).any() else 0.0,
+           "clutter_limited_pct": pct(~masked & (info["x"][inv] >= 1.0)),
+           "main_lobe_surface": info["main_lobe_surface"], "limbs": info["limbs"],
+           "adc_margin_db_min": info["adc_margin_db_min"], "surfaces": {}}
+    for sid, s in info["surfaces"].items():
+        if not s["relevant"]:
+            continue
+        d = s["distance_km"][inv]
+        sh = s["shadowed"][inv] & ~masked
+        out["surfaces"][sid] = {"in_main_lobe_pct": pct(s["in_disk"][inv] & ~masked), "shadowed_pct": pct(sh),
+                                "min_distance_km": float(d[sh].min()) if sh.any() else None,
+                                "doppler_rejected": s["doppler_rejected"],
+                                # (C/S) x SNR_req: 0 dB and above = clutter-limited (no power reaches the target)
+                                "clutter_ratio_max_db": (rm.lin_to_db(float(s["x"].max()))
+                                                         if float(s["x"].max()) > 0 else None)}
+    return out
 
 
 def search_positions(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, sky: Optional[dict]):
@@ -564,6 +673,8 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
             pfas = candidate_pfas(sec, cands, f, float(P.sum()))
             r = _range_matrix(cands, f, tgt, P.shape[1], rx_sll_db(sec), velocity_span_mps(sec), pfas,
                               search_criterion(sec)) * factor
+            if sky_s.get("main_lobe_surface"):          # step 2.5, C2: folded main-lobe clutter on ambiguous trains
+                r[[c for c, w in enumerate(cands) if w.staggered]] = np.nan
             per_f.append((f, P, unscanned, r, sky_s, pfas))
     if not per_f:
         return {"id": sec["id"], "status": "NO_POSITIONS", "note": "empty sector, fully unscanned or blinded by the sky"}
@@ -660,6 +771,7 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
     mismatch_max = max(rm.active_mismatch(f, float(t))["loss_db_per_pass"]
                        for t in _theta_centres(f, len(p_tot))[populated])
     main = max(wf_set, key=lambda d: d["positions"])
+    w_main = cands[order[wf_set.index(main)]]
     out = {
         "id": sec["id"], "status": "OK",
         "wf": {k: v for k, v in main.items() if k not in ("theta_lo_deg", "theta_hi_deg", "positions")},
@@ -679,6 +791,8 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
         "sky": sky_s,
         "s_min_unsaturated_range_km": rm.min_unsaturated_range_km(f, 0.0, tgt.rcs_at(f)),
         "target": target_summary(tgt, f),
+        "environment": environment_summary(sec, tgt, f, w_main, pfas[order[wf_set.index(main)]],
+                                           max(cands, key=lambda w: w.tau_s * w.n / w.b_tx)),
         "faces": {str(k): v for k, v in faces.items()},
         "rr_target_s": rr,
         "rr_alone_s": rr * load,                               # RR if this sector had the face to itself (energy and time)
@@ -706,11 +820,49 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
         out["flags"].append(f"S RX sidelobes {sll:g} dB held only up to {sll_held:g} deg scan at {f} GHz (worst visible "
                             f"sidelobe {rm.sidelobe_visible_db(f, th_max, 'rx', sll):.1f} dB at {th_max:g} deg: TRSA "
                             f"gap lobes)")
+    ev = out["environment"]
+    if ev.get("burn_through_km") is not None and ev["burn_through_km"] < r_want:
+        out["flags"].append(f"self-protection jammer {ev['jammer_type']}: burn-through {ev['burn_through_km']:.0f} km "
+                            f"with the main waveform, {ev['burn_through_best_km']:.0f} km at best with the most energetic "
+                            f"of the search space (full power, broadside), below the required {r_want:.0f} km")
+    if sky_s.get("main_lobe_surface") and sec.get("allow_ambiguous"):
+        out["flags"].append("a surface is in the main lobe: range-ambiguous trains would fold its clutter onto the "
+                            "targets, so they are left out for this sector")
     if rr < RR_T0_RATIO * tgt.t0_s(f):
         out["flags"].append(f"revisit {rr:g} s below {RR_T0_RATIO:g} x the target coherence time T0 {tgt.t0_s(f):.2f} s "
                             f"at {f} GHz: successive looks are correlated (the cumulative criterion assumes them "
                             f"independent)")
     out["flags"].extend(sky_flags(sky_s, "S"))
+    return out
+
+
+def environment_summary(sec: dict, tgt: "rm.Target", f: float, w, pfa: float, w_best=None) -> dict:
+    """Sector environment outputs not tied to a direction (step 2.5): burn-through range of a self-protection jammer
+    (sector key jammer_type, at full power, broadside: with the main waveform, and with the most energetic waveform of
+    the search space, w_best), Faraday rotation (sector keys tec_tecu and b_parallel_nt, round trip, S and Ku),
+    non-threatening objects to confirm (objects_per_rr)."""
+    out = {"jammer_type": sec.get("jammer_type"), "burn_through_km": None, "burn_through_best_km": None,
+           "faraday_deg": None, "objects_per_rr": float(sec.get("objects_per_rr", 0.0))}
+    jt = sec.get("jammer_type")
+    if jt is not None:
+        cls = env.JAMMER_CLASSES[jt]
+        erp = env._erp(jt, sec.get("jammer_erp_dbw_mhz"))[0]
+        for key, wf in (("burn_through_km", w), ("burn_through_best_km", w_best or w)):
+            if not cls["S"]["lo"] <= f <= cls["S"]["hi"]:
+                out[key] = math.inf
+                continue
+            try:
+                r = rm.solve(wf, f, 0.0, tgt, rm.FACE_ELEC_POWER_MW, rx_sll_db(sec), v_span_mps=velocity_span_mps(sec),
+                             pfa=pfa, cum=search_criterion(sec))
+            except ValueError:
+                continue
+            out[key] = env.burn_through_km(rm.BAND_S.p_pk_total_w / wf.b_tx,
+                                           rm.gain_lin(rm.BAND_S.eta_illum_tx, f, 0.0), tgt.rcs_at(f),
+                                           wf.tau_s * wf.n, r.snr_req_db, r.l_tot_db, erp)
+    if sec.get("tec_tecu") is not None and sec.get("b_parallel_nt") is not None:
+        ku = P.get("confirmation.ku_freq_ghz")
+        out["faraday_deg"] = {"S": env.faraday_round_trip_deg(sec["tec_tecu"], sec["b_parallel_nt"], f),
+                              "Ku": env.faraday_round_trip_deg(sec["tec_tecu"], sec["b_parallel_nt"], ku)}
     return out
 
 
@@ -733,6 +885,26 @@ def sky_flags(s: dict, label: str) -> List[str]:
             and s["worst_rise_db"] - s["rise_db"] > SKY_ABOVE_BUDGET_ALERT_DB):
         out.append(f"{s['above_budget_pct']:.2f} % of the {label} positions above the budget T_sys "
                    f"({s['t_sys_budget_k']:.1f} K): sky noise up to +{s['worst_rise_db']:.1f} dB, range reduced there")
+    # environment (step 2.5)
+    if s.get("masked_by_structure_pct", 0.0) > 0.0:
+        out.append(f"{s['masked_by_structure_pct']:.2f} % of the {label} positions masked by the ship structure "
+                   f"(blockage above {env.BLOCK_MASK_DB:g} dB per pass), not scanned")
+    if s.get("clutter_limited_pct", 0.0) > 0.0:
+        out.append(f"{s['clutter_limited_pct']:.2f} % of the {label} positions clutter-limited (surface echo in the "
+                   f"target's range cell above what any power can beat): blinded")
+    for sid, v in s.get("surfaces", {}).items():
+        if v["shadowed_pct"] > 0.0:
+            out.append(f"{v['shadowed_pct']:.2f} % of the {label} positions look at {sid} closer than the required "
+                       f"range (down to {v['min_distance_km']:.0f} km): nothing can come from behind its surface")
+        if v["doppler_rejected"]:
+            out.append(f"{sid} clutter rejected in Doppler (its closing-speed band misses the target span): needs "
+                       f"coherent processing")
+    if s.get("limbs"):
+        out.append(f"clutter edge in the {label} sector (limb of {', '.join(s['limbs'])}): GO-CFAR advised there "
+                   f"(choice per position at 4.3 / 5.2)")
+    if s.get("adc_margin_db_min") is not None and s["adc_margin_db_min"] < 0.0:
+        out.append(f"main-lobe surface echo clips the per-element {label} ADCs by {-s['adc_margin_db_min']:.1f} dB "
+                   f"(fixed gain; attenuator option at 3.3)")
     return out
 
 
@@ -924,7 +1096,7 @@ def load_mission(path: str) -> dict:
                 for k, v in row.items():
                     if v is None or v == "":
                         continue
-                    if k in ("id", "shape", "confirm_mode", "target_type", "fluctuation"):
+                    if k in ("id", "shape", "confirm_mode", "target_type", "fluctuation", "jammer_type"):
                         s[k] = v
                     elif k == "allow_ambiguous":
                         s[k] = v.lower() == "true"
@@ -961,6 +1133,18 @@ def print_report(res: dict) -> None:
         tg = r["target"]
         print(f"     Target: {tg['type']} | RCS {tg['rcs_m2']:.4g} m2 (optics {tg['optics_rcs_m2']:.3g}) | {tg['fluctuation']} | "
               f"T0 {tg['t0_s']:.2f} s | depol {tg['depol_db']:g} dB | accel max {tg['accel_max_mps2']:g} m/s2")
+        ev = r["environment"]
+        env_txt = []
+        if ev["burn_through_km"] is not None:
+            env_txt.append(f"burn-through {ev['jammer_type']} {ev['burn_through_km']:.0f} km "
+                           f"(best {ev['burn_through_best_km']:.0f} km)")
+        if ev["faraday_deg"] is not None:
+            env_txt.append(f"Faraday {ev['faraday_deg']['S']:.0f} deg S / {ev['faraday_deg']['Ku']:.1f} deg Ku (no "
+                           f"detection loss, dual-pol)")
+        if ev["objects_per_rr"]:
+            env_txt.append(f"{ev['objects_per_rr']:g} objects to confirm per RR")
+        if env_txt:
+            print("     Environment: " + " | ".join(env_txt))
         sk = r["sky"]
         if sk["t_sys_budget_k"] is not None:
             print(f"     Sky (S): budget T_sys {sk['t_sys_budget_k']:.1f} K (cold sky {sk['t_sys_cold_k']:.1f} K, "

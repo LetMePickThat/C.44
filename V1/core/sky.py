@@ -124,6 +124,13 @@ def validate(sky: Optional[dict]) -> List[str]:
                 errs.append(f"{tag}: tb_k must give S and Ku temperatures >= 0 K")
         elif tb is not None and (not isinstance(tb, (int, float)) or tb < 0):
             errs.append(f"{tag}: tb_k must be a temperature >= 0 K or {{'S': ..., 'Ku': ...}}")
+        for k in ("closing_mps", "closing_spread_mps"):          # surface Doppler of the clutter (step 2.5, C4)
+            if b.get(k) is not None and not isinstance(b[k], (int, float)):
+                errs.append(f"{tag}: {k} must be a speed in m/s")
+        if b.get("closing_spread_mps") is not None and b["closing_spread_mps"] < 0:
+            errs.append(f"{tag}: closing_spread_mps must be >= 0")
+    from . import environment as env                          # stand-off jammers (step 2.5, D1)
+    errs.extend(env.validate_jammers(sky))
     dupes = sorted({i for i in ids if ids.count(i) > 1})
     if dupes:
         errs.append(f"duplicate sky body ids: {', '.join(map(str, dupes))}")

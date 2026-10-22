@@ -86,44 +86,44 @@
   "cancelled": false,
   "faces_total": {
    "0": {
-    "avg_power_kW": 15.6754,
-    "dissipation_kW": 3.1633,
+    "avg_power_kW": 15.6755,
+    "dissipation_kW": 3.1634,
     "energy_fraction": 0.0085,
     "ku_duty_pct": 12.8628,
-    "p_available_kW": 1818.1096,
+    "p_available_kW": 1818.1095,
     "positions": 2629.6,
     "power_margin": 0.9915,
     "time_fraction": 0.0043,
     "time_margin_s": 0.9957
    },
    "1": {
-    "avg_power_kW": 22.3053,
+    "avg_power_kW": 22.3054,
     "dissipation_kW": 4.5105,
     "energy_fraction": 0.0122,
     "ku_duty_pct": 12.8159,
-    "p_available_kW": 1811.4797,
+    "p_available_kW": 1811.4796,
     "positions": 1807.8,
     "power_margin": 0.9878,
     "time_fraction": 0.0036,
     "time_margin_s": 0.9964
    },
    "2": {
-    "avg_power_kW": 10.9205,
+    "avg_power_kW": 10.9206,
     "dissipation_kW": 2.1972,
     "energy_fraction": 0.006,
     "ku_duty_pct": 12.8965,
-    "p_available_kW": 1822.8645,
+    "p_available_kW": 1822.8644,
     "positions": 1633.4,
     "power_margin": 0.994,
     "time_fraction": 0.0018,
     "time_margin_s": 0.9982
    },
    "3": {
-    "avg_power_kW": 10.9205,
+    "avg_power_kW": 10.9206,
     "dissipation_kW": 2.1972,
     "energy_fraction": 0.006,
     "ku_duty_pct": 12.8965,
-    "p_available_kW": 1822.8645,
+    "p_available_kW": 1822.8644,
     "positions": 1633.4,
     "power_margin": 0.994,
     "time_fraction": 0.0018,
@@ -143,13 +143,20 @@
   },
   "sectors": [
    {
+    "environment": {
+     "burn_through_best_km": null,
+     "burn_through_km": null,
+     "faraday_deg": null,
+     "jammer_type": null,
+     "objects_per_rr": 0.0
+    },
     "faces": {
      "0": {
-      "avg_power_kW": 4.7548729700172565,
-      "dissipation_kW": 0.9661295676130676,
-      "dissipation_kW_m2": 0.07266098850915041,
-      "energy_J_per_refresh": 95097.45940034512,
-      "energy_fraction": 0.0025929282713171155,
+      "avg_power_kW": 4.754880433973325,
+      "dissipation_kW": 0.9661310841937827,
+      "dissipation_kW_m2": 0.07266110256864886,
+      "energy_J_per_refresh": 95097.6086794665,
+      "energy_fraction": 0.00259293234156312,
       "positions": 996.2,
       "theta_max_deg": 51.0,
       "time_fraction": 0.0024904793291787167
@@ -172,7 +179,7 @@
      "achieved": 2.3657535483634393,
      "requested": 2.0
     },
-    "rr_alone_s": 0.05185856542634231,
+    "rr_alone_s": 0.0518586468312624,
     "rr_est_mission_s": 20.0,
     "rr_target_s": 20,
     "rx_beams_per_position": 6.118998226960277,
@@ -180,16 +187,23 @@
     "rx_sll_held_up_to_deg": 51.0,
     "s_min_unsaturated_range_km": 12.245459344502835,
     "sky": {
-     "above_budget_pct": 0.0,
+     "above_budget_pct": 0.8401969088186629,
+     "adc_margin_db_min": null,
      "band": "S",
      "blind_rise_db": 10.0,
      "blinded_by": [],
      "blinded_pct": 0.0,
+     "clutter_limited_pct": 0.0,
      "galactic": "worst case (no galactic frame given)",
-     "rise_db": 0.222291576594411,
-     "t_sys_budget_k": 152.05116100887255,
+     "limbs": [],
+     "main_lobe_surface": false,
+     "masked_by_structure_pct": 0.0,
+     "rise_db": 0.22229839392141557,
+     "structure_rise_k_max": 0.0004087589127875634,
+     "surfaces": {},
+     "t_sys_budget_k": 152.05139969099787,
      "t_sys_cold_k": 144.46431510192332,
-     "worst_rise_db": 0.222291576594411
+     "worst_rise_db": 0.22230338690218926
     },
     "status": "OK",
     "target": {
@@ -667,13 +681,20 @@
     ]
    },
    {
+    "environment": {
+     "burn_through_best_km": null,
+     "burn_through_km": null,
+     "faraday_deg": null,
+     "jammer_type": null,
+     "objects_per_rr": 0.0
+    },
     "faces": {
      "1": {
-      "avg_power_kW": 11.38478584949579,
-      "dissipation_kW": 2.3132433399373906,
-      "dissipation_kW_m2": 0.17397516169319444,
-      "energy_J_per_refresh": 56923.929247478954,
-      "energy_fraction": 0.006208353678046114,
+      "avg_power_kW": 11.384790209489648,
+      "dissipation_kW": 2.3132442258325563,
+      "dissipation_kW_m2": 0.17397522831988782,
+      "energy_J_per_refresh": 56923.95104744824,
+      "energy_fraction": 0.0062083560556388286,
       "positions": 174.4,
       "theta_max_deg": 20.0,
       "time_fraction": 0.0017444786786899702
@@ -696,7 +717,7 @@
      "achieved": 2.3657535483634393,
      "requested": 2.0
     },
-    "rr_alone_s": 0.031041768390230567,
+    "rr_alone_s": 0.031041780278194143,
     "rr_est_mission_s": 5.0,
     "rr_target_s": 5,
     "rx_beams_per_position": 6.118998226960277,
@@ -704,16 +725,23 @@
     "rx_sll_held_up_to_deg": 20.0,
     "s_min_unsaturated_range_km": 1.319953168606993,
     "sky": {
-     "above_budget_pct": 0.0,
+     "above_budget_pct": 0.29217075319888025,
+     "adc_margin_db_min": null,
      "band": "S",
      "blind_rise_db": 10.0,
      "blinded_by": [],
      "blinded_pct": 0.0,
+     "clutter_limited_pct": 0.0,
      "galactic": "worst case (no galactic frame given)",
-     "rise_db": 0.222291576594411,
-     "t_sys_budget_k": 152.05116100887255,
+     "limbs": [],
+     "main_lobe_surface": false,
+     "masked_by_structure_pct": 0.0,
+     "rise_db": 0.22229323979733387,
+     "structure_rise_k_max": 8.465156672288504e-05,
+     "surfaces": {},
+     "t_sys_budget_k": 152.05121923940376,
      "t_sys_cold_k": 144.46431510192332,
-     "worst_rise_db": 0.222291576594411
+     "worst_rise_db": 0.22229402244232646
     },
     "status": "OK",
     "target": {
@@ -939,43 +967,50 @@
     ]
    },
    {
+    "environment": {
+     "burn_through_best_km": null,
+     "burn_through_km": null,
+     "faraday_deg": null,
+     "jammer_type": null,
+     "objects_per_rr": 0.0
+    },
     "faces": {
      "0": {
-      "avg_power_kW": 10.92054211630632,
-      "dissipation_kW": 2.197206889702531,
-      "dissipation_kW_m2": 0.16524825439235666,
-      "energy_J_per_refresh": 1310465.0539567585,
-      "energy_fraction": 0.005955192193363083,
+      "avg_power_kW": 10.920608250930231,
+      "dissipation_kW": 2.197220195951411,
+      "dissipation_kW_m2": 0.16524925513307442,
+      "energy_J_per_refresh": 1310472.9901116276,
+      "energy_fraction": 0.0059552282579093145,
       "positions": 1633.4,
       "theta_max_deg": 75.0,
       "time_fraction": 0.001834459685236918
      },
      "1": {
-      "avg_power_kW": 10.920542116306324,
-      "dissipation_kW": 2.1972068897025316,
-      "dissipation_kW_m2": 0.16524825439235669,
-      "energy_J_per_refresh": 1310465.053956759,
-      "energy_fraction": 0.005955192193363085,
+      "avg_power_kW": 10.920608250930233,
+      "dissipation_kW": 2.1972201959514113,
+      "dissipation_kW_m2": 0.16524925513307445,
+      "energy_J_per_refresh": 1310472.9901116278,
+      "energy_fraction": 0.005955228257909315,
       "positions": 1633.4,
       "theta_max_deg": 75.0,
       "time_fraction": 0.0018344596852369187
      },
      "2": {
-      "avg_power_kW": 10.920542116306324,
-      "dissipation_kW": 2.1972068897025316,
-      "dissipation_kW_m2": 0.16524825439235669,
-      "energy_J_per_refresh": 1310465.053956759,
-      "energy_fraction": 0.005955192193363085,
+      "avg_power_kW": 10.920608250930231,
+      "dissipation_kW": 2.1972201959514113,
+      "dissipation_kW_m2": 0.16524925513307445,
+      "energy_J_per_refresh": 1310472.9901116276,
+      "energy_fraction": 0.0059552282579093145,
       "positions": 1633.4,
       "theta_max_deg": 75.0,
       "time_fraction": 0.0018344596852369185
      },
      "3": {
-      "avg_power_kW": 10.920542116306324,
-      "dissipation_kW": 2.1972068897025316,
-      "dissipation_kW_m2": 0.16524825439235669,
-      "energy_J_per_refresh": 1310465.053956759,
-      "energy_fraction": 0.005955192193363085,
+      "avg_power_kW": 10.920608250930233,
+      "dissipation_kW": 2.1972201959514113,
+      "dissipation_kW_m2": 0.16524925513307445,
+      "energy_J_per_refresh": 1310472.9901116278,
+      "energy_fraction": 0.005955228257909315,
       "positions": 1633.4,
       "theta_max_deg": 75.0,
       "time_fraction": 0.0018344596852369185
@@ -998,7 +1033,7 @@
      "achieved": 2.3657535483634393,
      "requested": 2.0
     },
-    "rr_alone_s": 0.7146230632035702,
+    "rr_alone_s": 0.7146273909491179,
     "rr_est_mission_s": 120.0,
     "rr_target_s": 120,
     "rx_beams_per_position": 6.118998226960277,
@@ -1006,16 +1041,23 @@
     "rx_sll_held_up_to_deg": 75.0,
     "s_min_unsaturated_range_km": 16.115930819966447,
     "sky": {
-     "above_budget_pct": 0.0,
+     "above_budget_pct": 0.9821233033900743,
+     "adc_margin_db_min": null,
      "band": "S",
      "blind_rise_db": 10.0,
      "blinded_by": [],
      "blinded_pct": 0.0,
+     "clutter_limited_pct": 0.0,
      "galactic": "worst case (no galactic frame given)",
-     "rise_db": 0.222291576594411,
-     "t_sys_budget_k": 152.05116100887255,
+     "limbs": [],
+     "main_lobe_surface": false,
+     "masked_by_structure_pct": 0.0,
+     "rise_db": 0.22231787731735164,
+     "structure_rise_k_max": 0.0010106386373068413,
+     "surfaces": {},
+     "t_sys_budget_k": 152.05208182820925,
      "t_sys_cold_k": 144.46431510192332,
-     "worst_rise_db": 0.222291576594411
+     "worst_rise_db": 0.22232077700836755
     },
     "status": "OK",
     "target": {
@@ -1741,17 +1783,17 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 2.4981260952136005e-05,
+     "confirm_energy": 2.4981266517355328e-05,
      "confirm_ku_time": 7.017357416310012e-06,
      "confirm_s_time": 2.6443158322237747e-06,
-     "dissipation_kW": 3.174605442948574,
-     "dissipation_kW_m2": 0.23875676445869362,
-     "load": 0.008524981260952138,
-     "p_left_kW": 1818.1520172383846,
+     "dissipation_kW": 3.174705446544008,
+     "dissipation_kW_m2": 0.2387642855618068,
+     "load": 0.008524981266517356,
+     "p_left_kW": 1818.1520172281791,
      "search_energy": 0.0085,
      "search_s_time": 0.0043,
      "status": "OK",
-     "total_energy": 0.008524981260952138,
+     "total_energy": 0.008524981266517356,
      "total_ku_time": 7.017357416310012e-06,
      "total_s_time": 0.004302644315832224
     },
@@ -1759,17 +1801,17 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 4.587574690927586e-05,
+     "confirm_energy": 4.587575557273585e-05,
      "confirm_ku_time": 0.00016305031271946293,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 4.540462682022942,
-     "dissipation_kW_m2": 0.3414806024204252,
-     "load": 0.012245875746909277,
-     "p_left_kW": 1811.3286967434537,
+     "dissipation_kW": 4.540462687646872,
+     "dissipation_kW_m2": 0.34148060284339155,
+     "load": 0.012245875755572736,
+     "p_left_kW": 1811.3286967275667,
      "search_energy": 0.0122,
      "search_s_time": 0.0036,
      "status": "OK",
-     "total_energy": 0.012245875746909277,
+     "total_energy": 0.012245875755572736,
      "total_ku_time": 0.00016305031271946293,
      "total_s_time": 0.0036
     },
@@ -1777,17 +1819,17 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 2.724477818597278e-06,
+     "confirm_energy": 2.7244824242236096e-06,
      "confirm_ku_time": 6.075440585858338e-06,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 2.198957876086108,
-     "dissipation_kW_m2": 0.16537994314898077,
-     "load": 0.006002724477818597,
-     "p_left_kW": 1822.7772938934431,
+     "dissipation_kW": 2.1989578790577307,
+     "dissipation_kW_m2": 0.16537994337247156,
+     "load": 0.006002724482424224,
+     "p_left_kW": 1822.7772938849976,
      "search_energy": 0.006,
      "search_s_time": 0.0018,
      "status": "OK",
-     "total_energy": 0.006002724477818597,
+     "total_energy": 0.006002724482424224,
      "total_ku_time": 6.075440585858338e-06,
      "total_s_time": 0.0018
     },
@@ -1795,17 +1837,17 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 2.7244778185972782e-06,
+     "confirm_energy": 2.7244824242236096e-06,
      "confirm_ku_time": 6.075440585858338e-06,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 2.198957876086108,
-     "dissipation_kW_m2": 0.16537994314898077,
-     "load": 0.006002724477818597,
-     "p_left_kW": 1822.7772938934431,
+     "dissipation_kW": 2.1989578790577307,
+     "dissipation_kW_m2": 0.16537994337247156,
+     "load": 0.006002724482424224,
+     "p_left_kW": 1822.7772938849976,
      "search_energy": 0.006,
      "search_s_time": 0.0018,
      "status": "OK",
-     "total_energy": 0.006002724477818597,
+     "total_energy": 0.006002724482424224,
      "total_ku_time": 6.075440585858338e-06,
      "total_s_time": 0.0018
     }
@@ -1849,7 +1891,7 @@
       "admissible": true,
       "faces": {
        "0": {
-        "energy_fraction": 2.225678313353873e-05,
+        "energy_fraction": 2.225678409313172e-05,
         "ku_time_fraction": 9.419168304516763e-07,
         "s_time_fraction": 2.6443158322237747e-06
        }
@@ -1869,16 +1911,23 @@
      "id": "S01",
      "ku_min_unsaturated_range_km": 10.226285183640794,
      "ku_sky": {
-      "above_budget_pct": 0.0,
+      "above_budget_pct": 0.8679872306673914,
+      "adc_margin_db_min": null,
       "band": "Ku",
       "blind_rise_db": 10.0,
       "blinded_by": [],
       "blinded_pct": 0.0,
+      "clutter_limited_pct": 0.0,
       "galactic": "worst case (no galactic frame given)",
-      "rise_db": 0.002553125925614558,
-      "t_sys_budget_k": 230.92767242927093,
+      "limbs": [],
+      "main_lobe_surface": false,
+      "masked_by_structure_pct": 0.0,
+      "rise_db": 0.0025540475955074314,
+      "structure_rise_k_max": 7.033076936060726e-05,
+      "surfaces": {},
+      "t_sys_budget_k": 230.9277214372861,
       "t_sys_cold_k": 230.7919548038089,
-      "worst_rise_db": 0.002553125925614558
+      "worst_rise_db": 0.0025544639179767977
      },
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
@@ -1909,7 +1958,7 @@
       "admissible": true,
       "faces": {
        "1": {
-        "energy_fraction": 4.315126909067858e-05,
+        "energy_fraction": 4.315127314851224e-05,
         "ku_time_fraction": 0.00015697487213360458,
         "s_time_fraction": 0.0
        }
@@ -1927,15 +1976,22 @@
      "ku_min_unsaturated_range_km": 1.1023038949767903,
      "ku_sky": {
       "above_budget_pct": 0.0,
+      "adc_margin_db_min": null,
       "band": "Ku",
       "blind_rise_db": 10.0,
       "blinded_by": [],
       "blinded_pct": 0.0,
+      "clutter_limited_pct": 0.0,
       "galactic": "worst case (no galactic frame given)",
-      "rise_db": 0.002553125925614558,
-      "t_sys_budget_k": 230.92767242927093,
+      "limbs": [],
+      "main_lobe_surface": false,
+      "masked_by_structure_pct": 0.0,
+      "rise_db": 0.0025535343248840794,
+      "structure_rise_k_max": 2.146726136640601e-05,
+      "surfaces": {},
+      "t_sys_budget_k": 230.92769414511147,
       "t_sys_cold_k": 230.7919548038089,
-      "worst_rise_db": 0.002553125925614558
+      "worst_rise_db": 0.0025535343248840794
      },
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
@@ -1966,22 +2022,22 @@
       "admissible": true,
       "faces": {
        "0": {
-        "energy_fraction": 2.7244778185972774e-06,
+        "energy_fraction": 2.724482424223609e-06,
         "ku_time_fraction": 6.075440585858335e-06,
         "s_time_fraction": 0.0
        },
        "1": {
-        "energy_fraction": 2.7244778185972782e-06,
+        "energy_fraction": 2.7244824242236096e-06,
         "ku_time_fraction": 6.075440585858338e-06,
         "s_time_fraction": 0.0
        },
        "2": {
-        "energy_fraction": 2.724477818597278e-06,
+        "energy_fraction": 2.7244824242236096e-06,
         "ku_time_fraction": 6.075440585858338e-06,
         "s_time_fraction": 0.0
        },
        "3": {
-        "energy_fraction": 2.7244778185972782e-06,
+        "energy_fraction": 2.7244824242236096e-06,
         "ku_time_fraction": 6.075440585858338e-06,
         "s_time_fraction": 0.0
        }
@@ -1998,16 +2054,23 @@
      "id": "S03",
      "ku_min_unsaturated_range_km": 13.458548179230757,
      "ku_sky": {
-      "above_budget_pct": 0.0,
+      "above_budget_pct": 0.9978023928016503,
+      "adc_margin_db_min": null,
       "band": "Ku",
       "blind_rise_db": 10.0,
       "blinded_by": [],
       "blinded_pct": 0.0,
+      "clutter_limited_pct": 0.0,
       "galactic": "worst case (no galactic frame given)",
-      "rise_db": 0.002553125925614558,
-      "t_sys_budget_k": 230.92767242927093,
+      "limbs": [],
+      "main_lobe_surface": false,
+      "masked_by_structure_pct": 0.0,
+      "rise_db": 0.0025604675027691803,
+      "structure_rise_k_max": 0.0027651586119600224,
+      "surfaces": {},
+      "t_sys_budget_k": 230.92806280373523,
       "t_sys_cold_k": 230.7919548038089,
-      "worst_rise_db": 0.002553125925614558
+      "worst_rise_db": 0.0026057307712692864
      },
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [

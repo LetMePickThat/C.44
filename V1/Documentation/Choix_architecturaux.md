@@ -1,6 +1,6 @@
 # Outil de préparation de mission radar : choix architecturaux
 
-Ce document recense tous les choix d'architecture faits jusqu'ici : organisation du logiciel, modèle du radar, et pour chaque variable sa définition, sa valeur, son statut et la raison de cette valeur. Il décrit l'état du dépôt après l'étape 2.3 de la feuille de route (modèle V6.8.0, 21 octobre 2026).
+Ce document recense tous les choix d'architecture faits jusqu'ici : organisation du logiciel, modèle du radar, et pour chaque variable sa définition, sa valeur, son statut et la raison de cette valeur. Il décrit l'état du dépôt après l'étape 2.5 de la feuille de route (modèle V6.10.0, 22 octobre 2026).
 
 > **Avertissement.** Les missions de `tests/missions/` sont des **missions de test**. Les valeurs figées de `tests/snapshots/` sont des **valeurs figées de test**. Elles servent seulement à détecter les régressions du code. Ce ne sont ni des exigences ni des performances du radar, dont les capacités réelles ne sont pas établies.
 
@@ -67,35 +67,69 @@ Rien de ce qui a été décidé ne vit seulement dans une conversation :
 | `Documentation/Choix_architecturaux.md` (ce document) | Toutes les variables, leurs valeurs et leurs raisons, les formules, les dispositions provisoires, les points ouverts et l'historique des décisions, question par question. |
 | `Documentation/Feuille_de_route.md` | La feuille de route, l'état d'avancement et, pour chaque étape, les décisions prises et les renvois reçus d'autres étapes. |
 | `radar_system.toml` | Les valeurs elles-mêmes ; le champ `source` de chaque entrée résume sa justification. |
-| En-tête de `core/radar_model.py` | Le journal des versions du modèle (V6.0.0 à V6.8.0) et ce que chaque version a changé. |
+| En-tête de `core/radar_model.py` | Le journal des versions du modèle (V6.0.0 à V6.10.0) et ce que chaque version a changé. |
 | `tests/snapshots/JOURNAL.md` | Chaque régénération des valeurs figées de test et ses causes. |
-| Mémoire de l'assistant (hors dépôt) | Locale à chaque machine, **non partagée** : elle n'est qu'un raccourci. Tout ce qui est nécessaire pour reprendre est dans le dépôt (ce tableau, §1.3, §1.5) ; en cas d'écart, le dépôt fait foi. |
+| Mémoire de l'assistant (hors dépôt) | Locale à chaque machine, **non partagée** : elle n'est qu'un raccourci. Tout ce qui est nécessaire pour reprendre est dans le dépôt (ce tableau, §1.3, §1.5, §1.6) ; en cas d'écart, le dépôt fait foi. |
 
 Reprendre sur une autre machine :
 1. `git clone https://github.com/LetMePickThat/C.44.git`, ou `git pull` dans le dépôt existant (le travail se fait sur `main`). Après la réécriture de l'historique du 22 octobre 2026, un ancien clone doit se recaler : `git fetch` puis `git reset --hard origin/main`, s'il n'a pas de travail local à garder.
 2. Python 3.11 ou plus (testé en 3.13), puis dans `V1/` : `python -m pip install --user -r requirements-dev.txt` (inclut `requirements.txt` et pytest). Sous Windows avec le Python du Microsoft Store, ajouter au PATH le dossier `Scripts` des paquets utilisateur (`...\LocalCache\local-packages\Python313\Scripts`) pour lancer `pytest` directement ; sinon `python -m pytest`.
 3. Vérifier l'installation : `python core/radar_model.py --selftest`, puis `python -m pytest -q` depuis `V1/` (tout doit passer, voir §4).
 4. Lancer l'outil : `python main.py` depuis `V1/`, ou le lanceur `Radar mission prep.bat`.
-5. Lire `Feuille_de_route.md` (tableau d'avancement : la prochaine étape) et §1.5 ci-dessous (travaux en suspens), puis suivre la procédure d'une étape.
+5. Lire `Feuille_de_route.md` (tableau d'avancement : la prochaine étape), §1.5 (travaux en suspens) et §1.6 (connaissances de travail), puis suivre la procédure d'une étape.
 
 Procédure d'une étape :
 1. Rappeler la raison d'être, les entrées et les sorties de l'étape.
 2. Poser les questions variable par variable, regroupées par sujet, et attendre les décisions.
 3. Coder : entrées dans `radar_system.toml` (valeur, unité, statut, source, date), version du modèle et journal en tête de `core/radar_model.py`, self-test et `tests/test_physics.py`.
-4. Régénérer la table de l'estimation rapide : `python tools/gen_cost_table.py` (le cache du diagramme se reconstruit seul).
+4. Régénérer la table de l'estimation rapide : `python tools/gen_cost_table.py` (les caches du diagramme et de la structure se reconstruisent seuls ; les commiter s'ils changent).
 5. Lire le rapport d'impact, `python tests/impact_report.py` (chiffres clés, formes d'onde et modes de confirmation qui changent), et l'inscrire dans `tests/snapshots/JOURNAL.md`.
 6. Régénérer les valeurs figées, `python tests/update_snapshots.py`, puis lancer `python -m pytest -q`.
-7. Mettre à jour ce document et `Feuille_de_route.md`.
+7. Mettre à jour ce document et `Feuille_de_route.md`, puis vérifier par une recherche que chaque passage modifié est présent (§1.6).
 8. Commiter et pousser sur demande (§1.3 : message neutre, sans signature d'assistant). Le hash du commit d'une étape est reporté dans le tableau d'avancement de `Feuille_de_route.md` au commit de documentation suivant.
 
 ### 1.5 Travaux en suspens hors feuille de route (au 22 octobre 2026)
 
 | Sujet | État | Quoi faire |
 |---|---|---|
-| Durée de la suite de tests | Environ 6 min avant l'étape 2.4, environ 30 min après, sur le même portable (14900HX, sur batterie en économie d'énergie l'après-midi ; la machine habituelle est un 9800X3D fixe). Le surcoût mesuré de l'étape 2.4 n'est que d'environ 10 % par mission (21 s contre 19,6 s sur `mission_example`) : l'écart n'est pas expliqué. | Mesure demandée « plus tard » par l'utilisateur : lancer l'ancienne version (commit `672ac02`, dans un `git worktree` temporaire) puis la nouvelle, dans les mêmes conditions d'alimentation. Si le code est en cause, profiler `tests/test_physics.py`. |
-| Hash de l'étape 2.4 | Commit `008d583`. | Reporté dans `Feuille_de_route.md`. |
+| Durée de la suite de tests | Environ 6 min avant l'étape 2.4, environ 30 min après, sur le même portable (14900HX ; la machine habituelle est un 9800X3D fixe). **Explication trouvée à l'étape 2.5** : le portable est passé sur batterie (mode « Legion Balance », 37 %, en décharge) ; la version 2.4 commitée met alors 70 s sur `mission_example`, contre 19,6 s le matin : la machine était environ 3,5 fois plus lente. Le code des étapes 2.4 et 2.5 ne coûte qu'environ 10 % (2.4) et rien de mesurable (2.5). **Après l'étape 2.5, sur secteur : 126 tests en 6 min 10.** | Si besoin, confirmer sur secteur ou sur le fixe : ancienne version (commit `672ac02`, dans un `git worktree` temporaire) puis nouvelle, dans les mêmes conditions. |
+| Hash des étapes | 2.4 : commit `008d583`. 2.5 : reporté dans `Feuille_de_route.md`. | — |
+| Prochaine étape | 3.1, veille S reconstruite : cadrage **pas encore commencé**. Elle reçoit le plus de renvois (multifaisceau à trois modes et loi PAE / recul, grille de fréquences fine, bandes au-delà de 75 MHz, impulsions de moins de 20 µs, critère secondaire de l'optimiseur, fouillis par forme d'onde, exigence de portée devant une surface, réponse au brouillage d'autoprotection, pas de grille par secteur) : voir `Feuille_de_route.md`. | Commencer par la procédure d'une étape (§1.4). |
+| Sauvegardes locales de la réécriture d'historique | Sur le portable seulement : branche `backup-before-rewrite` et `refs/original/`, gardées à la demande de l'utilisateur. | Les supprimer quand l'utilisateur le dira ; rien à faire sur une autre machine. |
+| Documentation de l'étape 2.4 | Une partie des mises à jour de ce document (en-tête, modules, bilan des entrées, lignes CFAR et cohérence) n'avait pas été appliquée au commit `008d583` ; rattrapée avec l'étape 2.5. | Vérifier, à chaque étape, que chaque remplacement de la documentation a bien été appliqué. |
 | Copies locales hors dépôt | `PROJECT_CONTEXT.md`, `README.txt`, `radar_params_restore.md` à la racine, exclus par `.git/info/exclude` : antérieurs à la feuille de route, remplacés par `Documentation/`. | Ne pas les commiter ; ils peuvent manquer sur une autre machine sans conséquence. |
 | Construction de l'exécutable | Différée (décision du 19 octobre 2026) : la disposition actuelle (`main.py` + `core/` + `gui/`, lanceur `Radar mission prep.bat` qui installe `requirements.txt` au premier démarrage et lance `pythonw`) reste telle quelle jusqu'à la livraison. À la livraison : PyInstaller en un dossier (environ 400 à 700 Mo avec VTK et Qt), zippé hors du dépôt, script `tools/build_exe.bat`, faux positifs d'antivirus possibles. | Ne rien proposer avant que l'utilisateur annonce la livraison. |
+
+### 1.6 Connaissances de travail (pour reprendre à l'identique)
+
+**Façon de travailler avec l'utilisateur.**
+- Il est expert radar, francophone, et attend des réponses concises. Il valide bloc par bloc (« validé », « tout validé ») et lance le codage par « go ». « c, p » ou « cp » = commit et push.
+- Pour chaque variable, une proposition chiffrée avec sa plage est présentée, et la décision lui revient. Pour nos technologies, on prend le bout optimiste de la plage. Pour les menaces et l'environnement, on prend la **médiane**, ou une valeur moyenne de classe. Une valeur qu'il ne donne pas n'est jamais choisie en silence : on la redemande.
+- Il pose des questions de fond en cours d'étape (exemples : usage des classes de cibles, définition du GO-CFAR). On y répond avant de poursuivre, et la réponse est consignée dans l'historique (§11).
+- Les écarts et les erreurs se signalent d'emblée dans le compte rendu (exemples : la cote du cône porte-antennes, la documentation 2.4 incomplète).
+
+**Pièges rencontrés (à éviter).**
+- Le PowerShell 5.1 de Windows écrit le TOML avec un BOM UTF-8 que `tomllib` refuse : écrire les fichiers en UTF-8 sans BOM (par Python), avec des fins de ligne LF dans le dépôt.
+- Une modification de la documentation par remplacements de texte peut échouer sans bruit : vérifier par une recherche que chaque passage modifié est bien présent avant le commit.
+- En insérant du code avant une fonction mise en cache, vérifier que le décorateur `@functools.lru_cache` reste sur la bonne fonction : `solve()` doit rester de l'ordre de la milliseconde.
+- Le profil `cProfile` d'une mission et les temps de référence ci-dessous détectent vite une régression.
+
+**Temps de référence** (portable 14900HX, 32 fils, branché sur secteur, étape 2.5 ; le fixe 9800X3D est plus rapide ; sur batterie, compter 3 à 4 fois plus) :
+
+| Opération | Durée |
+|---|---|
+| `python -m core.optimizer tests/missions/mission_example.json` (séquentiel) | environ 20 s |
+| `python tools/gen_cost_table.py` (32 processus) | environ 1 min 40 |
+| `python tests/impact_report.py` | environ 2 min 40 |
+| `python tests/update_snapshots.py` | environ 3 min |
+| `python -m pytest -q` (126 tests) | environ 6 min |
+| reconstruction automatique de `core/structure_cache.npz` / `core/antenna_cache.json` | environ 10 à 15 s / 8 s |
+
+**Fichiers dérivés** (§2.2) : `antenna_cache.json` et `structure_cache.npz` se reconstruisent seuls quand leurs entrées changent, et ne sont réécrits que pour le fichier de paramètres par défaut. Ils sont versionnés : les commiter avec l'étape qui les change. `cost_table.json` et les valeurs figées se régénèrent à la main (procédure, points 4 à 6).
+
+**Comportements de l'outil bons à savoir.**
+- Une mission sans clés nouvelles se comporte comme avant chaque étape (valeurs par défaut neutres : classe GENERIC, aucun objet, pas de brouilleur, pas de Faraday).
+- L'interface conserve les clés qu'elle n'édite pas encore : `target_type`, `range_min_km`, le ciel, les brouilleurs.
 
 ---
 
@@ -106,9 +140,10 @@ Procédure d'une étape :
 | Module | Rôle |
 |---|---|
 | `core/params.py` | Charge `radar_system.toml`, une seule fois par processus. Expose `P.get`, `P.meta`, `P.section` et l'empreinte des paramètres (`fingerprint`). La variable d'environnement `RADAR_PARAMS` permet de désigner un autre fichier. |
-| `core/radar_model.py` | Modèle radar V6.8.0 : critère de détection (Pd moyennée sur la position de la cible, Pd cumulée de la veille, politique de fausses alarmes, grille de veille à 1,4 lobe ; étape 2.3), traitement (blocs cohérents de taille optimale, oscillateur et plateforme, banc de vitesses, chevauchement et CFAR calculés, cases indépendantes pour les fausses alarmes ; étape 2.2), formes d'onde paramétriques (modulation LFM ou NLFM, pondération et perte de compression, k_r et résolution physique, effets dans l'impulsion, zone aveugle, éclipsage des trains échelonnés ; étape 2.1), chaîne de réception (T_sys de ciel froid, facteur de bruit du CAN dérivé du convertisseur, dynamique et portée minimale non saturée, récupération du limiteur, perte de recombinaison des deux voies de polarisation ; étape 1.5), bande (loi de bord par bande, occupation du spectre, retard vrai, contrôles de cohérence au chargement ; étape 1.4), bilan électrique et PAE variable par bande (étape 1.3), désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
-| `core/detection.py` | **Étape 2.3.** Lois de détection exactes (Swerling 0 à 4, toute Pfa), Pd moyennée sur une loi discrète de pertes de position, Pd cumulée sur les observations d'une cible qui se rapproche. |
+| `core/radar_model.py` | Modèle radar V6.10.0 : GO-CFAR (étape 2.5) ; bibliothèque de cibles (classes lues dans le fichier, cible d'un secteur, T₀ par classe et par bande, fluctuation en forme Gamma, optique de l'autodirecteur, accélération, dépolarisation et diversité, CFAR OS, masquage ; étape 2.4), critère de détection (Pd moyennée sur la position de la cible, Pd cumulée de la veille, politique de fausses alarmes, grille de veille à 1,4 lobe ; étape 2.3), traitement (blocs cohérents de taille optimale, oscillateur et plateforme, banc de vitesses, chevauchement et CFAR calculés, cases indépendantes pour les fausses alarmes ; étape 2.2), formes d'onde paramétriques (modulation LFM ou NLFM, pondération et perte de compression, k_r et résolution physique, effets dans l'impulsion, zone aveugle, éclipsage des trains échelonnés ; étape 2.1), chaîne de réception (T_sys de ciel froid, facteur de bruit du CAN dérivé du convertisseur, dynamique et portée minimale non saturée, récupération du limiteur, perte de recombinaison des deux voies de polarisation ; étape 1.5), bande (loi de bord par bande, occupation du spectre, retard vrai, contrôles de cohérence au chargement ; étape 1.4), bilan électrique et PAE variable par bande (étape 1.3), désadaptation active, marge de lobe de réseau, lobes visibles selon le dépointage, pureté de polarisation, bandes, gains, diagramme, pertes, équation radar sous forme énergétique, besoin en SNR de détection (Shnidman) et de poursuite (borne de Cramér-Rao), grille de veille dans l'espace (u, v), et `solve()`. |
+| `core/detection.py` | **Étape 2.3.** Lois de détection exactes (Swerling 0 à 4, toute Pfa), Pd moyennée sur une loi discrète de pertes de position, Pd cumulée sur les observations d'une cible qui se rapproche. **Étape 2.4** : fluctuation donnée aussi par sa forme Gamma `Fluct(k)` (non entière), qui reproduit exactement les cas de Swerling. |
 | `core/antenna.py` | **Étapes 1.1 et 1.2.** Diagramme de rayonnement calculé à partir de la composition des TRSA : faisceau d'émission uniforme, pondération de réception par niveau de lobes, étendue RMS de l'ouverture, profil des lobes lointains sur tout l'espace visible (lobes de jeu compris). Profils **moyennés en azimut** du diagramme de réception, pour l'intégrale du bruit du ciel (étape 1.5). Résultat mis en cache dans `core/antenna_cache.json`. |
+| `core/environment.py` | **Étape 2.5.** Environnement d'une face : structure du vaisseau en primitives (`[ship]`), lancer de rayons, masquage par fraction bloquée du tube d'ouverture, bruit de la structure (lobe principal et lobes lointains) ; surfaces des corps (masque, fouillis sur l'anneau d'égale distance, saturation des CAN) ; brouilleurs (classes `[jammers.*]`, bruit par le diagramme, annulation, portée de percée) ; rotation de Faraday. Tables de structure mises en cache dans `core/structure_cache.npz`. Branché dans `core/optimizer.sector_sky` (S et Ku). |
 | `core/sky.py` | **Étape 1.5.** Hausse de la température d'antenne selon la direction : fond galactique et corps du ciel de la mission (Soleil, Terre, Lune...), donnés dans le repère du vaisseau ; aveuglement et centile du bilan d'un secteur. |
 | `core/isolation.py` | **Étape 1.5.** Fuites entre bandes et entre faces : matrice des verdicts, règles pour l'ordonnanceur (cadence commune par bande, harmonique S dans le canal Ku). |
 | `core/optimizer.py` | Optimiseur de la veille S. Choisit pour chaque secteur la fréquence et les formes d'onde par tranche d'angle de dépointage, et établit le bilan énergie et temps par face. Depuis l'étape 1.5, il évalue le T_sys du ciel sur le secteur (`sector_sky`), retire les pointages aveuglés et met les portées à l'échelle du T_sys du bilan. |
@@ -116,7 +151,7 @@ Procédure d'une étape :
 | `core/cost_estimate.py` | Estimation rapide pour l'interface, à partir de `core/cost_table.json`. Elle n'est pas faite pour décider : seul le calcul exact fait foi. |
 | `core/mission.py` | Modèle de mission : valeurs par défaut, validation, chargement et sauvegarde JSON et CSV. |
 | `core/redundancy.py` | Détecte si un secteur couvre déjà le besoin d'un autre, dans les deux sens. |
-| `core/geometry.py` | Trame de la sphère des directions pour la 3D et l'estimation rapide. Modèle 3D du vaisseau. |
+| `core/geometry.py` | Trame de la sphère des directions pour la 3D et l'estimation rapide. Modèle 3D du vaisseau, **construit depuis l'étape 2.5 à partir des primitives de `[ship]`**, les mêmes que le masquage. |
 | `gui/` | Interface PyQt5 : préparation, résultats, vue 3D (pyvista). |
 | `tools/gen_cost_table.py` | Reconstruit `core/cost_table.json`. |
 | `tests/` | Banc de tests (§4). |
@@ -126,6 +161,7 @@ Procédure d'une étape :
 | Fichier | Contenu | Garantie de cohérence |
 |---|---|---|
 | `core/cost_table.json` | Énergie minimale par pointage selon la distance, la SER, la vitesse et l'angle, à 2,8 GHz. Il enregistre aussi l'option de lobes de réception utilisée. | Contient l'empreinte des paramètres. L'interface alerte si elle ne correspond plus, et un test vérifie qu'elle est à jour. Pour la reconstruire : `python tools/gen_cost_table.py`. |
+| `core/structure_cache.npz` | **Étape 2.5.** Par face : fraction bloquée et ε·T des parties touchées sur une grille (u, v), directions de la structure vues du centre de l'antenne. | Empreinte de la géométrie (`[ship]`, inclinaison, azimuts des faces, réglages `[tool.environment]`). Recalculé automatiquement si elle change (environ 15 s), réécrit seulement pour le fichier de paramètres par défaut. Un test vérifie qu'il est à jour. |
 | `core/antenna_cache.json` | Diagrammes calculés pour chaque bande. | Indexé par un hachage de toutes ses entrées : composition, options, n̄, réglages `[tool.pattern]` et version de l'algorithme. Il est recalculé automatiquement si les entrées changent, en environ 8 s. Il n'est **réécrit que pour le fichier de paramètres par défaut** : un essai sur une copie modifiée ne touche pas au cache du dépôt. Un test vérifie qu'il est à jour. |
 
 ### 2.3 Choix techniques
@@ -154,7 +190,7 @@ Procédure d'une étape :
 | Autre fichier | Variable d'environnement `RADAR_PARAMS=<chemin>`, héritée par les processus de l'optimiseur. |
 | Revue | Toutes les valeurs ont été validées une par une lors de la revue 0.3. Les ajouts des étapes 1.1 à 2.3 ont été validés pendant chacune de ces étapes. |
 
-**Bilan actuel (étape 2.3) : 198 entrées système, dont 151 V, 45 D et 2 ?.** Les deux entrées « ? » sont `multibeam.l8_db` et `multibeam.p`.
+**Bilan actuel (étape 2.5) : 295 entrées système, dont 252 V, 41 D et 2 ?.** Les deux entrées « ? » sont `multibeam.l8_db` et `multibeam.p`.
 
 ---
 
@@ -168,7 +204,7 @@ Procédure d'une étape :
 | Missions de test | `mission_example` (en JSON et en CSV), `mission_veille500`, `mission_redundancy_demo`, `mission_synthetic_mix`, `mission_sky_demo` (étape 1.5 : un ciel avec le Soleil, la Lune, le limbe de la Terre et un repère galactique), `mission_target_library` (étape 2.4 : un secteur par classe de cible, plus un KKV surchargé). Les deux premières ont été récupérées dans l'historique git. |
 | Rapport d'impact | `python tests/impact_report.py`, à chaque étape, avant de régénérer les valeurs figées : chiffres clés, et pour chaque mission de test les formes d'onde de veille et les modes de confirmation qui changent. |
 | Régénération | `python tests/update_snapshots.py`. Chaque régénération est consignée dans `tests/snapshots/JOURNAL.md`, avec sa cause et les formes d'onde ou modes qui ont changé. |
-| État | 117 tests passent après l'étape 2.4 (la suite prend environ 30 minutes sur ce poste). |
+| État | 126 tests passent après l'étape 2.5 (environ 6 min sur le portable branché sur secteur ; 3 à 4 fois plus sur batterie). |
 
 ---
 
@@ -242,8 +278,10 @@ Retraits faits lors de la revue 0.3 et de l'étape 1.1 :
 |---|---|---|---|---|
 | `range_grid_oversampling` | Suréchantillonnage de la grille de détection en distance (interpolation numérique). | ×4 | V | **C1**, bout optimiste de ×1,25 à ×4 : chevauchement moyen 0,05 dB à −25 dB (0,54 dB à ×1,25, 0,22 dB à ×2). Coût de calcul à l'étape 4.4. |
 | `doppler_zero_padding` | Bourrage de zéros de la transformée Doppler d'un bloc cohérent. | ×4 | V | **C2** : 0,07 dB en moyenne (1,12 dB sans bourrage, 0,29 dB à ×2). |
-| `doppler_window` | Pondération Doppler. | "none" | V | **C3.** Pas de fouillis à rejeter dans l'espace ; le masquage par les lobes Doppler d'une cible forte est à revoir aux étapes 2.4 et 2.5. |
-| `cfar_type` | Type de CFAR. | "CA" | V | **D1.** Bruit thermique homogène ; les variantes robustes (OS, GO) relèvent des étapes 2.4 et 2.5. |
+| `doppler_window` | Pondération Doppler. | "none" | V | **C3.** Pas de fouillis à rejeter dans l'espace. **Étape 2.4, D1** : le masquage par une cible forte est donné en sortie (premier lobe Doppler à −13,3 dB, le point faible de l'absence de fenêtre) ; son effet sur une scène dense relève de l'étape 5.4. |
+| `cfar_type` | Type de CFAR. | "CA" | V | **D1.** Bruit thermique homogène. **Étape 2.4, D3** : option "OS" (statistique d'ordre, robuste aux cibles voisines). **Étape 2.5, G1** : option "GO" (voir ci-dessous). |
+| `cfar_type` = "GO" | Option « greatest of » : la plus grande des moyennes des deux demi-fenêtres fixe le seuil, ce qui tient la Pfa à un bord de fouillis. | option | V | **Étape 2.5, G1.** Perte exacte de Hansen et Sawyers : 0,05 dB à 1 024 cellules (0,76 dB à 64). Le choix par pointage relève des étapes 4.3 et 5.2 ; un secteur qui contient un limbe est signalé. |
+| `cfar_os_rank_frac` | Rang de l'OS-CFAR, en fraction des cellules de référence. | 0,75 | V | **Étape 2.4, D3.** Perte exacte pour Swerling 1 sur un échantillon : 0,06 dB à 1 024 cellules et Pfa 1e-8 (CA : 0,04 dB). |
 | `cfar_ref_cells` | Cellules de référence du CFAR. | 1 024 | V | **D2**, bout optimiste : perte 0,04 dB (0,64 dB à 64, 0,16 dB à 256), calculée exactement pour Swerling 1 sur un échantillon et appliquée à toute observation (D3, légèrement prudent). |
 
 Ces trois pertes (`straddle_range`, `straddle_doppler`, `cfar`) remplacent les entrées `straddle` (0,7 dB) et `CFAR` (0,5 dB), supprimées.
@@ -284,8 +322,8 @@ Décision : « tous les modes sont possibles et sont à évaluer par l'optimiseu
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
 | `enable` | Active la perte de cohérence des blocs cohérents (cible, oscillateur, plateforme). | vrai | D | Étape 2.2. |
-| `t0_s` | Temps de cohérence **provisoire de la cible**, η = exp(−(T/t₀)^p) par bloc cohérent. | 0,25 s | D | **Étape 2.2, A6.** Toujours sans source ; la valeur par type de cible viendra à l'étape 2.4. |
-| `p` | Exposant de cette loi provisoire. | 2,0 | D | Jusqu'à l'étape 2.4. |
+| `t0_k` | Facteur de la loi du temps de cohérence de la cible, **T₀ = k · λ / (2 L ω)**, L et ω de la classe de cible. | 1,0 | V | **Étape 2.4, B1.** Remplace le t₀ provisoire de 0,25 s de l'étape 2.2. T₀ dépend de la bande (environ 5 fois plus court en Ku). |
+| `p` | Exposant de la loi η = exp(−(T/T₀)^p) d'un bloc cohérent. | 2,0 | V | **Étape 2.4, B2** : spectre Doppler gaussien d'une cible en rotation. |
 | `lo_ref_ghz`, `lo_offsets_hz`, `lo_ssb_dbc_hz` | Spectre de bruit de phase de l'oscillateur à 10 GHz, mis à l'échelle de la porteuse (+20 log f/10 GHz). | 1 Hz −100 ; 10 Hz −120 ; 100 Hz −140 ; 1 kHz −150 ; 10 kHz −160 ; 100 kHz −170 ; 1 MHz −175 dBc/Hz | V | **Étape 2.2, A1**, bout optimiste (oscillateur photonique). Réaliste aujourd'hui en spatial : −60 / −90 / −110 / −130 / −140 / −150 / −155. Un seul oscillateur pour l'émission et la réception (A2) : l'aller-retour filtre le bruit par 4 sin²(π f τ_rt). La perte est négligeable dans les deux cas (au plus 4e-6 dB) ; l'effet visible est le plancher Doppler, en sortie. |
 | `platform_motion_rms_m` | Mouvement résiduel de la plateforme et de la structure après compensation, sur un bloc. | 10 µm | V | **A5**, bout optimiste de 10 à 100 µm : 1,2 mrad en S, 6 mrad en Ku. |
 
@@ -487,15 +525,23 @@ Toutes ces valeurs sont V (étape 2.4). Justifications :
 
 Supprimée lors de la revue 0.3 : `latency_max_frac`, la règle de latence. Elle ne limitait jamais rien (2nv/c) et ignorait les vraies causes. La latence sera **reconstruite de zéro à l'étape 4.3** : attente dans la file de l'ordonnanceur, traitement et allers-retours, comparés à une exigence de délai par secteur.
 
-### 5.15 `[ship]` : vaisseau
+### 5.15 `[ship]` : structure du vaisseau (étape 2.5)
 
-| Variable | Définition | Valeur | Statut |
+La structure est décrite par des **primitives simples**, en mètres, dans le repère du vaisseau : Z est l'axe (+Z vers la proue), **z = 0 est la station axiale des antennes**, r est la distance à l'axe. Le masquage, le bruit de la structure et la vue 3D sont **calculés à partir de ces seules entrées** : on modifie, ajoute ou retire un élément dans le fichier, sans toucher au code (exigence de l'utilisateur). Le chargeur vérifie que le profil et les parties redonnent la longueur, le diamètre et l'envergure verrouillés (à 1 % près). Source : le dessin de référence, déjà tracé dans l'ancien modèle 3D, validé à l'étape 2.5 (A1 à A3), sans repliement des radiateurs.
+
+| Entrée | Contenu | Valeur | Statut |
 |---|---|---|---|
-| `length_m` | Longueur de la coque. | 136,4 m | V |
-| `hull_diameter_m` | Diamètre maximal de la coque. | 16,8 m | V |
-| `width_m` | Envergure maximale, ailes de radiateurs comprises. | 76,5 m | V |
+| `length_m`, `hull_diameter_m`, `width_m` | Cotes verrouillées, contrôlées contre la géométrie | 136,4 m, 16,8 m, 76,5 m | V |
+| `array_radius_m` | Distance du centre des antennes à l'axe, sur le cône porte-antennes | 4,926 m | V |
+| `block_mask_db` | Seuil de masquage : un pointage est retiré du balayage quand la structure coûte plus que cela par passage | 3 dB (f ≈ 0,29) | V |
+| `[ship.hull]` | Corps de révolution : `profile_z_m`, `profile_r_m` (du nez à l'arrière, une même z répétée = une marche), `material` | nez (tourelle laser) z +14,4 m ; col r 3,54 m ; cône porte-antennes 3,54 → 5,87 m entre z +2,4 et −2,4 m ; épaulement 5,87 → 6,34 m ; long cône jusqu'à z −31,2 m ; bande à ailettes r 7,37 m ; cylindre principal r 7,66 m jusqu'à z −105,1 m ; plus grand diamètre r 8,4 m ; cône moteur et aérospike jusqu'à z −122,0 m | V |
+| `[ship.parts]` | Une entrée par élément : `type` (`cylinder_z`, `cylinder_rad`, `box_rad`, `sphere`), dimensions, `azimuths_deg` (répétition), `material` | télescopes ×4 (0/90/180/270°, r 8,55 m, z −19,7 m, rayon 1,84 m, 6,3 m) ; ailettes ×4 ; bras et dômes des tourelles laser ×4 (z −56,3 m, jusqu'à r 12,3 m) ; mâts ×4 à 45° (r 9,4 → 19,2 m) et leurs ferrures ; rails de radiateurs ×2 (±X, z −59,9 → −105,1 m) ; ailes de radiateurs en 4 étages ×2 (±X, plan XZ, bouts à 31,0, **38,25**, 30,1 et 21,9 m) | V |
+| `[ship.materials.hull]` | Émissivité RF [S, Ku] et température physique | 0,01 / 0,01 ; 290 K | V (B1, B2 : bout optimiste) |
+| `[ship.materials.radiator]` | Idem | 0,05 / 0,05 ; **750 K** (médiane d'un vaisseau nucléaire, utilisateur) | V |
 
-Ces valeurs ne servent aujourd'hui qu'à la vue 3D. Le masquage des champs de vue par le vaisseau est prévu à l'étape 2.5, **avec le bruit thermique de la structure du vaisseau** dans le champ des faces (ailes de radiateurs, coque), décidé à l'étape 1.5 (A6) : c'est le même objet. Seul le plancher arrière (ε ≈ −55°) est modélisé.
+Correction de lecture : en présentant le bloc A, j'avais annoncé un cône porte-antennes de 3,5 à 4,7 m puis un épaulement de 4,7 à 6,3 m ; le dessin donne 3,54 → 5,87 m puis 5,87 → 6,34 m. Ce sont les valeurs du dessin validé qui sont dans le fichier.
+
+**Constat.** Avec l'inclinaison de 25° vers l'avant, la structure ne bloque que des directions de 71 à 90° de la normale d'une face, toutes attribuées à une autre face qui les voit avec un dépointage plus faible : **aucun pointage n'est masqué**, et **les ailes de radiateurs ne sont jamais vues** par les faces (cachées par la coque). Le bruit de la structure se réduit à celui de la coque (ε·T = 2,9 K, par les lobes lointains : négligeable). Une modification de la géométrie ou de l'inclinaison peut changer ce constat : le calcul suit le fichier. Changer `geometry.tilt_deg` demande de modifier aussi le cône porte-antennes et `array_radius_m`, que le code ne déduit plus de l'inclinaison.
 
 ### 5.16 `[sky]` et `[sky.tb_k]` : bruit du ciel (étape 1.5)
 
@@ -524,6 +570,37 @@ Table des températures de brillance `[sky.tb_k]`, en [S, Ku] (A3, statut V). Un
 | `earth_ocean` | 110 K | 150 K | Faible émissivité de l'océan en S, atmosphère et nuages en Ku |
 | `earth_land` | 270 K | 275 K | Terre émergée |
 | `moon` | 230 K | 230 K | Moyenne du disque, environ ±30 K avec la phase |
+
+### 5.16 bis `[sky.surface]` : surfaces diffusantes (étape 2.5)
+
+Par type de corps : rayon et rétrodiffusion à « γ constant », σ₀ = γ cos θᵢ, γ étant l'albédo radar du corps (σ / πR²). Valeurs médianes (environnement, pas notre technologie).
+
+| Type | Rayon | γ S / Ku | Statut |
+|---|---|---|---|
+| `earth`, `earth_ocean`, `earth_land` | 6 371 km | −12 / −10 dB (une moyenne des mers et des terres) | V |
+| `moon` | 1 737,4 km | −11,5 / −11,5 dB (albédo mesuré ≈ 0,07) | V |
+
+Clés nouvelles d'un corps du ciel de la mission : `closing_mps` et `closing_spread_mps` (vitesse de rapprochement de la surface et son étalement, donnés par le scénario) ; sans elles, le fouillis n'est jamais rejeté en Doppler (cas prudent).
+
+### 5.16 ter `[jamming]` et `[jammers.*]` : brouillage (étape 2.5)
+
+| Variable | Valeur | Statut | Justification |
+|---|---|---|---|
+| `jamming.null_depth_db` | 40 dB | V | Annulation adaptative des brouilleurs dans les lobes secondaires, bout optimiste de 20 à 40 dB (D4) ; pas d'annulation dans le lobe principal. |
+| `jamming.max_nulled` | 8 par face | V | Les plus forts d'abord (D4) ; coût de calcul à l'étape 4.4. |
+| `jamming.null_min_offset_hpbw` | 1 lobe de réception | D | Au-delà, un brouilleur est dans les lobes secondaires. |
+
+Classes de brouilleurs (**valeurs moyennes de classe**, barrage sur toute la bande utile sauf `cover_lo_ghz` / `cover_hi_ghz`, extensibles dans le fichier seul ; D5, médianes 2050-2060) :
+
+| Classe | Nature | Hypothèse | Densité de PIRE S / Ku |
+|---|---|---|---|
+| SOJ_SHIP | à distance | 30 kW sur 200 MHz, 30 dBi | 50 / 50 dBW/MHz |
+| SOJ_ESCORT | à distance | 3 kW, 30 dBi | 40 / 40 dBW/MHz |
+| SPJ_SHIP | autoprotection | 1 kW, 20 dBi | 27 / 27 dBW/MHz |
+| SPJ_POD | autoprotection (nacelle du KKV) | 30 W, 15 dBi | 10 / 10 dBW/MHz |
+| SPJ_KKV | autoprotection (sur le KKV) | 100 W, 10 dBi | 5 / 5 dBW/MHz |
+
+Un brouilleur à distance est déclaré dans le ciel de la mission (`jammers` : `id`, `class`, `phi_deg`, `eps_deg`, `range_km`, surcharge facultative `erp_dbw_mhz`) ; un brouilleur d'autoprotection est porté par la cible d'un secteur (`jammer_type`, surcharge `jammer_erp_dbw_mhz`).
 
 ### 5.17 `[isolation]` : isolation entre bandes et entre faces (étape 1.5)
 
@@ -802,6 +879,24 @@ Coûts de l'annulation active, si elle est reprise à l'étape 4.3 : perte d'ins
 
 **Alerte** : une revisite inférieure à `tool.alerts.rr_t0_ratio` (3) × T₀ est signalée, car le critère cumulé suppose des observations indépendantes.
 
+### 7.13 Environnement (étape 2.5, `core/environment.py`)
+
+Tous ces termes sont évalués par direction de pointage dans `sector_sky` (bandes S et Ku), sur la même grille que le bruit du ciel. Les bruits s'ajoutent à la hausse de température d'antenne ; la perte de blocage et le fouillis entrent comme **facteurs sur le bruit** : T_eff = T_sys(direction) × L_blocage × facteur de fouillis. Le budget du secteur reste le centile (1 − `short_tol`) de T_eff, la portée suit sa racine quatrième, et un pointage dont T_eff monte de plus de 10 dB est aveuglé, avec sa cause (corps, brouilleur, blocage, fouillis).
+
+**Masquage par la structure.** Les obstacles sont dans le champ proche (limite de Fraunhofer d'environ 325 m en S) : le faisceau est un tube de la largeur de l'ouverture. Des rayons partent de 37 points de l'ouverture (anneaux hexagonaux, `tool.environment.aperture_ray_rings` = 3) dans la direction du pointage ; f = fraction de rayons qui touchent la structure (lancer de rayons exact sur les primitives). Perte par passage −20 log(1 − f), aller-retour le double ; au-delà de `ship.block_mask_db` par passage, le pointage est masqué (retiré du balayage et signalé). Table par face sur une grille (u, v) au pas de 0,01.
+
+**Bruit de la structure.** Lobe principal : f × (ε·T des parties touchées) × part du diagramme de réception dans la zone proche. Lobes lointains : les directions de la structure vues du centre de l'antenne (20 000 directions sur la sphère), pondérées par ε·T, intégrées sur le profil lointain moyenné en azimut, comme un corps du ciel ; tabulé par face sur une grille (u, v) au pas de 0,05. Les réflexions sur la structure (Soleil, Terre) ne sont pas comptées (étape 5.4).
+
+**Surfaces.** Distance au centre D = R / sin(rayon angulaire). Une direction qui tombe dans le disque rencontre la surface à d = D cos δ − √(R² − D² sin² δ) : rien n'existe au-delà (signalé quand d est inférieure à la portée exigée). **Fouillis** dans la case de la cible, à la portée exigée r : l'anneau d'égale distance (cos α = (r² + D² − R²) / 2rD, incidence cos θᵢ = (D² − r² − R²) / 2rR), de surface 2π R r Δr / D par case Δr = c / 2B (B = la plus étroite des bandes admissibles du secteur ; 50 MHz en Ku), échantillonné sur 720 points, vu par le diagramme aller-retour (profils d'émission et de réception, facteur d'élément cos) : C/S = σ_c / σ_cible. Le fouillis étant traité comme un bruit au seuil, S ≥ SNR_req (N + C) donne le facteur 1 / (1 − x), x = (C/S) · SNR_req (SNR d'une observation au cas de Swerling de la cible) ; à x ≥ 1, aucune puissance ne suffit : pointage **limité par le fouillis**, aveuglé. Le fouillis est rejeté si le scénario donne la bande Doppler de la surface et qu'elle ne recouvre pas l'étendue de vitesses du secteur (traitement cohérent supposé). Dans le lobe principal, une cible devant la surface n'a pas de fouillis dans sa case, sauf pour un train ambigu en distance : ces trains sont retirés de l'espace de recherche d'un secteur dont un pointage voit une surface. **CAN** : écho de la surface dans le lobe principal (empreinte du faisceau × σ₀) par élément, avant la formation de faisceau, comparé au niveau d'écrêtage (alerte). Un limbe dans le secteur est signalé (GO-CFAR conseillé).
+
+**Brouilleurs à distance.** Température équivalente T_j = (densité de PIRE / 4πR²) / k × A_eff(direction), A_eff = surface × η de réception × cos (élément) × diagramme de réception (zone proche ou profil lointain). Un brouilleur à plus d'un lobe de réception de l'axe est dans les lobes secondaires : les 8 plus forts par pointage sont annulés de 40 dB. Ordres de grandeur avec SOJ_SHIP à 10 000 km : J/N ≈ +57 dB dans le lobe principal (aveuglé), environ +11 dB par les lobes lointains sans annulation.
+
+**Brouilleur d'autoprotection.** Portée de percée R_bt = √(P G_t σ τ N / (4π · densité de PIRE · SNR_req · L)), avec la forme d'onde principale du secteur et avec la plus énergétique de l'espace de recherche (pleine puissance, axe) ; signalée quand elle est inférieure à la portée exigée.
+
+**Objets non menaçants.** `objects_per_rr` objets réels par revisite, confirmés comme des cibles : leur observation Ku à leur propre portée de détection coûte autant que celle de la menace à r_det (R⁴/σ identique).
+
+**Rotation de Faraday.** Ω = 2 × 2,36·10⁴ · B∥ · TEC / f² (aller-retour, unités SI), à partir du contenu électronique et du champ le long de la ligne de visée donnés par le scénario (`tec_tecu`, `b_parallel_nt`) ; en sortie seulement : le GLRT à deux voies récupère l'énergie.
+
 ---
 
 ## 8. Paramètres de l'outil (`[tool.*]`)
@@ -826,6 +921,7 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 | `tool.pattern` | `r_max_lam_d`, `r_step_lam_d`, `phi_step_deg`, `fit_tol_db`, `far_step_lam_d` | 8, 0,01, 1,5°, 0,05 dB, 0,125 | Étapes 1.1 et 1.2 : précision du calcul du diagramme et pas de la grille des lobes lointains. |
 | `tool.detection` | `offset_quantiles` | 16 | **Étape 2.3, B4** : quantiles de chaque écart de position. |
 | | `masking_offsets_cells` | [1, 2, 3] | **Étape 2.4, D1-D2** : écarts (en cellules) des niveaux de masquage donnés en sortie. |
+| `tool.environment` | `aperture_ray_rings`, `block_grid_step_uv`, `struct_noise_dirs`, `clutter_ring_points` | 3, 0,01, 20 000, 720 | **Étape 2.5** : précision du lancer de rayons, de la table de blocage, de l'intégrale du bruit de la structure et de l'anneau de fouillis. |
 | `tool.targets` | `default_type` | "GENERIC" | **Étape 2.4, A3** : classe qui complète un secteur sans `target_type` (sa SER et son Swerling sont gardés). |
 | `tool.alerts` | `mismatch_db_per_pass` | 3,0 dB | **Étape 1.2, Q5** : seuil d'alerte de la désadaptation par passage. |
 | | `rr_t0_ratio` | 3 | **Étape 2.4, B4** : alerte quand la revisite d'un secteur est inférieure à 3 T₀ (observations corrélées). |
@@ -844,7 +940,7 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 |---|---|---|
 | `eps_min_deg` / `eps_max_deg` | −90° / +90° (pas de limite) | Fenêtre d'élévation de la mission, envoyée à l'ordonnanceur. Le plancher physique est d'environ −55°. |
 | `face_elec_mw` | 2,0 MW | Doit être strictement positive et ne pas dépasser 8 MW (validation provisoire). |
-| **`sky`** | absent | **Étape 1.5.** Ciel dans le **repère du vaisseau**, rempli plus tard par le simulateur global de scénario : `bodies` (id, type de `[sky.tb_k]`, `phi_deg`, `eps_deg`, `angular_radius_deg`, `tb_k` facultatif) et `galactic` facultatif (directions du pôle et du centre galactiques, à 90° l'une de l'autre). Sans ciel : ciel froid et fond galactique au pire cas. L'interface ne l'édite pas ; elle le conserve. |
+| **`sky`** | absent | **Étape 2.5 :** aussi `jammers` (brouilleurs à distance) et, par corps, `closing_mps` / `closing_spread_mps`. **Étape 1.5.** Ciel dans le **repère du vaisseau**, rempli plus tard par le simulateur global de scénario : `bodies` (id, type de `[sky.tb_k]`, `phi_deg`, `eps_deg`, `angular_radius_deg`, `tb_k` facultatif) et `galactic` facultatif (directions du pôle et du centre galactiques, à 90° l'une de l'autre). Sans ciel : ciel froid et fond galactique au pire cas. L'interface ne l'édite pas ; elle le conserve. |
 
 ### 9.2 Secteur (volume de veille)
 
@@ -861,7 +957,10 @@ Ces réglages ne décrivent pas le radar. Ils ont été validés tels quels lors
 | `res_max_m` | 2 m | Résolution en distance demandée, **physique** depuis l'étape 2.1 (élargissement de la pondération compris : 2 m demandent 89 MHz à −25 dB, au-delà des 75 MHz de l'espace de recherche ; le secteur est signalé jusqu'à l'étape 3.1). |
 | **`fa_per_rr`** | 10 | **Étape 2.3.** Fausses alarmes tolérées par revisite en mode « fa_rate » (réglage de mission à l'étape 5.1). |
 | **`range_min_km`** | 10 % de `range_km` | **Étape 2.1.** Portée minimale d'intérêt : la zone aveugle des formes d'onde du secteur (veille et observations Ku) doit rester en dessous. À terme, les affichages ne montreront que le volume utile, sans la zone aveugle (étape 5.5). L'interface ne l'édite pas encore ; elle la conserve. |
-| `allow_ambiguous` | faux | Autorise une distance ambiguë. |
+| `allow_ambiguous` | faux | Autorise une distance ambiguë. Depuis l'étape 2.5, les trains ambigus sont retirés quand une surface est dans le lobe principal d'un pointage du secteur (fouillis replié). |
+| **`jammer_type`**, `jammer_erp_dbw_mhz` | absent | **Étape 2.5.** Brouilleur d'autoprotection porté par la cible (classe SPJ de `[jammers.*]`, surcharge facultative de sa densité de PIRE) : portée de percée. |
+| **`objects_per_rr`** | 0 | **Étape 2.5.** Objets réels non menaçants (débris, satellites) vus par revisite, confirmés comme des cibles. |
+| **`tec_tecu`**, **`b_parallel_nt`** | absents | **Étape 2.5.** Contenu électronique (TECU) et champ magnétique (nT) le long de la ligne de visée, donnés par le scénario : rotation de Faraday en sortie. |
 | **`rx_sll_db`** | **−25 dB** | **Étape 1.1.** Niveau de lobes de la pondération de réception du volume, au choix parmi −25, −30 et −35 dB. Il s'applique à la veille S et à la confirmation et poursuite Ku du volume. Un ancien fichier sans ce champ prend −25 dB. Une liste déroulante dans l'interface indique, pour chaque option, η, la perte de gain et la largeur de lobe. |
 | `confirm_mode` | "auto" | auto, KU1+7, KU7 ou S2. |
 | `new_targets_per_rr` | 1 | Nouvelles vraies cibles par période de revisite. |
@@ -885,7 +984,7 @@ La feuille de route complète, avec le contenu détaillé de chaque étape, se t
 |---|---|
 | 0, fondations | 0.1 fichier unique ✔ ; 0.2 banc de tests ✔ ; 0.3 revue des valeurs ✔ |
 | 1, antenne et RF | 1.1 géométrie et diagramme réel ✔ ; **1.2 diagramme : lobes de réseau, désadaptation active \|Γ(θ, f)\|, polarisation ✔** ; **1.3 TRM et chaîne d'émission ✔** ; **1.4 bande ✔** ; **1.5 réception ✔** (T_sys selon la direction, CAN, isolation, deux voies de polarisation ; le bruit de phase de l'oscillateur est passé en 2.2) |
-| 2, signal et détection | **2.1 formes d'onde paramétriques ✔** ; **2.2 traitement ✔** ; **2.3 critère de détection ✔** ; **2.4 modèles de cibles ✔** ; 2.5 environnement (masquage par le vaisseau, Faraday, brouillage) |
+| 2, signal et détection | **2.1 formes d'onde paramétriques ✔** ; **2.2 traitement ✔** ; **2.3 critère de détection ✔** ; **2.4 modèles de cibles ✔** ; **2.5 environnement ✔** ; 2.5 environnement (masquage par le vaisseau, Faraday, brouillage) |
 | 3, fonctions radar | 3.1 veille S (multifaisceau, grille de fréquences fine) ; 3.2 confirmation Ku (fréquence Ku choisie, connaissance du spectre) ; 3.3 poursuite (Kalman ou IMM) ; 3.4 fonctions annexes |
 | 4, ressources | 4.1 puissance (bus de 8 MW, répartition entre faces) ; 4.2 thermique ; 4.3 ordonnanceur et latence ; 4.4 calcul et données |
 | 5, mission et validation | 5.1 modèle de mission enrichi et bibliothèque de menaces ; 5.2 optimiseur global ; 5.3 moteur de validation ; 5.4 simulation Monte-Carlo ; 5.5 interface opérateur ; 5.6 vérification, validation et documentation |
@@ -925,15 +1024,22 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 | Plafond du nombre d'observations cumulées (cible surgissante), Pd et taux de fausses alarmes par secteur | Pas de plafond ; une seule Pd et un taux par défaut pour tous les secteurs. | 5.1 |
 | Décalage de la grille de veille à chaque trame | Supposé (`grid_dithering`), exigence signalée. | 4.3 |
 | Estimation rapide avec le nouveau critère | La table de coût reste au critère d'une observation à `detection.pfa`, avec la grille de 1,4. | 5.5 |
-| Bruit de la structure du vaisseau | Non modélisé ; avec le masquage. | 2.5 |
-| Fouillis terrestre et saturation des CAN qu'il cause | La Terre n'est qu'une source de bruit. | 2.5 |
+| Bruit de la structure du vaisseau | Modélisé à l'étape 2.5 (coque seule visible). | — |
+| Fouillis terrestre et saturation des CAN qu'il cause | Modélisés à l'étape 2.5 (fouillis par l'anneau d'égale distance, alerte CAN). | — |
 | Récupération du limiteur | Comptée depuis l'étape 2.1 (sortie `rx_deaf_us`) : zone aveugle c (τ + récupération) / 2, PRI des trains non ambigus ≥ 2R/c + τ + récupération, éclipsage moyen des trains échelonnés. Reste l'éclipsage par les autres observations et les autres faces (ligne « Zone aveugle et éclipse »). | ✔ 2.1 ; reste 4.3 |
 | Atténuateur commutable (poursuite rapprochée) | Gain fixe, alerte de saturation des tranches de poursuite. | 3.3 |
 | CAN : nombre, débit, consommation | 2 CAN par TRM (deux voies). | 4.4 |
 | Estimation rapide au ciel froid | Sans le bruit du ciel. | 5.5 |
 | Multifaisceau | Loi unique, statut ?. Modes à évaluer par l'optimiseur. | 3.1, 5.2 |
 | Fréquence Ku | Fixée à 14,0 GHz, provisoire. | 3.2 |
-| Masquage par le vaisseau | Seul le plancher arrière est modélisé. | 2.5 |
+| Masquage par le vaisseau | Modélisé à l'étape 2.5 (primitives, tube d'ouverture) : aucun pointage masqué avec la géométrie actuelle. Diffraction en champ proche et couplage avec la structure non modélisés. | — |
+| Réflexions sur la structure | Soleil, Terre et autres faces réfléchis par la coque ou les radiateurs : non comptés. | 5.4 |
+| Fouillis d'une forme d'onde | Évalué à la portée exigée avec la bande la plus étroite admissible, sans le choix de la forme d'onde par pointage ; rejet Doppler en tout ou rien. | 3.1 |
+| Portée exigée derrière une surface | Signalée, mais l'exigence n'est pas réduite à la distance de la surface sur ces pointages. | 3.1 |
+| Brouilleurs et confirmation Ku | La portée de percée n'est calculée que pour la veille S ; les brouilleurs à distance entrent dans le T_sys Ku. | 3.2 |
+| Brouillage trompeur (répéteurs, faux échos) | Non modélisé (décision Q4). | 3.3 |
+| Choix du CFAR par pointage | GO conseillé près d'un limbe ; CA partout. | 4.3, 5.2 |
+| Coût de l'annulation adaptative | 8 brouilleurs par face au plus. | 4.4 |
 | Latence | Règle supprimée, à reconstruire. | 4.3 |
 | Répartition de la puissance entre faces | Une seule valeur par mission. | 4.1, 5.2 |
 | Consommation hors émission | `overhead_frac` à 3 %. | 4.1, 4.4 |
@@ -1218,3 +1324,21 @@ Décisions de l'utilisateur en cours d'étape :
 Mise au point pendant le codage : le surcoût de calcul a été ramené à environ 10 % (loi stable mise en cache, table de la phase quadratique pour l'accélération, cible du secteur mise en cache).
 
 Effet sur les missions de test (valeurs de test seulement) : voir `tests/snapshots/JOURNAL.md`. Nouvelle mission de test `mission_target_library.json` (secteurs KKV, KKV avec η_r = 1 en surcharge, SHIP, DEBRIS, DECOY).
+
+### Étape 2.5 : l'environnement (22 octobre 2026)
+
+Questions de cadrage (validées) : Q1 structure en primitives, masquage par le tube d'ouverture ; Q2 bruit de la structure comme corps du ciel ; Q3 fouillis de surface au bilan et alerte CAN ; Q4 brouilleurs de bruit (à distance et d'autoprotection), faux échos en 3.3 ; Q5 objets non menaçants par une densité donnée par la mission ; Q6 Faraday en sortie sans perte ; Q7 point « bruit de fond » clos ; Q8 GO-CFAR en option.
+
+Variables (toutes validées) : A1-A3 géométrie du dessin (coque, télescopes, ailettes, tourelles, mâts, rails, ailes en 4 étages), A4 tube et seuil de 3 dB par passage, pas de repliement ; **le code doit permettre de modifier la géométrie** (fichier seul) ; vue 3D construite sur les mêmes primitives ; B1-B5 matériaux (coque 0,01 / 290 K, radiateurs 0,05 / **750 K**, médiane d'un vaisseau nucléaire), réflexions non comptées ; C1-C6 surfaces (masque, fouillis par les lobes secondaires et trains ambigus, γ Terre −12 / −10 dB et Lune −11,5 dB, rejet Doppler si le scénario le permet, alerte CAN) ; D1-D6 brouilleurs (bibliothèque de classes en moyennes, annulation 40 dB × 8, portée de percée, valeurs médianes proposées et validées) ; E objets (`objects_per_rr`) ; F Faraday (`tec_tecu`, `b_parallel_nt`) ; G GO-CFAR et alerte de limbe.
+
+Explication demandée par l'utilisateur : le GO-CFAR (moitiés de fenêtre, plus grande moyenne, tenue de la Pfa aux bords de fouillis, perte 0,05 dB à 1 024 cellules, masquage accru par les cibles voisines).
+
+Constats : aucun pointage masqué par la structure, radiateurs jamais vus (§5.15) ; sur la mission de test d'environnement, fouillis limitant près de l'anneau terrestre, brouilleurs à distance aveuglant quelques pointages malgré l'annulation, et portée de percée de SPJ_KKV de 11 km avec la forme d'onde choisie (114 km au mieux), contre 500 km exigés.
+
+Mesure de performance pendant le codage : le surcoût de l'étape est négligeable (70,6 s contre 70,4 s sur `mission_example`) ; la même mission prenait 19,6 s le matin sur le même portable, passé sur batterie (mode « Legion Balance », 37 %) : la machine était environ 3,5 fois plus lente, ce qui explique l'essentiel de l'allongement des tests (§1.5).
+
+Mise au point : en ajoutant le GO-CFAR, le cache de `masking_levels_db` (étape 2.4) s'était détaché de sa fonction, ce qui rendait chaque `solve()` 100 fois plus lent (une table de coût de plusieurs heures) ; corrigé avant la régénération des valeurs figées. Sur secteur, la table de coût se refait en 1 min 36 et le rapport d'impact en 2 min 39.
+
+Effet sur les missions de test (valeurs de test seulement) : seul `mission_sky_demo` / EARTH change vraiment (Terre vue d'orbite basse : fouillis de l'anneau d'égale distance, T_sys du bilan 255 → 998 K, 19,8 % des pointages limités par le fouillis, énergie des faces 3 et 4 +160 à +170 %) ; voir `tests/snapshots/JOURNAL.md`.
+
+Nouvelle mission de test `mission_environment.json` (Terre, Lune, deux brouilleurs à distance, un KKV avec SPJ_KKV, objets et Faraday).

@@ -284,7 +284,9 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
     #     look costs at the design point (Ku look at the sector's detection range, S touch = the search look
     #     pointed, i.e. without grid loss). A margin m scales the energy; the TX time grows once the waveform is
     #     at full power.
-    n_new = float(sec.get("new_targets_per_rr", 1.0))
+    # true targets + non-threatening objects (step 2.5, E): an object seen by the search is confirmed like a target;
+    # its Ku look at its own detection range costs the same as the threat's at r_det (R^4 / sigma is the same)
+    n_new = float(sec.get("new_targets_per_rr", 1.0)) + float(sec.get("objects_per_rr", 0.0))
     fa = np.zeros(4)
     cg = []
     ku_missing = 0.0

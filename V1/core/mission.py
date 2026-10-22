@@ -15,6 +15,10 @@ completed or overridden by the sector's own values: rcs_m2 (both bands), swerlin
 class = derived from its fluctuation and T0), fluctuation, depol_db, length_m, rotation_dps, accel_max_mps2,
 optics_diameter_m, optics_f_ratio, optics_retro_eff. Without a class, the sector's rcs_m2 / swerling (default 1) are
 used with the other values of tool.targets.default_type (GENERIC).
+Environment, per sector (step 2.5): "jammer_type" (a self-protection class of [jammers.*], "jammer_erp_dbw_mhz"
+optional override), "objects_per_rr" (non-threatening objects seen per revisit, confirmed like targets), "tec_tecu"
+and "b_parallel_nt" (line-of-sight electron content and field, Faraday rotation output). Stand-off jammers and body
+closing speeds ("closing_mps", "closing_spread_mps") are in the mission sky.
 RX weighting, per sector: "rx_sll_db" = RX peak sidelobe level, one of RX_SLL_CHOICES (S and Ku; default -25 dB).
 Shortest range of interest, per sector: "range_min_km" (step 2.1; default tool.mission_defaults.range_min_frac x
 range_km): the blind range c (tau + limiter recovery) / 2 of the sector's waveforms must stay under it.
@@ -218,6 +222,25 @@ def validate_target(sec: dict, tag: str) -> List[str]:
             errs.append(f"{tag}: {k} must be >= 0")
     if sec.get("optics_retro_eff") is not None and not 0.0 <= sec["optics_retro_eff"] <= 1.0:
         errs.append(f"{tag}: optics_retro_eff must be in [0, 1]")
+    errs.extend(validate_environment(sec, tag))
+    return errs
+
+
+def validate_environment(sec: dict, tag: str) -> List[str]:
+    """Environment keys of one sector (step 2.5): self-protection jammer, non-threatening objects, Faraday inputs."""
+    errs = []
+    jt = sec.get("jammer_type")
+    if jt is not None:
+        if jt not in mo.env.JAMMER_CLASSES:
+            errs.append(f"{tag}: unknown jammer_type '{jt}' ({', '.join(mo.env.JAMMER_CLASSES)})")
+        elif mo.env.JAMMER_CLASSES[jt]["nature"] != "SPJ":
+            errs.append(f"{tag}: jammer_type '{jt}' is a stand-off jammer: give it in the mission sky (jammers)")
+    if sec.get("objects_per_rr") is not None and sec["objects_per_rr"] < 0:
+        errs.append(f"{tag}: objects_per_rr must be >= 0")
+    if (sec.get("tec_tecu") is None) != (sec.get("b_parallel_nt") is None):
+        errs.append(f"{tag}: tec_tecu and b_parallel_nt go together (Faraday rotation)")
+    elif sec.get("tec_tecu") is not None and sec["tec_tecu"] < 0:
+        errs.append(f"{tag}: tec_tecu must be >= 0")
     return errs
 
 
@@ -293,7 +316,8 @@ def save_mission_json(path: str, mission: dict) -> None:
 _CSV_FIELDS = [
     "id", "shape", "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg",
     "phi0_deg", "eps0_deg", "radius_deg", "target_type", "rcs_m2", "swerling", "fluctuation", "depol_db", "length_m",
-    "rotation_dps", "accel_max_mps2", "optics_diameter_m", "optics_f_ratio", "optics_retro_eff", "range_km", "rr_target_s",
+    "rotation_dps", "accel_max_mps2", "optics_diameter_m", "optics_f_ratio", "optics_retro_eff", "jammer_type",
+    "jammer_erp_dbw_mhz", "objects_per_rr", "tec_tecu", "b_parallel_nt", "range_km", "rr_target_s",
     "v_close_min_mps", "v_close_max_mps", "res_max_m", "range_min_km", "fa_per_rr", "allow_ambiguous", "rx_sll_db",
     "confirm_mode", "new_targets_per_rr", "tracking",
 ]

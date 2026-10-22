@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.9.0
+# Radar Performance Model - V6.10.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,20 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.9.0 -> V6.10.0 (roadmap step 2.5: environment; core/environment.py, wired in core/optimizer.sector_sky)
+#   - Ship structure as primitives in [ship] (hull of revolution + parts, materials), the same ones for the masking,
+#     the structure noise and the 3D view. Masking: blocked fraction f of the aperture tube (near field), loss
+#     -20 log(1 - f) per pass, masked above ship.block_mask_db (3 dB); with the 25 deg tilt no owned direction is
+#     blocked and the radiators are never seen (hull noise only: emissivity 0.01 x 290 K).
+#   - Surfaces ([sky.surface], constant gamma): shadow beyond the surface, sidelobe clutter on the iso-range ring at
+#     the target range as noise (factor 1 / (1 - (C/S) SNR_req), clutter-limited at >= 1), Doppler rejection when the
+#     scenario gives the surface closing band, main-lobe ADC clipping alert, range-ambiguous trains left out when a
+#     surface is in the main lobe.
+#   - Jammers ([jammers.*] class means): stand-off ones in the mission sky as noise through the RX pattern, sidelobe
+#     nulling 40 dB (8 per face); self-protection ones (sector jammer_type): burn-through range.
+#   - Non-threatening objects confirmed like targets (objects_per_rr); Faraday rotation output (no loss, dual-pol);
+#     GO-CFAR option (exact Hansen-Sawyers loss) and clutter-edge flag.
 #
 # Changes V6.8.0 -> V6.9.0 (roadmap step 2.4: target models)
 #   - Target library: one class per [targets.<NAME>] of the file (CLASS MEANS, the adversary's hardware being unknown),
@@ -313,7 +327,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.9.0"
+MODEL_VERSION = "6.10.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -392,8 +406,8 @@ CFAR_TYPE: str = P.get("processing.cfar_type")
 CFAR_REF_CELLS: int = P.get("processing.cfar_ref_cells")
 CFAR_OS_RANK_FRAC: float = P.get("processing.cfar_os_rank_frac")
 MASKING_OFFSETS_CELLS: Tuple[int, ...] = tuple(P.get("tool.detection.masking_offsets_cells"))
-if DOPPLER_WINDOW != "none" or CFAR_TYPE not in ("CA", "OS"):
-    raise ValueError(f"{P.path}: [processing] only doppler_window 'none' and cfar_type 'CA' / 'OS' are implemented")
+if DOPPLER_WINDOW != "none" or CFAR_TYPE not in ("CA", "OS", "GO"):
+    raise ValueError(f"{P.path}: [processing] only doppler_window 'none' and cfar_type 'CA' / 'OS' / 'GO' are implemented")
 if RANGE_GRID_OVERSAMPLING < 1.0 or DOPPLER_ZERO_PADDING < 1.0 or CFAR_REF_CELLS < 2:
     raise ValueError(f"{P.path}: [processing] grid factors must be >= 1 and cfar_ref_cells >= 2")
 if not 0.0 < CFAR_OS_RANK_FRAC <= 1.0:
@@ -1329,6 +1343,8 @@ def cfar_loss_db(n_ref: int = CFAR_REF_CELLS, pfa: Optional[float] = None) -> fl
     ideal = math.log(pfa) / math.log(DETECT_PD) - 1.0
     if CFAR_TYPE == "OS":
         return os_cfar_loss_db(n_ref, pfa)
+    if CFAR_TYPE == "GO":
+        return go_cfar_loss_db(n_ref, pfa)
     alpha = n_ref * (pfa ** (-1.0 / n_ref) - 1.0)
     s = alpha / (n_ref * (DETECT_PD ** (-1.0 / n_ref) - 1.0)) - 1.0
     return 10.0 * math.log10(s / ideal)
@@ -1357,6 +1373,38 @@ def os_cfar_loss_db(n_ref: int = CFAR_REF_CELLS, pfa: Optional[float] = None) ->
 
     t = solve_t(math.log(pfa))
     s = t / solve_t(math.log(DETECT_PD)) - 1.0
+    return 10.0 * math.log10(s / (math.log(pfa) / math.log(DETECT_PD) - 1.0))
+
+
+def _go_log_pfa(t: float, n: int) -> float:
+    """log P(false alarm) of a GO-CFAR on Swerling 1, one sample, two halves of n cells, threshold t x max(half
+    means) (Hansen and Sawyers): 2 [(1 + t/n)^-n - (2 + t/n)^-n sum_k C(n - 1 + k, k) (2 + t/n)^-k]."""
+    a, b = 1.0 + t / n, 2.0 + t / n
+    k = np.arange(n)
+    log_terms = (np.array([math.lgamma(n + x) - math.lgamma(x + 1.0) - math.lgamma(n) for x in k]) - k * math.log(b))
+    m = log_terms.max()
+    log_sum = m + math.log(float(np.exp(log_terms - m).sum()))
+    first, second = -n * math.log(a), -n * math.log(b) + log_sum
+    return math.log(2.0) + first + math.log1p(-math.exp(second - first))
+
+
+@functools.lru_cache(maxsize=64)
+def go_cfar_loss_db(n_ref: int = CFAR_REF_CELLS, pfa: Optional[float] = None) -> float:
+    """GO-CFAR loss (step 2.5, G1), exact for Swerling 1 on one sample: the larger of the two half-window means
+    (N / 2 cells each) sets the threshold, so the Pfa holds at a clutter edge; Pd = Pfa(T / (1 + S))."""
+    pfa = DETECT_PFA if pfa is None else pfa
+    n = max(1, n_ref // 2)
+
+    def solve_t(target_log: float) -> float:
+        lo, hi = 0.0, 1.0
+        while _go_log_pfa(hi, n) > target_log:
+            hi *= 2.0
+        for _ in range(200):
+            mid = 0.5 * (lo + hi)
+            lo, hi = (mid, hi) if _go_log_pfa(mid, n) > target_log else (lo, mid)
+        return 0.5 * (lo + hi)
+
+    s = solve_t(math.log(pfa)) / solve_t(math.log(DETECT_PD)) - 1.0
     return 10.0 * math.log10(s / (math.log(pfa) / math.log(DETECT_PD) - 1.0))
 
 

@@ -723,8 +723,8 @@ def test_sky_sector_budget_blinds_and_takes_the_quantile(runs):
     sun = by["SUN"]["sky"]
     assert sun["blinded_pct"] > 0 and sun["blinded_by"] == ["SUN"]
     assert by["SUN"]["sky"]["t_sys_budget_k"] > rm.BAND_S.t_sys_k
-    earth = by["EARTH"]["sky"]
-    assert earth["blinded_pct"] == 0 and 1.5 < earth["rise_db"] < 4.5
+    earth = by["EARTH"]["sky"]           # step 2.5: the Earth ring at the sector range adds sidelobe clutter
+    assert earth["clutter_limited_pct"] > 0 and "clutter" in earth["blinded_by"] and earth["rise_db"] > 1.5
     m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_sky_demo.json"))
     sec = next(s for s in m["sectors"] if s["id"] == "SUN")
     sph = mo._sphere(-90.0, 90.0)
@@ -829,7 +829,7 @@ def test_tilt_change_propagates_to_model_optimiser_and_ship(tmp_path):
     assert abs(pos - 4308 * (0.886 / rm.PATTERNS["S"].tx.hpbw) ** 2 * (rm.ARRAY_ENVELOPE_M / 4.19) ** 2
                * (1.04 / rm.BEAM_SPACING_HPBW) ** 2) < 20
     from core import geometry as geo
-    assert rp < geo.RP                  # arrays sit lower on the cone at a smaller tilt
+    assert rp == pytest.approx(geo.RP)  # step 2.5: the ship geometry is in [ship] (a tilt change edits the hull there)
 
 
 # ----------------------------------------------------------------------------- optimiser invariants
@@ -1087,6 +1087,132 @@ def test_sector_with_a_target_class_runs_and_is_valid():
     assert r["target"]["rcs_m2"] == pytest.approx(rm.TARGETS["KKV"].rcs_at(r["wf"]["freq_ghz"]))
     m["sectors"][0]["target_type"] = "NOPE"
     assert any("unknown target_type" in e for e in md.validate_mission(m))
+
+
+# ----------------------------------------------------------------------------- environment (step 2.5)
+from core import environment as env  # noqa: E402
+
+
+def test_structure_cache_is_current():
+    """core/structure_cache.npz matches the [ship] geometry (else the tool recomputes it at every start)."""
+    assert env.cache_is_current()
+
+
+def test_ship_geometry_matches_the_locked_dimensions_and_is_edited_in_the_file(tmp_path):
+    """The primitives give the locked length, hull diameter and width; a part edited in the file reaches the masking
+    and the 3D view; an inconsistent edit is refused at load time."""
+    assert max(env.HULL_Z) - min(env.HULL_Z) == pytest.approx(params.P.get("ship.length_m"), rel=0.01)
+    assert 2 * max(env.HULL_R) == pytest.approx(params.P.get("ship.hull_diameter_m"), rel=0.01)
+    bad = _default_toml().replace("r_max_m = 38.25,", "r_max_m = 45.0,")
+    path = tmp_path / "bad.toml"
+    path.write_text(bad, encoding="utf-8")
+    res = subprocess.run([PYTHON, "-c", "import core.environment"], cwd=tb.ROOT, capture_output=True, text=True,
+                         env={**os.environ, params.PARAMS_ENV: str(path)}, timeout=300)
+    assert res.returncode != 0 and "width_m" in res.stderr
+    good = bad.replace('width_m         = { value = 76.5,', 'width_m         = { value = 90.0,')
+    out = _run_with_params(good, "from core import environment as env, geometry as geo\nimport pyvista as pv\n"
+                                 "b = pv.MultiBlock([h['mesh'] for h in geo.build_ship()['hull']]).bounds\n"
+                                 "print(round(b[1] / geo._M, 2))", tmp_path)
+    assert float(out) == pytest.approx(45.0, abs=0.01)
+
+
+def test_ray_casting_on_the_primitives():
+    """A ray toward the axis meets the hull at the profile radius; a ray toward the axis at the radiator height meets
+    the widest wing at its tip; a ray away from the ship meets nothing."""
+    zh, rh = np.array(env.HULL_Z), np.array(env.HULL_R)
+    i = np.flatnonzero((zh[:-1] >= -50.0) & (zh[1:] <= -50.0))[0]
+    r50 = rh[i] + (rh[i + 1] - rh[i]) * (-50.0 - zh[i]) / (zh[i + 1] - zh[i])
+    o = np.array([[60.0, 0.0, -50.0], [60.0, 0.0, -80.0], [0.0, 60.0, 30.0]])
+    d = np.array([[-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+    t, mat = env.cast(o, d)
+    assert t[0] == pytest.approx(60.0 - r50, abs=1e-6) and env.MATERIAL_NAMES[mat[0]] == "hull"
+    assert t[1] == pytest.approx(60.0 - 38.25, abs=1e-6) and env.MATERIAL_NAMES[mat[1]] == "radiator"
+    assert not np.isfinite(t[2]) and mat[2] == -1
+
+
+def test_structure_masks_no_owned_direction_and_the_radiators_are_hidden():
+    """With the 25 deg forward tilt, the structure blocks only directions owned by another face (theta 71 to 90 deg
+    from this face's normal) and the faces never see the radiator wings."""
+    sph = mo.Sphere(res_deg=0.5)
+    for k in range(len(mo.FACE_PHI)):
+        sel = (sph.owner == k) & (sph.theta <= rm.SECTOR_RADIUS_DEG)
+        f, _ = env.blockage(k, np.stack([np.cos(np.radians(sph.eps[sel])) * np.cos(np.radians(sph.phi[sel])),
+                                             np.cos(np.radians(sph.eps[sel])) * np.sin(np.radians(sph.phi[sel])),
+                                             np.sin(np.radians(sph.eps[sel]))], axis=1), "S")
+        assert f.max() == 0.0
+        t = env.tables()
+        assert (t[f"f_{k}"] > 0).sum() > 0 and not (t[f"sepst_S_{k}"] > 30.0).any()   # hull only (eps T 2.9 K)
+    assert env.block_loss_db(np.array([0.0, 0.293]))[1] == pytest.approx(3.0, abs=0.02)
+
+
+def test_surface_shadow_and_clutter_geometry():
+    """Distance to a surface along its centre direction = D - R; the clutter needs the iso-range ring (d_min < r <
+    horizon); the clutter-as-noise factor 1 / (1 - x) is infinite (clutter-limited) at x >= 1."""
+    sky = {"bodies": [{"id": "E", "type": "earth", "phi_deg": 0.0, "eps_deg": -35.0, "angular_radius_deg": 13.97}]}
+    s = env.surfaces(sky)[0]
+    c = np.array([s.c])
+    assert env.surface_distance_km(s, c)[0] == pytest.approx(s.dist_km - s.radius_km)
+    assert s.d_min_km == pytest.approx(6371 / math.sin(math.radians(13.97)) - 6371)
+    dirs = np.array([mo.face_frame(0.0)[0]])
+    assert env.clutter_over_signal(s, 0, dirs, "S", 2.8, -25.0, s.d_min_km * 0.9, 2.0, 1.0)[0] == 0.0
+    assert env.clutter_over_signal(s, 0, dirs, "S", 2.8, -25.0, (s.d_min_km + s.d_horizon_km) / 2, 2.0, 1.0)[0] > 0.0
+    assert list(env.clutter_noise_factor(np.array([0.0, 0.5, 1.0]))) == [1.0, 2.0, math.inf]
+    assert env.doppler_rejected(env.Surface("m", (0, 0, 1), 1.0, 10.0, (0.1, 0.1), 0.0, 500.0), 1000.0, 5000.0)
+    assert not env.doppler_rejected(s, 1000.0, 5000.0)                   # no closing speed given: prudent
+
+
+def test_jammers_main_lobe_sidelobes_and_nulling():
+    """A SOJ_SHIP at 10 000 km: J/N about +57 dB in the main lobe (S), its sidelobe level nulled by 40 dB."""
+    n = np.array(mo.face_frame(0.0)[0])
+    sky = {"jammers": [{"id": "J", "class": "SOJ_SHIP", "phi_deg": 0.0, "eps_deg": rm.SECTOR_TILT_DEG,
+                        "range_km": 10000.0}]}
+    j = env.jammers(sky)
+    main = env.jammer_rise_k(j, 0, n[None, :], "S", 2.8, -25.0)["J"][0]
+    assert rm.lin_to_db(main / rm.BAND_S.t_sys_k) == pytest.approx(57.0, abs=1.5)
+    off = np.array([mo.face_frame(0.0)[1]]) * math.sin(math.radians(30)) + n * math.cos(math.radians(30))
+    one = env.jammer_rise_k(j, 0, off, "S", 2.8, -25.0)["J"][0]
+    import core.environment as e2
+    saved = e2.JAM_MAX_NULLED
+    try:
+        e2.JAM_MAX_NULLED = 0
+        raw = env.jammer_rise_k(j, 0, off, "S", 2.8, -25.0)["J"][0]
+    finally:
+        e2.JAM_MAX_NULLED = saved
+    assert one == pytest.approx(raw * 10 ** (-env.JAM_NULL_DB / 10), rel=1e-9)
+    assert any("unknown class" in m for m in env.validate_jammers({"jammers": [{**sky["jammers"][0], "class": "X"}]}))
+
+
+def test_burn_through_scales_and_cfar_variants():
+    """R_bt ~ sqrt(energy / EIRP density); GO-CFAR exact loss between CA and OS at 1024 cells (0.051 dB), 0.76 dB at 64."""
+    r1 = env.burn_through_km(1e6, 1e4, 1.0, 1e-3, 13.0, 3.0, 10.0)
+    assert env.burn_through_km(1e6, 1e4, 1.0, 4e-3, 13.0, 3.0, 10.0) == pytest.approx(2 * r1)
+    assert env.burn_through_km(1e6, 1e4, 1.0, 1e-3, 13.0, 3.0, 30.0) == pytest.approx(r1 / 10)
+    assert rm.go_cfar_loss_db(1024, 1e-8) == pytest.approx(0.051, abs=0.002)
+    assert rm.go_cfar_loss_db(64, 1e-8) == pytest.approx(0.76, abs=0.01)
+    assert rm.cfar_loss_db(1024, 1e-8) < rm.go_cfar_loss_db(1024, 1e-8) < rm.os_cfar_loss_db(1024, 1e-8)
+    assert env.faraday_round_trip_deg(50.0, 20000.0, 2.8) == pytest.approx(
+        math.degrees(2 * 2.36e4 * 2e-5 * 5e17 / 2.8e9 ** 2))
+
+
+def test_environment_mission_outputs(runs):
+    """mission_environment (test values only): Earth clutter and shadow, a self-protection jammer below the required
+    range, stand-off jammers blinding a few positions, objects added to the confirmation, Faraday output."""
+    res = runs["mission_environment.json"]
+    by = {s["id"]: s for s in res["sectors"]}
+    e = by["E_EARTH"]
+    assert e["sky"]["clutter_limited_pct"] > 0 and e["sky"]["surfaces"]["EARTH"]["shadowed_pct"] > 0
+    assert e["environment"]["faraday_deg"]["S"] > e["environment"]["faraday_deg"]["Ku"] > 0
+    k = by["E_KKV_SPJ"]["environment"]
+    assert k["burn_through_best_km"] >= k["burn_through_km"] and k["burn_through_best_km"] < 500.0
+    assert any(b.startswith("jammer") for b in by["E_JAMMED"]["sky"]["blinded_by"])
+    assert any("burn-through" in f for f in by["E_KKV_SPJ"]["flags"])
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_environment.json"))
+    m["sectors"] = m["sectors"][1:2]                                   # E_KKV_SPJ alone, with and without objects
+    m["sectors"][0]["objects_per_rr"] = 0.0
+    t0 = mo.run(m, workers=1)["tracking"]["faces"]["1"]
+    m["sectors"][0]["objects_per_rr"] = 5.0
+    t5 = mo.run(m, workers=1)["tracking"]["faces"]["1"]
+    assert t5["confirm_energy"] > t0["confirm_energy"]
 
 
 # ----------------------------------------------------------------------------- confirmation
