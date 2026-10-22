@@ -32,7 +32,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 2.1 | ✔ fait (commit d1654ac) |
 | 2.2 | ✔ fait (commit 90573c9) |
 | 2.3 | ✔ fait (commit 102ea6f) |
-| 2.4 | ✔ fait |
+| 2.4 | ✔ fait (commit 008d583) |
 | 2.5 et suivantes | à faire, la prochaine étant 2.5 |
 
 ---

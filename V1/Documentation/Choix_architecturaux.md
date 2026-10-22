@@ -53,6 +53,10 @@ Construire un outil dans lequel l'opérateur prépare sa mission. Cette mission 
 | Valeurs ajustables | Les valeurs peuvent encore changer (par exemple une bande jouable plus large si les TRM progressent) : tout ce qui en dépend est **calculé** à partir du fichier, et le chargeur refuse une combinaison incohérente avec un message clair (règle fixée à l'étape 1.4). |
 | Sources | Le dossier `RADARv5` est **obsolète** : il ne sert pas de source de valeurs ni de modèles (règle fixée à l'étape 1.4). |
 | Commits | Un commit par étape, et seulement sur demande (« c, p » = commit et push). |
+| Neutralité du dépôt | Le dépôt GitHub (public) ne mentionne **aucun assistant d'IA ni son éditeur** : ni dans les fichiers, les noms de fichiers ou de dossiers, ni dans les messages de commit (pas de ligne « Co-Authored-By » ni de signature « généré par »). L'historique a été réécrit le 22 octobre 2026 pour retirer de telles lignes. Les exclusions locales passent par `.git/info/exclude`, jamais par `.gitignore` (règle fixée le 18 octobre 2026, rappelée le 22). |
+| Classes de cibles | Les classes de la bibliothèque sont des **valeurs moyennes de classe**, pas la fiche d'une arme : l'armement de l'adversaire n'est pas connu, toutes les valeurs d'une plage plausible sont possibles. Pour une menace, on retient le **milieu** de la plage (le bout optimiste vaut pour nos technologies seulement) et tout reste surchargeable par secteur (règle fixée à l'étape 2.4). |
+| Langues | Échanges et `Documentation/` en français ; code, commentaires, interface, `radar_system.toml` et `tests/snapshots/JOURNAL.md` en anglais. Réponses concises. |
+| Valeurs verrouillées | Une valeur de statut V ne change jamais sans l'accord explicite de l'utilisateur. |
 
 ### 1.4 Reprendre le travail dans une nouvelle session
 
@@ -65,7 +69,14 @@ Rien de ce qui a été décidé ne vit seulement dans une conversation :
 | `radar_system.toml` | Les valeurs elles-mêmes ; le champ `source` de chaque entrée résume sa justification. |
 | En-tête de `core/radar_model.py` | Le journal des versions du modèle (V6.0.0 à V6.8.0) et ce que chaque version a changé. |
 | `tests/snapshots/JOURNAL.md` | Chaque régénération des valeurs figées de test et ses causes. |
-| Mémoire de l'assistant (hors dépôt) | Un index de la feuille de route, l'état courant, les règles de méthode et la procédure ; en cas d'écart, le dépôt fait foi. |
+| Mémoire de l'assistant (hors dépôt) | Locale à chaque machine, **non partagée** : elle n'est qu'un raccourci. Tout ce qui est nécessaire pour reprendre est dans le dépôt (ce tableau, §1.3, §1.5) ; en cas d'écart, le dépôt fait foi. |
+
+Reprendre sur une autre machine :
+1. `git clone https://github.com/LetMePickThat/C.44.git`, ou `git pull` dans le dépôt existant (le travail se fait sur `main`). Après la réécriture de l'historique du 22 octobre 2026, un ancien clone doit se recaler : `git fetch` puis `git reset --hard origin/main`, s'il n'a pas de travail local à garder.
+2. Python 3.11 ou plus (testé en 3.13), puis dans `V1/` : `python -m pip install --user -r requirements-dev.txt` (inclut `requirements.txt` et pytest). Sous Windows avec le Python du Microsoft Store, ajouter au PATH le dossier `Scripts` des paquets utilisateur (`...\LocalCache\local-packages\Python313\Scripts`) pour lancer `pytest` directement ; sinon `python -m pytest`.
+3. Vérifier l'installation : `python core/radar_model.py --selftest`, puis `python -m pytest -q` depuis `V1/` (tout doit passer, voir §4).
+4. Lancer l'outil : `python main.py` depuis `V1/`, ou le lanceur `Radar mission prep.bat`.
+5. Lire `Feuille_de_route.md` (tableau d'avancement : la prochaine étape) et §1.5 ci-dessous (travaux en suspens), puis suivre la procédure d'une étape.
 
 Procédure d'une étape :
 1. Rappeler la raison d'être, les entrées et les sorties de l'étape.
@@ -75,7 +86,16 @@ Procédure d'une étape :
 5. Lire le rapport d'impact, `python tests/impact_report.py` (chiffres clés, formes d'onde et modes de confirmation qui changent), et l'inscrire dans `tests/snapshots/JOURNAL.md`.
 6. Régénérer les valeurs figées, `python tests/update_snapshots.py`, puis lancer `python -m pytest -q`.
 7. Mettre à jour ce document et `Feuille_de_route.md`.
-8. Commiter et pousser sur demande.
+8. Commiter et pousser sur demande (§1.3 : message neutre, sans signature d'assistant). Le hash du commit d'une étape est reporté dans le tableau d'avancement de `Feuille_de_route.md` au commit de documentation suivant.
+
+### 1.5 Travaux en suspens hors feuille de route (au 22 octobre 2026)
+
+| Sujet | État | Quoi faire |
+|---|---|---|
+| Durée de la suite de tests | Environ 6 min avant l'étape 2.4, environ 30 min après, sur le même portable (14900HX, sur batterie en économie d'énergie l'après-midi ; la machine habituelle est un 9800X3D fixe). Le surcoût mesuré de l'étape 2.4 n'est que d'environ 10 % par mission (21 s contre 19,6 s sur `mission_example`) : l'écart n'est pas expliqué. | Mesure demandée « plus tard » par l'utilisateur : lancer l'ancienne version (commit `672ac02`, dans un `git worktree` temporaire) puis la nouvelle, dans les mêmes conditions d'alimentation. Si le code est en cause, profiler `tests/test_physics.py`. |
+| Hash de l'étape 2.4 | Commit `008d583`. | Reporté dans `Feuille_de_route.md`. |
+| Copies locales hors dépôt | `PROJECT_CONTEXT.md`, `README.txt`, `radar_params_restore.md` à la racine, exclus par `.git/info/exclude` : antérieurs à la feuille de route, remplacés par `Documentation/`. | Ne pas les commiter ; ils peuvent manquer sur une autre machine sans conséquence. |
+| Construction de l'exécutable | Différée (décision du 19 octobre 2026) : la disposition actuelle (`main.py` + `core/` + `gui/`, lanceur `Radar mission prep.bat` qui installe `requirements.txt` au premier démarrage et lance `pythonw`) reste telle quelle jusqu'à la livraison. À la livraison : PyInstaller en un dossier (environ 400 à 700 Mo avec VTK et Qt), zippé hors du dépôt, script `tools/build_exe.bat`, faux positifs d'antivirus possibles. | Ne rien proposer avant que l'utilisateur annonce la livraison. |
 
 ---
 
