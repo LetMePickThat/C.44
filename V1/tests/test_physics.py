@@ -845,9 +845,12 @@ def test_time_on_air_at_least_energy_over_peak_power(runs):
     for n, res in runs.items():
         p_avg = res["global"]["face_elec_avail_kW"] * 1e3
         for k, f in res["faces_total"].items():
-            # electrical budget (step 1.3): RF energy >= electrical x the lowest PAE of the S search space
-            pae_min = rm.pae(rm.BAND_S, min(mo.TAU_CAND), rm.BAND_S.duty_max)
-            assert f["time_fraction"] >= f["energy_fraction"] * p_avg * pae_min / rm.BAND_S.p_pk_total_w * (1 - 1e-9), (n, k)
+            # electrical budget (step 1.3): RF energy >= electrical x the lowest PAE of the S search space, i.e. of the
+            # shortest pulse a "no excess energy" shortening can reach (tau B = pulse_tb_min, step 3.1 C); the face
+            # totals are published to 4 decimals (5e-5 each way)
+            pae_min = rm.pae(rm.BAND_S, rm.PULSE_TB_MIN / (max(mo.SIGBW_CAND) * 1e6), rm.BAND_S.duty_max)
+            assert f["time_fraction"] + 5e-5 >= ((f["energy_fraction"] - 5e-5) * p_avg * pae_min
+                                                 / rm.BAND_S.p_pk_total_w * (1 - 1e-9)), (n, k)
 
 
 def test_longest_pulse_follows_the_trm_buffer(tmp_path):
@@ -937,12 +940,12 @@ def test_estimator_constants_share_one_margin_over_the_bounds():
     assert rm.K_F > 0.551 and rm.RANGE_CRLB_KR > 0.551           # never below the bound
 
 
-def test_power_scale_never_above_full_power(runs):
-    """power_scale is reported rounded to 3 decimals, so a strong back-off ((20/228)^4) shows as 0.0."""
+def test_pulse_scale_never_above_full_pulse(runs):
+    """pulse_scale is reported rounded to 3 decimals, so a strong shortening ((20/228)^4) shows as 0.0."""
     for res in runs.values():
         for s in res["sectors"]:
             for b in s.get("wf_by_bin", []):
-                assert 0.0 <= b["power_scale"] <= 1.0
+                assert 0.0 <= b["pulse_scale"] <= 1.0
 
 
 def test_no_frequency_above_scan_break_when_it_leaves_sky_unscanned(runs):
@@ -1337,14 +1340,88 @@ def test_pruning_of_dominated_candidates_is_exact():
     cands = mo.candidate_waveforms(sec)
     r = mo._range_matrix(cands, 2.8, mo.sector_target(sec), P.shape[1], mo.rx_sll_db(sec), mo.velocity_span_mps(sec),
                          mo.candidate_pfas(sec, cands, 2.8, float(P.sum())), mo.search_criterion(sec)) * factor
-    e = np.array([rm.BAND_S.p_pk_total_w * w.n * w.tau_s / w.b_tx / rm.pae_wf(w) for w in cands])
-    t = np.array([w.n * w.tau_s / w.b_tx for w in cands])
+    costs = mo.PositionCosts(cands)
     p_avg = rm.face_elec_avail_w(2.0)
-    keep = mo.prune_dominated(r, e, t)
+    keep = mo.prune_dominated(r, costs.keys)
     assert len(keep) < len(cands)
-    full = mo._plan_waveforms(P, r, e, t, sec["range_km"], sec["rr_target_s"], p_avg, 4, 0.01)
-    part = mo._plan_waveforms(P, r[keep], e[keep], t[keep], sec["range_km"], sec["rr_target_s"], p_avg, 4, 0.01)
+    full = mo._plan_waveforms(P, r, costs, sec["range_km"], sec["rr_target_s"], p_avg, 4, 0.01)
+    part = mo._plan_waveforms(P, r[keep], costs.subset(keep), sec["range_km"], sec["rr_target_s"], p_avg, 4, 0.01)
     assert part.objective == pytest.approx(full.objective, rel=1e-9) and part.short_frac == full.short_frac
+
+
+# ----------------------------------------------------------------------------- TX multibeam (step 3.1, C)
+def _wf(**kw) -> "rm.Waveform":
+    return mo.make_wf("t", kw.pop("tau", 50e-6), kw.pop("n", 4), kw.pop("pri", 4e-3), 100.0, kw.pop("b", 1),
+                      "COHERENT", **kw)
+
+
+def test_multibeam_values_and_modes():
+    assert rm.MB_SUP_LOSS_DB == {2: 0.4, 4: 0.6, 8: 0.8} and rm.MB_PART_BEAMS == (2, 4) and rm.MB_TDM_BEAMS == (2, 4, 8)
+    assert [rm.multibeam_tx_loss_db(_wf(b=b, mode=m)) for b, m in ((1, "single"), (4, "superposition"),
+                                                                    (4, "partition"), (4, "tdm"))] == [0.0, 0.6, 0.0, 0.0]
+    for bad in (dict(b=3, mode="superposition"), dict(b=8, mode="partition"), dict(b=2, mode="partition"),
+                dict(b=2, mode="partition", cut="x"), dict(b=4, mode="partition", cut="h"), dict(b=2, mode="beam")):
+        with pytest.raises(ValueError):
+            _wf(**bad)
+    assert "tdm" not in mo.TX_MODES and [v[0] for v in mo.tx_variants()].count("superposition") == 3
+
+
+def test_superposition_range_is_the_scaled_one_beam_range():
+    """The optimiser derives a superposition's range from its one-beam twin (P / B, table loss): same as solve()."""
+    tgt = rm.TARGETS["ST"]
+    for b in (2, 4, 8):
+        w = _wf(b=b, mode="superposition")
+        direct = rm.solve(w, 2.8, 30.0, tgt).range_km
+        assert mo.range_at(w, 2.8, 30.0, tgt) == pytest.approx(direct, rel=1e-12)
+        assert direct == pytest.approx(rm.solve(_wf(), 2.8, 30.0, tgt).range_km
+                                       * (b * rm.db_to_lin(rm.MB_SUP_LOSS_DB[b])) ** -0.25, rel=1e-12)
+
+
+def test_partition_beam_gain_and_lattice():
+    """Half: 2450 TRMs, P / 2 and G / 2, cell x1.85 (widened beam along the cut); quadrant 1225, x3.43; both halves the
+    same beam rotated by 90 deg, so one cut is searched; positions per dwell = B x the cell ratio."""
+    h, v, q = (_wf(b=2, mode="partition", cut="h"), _wf(b=2, mode="partition", cut="v"), _wf(b=4, mode="partition"))
+    assert rm.tx_gain_ratio(h) == 0.5 and rm.tx_gain_ratio(q) == 0.25
+    assert rm.tx_beam_power_w(h) == rm.BAND_S.p_pk_total_w / 2 and rm.tx_beam_power_w(q) == rm.BAND_S.p_pk_total_w / 4
+    sh, sq = rm.subaperture("S", "half_h"), rm.subaperture("S", "quarter")
+    assert sh.hpbw_u == pytest.approx(sh.full_hpbw_u, rel=1e-6) and sh.hpbw_v / sh.full_hpbw_v == pytest.approx(1.852, abs=0.002)
+    assert rm.subaperture_cell_ratio("S", "quarter") == pytest.approx(3.430, abs=0.002)
+    assert rm.cells_per_dwell(h) == pytest.approx(2 * 1.852, abs=0.005) and rm.partition_cuts() == ("h",)
+    tgt = rm.TARGETS["ST"]
+    assert rm.solve(h, 2.8, 0.0, tgt).range_km == pytest.approx(rm.solve(v, 2.8, 0.0, tgt).range_km, rel=1e-12)
+    # grid loss of the widened beam on its own lattice: within 0.1 dB of the full face's (same spacing in beamwidths)
+    full = rm.position_losses("S", -25.0, -25.0, True, False, (0.0, 1e-4, 100.0, 1e-4, 1, True))[2]["grid_tx"]
+    half = rm.position_losses("S", -25.0, -25.0, True, False, (0.0, 1e-4, 100.0, 1e-4, 1, True), "half_h")[2]["grid_tx"]
+    assert abs(half - full) < 0.1
+    fr = rm.solve(h, 2.8, 0.0, tgt).frame
+    assert fr["t_frame_s"] == pytest.approx(fr["positions"] * fr["t_pos_s"] / rm.cells_per_dwell(h), rel=1e-12)
+
+
+def test_time_multiplex_blocks():
+    """Q1: B full-power pulses back to back: blind range c B tau / 2, duty and PAE on B tau, one beam's energy per
+    position, B positions per dwell; refused when B tau / PRI exceeds the duty ceiling."""
+    w = _wf(b=4, mode="tdm", tau=100e-6, pri=1e-3)
+    assert w.tx_block_s == 400e-6 and w.trm_duty == pytest.approx(0.4) and rm.cells_per_dwell(w) == 4
+    assert rm.pae_wf(w) == rm.pae(rm.BAND_S, 400e-6, 0.4)
+    assert rm.solve(w, 2.8, 0.0, rm.TARGETS["ST"]).pulse["blind_range_km"] == rm.blind_range_km(rm.BAND_S, 400e-6)
+    e, t, _, _ = rm.search_position_costs(w)
+    assert t == pytest.approx(4 * 100e-6) and e == pytest.approx(rm.BAND_S.p_pk_total_w * t / rm.pae_wf(w))
+    with pytest.raises(ValueError):
+        _wf(b=8, mode="tdm", tau=100e-6, pri=1e-3)               # duty 0.8 > 0.65
+
+
+def test_pulse_shortening_costs():
+    """'No excess energy' (Q4, Q5 a): the pulse is cut to s tau, PAE of the shortened pulse, floor tau B >= 1."""
+    w = _wf(tau=10e-6, n=1)
+    e1, t1, s1, eta1 = rm.search_position_costs(w)
+    e, t, s, eta = rm.search_position_costs(w, 0.25)
+    assert s1 == 1.0 and s == 0.25 and t == pytest.approx(t1 / 4) and eta == pytest.approx(rm.pae(rm.BAND_S, 2.5e-6))
+    assert e == pytest.approx(rm.BAND_S.p_pk_total_w * 2.5e-6 / eta) and e > e1 / 4    # the edge time weighs more
+    _, _, s_floor, _ = rm.search_position_costs(w, 1e-6)
+    assert s_floor == pytest.approx(1.0 / (100e6 * 10e-6))                              # 10 ns at 100 MHz
+    c = mo.PositionCosts([w, _wf(b=4, mode="superposition", tau=10e-6, n=1)])
+    ec, tc, _, _ = c(np.array([[0.25], [0.25]]))
+    assert ec[0, 0] == pytest.approx(e) and ec[1, 0] == pytest.approx(e / 4) and tc[1, 0] == pytest.approx(t / 4)
 
 
 # ----------------------------------------------------------------------------- frames and navigation (step 3.0)

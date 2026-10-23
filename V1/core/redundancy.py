@@ -166,13 +166,13 @@ def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dic
                 and w.pri_s < rm.unambiguous_pri_s(rm.BAND_S, sec_b["range_km"], w.tau_s) - 1e-12):
             reason[i] = REASON_AMBIGUITY
             continue
-        if rm.blind_range_km(rm.BAND_S, w.tau_s) > mo.range_min_km(sec_b) + 1e-9:
+        if rm.blind_range_km(rm.BAND_S, w.tx_block_s) > mo.range_min_km(sec_b) + 1e-9:
             reason[i] = REASON_BLIND
             continue
         r = mo.range_at(w, f, float(theta[i]), tgt_b, mo.rx_sll_db(sec_b), mo.velocity_span_mps(sec_b),
                         plan["pfa"][i], cum)        # A's echoes and false-alarm setting, B's RX weighting and need
         if r is not None:
-            reach[i] = r * plan["power_scale"][i] ** 0.25
+            reach[i] = r * plan["pulse_scale"][i] ** 0.25
             ok[i] = reach[i] >= g_need
         reason[i] = REASON_NONE if ok[i] else REASON_RANGE
     bins = np.minimum((grid.theta / mo.THETA_BIN_DEG).astype(int), nb - 1)

@@ -21,6 +21,7 @@ from PyQt5.QtWidgets import (
 
 from core import frames
 from core import geometry as geo
+from core import optimizer as mo
 from core import radar_model as rm
 from gui.scene_view import SceneView, SectorDraw
 
@@ -148,7 +149,7 @@ class ResultsTab(QWidget):
         v = QVBoxLayout(self.grp_bins)
         self.table_bins = QTableWidget()
         cols = ["scan angle (deg)", "positions", "WF", "integration", "tau (us)", "N", "PRI (ms)", "B (MHz)",
-                "Btx", "dwell (ms)", "range at bin max (km)", "power scale"]
+                "TX beams", "dwell (ms)", "range at bin max (km)", "pulse scale"]
         self.table_bins.setColumnCount(len(cols))
         self.table_bins.setHorizontalHeaderLabels(cols)
         self.table_bins.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
@@ -408,8 +409,8 @@ class ResultsTab(QWidget):
         for i, b in enumerate(bins):
             w = b["wf"]
             vals = [f"{b['theta_lo_deg']:.0f}-{b['theta_hi_deg']:.0f}", f"{b['positions']:.0f}", w["name"],
-                    w["integration"], w["tau_us"], w["n_pulses"], w["pri_ms"], f"{w['sig_bw_mhz']:.0f}", w["b_tx"],
-                    w["dwell_ms"], b["range_km_at_bin_max"], f"{b['power_scale']:.2f}"]
+                    w["integration"], w["tau_us"], w["n_pulses"], w["pri_ms"], f"{w['sig_bw_mhz']:.0f}", mo.tx_label(w),
+                    w["dwell_ms"], b["range_km_at_bin_max"], f"{b['pulse_scale']:.2f}"]
             for c, val in enumerate(vals):
                 self.table_bins.setItem(i, c, QTableWidgetItem(str(val)))
 

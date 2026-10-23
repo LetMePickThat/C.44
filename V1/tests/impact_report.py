@@ -14,6 +14,7 @@ import os
 import sys
 
 import testbench as tb
+from core import optimizer as mo  # noqa: E402  (path set by testbench)
 
 
 def _fmt(v) -> str:
@@ -31,8 +32,9 @@ def _delta(a, b) -> str:
 
 
 def _wf_label(sector: dict) -> str:
-    """S search waveform set of one optimised sector: "COHE/NONC tau x N, B_tx, dwell" per waveform."""
-    return " | ".join(f"{w['integration'][:4]} {w['tau_us']:g}us x{w['n_pulses']} B{w['b_tx']} {w['dwell_ms']:g}ms"
+    """S search waveform set of one optimised sector: "COHE/NONC tau x N, TX beams, dwell" per waveform."""
+    return " | ".join(f"{w['integration'][:4]} {w['tau_us']:g}us x{w['n_pulses']} "
+                      f"{('TX ' + mo.tx_label(w)) if 'tx_mode' in w else 'B' + str(w['b_tx'])} {w['dwell_ms']:g}ms"
                       for w in sector.get("wf_set", []))
 
 

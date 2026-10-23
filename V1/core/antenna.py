@@ -35,6 +35,11 @@ quadrant; with x <-> y symmetry too (the octagon) only the cuts 0..45 deg are ev
 
 Results are cached in core/antenna_cache.json under a hash of their inputs (written only for the default parameter
 file, so a test on a modified copy never rewrites it).
+
+Sub-apertures (step 3.1, block C, TX aperture partition): halves cut horizontally ('half_h', rows above the centre:
+beam widened in v) or vertically ('half_v', columns right of the centre: widened in u), and quadrants ('quarter'),
+uniform. Their 2D power pattern is evaluated directly (no symmetry assumed: a half is not centred), with the -3 dB
+widths along u and v (subaperture(); a second or so per band, not cached on disk).
 """
 from __future__ import annotations
 
@@ -260,6 +265,81 @@ def _fit_taylor(xs, ys, mult, present, d_env, sym, target_db: float, nbar: int, 
         if -FIT_TOL_DB <= f <= 0.0 or hi - lo < 1e-3:
             break
     return b_hi, weights(b_hi.design_sll_db)
+
+
+# ----------------------------------------------------------------------------- sub-apertures (step 3.1, C)
+SUBAPERTURES = ("half_h", "half_v", "quarter")
+
+
+@dataclass(frozen=True)
+class SubAperture:
+    kind: str
+    n_elements: int                  # elements of the sub-aperture
+    n_total: int                     # elements of the face
+    hpbw_u: float                    # -3 dB width along u (TRSA rows), lambda / D_env
+    hpbw_v: float                    # along v
+    full_hpbw_u: float               # the same cuts of the whole face (uniform)
+    full_hpbw_v: float
+    x_m: Tuple[float, ...] = ()      # element coordinates (pattern evaluation)
+    y_m: Tuple[float, ...] = ()
+    d_env: float = 1.0
+
+    def power(self, u: np.ndarray, v: np.ndarray) -> np.ndarray:
+        """|AF|^2 / |AF(0)|^2 at (u, v) in lambda / D_env (uniform weights)."""
+        x, y = np.asarray(self.x_m), np.asarray(self.y_m)
+        u, v = np.atleast_1d(np.asarray(u, dtype=float)), np.atleast_1d(np.asarray(v, dtype=float))
+        out = np.empty(len(u))
+        for s in range(0, len(u), 512):                # blocks: 512 x N_sub phases at a time
+            ph = 2.0 * math.pi * (np.outer(u[s:s + 512], x) + np.outer(v[s:s + 512], y)) / self.d_env
+            out[s:s + 512] = np.cos(ph).sum(axis=1) ** 2 + np.sin(ph).sum(axis=1) ** 2
+        return out / len(x) ** 2
+
+
+def _elements(rows: Sequence[int], trsa_side_m: float, gap_m: float, n_sub: int) -> np.ndarray:
+    """All element coordinates (x along the rows, y across), centred on the face."""
+    pitch = trsa_side_m + gap_m
+    sub = (np.arange(n_sub) - (n_sub - 1) / 2.0) * (trsa_side_m / n_sub)
+    pts = []
+    for r, n in enumerate(rows):
+        yc = (r - (len(rows) - 1) / 2.0) * pitch
+        xc = (np.arange(n) - (n - 1) / 2.0) * pitch
+        xx, yy = np.meshgrid((xc[:, None] + sub[None, :]).ravel(), yc + sub)
+        pts.append(np.c_[xx.ravel(), yy.ravel()])
+    return np.round(np.vstack(pts), 9)
+
+
+def _hpbw_cut(x: np.ndarray, y: np.ndarray, d_env: float, axis: int) -> float:
+    """-3 dB width of a uniform layout along u (axis 0) or v (axis 1), lambda / D_env (peak at boresight): first
+    crossing of half power on a 0.01 grid, then bisection to 1e-9."""
+    c = x if axis == 0 else y
+
+    def g(r):
+        ph = 2.0 * math.pi * np.outer(np.atleast_1d(r), c) / d_env
+        return (np.cos(ph).sum(axis=1) ** 2 + np.sin(ph).sum(axis=1) ** 2) / len(c) ** 2
+
+    r = np.arange(0.0, 4.0, 0.01)
+    i = int(np.argmax(g(r) < 0.5))
+    lo, hi = float(r[i - 1]), float(r[i])
+    while hi - lo > 1e-9:
+        mid = 0.5 * (lo + hi)
+        lo, hi = (mid, hi) if g(mid)[0] >= 0.5 else (lo, mid)
+    return lo + hi
+
+
+def subaperture(rows: Sequence[int], trsa_side_m: float, gap_m: float, n_sub: int, d_env: float,
+                kind: str) -> SubAperture:
+    """Uniform sub-aperture of a TX partition: 'half_h' (y > 0), 'half_v' (x > 0) or 'quarter' (x > 0, y > 0)."""
+    if kind not in SUBAPERTURES:
+        raise ValueError(f"unknown sub-aperture '{kind}' ({', '.join(SUBAPERTURES)})")
+    pts = _elements(rows, trsa_side_m, gap_m, n_sub)
+    sel = {"half_h": pts[:, 1] > 0, "half_v": pts[:, 0] > 0,
+           "quarter": (pts[:, 0] > 0) & (pts[:, 1] > 0)}[kind]
+    x, y = pts[sel, 0], pts[sel, 1]
+    return SubAperture(kind=kind, n_elements=int(sel.sum()), n_total=len(pts),
+                       hpbw_u=_hpbw_cut(x, y, d_env, 0), hpbw_v=_hpbw_cut(x, y, d_env, 1),
+                       full_hpbw_u=_hpbw_cut(pts[:, 0], pts[:, 1], d_env, 0),
+                       full_hpbw_v=_hpbw_cut(pts[:, 0], pts[:, 1], d_env, 1),
+                       x_m=tuple(float(a) for a in x), y_m=tuple(float(b) for b in y), d_env=d_env)
 
 
 # ----------------------------------------------------------------------------- public entry

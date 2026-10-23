@@ -347,3 +347,18 @@ walk_loss_db in closed form (sine integral): values move by < 2e-5 dB, so the sn
 missions with migration losses were refrozen; no waveform or decision is meant to change. X1, X3, X5 change no value.
 core/cost_table.json regenerated.
 
+## 2026-10-23 -- step 3.1 pass P3: S TX multibeam (radar_model V6.11.5)
+
+Multibeam modes (phase-only superposition 0.4 / 0.6 / 0.8 dB, aperture partition halves / quadrants on their own
+lattice, time multiplex modelled but not searched) replace the l8_db / p law; "no excess energy" now shortens the
+pulse (PAE of the shortened pulse, floor tau B >= 1) instead of scaling the power. Impact report (5467 values):
+- Model case: WF-LRS (4-beam superposition) range -0.50 % (loss 0.6 dB, was 0.51 dB with the old law).
+- Test missions: S time on air -13 to -99 % per face (the shortened pulse saves time too), face energy 0 to +3.8 %
+  (lower PAE of the shortened pulse; mission_example_csv F1 +3.8 %, mission_example F1 +1.2 %, others < 0.4 %).
+  Range at worst scan (full pulse) -10 to -28 % on several sectors: shorter pulses now suffice, still above the
+  requirement. The partition is chosen on the short-range test sectors (A1/B1_TRIM, B2_AUTOPROT, A3_HIBAND,
+  B3_EDGE, A4_SEARCH, B4_FINE, B5_LONG, SHIPW: PARTx2h / PARTx4): it spreads the fixed cost of a pulse (edge time,
+  1 / B floor) over 3.7 or 13.7 positions. Superposition never chosen; the other sectors keep one beam, some with a
+  different pulse length (S01, A2_VEILLE, PROT, T_SHIP).
+- Output key power_scale renamed pulse_scale; wf dicts gain tx_mode, tx_cut, positions_per_dwell,
+  rx_beams_per_position. core/cost_table.json regenerated (infeasible cells unchanged, 1000; median energy +0.4 %).

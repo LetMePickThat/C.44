@@ -1,6 +1,6 @@
 """Builds core/cost_table.json, the table behind the fast cost estimate (core/cost_estimate.py).
 Run from anywhere: python tools/gen_cost_table.py"""
-import os, sys, json, itertools
+import os, sys, json, itertools, dataclasses
 from multiprocessing import Pool
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _OUT = os.path.join(_ROOT, "core", "cost_table.json")
@@ -27,14 +27,14 @@ def one(args):
             r = rm.solve(w, F, th, tgt, ELEC).range_km
         except ValueError:
             continue
-        n, tau, b = w.n, w.tau_s, w.b_tx
-        eta = rm.pae_wf(w)                           # electrical energies (step 1.3)
+        n, tau = w.n, w.tau_s
+        # electrical energy per position (step 1.3), pulse shortened to just reach R (step 3.1, C)
         if r > rmax:
-            rmax, e_rmax = r, PPK * n * tau / b / eta    # longest-reach waveform, at full power
+            rmax, e_rmax = r, float(rm.search_position_costs(w)[0])   # longest-reach waveform, full pulse
         if r < R: continue
-        e = PPK * n * tau / b / eta * (R / r) ** 4
+        e = float(rm.search_position_costs(w, (R / r) ** 4)[0])
         if best is None or e < best[0]:
-            best = (e, w.integration[0], n, tau * 1e6, w.pri_s * 1e3, b)
+            best = (e, w.integration[0], n, tau * 1e6, w.pri_s * 1e3, mo.tx_label(dataclasses.asdict(w)))
     return [args, best, rmax, e_rmax]
 if __name__ == "__main__":
     jobs = list(itertools.product(RS, RCS, VS, TH))

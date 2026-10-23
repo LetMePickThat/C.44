@@ -35,7 +35,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 2.4 | ✔ fait (commit 008d583) |
 | 2.5 | ✔ fait (commit baeadcf) |
 | 3.0 | ✔ fait (commit 22114fd ; ajoutée le 22 octobre 2026) |
-| 3.1 | en cours : variables validées ; P1 (grille de fréquences), élargissement de la bande S, P2 (formes d'onde) et accélérations X1, X2, X3, X5 faits et commités (`90555d8`, `b4be91e`, `cd97216`, `f6a526c`) ; reste P3 (multifaisceau), P4 (environnement), P5 (ciel, pas de grille), P6 (rapport, documentation) |
+| 3.1 | en cours : variables validées ; P1 (grille de fréquences), élargissement de la bande S, P2 (formes d'onde), accélérations X1, X2, X3, X5 et P3 (multifaisceau) faits et commités (`90555d8`, `b4be91e`, `cd97216`, `f6a526c`, P3 : hash au prochain commit de documentation) ; reste P4 (environnement), P5 (ciel, pas de grille), P6 (rapport, documentation) |
 | 3.2 et suivantes | à faire |
 
 ---
@@ -253,14 +253,16 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 
   Renvois : enveloppe d'attitudes au pire cas par face → **5.3** ; profil d'attitude dans le temps et réaffectation des secteurs aux faces en vol → **4.3**, **5.2** ; volume lié à une piste ou à une désignation → **3.3** ; régions non centrées sur le vaisseau (parallaxe) et erreurs de navigation → simulateur global ; l'interface ne saisit pas encore le ciel (JSON seulement, comme avant).
 
-- **3.1 Veille S reconstruite sur les nouveaux modèles** (optimizer.py). En cours : cadrage et variables des blocs A à E validés (détail dans `Choix_architecturaux.md` §11) ; codage en six passes avec pause (P1 grille de fréquences ✔, P2 formes d'onde, P3 multifaisceau, P4 environnement, P5 ciel et pas de grille, P6 rapport et documentation) ; avant P2, élargissement de la bande S (décision de l'utilisateur).
-  - **Renvois de l'étape 1.3** : loi de PAE en fonction du recul du PA (multifaisceau par superposition, et réduction de puissance « pas d'énergie en trop », aujourd'hui à PAE constante) ; impulsions candidates entre 0,8 et 2 ms.
+- **3.1 Veille S reconstruite sur les nouveaux modèles** (optimizer.py). En cours : cadrage et variables des blocs A à E validés (détail dans `Choix_architecturaux.md` §11) ; codage en six passes avec pause (P1 grille de fréquences ✔, P2 formes d'onde ✔, P3 multifaisceau ✔, P4 environnement, P5 ciel et pas de grille, P6 rapport et documentation) ; avant P2, élargissement de la bande S (décision de l'utilisateur).
+  - **Renvois de l'étape 1.3** : loi de PAE en fonction du recul du PA (multifaisceau par superposition, et réduction de puissance « pas d'énergie en trop », aujourd'hui à PAE constante) ; impulsions candidates entre 0,8 et 2 ms. *Levé en P3 : la superposition est en phase seule et la réduction raccourcit l'impulsion, les PA restent saturés ; la loi n'est plus nécessaire.*
   - **Multifaisceau en émission** : tous les modes de formation sont possibles, et l'optimiseur doit les évaluer et choisir selon le contexte :
     - (a) superposition de B faisceaux par TRM : enveloppe non constante, donc recul du PA, qui demande le modèle de PA de l'étape 1.3 ;
     - (b) partition de l'ouverture : gain divisé par B, faisceau plus large, d'après le diagramme de l'étape 1.1 ;
     - (c) multiplexage en temps ou en fréquence dans l'impulsion : énergie par faisceau, résolution, Doppler (étape 2.1).
 
     Cela remplace la loi unique `multibeam.l8_db` / `p` (statut ?). À reprendre aussi à l'étape 5.2.
+
+    **Fait en P3 (modèle V6.11.5)** : (a) en phase seule, enveloppe constante, PA saturés, pertes 0,4 / 0,6 / 0,8 dB à 2 / 4 / 8 faisceaux ; (b) moitiés (coupe `h` ou `v`) et quadrants, grille des positions sur le faisceau élargi (×1,85 / ×3,43), les deux moitiés équivalentes sur l'octogone actuel ; (c) multiplexage en temps modélisé, hors de l'espace de l'optimiseur, et multiplexage en fréquence écarté ; « pas d'énergie en trop » par raccourcissement de l'impulsion (PAE exacte, plancher τ ≥ 1/B). Détail : `Choix_architecturaux.md` §5.8 et §11. Reste pour P4 : fouillis vu par le faisceau d'émission élargi d'une partition.
   - **Grille de fréquences S** : remplacer `freq_candidates_ghz` (2,7, 2,8 et 2,9 GHz) par une grille fine au pas de 5 ou 10 MHz. Depuis l'étape 1.4, aucun signal ne tient à 2,7 ni à 2,9 GHz (bords de bande) : la grille doit se placer dans la bande, en tenant compte de la largeur du signal. Le but est d'éviter les brouilleurs étroits de forte puissance tout en gardant plus de cases fréquence qu'un masquage par multiples de 25 MHz. La grille est restreinte au spectre utilisable (connaissance du spectre, voir 3.2).
   - Bandes de signal au-delà de 75 MHz (bi_max 200 MHz) : plus de cases, donc plus de fausses alarmes. **Depuis l'étape 2.1**, le modèle est valide jusqu'à 200 MHz et la résolution est physique : 2 m demandent 89 MHz à −25 dB, et les secteurs qui demandent 2 m sont signalés tant que l'espace de recherche s'arrête à 75 MHz.
   - **Renvois de l'étape 2.5** : fouillis évalué par forme d'onde et par pointage (aujourd'hui à la portée exigée, avec la bande admissible la plus étroite, et un rejet Doppler en tout ou rien) ; exigence de portée ramenée à la distance de la surface sur les pointages qui la regardent (aujourd'hui seulement signalé) ; réponse au brouillage d'autoprotection (formes d'onde plus énergétiques).
@@ -344,7 +346,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 - **5.5 Interface opérateur.**
   - Préparation, estimation rapide recalée, diagnostic par contrainte, chronologies, export du rapport.
   - Onglet d'édition des paramètres.
-  - Arrondi de `power_scale`.
+  - Arrondi de `pulse_scale` (était `power_scale`).
   - **Renvois de l'étape 2.1** : les vues (3D, interface) n'affichent que le **volume utile**, sans la zone aveugle (demande de l'utilisateur) ; édition de `range_min_km` dans l'interface.
   - **Renvoi de l'étape 2.3** : l'estimation rapide reste au critère d'une observation à `detection.pfa` ; à recaler sur la Pd cumulée et le taux de fausses alarmes.
   - **Renvoi de l'étape 1.5** : l'estimation rapide (`cost_table.json`) est au ciel froid, sans le bruit du ciel ni l'aveuglement ; l'interface n'édite pas le ciel de la mission (il viendra du simulateur de scénario), elle le conserve.
@@ -370,7 +372,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | **Révision de la dalle** (22 octobre 2026) : la composition (`[aperture]`) est entièrement dérivée par le code, dans la famille actuelle (TRSA carrées d'un seul type, rangées centrées et symétriques, ouverture S / Ku partagée). À faire lors d'une révision réelle (décision de l'utilisateur) : contrôle au chargement que la dalle tient sur le panneau du modèle 3D (aujourd'hui seul le centre est contrôlé) et test de bout en bout d'une composition modifiée ; revoir alors les valeurs par TRM et par face (puissance, réserve, allocation électrique, masse). | à la révision de la dalle |
 | Densité de puissance d'environ 104 kW/m² de RF moyenne. | 4.2 |
 | Masse des réserves d'énergie des TRM : environ 270 kg par face à 1 J/g (hypothèse 2050), 1,1 t pour les 4 faces. | à placer (pas de bilan de masse dans la feuille de route) |
-| `power_scale` arrondi à 3 décimales dans la sortie de l'optimiseur. | 5.5 |
+| `pulse_scale` (était `power_scale`) arrondi à 3 décimales dans la sortie de l'optimiseur. | 5.5 |
 | `rx_taper_edge` = "inscribed" (statut D) à confirmer. | à placer |
 | **Lobes de jeu des TRSA** (étape 1.2) : traité en grande partie en ramenant le jeu à 0,5 mm. Restent en Ku au haut de la bande −30 dB tenu jusqu'à 64-68,5° et −35 dB jusqu'à 55-62°. Variante si la mécanique impose plus de jeu : maille d'éléments uniforme à travers les jeux. | à placer (2.5 faite : les lobes lointains entrent déjà dans le bruit de structure et le fouillis) |
 | Inclinaison des faces et géométrie : changer `geometry.tilt_deg` demande de modifier aussi le cône porte-antennes et `ship.array_radius_m` (étape 2.5 : la géométrie n'est plus déduite de l'inclinaison). | à placer |

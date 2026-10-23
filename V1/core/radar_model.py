@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.11.4
+# Radar Performance Model - V6.11.5
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,21 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.11.4 -> V6.11.5 (roadmap step 3.1, pass P3: S TX multibeam; user Q1-Q5)
+#   - [multibeam] l8_db / p (V5.6.0 law, definition unknown) replaced by three modes (Waveform.tx_mode, b_tx, tx_cut):
+#     phase-only superposition (B 2 / 4 / 8, loss 0.4 / 0.6 / 0.8 dB, P / B per beam, PAs saturated); aperture
+#     partition (halves cut 'h' or 'v', quadrants: P / B and G N_sub / N per beam, the sub-aperture's computed beam on
+#     its own lattice = the full one stretched by the beamwidth ratios, x1.85 / x3.43, its grid losses from the 2D
+#     pattern, core/antenna.subaperture); time multiplex (B 2 / 4 / 8, no loss: B pulses back to back, blind range,
+#     buffer, duty and PAE on B tau), modelled but not searched (tool.optimizer.tx_modes, Q1: never better).
+#   - Positions per dwell (cells_per_dwell) set the frame time and the cost of a position (search_position_costs).
+#   - "No excess energy" by SHORTENING THE PULSE (PAs saturated): energy and TX time scale with s = (R_want / R)^4,
+#     PAE of the shortened pulse exact, floor tau B >= waveform.pulse_tb_min (1, Q5 a), losses of the full pulse kept
+#     (Q4, prudent); was a power scale on the energy only. Reported as "pulse_scale" (was "power_scale").
+#   - Exact speed-ups: a superposition's range = its one-beam twin's x (1 / (B L))^(1/4) (no solve of its own); the
+#     velocity-independent part of the position-loss law cached apart; Pfa per pulse train (not per TX mode); pruning
+#     groups the candidates by cost function, the scale floor compared.
 #
 # Changes V6.11.3 -> V6.11.4 (roadmap step 3.1: runtime, user decision X1, X2, X3, X5; no accuracy given up)
 #   - walk_loss_db in closed form (sine integral, |error| < 5e-7; the former 401-point mean differed by < 2e-5 dB).
@@ -380,7 +395,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.11.4"
+MODEL_VERSION = "6.11.5"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -431,9 +446,17 @@ if not GRID_DITHERING:
     raise ValueError(f"{P.path}: search_grid.grid_dithering = false (fixed lattice, positions correlated between "
                      f"revisits) is not implemented: the step-2.3 criterion draws the position anew at each revisit")
 
-# --- Multibeam (TX); RX loss = 0 (digital beamforming) ---
-MB_L8_DB: float = P.get("multibeam.l8_db")
-MB_P: float = P.get("multibeam.p")
+# --- Multibeam (TX, step 3.1 block C); RX loss = 0 (digital beamforming) ---
+TX_MODES: Tuple[str, ...] = ("single", "superposition", "partition", "tdm")
+MB_SUP_LOSS_DB: Dict[int, float] = dict(zip((int(b) for b in P.get("multibeam.superposition_beams")),
+                                            (float(x) for x in P.get("multibeam.superposition_loss_db"))))
+if len(MB_SUP_LOSS_DB) != len(P.get("multibeam.superposition_loss_db")):
+    raise ValueError(f"{P.path}: multibeam.superposition_beams and superposition_loss_db must pair one to one")
+MB_PART_BEAMS: Tuple[int, ...] = tuple(int(b) for b in P.get("multibeam.partition_beams"))
+if not set(MB_PART_BEAMS) <= {2, 4}:
+    raise ValueError(f"{P.path}: multibeam.partition_beams: only 2 (halves) and 4 (quadrants) are modelled")
+MB_TDM_BEAMS: Tuple[int, ...] = tuple(int(b) for b in P.get("multibeam.tdm_beams"))
+PULSE_TB_MIN: float = P.get("waveform.pulse_tb_min")   # shortest pulse = this / B ("no excess energy" floor)
 
 # --- S-band energy buffer: legacy S-only alias (V6.0.x); the model uses the BandConfig values ---
 E_BUF_TRM_J: float = P.get("band.S.e_buf_trm_j")
@@ -758,13 +781,31 @@ def pae(band: BandConfig, tau_s: float, duty: Optional[float] = None) -> float:
 
 
 def pae_wf(wf: "Waveform") -> float:
-    """PAE of a waveform: its train duty if N > 1, the reference duty for a single pulse."""
-    return pae(BANDS[wf.band], wf.tau_s, wf.duty if wf.n > 1 else None)
+    """PAE of a waveform: its train duty if N > 1, the reference duty for a single pulse. A time-multiplexed dwell
+    sends its B pulses back to back: one TRM pulse of B tau, duty B tau / PRI (step 3.1, C)."""
+    return pae(BANDS[wf.band], wf.tx_block_s, wf.trm_duty if wf.n > 1 else None)
 
 
 def pulse_elec_energy_trm_j(wf: "Waveform") -> float:
-    """Electrical energy one TRM draws from its buffer for one pulse (edges included): P_pk x tau / PAE."""
-    return BANDS[wf.band].p_pk_trm_w * wf.tau_s / pae_wf(wf)
+    """Electrical energy one TRM draws from its buffer for one pulse (edges included): P_pk x tau / PAE (B tau for a
+    time-multiplexed dwell)."""
+    return BANDS[wf.band].p_pk_trm_w * wf.tx_block_s / pae_wf(wf)
+
+
+def search_position_costs(wf: "Waveform", scale=1.0) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Cost of ONE position of the full-aperture search lattice (step 3.1, C), with the pulse shortened by `scale`
+    ("no excess energy": PAs saturated, the pulse is cut to scale x tau, floored at PULSE_TB_MIN / B; the energy is
+    then kept). Returns (electrical J, s of TX time, effective scale, PAE of the shortened pulse); scale may be an
+    array. A dwell sends trains_per_dwell trains at the face peak power and covers cells_per_dwell positions."""
+    band = BANDS[wf.band]
+    s = np.maximum(np.minimum(np.asarray(scale, dtype=float), 1.0), min(1.0, PULSE_TB_MIN / (wf.sig_bw_mhz * 1e6) / wf.tau_s))
+    tau = wf.tau_s * s
+    block = tau * wf.trains_per_dwell if wf.tx_mode == "tdm" else tau
+    d = block / wf.pri_s if wf.n > 1 else PAE_DUTY_REF
+    eta = band.pae_sat * block / (block + band.pae_t_edge_s) * np.minimum(1.0, 1.0 - band.pae_duty_slope * (d - PAE_DUTY_REF))
+    share = wf.trains_per_dwell / cells_per_dwell(wf)
+    t = wf.n * tau * share
+    return band.p_pk_total_w * t / eta, t, s, eta
 
 
 def tau_max_s(band: BandConfig) -> float:
@@ -784,7 +825,7 @@ def face_elec_avail_w(elec_mw: float) -> float:
 
 def trm_dissipation_w(wf: "Waveform") -> float:
     """Heat one TRM dissipates on average during the dwell (W): P_pk x duty x (1 / PAE - 1). Output for step 4.2."""
-    return BANDS[wf.band].p_pk_trm_w * wf.duty * (1.0 / pae_wf(wf) - 1.0)
+    return BANDS[wf.band].p_pk_trm_w * wf.trm_duty * (1.0 / pae_wf(wf) - 1.0)
 
 
 def band_for_frequency(f_ghz: float) -> Optional[BandConfig]:
@@ -1146,10 +1187,77 @@ def grid_rx_loss_db() -> float:
 # -----------------------------------------------------------------------------
 # Loss terms
 # -----------------------------------------------------------------------------
-def multibeam_tx_loss_db(b_tx: int) -> float:
-    if b_tx <= 1:
-        return 0.0
-    return MB_L8_DB * (math.log2(b_tx) / 3.0) ** MB_P
+def multibeam_tx_loss_db(wf: "Waveform") -> float:
+    """TX multibeam loss (step 3.1, C): the phase-only superposition's table; partition and time multiplex lose
+    nothing (their cost is in the power, gain and positions of each beam)."""
+    return MB_SUP_LOSS_DB[wf.b_tx] if wf.tx_mode == "superposition" else 0.0
+
+
+# --- TX aperture partition (step 3.1, C): sub-aperture beams on their own search lattice
+@functools.lru_cache(maxsize=8)
+def subaperture(band_name: str, kind: str) -> "antenna.SubAperture":
+    n_sub = {"S": S_TRM_PER_TRSA_SIDE, "Ku": KU_TRM_PER_TRSA_SIDE}[band_name]
+    return antenna.subaperture(TRSA_ROWS, TRSA_SIDE_M, TRSA_GAP_M, n_sub, ARRAY_ENVELOPE_M, kind)
+
+
+def subaperture_cell_ratio(band_name: str, kind: str) -> float:
+    """Area of a lattice cell of the sub-aperture beam / that of the full face: the full-face lattice stretched by the
+    beamwidth ratios along u and v (1.85 for a half, 3.43 for a quadrant of the current octagon)."""
+    sa = subaperture(band_name, kind)
+    return (sa.hpbw_u / sa.full_hpbw_u) * (sa.hpbw_v / sa.full_hpbw_v)
+
+
+@functools.lru_cache(maxsize=8)
+def subaperture_grid_losses_db(band_name: str, kind: str) -> np.ndarray:
+    """TX loss (dB) at uniform points of a lattice cell of the sub-aperture beam: the hexagonal cell of the full face
+    (BEAM_SPACING_HPBW x its HPBW) stretched by the beamwidth ratios, its first lattice axis along the NARROW beam
+    axis (so the two halves, rotated by 90 deg, see the same cell), real 2D pattern of the sub-aperture."""
+    sa = subaperture(band_name, kind)
+    p = _hex_cell_points(BEAM_SPACING_HPBW * PATTERNS[band_name].tx.hpbw)
+    ku, kv = sa.hpbw_u / sa.full_hpbw_u, sa.hpbw_v / sa.full_hpbw_v
+    u, v = (p[:, 0] * ku, p[:, 1] * kv) if sa.hpbw_u <= sa.hpbw_v else (p[:, 1] * ku, p[:, 0] * kv)
+    return -10.0 * np.log10(np.maximum(sa.power(u, v), 1e-12))
+
+
+def tx_subaperture(wf: "Waveform") -> Optional[str]:
+    """Sub-aperture of a partition waveform ('half_h', 'half_v', 'quarter'), None otherwise."""
+    if wf.tx_mode != "partition":
+        return None
+    return "quarter" if wf.b_tx == 4 else f"half_{wf.tx_cut}"
+
+
+def tx_gain_ratio(wf: "Waveform") -> float:
+    """TX gain of one beam / that of the full face: N_sub / N for a partition (uniform), 1 otherwise."""
+    kind = tx_subaperture(wf)
+    if kind is None:
+        return 1.0
+    sa = subaperture(wf.band, kind)
+    return sa.n_elements / sa.n_total
+
+
+def tx_beam_power_w(wf: "Waveform") -> float:
+    """Peak power of one beam: the face peak power shared by the B beams (superposition: every TRM, partition: the
+    sub-aperture's TRMs), or all of it for one beam and for each pulse of the time multiplex."""
+    share = wf.b_tx if wf.tx_mode in ("superposition", "partition") else 1
+    return BANDS[wf.band].p_pk_total_w / share
+
+
+def cells_per_dwell(wf: "Waveform") -> float:
+    """Positions of the full-face search lattice one dwell covers: B beams, each covering one cell, or the
+    sub-aperture's larger cell for a partition."""
+    kind = tx_subaperture(wf)
+    return wf.b_tx * (1.0 if kind is None else subaperture_cell_ratio(wf.band, kind))
+
+
+def partition_cuts() -> Tuple[str, ...]:
+    """Cuts of the 2-beam partition the optimiser evaluates: 'h' and 'v', or 'h' alone when the two halves are the
+    same beam rotated by 90 deg (x <-> y symmetric face: same gain, cell and grid losses, so the same cost; exact)."""
+    a, b = subaperture("S", "half_h"), subaperture("S", "half_v")
+    same = (a.n_elements == b.n_elements and math.isclose(a.hpbw_u, b.hpbw_v, rel_tol=1e-9)
+            and math.isclose(a.hpbw_v, b.hpbw_u, rel_tol=1e-9)
+            and np.allclose(subaperture_grid_losses_db("S", "half_h"), subaperture_grid_losses_db("S", "half_v"),
+                            rtol=0.0, atol=1e-9))
+    return ("h",) if same else ("h", "v")
 
 
 def target_coherence_loss_db(t_block_s: float, t0_s: float) -> float:
@@ -1538,18 +1646,39 @@ def _beam_loss_db(beam: "antenna.Beam", r_lam_d: np.ndarray) -> np.ndarray:
 
 @functools.lru_cache(maxsize=1 << 12)
 def position_losses(band_name: str, rx_sll_db: float, psl_db: float, search: bool, doppler: bool,
-                    bank: Tuple[float, float, float, float, int, bool]) -> Tuple[Tuple[float, ...], Tuple[float, ...], Dict[str, float]]:
+                    bank: Tuple[float, float, float, float, int, bool],
+                    tx_sub: Optional[str] = None) -> Tuple[Tuple[float, ...], Tuple[float, ...], Dict[str, float]]:
     """Discrete law of the losses due to the random position of the target (step 2.3, B1): search TX lattice (hexagon
-    of BEAM_SPACING_HPBW TX beamwidths, real pattern), RX beam lattice, range straddle on the detection grid, Doppler
+    of BEAM_SPACING_HPBW TX beamwidths, real pattern; tx_sub = the sub-aperture of a partition, its own stretched
+    lattice and 2D pattern, step 3.1 C), RX beam lattice, range straddle on the detection grid, Doppler
     straddle (coherent blocks of more than one pulse), offset to the nearest velocity filter (bank = (half step,
     tau, B, T_obs, N, coherent); half step 0 = none). Each to OFFSET_QUANTILES quantiles, summed as independent.
     Returns (losses dB, weights, mean of each component)."""
+    law, means = _fixed_position_law(band_name, rx_sll_db, psl_db, search, doppler, tx_sub)
+    means = dict(means)
+    half, tau_s, bw, t_obs, n, coh = bank
+    if half > 0.0:
+        v = np.array([bank_mismatch_loss_db(dv, tau_s, bw, t_obs, n, coh) for dv in (np.arange(41) + 0.5) / 41 * half])
+        law = detection.combine((np.array(law[0]), np.array(law[1])), detection.quantiles(v, OFFSET_QUANTILES),
+                                2 * OFFSET_QUANTILES)
+        means["velocity_filter"] = float(np.mean(v))
+    return tuple(law[0]), tuple(law[1]), means
+
+
+@functools.lru_cache(maxsize=256)
+def _fixed_position_law(band_name: str, rx_sll_db: float, psl_db: float, search: bool, doppler: bool,
+                        tx_sub: Optional[str]) -> Tuple[Tuple[Tuple[float, ...], Tuple[float, ...]], Tuple]:
+    """The part of position_losses that does not depend on the velocity bank (grids, straddles), combined in the same
+    order; cached apart (a few dozen keys) since the bank changes with every waveform (exact)."""
     q = OFFSET_QUANTILES
     parts: Dict[str, np.ndarray] = {}
     pat = PATTERNS[band_name]
     if search and ENABLE_GRID_LOSS:
-        tx = _hex_cell_points(BEAM_SPACING_HPBW * pat.tx.hpbw)
-        parts["grid_tx"] = _beam_loss_db(pat.tx, np.hypot(tx[:, 0], tx[:, 1]))
+        if tx_sub is None:
+            tx = _hex_cell_points(BEAM_SPACING_HPBW * pat.tx.hpbw)
+            parts["grid_tx"] = _beam_loss_db(pat.tx, np.hypot(tx[:, 0], tx[:, 1]))
+        else:
+            parts["grid_tx"] = subaperture_grid_losses_db(band_name, tx_sub)
         rxb = rx_beam(band_name, rx_sll_db)
         rx = _hex_cell_points(RX_BEAM_SPACING_HPBW * rxb.hpbw)
         parts["grid_rx"] = _beam_loss_db(rxb, np.hypot(rx[:, 0], rx[:, 1]))
@@ -1557,14 +1686,10 @@ def position_losses(band_name: str, rx_sll_db: float, psl_db: float, search: boo
     parts["straddle_range"] = -10.0 * np.log10(_range_response(psl_db)(u / RANGE_GRID_OVERSAMPLING))
     if doppler:
         parts["straddle_doppler"] = -10.0 * np.log10(np.sinc(u / DOPPLER_ZERO_PADDING) ** 2)
-    half, tau_s, bw, t_obs, n, coh = bank
-    if half > 0.0:
-        parts["velocity_filter"] = np.array([bank_mismatch_loss_db(dv, tau_s, bw, t_obs, n, coh)
-                                             for dv in (np.arange(41) + 0.5) / 41 * half])
     law = (np.zeros(1), np.ones(1))
     for v in parts.values():
         law = detection.combine(law, detection.quantiles(v, q), 2 * q)
-    return tuple(law[0]), tuple(law[1]), {k: float(np.mean(v)) for k, v in parts.items()}
+    return (tuple(law[0]), tuple(law[1])), tuple((k, float(np.mean(v))) for k, v in parts.items())
 
 
 def search_pfa(fa_per_rr: float, positions: float, cells_per_position: float) -> float:
@@ -1847,8 +1972,24 @@ class Waveform:
     modulation: Optional[str] = None   # "lfm" | "nlfm" | None = chosen per look (modulation_for, step 2.1)
     staggered: bool = False            # range-ambiguous train staggered over STAGGER_N_PRI PRIs (eclipsing loss)
     agility_mhz: float = 0.0           # carrier excursion over a noncoherent train, pulse to pulse (step 3.1, B7)
+    tx_mode: Optional[str] = None      # TX multibeam mode (step 3.1, C): single | superposition | partition | tdm;
+                                       # None = single if b_tx is 1, else superposition
+    tx_cut: Optional[str] = None       # 2-beam partition: 'h' (horizontal cut) or 'v'
 
     def __post_init__(self) -> None:
+        if self.tx_mode is None:
+            object.__setattr__(self, "tx_mode", "single" if self.b_tx == 1 else "superposition")
+        beams = {"single": (1,), "superposition": tuple(MB_SUP_LOSS_DB), "partition": MB_PART_BEAMS,
+                 "tdm": MB_TDM_BEAMS}.get(self.tx_mode)
+        if beams is None:
+            raise ValueError(f"{self.name}: TX mode '{self.tx_mode}' is not one of {TX_MODES}")
+        if self.b_tx not in beams:
+            raise ValueError(f"{self.name}: {self.b_tx} beams is not offered in TX mode {self.tx_mode} {beams}")
+        if self.tx_mode != "single" and self.band != "S":
+            raise ValueError(f"{self.name}: TX multibeam is modelled in S only (Ku multibeam: step 3.2)")
+        if (self.tx_cut is not None or (self.tx_mode == "partition" and self.b_tx == 2)) and not (
+                self.tx_mode == "partition" and self.b_tx == 2 and self.tx_cut in ("h", "v")):
+            raise ValueError(f"{self.name}: tx_cut 'h' or 'v' is for (and needed by) the 2-beam partition only")
         if self.modulation is not None and self.modulation not in MODULATIONS:
             raise ValueError(f"{self.name}: modulation '{self.modulation}' is not one of {MODULATIONS}")
         if self.band not in BANDS:
@@ -1857,8 +1998,8 @@ class Waveform:
             raise ValueError(f"{self.name}: role {self.role} is not allowed in {self.band} band "
                              f"(allowed: {BANDS[self.band].allowed_roles})")
         dmax = BANDS[self.band].duty_max
-        if dmax > 0 and self.n > 1 and self.tau_s / self.pri_s > dmax * (1.0 + 1e-12):
-            raise ValueError(f"{self.name}: duty {self.tau_s / self.pri_s:.3f} exceeds the {self.band} TRM ceiling {dmax:g}")
+        if dmax > 0 and self.n > 1 and self.trm_duty > dmax * (1.0 + 1e-12):
+            raise ValueError(f"{self.name}: duty {self.trm_duty:.3f} exceeds the {self.band} TRM ceiling {dmax:g}")
         bi = BANDS[self.band].bi_max_mhz
         if bi > 0 and self.sig_bw_mhz > bi:
             raise ValueError(f"{self.name}: signal bandwidth {self.sig_bw_mhz} MHz exceeds the {self.band} "
@@ -1867,7 +2008,7 @@ class Waveform:
             raise ValueError(f"{self.name}: TRACK waveform needs a tracking_pack")
         if self.integration not in ("COHERENT", "NONCOHERENT"):
             raise ValueError(f"{self.name}: bad integration mode")
-        if not (0.0 < self.tau_s <= self.pri_s) or self.n < 1 or self.b_tx < 1:
+        if not (0.0 < self.tx_block_s <= self.pri_s) or self.n < 1 or self.b_tx < 1:
             raise ValueError(f"{self.name}: inconsistent timing")
         if self.agility_mhz < 0 or (self.agility_mhz > 0 and (self.integration != "NONCOHERENT" or self.n < 2)):
             raise ValueError(f"{self.name}: frequency agility needs a noncoherent train of 2 pulses or more")
@@ -1880,6 +2021,21 @@ class Waveform:
     @property
     def duty(self) -> float:
         return self.tau_s / self.pri_s
+
+    @property
+    def trains_per_dwell(self) -> int:
+        """Pulse trains a dwell sends at the face peak power: B for the time multiplex, 1 otherwise (step 3.1, C)."""
+        return self.b_tx if self.tx_mode == "tdm" else 1
+
+    @property
+    def tx_block_s(self) -> float:
+        """TRM pulse: tau, or the B pulses sent back to back by the time multiplex (blind range, buffer, PAE)."""
+        return self.tau_s * self.trains_per_dwell
+
+    @property
+    def trm_duty(self) -> float:
+        """TRM duty of the train: tx_block / PRI."""
+        return self.tx_block_s / self.pri_s
 
     @property
     def dwell_s(self) -> float:
@@ -1982,7 +2138,8 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     search = wf.role in ("SEARCH", "TWS")
     sll_key = RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
     pos_l, pos_w, pos_parts = position_losses(band.name, sll_key, psl, search, ppb > 1,
-                                              (round(bank_half, 9), wf.tau_s, wf.sig_bw_mhz, t_span, wf.n, n_blocks == 1))
+                                              (round(bank_half, 9), wf.tau_s, wf.sig_bw_mhz, t_span, wf.n, n_blocks == 1),
+                                              tx_subaperture(wf))
     q = cum[0] * cum[1] / (cum[2] * 1e3) if (cum is not None and search) else 0.0
     if wf.role in DETECT_ROLES:
         # exact law (step 2.3), n = coherent blocks integrated noncoherently, Pd averaged over the position
@@ -2010,7 +2167,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
             raise ValueError(f"{wf.name}: pulse needs {x_buf:.2f} of the TRM buffer (max {band.buffer_max_fraction:g}): "
                              f"droop too large")
         losses["buffer_droop"] = -10.0 * math.log10(1.0 - x_buf / 2.0)
-    losses["multibeam_tx"] = multibeam_tx_loss_db(wf.b_tx)
+    losses["multibeam_tx"] = multibeam_tx_loss_db(wf)
     losses["scan_mismatch"] = 2.0 * active_mismatch(f_ghz, theta_deg)["loss_db_per_pass"]   # TX and RX
     # random position of the target (step 2.3): search grid, range / Doppler straddle, velocity-filter offset
     losses["positions"] = positions_db
@@ -2028,26 +2185,29 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
         losses["migration"], _ = migration_loss_db(target.v_close_mps, t_span, wf.sig_bw_mhz, wf.n)
     l_tot = sum(losses.values())
 
-    g_tx = gain_lin(band.eta_illum_tx, f_ghz, theta_deg)
+    g_tx = gain_lin(band.eta_illum_tx, f_ghz, theta_deg) * tx_gain_ratio(wf)
     g_rx = gain_lin(rx_beam(band.name, rx_sll_db).eta, f_ghz, theta_deg)
-    p_beam = band.p_pk_total_w / wf.b_tx
+    p_beam = tx_beam_power_w(wf)
     t_sys = band.t_sys_k if t_sys_k is None else float(t_sys_k)
     num = p_beam * g_tx * g_rx * lambda_m(f_ghz) ** 2 * target.rcs_at(f_ghz) * wf.tau_s * wf.n
     den = (4.0 * math.pi) ** 3 * K_BOLTZ * t_sys * db_to_lin(l_tot) * db_to_lin(snr_db)
     r_km = (num / den) ** 0.25 / 1000.0
 
     eta = pae_wf(wf)
-    p_avg_used = band.p_pk_total_w * wf.duty / eta
+    p_avg_used = band.p_pk_total_w * wf.trm_duty / eta
     p_avg_max = face_elec_avail_w(elec_mw)
 
     frame = None
     if wf.role == "SEARCH":
         pos = n_search_positions(f_ghz)
         t_pos = wf.dwell_s + (0.0 if FRAME_INTERLEAVED else 2.0 * r_km * 1000.0 / C_MPS)
-        t_frame = pos * t_pos / wf.b_tx
+        cpd = cells_per_dwell(wf)
+        t_frame = pos * t_pos / cpd
+        sub = tx_subaperture(wf)
         frame = {"positions": pos, "dwell_s": wf.dwell_s, "t_pos_s": t_pos, "t_frame_s": t_frame,
-                 "ok": 1.0 if t_frame <= REFRESH_S else 0.0,
-                 "rx_beams_per_position": rx_beams_per_position(f_ghz, rx_sll_db)}
+                 "ok": 1.0 if t_frame <= REFRESH_S else 0.0, "positions_per_dwell": cpd,
+                 "rx_beams_per_position": rx_beams_per_position(f_ghz, rx_sll_db)
+                 * (1.0 if sub is None else subaperture_cell_ratio(band.name, sub))}
 
     f_d = doppler_max_hz(f_ghz, target.v_close_mps)
     n_c = cells_in_pulse(target.v_close_mps, wf.tau_s, wf.sig_bw_mhz)
@@ -2056,7 +2216,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
              "coupling_bias_m": C_MPS * f_d * wf.tau_s / (2.0 * wf.sig_bw_mhz * 1e6),
              "cells_in_pulse": n_c, "zero_velocity_filter_loss_db": velocity_mismatch_loss_db(n_c),
              "velocity_hypotheses_1db": velocity_hypotheses(target.v_close_mps, wf.tau_s, wf.sig_bw_mhz),
-             "am_pm_drift_deg": am_pm_drift_deg(x_buf), "blind_range_km": blind_range_km(band, wf.tau_s),
+             "am_pm_drift_deg": am_pm_drift_deg(x_buf), "blind_range_km": blind_range_km(band, wf.tx_block_s),
              "doppler_ambiguity": f_d * wf.pri_s if wf.n > 1 else 0.0,
              # processing (step 2.2)
              "coherent_blocks": n_blocks, "pulses_per_block": ppb, "block_s": t_block,
@@ -2151,7 +2311,8 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
         r = solve(w, f_ghz, theta_deg, tgt, elec_mw)
         tg = r.pulse["target"]
         print(f"{w.name} [{w.role}, {w.band}, {w.integration}, {tg['fluctuation']} -> Gamma shape {tg['gamma_shape']:.3g}] "
-              f"tau {w.tau_s*1e6:.0f} us, N {w.n}, PRI {w.pri_s*1e3:.1f} ms, B {w.sig_bw_mhz:.0f} MHz, Btx {w.b_tx}")
+              f"tau {w.tau_s*1e6:.0f} us, N {w.n}, PRI {w.pri_s*1e3:.1f} ms, B {w.sig_bw_mhz:.0f} MHz, "
+              f"TX {w.tx_mode} x{w.b_tx}")
         print(f"  Required SNR (total energy): {r.snr_req_db:.2f} dB   driver: {r.driver}")
         print(f"  Range on {tgt.name}: {r.range_km:,.0f} km")
         ls = ", ".join(f"{k} {v:.2f}" for k, v in r.losses.items() if v)
@@ -2280,7 +2441,7 @@ def selftest() -> int:
     # the target (search grid, range straddle, velocity filter over 0-5 km/s; checked on their own in the tests)
     l_db = (0.3 + 0.5 + 0.2 + 0.6 + pol_glrt + 0.1) + cfar_loss_db() + MIGRATION_RESIDUAL_DB - 10 * math.log10(1 + rho)
     l_db += -20 * math.log10(1 - ((1 - math.cos(math.radians(45))) / (1 + math.cos(math.radians(45)))) ** 2)   # WAIM
-    l_db += -10 * math.log10(1 - (2000 * 200.2e-6 / 0.8 / 25.0) / 2) + MB_L8_DB * (2.0 / 3.0) ** MB_P
+    l_db += -10 * math.log10(1 - (2000 * 200.2e-6 / 0.8 / 25.0) / 2) + MB_SUP_LOSS_DB[4]   # 4-beam superposition
     half = velocity_bank(5000.0, 200e-6, 75.0, WF_LRS.dwell_s, 24, False)[2]
     law = position_losses("S", -25.0, -25.0, True, False, (round(half, 9), 200e-6, 75.0, WF_LRS.dwell_s, 24, False))
     snr_mean_db = detection.required_snr_db(24, fl_st, DETECT_PFA, DETECT_PD, law[0], law[1])
@@ -2345,6 +2506,27 @@ def selftest() -> int:
           abs(Waveform(name="T", role="SEARCH", band="S", tau_s=4e-3, n=1, pri_s=27e-3, sig_bw_mhz=75.0,
                        integration="COHERENT").coherent_time_s - 4e-3) < 1e-12)
     check("WF-LRS dwell = (N-1)*PRI + tau", abs(WF_LRS.dwell_s - (23 * 27e-3 + 200e-6)) < 1e-12)
+    # step 3.1, C: TX multibeam modes
+    one = dataclasses.replace(WF_LRS, b_tx=1, tx_mode="single")
+    tdm = dataclasses.replace(WF_LRS, b_tx=2, tx_mode="tdm")
+    half = dataclasses.replace(WF_LRS, b_tx=2, tx_mode="partition", tx_cut="h")
+    r1 = solve(one, 2.8, 0.0, TARGETS["ST"])
+    check("Partition sub-apertures: 2450 / 1225 S TRMs, lattice cell x1.85 (half) / x3.43 (quadrant)",
+          subaperture("S", "half_h").n_elements == 2450 and subaperture("S", "quarter").n_elements == 1225
+          and abs(subaperture_cell_ratio("S", "half_h") - 1.85) < 0.02
+          and abs(subaperture_cell_ratio("S", "quarter") - 3.43) < 0.03,
+          f"({subaperture_cell_ratio('S', 'half_h'):.3f}, {subaperture_cell_ratio('S', 'quarter'):.3f})")
+    check("The two halves are the same beam rotated by 90 deg (octagon x <-> y symmetric): one cut evaluated",
+          partition_cuts() == ("h",))
+    r_t = solve(tdm, 2.8, 0.0, TARGETS["ST"])
+    check("Time multiplex: one beam's range but for the buffer droop of 2 tau back to back, 2 positions per dwell",
+          abs((r_t.range_km / r1.range_km) ** 4 * db_to_lin(r_t.l_tot_db - r1.l_tot_db) - 1) < 1e-6
+          and r_t.losses["buffer_droop"] > r1.losses["buffer_droop"]
+          and cells_per_dwell(tdm) == 2 and tdm.tx_block_s == 2 * WF_LRS.tau_s)
+    r_h = solve(half, 2.8, 0.0, TARGETS["ST"])
+    check("Half aperture: P / 2 and G / 2 per beam (R^4 / 4 but for the grid loss of the widened beam)",
+          abs((r_h.range_km / r1.range_km) ** 4 * 4.0 * db_to_lin(r_h.l_tot_db - r1.l_tot_db) - 1) < 1e-6,
+          f"(range ratio {r_h.range_km / r1.range_km:.4f})")
     try:
         Waveform(name="WIDE", role="CONFIRM", band="Ku", tau_s=1e-4, n=1, pri_s=1e-3, sig_bw_mhz=250.0,
                  integration="COHERENT")

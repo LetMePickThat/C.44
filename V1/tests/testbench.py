@@ -163,7 +163,12 @@ def model_case() -> dict:
         "rx_beams_per_position": {f"{f} GHz | RX {s:g} dB": rm.rx_beams_per_position(f, s)
                                   for f in (2.8, 14.0) for s in rm.RX_SLL_OPTIONS_DB},
         "gain_dbi": {f"{f} GHz | {th} deg": lin_to_db_gain(f, th) for f in (2.8, 14.0) for th in (0.0, 30.0, 50.0, 70.0, 75.0)},
-        "multibeam_tx_loss_db": {str(b): rm.multibeam_tx_loss_db(b) for b in (1, 2, 4, 8)},
+        "multibeam_tx_loss_db": {str(b): rm.multibeam_tx_loss_db(dataclasses.replace(rm.WF_LRS, b_tx=b, tx_mode=None))
+                                 for b in (1, 2, 4, 8)},
+        "subaperture": {k: {"n_elements": rm.subaperture("S", k).n_elements,
+                            "cell_ratio": rm.subaperture_cell_ratio("S", k),
+                            "grid_tx_mean_db": float(rm.subaperture_grid_losses_db("S", k).mean())}
+                        for k in ("half_h", "half_v", "quarter")},
         "coherence_loss_db": {str(t): rm.coherence_loss_db(14.0, t) for t in (1e-3, 0.064, 0.3)},
         "edge_loss_db": {f"{f} GHz | B {b:g} MHz": rm.BANDS[n].edge_loss_db(f, b)
                          for n, fs in (("S", (2.7, 2.72, 2.75, 2.8, 2.88, 2.9)), ("Ku", (13.5, 13.6, 14.0, 14.4, 14.5)))

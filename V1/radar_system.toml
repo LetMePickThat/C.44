@@ -102,9 +102,19 @@ mode        = { value = "COMPENSATED", unit = "", status = "V", source = "COMPEN
 residual_db       = { value = 0.1, unit = "dB", status = "V", source = "residual loss of the migration compensation algorithm (keystone / Radon type) when the target crosses more than 1.5 cells over the dwell (step 2.2, B5, optimistic end of 0.1-0.3 dB; was 1.0 dB lump). The velocity-bank loss is computed (bank_max_loss_db)", date = "2026-10-21" }
 bank_max_loss_db  = { value = 1.0, unit = "dB", status = "V", source = "velocity-hypothesis bank: step chosen so that a target half a step off costs this much (intra-pulse law of 2.1 + walk over the dwell); the MEAN loss over the step goes to the budget, the hypotheses to the false-alarm count and the compute load (step 2.2, B2, 0.5-2 dB)", date = "2026-10-21" }
 
+# S TX multibeam (step 3.1, block C): B beams per dwell, three modes; the digital RX already forms its beams (RX loss 0,
+# compute load at 4.4). Superposition: every TRM sends the phase-only sum of the B beams (constant envelope, PAs
+# saturated, PAE unchanged), P / B per beam, full TX gain. Partition: the face is cut into B sub-apertures (B = 2:
+# halves, cut horizontal 'h' or vertical 'v'; B = 4: quadrants), P / B and G x N_sub / N per beam, TX beam of the
+# sub-aperture (computed pattern, core/antenna.py) on its own lattice: fewer positions. Time multiplex: B full-power
+# pulses back to back per PRI (blind range c B tau / 2, buffer B tau, duty B tau / PRI); modelled, not offered to the
+# optimiser (same energy and time per position as one beam, never better: exact). Linear superposition and frequency
+# multiplex left out (block C). Replaces l8_db / p (V5.6.0 law of unknown definition).
 [multibeam]
-l8_db = { value = 0.8, unit = "dB", status = "?", source = "TX multibeam loss at 8 beams, one law for every mode (V5.6.0, definition unknown); RX loss 0 (digital). To be replaced by per-mode models (superposition + PA back-off 1.3, aperture partition 1.1, time/frequency multiplex 2.1), mode chosen by the optimiser per context (3.1 / 5.2)", date = "2026-10-20" }
-p     = { value = 1.1, unit = "-", status = "?", source = "exponent of the multibeam law L8 x (log2 B / 3)^p (0.24 / 0.51 / 0.80 dB at 2 / 4 / 8 beams); replaced with l8_db by the per-mode models", date = "2026-10-20" }
+superposition_beams   = { value = [2, 4, 8], unit = "-", status = "V", source = "beams of the phase-only superposition (step 3.1, C)", date = "2026-10-23" }
+superposition_loss_db = { value = [0.4, 0.6, 0.8], unit = "dB", status = "V", source = "TX loss of the phase-only superposition at 2 / 4 / 8 beams (power lost to the intermodulation of the constant-envelope sum), step 3.1, C", date = "2026-10-23" }
+partition_beams       = { value = [2, 4], unit = "-", status = "V", source = "aperture partition: 2 halves (cut 'h' or 'v', both evaluated, Q3) or 4 quadrants; grid of positions on the widened sub-aperture beam (Q2 b), step 3.1, C", date = "2026-10-23" }
+tdm_beams             = { value = [2, 4, 8], unit = "-", status = "V", source = "time multiplex, no loss: B full-power pulses back to back per PRI; blind range c B tau / 2, buffer and duty with B tau (Q1, step 3.1, C); not in the optimiser's space (never better than one beam in the TX-time budget)", date = "2026-10-23" }
 
 [coherence]
 enable               = { value = true, unit = "", status = "D", source = "coherence loss of the coherent blocks (target + oscillator + platform), step 2.2", date = "2026-10-21" }
@@ -143,6 +153,7 @@ range_taylor_nbar     = { value = 5, unit = "-", status = "V", source = "Taylor 
 pa_am_pm_deg_per_db   = { value = 2.0, unit = "deg/dB", status = "V", source = "PA AM/PM conversion, residual after correction (B5, B6; optimistic end of 2-10 deg/dB): phase drift as the buffer empties during the pulse, output only (quasi linear = a small Doppler offset)", date = "2026-10-21" }
 stagger_n_pri         = { value = 3, unit = "-", status = "V", source = "range-ambiguous trains are staggered over this many PRIs (C5): resolves the range ambiguity and moves the blind zones; mean eclipsing loss -10 log(1 - (tau + recovery) / PRI) (C4)", date = "2026-10-21" }
 stagger_spread        = { value = 0.1, unit = "-", status = "V", source = "PRI spread of the stagger, +/- this fraction around the nominal PRI (C5, 5-20 %); the dwell uses the nominal (mean) PRI", date = "2026-10-21" }
+pulse_tb_min          = { value = 1.0, unit = "-", status = "V", source = "shortest pulse = this / B (time-bandwidth product 1, an unmodulated pulse: physical limit, Q5 a): floor of the 'no excess energy' shortening of a search pulse (step 3.1, C; PAs saturated, PAE of the shortened pulse exact, losses of the full pulse kept, Q4); at the floor the excess energy is kept", date = "2026-10-23" }
 
 # --- bands --------------------------------------------------------------------------------------------------------
 [band.S]
@@ -546,7 +557,8 @@ tau_s                = [5e-6, 10e-6, 20e-6, 50e-6, 100e-6, 200e-6, 400e-6, 600e-
                                 # + the TRM buffer limit (2.0 ms), added by the code; 5 / 10 us (2 km self-defence minimum
                                 # range) and 1.0-1.5 ms added at step 3.1 (B1-B2)
 n_pulses             = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32]
-b_tx                 = [1, 2, 4, 8]
+tx_modes             = ["single", "superposition", "partition"]   # S TX modes searched (step 3.1, C); beams from
+                                # [multibeam]; "tdm" is modelled but left out (exactly never better, Q1)
 sig_bw_mhz           = [10.0, 20.0, 30.0, 50.0, 75.0, 100.0, 150.0, 200.0]   # 100-200 MHz added at step 3.1 (B3)
 pri_min_s            = 1e-3     # PRI of single-pulse and range-ambiguous candidates
 theta_bin_deg        = 1.0      # scan-angle bin of the position count

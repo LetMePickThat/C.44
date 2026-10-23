@@ -12,8 +12,9 @@ phi = azimuth about Z from +X toward +Y, eps = elevation from XY plane toward +Z
 Design rules (flagged [D] = decision, change on request) -- optimiser v2 (AUDIT/SPEC_optimiseur_v2.md,
 with the audit corrections):
   - [D] One waveform per BIN_DEG scan-angle bin (at most max_wf_per_sector distinct waveforms per sector, neighbouring
-        bins merged by dynamic programming), each reaching the requested range in every 1-deg bin it covers; power is
-        then scaled down per 1-deg bin to just reach the range ("no excess energy").
+        bins merged by dynamic programming), each reaching the requested range in every 1-deg bin it covers; the pulse
+        is then shortened per 1-deg bin to just reach the range ("no excess energy", step 3.1 C: PAs saturated, PAE of
+        the shortened pulse, floor tau B >= waveform.pulse_tb_min).
   - [D] Objective = min max(energy fraction, time-on-air fraction) over the faces, via an alpha-swept scalarisation.
         Ranking: extra unscanned fraction caused by the frequency, then positions short of range (1 % tolerance),
         then the objective.
@@ -33,7 +34,10 @@ with the audit corrections):
         (each face has its own 2 MW).
   - [D] RR is stretched proportionally when a face is over-subscribed:
         RR_est = RR_target x max(1, sum of energy fractions, sum of time fractions).
-  - Energy = ELECTRICAL (step 1.3): a position costs P_pk n tau / B_tx / PAE(waveform), the face has
+  - TX multibeam (step 3.1, C): one beam, phase-only superposition (B beams, P / B each, table loss) or aperture
+    partition (halves / quadrants, P / B and G N_sub / N per beam, larger cell); the time multiplex is modelled but
+    not searched (tool.optimizer.tx_modes).
+  - Energy = ELECTRICAL (step 1.3): a position costs P_pk n tau x trains / positions per dwell / PAE, the face has
     radar_model.face_elec_avail_w(face_elec_mw); the face heat (electrical - RF) is reported for step 4.2.
   - Tracking margin per face: the only S/Ku coupling is the face's electrical power, so the power left after search,
     (1 - sum of energy fractions) x P_elec, is reported with the equivalent Ku duty cycle (x Ku pae_sat / Ku peak).
@@ -85,7 +89,9 @@ if FREQ_COARSE_GHZ < FREQ_STEP_GHZ or abs(FREQ_COARSE_GHZ / FREQ_STEP_GHZ - roun
 TAU_CAND = tuple(sorted({t for t in P.get(_T + "tau_s") if t < rm.tau_max_s(rm.BAND_S)}
                         | ({rm.tau_max_s(rm.BAND_S)} if math.isfinite(rm.tau_max_s(rm.BAND_S)) else set())))
 N_CAND = tuple(P.get(_T + "n_pulses"))
-B_CAND = tuple(P.get(_T + "b_tx"))
+TX_MODES = tuple(P.get(_T + "tx_modes"))             # S TX multibeam modes searched (step 3.1, C)
+if not set(TX_MODES) <= set(rm.TX_MODES):
+    raise ValueError(f"{P.path}: tool.optimizer.tx_modes {TX_MODES}: modes are {rm.TX_MODES}")
 SIGBW_CAND = tuple(P.get(_T + "sig_bw_mhz"))
 PRI_MIN_S = P.get(_T + "pri_min_s")                  # PRI of single-pulse and range-ambiguous candidates
 RES_MAX_M_DEFAULT = P.get("tool.mission_defaults.res_max_m")   # range resolution requested if the sector gives none
@@ -470,9 +476,34 @@ def search_positions(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, sky: O
 
 
 # ----------------------------------------------------------------------------- optimiser
-def make_wf(name, tau, n, pri, bw, b, integ, staggered=False, agility=0.0):
+def make_wf(name, tau, n, pri, bw, b, integ, staggered=False, agility=0.0, mode=None, cut=None):
     return rm.Waveform(name=name, role="SEARCH", band="S", tau_s=tau, n=n, pri_s=pri, sig_bw_mhz=bw,
-                       b_tx=b, integration=integ, staggered=staggered, agility_mhz=agility)
+                       b_tx=b, integration=integ, staggered=staggered, agility_mhz=agility, tx_mode=mode, tx_cut=cut)
+
+
+def tx_label(w: dict) -> str:
+    """Short label of the TX mode of a waveform dict: 1, SUPx4, PARTx2h, PARTx4, TDMx2."""
+    m = w.get("tx_mode", "single")
+    if m == "single":
+        return "1"
+    return {"superposition": "SUP", "partition": "PART", "tdm": "TDM"}[m] + f"x{w['b_tx']}" + (w.get("tx_cut") or "")
+
+
+def tx_variants() -> List[Tuple[str, int, Optional[str]]]:
+    """(mode, beams, cut) of the S TX multibeam space (step 3.1, C): one beam, the superposition's beams, the
+    partition's (both cuts of the halves unless they are the same beam, radar_model.partition_cuts)."""
+    out = []
+    for mode in TX_MODES:
+        if mode == "single":
+            out.append(("single", 1, None))
+        elif mode == "superposition":
+            out.extend(("superposition", b, None) for b in rm.MB_SUP_LOSS_DB)
+        elif mode == "partition":
+            for b in rm.MB_PART_BEAMS:
+                out.extend(("partition", b, c) for c in (rm.partition_cuts() if b == 2 else (None,)))
+        else:
+            out.extend(("tdm", b, None) for b in rm.MB_TDM_BEAMS)
+    return out
 
 
 def agility_for(sec: dict, n: int, bw_mhz: float) -> float:
@@ -525,6 +556,12 @@ def velocity_span_mps(sec: dict) -> float:
 
 def range_at(w, f, theta, tgt, rx_sll: Optional[float] = None, v_span: Optional[float] = None,
              pfa: Optional[float] = None, cum: Optional[Tuple[float, float, float]] = None):
+    """Range of a candidate (None: not playable). A phase-only superposition differs from its one-beam twin only by
+    the power per beam (P / B) and its table loss, so its range is the twin's x (1 / (B L))^(1/4): the radar
+    equation, exact, without a solve() of its own (step 3.1, C)."""
+    if w.tx_mode == "superposition":
+        r = range_at(dataclasses.replace(w, b_tx=1, tx_mode="single"), f, theta, tgt, rx_sll, v_span, pfa, cum)
+        return None if r is None else r * (w.b_tx * rm.db_to_lin(rm.multibeam_tx_loss_db(w))) ** -0.25
     return _range_cached(w, f, theta, tgt if tgt.name == "cache" else dataclasses.replace(tgt, name="cache"),
                          rm.RX_SLL_DEFAULT_DB if rx_sll is None else float(rx_sll), v_span, pfa, cum)
 
@@ -549,8 +586,17 @@ def cells_per_position(sec: dict, w, f: float) -> float:
 
 def candidate_pfas(sec: dict, cands: List, f: float, positions: float) -> List[float]:
     """Pfa per cell of each candidate (step 2.3): the sector's tolerated false alarms over its positions and the
-    candidate's cells ('fa_rate'), or detection.pfa ('pfa_cell'); rounded to 6 digits for the range cache."""
-    return [float(f"{rm.search_pfa(fa_per_rr(sec), positions, cells_per_position(sec, w, f)):.6g}") for w in cands]
+    candidate's cells ('fa_rate'), or detection.pfa ('pfa_cell'); rounded to 6 digits for the range cache. The cells
+    do not depend on the TX mode (positions x cells per position is the same for a partition's larger cell), so they
+    are computed once per pulse train."""
+    memo: Dict[tuple, float] = {}
+    out = []
+    for w in cands:
+        k = (w.tau_s, w.n, w.pri_s, w.sig_bw_mhz, w.integration, w.agility_mhz, w.staggered)
+        if k not in memo:
+            memo[k] = float(f"{rm.search_pfa(fa_per_rr(sec), positions, cells_per_position(sec, w, f)):.6g}")
+        out.append(memo[k])
+    return out
 
 
 def candidate_waveforms(sec: dict) -> List:
@@ -564,40 +610,88 @@ def candidate_waveforms(sec: dict) -> List:
     r_min = range_min_km(sec)
     out = []
     for integ in ("COHERENT", "NONCOHERENT"):
-        for b in B_CAND:
+        for mode, b, cut in tx_variants():
             for bw in bws:
                 for n in N_CAND:
                     for tau in TAU_CAND:
-                        if rm.blind_range_km(rm.BAND_S, tau) > r_min + 1e-9:
+                        blk = tau * (b if mode == "tdm" else 1)        # TRM pulse (time multiplex: B tau)
+                        if rm.blind_range_km(rm.BAND_S, blk) > r_min + 1e-9:
                             continue
-                        pri_unamb = rm.unambiguous_pri_s(rm.BAND_S, r_want, tau)
-                        pri = max(tau, PRI_MIN_S) if (n == 1 or sec.get("allow_ambiguous")) else max(tau, pri_unamb)
+                        pri_unamb = rm.unambiguous_pri_s(rm.BAND_S, r_want, blk)
+                        pri = max(blk, PRI_MIN_S) if (n == 1 or sec.get("allow_ambiguous")) else max(blk, pri_unamb)
                         stag = n > 1 and pri < pri_unamb
                         agile = agility_for(sec, n, bw) if integ == "NONCOHERENT" else 0.0
                         for ag in ((0.0, agile) if agile > 0 else (0.0,)):
                             try:
-                                w = make_wf("c", tau, n, pri, bw, b, integ, staggered=stag, agility=ag)
+                                w = make_wf("c", tau, n, pri, bw, b, integ, staggered=stag, agility=ag,
+                                            mode=mode, cut=cut)
                             except ValueError:
                                 continue
                             out.append(w)
     return out
 
 
-def prune_dominated(r: np.ndarray, e_pos: np.ndarray, t_pos: np.ndarray) -> np.ndarray:
-    """Indices of the candidates kept (step 3.1, E9, exact): among candidates of equal energy and time per position,
-    one whose range is lower or equal in every bin (unplayable = lowest) than another's is removed; of identical
-    rows the first (simplest) is kept. The power scale e (r_want / r)^4, the admissibility and the short positions
-    can only be better for the one kept, so the optimum is unchanged."""
+class PositionCosts:
+    """Cost of one position of the full-face lattice for every candidate, as a function of the pulse scale s ("no
+    excess energy", step 3.1 C): the pulse is cut to s tau (floored at PULSE_TB_MIN / B), PAs saturated, PAE of the
+    shortened pulse exact; vectorised form of radar_model.search_position_costs."""
+
+    def __init__(self, cands: List):
+        b = rm.BAND_S
+        self.tau = np.array([w.tau_s for w in cands])
+        self.n = np.array([w.n for w in cands], dtype=float)
+        self.pri = np.array([w.pri_s for w in cands])
+        self.trains = np.array([w.trains_per_dwell for w in cands], dtype=float)
+        self.share = self.trains / np.array([rm.cells_per_dwell(w) for w in cands])
+        self.floor = np.minimum(1.0, rm.PULSE_TB_MIN / (np.array([w.sig_bw_mhz for w in cands]) * 1e6) / self.tau)
+        self.train = self.n > 1
+        self._b = b
+        # everything the cost function depends on: candidates with equal keys have the same cost at the same s
+        self.keys = np.stack([self.tau, self.n, self.pri, self.trains, self.share, self.floor], axis=1)
+
+    def subset(self, idx: np.ndarray) -> "PositionCosts":
+        """The costs of the candidates idx only, in that order."""
+        out = object.__new__(PositionCosts)
+        for k in ("tau", "n", "pri", "trains", "share", "floor", "train", "keys"):
+            setattr(out, k, getattr(self, k)[idx])
+        out._b = self._b
+        return out
+
+    def __call__(self, s, idx=None):
+        """(electrical J, s of TX time, effective scale, PAE) at scale s; s has the candidates on its first axis
+        (all of them, or the rows idx)."""
+        sl = slice(None) if idx is None else idx
+        shp = (-1,) + (1,) * (np.ndim(s) - 1)
+        tau, n, pri = self.tau[sl].reshape(shp), self.n[sl].reshape(shp), self.pri[sl].reshape(shp)
+        trains, share = self.trains[sl].reshape(shp), self.share[sl].reshape(shp)
+        s_eff = np.maximum(np.minimum(s, 1.0), self.floor[sl].reshape(shp))
+        block = tau * s_eff * trains
+        d = np.where(self.train[sl].reshape(shp), block / pri, rm.PAE_DUTY_REF)
+        b = self._b
+        eta = b.pae_sat * block / (block + b.pae_t_edge_s) * np.minimum(1.0, 1.0 - b.pae_duty_slope * (d - rm.PAE_DUTY_REF))
+        t = n * tau * s_eff * share
+        return b.p_pk_total_w * t / eta, t, s_eff, eta
+
+
+def prune_dominated(r: np.ndarray, keys: np.ndarray) -> np.ndarray:
+    """Indices of the candidates kept (step 3.1, E9, exact): among candidates with the same cost function of the pulse
+    scale (PositionCosts.keys), one whose range is lower or equal in every bin (unplayable = lowest) than another's is
+    removed; of identical rows the first (simplest) is kept. The scale (r_want / r)^4 and so the energy and time
+    (increasing with the scale), the admissibility and the short positions can only be better for the one kept, so
+    the optimum is unchanged."""
     rr_ = np.where(np.isnan(r), -np.inf, r)
     keep = np.ones(len(r), dtype=bool)
-    _, grp = np.unique(np.stack([e_pos, t_pos], axis=1), axis=0, return_inverse=True)
+    _, grp = np.unique(keys[:, :-1], axis=0, return_inverse=True)   # all but the floor of the scale (last column)
+    grp = np.ravel(grp)
     for g in np.unique(grp):
         idx = np.flatnonzero(grp == g)
         if len(idx) < 2:
             continue
         x = rr_[idx]
-        ge = (x[None, :, :] >= x[:, None, :]).all(axis=2)          # ge[i, j]: j >= i everywhere
-        gt = (x[None, :, :] > x[:, None, :]).any(axis=2)
+        fl = keys[idx, -1]
+        # j dominates i if its range is >= everywhere and its scale floor <= (cost max(s, floor), increasing in s)
+        ge = (x[None, :, :] >= x[:, None, :]).all(axis=2) & (fl[None, :] <= fl[:, None])   # ge[i, j]
+        gt = (x[None, :, :] > x[:, None, :]).any(axis=2) | (fl[None, :] < fl[:, None])
         earlier = np.arange(len(idx))[None, :] < np.arange(len(idx))[:, None]
         dom = ge & (gt | earlier)
         np.fill_diagonal(dom, False)
@@ -652,19 +746,19 @@ def _range_matrix(cands: List, f: float, tgt, nb: int, rx_sll: float, v_span: Op
 class _Plan:
     """Waveform assignment for one sector at one frequency: candidate index per 1-deg bin (-1 = no position)."""
 
-    def __init__(self, choice, P, r, e_pos, t_pos, r_want, rr, p_avg_max_w):
+    def __init__(self, choice, P, r, costs: PositionCosts, r_want, rr, p_avg_max_w):
         self.choice = choice
         idx = np.flatnonzero(choice >= 0)
         rc = r[choice[idx], idx]                                   # range of the chosen WF in each populated bin
-        s = np.minimum(1.0, (r_want / rc) ** 4)                    # power scale: "no excess energy"
-        self.e_bin = np.zeros(len(choice))                         # J per position
+        s = np.minimum(1.0, (r_want / rc) ** 4)                    # pulse scale: "no excess energy"
+        e, t, s_eff, eta = costs(s, choice[idx])
+        self.e_bin = np.zeros(len(choice))                         # electrical J per position
         self.t_bin = np.zeros(len(choice))                         # s of TX time per position
         self.r_bin = np.full(len(choice), np.nan)
-        self.s_bin = np.ones(len(choice))
-        self.e_bin[idx] = e_pos[choice[idx]] * s
-        self.t_bin[idx] = t_pos[choice[idx]]
+        self.s_bin = np.ones(len(choice))                          # pulse scale applied (floored)
+        self.pae_bin = np.ones(len(choice))                        # PAE of the shortened pulse
+        self.e_bin[idx], self.t_bin[idx], self.s_bin[idx], self.pae_bin[idx] = e, t, s_eff, eta
         self.r_bin[idx] = rc
-        self.s_bin[idx] = s
         self.fe = (P * self.e_bin).sum(axis=1) / (p_avg_max_w * rr)    # per face
         self.ft = (P * self.t_bin).sum(axis=1) / rr
         p_tot = P.sum(axis=0)
@@ -673,7 +767,7 @@ class _Plan:
         self.objective = float(max(self.fe.max(), self.ft.max()))
 
 
-def _plan_waveforms(P, r, e_pos, t_pos, r_want, rr, p_avg_max_w, max_wf, short_tol) -> Optional[_Plan]:
+def _plan_waveforms(P, r, costs: PositionCosts, r_want, rr, p_avg_max_w, max_wf, short_tol) -> Optional[_Plan]:
     """Best waveform plan at one frequency. Scan bins are grouped by BIN_DEG; each group gets one waveform, and
     neighbouring groups may share one so that at most max_wf distinct waveforms are used (dynamic programming over
     contiguous segments). Within a segment, a candidate is admissible if it reaches r_want in every populated bin;
@@ -691,8 +785,9 @@ def _plan_waveforms(P, r, e_pos, t_pos, r_want, rr, p_avg_max_w, max_wf, short_t
     with np.errstate(invalid="ignore", divide="ignore"):
         s = np.where(playable, np.minimum(1.0, (r_want / r) ** 4), 1.0)
         reach = playable & (r >= r_want)
-    e_cost = e_pos[:, None] * s * p_tot[None, :] / (p_avg_max_w * rr)     # energy fraction contributed per bin
-    t_cost = t_pos[:, None] * p_tot[None, :] / rr                          # time fraction contributed per bin
+    e_s, t_s, _, _ = costs(s)                                              # shortened pulse (step 3.1, C)
+    e_cost = e_s * p_tot[None, :] / (p_avg_max_w * rr)                     # energy fraction contributed per bin
+    t_cost = t_s * p_tot[None, :] / rr                                     # time fraction contributed per bin
     short_p = np.where(reach, 0.0, p_tot[None, :])
     # per-segment aggregates, segment = groups a..b
     seg = {}
@@ -742,7 +837,7 @@ def _plan_waveforms(P, r, e_pos, t_pos, r_want, rr, p_avg_max_w, max_wf, short_t
             for g in groups[a:j]:
                 choice[g] = c
             j, m = a, m - 1
-        plan = _Plan(choice, P, r, e_pos, t_pos, r_want, rr, p_avg_max_w)
+        plan = _Plan(choice, P, r, costs, r_want, rr, p_avg_max_w)
         key = (round(plan.short_frac / short_tol), snap(plan.objective))
         if best is None or key < best[0]:
             best = (key, plan)
@@ -753,13 +848,17 @@ def _wf_dict(name: str, w, f: float, sec: dict) -> dict:
     v_max, v_min = sec["v_close_max_mps"], sec.get("v_close_min_mps", 0.0)
     return {"name": name, "band": "S", "freq_ghz": f, "integration": w.integration,
             "tau_us": round(w.tau_s * 1e6, 1), "n_pulses": w.n, "pri_ms": round(w.pri_s * 1e3, 3),
-            "sig_bw_mhz": w.sig_bw_mhz, "b_tx": w.b_tx,
+            "sig_bw_mhz": w.sig_bw_mhz, "tx_mode": w.tx_mode, "b_tx": w.b_tx, "tx_cut": w.tx_cut,
+            "positions_per_dwell": rm.cells_per_dwell(w),
+            # digital RX beams formed per TX beam (compute load, 4.4): x the sub-aperture cell for a partition
+            "rx_beams_per_position": rm.rx_beams_per_position(f, rx_sll_db(sec)) * rm.cells_per_dwell(w) / w.b_tx
+            if w.tx_mode == "partition" else rm.rx_beams_per_position(f, rx_sll_db(sec)),
             "dwell_ms": round(w.dwell_s * 1e3, 1), "duty_pct": round(100 * w.duty, 3), "pae": rm.pae_wf(w),
             "rx_deaf_us": round(rm.rx_deaf_after_pulse_s(rm.BAND_S, w.tau_s) * 1e6, 3),
             "unamb_range_km": round(C * w.pri_s / 2e3), "doppler_max_kHz": round(2 * v_max / rm.lambda_m(f) / 1e3, 1),
             "modulation": w.modulation or rm.modulation_for(f, w.sig_bw_mhz, v_max),
             "range_resolution_m": resolution_m(sec, w.sig_bw_mhz),
-            "blind_range_km": rm.blind_range_km(rm.BAND_S, w.tau_s), "staggered": w.staggered,
+            "blind_range_km": rm.blind_range_km(rm.BAND_S, w.tx_block_s), "staggered": w.staggered,
             "agility_mhz": w.agility_mhz, "frequency_draws": rm.frequency_draws(sector_target(sec), w.agility_mhz),
             "cells_in_pulse": rm.cells_in_pulse(v_max, w.tau_s, w.sig_bw_mhz),
             "velocity_hypotheses_1db": rm.velocity_hypotheses(v_max - v_min, w.tau_s, w.sig_bw_mhz),
@@ -845,9 +944,7 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
                 "note": f"no pulse of the search space is short enough: the shortest leaves "
                         f"{rm.blind_range_km(rm.BAND_S, min(TAU_CAND)):.1f} km blind, above the sector's range_min_km "
                         f"{range_min_km(sec):g} km (shorter pulses: search space, step 3.1)"}
-    pae = np.array([rm.pae_wf(w) for w in cands])
-    e_pos = np.array([rm.BAND_S.p_pk_total_w * w.n * w.tau_s / w.b_tx for w in cands]) / pae   # electrical J / position
-    t_pos = np.array([w.n * w.tau_s / w.b_tx for w in cands])                            # s of TX time per position
+    costs = PositionCosts(cands)                    # J and s of TX time per position vs the pulse scale (step 3.1, C)
     excl = exclusions_s(sec)
     bw_min = min(w.sig_bw_mhz for w in cands)
     evaluated: Dict[float, Optional[tuple]] = {}
@@ -869,8 +966,8 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
 
     def _freq_plan(f: float, x: tuple) -> tuple:
         P, unscanned, r, sky_s, pfas, factor = x
-        keep = prune_dominated(r, e_pos, t_pos)                 # step 3.1, E9 (exact)
-        plan = _plan_waveforms(P, r[keep], e_pos[keep], t_pos[keep], r_want, rr, p_avg_max_w, max_wf, short_tol)
+        keep = prune_dominated(r, costs.keys)                   # step 3.1, E9 (exact)
+        plan = _plan_waveforms(P, r[keep], costs.subset(keep), r_want, rr, p_avg_max_w, max_wf, short_tol)
         if plan is not None:
             plan.choice = np.where(plan.choice >= 0, keep[np.maximum(plan.choice, 0)], -1)
         return (f, P, unscanned, plan, sky_s, pfas, factor)
@@ -908,7 +1005,6 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
     if best is None:
         return {"id": sec["id"], "status": "NO_WAVEFORM", "note": "no playable waveform in the search space"}
     f, P, unscanned, plan, sky_s, pfas, _ = best
-    plan.pae = pae
     plan.freq_info = {"evaluated": len(evaluated), "valid_centres": len(valid_centres(bw_min, excl)),
                       "valid_centres_unexcluded": len(valid_centres(bw_min, ())),
                       "occupied_ghz": [round(f - max(cands[c].occupied_mhz for c in set(plan.choice[plan.choice >= 0]))
@@ -921,7 +1017,8 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
 def sector_plan(sec: dict, eps_min: float, eps_max: float, p_avg_max_w: float,
                 sky: Optional[dict] = None) -> Optional[dict]:
     """The waveform plan run() would choose for this sector (same code path), per 1-deg scan bin: "wf" (Waveform or
-    None where the sector has no position), "power_scale" (power fraction actually transmitted, "no excess energy"),
+    None where the sector has no position), "pulse_scale" (fraction of the pulse actually sent, "no excess energy":
+    the energy fraction, losses of the full pulse kept, step 3.1 C),
     "short" (the sector's own range is not reached there, even at full power), and "freq_ghz". None if the sector
     has no plan. Used to test whether this sector also meets another one's need."""
     sph = _sphere(eps_min, eps_max)
@@ -931,7 +1028,7 @@ def sector_plan(sec: dict, eps_min: float, eps_max: float, p_avg_max_w: float,
     f, _, _, plan, cands, _, pfas = best
     return {"freq_ghz": f, "wf": [cands[c] if c >= 0 else None for c in plan.choice],
             "pfa": [pfas[c] if c >= 0 else None for c in plan.choice],
-            "power_scale": [float(s) for s in plan.s_bin],
+            "pulse_scale": [float(s) for s in plan.s_bin],
             "short": [bool(r < sec["range_km"]) for r in plan.r_bin]}   # NaN (no position) compares False
 
 
@@ -970,15 +1067,17 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
                           "positions": round(float(p_tot[bins].sum()), 1), "wf": {k: v for k, v in by_name[int(plan.choice[worst])].items()
                                  if k not in ("theta_lo_deg", "theta_hi_deg", "positions")},
                           "range_km_at_bin_max": round(float(plan.r_bin[worst])),
-                          "power_scale": round(float(plan.s_bin[worst]), 3)})
+                          "pulse_scale": round(float(plan.s_bin[worst]), 3),
+                          # cost of one position at the scale of the group's worst bin (step 3.1, C)
+                          "elec_J_per_position": float(plan.e_bin[worst]),
+                          "pae_at_scale": float(plan.pae_bin[worst])})
 
     faces = {}
-    pae_bin = np.where(plan.choice >= 0, plan.pae[np.maximum(plan.choice, 0)], 1.0)
     for k in range(4):
         if P[k].sum() <= 0:
             continue
         e_tot = float(plan.fe[k]) * p_avg_max_w * rr
-        heat = float((P[k] * plan.e_bin * (1.0 - pae_bin)).sum()) / rr
+        heat = float((P[k] * plan.e_bin * (1.0 - plan.pae_bin)).sum()) / rr
         faces[k] = {"positions": round(float(P[k].sum()), 1), "energy_J_per_refresh": e_tot,
                     "dissipation_kW": heat / 1e3, "dissipation_kW_m2": heat / 1e3 / rm.TOTAL_AREA_M2,
                     "energy_fraction": float(plan.fe[k]), "time_fraction": float(plan.ft[k]),
@@ -1012,14 +1111,15 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
         "range_min_km": range_min_km(sec),
         "range_resolution_m": {"requested": sec.get("res_max_m", RES_MAX_M_DEFAULT),
                                "achieved": max(d["range_resolution_m"] for d in wf_set)},
-        "rx_beams_per_position": rm.rx_beams_per_position(f, sll),
+        "rx_beams_per_position": max(d["rx_beams_per_position"] for d in wf_set),
         "rx_sll_held_up_to_deg": sll_held,
         "mismatch_db_per_pass_max": mismatch_max,
         "sky": sky_s,
         "s_min_unsaturated_range_km": rm.min_unsaturated_range_km(f, 0.0, tgt.rcs_at(f)),
         "target": target_summary(tgt, f),
         "environment": environment_summary(sec, tgt, f, w_main, pfas[order[wf_set.index(main)]],
-                                           max(cands, key=lambda w: w.tau_s * w.n / w.b_tx)),
+                                           max(cands, key=lambda w: rm.tx_beam_power_w(w) * rm.tx_gain_ratio(w)
+                                               * w.tau_s * w.n)),
         "faces": {str(k): v for k, v in faces.items()},
         "rr_target_s": rr,
         "rr_alone_s": rr * load,                               # RR if this sector had the face to itself (energy and time)
@@ -1087,8 +1187,8 @@ def environment_summary(sec: dict, tgt: "rm.Target", f: float, w, pfa: float, w_
                              pfa=pfa, cum=search_criterion(sec))
             except ValueError:
                 continue
-            out[key] = env.burn_through_km(rm.BAND_S.p_pk_total_w / wf.b_tx,
-                                           rm.gain_lin(rm.BAND_S.eta_illum_tx, f, 0.0), tgt.rcs_at(f),
+            out[key] = env.burn_through_km(rm.tx_beam_power_w(wf),
+                                           rm.gain_lin(rm.BAND_S.eta_illum_tx, f, 0.0) * rm.tx_gain_ratio(wf), tgt.rcs_at(f),
                                            wf.tau_s * wf.n, r.snr_req_db, r.l_tot_db, erp)
     if sec.get("tec_tecu") is not None and sec.get("b_parallel_nt") is not None:
         ku = P.get("confirmation.ku_freq_ghz")
@@ -1364,7 +1464,7 @@ def print_report(res: dict) -> None:
         for w in r["wf_set"]:
             print(f"     {w['name']}  theta {w['theta_lo_deg']:.0f}-{w['theta_hi_deg']:.0f} deg ({w['positions']:.0f} pos)  "
                   f"{w['freq_ghz']} GHz {w['integration']}  tau {w['tau_us']} us x N {w['n_pulses']} "
-                  f"@ PRI {w['pri_ms']} ms  B {w['sig_bw_mhz']:.0f} MHz  Btx {w['b_tx']}  dwell {w['dwell_ms']} ms  "
+                  f"@ PRI {w['pri_ms']} ms  B {w['sig_bw_mhz']:.0f} MHz  TX {tx_label(w)}  dwell {w['dwell_ms']} ms  "
                   f"(Dopp. max {w['doppler_max_kHz']} kHz)")
         rg = r["range_km"]
         print(f"     Range: wanted {rg['requested']:.0f} km | worst scan {rg['at_worst_scan']} km | best scan {rg['at_best_scan']} km"

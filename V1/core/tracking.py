@@ -248,7 +248,7 @@ def _groups(P: np.ndarray, r: dict) -> List[dict]:
         if not idx or b is None:
             continue
         out.append({"theta": (idx[-1] + 1) * mo.THETA_BIN_DEG, "pos": P[:, idx].sum(axis=1), "wf": b["wf"],
-                    "power_scale": b["power_scale"]})
+                    "elec_J_per_position": b["elec_J_per_position"], "pae_at_scale": b["pae_at_scale"]})
     return out
 
 
@@ -302,8 +302,8 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                 if gr["theta"] <= ku_lim else None)
         if look is None:
             ku_missing += float(gr["pos"].sum())
-        e_s_rf = rm.BAND_S.p_pk_total_w * w["n_pulses"] * w["tau_us"] * 1e-6 / w["b_tx"] * gr["power_scale"]
-        cg.append({"true": n_new * gr["pos"] / p_all, "fa": fa_g, "e_s_rf": e_s_rf, "e_s": e_s_rf / w["pae"],
+        e_s = gr["elec_J_per_position"]           # search look of the group: shortened pulse, its PAE (step 3.1, C)
+        cg.append({"true": n_new * gr["pos"] / p_all, "fa": fa_g, "e_s_rf": e_s * gr["pae_at_scale"], "e_s": e_s,
                    "ku": look})
     if ku_missing > 0:
         flags.append(f"{100 * ku_missing / p_all:.1f} % of the positions are out of Ku reach (scan limit or range): "
