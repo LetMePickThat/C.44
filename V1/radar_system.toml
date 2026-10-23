@@ -64,6 +64,7 @@ eta_ohmic            = { value = 1.0, unit = "-", status = "V", source = "radiat
 
 [search_grid]
 beam_spacing_hpbw = { value = 1.4, unit = "HPBW", status = "V", source = "hexagonal TX beam lattice of the search, in TX beamwidths: optimum of the step-2.3 criterion (Pd AVERAGED over the cell, real pattern): 1.4 at Pd 0.9 per look, 1.6 at 0.5, flat within 0.1 dB from 1.3 to 1.6; was 1.04 (worst-point optimum, V6.0.10). Corner of a cell -7.9 dB, so the lattice must be shifted every frame (grid_dithering). Per-sector tuning at 3.1", date = "2026-10-21" }
+beam_spacing_options_hpbw = { value = [1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0], unit = "HPBW", status = "V", source = "spacings the search optimiser tries for every sector, at every centre frequency, the cheapest kept (step 3.1, P5 E7 a: exact search; range 1.3-2.0 on a 0.1 step, user: the cumulative criterion lowers the Pd asked of a look, so the optimum often reached 1.6, the top of the step-2.3 range); beam_spacing_hpbw stays the value of the functions without a sector (fast estimate, model checks)", date = "2026-10-23" }
 grid_dithering    = { value = true, unit = "", status = "V", source = "the scheduler shifts the search lattice every frame (random or 3-4 offset sequence, step 2.3 option a): a radially closing target does not stay at the same place of its cell, so its position is drawn anew at each revisit (only 'true' is implemented; scheduler rule for 4.3)", date = "2026-10-21" }
 rx_beam_spacing_hpbw = { value = 0.5, unit = "HPBW_RX", status = "V", source = "lattice of the digital RX beams formed in each TX position, in RX beamwidths (step 1.1, option C): residual RX grid loss 1.672 x 0.5^2 = 0.42 dB, ~3.4 RX beams per TX position at -25 dB (count -> compute load, 4.4); optimiser may tune it at 3.1 / 5.2", date = "2026-10-20" }
 enable_grid_loss  = { value = true, unit = "", status = "V", source = "mean TX grid loss over the cell (V6.0.1); mean vs worst point revisited at 2.3", date = "2026-10-20" }
@@ -608,6 +609,12 @@ far_step_lam_d = 0.125          # grid step of the far-sidelobe scan over the vi
 
 [tool.sky]                    # sky-noise evaluation (core/sky.py)
 eval_step_hpbw  = 0.5            # T_sys evaluated every 0.5 TX beamwidth over a sector (at least the optimiser raster)
+refine_rise_db  = 0.5            # step 3.1, P5 (D5): every raster cell is evaluated where the sky rise exceeds this,
+refine_radius_hpbw = 3.0         # and within this many TX beamwidths (D6) of a stand-off jammer, of a small body's
+                                 # centre and of a large body's limb (S1-S3)
+refine_subsamples = 1            # points per side over which a refined cell averages its noise rise (1 = its centre). 4
+                                 # (0.05 deg) was tried (P5, 1 a): no gain on the rotation test, whose residual comes from
+                                 # the per-cell blinding on the 0.2 deg raster (sphere_res_deg), not from the cell value
 near_r_step_lam_d = 0.05         # radial step of the near-zone integral around the beam (lambda / D_env)
 near_phi_step_deg = 10.0         # azimuth step of the near-zone integral
 body_ring_lam_d = 2.0            # ring spacing of the body-disk sampling of the far integral (lambda / D_env)

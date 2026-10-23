@@ -389,3 +389,11 @@ mission_sky_demo and mission_frames: the figures here are read from the correcte
   cache was cleared on insertion (clutter then ignored for that sector); fixed before the final snapshots
   (test_surface_data_survive_a_full_sky_cache).
 - core/cost_table.json regenerated (parameter fingerprint; no surface in its grid).
+
+## 2026-10-23 -- step 3.1 pass P5, intermediate state (radar_model V6.11.7): snapshots NOT refrozen
+
+Sky refinement near hot sources and the search lattice spacing per sector (1.3 to 2.0, exact search). By the test
+rhythm decided on 23 October 2026 (full suite, impact report and snapshots every second pass), the snapshots of P4
+are kept: test_snapshots fails until P6 refreezes them. Spot checks (not frozen): mission_example sectors choose
+1.6 / 1.5 / 1.6 with the 1.3-1.6 range (the range was then widened to 2.0); mission_example runs in about 2 min 20 in
+parallel on the laptop (71 s before P5).

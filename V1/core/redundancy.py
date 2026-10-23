@@ -170,7 +170,8 @@ def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dic
             reason[i] = REASON_BLIND
             continue
         r = mo.range_at(w, f, float(theta[i]), tgt_b, mo.rx_sll_db(sec_b), mo.velocity_span_mps(sec_b),
-                        plan["pfa"][i], cum)        # A's echoes and false-alarm setting, B's RX weighting and need
+                        plan["pfa"][i], cum,        # A's echoes and false-alarm setting, B's RX weighting and need
+                        spacing=plan.get("beam_spacing_hpbw"))           # A's lattice (step 3.1, P5)
         if r is not None:
             reach[i] = r * plan["pulse_scale"][i] ** 0.25
             ok[i] = reach[i] >= g_need

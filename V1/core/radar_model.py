@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.11.6
+# Radar Performance Model - V6.11.7
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,16 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.11.6 -> V6.11.7 (roadmap step 3.1, pass P5, IN PROGRESS: frozen outputs and impact report not refreshed)
+#   - Sky refinement near hot sources (S1-S4): the raster cells of a block whose sky rise exceeds 0.5 dB, and those
+#     within 3 TX beamwidths of a stand-off jammer, of a small body's centre or of a large body's limb, are evaluated
+#     one by one (optimizer._refine_cells). Rotation test (Sun, 1 %) NOT met: 2.9 % on the budget T_sys, 2.0 % on the
+#     blinded fraction (31 % and 11.5 % before); the residual comes from the per-cell blinding on the 0.2 deg raster.
+#     A 4 x 4 sub-sampling of refined cells was tried (no gain) and left off (tool.sky.refine_subsamples = 1).
+#   - Search lattice spacing per sector (E7 a): every spacing of search_grid.beam_spacing_options_hpbw (1.3 to 2.0 by
+#     0.1) is tried at every centre frequency, the cheapest kept; solve(grid_spacing_hpbw), positions, grid losses,
+#     RX beams per position, Pfa cells, the Ku budget and the redundancy follow the sector's spacing.
 #
 # Changes V6.11.5 -> V6.11.6 (roadmap step 3.1, pass P4: environment per waveform; user Q1-Q13, R1-R3)
 #   - S sidelobe clutter per candidate and per 1-deg bin (out of the T_sys budget): ratio sigma_c / sigma_t of the
@@ -413,7 +423,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.11.6"
+MODEL_VERSION = "6.11.7"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -456,6 +466,8 @@ BANK_MAX_LOSS_DB: float = P.get("migration.bank_max_loss_db")
 #   1.4  -> ~2830 positions, mean loss ~3.3 dB, worst point -7.9 dB (best mean range per energy)
 #   0.92 -> ~10200 positions, mean loss 1.41 dB (the value quoted in the notes)
 BEAM_SPACING_HPBW: float = P.get("search_grid.beam_spacing_hpbw")
+# spacings the search optimiser tries for each sector (step 3.1, P5 E7: exact search, every spacing at every centre)
+BEAM_SPACING_OPTIONS: Tuple[float, ...] = tuple(float(x) for x in P.get("search_grid.beam_spacing_options_hpbw"))
 RX_BEAM_SPACING_HPBW: float = P.get("search_grid.rx_beam_spacing_hpbw")
 ENABLE_GRID_LOSS: bool = P.get("search_grid.enable_grid_loss")
 FRAME_INTERLEAVED: bool = P.get("search_grid.frame_interleaved")   # else the frame adds the echo wait 2R/c
@@ -1170,24 +1182,29 @@ def _sector_area_uv(eps_min_deg: float, eps_max_deg: float) -> float:
     return tot
 
 
-def beam_cell_area_uv(f_ghz: float) -> float:
-    """Area of one hexagonal cell of the TX beam lattice in (u, v): spacing = BEAM_SPACING_HPBW x HPBW_TX (real
-    uniform-illumination pattern, smallest cut)."""
+def _spacing(spacing_hpbw: Optional[float]) -> float:
+    return BEAM_SPACING_HPBW if spacing_hpbw is None else float(spacing_hpbw)
+
+
+def beam_cell_area_uv(f_ghz: float, spacing_hpbw: Optional[float] = None) -> float:
+    """Area of one hexagonal cell of the TX beam lattice in (u, v): spacing = spacing_hpbw (None: BEAM_SPACING_HPBW)
+    x HPBW_TX (real uniform-illumination pattern, smallest cut)."""
     h = _pattern(f_ghz).tx.hpbw * lambda_m(f_ghz) / ARRAY_ENVELOPE_M
-    return (math.sqrt(3.0) / 2.0) * (BEAM_SPACING_HPBW * h) ** 2
+    return (math.sqrt(3.0) / 2.0) * (_spacing(spacing_hpbw) * h) ** 2
 
 
-def rx_beams_per_position(f_ghz: float, rx_sll_db: Optional[float] = None) -> float:
+def rx_beams_per_position(f_ghz: float, rx_sll_db: Optional[float] = None, spacing_hpbw: Optional[float] = None) -> float:
     """Digital RX beams formed per TX search position: ratio of the TX and RX hexagonal lattice cells (RX spacing
     RX_BEAM_SPACING_HPBW x HPBW_RX). An input of the compute and data budget (roadmap step 4.4)."""
     p = _pattern(f_ghz)
     rx = rx_beam(band_for_frequency(f_ghz).name, rx_sll_db)
-    return (BEAM_SPACING_HPBW * p.tx.hpbw / (RX_BEAM_SPACING_HPBW * rx.hpbw)) ** 2
+    return (_spacing(spacing_hpbw) * p.tx.hpbw / (RX_BEAM_SPACING_HPBW * rx.hpbw)) ** 2
 
 
-def n_search_positions(f_ghz: float, eps_min_deg: Optional[float] = None, eps_max_deg: Optional[float] = None) -> float:
+def n_search_positions(f_ghz: float, eps_min_deg: Optional[float] = None, eps_max_deg: Optional[float] = None,
+                       spacing_hpbw: Optional[float] = None) -> float:
     """Positions per face in the surveillance sector, counted in (u, v) (beam broadening with scan included)."""
-    return sector_area_uv(eps_min_deg, eps_max_deg) / beam_cell_area_uv(f_ghz)
+    return sector_area_uv(eps_min_deg, eps_max_deg) / beam_cell_area_uv(f_ghz, spacing_hpbw)
 
 
 def grid_loss_db(spacing_hpbw: Optional[float] = None) -> float:
@@ -1226,13 +1243,13 @@ def subaperture_cell_ratio(band_name: str, kind: str) -> float:
     return (sa.hpbw_u / sa.full_hpbw_u) * (sa.hpbw_v / sa.full_hpbw_v)
 
 
-@functools.lru_cache(maxsize=8)
-def subaperture_grid_losses_db(band_name: str, kind: str) -> np.ndarray:
+@functools.lru_cache(maxsize=32)
+def subaperture_grid_losses_db(band_name: str, kind: str, spacing_hpbw: Optional[float] = None) -> np.ndarray:
     """TX loss (dB) at uniform points of a lattice cell of the sub-aperture beam: the hexagonal cell of the full face
     (BEAM_SPACING_HPBW x its HPBW) stretched by the beamwidth ratios, its first lattice axis along the NARROW beam
     axis (so the two halves, rotated by 90 deg, see the same cell), real 2D pattern of the sub-aperture."""
     sa = subaperture(band_name, kind)
-    p = _hex_cell_points(BEAM_SPACING_HPBW * PATTERNS[band_name].tx.hpbw)
+    p = _hex_cell_points(_spacing(spacing_hpbw) * PATTERNS[band_name].tx.hpbw)
     ku, kv = sa.hpbw_u / sa.full_hpbw_u, sa.hpbw_v / sa.full_hpbw_v
     u, v = (p[:, 0] * ku, p[:, 1] * kv) if sa.hpbw_u <= sa.hpbw_v else (p[:, 1] * ku, p[:, 0] * kv)
     return -10.0 * np.log10(np.maximum(sa.power(u, v), 1e-12))
@@ -1666,14 +1683,16 @@ def _beam_loss_db(beam: "antenna.Beam", r_lam_d: np.ndarray) -> np.ndarray:
 @functools.lru_cache(maxsize=1 << 12)
 def position_losses(band_name: str, rx_sll_db: float, psl_db: float, search: bool, doppler: bool,
                     bank: Tuple[float, float, float, float, int, bool],
-                    tx_sub: Optional[str] = None, doppler_window_db: Optional[float] = None) -> Tuple[Tuple[float, ...], Tuple[float, ...], Dict[str, float]]:
+                    tx_sub: Optional[str] = None, doppler_window_db: Optional[float] = None,
+                    spacing_hpbw: Optional[float] = None) -> Tuple[Tuple[float, ...], Tuple[float, ...], Dict[str, float]]:
     """Discrete law of the losses due to the random position of the target (step 2.3, B1): search TX lattice (hexagon
     of BEAM_SPACING_HPBW TX beamwidths, real pattern; tx_sub = the sub-aperture of a partition, its own stretched
     lattice and 2D pattern, step 3.1 C), RX beam lattice, range straddle on the detection grid, Doppler
     straddle (coherent blocks of more than one pulse), offset to the nearest velocity filter (bank = (half step,
     tau, B, T_obs, N, coherent); half step 0 = none). Each to OFFSET_QUANTILES quantiles, summed as independent.
     Returns (losses dB, weights, mean of each component)."""
-    law, means = _fixed_position_law(band_name, rx_sll_db, psl_db, search, doppler, tx_sub, doppler_window_db)
+    law, means = _fixed_position_law(band_name, rx_sll_db, psl_db, search, doppler, tx_sub, doppler_window_db,
+                                     _spacing(spacing_hpbw))
     means = dict(means)
     half, tau_s, bw, t_obs, n, coh = bank
     if half > 0.0:
@@ -1686,7 +1705,8 @@ def position_losses(band_name: str, rx_sll_db: float, psl_db: float, search: boo
 
 @functools.lru_cache(maxsize=256)
 def _fixed_position_law(band_name: str, rx_sll_db: float, psl_db: float, search: bool, doppler: bool,
-                        tx_sub: Optional[str], doppler_window_db: Optional[float] = None) -> Tuple[Tuple[Tuple[float, ...], Tuple[float, ...]], Tuple]:
+                        tx_sub: Optional[str], doppler_window_db: Optional[float] = None,
+                        spacing_hpbw: float = BEAM_SPACING_HPBW) -> Tuple[Tuple[Tuple[float, ...], Tuple[float, ...]], Tuple]:
     """The part of position_losses that does not depend on the velocity bank (grids, straddles), combined in the same
     order; cached apart (a few dozen keys) since the bank changes with every waveform (exact)."""
     q = OFFSET_QUANTILES
@@ -1694,10 +1714,10 @@ def _fixed_position_law(band_name: str, rx_sll_db: float, psl_db: float, search:
     pat = PATTERNS[band_name]
     if search and ENABLE_GRID_LOSS:
         if tx_sub is None:
-            tx = _hex_cell_points(BEAM_SPACING_HPBW * pat.tx.hpbw)
+            tx = _hex_cell_points(spacing_hpbw * pat.tx.hpbw)
             parts["grid_tx"] = _beam_loss_db(pat.tx, np.hypot(tx[:, 0], tx[:, 1]))
         else:
-            parts["grid_tx"] = subaperture_grid_losses_db(band_name, tx_sub)
+            parts["grid_tx"] = subaperture_grid_losses_db(band_name, tx_sub, spacing_hpbw)
         rxb = rx_beam(band_name, rx_sll_db)
         rx = _hex_cell_points(RX_BEAM_SPACING_HPBW * rxb.hpbw)
         parts["grid_rx"] = _beam_loss_db(rxb, np.hypot(rx[:, 0], rx[:, 1]))
@@ -2126,10 +2146,12 @@ class Result:
 def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
           elec_mw: float = FACE_ELEC_POWER_MW, rx_sll_db: Optional[float] = None,
           t_sys_k: Optional[float] = None, v_span_mps: Optional[float] = None, pfa: Optional[float] = None,
-          cum: Optional[Tuple[float, float, float]] = None, spj_density_w_hz: Optional[float] = None) -> Result:
+          cum: Optional[Tuple[float, float, float]] = None, spj_density_w_hz: Optional[float] = None,
+          grid_spacing_hpbw: Optional[float] = None) -> Result:
     """rx_sll_db: RX peak sidelobe level of the watch volume (an option of RX_SLL_OPTIONS_DB, None = default).
     spj_density_w_hz: EIRP density of a self-protection jammer carried by the target (step 3.1, P4 Q11-Q13: barrage
     noise in the main lobe, not nulled): S = SNR_req (N + J), J ~ 1 / R^2, solved exactly (jammed_range_km).
+    grid_spacing_hpbw: spacing of the search TX lattice of the volume (step 3.1, P5 E7; None = BEAM_SPACING_HPBW).
     t_sys_k: system noise temperature of the look direction (sky noise, core/sky.py); None = the band's cold sky.
     v_span_mps: velocity span the bank covers (sector v_max - v_min); None = 0 to the target's speed. TRACK looks:
     one hypothesis (velocity known from the track).
@@ -2173,7 +2195,8 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     sll_key = RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
     pos_l, pos_w, pos_parts = position_losses(band.name, sll_key, psl, search, ppb > 1,
                                               (round(bank_half, 9), wf.tau_s, wf.sig_bw_mhz, t_span, wf.n, n_blocks == 1),
-                                              tx_subaperture(wf), wf.doppler_window_db if ppb > 1 else None)
+                                              tx_subaperture(wf), wf.doppler_window_db if ppb > 1 else None,
+                                              grid_spacing_hpbw)
     q = cum[0] * cum[1] / (cum[2] * 1e3) if (cum is not None and search) else 0.0
     if wf.role in DETECT_ROLES:
         # exact law (step 2.3), n = coherent blocks integrated noncoherently, Pd averaged over the position
@@ -2240,14 +2263,14 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
 
     frame = None
     if wf.role == "SEARCH":
-        pos = n_search_positions(f_ghz)
+        pos = n_search_positions(f_ghz, spacing_hpbw=grid_spacing_hpbw)
         t_pos = wf.dwell_s + (0.0 if FRAME_INTERLEAVED else 2.0 * r_km * 1000.0 / C_MPS)
         cpd = cells_per_dwell(wf)
         t_frame = pos * t_pos / cpd
         sub = tx_subaperture(wf)
         frame = {"positions": pos, "dwell_s": wf.dwell_s, "t_pos_s": t_pos, "t_frame_s": t_frame,
                  "ok": 1.0 if t_frame <= REFRESH_S else 0.0, "positions_per_dwell": cpd,
-                 "rx_beams_per_position": rx_beams_per_position(f_ghz, rx_sll_db)
+                 "rx_beams_per_position": rx_beams_per_position(f_ghz, rx_sll_db, grid_spacing_hpbw)
                  * (1.0 if sub is None else subaperture_cell_ratio(band.name, sub))}
 
     f_d = doppler_max_hz(f_ghz, target.v_close_mps)

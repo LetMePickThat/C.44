@@ -124,7 +124,7 @@ def _ku_after_s(sigma_ku, bias_ku: float, snr_ku, swerling: int) -> Tuple[np.nda
 
 
 @functools.lru_cache(maxsize=64)
-def confirm_tables(swerling: int, f_s_ghz: float) -> dict:
+def confirm_tables(swerling: int, f_s_ghz: float, spacing_hpbw: Optional[float] = None) -> dict:
     """Confirmation statistics of the three modes vs the power margins (independent of range and scan angle:
     S and Ku beams widen together on the same face, and the detection always happens at the design SNR)."""
     q = rm.hpbw_deg(f_s_ghz) / rm.hpbw_deg(KU_FREQ_GHZ)                    # S TX beamwidth in Ku TX beamwidths
@@ -139,7 +139,7 @@ def confirm_tables(swerling: int, f_s_ghz: float) -> dict:
     ex = bias_s + sig_s[:, None, None] * GH_NODES[:, None]
     ey = bias_s + sig_s[:, None, None] * GH_NODES[None, :]
     w = GH_WEIGHTS[:, None] * GH_WEIGHTS[None, :]
-    touch_snr = _snr_ref(swerling) * rm.db_to_lin(rm.grid_loss_db() + rm.grid_rx_loss_db()) * m_lin   # (n_ms,)
+    touch_snr = _snr_ref(swerling) * rm.db_to_lin(rm.grid_loss_db(spacing_hpbw) + rm.grid_rx_loss_db()) * m_lin   # (n_ms,)
     pt = pd_single(_tx_gain(ex, ey)[..., None] * touch_snr, swerling)                   # (M, 12, 12, n_ms)
     pt = np.tensordot(w, pt, axes=([0, 1], [1, 2]))                                    # (M, n_ms)
     sig2 = K_ML_S * q / np.sqrt(x_det[:, None] + touch_snr[None, :])                   # (M, n_ms)
@@ -271,7 +271,8 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         flags.extend(mo.sky_flags(ku_sky, "Ku"))
     r_sat_ku = rm.min_unsaturated_range_km(KU_FREQ_GHZ, 0.0, tgt.rcs_at(KU_FREQ_GHZ))
     r_min_sec = mo.range_min_km(sec)          # shortest range of interest: Ku blind range limit (step 2.1)
-    angle_cells = rm.rx_beams_per_position(f_s, sll) * rm.RX_BEAM_SPACING_HPBW ** 2   # independent cells per position
+    spacing = r.get("beam_spacing_hpbw")                 # the sector's search lattice (step 3.1, P5)
+    angle_cells = rm.rx_beams_per_position(f_s, sll, spacing) * rm.RX_BEAM_SPACING_HPBW ** 2   # independent cells per position
     for b in sec.get("tracking", []):
         if b["r_min_km"] < r_min_sec:
             flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km starts below the sector's shortest range of "
@@ -335,7 +336,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         e_rf = sum((n * c["e_s_rf"] for n, c in zip(n_c, cg)), np.zeros(4))
         return e, e_rf / rm.BAND_S.p_pk_total_w, e - e_rf                         # one beam at full peak power
 
-    tables = confirm_tables(sw, f_s)
+    tables = confirm_tables(sw, f_s, spacing)
     m_lin = 10.0 ** (MARGIN_DB / 10.0)
     modes: Dict[str, dict] = {}
     for mode in CONFIRM_MODES:
@@ -462,7 +463,8 @@ def budget(mission: dict, res: dict) -> dict:
             continue
         sec = secs[r["id"]]
         m = sph.mask(sec)
-        P, _, _, _ = mo.search_positions(sec, sph, m, r["wf"]["freq_ghz"], sky)      # blinded positions left out
+        sec_s = dict(sec, _grid_spacing=r.get("beam_spacing_hpbw", rm.BEAM_SPACING_HPBW))   # its lattice (P5)
+        P, _, _, _ = mo.search_positions(sec_s, sph, m, r["wf"]["freq_ghz"], sky)    # blinded positions left out
         ku_sky, _ = mo.sector_sky(sec, sph, m, KU_FREQ_GHZ, "Ku", sky)
         sbs[r["id"]] = sector_budget(sec, r, np.array([P[k] for k in range(4)]), p_avg_max, ku_sky)
 

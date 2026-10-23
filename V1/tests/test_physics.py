@@ -1526,6 +1526,82 @@ def test_environment_per_waveform_outputs(runs):
     assert by["E_EARTH"]["sky"]["clutter_limited_pct"] > 0.0
 
 
+# ----------------------------------------------------------------------------- sky refinement and lattice spacing (3.1, P5)
+def _sun_sector(dphi: float = 0.0):
+    sec = dict(md.new_sector([]), id="SUNX", shape="box", phi_min_deg=5.0 + dphi, phi_max_deg=35.0 + dphi,
+               eps_min_deg=10.0, eps_max_deg=30.0, range_km=1500.0)
+    sec.pop("frame", None)
+    sky = {"bodies": [{"id": "SUN", "type": "sun", "phi_deg": 20.0 + dphi, "eps_deg": 20.0,
+                       "angular_radius_deg": 0.267}]}
+    return sec, sky
+
+
+@pytest.mark.xfail(strict=False, reason="step 3.1 P5: the 1 % criterion (D7) is not met on the 0.2 deg raster "
+                   "(2.9 % on the budget, 2.0 % on the blinded fraction; 31 % and 11.5 % before the refinement): "
+                   "decision pending (finer raster or another criterion)")
+def test_sky_refinement_is_invariant_under_rotation():
+    """S1-S4: cells near a hot source are evaluated one by one; turning the sky and the sector together about the
+    ship axis by angles off the raster changes the budget T_sys and the blinded fraction by less than 1 %."""
+    sph = mo._sphere(-90.0, 90.0)
+    ref = None
+    for dphi in (0.0, 0.37, 1.13):
+        sec, sky = _sun_sector(dphi)
+        s, _ = mo.sector_sky(sec, sph, sph.mask(sec), 2.8, "S", sky)
+        if ref is None:
+            ref = s
+            assert s["blinded_pct"] > 0.0
+            continue
+        assert s["t_sys_budget_k"] == pytest.approx(ref["t_sys_budget_k"], rel=0.01)
+        assert s["blinded_pct"] == pytest.approx(ref["blinded_pct"], rel=0.01)
+    sec, sky = _sun_sector()
+    m = sph.mask(sec)
+    ii, jj = np.nonzero(m & sph.scan_zone)
+    fine = mo._refine_cells(sky_mod_parse(sky), sky, rm.BAND_S, "S", 2.8, -25.0, sph, ii, jj, ii, jj,
+                            sph.owner[ii, jj].astype(np.int64))
+    assert 0 < fine.sum() < len(fine)
+
+
+def sky_mod_parse(sky):
+    from core import sky as skym
+    return skym.parse(sky)
+
+
+def test_lattice_spacing_threads_through_the_model():
+    """E7: positions go as 1 / s^2, RX beams per position as s^2, the TX grid loss grows with s, solve() and the
+    sector positions follow the spacing given."""
+    full = rm.n_search_positions(2.8)
+    assert rm.BEAM_SPACING_OPTIONS == (1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0) and rm.BEAM_SPACING_HPBW == 1.4
+    for s_ in rm.BEAM_SPACING_OPTIONS:
+        assert rm.n_search_positions(2.8, spacing_hpbw=s_) == pytest.approx(full * (1.4 / s_) ** 2, rel=1e-12)
+        assert rm.rx_beams_per_position(2.8, -25.0, s_) == pytest.approx(rm.rx_beams_per_position(2.8) * (s_ / 1.4) ** 2)
+    g = [rm.position_losses("S", -25.0, -25.0, True, False, (0.0, 1e-4, 100.0, 1e-4, 1, True), None, None, s_)[2]["grid_tx"]
+         for s_ in rm.BEAM_SPACING_OPTIONS]
+    assert g == sorted(g) and g[1] == pytest.approx(
+        rm.position_losses("S", -25.0, -25.0, True, False, (0.0, 1e-4, 100.0, 1e-4, 1, True))[2]["grid_tx"])
+    w = rm.WF_LRS
+    a, b = rm.solve(w, 2.8, 0.0, rm.TARGETS["ST"], grid_spacing_hpbw=1.3), rm.solve(w, 2.8, 0.0, rm.TARGETS["ST"],
+                                                                                    grid_spacing_hpbw=1.6)
+    assert a.range_km > b.range_km and a.frame["positions"] > b.frame["positions"]
+    sec = dict(md.new_sector([]), id="T1")
+    sph = mo._sphere(-90.0, 90.0)
+    p13 = mo.search_positions(dict(sec, _grid_spacing=1.3), sph, sph.mask(sec), 2.8, None)[0]
+    p16 = mo.search_positions(dict(sec, _grid_spacing=1.6), sph, sph.mask(sec), 2.8, None)[0]
+    assert sum(p13[k].sum() for k in p13) == pytest.approx(sum(p16[k].sum() for k in p16) * (1.6 / 1.3) ** 2, rel=1e-9)
+
+
+def test_optimiser_keeps_the_cheapest_spacing(monkeypatch):
+    """E7 a: the plan of a sector is the best over every spacing (here at one forced centre)."""
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_example.json"))
+    sec = dict(next(s for s in m["sectors"] if s["id"] == "S02"), freq_ghz_candidates=[2.8])
+    sph = mo._sphere(-90.0, 90.0)
+    best = mo._best_plan(sec, sph, sph.mask(sec), rm.face_elec_avail_w(2.0))
+    objs = {}
+    for s_ in rm.BEAM_SPACING_OPTIONS:
+        monkeypatch.setattr(rm, "BEAM_SPACING_OPTIONS", (s_,))
+        objs[s_] = mo._best_plan(sec, sph, sph.mask(sec), rm.face_elec_avail_w(2.0))[3].objective
+    assert best[7] in objs and best[3].objective == pytest.approx(min(objs.values()), rel=1e-9)
+
+
 def test_surface_data_survive_a_full_sky_cache():
     """The S surface data are kept with their sky summary even when the summary cache is cleared on insertion (a
     long process running every mission, as tests/update_snapshots.py)."""
