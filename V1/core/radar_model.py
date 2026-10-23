@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.11.5
+# Radar Performance Model - V6.11.6
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,24 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.11.5 -> V6.11.6 (roadmap step 3.1, pass P4: environment per waveform; user Q1-Q13, R1-R3)
+#   - S sidelobe clutter per candidate and per 1-deg bin (out of the T_sys budget): ratio sigma_c / sigma_t of the
+#     candidate's TX beam (full face or the sub-aperture's 2D pattern, Q3) for its range cell c / 2B, over its
+#     coherent blocks, through its Doppler filter (Gaussian clutter spectrum, 1 sigma spread, folded over the PRF;
+#     residual phase floor; none without coherent blocks, Q4-Q8), at the (1 - short_tol) quantile of the bin (Q2);
+#     the SNR increase restoring the look's Pd averaged over the target velocities (R1 b1). A pointing no candidate can
+#     clear is blinded (R3). Ku keeps the step-2.5 noise factor (Ku at 3.2).
+#   - Waveform.doppler_window_db: Taylor -30 / -40 dB Doppler weighting (processing.doppler_window_options_db),
+#     offered on coherent trains where a surface with a known closing speed can clutter the sector (Q5).
+#   - Requirement brought back to d - guard on the pointings that meet a surface (sector key surface_guard_km, 10 km,
+#     at least the resolution; Q9), in classes rounded UP on 5 % of the range (R2 c2), the cumulative criterion at
+#     each class range (Q10); <= 0: no volume, not scanned.
+#   - Self-protection jammer in solve() (spj_density_w_hz): S = SNR (N + J), exact quadratic in 1 / R^2
+#     (jammed_range_km, burn_through_range_km; Q11-Q13, barrage, not nulled).
+#   - Plan rules: with no candidate reaching the range, the longest reach wins before the cost (R4 b); a sector whose
+#     requirement the self-protection jammer puts out of the search's reach is planned against the noise alone and
+#     flagged for a Ku burn-through search pointed by the scheduler in the jamming axis (R5 b, step 4.3).
 #
 # Changes V6.11.4 -> V6.11.5 (roadmap step 3.1, pass P3: S TX multibeam; user Q1-Q5)
 #   - [multibeam] l8_db / p (V5.6.0 law, definition unknown) replaced by three modes (Waveform.tx_mode, b_tx, tx_cut):
@@ -395,7 +413,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.11.5"
+MODEL_VERSION = "6.11.6"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -478,6 +496,7 @@ if len(LO_OFFSETS_HZ) != len(LO_SSB_DBC_HZ) or list(LO_OFFSETS_HZ) != sorted(LO_
 RANGE_GRID_OVERSAMPLING: float = P.get("processing.range_grid_oversampling")
 DOPPLER_ZERO_PADDING: float = P.get("processing.doppler_zero_padding")
 DOPPLER_WINDOW: str = P.get("processing.doppler_window")
+DOPPLER_WINDOW_OPTIONS_DB: Tuple[float, ...] = tuple(float(x) for x in P.get("processing.doppler_window_options_db"))
 CFAR_TYPE: str = P.get("processing.cfar_type")
 CFAR_REF_CELLS: int = P.get("processing.cfar_ref_cells")
 CFAR_OS_RANK_FRAC: float = P.get("processing.cfar_os_rank_frac")
@@ -1647,14 +1666,14 @@ def _beam_loss_db(beam: "antenna.Beam", r_lam_d: np.ndarray) -> np.ndarray:
 @functools.lru_cache(maxsize=1 << 12)
 def position_losses(band_name: str, rx_sll_db: float, psl_db: float, search: bool, doppler: bool,
                     bank: Tuple[float, float, float, float, int, bool],
-                    tx_sub: Optional[str] = None) -> Tuple[Tuple[float, ...], Tuple[float, ...], Dict[str, float]]:
+                    tx_sub: Optional[str] = None, doppler_window_db: Optional[float] = None) -> Tuple[Tuple[float, ...], Tuple[float, ...], Dict[str, float]]:
     """Discrete law of the losses due to the random position of the target (step 2.3, B1): search TX lattice (hexagon
     of BEAM_SPACING_HPBW TX beamwidths, real pattern; tx_sub = the sub-aperture of a partition, its own stretched
     lattice and 2D pattern, step 3.1 C), RX beam lattice, range straddle on the detection grid, Doppler
     straddle (coherent blocks of more than one pulse), offset to the nearest velocity filter (bank = (half step,
     tau, B, T_obs, N, coherent); half step 0 = none). Each to OFFSET_QUANTILES quantiles, summed as independent.
     Returns (losses dB, weights, mean of each component)."""
-    law, means = _fixed_position_law(band_name, rx_sll_db, psl_db, search, doppler, tx_sub)
+    law, means = _fixed_position_law(band_name, rx_sll_db, psl_db, search, doppler, tx_sub, doppler_window_db)
     means = dict(means)
     half, tau_s, bw, t_obs, n, coh = bank
     if half > 0.0:
@@ -1667,7 +1686,7 @@ def position_losses(band_name: str, rx_sll_db: float, psl_db: float, search: boo
 
 @functools.lru_cache(maxsize=256)
 def _fixed_position_law(band_name: str, rx_sll_db: float, psl_db: float, search: bool, doppler: bool,
-                        tx_sub: Optional[str]) -> Tuple[Tuple[Tuple[float, ...], Tuple[float, ...]], Tuple]:
+                        tx_sub: Optional[str], doppler_window_db: Optional[float] = None) -> Tuple[Tuple[Tuple[float, ...], Tuple[float, ...]], Tuple]:
     """The part of position_losses that does not depend on the velocity bank (grids, straddles), combined in the same
     order; cached apart (a few dozen keys) since the bank changes with every waveform (exact)."""
     q = OFFSET_QUANTILES
@@ -1685,7 +1704,11 @@ def _fixed_position_law(band_name: str, rx_sll_db: float, psl_db: float, search:
     u = (np.arange(401) + 0.5) / 401 - 0.5
     parts["straddle_range"] = -10.0 * np.log10(_range_response(psl_db)(u / RANGE_GRID_OVERSAMPLING))
     if doppler:
-        parts["straddle_doppler"] = -10.0 * np.log10(np.sinc(u / DOPPLER_ZERO_PADDING) ** 2)
+        # unweighted transform: sinc^2; Taylor Doppler weighting (step 3.1, P4 Q5): its filter response, the same
+        # 1D Taylor law as the range weighting
+        resp = (np.sinc(u / DOPPLER_ZERO_PADDING) ** 2 if doppler_window_db is None
+                else _range_response(doppler_window_db)(u / DOPPLER_ZERO_PADDING))
+        parts["straddle_doppler"] = -10.0 * np.log10(resp)
     law = (np.zeros(1), np.ones(1))
     for v in parts.values():
         law = detection.combine(law, detection.quantiles(v, q), 2 * q)
@@ -1975,6 +1998,8 @@ class Waveform:
     tx_mode: Optional[str] = None      # TX multibeam mode (step 3.1, C): single | superposition | partition | tdm;
                                        # None = single if b_tx is 1, else superposition
     tx_cut: Optional[str] = None       # 2-beam partition: 'h' (horizontal cut) or 'v'
+    doppler_window_db: Optional[float] = None   # Taylor Doppler weighting of the coherent blocks (step 3.1, P4 Q5), one of
+                                                # processing.doppler_window_options_db; None = doppler_window ("none")
 
     def __post_init__(self) -> None:
         if self.tx_mode is None:
@@ -2010,6 +2035,10 @@ class Waveform:
             raise ValueError(f"{self.name}: bad integration mode")
         if not (0.0 < self.tx_block_s <= self.pri_s) or self.n < 1 or self.b_tx < 1:
             raise ValueError(f"{self.name}: inconsistent timing")
+        if self.doppler_window_db is not None and (self.doppler_window_db not in DOPPLER_WINDOW_OPTIONS_DB
+                                                   or self.integration != "COHERENT" or self.n < 2):
+            raise ValueError(f"{self.name}: a Doppler weighting is one of {DOPPLER_WINDOW_OPTIONS_DB} dB, on a coherent "
+                             f"train of 2 pulses or more")
         if self.agility_mhz < 0 or (self.agility_mhz > 0 and (self.integration != "NONCOHERENT" or self.n < 2)):
             raise ValueError(f"{self.name}: frequency agility needs a noncoherent train of 2 pulses or more")
 
@@ -2089,13 +2118,18 @@ class Result:
     p_diss_trm_w: float = 0.0    # heat per TRM during the dwell
     t_sys_k: float = 0.0         # system noise temperature used
     pulse: Optional[Dict[str, float]] = None   # step 2.1: modulation and intra-pulse / timeline outputs
+    range_noise_km: float = 0.0  # range against the noise alone (= range_km without a self-protection jammer)
+    burn_through_km: float = math.inf   # self-protection jammer (step 3.1, P4 Q11): S / J0 = SNR_req at this range
+    look_law: Optional[tuple] = None    # (coherent blocks, fluctuation, Pfa, position losses, weights): Pd of one look
 
 
 def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
           elec_mw: float = FACE_ELEC_POWER_MW, rx_sll_db: Optional[float] = None,
           t_sys_k: Optional[float] = None, v_span_mps: Optional[float] = None, pfa: Optional[float] = None,
-          cum: Optional[Tuple[float, float, float]] = None) -> Result:
+          cum: Optional[Tuple[float, float, float]] = None, spj_density_w_hz: Optional[float] = None) -> Result:
     """rx_sll_db: RX peak sidelobe level of the watch volume (an option of RX_SLL_OPTIONS_DB, None = default).
+    spj_density_w_hz: EIRP density of a self-protection jammer carried by the target (step 3.1, P4 Q11-Q13: barrage
+    noise in the main lobe, not nulled): S = SNR_req (N + J), J ~ 1 / R^2, solved exactly (jammed_range_km).
     t_sys_k: system noise temperature of the look direction (sky noise, core/sky.py); None = the band's cold sky.
     v_span_mps: velocity span the bank covers (sector v_max - v_min); None = 0 to the target's speed. TRACK looks:
     one hypothesis (velocity known from the track).
@@ -2139,7 +2173,7 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     sll_key = RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
     pos_l, pos_w, pos_parts = position_losses(band.name, sll_key, psl, search, ppb > 1,
                                               (round(bank_half, 9), wf.tau_s, wf.sig_bw_mhz, t_span, wf.n, n_blocks == 1),
-                                              tx_subaperture(wf))
+                                              tx_subaperture(wf), wf.doppler_window_db if ppb > 1 else None)
     q = cum[0] * cum[1] / (cum[2] * 1e3) if (cum is not None and search) else 0.0
     if wf.role in DETECT_ROLES:
         # exact law (step 2.3), n = coherent blocks integrated noncoherently, Pd averaged over the position
@@ -2175,6 +2209,8 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     r_listen_km = C_MPS * wf.pri_s / 2.0 / 1000.0          # oscillator round trip at the listening range (upper bound)
     if ppb > 1:
         losses["coherence"] = coherence_loss_db(f_ghz, t_block, r_listen_km, wf.sig_bw_mhz, target)
+        if wf.doppler_window_db is not None:
+            losses["doppler_weighting"] = range_weighting(wf.doppler_window_db)["loss_db"]   # step 3.1, P4 Q5
     losses["acceleration"] = acc_loss
     # migration: compensation residual (the velocity-filter offset is in 'positions'), or the uncompensated law
     dr = C_MPS / (2.0 * wf.sig_bw_mhz * 1e6)
@@ -2191,7 +2227,12 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     t_sys = band.t_sys_k if t_sys_k is None else float(t_sys_k)
     num = p_beam * g_tx * g_rx * lambda_m(f_ghz) ** 2 * target.rcs_at(f_ghz) * wf.tau_s * wf.n
     den = (4.0 * math.pi) ** 3 * K_BOLTZ * t_sys * db_to_lin(l_tot) * db_to_lin(snr_db)
-    r_km = (num / den) ** 0.25 / 1000.0
+    r_noise_km = (num / den) ** 0.25 / 1000.0
+    r_bt_km = math.inf
+    if spj_density_w_hz:
+        r_bt_km = burn_through_range_km(p_beam * g_tx, target.rcs_at(f_ghz) * wf.tau_s * wf.n, snr_db, l_tot,
+                                        spj_density_w_hz)
+    r_km = jammed_range_km(r_noise_km, r_bt_km)
 
     eta = pae_wf(wf)
     p_avg_used = band.p_pk_total_w * wf.trm_duty / eta
@@ -2237,7 +2278,29 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
              "acceleration_max_mps2": a_max, "acceleration_hypotheses": n_acc,
              "masking_db": masking_levels_db(psl, ppb > 1)}
     return Result(wf, target, snr_db, driver, r_km, losses, l_tot, p_avg_used, p_avg_max,
-                  C_MPS * wf.pri_s / 2.0 / 1000.0, n_cells, frame, eta, trm_dissipation_w(wf), t_sys, pulse)
+                  C_MPS * wf.pri_s / 2.0 / 1000.0, n_cells, frame, eta, trm_dissipation_w(wf), t_sys, pulse,
+                  r_noise_km, r_bt_km, (n_blocks, fl, pfa_l, tuple(pos_l), tuple(pos_w)))
+
+
+def burn_through_range_km(p_g_tx_w: float, sigma_energy: float, snr_req_db: float, l_tot_db: float,
+                          density_w_hz: float) -> float:
+    """Range where the echo over the self-protection jammer noise reaches the required SNR (energy form, J0 =
+    EIRP density x G_rx lambda^2 / ((4 pi)^2 R^2), losses on the signal as in the radar equation):
+    R_bt = sqrt(P G_t sigma tau N / (4 pi J0 SNR_req L)); sigma_energy = sigma x tau N."""
+    return math.sqrt(p_g_tx_w * sigma_energy / (4.0 * math.pi * density_w_hz * db_to_lin(snr_req_db)
+                                                * db_to_lin(l_tot_db))) / 1e3
+
+
+def jammed_range_km(r_noise_km, r_bt_km):
+    """Range with noise and a self-protection jammer (step 3.1, P4 Q11): a / R^4 = SNR (N0 + b / R^2) is quadratic in
+    u = 1 / R^2: u = (1 / R_bt^2 + sqrt(1 / R_bt^4 + 4 / R_n^4)) / 2 (R_n: noise alone, R_bt: jammer alone). Arrays
+    accepted; R_bt = inf gives R_n."""
+    rn, rb = np.asarray(r_noise_km, dtype=float), np.asarray(r_bt_km, dtype=float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ib = np.where(np.isinf(rb), 0.0, 1.0 / rb ** 2)
+        u = 0.5 * (ib + np.sqrt(ib * ib + 4.0 / rn ** 4))
+        out = np.where(np.isinf(rb), rn, 1.0 / np.sqrt(u))
+    return float(out) if out.ndim == 0 else out
 
 
 # -----------------------------------------------------------------------------

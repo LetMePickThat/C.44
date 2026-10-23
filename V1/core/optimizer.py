@@ -111,6 +111,9 @@ SHORT_PENALTY = P.get(_T + "short_penalty")          # DP penalty per fraction o
 TRACK_MARGIN_WARN = P.get(_T + "track_margin_warn")  # warn when a face keeps less than this fraction of its power for tracking
 SKY_ABOVE_BUDGET_ALERT_DB = P.get("tool.alerts.sky_above_budget_db")   # flag positions this far above the sky budget
 RR_T0_RATIO = P.get("tool.alerts.rr_t0_ratio")       # flag a revisit below this x the target T0 (step 2.4, B4)
+SURFACE_GUARD_KM = P.get("tool.mission_defaults.sector.surface_guard_km")   # step 3.1, P4 Q9 (sector key)
+SURFACE_CLASS_STEP = P.get("tool.environment.surface_class_step_frac")     # step 3.1, P4 R2 (c2)
+B_REF_MHZ = 1.0      # bandwidth of the tabulated clutter ratio: sigma_c is linear in the range cell c / 2B (exact)
 
 
 # ----------------------------------------------------------------------------- S frequency grid (step 3.1, A)
@@ -316,8 +319,8 @@ _SKY_CACHE: Dict[tuple, Tuple[dict, np.ndarray]] = {}
 
 
 def _env_key(sec: dict) -> tuple:
-    """Sector values the environment terms depend on (range, target, resolution, speeds)."""
-    keys = ("range_km", "res_max_m", "v_close_min_mps", "v_close_max_mps") + rm.SECTOR_TARGET_KEYS
+    """Sector values the environment terms depend on (range, target, resolution, speeds, surface guard)."""
+    keys = ("range_km", "res_max_m", "v_close_min_mps", "v_close_max_mps", "surface_guard_km") + rm.SECTOR_TARGET_KEYS
     return tuple(sec.get(k) for k in keys)
 
 
@@ -343,8 +346,7 @@ def _environment(sec: dict, band_name: str, f_ghz: float, sll: float, dirs: np.n
     f_block = rm.db_to_lin(2.0 * loss_pass)
     r_km = float(sec["range_km"])
     if band_name == "S":
-        bws = [b for b in SIGBW_CAND if resolution_m(sec, b) <= sec.get("res_max_m", RES_MAX_M_DEFAULT) + 1e-9]
-        bw = min(bws) if bws else max(SIGBW_CAND)
+        bw = admissible_bw_min(sec)
     else:
         bw = min(P.get("tool.confirmation.ku_sig_bw_mhz"))
     dr_m = C / (2.0 * bw * 1e6)
@@ -353,17 +355,24 @@ def _environment(sec: dict, band_name: str, f_ghz: float, sll: float, dirs: np.n
     info = {"surfaces": {}, "limbs": [], "main_lobe_surface": False, "adc_margin_db_min": None}
     hp = math.radians(rm.hpbw_deg(f_ghz))
     v_min, v_max = float(sec.get("v_close_min_mps", 0.0)), float(sec["v_close_max_mps"])
-    for s_ in surf:
+    s_env = _surface_env_s(sec, f_ghz, sll, dirs, owners, surf, tgt) if band_name == "S" else None
+    for si, s_ in enumerate(surf):
         d = env.surface_distance_km(s_, dirs)
         in_disk = np.isfinite(d)
-        rej = env.doppler_rejected(s_, v_min, v_max)
+        # S: clutter per waveform (step 3.1, P4), out of the T_sys budget; the summary ratio is the full face's at the
+        # pointing's requirement range, narrowest admissible band, one look; Ku: the step-2.5 noise factor
+        rej = None if band_name == "S" else env.doppler_rejected(s_, v_min, v_max)
         xs = np.zeros(len(dirs))
-        if not rej:
+        if band_name == "S":
+            x_out = s_env["y"][None][si] * (B_REF_MHZ / bw) * snr
+        elif not rej:
             for k in np.unique(owners):
                 sel = owners == k
                 xs[sel] = env.clutter_over_signal(s_, int(k), dirs[sel], band_name, f_ghz, sll, r_km, dr_m,
                                                   tgt.rcs_at(f_ghz)) * snr
         x += xs
+        if band_name != "S":
+            x_out = xs
         delta = np.arccos(np.clip(dirs @ np.array(s_.c), -1.0, 1.0))
         a = math.asin(min(s_.radius_km / s_.dist_km, 1.0))
         if np.any(np.abs(delta - a) < 2.0 * hp):
@@ -375,9 +384,68 @@ def _environment(sec: dict, band_name: str, f_ghz: float, sll: float, dirs: np.n
             info["adc_margin_db_min"] = m_ if info["adc_margin_db_min"] is None else min(info["adc_margin_db_min"], m_)
         relevant = bool(in_disk.any()) or s_.d_min_km < r_km < s_.d_horizon_km    # main lobe or iso-range ring
         info["surfaces"][s_.id] = {"in_disk": in_disk, "shadowed": in_disk & (d < r_km), "distance_km": d,
-                                   "doppler_rejected": rej and relevant, "relevant": relevant, "x": xs}
+                                   "doppler_rejected": (rej and relevant) if rej is not None else None,
+                                   "relevant": relevant, "x": x_out}
     f_clutter = env.clutter_noise_factor(x)
-    return parts, f_block * f_clutter, masked, {**info, "x": x, "f_block": f_block}
+    return parts, f_block * f_clutter, masked, {**info, "x": x, "f_block": f_block, "s_env": s_env}
+
+
+def admissible_bw_min(sec: dict) -> float:
+    """Narrowest S signal bandwidth meeting the sector's resolution (the widest of the space if none does)."""
+    bws = [b for b in SIGBW_CAND if resolution_m(sec, b) <= sec.get("res_max_m", RES_MAX_M_DEFAULT) + 1e-9]
+    return min(bws) if bws else max(SIGBW_CAND)
+
+
+def surface_guard_km(sec: dict) -> float:
+    """Guard in front of a surface (step 3.1, P4 Q9): sector key surface_guard_km, at least the coarsest admissible
+    range resolution."""
+    return max(float(sec.get("surface_guard_km", SURFACE_GUARD_KM)), resolution_m(sec, admissible_bw_min(sec)) / 1e3)
+
+
+def tx_patterns() -> Tuple[Optional[str], ...]:
+    """TX beams of the search space: the full face (None) and the partition sub-apertures (step 3.1, C)."""
+    out = [None]
+    for mode, b, cut in tx_variants():
+        if mode == "partition":
+            k = "quarter" if b == 4 else f"half_{cut}"
+            if k not in out:
+                out.append(k)
+    return tuple(out)
+
+
+def _surface_env_s(sec: dict, f_ghz: float, sll: float, dirs: np.ndarray, owners: np.ndarray, surf, tgt) -> Optional[dict]:
+    """Surfaces seen by an S sector, per evaluation direction (step 3.1, P4): the requirement brought back to the
+    surface, d - guard (Q9), rounded UP on SURFACE_CLASS_STEP x range_km (R2 c2: requirement classes; <= 0 = no
+    volume), and the clutter ratio sigma_c / sigma_target of each surface at the class range, per TX beam of the search
+    space (full face, sub-apertures, Q3), for a B_REF_MHZ range cell (linear in c / 2B)."""
+    if not surf:
+        return None
+    r_req = float(sec["range_km"])
+    guard = surface_guard_km(sec)
+    r_eff = np.full(len(dirs), r_req)
+    for s_ in surf:
+        r_eff = np.minimum(r_eff, env.surface_distance_km(s_, dirs) - guard)
+    step = SURFACE_CLASS_STEP * r_req
+    no_volume = r_eff <= 0.0
+    val = np.where(r_eff >= r_req, r_req, np.minimum(r_req, np.ceil(r_eff / step - 1e-9) * step))
+    classes = np.array(sorted({round(float(v), 9) for v in val[~no_volume]}, reverse=True) or [r_req])
+    k_idx = np.full(len(dirs), -1)
+    for i, v in enumerate(classes):
+        k_idx[(~no_volume) & (np.abs(val - v) < 1e-6)] = i
+    dr_ref = C / (2.0 * B_REF_MHZ * 1e6)
+    pats = tx_patterns()
+    y = {p: np.zeros((len(surf), len(dirs))) for p in pats}
+    for ki, rk in enumerate(classes):
+        sel_k = k_idx == ki
+        for si, s_ in enumerate(surf):
+            if not s_.d_min_km < rk < s_.d_horizon_km:
+                continue                                   # no iso-range ring at this range
+            for face in np.unique(owners[sel_k]):
+                sel = sel_k & (owners == face)
+                for pt in pats:
+                    y[pt][si, sel] = env.clutter_over_signal(s_, int(face), dirs[sel], "S", f_ghz, sll, float(rk),
+                                                             dr_ref, tgt.rcs_at(f_ghz), tx_sub=pt)
+    return {"classes": classes, "k_idx": k_idx, "no_volume": no_volume, "y": y, "surfaces": tuple(surf)}
 
 
 def sector_sky(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, band_name: str, sky: Optional[dict]) -> Tuple[dict, np.ndarray]:
@@ -389,11 +457,12 @@ def sector_sky(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, band_name: s
     its fourth root as for the sky); positions masked by the structure are removed with the blinded ones. Cached per
     process (sky, sector geometry and environment values, raster, frequency, band, RX option)."""
     sll, tol = rx_sll_db(sec), sec.get("short_tol", SHORT_TOL)
-    key = (skym.sky_key(sky), sector_geometry_key(sec), _env_key(sec), sph.window, f_ghz, band_name, sll, tol)
+    key = _sky_cache_key(sec, sph, f_ghz, band_name, sky)
     hit = _SKY_CACHE.get(key)
     if hit is not None:
         return hit
     band = rm.BANDS[band_name]
+    s_env = None
     sky_obj = skym.parse(sky)
     sel = m & sph.scan_zone & (sph.theta <= band.scan_limit_deg(f_ghz))
     ii, jj = np.nonzero(sel)
@@ -426,13 +495,39 @@ def sector_sky(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, band_name: s
         w_all = float(weights.sum())
         summary.update(_env_summary(info, inv, mk, weights, w_all, parts["structure"][inv], band, sec))
         b = b | mk
+        se = info.get("s_env")
+        if se is not None:                             # step 3.1, P4: no volume in front of a surface (Q9)
+            nv = se["no_volume"][inv] & ~b
+            summary["no_volume_pct"] = 100.0 * float(weights[nv].sum()) / w_all if w_all > 0 else 0.0
+            b = b | nv
+            s_env = {**se, "ii": ii, "jj": jj, "inv": inv, "w": weights, "theta": sph.theta[ii, jj],
+                     "blind": b.copy(), "w_all": w_all}
         blind[ii[b], jj[b]] = True
         res = (summary, blind)
     blind.setflags(write=False)
     if len(_SKY_CACHE) >= MASK_CACHE_SIZE:
         _SKY_CACHE.clear()
+        _S_ENV.clear()
     _SKY_CACHE[key] = res
+    if band_name == "S" and ii.size and s_env is not None:
+        _S_ENV[key] = s_env                # after the clearing, so the two caches always hold the same keys
     return res
+
+
+_S_ENV: Dict[tuple, dict] = {}
+
+
+def _sky_cache_key(sec: dict, sph: Sphere, f_ghz: float, band_name: str, sky: Optional[dict]) -> tuple:
+    sll, tol = rx_sll_db(sec), sec.get("short_tol", SHORT_TOL)
+    return (skym.sky_key(sky), sector_geometry_key(sec), _env_key(sec), sph.window, f_ghz, band_name, sll, tol)
+
+
+def sector_env_s(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, sky: Optional[dict]) -> Optional[dict]:
+    """The S surface data of a sector at f (step 3.1, P4), None without surfaces: per raster cell of the scanned
+    sector (ii, jj, weights, theta, blinded by the sky / structure / no volume) and per evaluation direction (inv):
+    requirement class, clutter ratios per TX beam and surface."""
+    sector_sky(sec, sph, m, f_ghz, "S", sky)
+    return _S_ENV.get(_sky_cache_key(sec, sph, f_ghz, "S", sky))
 
 
 _EMPTY_ENV = {"masked_by_structure_pct": 0.0, "structure_rise_k_max": 0.0, "surfaces": {}, "limbs": [],
@@ -476,9 +571,20 @@ def search_positions(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, sky: O
 
 
 # ----------------------------------------------------------------------------- optimiser
-def make_wf(name, tau, n, pri, bw, b, integ, staggered=False, agility=0.0, mode=None, cut=None):
+def make_wf(name, tau, n, pri, bw, b, integ, staggered=False, agility=0.0, mode=None, cut=None, window=None):
     return rm.Waveform(name=name, role="SEARCH", band="S", tau_s=tau, n=n, pri_s=pri, sig_bw_mhz=bw,
-                       b_tx=b, integration=integ, staggered=staggered, agility_mhz=agility, tx_mode=mode, tx_cut=cut)
+                       b_tx=b, integration=integ, staggered=staggered, agility_mhz=agility, tx_mode=mode, tx_cut=cut,
+                       doppler_window_db=window)
+
+
+def doppler_windows(sec: dict, sky: Optional[dict]) -> Tuple[float, ...]:
+    """Taylor Doppler weightings offered to the sector's coherent trains (step 3.1, P4 Q5): only where a surface whose
+    scenario gives its closing speed and spread can clutter the sector (nearer than its range); elsewhere a weighting
+    only costs its loss."""
+    r = float(sec.get("range_km", 0.0))
+    if any(s_.closing_mps is not None and s_.spread_mps is not None and s_.d_min_km < r for s_ in env.surfaces(sky)):
+        return rm.DOPPLER_WINDOW_OPTIONS_DB
+    return ()
 
 
 def tx_label(w: dict) -> str:
@@ -532,16 +638,39 @@ def resolution_m(sec: dict, sig_bw_mhz: float) -> float:
     return rm.range_resolution_m(sig_bw_mhz, rm.range_psl_db(rx_sll_db(sec)))
 
 
+_LAWS: Dict[tuple, int] = {}                   # look laws of the process (interned: the parts cache holds their id)
+_LAW_LIST: List[tuple] = []
+
+
+def _law_id(law: tuple) -> int:
+    i = _LAWS.get(law)
+    if i is None:
+        i = _LAWS[law] = len(_LAW_LIST)
+        _LAW_LIST.append(law)
+    return i
+
+
 @functools.lru_cache(maxsize=SOLVE_CACHE_SIZE)
-def _range_cached(w, f: float, theta: float, tgt, rx_sll_db: float, v_span_mps: Optional[float] = None,
-                  pfa: Optional[float] = None, cum: Optional[Tuple[float, float, float]] = None) -> Optional[float]:
-    """Keyed on everything the range depends on (Waveform and Target are frozen dataclasses; the target name is set
-    to a constant by range_at). The model's module constants are assumed fixed for the life of the process."""
+def _parts_cached(w, f: float, theta: float, tgt, rx_sll_db: float, v_span_mps: Optional[float] = None,
+                  pfa: Optional[float] = None, cum: Optional[Tuple[float, float, float]] = None,
+                  spj: Optional[float] = None) -> Optional[tuple]:
+    """(range against the noise, burn-through range of a self-protection jammer, required SNR of a look with the
+    position losses (dB, the axis of its Pd curve), total loss, look-law id), keyed on everything the range depends on
+    (Waveform and Target are frozen dataclasses; the target name is set to a constant by range_at). The model's
+    module constants are assumed fixed for the life of the process."""
     try:
-        return rm.solve(w, f, theta, tgt, rm.FACE_ELEC_POWER_MW, rx_sll_db, v_span_mps=v_span_mps, pfa=pfa,
-                        cum=cum).range_km
+        r = rm.solve(w, f, theta, tgt, rm.FACE_ELEC_POWER_MW, rx_sll_db, v_span_mps=v_span_mps, pfa=pfa,
+                     cum=cum, spj_density_w_hz=spj)
     except ValueError:
         return None
+    return (r.range_noise_km, r.burn_through_km, r.snr_req_db + r.losses["positions"], r.l_tot_db,
+            _law_id(r.look_law))
+
+
+def _range_cached(w, f: float, theta: float, tgt, rx_sll_db: float, v_span_mps: Optional[float] = None,
+                  pfa: Optional[float] = None, cum: Optional[Tuple[float, float, float]] = None) -> Optional[float]:
+    p = _parts_cached(w, f, theta, tgt, rx_sll_db, v_span_mps, pfa, cum)
+    return None if p is None else p[0]
 
 
 def rx_sll_db(sec: dict) -> float:
@@ -559,11 +688,22 @@ def range_at(w, f, theta, tgt, rx_sll: Optional[float] = None, v_span: Optional[
     """Range of a candidate (None: not playable). A phase-only superposition differs from its one-beam twin only by
     the power per beam (P / B) and its table loss, so its range is the twin's x (1 / (B L))^(1/4): the radar
     equation, exact, without a solve() of its own (step 3.1, C)."""
+    p = parts_at(w, f, theta, tgt, rx_sll, v_span, pfa, cum)
+    return None if p is None else p[0]
+
+
+def parts_at(w, f, theta, tgt, rx_sll: Optional[float] = None, v_span: Optional[float] = None,
+             pfa: Optional[float] = None, cum: Optional[Tuple[float, float, float]] = None, spj: Optional[float] = None):
+    """_parts_cached of a candidate; a superposition from its one-beam twin, exactly: the noise range x (1 / (B L))^(1/4),
+    the burn-through range x (1 / (B L))^(1/2) (it goes as the square root of the power per beam over the losses)."""
     if w.tx_mode == "superposition":
-        r = range_at(dataclasses.replace(w, b_tx=1, tx_mode="single"), f, theta, tgt, rx_sll, v_span, pfa, cum)
-        return None if r is None else r * (w.b_tx * rm.db_to_lin(rm.multibeam_tx_loss_db(w))) ** -0.25
-    return _range_cached(w, f, theta, tgt if tgt.name == "cache" else dataclasses.replace(tgt, name="cache"),
-                         rm.RX_SLL_DEFAULT_DB if rx_sll is None else float(rx_sll), v_span, pfa, cum)
+        p = parts_at(dataclasses.replace(w, b_tx=1, tx_mode="single"), f, theta, tgt, rx_sll, v_span, pfa, cum, spj)
+        if p is None:
+            return None
+        k = 1.0 / (w.b_tx * rm.db_to_lin(rm.multibeam_tx_loss_db(w)))
+        return (p[0] * k ** 0.25, p[1] * k ** 0.5, p[2], p[3] + rm.multibeam_tx_loss_db(w), p[4])
+    return _parts_cached(w, f, theta, tgt if tgt.name == "cache" else dataclasses.replace(tgt, name="cache"),
+                         rm.RX_SLL_DEFAULT_DB if rx_sll is None else float(rx_sll), v_span, pfa, cum, spj)
 
 
 def fa_per_rr(sec: dict) -> float:
@@ -599,7 +739,7 @@ def candidate_pfas(sec: dict, cands: List, f: float, positions: float) -> List[f
     return out
 
 
-def candidate_waveforms(sec: dict) -> List:
+def candidate_waveforms(sec: dict, sky: Optional[dict] = None) -> List:
     """Search-space enumeration. Step 2.1: signal bandwidths meeting the sector's PHYSICAL resolution (else the
     widest, flagged), pulses whose blind range fits under range_min_km, trains with an unambiguous PRI >= 2 R / c +
     tau + recovery (no self-eclipsing), or, if the sector allows it, range-ambiguous staggered trains (PRI_MIN_S,
@@ -608,6 +748,7 @@ def candidate_waveforms(sec: dict) -> List:
     res_max = sec.get("res_max_m", RES_MAX_M_DEFAULT)
     bws = [b for b in SIGBW_CAND if resolution_m(sec, b) <= res_max + 1e-9] or [max(SIGBW_CAND)]
     r_min = range_min_km(sec)
+    wins = doppler_windows(sec, sky)
     out = []
     for integ in ("COHERENT", "NONCOHERENT"):
         for mode, b, cut in tx_variants():
@@ -622,12 +763,13 @@ def candidate_waveforms(sec: dict) -> List:
                         stag = n > 1 and pri < pri_unamb
                         agile = agility_for(sec, n, bw) if integ == "NONCOHERENT" else 0.0
                         for ag in ((0.0, agile) if agile > 0 else (0.0,)):
-                            try:
-                                w = make_wf("c", tau, n, pri, bw, b, integ, staggered=stag, agility=ag,
-                                            mode=mode, cut=cut)
-                            except ValueError:
-                                continue
-                            out.append(w)
+                            for win in ((None,) + wins if integ == "COHERENT" and n > 1 else (None,)):
+                                try:
+                                    w = make_wf("c", tau, n, pri, bw, b, integ, staggered=stag, agility=ag,
+                                                mode=mode, cut=cut, window=win)
+                                except ValueError:
+                                    continue
+                                out.append(w)
     return out
 
 
@@ -724,23 +866,265 @@ def _scan_factor(f: float, nb: int) -> Optional[np.ndarray]:
 
 
 def _range_matrix(cands: List, f: float, tgt, nb: int, rx_sll: float, v_span: Optional[float] = None,
-                  pfas: Optional[List[float]] = None, cum: Optional[Tuple[float, float, float]] = None) -> np.ndarray:
+                  pfas: Optional[List[float]] = None, cum: Optional[Tuple[float, float, float]] = None,
+                  spj: Optional[float] = None) -> np.ndarray:
     """ranges[c, i] (km, full peak power) of candidate c in 1-deg bin i; NaN where the waveform is not playable."""
-    r = np.full((len(cands), nb), np.nan)
+    rn, rbt, _, _ = _range_parts(cands, f, tgt, nb, rx_sll, v_span, pfas, cum, spj)
+    return rm.jammed_range_km(rn, rbt)
+
+
+@functools.lru_cache(maxsize=64)
+def _bt_scan_factor(f: float, nb: int) -> np.ndarray:
+    """R_bt(theta_i) / R_bt(0) of a self-protection jammer: R_bt^2 goes as G_tx / L, and L changes with the scan only
+    by the active mismatch (two passes), the same for every waveform (exact)."""
+    th = _theta_centres(f, nb)
+    g = np.array([rm.gain_lin(1.0, f, float(t)) for t in th]) / rm.gain_lin(1.0, f, 0.0)
+    mm = np.array([2.0 * rm.active_mismatch(f, float(t))["loss_db_per_pass"] for t in th])
+    return np.sqrt(g * 10.0 ** (-(mm - 2.0 * rm.active_mismatch(f, 0.0)["loss_db_per_pass"]) / 10.0))
+
+
+def _range_parts(cands: List, f: float, tgt, nb: int, rx_sll: float, v_span: Optional[float] = None,
+                 pfas: Optional[List[float]] = None, cum: Optional[Tuple[float, float, float]] = None,
+                 spj: Optional[float] = None):
+    """Per candidate and 1-deg bin: range against the noise and burn-through range (km, NaN where not playable), and
+    per candidate the required SNR of a look with its position losses (dB) and its look-law id (-1: not playable)."""
+    rn = np.full((len(cands), nb), np.nan)
+    rbt = np.full((len(cands), nb), np.inf)
+    sdb = np.full(len(cands), np.nan)
+    law = np.full(len(cands), -1)
     h = _scan_factor(f, nb)
+    hb = _bt_scan_factor(f, nb)
     th = _theta_centres(f, nb)
     for j, w in enumerate(cands):
         pfa = None if pfas is None else pfas[j]
         if h is not None:
-            r0 = range_at(w, f, 0.0, tgt, rx_sll, v_span, pfa, cum)
-            if r0 is not None:
-                r[j] = r0 * h
+            p = parts_at(w, f, 0.0, tgt, rx_sll, v_span, pfa, cum, spj)
+            if p is not None:
+                rn[j], rbt[j], sdb[j], law[j] = p[0] * h, p[1] * hb, p[2], p[4]
         else:
             for i, t in enumerate(th):
-                v = range_at(w, f, float(t), tgt, rx_sll, v_span, pfa, cum)
-                if v is not None:
-                    r[j, i] = v
-    return r
+                p = parts_at(w, f, float(t), tgt, rx_sll, v_span, pfa, cum, spj)
+                if p is not None:
+                    rn[j, i], rbt[j, i], sdb[j], law[j] = p[0], p[1], p[2], p[4]
+    return rn, rbt, sdb, law
+
+
+# ----------------------------------------------------------------------------- environment per waveform (step 3.1, P4)
+def _curves(law_ids: np.ndarray) -> np.ndarray:
+    """Pd of one look vs its SNR with the position losses (detection.SNR_GRID_DB) of each look law, one row per id."""
+    ids = sorted({int(i) for i in np.ravel(law_ids) if i >= 0})
+    out = np.zeros((max(ids, default=-1) + 1, len(detection.SNR_GRID_DB)))
+    for i in ids:
+        n, fl, pfa, pl, pw = _LAW_LIST[i]
+        out[i] = detection.mean_curve(n, fl, pfa, pl, pw)
+    return out
+
+
+_G0, _GS = float(detection.SNR_GRID_DB[0]), float(detection.SNR_GRID_DB[1] - detection.SNR_GRID_DB[0])
+
+
+def _pd_at(curves: np.ndarray, rows: np.ndarray, snr_db: np.ndarray) -> np.ndarray:
+    """Pd of the curves rows at snr_db (same shapes broadcast), linear between grid points, flat beyond the ends."""
+    n = curves.shape[1]
+    x = np.clip((snr_db - _G0) / _GS, 0.0, n - 1.000001)
+    i = x.astype(int)
+    fr = x - i
+    flat = curves.ravel()
+    k = rows * n + i
+    return flat.take(k) * (1.0 - fr) + flat.take(k + 1) * fr
+
+
+def _mean_pd_clutter(curves, rows, sdb, a, lg):
+    """Pd of a look averaged over the target velocities (axis -1 of a), at the SNR sdb + 10 lg (lg = log10 of the
+    SNR increase G) against noise + clutter: S / (N + C) with C / N = a x S / N (P4 Q7 b, R1 b1)."""
+    s_lin = 10.0 ** ((sdb + 10.0 * lg)[..., None] / 10.0)
+    eff = 10.0 * np.log10(s_lin / (1.0 + a * s_lin))
+    return _pd_at(curves, rows[..., None], eff).mean(axis=-1)
+
+
+def _clutter_gain(curves, rows, sdb, pstar, a, iters: int = 36) -> np.ndarray:
+    """SNR increase G (>= 1) restoring the look's Pd pstar against the clutter, per entry (bisection on log10 G in
+    [0, 30], vectorised, 36 steps: 4e-10 on log10 G, 1e-10 relative on the range, below tie_rel_tol); inf where no
+    power restores it (S / (N + C) -> 1 / a). Identical entries are solved once (exact)."""
+    key = np.column_stack([rows, sdb, pstar, a])
+    uk, inv = np.unique(key, axis=0, return_inverse=True)
+    inv = np.ravel(inv)
+    if len(uk) < len(key):
+        return _clutter_gain(curves, uk[:, 0].astype(int), uk[:, 1], uk[:, 2], uk[:, 3:], iters)[inv]
+    lo, hi = np.zeros(len(sdb)), np.full(len(sdb), 30.0)
+    feasible = _mean_pd_clutter(curves, rows, sdb, a, hi) >= pstar
+    for _ in range(iters):
+        mid = 0.5 * (lo + hi)
+        ok = _mean_pd_clutter(curves, rows, sdb, a, mid) >= pstar
+        hi, lo = np.where(ok, mid, hi), np.where(ok, lo, mid)
+    return np.where(feasible, 10.0 ** hi, np.inf)
+
+
+def _clutter_limit(curves, rows, pstar, rho, iters: int = 60) -> np.ndarray:
+    """Largest clutter ratio y x beta for which some power still gives Pd pstar: mean_v Pd(1 / (rho_v t)) = pstar,
+    solved for t (bisection on log10 t in [-30, 30]); inf when even the largest keeps it."""
+    lo, hi = np.full(len(rows), -30.0), np.full(len(rows), 30.0)
+
+    def pd(lt):
+        return _pd_at(curves, rows[:, None], -10.0 * lt[:, None] - 10.0 * np.log10(np.maximum(rho, 1e-300))).mean(axis=1)
+    always = pd(hi) >= pstar
+    for _ in range(iters):
+        mid = 0.5 * (lo + hi)
+        ok = pd(mid) >= pstar
+        lo, hi = np.where(ok, mid, lo), np.where(ok, hi, mid)
+    return np.where(always, np.inf, 10.0 ** lo)
+
+
+def _weighted_quantile_by_bin(y: np.ndarray, b: np.ndarray, w: np.ndarray, q: float, nb: int) -> np.ndarray:
+    """Weighted q-quantile of y in each bin b (0 for an empty bin)."""
+    out = np.zeros(nb)
+    for i in np.unique(b):
+        sel = b == i
+        yy, ww = y[sel], w[sel]
+        o = np.argsort(yy)
+        cum = np.cumsum(ww[o])
+        if cum[-1] <= 0:
+            continue
+        out[i] = yy[o][min(int(np.searchsorted(cum / cum[-1], q - 1e-12)), len(o) - 1)]
+    return out
+
+
+def _surface_columns(sec: dict, sph: Sphere, m: np.ndarray, f: float, tgt, cands: List, parts: List[tuple], se: dict,
+                     sky_s: dict, factor: float, nb: int):
+    """Positions and ranges of a sector that sees surfaces (step 3.1, P4), per column = 1-deg bin x requirement class
+    (Q9-Q10, R2 c2). Per candidate: the clutter ratio of its TX beam at the class range (Q1, Q3), for its range cell
+    c / 2B, over its coherent blocks M, through its Doppler filter (residual at each target velocity, Q4-Q8); a
+    pointing where no candidate can beat the clutter is blinded (R3); per column the (1 - short_tol) quantile of the
+    clutter ratio (Q2) sets the SNR increase G that restores the look's velocity-averaged Pd (R1 b1); the range is
+    then the noise range x G^(-1/4) combined with the self-protection jammer's burn-through x G^(-1/2) (Q11).
+    Returns (P per column, ranges [candidates, columns], column bin, requirement per column, updated sky summary)."""
+    classes = se["classes"]
+    K, ns = len(classes), len(se["surfaces"])
+    tol = sec.get("short_tol", SHORT_TOL)
+    inv, ii, jj = se["inv"], se["ii"], se["jj"]
+    k_cell = se["k_idx"][inv]
+    base_ok = ~se["blind"]
+    y_cell = {p: se["y"][p][:, inv] for p in se["y"]}
+    pats = [rm.tx_subaperture(w) for w in cands]
+    v_lo, v_hi = float(sec.get("v_close_min_mps", 0.0)), float(sec["v_close_max_mps"])
+    nv = len(env.target_velocities(v_lo, v_hi))
+    C_ = len(cands)
+    rho = np.ones((C_, ns, nv))
+    for j, w in enumerate(cands):
+        if w.integration != "COHERENT" or w.n < 2:
+            continue                                        # no Doppler rejection without coherent blocks (Q8)
+        mb, t_b = rm.coherent_blocks(w.n, w.pri_s, w.tau_s, w.integration, tgt.swerling, tgt, f)
+        ppb = w.n // mb
+        if ppb < 2:
+            continue
+        pv = rm.oscillator_phase_var(f, t_b, C * w.pri_s / 2e3, w.sig_bw_mhz)
+        for si, s_ in enumerate(se["surfaces"]):
+            rho[j, si] = env.doppler_residual(s_.closing_mps, s_.spread_mps, v_lo, v_hi, f, w.pri_s, ppb,
+                                              w.doppler_window_db, pv)
+    laws = np.array([p[3] for p in parts])                  # [K, C]
+    sdb = np.array([p[2] for p in parts])                   # [K, C]
+    curves = _curves(laws)
+    nblk = np.array([_LAW_LIST[int(i)][0] if i >= 0 else 1 for i in np.max(laws, axis=0)])
+    beta = (B_REF_MHZ / np.array([w.sig_bw_mhz for w in cands])) / nblk
+    valid = laws >= 0
+    pstar = np.where(valid, _pd_at(curves, np.maximum(laws, 0), np.nan_to_num(sdb)), 1.0)
+    # R3: pointings where no candidate can beat the clutter (additive criterion over the surfaces)
+    alpha = np.zeros((K, C_, ns))                           # 1 / largest tolerable ratio, in y units
+    for k in range(K):
+        vk = np.flatnonzero(valid[k])
+        for si in range(ns):
+            t = _clutter_limit(curves, laws[k, vk], pstar[k, vk], rho[vk, si])
+            alpha[k, vk, si] = beta[vk] / t                 # t inf -> 0 (never limited)
+    clutter_blind = np.zeros(len(inv), dtype=bool)
+    for k in range(K):
+        cells = base_ok & (k_cell == k)
+        if not cells.any():
+            continue
+        score = np.full(int(cells.sum()), np.inf)
+        for pt in set(pats):
+            rows = [j for j in range(C_) if pats[j] == pt and valid[k, j]]
+            if not rows:
+                continue
+            a_rows = np.unique(alpha[k, rows], axis=0)
+            yk = y_cell[pt][:, cells]                       # [ns, cells]
+            score = np.minimum(score, (a_rows @ yk).min(axis=0))
+        clutter_blind[np.flatnonzero(cells)[score >= 1.0]] = True
+    usable = base_ok & ~clutter_blind & (k_cell >= 0)
+    # positions per requirement class
+    raster_cls = np.full(sph.phi.shape, -1)
+    raster_cls[ii[usable], jj[usable]] = k_cell[usable]
+    Pc = np.zeros((4, K * nb))
+    for k in range(K):
+        pos_k, _ = positions_table(sph, m & (raster_cls == k), f)
+        Pc[:, k * nb:(k + 1) * nb] = np.array([pos_k[i] for i in range(4)])
+    # clutter quantile per column, TX beam and surface (Q2)
+    bins = np.minimum((se["theta"] / THETA_BIN_DEG).astype(int), nb - 1)
+    yq = {pt: np.zeros((K * nb, ns)) for pt in y_cell}
+    for k in range(K):
+        sel = usable & (k_cell == k)
+        if not sel.any():
+            continue
+        for pt in y_cell:
+            for si in range(ns):
+                yq[pt][k * nb:(k + 1) * nb, si] = _weighted_quantile_by_bin(y_cell[pt][si, sel], bins[sel],
+                                                                            se["w"][sel], 1.0 - tol, nb)
+    # ranges per column
+    rc = np.full((C_, K * nb), np.nan)
+    col_k = np.repeat(np.arange(K), nb)
+    col_b = np.tile(np.arange(nb), K)
+    for k in range(K):
+        rn, rbt, _, _ = parts[k]
+        cols = np.arange(k * nb, (k + 1) * nb)
+        g = np.ones((C_, nb))
+        for pt in set(pats):
+            rows = np.array([j for j in range(C_) if pats[j] == pt and valid[k, j]], dtype=int)
+            if not len(rows):
+                continue
+            a = beta[rows, None, None] * np.einsum("jsv,cs->jcv", rho[rows], yq[pt][cols])   # [rows, nb, nv]
+            need = (a.max(axis=2) > 0.0) & np.isfinite(rn[rows]) & (Pc[:, cols].sum(axis=0) > 0.0)[None, :]
+            if not need.any():
+                continue
+            jr, cr = np.nonzero(need)
+            g[rows[jr], cr] = _clutter_gain(curves, laws[k, rows[jr]], sdb[k, rows[jr]], pstar[k, rows[jr]],
+                                            a[jr, cr])
+        with np.errstate(divide="ignore", invalid="ignore"):
+            r_k = rm.jammed_range_km(rn * factor * g ** -0.25, rbt * g ** -0.5)
+        rc[:, cols] = np.where(np.isfinite(g), r_k, np.nan)
+    # summary (copy: the sky summary is cached)
+    w_all = se["w_all"]
+    pct = (lambda sel: 100.0 * float(se["w"][sel].sum()) / w_all if w_all > 0 else 0.0)  # noqa: E731
+    sky_s = dict(sky_s)
+    sky_s["clutter_limited_pct"] = pct(clutter_blind)
+    sky_s["range_reduced_pct"] = pct(usable & (classes[np.maximum(k_cell, 0)] < float(sec["range_km"]) - 1e-9))
+    if clutter_blind.any():
+        sky_s["blinded_pct"] = sky_s.get("blinded_pct", 0.0) + pct(clutter_blind)
+        sky_s["blinded_by"] = list(sky_s.get("blinded_by", [])) + ["clutter"]
+    return Pc, rc, col_b, classes[col_k], sky_s
+
+
+def _plan_to_bins(P: np.ndarray, plan: "_Plan", col_bin: np.ndarray, r_cols: np.ndarray) -> np.ndarray:
+    """A plan over columns (1-deg bin x requirement class) as one over the bins (same waveform in a bin): positions
+    summed, energy, time and PAE per position position-weighted, range and pulse scale of the most demanding
+    populated column of the bin. Returns the positions per bin; the plan is converted in place."""
+    nb = int(col_bin.max()) + 1
+    pb = np.zeros((P.shape[0], nb))
+    np.add.at(pb.T, col_bin, P.T)
+    pt = P.sum(axis=0)
+    choice, e, t, r, sc, pae = (np.full(nb, -1), np.zeros(nb), np.zeros(nb), np.full(nb, np.nan), np.ones(nb),
+                                np.ones(nb))
+    for b in range(nb):
+        cols = np.flatnonzero((col_bin == b) & (pt > 0) & (plan.choice >= 0))
+        if not len(cols):
+            continue
+        w = pt[cols]
+        choice[b] = plan.choice[cols[0]]
+        e[b] = float((w * plan.e_bin[cols]).sum() / w.sum())
+        t[b] = float((w * plan.t_bin[cols]).sum() / w.sum())
+        pae[b] = float((w * plan.e_bin[cols] * plan.pae_bin[cols]).sum() / max((w * plan.e_bin[cols]).sum(), 1e-300))
+        c = cols[int(np.argmax(np.asarray(r_cols)[cols]))]
+        r[b], sc[b] = plan.r_bin[c], plan.s_bin[c]
+    plan.choice, plan.e_bin, plan.t_bin, plan.r_bin, plan.s_bin, plan.pae_bin = choice, e, t, r, sc, pae
+    return pb
 
 
 class _Plan:
@@ -750,7 +1134,8 @@ class _Plan:
         self.choice = choice
         idx = np.flatnonzero(choice >= 0)
         rc = r[choice[idx], idx]                                   # range of the chosen WF in each populated bin
-        s = np.minimum(1.0, (r_want / rc) ** 4)                    # pulse scale: "no excess energy"
+        rw = np.broadcast_to(np.asarray(r_want, dtype=float), choice.shape)[idx]   # requirement per column (P4)
+        s = np.minimum(1.0, (rw / rc) ** 4)                        # pulse scale: "no excess energy"
         e, t, s_eff, eta = costs(s, choice[idx])
         self.e_bin = np.zeros(len(choice))                         # electrical J per position
         self.t_bin = np.zeros(len(choice))                         # s of TX time per position
@@ -762,57 +1147,67 @@ class _Plan:
         self.fe = (P * self.e_bin).sum(axis=1) / (p_avg_max_w * rr)    # per face
         self.ft = (P * self.t_bin).sum(axis=1) / rr
         p_tot = P.sum(axis=0)
-        self.short_pos = float(p_tot[idx][rc < r_want].sum())
+        self.short_pos = float(p_tot[idx][rc < rw].sum())
         self.short_frac = self.short_pos / float(p_tot.sum())
         self.objective = float(max(self.fe.max(), self.ft.max()))
 
 
-def _plan_waveforms(P, r, costs: PositionCosts, r_want, rr, p_avg_max_w, max_wf, short_tol) -> Optional[_Plan]:
+def _plan_waveforms(P, r, costs: PositionCosts, r_want, rr, p_avg_max_w, max_wf, short_tol,
+                    col_bin: Optional[np.ndarray] = None) -> Optional[_Plan]:
     """Best waveform plan at one frequency. Scan bins are grouped by BIN_DEG; each group gets one waveform, and
     neighbouring groups may share one so that at most max_wf distinct waveforms are used (dynamic programming over
     contiguous segments). Within a segment, a candidate is admissible if it reaches r_want in every populated bin;
     with none admissible, the candidate with the fewest positions short of range is used at full power. The
-    energy/time trade-off is scalarised (alpha E + (1 - alpha) T) and alpha is swept to minimise max(E, T)."""
+    energy/time trade-off is scalarised (alpha E + (1 - alpha) T) and alpha is swept to minimise max(E, T). With
+    none admissible (step 3.1, P4 R4 b), the fewest positions short, then the longest reach, then the cost win."""
     p_tot = P.sum(axis=0)
     nb = len(p_tot)
-    groups = [np.arange(lo, min(lo + BIN_DEG, nb)) for lo in range(0, nb, BIN_DEG)]
-    groups = [g[p_tot[g] > 0] for g in groups]
+    cb = np.arange(nb) if col_bin is None else np.asarray(col_bin)   # columns: 1-deg bins x requirement classes (P4)
+    n_bins = int(cb.max()) + 1
+    groups = [np.flatnonzero((cb >= lo) & (cb < lo + BIN_DEG) & (p_tot > 0)) for lo in range(0, n_bins, BIN_DEG)]
     groups = [g for g in groups if len(g)]
     if not groups:
         return None
     n_g = len(groups)
     playable = ~np.isnan(r)
+    rw = np.broadcast_to(np.asarray(r_want, dtype=float), (nb,))[None, :]
     with np.errstate(invalid="ignore", divide="ignore"):
-        s = np.where(playable, np.minimum(1.0, (r_want / r) ** 4), 1.0)
-        reach = playable & (r >= r_want)
+        s = np.where(playable, np.minimum(1.0, (rw / r) ** 4), 1.0)
+        reach = playable & (r >= rw)
     e_s, t_s, _, _ = costs(s)                                              # shortened pulse (step 3.1, C)
     e_cost = e_s * p_tot[None, :] / (p_avg_max_w * rr)                     # energy fraction contributed per bin
     t_cost = t_s * p_tot[None, :] / rr                                     # time fraction contributed per bin
     short_p = np.where(reach, 0.0, p_tot[None, :])
+    with np.errstate(invalid="ignore", divide="ignore"):
+        ratio = np.where(playable, r / rw, -np.inf)                      # reach over the requirement (R4)
     # per-segment aggregates, segment = groups a..b
     seg = {}
     for a in range(n_g):
         bins = np.concatenate(groups[a:a + 1])
         e_s, t_s = e_cost[:, bins].sum(1), t_cost[:, bins].sum(1)
         adm, play, sh = reach[:, bins].all(1), playable[:, bins].all(1), short_p[:, bins].sum(1)
-        seg[a, a] = (e_s, t_s, adm, play, sh)
+        worst = ratio[:, bins].min(1)
+        seg[a, a] = (e_s, t_s, adm, play, sh, worst)
         for b in range(a + 1, n_g):
             bins = groups[b]
             e_s, t_s = e_s + e_cost[:, bins].sum(1), t_s + t_cost[:, bins].sum(1)
             adm, play = adm & reach[:, bins].all(1), play & playable[:, bins].all(1)
             sh = sh + short_p[:, bins].sum(1)
-            seg[a, b] = (e_s, t_s, adm, play, sh)
+            worst = np.minimum(worst, ratio[:, bins].min(1))
+            seg[a, b] = (e_s, t_s, adm, play, sh, worst)
     p_all = float(p_tot.sum())
     best = None
     for alpha in ALPHAS:
         pick = {}
-        for (a, b), (e_s, t_s, adm, play, sh) in seg.items():
+        for (a, b), (e_s, t_s, adm, play, sh, worst) in seg.items():
             cost = snap(alpha * e_s + (1.0 - alpha) * t_s)
             if adm.any():
                 c = int(np.argmin(np.where(adm, cost, np.inf)))
                 pick[a, b] = (c, float(cost[c]))
             elif play.any():
-                c = int(np.lexsort((cost, np.where(play, sh, np.inf)))[0])
+                # step 3.1, P4 R4 (b): fewest positions short, then the longest reach (worst point of the segment
+                # over its requirement), then the cost
+                c = int(np.lexsort((cost, -snap(np.where(play, worst, -np.inf)), np.where(play, sh, np.inf)))[0])
                 pick[a, b] = (c, float(cost[c]) + SHORT_PENALTY * float(sh[c]) / p_all)
         # dp[m][j]: best cost covering groups 0..j-1 with m segments
         inf = (math.inf, None)
@@ -860,6 +1255,7 @@ def _wf_dict(name: str, w, f: float, sec: dict) -> dict:
             "range_resolution_m": resolution_m(sec, w.sig_bw_mhz),
             "blind_range_km": rm.blind_range_km(rm.BAND_S, w.tx_block_s), "staggered": w.staggered,
             "agility_mhz": w.agility_mhz, "frequency_draws": rm.frequency_draws(sector_target(sec), w.agility_mhz),
+            "doppler_window_db": w.doppler_window_db,
             "cells_in_pulse": rm.cells_in_pulse(v_max, w.tau_s, w.sig_bw_mhz),
             "velocity_hypotheses_1db": rm.velocity_hypotheses(v_max - v_min, w.tau_s, w.sig_bw_mhz),
             **_processing_dict(w, sec, f)}
@@ -901,17 +1297,48 @@ def _freq_ranges(sec: dict, sph: Sphere, m: np.ndarray, f: float, sky: Optional[
     pfas = candidate_pfas(sec, cands, f, float(P.sum()))
     fit = [c for c, w in enumerate(cands) if signal_fits(f, w.occupied_mhz, excl)
            and not (w.staggered and sky_s.get("main_lobe_surface"))]   # A2, B8; step 2.5 C2 (folded clutter)
-    r = np.full((len(cands), P.shape[1]), np.nan)
+    nb = P.shape[1]
+    spj = env.spj_density_w_hz(sec, f)                                  # step 3.1, P4 Q11-Q13
+    se = sector_env_s(sec, sph, m, f, sky)
+    v, rr, r_req = search_criterion(sec)
+    classes = se["classes"] if se is not None else np.array([r_req])
+    fc = [cands[c] for c in fit]
+    parts = [_range_parts(fc, f, tgt, nb, rx_sll_db(sec), velocity_span_mps(sec), [pfas[c] for c in fit],
+                          (v, rr, float(rk)), spj) for rk in classes]   # the cumulative criterion at each class range
+    surfaces = not (se is None or (len(classes) == 1
+                                   and not any(float(y.max(initial=0.0)) > 0.0 for y in se["y"].values())))
+
+    def columns(pp, s_in):
+        if not surfaces:
+            rn, rbt, _, _ = pp[0]
+            return P, rm.jammed_range_km(rn * factor, rbt), np.arange(nb), r_req, s_in
+        return _surface_columns(sec, sph, m, f, tgt, fc, pp, se, s_in, factor, nb)
+    Pc, rc, col_bin, r_want, sky_out = columns(parts, sky_s)
+    if spj is not None and fit:
+        # step 3.1, P4 R5 (b): where the self-protection jammer puts the requirement out of the search's reach, the
+        # sector is planned against the noise alone; the scheduler points a Ku burn-through search in the jamming
+        # axis (concept of the user, step 4.3)
+        quiet = [(rn, np.full_like(rbt, np.inf), sd, lw) for rn, rbt, sd, lw in parts]
+        Pq, rq, cbq, rwq, sky_q = columns(quiet, sky_s)
+        if _short_columns(Pq, rq, rwq) < _short_columns(Pc, rc, r_want):
+            Pc, rc, col_bin, r_want, sky_out = Pq, rq, cbq, rwq, dict(sky_q, spj_out_of_reach=True)
+    r = np.full((len(cands), rc.shape[1]), np.nan)
     if fit:
-        r[fit] = _range_matrix([cands[c] for c in fit], f, tgt, P.shape[1], rx_sll_db(sec), velocity_span_mps(sec),
-                               [pfas[c] for c in fit], search_criterion(sec)) * factor
-    return P, unscanned, r, sky_s, pfas, factor
+        r[fit] = rc
+    return Pc, unscanned, r, sky_out, pfas, factor, col_bin, r_want
+
+
+def _short_columns(P: np.ndarray, r: np.ndarray, r_want) -> int:
+    """Populated columns that no candidate reaches."""
+    with np.errstate(invalid="ignore"):
+        best = np.nanmax(np.where(np.isnan(r), -np.inf, r), axis=0) if len(r) else np.full(P.shape[1], -np.inf)
+    return int(((P.sum(axis=0) > 0) & (best < np.broadcast_to(np.asarray(r_want, dtype=float), best.shape))).sum())
 
 
 def _freq_task(sec: dict, eps_min: float, eps_max: float, f: float, sky: Optional[dict]) -> Optional[tuple]:
     """Worker entry point of the parallel frequency evaluation (X3)."""
     sph = _sphere(eps_min, eps_max)
-    return _freq_ranges(sec, sph, sph.mask(sec), f, sky, candidate_waveforms(sec), sector_target(sec),
+    return _freq_ranges(sec, sph, sph.mask(sec), f, sky, candidate_waveforms(sec, sky), sector_target(sec),
                         exclusions_s(sec))
 
 
@@ -938,7 +1365,7 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
     r_want, rr = sec["range_km"], sec["rr_target_s"]
     max_wf = max(1, int(sec.get("max_wf_per_sector", MAX_WF_PER_SECTOR)))
     short_tol = sec.get("short_tol", SHORT_TOL)
-    cands = candidate_waveforms(sec)
+    cands = candidate_waveforms(sec, sky)
     if not cands:
         return {"id": sec["id"], "status": "NO_WAVEFORM",
                 "note": f"no pulse of the search space is short enough: the shortest leaves "
@@ -965,12 +1392,12 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
             evaluated[f] = None if x is None else _freq_plan(f, x)
 
     def _freq_plan(f: float, x: tuple) -> tuple:
-        P, unscanned, r, sky_s, pfas, factor = x
+        P, unscanned, r, sky_s, pfas, factor, col_bin, r_cols = x
         keep = prune_dominated(r, costs.keys)                   # step 3.1, E9 (exact)
-        plan = _plan_waveforms(P, r[keep], costs.subset(keep), r_want, rr, p_avg_max_w, max_wf, short_tol)
+        plan = _plan_waveforms(P, r[keep], costs.subset(keep), r_cols, rr, p_avg_max_w, max_wf, short_tol, col_bin)
         if plan is not None:
             plan.choice = np.where(plan.choice >= 0, keep[np.maximum(plan.choice, 0)], -1)
-        return (f, P, unscanned, plan, sky_s, pfas, factor)
+        return (f, P, unscanned, plan, sky_s, pfas, factor, col_bin, r_cols)
 
     def best_of() -> Optional[tuple]:
         done = [x for x in evaluated.values() if x is not None]
@@ -1004,7 +1431,9 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
     best = best_of()
     if best is None:
         return {"id": sec["id"], "status": "NO_WAVEFORM", "note": "no playable waveform in the search space"}
-    f, P, unscanned, plan, sky_s, pfas, _ = best
+    f, P, unscanned, plan, sky_s, pfas, _, col_bin, r_cols = best
+    if len(col_bin) != int(col_bin.max()) + 1:
+        P = _plan_to_bins(P, plan, col_bin, r_cols)          # step 3.1, P4: requirement classes back to 1-deg bins
     plan.freq_info = {"evaluated": len(evaluated), "valid_centres": len(valid_centres(bw_min, excl)),
                       "valid_centres_unexcluded": len(valid_centres(bw_min, ())),
                       "occupied_ghz": [round(f - max(cands[c].occupied_mhz for c in set(plan.choice[plan.choice >= 0]))
@@ -1148,6 +1577,10 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
                             f"sidelobe {rm.sidelobe_visible_db(f, th_max, 'rx', sll):.1f} dB at {th_max:g} deg: TRSA "
                             f"gap lobes)")
     ev = out["environment"]
+    if sky_s.get("spj_out_of_reach"):
+        out["flags"].append(f"self-protection jammer {ev['jammer_type']}: the required {r_want:.0f} km is out of the "
+                            f"search's reach, planned against the noise alone; the search gives the jamming axis and "
+                            f"the scheduler points a Ku burn-through search there (step 4.3)")
     if ev.get("burn_through_km") is not None and ev["burn_through_km"] < r_want:
         out["flags"].append(f"self-protection jammer {ev['jammer_type']}: burn-through {ev['burn_through_km']:.0f} km "
                             f"with the main waveform, {ev['burn_through_best_km']:.0f} km at best with the most energetic "
@@ -1220,6 +1653,12 @@ def sky_flags(s: dict, label: str) -> List[str]:
     if s.get("masked_by_structure_pct", 0.0) > 0.0:
         out.append(f"{s['masked_by_structure_pct']:.2f} % of the {label} positions masked by the ship structure "
                    f"(blockage above {env.BLOCK_MASK_DB:g} dB per pass), not scanned")
+    if s.get("range_reduced_pct", 0.0) > 0.0:
+        out.append(f"{s['range_reduced_pct']:.2f} % of the {label} positions meet a surface before the required range: "
+                   f"requirement brought back to the surface distance minus the guard (step 3.1, P4)")
+    if s.get("no_volume_pct", 0.0) > 0.0:
+        out.append(f"{s['no_volume_pct']:.2f} % of the {label} positions meet a surface within the guard: no volume to "
+                   f"search there, not scanned")
     if s.get("clutter_limited_pct", 0.0) > 0.0:
         out.append(f"{s['clutter_limited_pct']:.2f} % of the {label} positions clutter-limited (surface echo in the "
                    f"target's range cell above what any power can beat): blinded")
@@ -1227,7 +1666,7 @@ def sky_flags(s: dict, label: str) -> List[str]:
         if v["shadowed_pct"] > 0.0:
             out.append(f"{v['shadowed_pct']:.2f} % of the {label} positions look at {sid} closer than the required "
                        f"range (down to {v['min_distance_km']:.0f} km): nothing can come from behind its surface")
-        if v["doppler_rejected"]:
+        if v.get("doppler_rejected"):
             out.append(f"{sid} clutter rejected in Doppler (its closing-speed band misses the target span): needs "
                        f"coherent processing")
     if s.get("limbs"):

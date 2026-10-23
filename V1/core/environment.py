@@ -282,6 +282,8 @@ RAY_RINGS: int = P.get(_TE + "aperture_ray_rings")
 GRID_STEP_UV: float = P.get(_TE + "block_grid_step_uv")
 STRUCT_DIRS: int = P.get(_TE + "struct_noise_dirs")
 RING_POINTS: int = P.get(_TE + "clutter_ring_points")
+DOPPLER_GRID: int = P.get(_TE + "doppler_grid_points")
+CLUTTER_V_SAMPLES: int = P.get(_TE + "clutter_velocity_samples")
 CACHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "structure_cache.npz")
 _ORIGIN_OFFSET_M = 0.05                    # rays start this far in front of the array plate
 
@@ -525,21 +527,58 @@ def _ring(s: Surface, r_km: float) -> Optional[Tuple[np.ndarray, float]]:
     return pts, max(cos_i, 0.0)
 
 
+def _profile_gain(beam, rho):
+    """Azimuthal-mean power pattern of a beam at the distance rho (lambda / D_env) of its axis."""
+    near_r = np.arange(len(beam.mean_near)) * antenna.R_STEP
+    far = np.array(beam.mean_far)
+    idx = np.minimum((rho / antenna.FAR_PROFILE_STEP).astype(int), len(far) - 1)
+    return np.where(rho <= antenna.R_MAX, np.interp(rho, near_r, np.array(beam.mean_near)), far[idx])
+
+
 def _two_way_profile(band: str, rx_sll_db: float):
     tx, rx = rm.PATTERNS[band].tx, rm.rx_beam(band, rx_sll_db)
-    near_r = np.arange(len(tx.mean_near)) * antenna.R_STEP
+    return lambda rho: _profile_gain(tx, rho) * _profile_gain(rx, rho)
 
-    def g(beam, rho):
-        far = np.array(beam.mean_far)
-        idx = np.minimum((rho / antenna.FAR_PROFILE_STEP).astype(int), len(far) - 1)
-        return np.where(rho <= antenna.R_MAX, np.interp(rho, near_r, np.array(beam.mean_near)), far[idx])
-    return lambda rho: g(tx, rho) * g(rx, rho)
+
+_SUB_NEAR_STEP = 0.02                      # (u, v) step of the fine sub-aperture pattern table, lambda / D_env
+
+
+@lru_cache(maxsize=8)
+def _subaperture_tables(band: str, kind: str):
+    """Power pattern of a partition sub-aperture (step 3.1, P4 Q3) tabulated on the half plane v >= 0 (|AF| is even
+    in (u, v) -> (-u, -v)): a fine grid inside R_MAX (main lobe, near sidelobes) and the far grid (step
+    tool.pattern.far_step_lam_d) up to 2 D_env / lambda at the top of the band (any direction of the hemisphere)."""
+    sa = rm.subaperture(band, kind)
+    r_far = 2.0 * rm.ARRAY_ENVELOPE_M / rm.lambda_m(rm.BANDS[band].usable_hi_ghz) + 1.0
+    out = []
+    for r, step in ((antenna.R_MAX, _SUB_NEAR_STEP), (r_far, antenna.FAR_STEP)):
+        n = int(math.ceil(r / step))
+        us, vs = np.arange(-n, n + 1) * step, np.arange(0, n + 1) * step
+        out.append((step, n, sa.power_grid(us, vs)))
+    return tuple(out)
+
+
+def subaperture_gain(band: str, kind: str, du: np.ndarray, dv: np.ndarray) -> np.ndarray:
+    """Power pattern of a sub-aperture at offsets (du, dv) from its axis (lambda / D_env): bilinear on its tables."""
+    (s1, n1, g1), (s2, n2, g2) = _subaperture_tables(band, kind)
+    du, dv = np.where(dv < 0, -du, du), np.abs(dv)
+
+    def look(step, n, g, u, v):
+        x = np.clip(u / step + n, 0.0, 2 * n - 1e-9)
+        y = np.clip(v / step, 0.0, n - 1e-9)
+        i, j = x.astype(int), y.astype(int)
+        fx, fy = x - i, y - j
+        return ((1 - fx) * (1 - fy) * g[j, i] + fx * (1 - fy) * g[j, i + 1] + (1 - fx) * fy * g[j + 1, i]
+                + fx * fy * g[j + 1, i + 1])
+    near = (np.abs(du) <= antenna.R_MAX) & (dv <= antenna.R_MAX)
+    return np.where(near, look(s1, n1, g1, du, dv), look(s2, n2, g2, du, dv))
 
 
 def clutter_over_signal(s: Surface, k: int, dirs: np.ndarray, band: str, f_ghz: float, rx_sll_db: float,
-                        r_km: float, dr_m: float, rcs_m2: float) -> np.ndarray:
+                        r_km: float, dr_m: float, rcs_m2: float, tx_sub: Optional[str] = None) -> np.ndarray:
     """Sidelobe clutter of surface s in the target's range cell (r, dr) over the target's echo, for beams of face k at
-    dirs: sigma_c / sigma_target, sigma_c = sum over the iso-range ring of sigma0 dA x the two-way relative gain."""
+    dirs: sigma_c / sigma_target, sigma_c = sum over the iso-range ring of sigma0 dA x the two-way relative gain.
+    tx_sub: the TX beam of a partition sub-aperture (its 2D pattern in the axes of the face; step 3.1, P4 Q3)."""
     ring = _ring(s, r_km)
     if ring is None:
         return np.zeros(len(dirs))
@@ -557,8 +596,13 @@ def clutter_over_signal(s: Surface, k: int, dirs: np.ndarray, band: str, f_ghz: 
     g2 = _two_way_profile(band, rx_sll_db)
     ub, vb, wb = dirs @ eu, dirs @ ev, np.maximum(dirs @ n, 1e-6)
     us, vs = pts @ eu, pts @ ev
-    rho = np.hypot(us[None, :] - ub[:, None], vs[None, :] - vb[:, None]) * k_lam
-    rel = (wq[None, :] / wb[:, None]) ** 2 * g2(rho)
+    du, dv = (us[None, :] - ub[:, None]) * k_lam, (vs[None, :] - vb[:, None]) * k_lam
+    rho = np.hypot(du, dv)
+    if tx_sub is None:
+        g = g2(rho)
+    else:
+        g = subaperture_gain(band, tx_sub, du, dv) * _profile_gain(rm.rx_beam(band, rx_sll_db), rho)
+    rel = (wq[None, :] / wb[:, None]) ** 2 * g
     return sig_pt * rel.sum(axis=1) / rcs_m2
 
 
@@ -567,6 +611,81 @@ def doppler_rejected(s: Surface, v_min_mps: float, v_max_mps: float) -> bool:
     if s.closing_mps is None or s.spread_mps is None:
         return False
     return v_max_mps < s.closing_mps - s.spread_mps or v_min_mps > s.closing_mps + s.spread_mps
+
+
+def doppler_weights(n: int, window_db: Optional[float]) -> np.ndarray:
+    """Weights of the n pulses of a coherent block: uniform, or the 1D Taylor law (nbar = waveform.range_taylor_nbar)
+    at window_db sampled at the pulse centres (step 3.1, P4 Q5)."""
+    if window_db is None:
+        return np.ones(n)
+    nbar = rm.RANGE_TAYLOR_NBAR
+    a = math.acosh(10.0 ** (abs(window_db) / 20.0)) / math.pi
+    s2 = nbar ** 2 / (a ** 2 + (nbar - 0.5) ** 2)
+    ms = range(1, nbar)
+    x = (np.arange(n) - (n - 1) / 2.0) / n
+    w = np.ones(n)
+    for m in ms:
+        num = np.prod([1.0 - m ** 2 / s2 / (a ** 2 + (k - 0.5) ** 2) for k in ms])
+        den = np.prod([1.0 - m ** 2 / k ** 2 for k in ms if k != m])
+        w += 2.0 * (-1) ** (m + 1) * num / (2.0 * den) * np.cos(2.0 * math.pi * m * x)
+    return w
+
+
+def target_velocities(v_min_mps: float, v_max_mps: float) -> np.ndarray:
+    """Target closing speeds where the clutter residual is evaluated: CLUTTER_V_SAMPLES midpoints of the span (the Pd
+    is averaged over them, uniform)."""
+    if v_max_mps <= v_min_mps:
+        return np.array([float(v_max_mps)])
+    return v_min_mps + (np.arange(CLUTTER_V_SAMPLES) + 0.5) / CLUTTER_V_SAMPLES * (v_max_mps - v_min_mps)
+
+
+def _norm_cdf(z: np.ndarray) -> np.ndarray:
+    return 0.5 * (1.0 + np.vectorize(math.erf)(z / math.sqrt(2.0)))
+
+
+@lru_cache(maxsize=4096)
+def doppler_residual(closing_mps: Optional[float], spread_mps: Optional[float], v_min_mps: float, v_max_mps: float,
+                     f_ghz: float, pri_s: float, n: int, window_db: Optional[float], phase_var: float) -> Tuple[float, ...]:
+    """Clutter power left in the target's Doppler filter, relative to no Doppler discrimination (step 3.1, P4 Q4-Q8),
+    at each target velocity of target_velocities: the surface's Doppler spectrum (Gaussian, mean closing_mps, 1 sigma
+    spread_mps, folded over the PRF) through the filter |sum w_k e^(j 2 pi k x)|^2 / (sum w)^2 of an n-pulse coherent
+    block, plus the white floor of the residual phase (oscillator + platform, variance phase_var) through the filter's
+    noise bandwidth. 1 when the scenario gives no closing speed or the block has one pulse (no rejection)."""
+    vt = target_velocities(v_min_mps, v_max_mps)
+    if closing_mps is None or spread_mps is None or n < 2:
+        return tuple(1.0 for _ in vt)
+    lam = rm.lambda_m(f_ghz)
+    m = DOPPLER_GRID
+    x = np.arange(m) / m                                     # Doppler over one PRF, in cycles per PRI
+    xc, sx = (2.0 * closing_mps / lam * pri_s) % 1.0, 2.0 * spread_mps / lam * pri_s
+    if sx > 4.0:                                             # spread over many PRFs: uniform folded spectrum
+        p = np.full(m, 1.0 / m)
+    else:
+        edges = (np.arange(m + 1) - 0.5) / m
+        k_max = int(math.ceil(6.0 * sx)) + 1
+        cdf = sum(_norm_cdf((edges + k - xc) / max(sx, 1e-12)) for k in range(-k_max, k_max + 1))
+        p = np.diff(cdf)
+        p = p / p.sum()
+    w = doppler_weights(n, window_db)
+    h = np.abs(np.exp(2j * math.pi * np.outer(x, np.arange(n))) @ w) ** 2 / w.sum() ** 2   # filter at offset x
+    conv = np.real(np.fft.ifft(np.fft.fft(p) * np.conj(np.fft.fft(h))))   # conv[t] = sum_x p(x) h(x - t)
+    xt = (2.0 * vt / lam * pri_s) % 1.0
+    rho = np.interp(xt, np.r_[x, 1.0], np.r_[conv, conv[0]])
+    enbw = float((w * w).sum() / w.sum() ** 2)
+    return tuple(float(r) for r in np.clip((1.0 - phase_var) * rho + phase_var * enbw, 0.0, 1.0))
+
+
+def spj_density_w_hz(sec: dict, f_ghz: float) -> Optional[float]:
+    """EIRP density (W/Hz) of the sector's self-protection jammer at f (barrage over its class band, P4 Q12), None
+    when the sector has none or f is outside its band."""
+    jt = sec.get("jammer_type")
+    if jt is None:
+        return None
+    b = rm.band_for_frequency(f_ghz)
+    cov = JAMMER_CLASSES[jt][b.name]
+    if not cov["lo"] <= f_ghz <= cov["hi"]:
+        return None
+    return 10.0 ** (_erp(jt, sec.get("jammer_erp_dbw_mhz"))[BANDS.index(b.name)] / 10.0) / 1e6
 
 
 def clutter_noise_factor(x: np.ndarray) -> np.ndarray:

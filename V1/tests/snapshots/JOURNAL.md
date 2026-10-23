@@ -362,3 +362,30 @@ pulse (PAE of the shortened pulse, floor tau B >= 1) instead of scaling the powe
   different pulse length (S01, A2_VEILLE, PROT, T_SHIP).
 - Output key power_scale renamed pulse_scale; wf dicts gain tx_mode, tx_cut, positions_per_dwell,
   rx_beams_per_position. core/cost_table.json regenerated (infeasible cells unchanged, 1000; median energy +0.4 %).
+
+## 2026-10-23 -- step 3.1 pass P4: environment per waveform (radar_model V6.11.6)
+
+S sidelobe clutter per candidate and per 1-deg bin (TX beam incl. partition sub-apertures, range cell c / 2B, coherent
+blocks, progressive Doppler rejection, Pd averaged over the target velocities), out of the S T_sys budget; Taylor
+-30 / -40 dB Doppler weightings offered where a surface with a known closing speed clutters a sector; requirement
+brought back to d - 10 km in front of a surface (classes rounded up on 5 % of the range); self-protection jammer in
+the range (exact quadratic). Plan rule R4 b: with no candidate reaching the range, the longest reach wins before the
+cost. Impact report run before R4; it ran every mission in one process and so carried the cache defect below for
+mission_sky_demo and mission_frames: the figures here are read from the corrected snapshots (key figures, P3 -> P4).
+- Missions without surfaces or self-protection jammer: no key figure changes (new output key only: doppler_window_db
+  of the waveforms).
+- Sectors that see a surface: the S T_sys budget loses the clutter (mission_sky_demo EARTH 686 -> 255 K,
+  mission_frames ORBIT 244 -> 148 K, HORIZON 434 -> 149 K, mission_environment E_EARTH 488 -> 440 K); the clutter is
+  now paid per waveform and per bin, at the bin quantile (stricter near the limb than the former sector quantile).
+  mission_frames faces -7 to -48 %; mission_sky_demo face 3 -9 %, face 4 +45 %; mission_environment face 1 x5.9
+  (E_EARTH: long noncoherent trains near the limb; some bins switch to noncoherent trains, the clutter over M blocks).
+- E_KKV_SPJ (SPJ_KKV in the range): no candidate reaches 500 km (104 km at best, broadside). Before R4 the plan took
+  the cheapest all-short candidate (about 1 km); with R4 b alone the longest reach, coherent 200 us x 32, 68 km, at
+  full power on 582 positions (face 2 at 124 % of its energy). Final rule R5 b (user): a sector whose requirement the
+  self-protection jammer puts out of the search's reach is planned against the noise alone and flagged (the search
+  gives the jamming axis, the scheduler points a Ku burn-through search, step 4.3): E_KKV_SPJ back to 20 / 50 us,
+  511 to 542 km against the noise, its P3 face cost.
+- Cache defect found while refreezing: in a long process the S surface data could be dropped when the sky-summary
+  cache was cleared on insertion (clutter then ignored for that sector); fixed before the final snapshots
+  (test_surface_data_survive_a_full_sky_cache).
+- core/cost_table.json regenerated (parameter fingerprint; no surface in its grid).

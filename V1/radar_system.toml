@@ -84,6 +84,7 @@ cum_pd_floor = { value = 1e-3, unit = "-", status = "V", source = "looks whose P
 range_grid_oversampling= { value = 4.0, unit = "-", status = "V", source = "detection grid in range, samples per c / 2B (digital interpolation of the ADC samples): mean straddle 0.05 dB at -25 dB (0.54 at 1.25, 0.22 at 2), step 2.2 C1, optimistic end", date = "2026-10-21" }
 doppler_zero_padding   = { value = 4.0, unit = "-", status = "V", source = "zero padding of the Doppler transform of a coherent block: mean straddle 0.07 dB (1.12 at 1, 0.29 at 2), step 2.2 C2, optimistic end", date = "2026-10-21" }
 doppler_window         = { value = "none", unit = "", status = "V", source = "Doppler weighting: none (no clutter to reject in space; Doppler sidelobes of strong targets at 2.4 / 2.5), step 2.2 C3", date = "2026-10-21" }
+doppler_window_options_db = { value = [-30.0, -40.0], unit = "dB", status = "V", source = "Taylor Doppler weightings (nbar as range_taylor_nbar) the optimiser may give a coherent S search look where a surface clutters the sector (step 3.1, P4 Q5): sidelobes of the Doppler filter at these levels instead of -13 dB, weighting loss and wider filter computed; the default stays doppler_window", date = "2026-10-23" }
 cfar_type              = { value = "CA", unit = "", status = "V", source = "CA = cell-averaging CFAR (homogeneous thermal noise in space), step 2.2 D1; option OS = ordered statistic, robust to neighbouring targets (step 2.4, D3); option GO = greatest-of the two half windows, holds the Pfa at clutter edges (step 2.5, G1)", date = "2026-10-22" }
 cfar_os_rank_frac      = { value = 0.75, unit = "-", status = "V", source = "OS-CFAR rank k = this x the reference cells (step 2.4, D3), loss exact for Swerling 1 on one sample", date = "2026-10-22" }
 cfar_ref_cells         = { value = 1024, unit = "-", status = "V", source = "CFAR reference cells: loss 0.04 dB (0.64 at 64, 0.16 at 256), exact for Swerling 1 on one sample at the model Pd / Pfa and applied to every look (slightly prudent), step 2.2 D2-D3, optimistic end", date = "2026-10-21" }
@@ -623,6 +624,11 @@ aperture_ray_rings = 3          # hexagonal rings of rays over the aperture tube
 block_grid_step_uv = 0.01       # (u, v) step of the per-face blockage table
 struct_noise_dirs  = 20000      # directions over the sphere for the structure far-sidelobe noise integral
 clutter_ring_points = 720       # points on the iso-range ring of a surface (sidelobe clutter)
+doppler_grid_points = 4096      # Doppler grid over one PRF of the clutter residual after the Doppler filter (step 3.1, P4)
+clutter_velocity_samples = 11   # target velocities over the sector span where the clutter residual is evaluated; the
+                                # Pd is averaged over them (step 3.1, P4 Q7 b, R1 b1)
+surface_class_step_frac = 0.05  # requirement brought back to the surface (P4 Q9-Q10, R2 c2): rounded UP on this grid of
+                                # the sector range (at most 1 / step classes)
 
 [tool.targets]                # target library (step 2.4)
 default_type = "GENERIC"         # class completing a sector that names no target_type (its own rcs_m2 / swerling kept)
@@ -661,6 +667,8 @@ new_targets_per_rr = 1.0
 rx_sll_db = -25.0               # RX peak sidelobe level of the volume, one of aperture.rx_sll_options_db (S and Ku)
 fa_per_rr = 10.0                # false alarms tolerated per sector and per revisit (detection.fa_mode 'fa_rate', step 2.3 C2)
 frame = "inertial"              # frame of a new sector (core/frames.py, step 3.0 R6); a sector without the key is in the ship frame
+surface_guard_km = 10.0         # a pointing that meets a surface at d < range_km must reach d - max(this, the range
+                                # resolution) (step 3.1, P4 Q9: 10 km, user)
 
 [tool.mission_defaults.box]
 phi_min_deg = 0.0

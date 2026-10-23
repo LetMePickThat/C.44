@@ -294,6 +294,16 @@ class SubAperture:
             out[s:s + 512] = np.cos(ph).sum(axis=1) ** 2 + np.sin(ph).sum(axis=1) ** 2
         return out / len(x) ** 2
 
+    def power_grid(self, us: np.ndarray, vs: np.ndarray) -> np.ndarray:
+        """|AF|^2 / |AF(0)|^2 on the grid us x vs (lambda / D_env), [v, u]: separable by element rows (exact)."""
+        x, y = np.asarray(self.x_m), np.asarray(self.y_m)
+        rows, inv = np.unique(np.round(y, 9), return_inverse=True)
+        a = np.zeros((len(rows), len(us)), dtype=complex)
+        for r in range(len(rows)):
+            a[r] = np.exp(2j * math.pi * np.outer(us, x[inv == r]) / self.d_env).sum(axis=1)
+        e = np.exp(2j * math.pi * np.outer(vs, rows) / self.d_env)
+        return np.abs(e @ a) ** 2 / len(x) ** 2
+
 
 def _elements(rows: Sequence[int], trsa_side_m: float, gap_m: float, n_sub: int) -> np.ndarray:
     """All element coordinates (x along the rows, y across), centred on the face."""

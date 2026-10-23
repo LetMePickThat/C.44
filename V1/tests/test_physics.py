@@ -1424,6 +1424,130 @@ def test_pulse_shortening_costs():
     assert ec[0, 0] == pytest.approx(e) and ec[1, 0] == pytest.approx(e / 4) and tc[1, 0] == pytest.approx(t / 4)
 
 
+# ----------------------------------------------------------------------------- environment per waveform (step 3.1, P4)
+def test_doppler_weighting_option():
+    """Q5: Taylor -30 / -40 dB Doppler weighting on coherent trains only, its loss in the budget."""
+    assert rm.DOPPLER_WINDOW_OPTIONS_DB == (-30.0, -40.0)
+    w = mo.make_wf("t", 50e-6, 8, 2e-3, 100.0, 1, "COHERENT", window=-40.0)
+    assert rm.solve(w, 2.8, 0.0, rm.TARGETS["ST"]).losses["doppler_weighting"] == rm.range_weighting(-40.0)["loss_db"]
+    for bad in (dict(integ="NONCOHERENT", n=8, win=-40.0), dict(integ="COHERENT", n=1, win=-40.0),
+                dict(integ="COHERENT", n=8, win=-35.0)):
+        with pytest.raises(ValueError):
+            mo.make_wf("t", 50e-6, bad["n"], 2e-3, 100.0, 1, bad["integ"], window=bad["win"])
+    assert mo.doppler_windows({"range_km": 1000.0}, None) == ()
+
+
+def test_self_protection_jammer_in_the_range():
+    """Q11: S = SNR (N + J), J ~ 1 / R^2: 1 / R^4 = 1 / R_n^4 + 1 / (R_bt^2 R^2), below both ranges; the superposition
+    shortcut keeps it exact (R_bt x (1 / (B L))^(1/2))."""
+    t, w = rm.TARGETS["KKV"], rm.WF_LRS
+    d = 10.0 ** (5.0 / 10.0) / 1e6
+    r = rm.solve(w, 2.8, 0.0, t, spj_density_w_hz=d)
+    assert r.range_noise_km == pytest.approx(rm.solve(w, 2.8, 0.0, t).range_km, rel=1e-12)
+    assert r.range_km ** -4 == pytest.approx(r.range_noise_km ** -4 + 1.0 / (r.burn_through_km ** 2 * r.range_km ** 2),
+                                             rel=1e-9)
+    assert r.range_km < min(r.range_noise_km, r.burn_through_km)
+    assert rm.jammed_range_km(1000.0, math.inf) == 1000.0
+    sup = mo.make_wf("t", 100e-6, 4, 4e-3, 100.0, 4, "COHERENT", mode="superposition")
+    p = mo.parts_at(sup, 2.8, 0.0, t, None, None, None, None, d)
+    direct = rm.solve(sup, 2.8, 0.0, t, spj_density_w_hz=d)
+    assert p[0] == pytest.approx(direct.range_noise_km, rel=1e-12) and p[1] == pytest.approx(direct.burn_through_km, rel=1e-12)
+    sec = {"jammer_type": "SPJ_KKV"}
+    assert env.spj_density_w_hz(sec, 2.8) == pytest.approx(10.0 ** (env._erp("SPJ_KKV", None)[0] / 10.0) / 1e6)
+    assert env.spj_density_w_hz({}, 2.8) is None
+
+
+def test_doppler_residual_of_the_clutter():
+    """Q4-Q8: no rejection without the scenario's closing speed or without a coherent block; a clutter spectrum filling
+    the PRF leaves the filter's noise bandwidth; a narrow one far from the target is rejected, more with a weighting;
+    the residual phase sets a floor."""
+    args = (1000.0, 5000.0, 2.8, 1e-3)
+    assert set(env.doppler_residual(None, None, *args, 16, None, 0.0)) == {1.0}
+    assert set(env.doppler_residual(0.0, 1.0, *args, 1, None, 0.0)) == {1.0}
+    wide = env.doppler_residual(0.0, 5000.0, *args, 16, None, 0.0)
+    assert max(abs(x - 1.0 / 16) for x in wide) < 1e-6
+    far0 = env.doppler_residual(0.0, 1.0, *args, 16, None, 0.0)
+    far40 = env.doppler_residual(0.0, 1.0, *args, 16, -40.0, 0.0)
+    assert min(far0) < 1e-2 and np.median(far40) < np.median(far0)
+    floor = env.doppler_residual(0.0, 1.0, *args, 16, None, 1e-2)
+    assert min(floor) >= 1e-2 / 16 * (1 - 1e-9)
+    assert len(env.target_velocities(1000.0, 5000.0)) == env.CLUTTER_V_SAMPLES
+
+
+def test_subaperture_clutter_pattern_tables():
+    """Q3: the tabulated 2D pattern of a sub-aperture matches the direct sum (main lobe, sidelobes, both half planes)."""
+    du, dv = np.array([0.0, 0.5, 0.0, 10.0, -3.0, 40.0]), np.array([0.0, 0.0, 0.9, 3.0, -0.4, -20.0])
+    direct = rm.subaperture("S", "half_h").power(du, dv)
+    assert np.allclose(env.subaperture_gain("S", "half_h", du, dv), direct, rtol=0.05, atol=1e-6)
+
+
+def test_clutter_gain_restores_the_look_pd():
+    """R1 b1: G = 1 without clutter, grows with the clutter, inf beyond what any power beats; the velocity-averaged Pd
+    at s* G with the clutter equals the look's Pd without it."""
+    from core import detection
+    law = (1, detection.Fluct(1.0), 1e-6, (0.0,), (1.0,))
+    lid = mo._law_id(law)
+    curves = mo._curves(np.array([lid]))
+    sdb = np.array([15.0, 15.0, 15.0])
+    pstar = mo._pd_at(curves, np.array([lid] * 3), sdb)
+    a = np.array([[1e-9] * 3, [1e-3] * 3, [1.0] * 3])
+    g = mo._clutter_gain(curves, np.array([lid] * 3), sdb, pstar, a)
+    assert g[0] == pytest.approx(1.0, abs=1e-6) and 1.0 < g[1] < math.inf and g[2] == math.inf
+    back = mo._mean_pd_clutter(curves, np.array([lid]), sdb[1:2], a[1:2], np.log10(g[1:2]))
+    assert back[0] == pytest.approx(pstar[1], abs=1e-6)
+
+
+def test_requirement_brought_back_to_the_surface():
+    """Q9, R2 c2: d - guard (guard = max(surface_guard_km, resolution)), rounded UP on 5 % of the range; <= 0: no
+    volume; one class per pointing."""
+    sec = {"range_km": 1000.0, "res_max_m": 2.0, "v_close_max_mps": 5000.0, "rcs_m2": 1.0}
+    assert mo.surface_guard_km(sec) == 10.0 and mo.surface_guard_km(dict(sec, surface_guard_km=0.0)) > 0.0
+    s = env.Surface("S1", (0.0, 0.0, 1.0), 100.0, 600.0, (0.1, 0.1), None, None)
+    dirs = np.array([[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+    se = mo._surface_env_s(sec, 2.8, -25.0, dirs, np.zeros(3, dtype=int), (s,), mo.sector_target(sec))
+    d = 600.0 - 100.0                                   # straight at the surface
+    assert se["classes"][0] == 1000.0 and se["k_idx"][1] == 0
+    k = se["k_idx"][0]
+    assert se["classes"][k] == pytest.approx(math.ceil((d - 10.0) / 50.0) * 50.0) and se["classes"][k] >= d - 10.0
+    near = env.Surface("S2", (0.0, 0.0, 1.0), 100.0, 105.0, (0.1, 0.1), None, None)
+    se2 = mo._surface_env_s(sec, 2.8, -25.0, dirs, np.zeros(3, dtype=int), (near,), mo.sector_target(sec))
+    assert se2["no_volume"][0] and not se2["no_volume"][1]
+
+
+def test_environment_per_waveform_outputs(runs):
+    """mission_environment: the self-protection jammer puts E_KKV_SPJ's 500 km out of the search's reach (best
+    burn-through below it), so the sector is planned against the noise alone and flagged for a Ku burn-through search
+    (R5 b); the Earth sector keeps clutter-limited positions."""
+    by = {s["id"]: s for s in runs["mission_environment.json"]["sectors"]}
+    k = by["E_KKV_SPJ"]
+    assert k["environment"]["burn_through_best_km"] < k["range_km"]["requested"]
+    assert k["sky"].get("spj_out_of_reach") and any("Ku burn-through" in x for x in k["flags"])
+    assert k["range_km"]["at_worst_scan"] >= k["range_km"]["requested"]
+    assert by["E_EARTH"]["sky"]["clutter_limited_pct"] > 0.0
+
+
+def test_surface_data_survive_a_full_sky_cache():
+    """The S surface data are kept with their sky summary even when the summary cache is cleared on insertion (a
+    long process running every mission, as tests/update_snapshots.py)."""
+    from core import frames
+    m, _ = frames.resolve(md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_environment.json")))
+    sec = next(s for s in m["sectors"] if s["id"] == "E_EARTH")
+    sky = m["global"].get("sky")
+    sph = mo._sphere(-90.0, 90.0)
+    saved = dict(mo._SKY_CACHE), dict(mo._S_ENV)
+    try:
+        mo._SKY_CACHE.clear()
+        mo._S_ENV.clear()
+        for i in range(mo.MASK_CACHE_SIZE):
+            mo._SKY_CACHE[("filler", i)] = None
+        assert mo.sector_env_s(sec, sph, sph.mask(sec), 2.8, sky) is not None
+    finally:
+        mo._SKY_CACHE.clear()
+        mo._S_ENV.clear()
+        mo._SKY_CACHE.update(saved[0])
+        mo._S_ENV.update(saved[1])
+
+
 # ----------------------------------------------------------------------------- frames and navigation (step 3.0)
 def _quat_z(deg: float) -> list:
     h = math.radians(deg) / 2.0
