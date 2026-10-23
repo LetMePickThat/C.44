@@ -72,6 +72,7 @@ Rien de ce qui a été décidé ne vit seulement dans une conversation :
 | `radar_system.toml` | Les valeurs elles-mêmes ; le champ `source` de chaque entrée résume sa justification. |
 | En-tête de `core/radar_model.py` | Le journal des versions du modèle (V6.0.0 à V6.11.6) et ce que chaque version a changé. |
 | `tests/snapshots/JOURNAL.md` | Chaque régénération des valeurs figées de test et ses causes. |
+| `Documentation/design/radar_design.tex` et `.pdf` | Document de conception **en anglais** (choix de l'utilisateur, exception à la règle des langues), pour un lecteur tiers : architecture du radar, modélisation RF complète, choix. À tenir à jour aux étapes qui changent le modèle ; compilation : `tectonic radar_design.tex` (moteur LaTeX autonome, à télécharger sur la machine) ou pdflatex. |
 | Mémoire de l'assistant (hors dépôt) | Locale à chaque machine, **non partagée** : elle n'est qu'un raccourci. Tout ce qui est nécessaire pour reprendre est dans le dépôt (ce tableau, §1.3, §1.5, §1.6) ; en cas d'écart, le dépôt fait foi. |
 
 Reprendre sur une autre machine :
@@ -96,7 +97,7 @@ Procédure d'une étape :
 | Sujet | État | Quoi faire |
 |---|---|---|
 | Durée de la suite de tests | Résolu. L'écart observé sur le portable (jusqu'à 3,5 fois plus lent sur batterie, cause précise non identifiée) venait de la machine, pas du code. Depuis le 22 octobre 2026, la suite tourne en parallèle (pytest-xdist) ; durées de référence au §1.6. | Pour comparer deux machines, mesurer `mission_example` en séquentiel (§1.6), sur secteur et en mode performance. |
-| Hash des commits | 2.4 `008d583` ; 2.5 `baeadcf` ; géométrie 3D V6.10.1 `9ea4985` ; 3.0 `22114fd` ; tests en parallèle `146cae9` ; 3.1 P1 `90555d8` ; bande S élargie `b4be91e` ; 3.1 P2 `cd97216` ; temps de calcul X1-X5 `f6a526c` ; 3.1 P3 `b0dbc09`. | — |
+| Hash des commits | 2.4 `008d583` ; 2.5 `baeadcf` ; géométrie 3D V6.10.1 `9ea4985` ; 3.0 `22114fd` ; tests en parallèle `146cae9` ; 3.1 P1 `90555d8` ; bande S élargie `b4be91e` ; 3.1 P2 `cd97216` ; temps de calcul X1-X5 `f6a526c` ; 3.1 P3 `b0dbc09` ; 3.1 P4 `f8fa433`. | — |
 | Prochaine étape | **3.1, veille S reconstruite, en cours** (variables des blocs A à E validées, §11). Faits et commités : **P1** grille de fréquences (V6.11.1), **élargissement de la bande S** à 2,60–2,93 GHz (V6.11.2), **P2** espace des formes d'onde (V6.11.3 ; rapport d'impact non lancé, voir `JOURNAL.md`), **accélérations X1, X2, X3, X5** (V6.11.4), **P3** multifaisceau d'émission S (V6.11.5, §5.8 et §11), **P4** environnement par forme d'onde (V6.11.6, §11 ; Q1 à Q13 et R1 à R3 tranchées). **Reste : P5** raffinement du bruit du ciel autour des sources chaudes (D5 à D7) et pas de grille de veille par secteur (E7) ; **P6** rapport d'impact, valeurs figées, documentation, « c, p ». | Reprendre à P5, avec une pause et un rapport après chaque passe. |
 | Sauvegardes locales de la réécriture d'historique | Sur le portable seulement : branche `backup-before-rewrite` et `refs/original/`, gardées à la demande de l'utilisateur. | Les supprimer quand l'utilisateur le dira ; rien à faire sur une autre machine. |
 | Documentation de l'étape 2.4 | Une partie des mises à jour de ce document (en-tête, modules, bilan des entrées, lignes CFAR et cohérence) n'avait pas été appliquée au commit `008d583` ; rattrapée avec l'étape 2.5. | Vérifier, à chaque étape, que chaque remplacement de la documentation a bien été appliqué. |
@@ -694,9 +695,9 @@ Réglage de mission associé : `tool.mission_defaults.range_min_frac` = 0,1 (por
 | **Pondération de réception à −35 dB** | conception 41,7 dB | η = 0,693, HPBW 1,325 λ/D |
 | x_rms (étendue RMS de l'ouverture) | moyenne de x² sur les éléments | 1,033 m = 0,248 D |
 | Précision angulaire × √SNR | 1,13 × borne / HPBW_TX | 0,495 largeur de lobe d'émission, en S comme en Ku |
-| Faisceaux de réception par pointage | (1,04·HPBW_TX / (0,5·HPBW_RX))² | 3,38 (−25), 2,95 (−30), 2,64 (−35) |
-| Perte de grille d'émission | 1,672 × 1,04² | 1,81 dB |
-| Perte de grille de réception | 1,672 × 0,5² | 0,42 dB |
+| Faisceaux de réception par pointage | (1,4·HPBW_TX / (0,5·HPBW_RX))² | 6,12 (−25), 5,34 (−30), 4,79 (−35) au pas de grille de 1,4 (3,38 / 2,95 / 2,64 au pas de 1,04 d'avant l'étape 2.3 ; corrigé le 23 octobre 2026) |
+| Perte de grille d'émission | moyenne sur la cellule de 1,4 HPBW, diagramme réel (étape 2.3) | 3,37 dB (loi gaussienne 1,672 × 1,4² = 3,28 dB ; 1,81 dB au pas de 1,04 d'avant l'étape 2.3) |
+| Perte de grille de réception | moyenne sur le réseau de 0,5 HPBW_RX, diagramme réel | 0,40 dB à −25 dB (loi gaussienne 1,672 × 0,5² = 0,42 dB) |
 | Gain en S à 2,8 GHz, dans l'axe | 4πAη/λ² | émission 41,62 dBi, réception 41,03 dBi (−25 dB) |
 | Gain d'émission en Ku à 14 GHz | idem | 55,60 dBi |
 | T_sys (ciel froid) | cascade de Friis | S 144,5 K, Ku 230,8 K (154,3 et 238,7 K avant l'étape 1.5) ; le ciel devant la face s'y ajoute par direction |
@@ -704,7 +705,7 @@ Réglage de mission associé : `tool.mission_defaults.range_min_frac` = 0,1 (por
 | Gain jusqu'au CAN | −L_pré + G_LNA + G_post | S 46,65 dB, Ku 43,8 dB |
 | Bruit au CAN | k T_sys fs + gain − P_FS | S −56,4 dBFS, Ku −57,2 dBFS (24 dB au-dessus du bruit de quantification) |
 | Niveau d'écrêtage à l'élément | P_FS − 3 dB − gain | S −39,6 dBm, soit 53,4 dB au-dessus du bruit ; Ku −36,8 dBm, 54,2 dB |
-| Portée minimale non saturée (axe, pleine puissance, sans perte) | écho par élément = écrêtage | S : ST 12,2 km, KKV 1,3 km, SHIP 16,1 km ; Ku : ST 10,2 km, KKV 1,1 km, SHIP 13,5 km |
+| Portée minimale non saturée (axe, pleine puissance, sans perte) | écho par élément = écrêtage | S : ST 12,2 km, KKV 2,3 km, SHIP 9,1 km ; Ku : ST 10,2 km, KKV 3,5 km, SHIP 7,6 km (SER des classes de l'étape 2.4 ; corrigé le 23 octobre 2026, les valeurs précédentes dataient des SER d'avant la bibliothèque de cibles) |
 | Perte de polarisation (GLRT) | SNR_req(n + 1) − SNR_req(n), Shnidman | 0,54 dB pour un échantillon cohérent (valeur exacte 0,42 dB), 0,06 dB pour 24 impulsions non cohérentes ; 0,05 dB en poursuite |
 | Soleil dans l'axe (−25 dB) | §7.8 | S 6 670 K (+16,7 dB), Ku 10 000 K (+16,5 dB) : aveuglé |
 | Lune dans l'axe | §7.8 | S 15 K (+0,4 dB), Ku 188 K (+2,6 dB) |
@@ -729,7 +730,7 @@ Réglage de mission associé : `tool.mission_defaults.range_min_frac` = 0,1 (por
 | CHAIN_EFF | psu × distribution × (1 − overhead) | 0,917 |
 | Rayon du secteur | plus large limite de balayage | 75° |
 | Surface du secteur en (u, v) | disque sin 75° découpé par les plans ±45°, inclinaison 25° | 2,0006 |
-| Pointages par face à 2,8 GHz | surface / cellule | 3 016 (4 167 avant l'étape 1.1, 3 050 avec 2 mm de jeu) |
+| Pointages par face à 2,8 GHz | surface / cellule | 1 664 au pas de 1,4 (3 016 au pas de 1,04 d'avant l'étape 2.3, 4 167 avant l'étape 1.1 ; corrigé le 23 octobre 2026) |
 | Plus longue impulsion (τ_max) | fraction × E_réserve × PAE_sat / P_crête − t_front | S 2,0 ms, Ku 2,08 ms (937,5 µs en S avant l'étape 1.3) |
 | PAE à d = 0,65, impulsion longue | η_sat (1 − a × 0,55) | S 0,778, Ku 0,621 |
 | Puissance électrique disponible pour l'émission, 2 MW | 2 MW × CHAIN_EFF | 1,834 MW par face |
@@ -1115,7 +1116,7 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 | Latence | Règle supprimée, à reconstruire. | 4.3 |
 | Répartition de la puissance entre faces | Une seule valeur par mission. | 4.1, 5.2 |
 | Consommation hors émission | `overhead_frac` à 3 %. | 4.1, 4.4 |
-| Faisceaux de réception par pointage | Calculés (environ 3,4) mais pas encore comptés dans le bilan de calcul. | 4.4 |
+| Faisceaux de réception par pointage | Calculés (environ 6,1 à −25 dB au pas de 1,4 ; ×1,85 / ×3,43 en partition) mais pas encore comptés dans le bilan de calcul. | 4.4 |
 | p_min par volume | Option à creuser. | 5.1 |
 
 ### 10.3 Points ouverts

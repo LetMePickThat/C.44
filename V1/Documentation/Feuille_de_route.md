@@ -35,7 +35,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 2.4 | ✔ fait (commit 008d583) |
 | 2.5 | ✔ fait (commit baeadcf) |
 | 3.0 | ✔ fait (commit 22114fd ; ajoutée le 22 octobre 2026) |
-| 3.1 | en cours : variables validées ; P1 (grille de fréquences), élargissement de la bande S, P2 (formes d'onde), accélérations X1, X2, X3, X5, P3 (multifaisceau) et P4 (environnement par forme d'onde) faits et commités (`90555d8`, `b4be91e`, `cd97216`, `f6a526c`, `b0dbc09`, P4 : hash au prochain commit de documentation) ; reste P5 (ciel, pas de grille), P6 (rapport, documentation) |
+| 3.1 | en cours : variables validées ; P1 (grille de fréquences), élargissement de la bande S, P2 (formes d'onde), accélérations X1, X2, X3, X5, P3 (multifaisceau) et P4 (environnement par forme d'onde) faits et commités (`90555d8`, `b4be91e`, `cd97216`, `f6a526c`, `b0dbc09`, `f8fa433`) ; reste P5 (ciel, pas de grille), P6 (rapport, documentation) |
 | 3.2 et suivantes | à faire |
 
 ---

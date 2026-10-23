@@ -1,0 +1,911 @@
+% Radar design and modelling reference -- C.44 mission-preparation tool
+% Build: tectonic radar_design.tex   (or pdflatex/lualatex twice)
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.3cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{siunitx}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc,fit}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+
+\sisetup{group-separator={\,},group-minimum-digits=4,detect-all}
+\setlist{itemsep=2pt,topsep=4pt}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\renewcommand{\arraystretch}{1.15}
+
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\dB}{\,\mathrm{dB}}
+\newcommand{\Tsys}{T_{\mathrm{sys}}}
+\newcommand{\SNR}{\mathrm{SNR}}
+\newcommand{\Pd}{P_{\mathrm d}}
+\newcommand{\Pfa}{P_{\mathrm{fa}}}
+\newcommand{\Denv}{D_{\mathrm{env}}}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small C.44 radar -- design and modelling reference}
+\rhead{\small Model V6.11.6}
+\cfoot{\thepage}
+
+\title{\textbf{Space-borne four-face AESA radar}\\[4pt]
+\large Design and modelling reference of the mission-preparation tool}
+\author{C.44 project}
+\date{23 October 2026 -- radar model V6.11.6 (roadmap step 3.1, pass P4)}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent This document describes, for a reader who knows radar but not this project, the radar that the
+mission-preparation tool models, the radio-frequency (RF) and signal-processing models it implements, and the
+design choices behind every value. The radar is a four-face, fully digital active electronically scanned array (AESA)
+carried by a spacecraft, using S band for search and Ku band for confirmation and tracking. The tool lets an operator
+describe a mission (watch volumes, threats, sky, navigation) and validates it against the resources of the whole
+system: RF budget, power, time on air, environment, and, in later steps, scheduling, thermal and computing loads.
+The document follows the code and the single parameter file of the repository; where the two differ, the parameter
+file is the reference.
+\end{abstract}
+
+\vspace{4pt}
+\noindent\fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\small\textbf{Read this first.}
+(1) The test missions of the repository and their frozen outputs are \emph{test values}: they exist only to detect
+regressions of the code. They are neither requirements nor demonstrated performances of the radar.
+(2) Technology values (TRMs, receivers, converters, oscillator) are \emph{credible but optimistic assumptions for the
+2050--2060 time frame}: when a range of values was considered, its optimistic end was kept. Threat and environment
+values are \emph{class means} or medians, not data on a specific system.
+(3) All values live in one file, \code{radar\_system.toml}; each entry carries its value, unit, status and the reason
+for the value. This document explains those reasons; it does not replace the file.}}
+
+\tableofcontents
+\newpage
+
+%=====================================================================================================================
+\section{Purpose and scope}
+%=====================================================================================================================
+
+\subsection{What the tool does}
+The tool is a \emph{mission-preparation} tool. The operator describes what the radar must do during a mission:
+\begin{itemize}
+  \item \textbf{watch volumes} (``sectors''): an angular box or cap, a required detection range, a revisit period, a
+        threat (class of target, radar cross-section, speed), resolution and false-alarm settings, optional
+        active-tracking range brackets;
+  \item the \textbf{sky}: bodies in front of the faces (Sun, Earth, Moon, \dots), a galactic frame, stand-off jammers;
+  \item the \textbf{navigation}: the attitude of the spacecraft and, optionally, its orbit;
+  \item global settings: electrical power per face, spectrum the radar must not use, elevation window.
+\end{itemize}
+For each volume, the tool chooses the S-band search frequency and waveforms, computes the achieved ranges and the
+energy and time each face spends, adds the Ku-band confirmation of every detection and the active tracking, and flags
+whatever the system cannot do (power or time over-subscription, unreachable range, blinded directions, scan limits,
+self-protection jamming, \dots). The aim is to validate the mission \emph{against the whole radar system}, not only
+against a link budget.
+
+\subsection{Place in a larger simulation}
+The tool is the \emph{radar computer} layer of a four-layer architecture (Figure~\ref{fig:layers}) that separates
+\emph{truth}, known only to the simulation, from \emph{knowledge}, what the spacecraft knows:
+\begin{enumerate}
+  \item \textbf{global scenario simulation}: orbits, objects, Newtonian propagation (the truth);
+  \item \textbf{converter}: turns the truth into the spacecraft frame for the RF simulation, and into a navigation
+        message for the radar computer;
+  \item \textbf{radar computer} (this tool): knows only its navigation and its own detections; keeps the volumes
+        attached to the spacecraft, schedules, chooses waveforms;
+  \item \textbf{RF simulation}: plays the orders of the radar computer against the truth.
+\end{enumerate}
+In mission preparation, the navigation is a snapshot entered by the operator; later it will be the navigation
+message of the global simulator. Volumes and sky are given in a \emph{mission frame} (ship, inertial, RTN, limb, two
+directions); the radar computer applies the rotation by the attitude (Section~\ref{sec:frames}).
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[node distance=6mm and 10mm, box/.style={draw,rounded corners,align=center,minimum width=33mm,
+  minimum height=11mm,font=\small}, >={Stealth[length=2mm]}]
+\node[box,fill=gray!12] (sim) {1. Global scenario\\simulation (truth)};
+\node[box,right=of sim] (conv) {2. Converter};
+\node[box,right=of conv,fill=blue!8] (rc) {3. Radar computer\\(this tool)};
+\node[box,below=12mm of conv] (rf) {4. RF simulation};
+\draw[->] (sim) -- (conv);
+\draw[->] (conv) -- node[above,font=\scriptsize]{navigation} (rc);
+\draw[->] (conv) -- node[left,font=\scriptsize,align=right]{truth in\\ship frame} (rf);
+\draw[->] (rc) |- node[pos=0.25,right,font=\scriptsize]{orders} (rf);
+\draw[->] (rf.west) -| node[pos=0.75,left,font=\scriptsize]{echoes} ($(sim.south)+(0,0)$);
+\end{tikzpicture}
+\caption{Four-layer architecture: truth and knowledge are kept apart. The tool implements layer 3 in mission
+preparation.}
+\label{fig:layers}
+\end{figure}
+
+\subsection{Design method}
+The model was rebuilt step by step along a roadmap (Section~\ref{sec:roadmap}). A few rules shape every part of it:
+\begin{itemize}
+  \item \textbf{One parameter file.} Every system value is an entry of \code{radar\_system.toml} with
+        \code{value}, \code{unit}, \code{status} (V: locked by the designer; D: derived or proposed, to confirm),
+        \code{source} (the reason) and \code{date}. Tool settings (search grids, caches, defaults) are in a separate
+        \code{[tool.*]} block. 290 system entries exist today, 247 of them locked.
+  \item \textbf{Derived, not entered.} Anything that follows from other values is computed: the array build-up, the
+        radiation patterns, the system noise temperature, the converter noise figure, the longest pulse, the
+        frequency grid, \dots{} The loader refuses inconsistent combinations with a clear message.
+  \item \textbf{Optimistic technology, median threats.} For our technology, the optimistic end of a credible
+        2050--2060 range is kept; for threats and the environment, the median or class mean.
+  \item \textbf{No accuracy traded for speed.} Run-time gains are welcome, but an approximation is never applied
+        without the designer's decision; exact shortcuts (closed forms, caches, exact pruning) are used instead.
+  \item \textbf{Test values are not performances.} The test missions only guard against regressions.
+\end{itemize}
+
+%=====================================================================================================================
+\section{The radar}
+%=====================================================================================================================
+
+\subsection{Faces and geometry}
+The radar has \textbf{four planar faces} spread at \SI{90}{\degree} around the spacecraft axis (azimuths
+\SIlist{0;90;180;270}{\degree}), all \textbf{tilted by \SI{25}{\degree} toward the nose}. The ship frame has $Z$
+along the axis, toward the nose (``lighthouse'' model: the axis is vertical, the nose at the zenith); azimuth $\varphi$
+is counted about $Z$ from $+X$ toward $+Y$, elevation $\varepsilon$ from the $XY$ plane toward $+Z$.
+
+Each face covers a \emph{sector} of radius \SI{75}{\degree} around its normal (the widest scan limit of the bands),
+cut by the planes $\varphi = \pm\SI{45}{\degree}$ between neighbouring faces. Search positions are counted in the
+direction cosines $(u, v)$ of the face: a planar array scans with a beam of constant width in $(u,v)$, which widens as
+$1/\cos\theta$ in angle. The sector covers an area of $2.0006$ in $(u,v)$.
+
+The spacecraft geometry comes from a low-polygon 3D model (\SI{149.46}{m} long, \SI{74.68}{m} span over its radiator
+wings, hull diameter \SI{17.22}{m}); the four radar panels are octagons sitting on a cone around the nose station, with
+the aperture centres \SI{5.248}{m} from the axis. The loader checks the model against the locked dimensions and checks
+that each aperture centre lies on a panel whose normal is the face normal at the locked tilt.
+
+\subsection{Bands and roles}
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}lLL@{}}
+\toprule
+ & \textbf{S band} & \textbf{Ku band}\\
+\midrule
+Usable band & \SIrange{2.60}{2.93}{GHz} & \SIrange{13.5}{14.5}{GHz}\\
+Core band (no edge loss) & \SIrange{2.66}{2.88}{GHz} & \SIrange{13.7}{14.3}{GHz}\\
+Role & search (detection of new targets) & confirmation of detections, active tracking\\
+Scan limit & \SI{75}{\degree} up to \SI{2.85}{GHz}, \SI{70}{\degree} above & \SI{75}{\degree} up to \SI{14.25}{GHz}, \SI{70}{\degree} above\\
+TRMs per face & \num{4900} & \num{122500}\\
+Peak power per TRM (PA output) & \SI{2000}{W} & \SI{75}{W}\\
+Peak power per face & \SI{9.80}{MW} & \SI{9.19}{MW}\\
+Instantaneous bandwidth & \SI{200}{MHz} & \SI{200}{MHz}\\
+Cold-sky system temperature & \SI{144.5}{K} & \SI{230.8}{K}\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The architecture is \textbf{fully digital}: one analogue-to-digital converter per TRM and per polarisation channel,
+digital true time delay in every TRM (no beam squint, no aperture-fill limit on the bandwidth), receive beams formed
+by computation. Search uses S band only; the S ``touch'' of one confirmation mode is the single exception.
+
+\subsection{Array build-up}
+Each face is a dual-band tiling of \textbf{196 TRSAs} (transmit-receive sub-arrays). A TRSA is a square tile of
+$25\times25$ Ku TRMs (pitch \SI{10.4}{mm}) and $5\times5$ S TRMs (pitch \SI{52}{mm}, close to $\lambda/2$ in S); each
+S TRM covers exactly one block of $5\times5$ Ku TRMs. The TRSAs are laid out in an approximate octagon of 16 centred
+rows,
+\[
+  [6, 8, 10, 12, 14, 16, 16, 16, 16, 16, 16, 14, 12, 10, 8, 6],
+\]
+separated by a mechanical gap of \SI{0.5}{mm} (a dead, non-radiating region). Derived quantities:
+\begin{center}
+\begin{tabular}{@{}lr@{}}
+\toprule
+TRSA side & \SI{260}{mm}\\
+Emissive area & \SI{13.2496}{m^2} (fill \SI{99.65}{\percent} of \SI{13.2964}{m^2})\\
+Envelope $\Denv$ (widest row: 16 TRSAs and 15 gaps) & \SI{4.1675}{m}\\
+Mean element pitch (TRSA pitch / TRMs per side) & S \SI{52.1}{mm}, Ku \SI{10.42}{mm}\\
+RMS extent of the aperture along one axis $x_{\mathrm{rms}}$ & \SI{1.033}{m} $= 0.248\,\Denv$\\
+\bottomrule
+\end{tabular}
+\end{center}
+The gap was reduced from \SI{2}{mm} to \SI{0.5}{mm} because the break of the element pitch from one TRSA to the next
+creates ``gap lobes'' near the grating lobe (\SI{-16.6}{dB} in Ku with \SI{2}{mm}) that no receive weighting can
+lower; \SI{0.5}{mm} assumes TRSA and back-plate materials matched in thermal expansion.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[scale=0.32]
+  \foreach \n [count=\r from 0] in {6,8,10,12,14,16,16,16,16,16,16,14,12,10,8,6} {
+    \pgfmathsetmacro{\xo}{-\n/2}
+    \foreach \k in {1,...,\n} {
+      \pgfmathsetmacro{\x}{\xo+\k-1}
+      \draw[fill=blue!10,draw=blue!50!black,line width=0.2pt] (\x,7.5-\r) rectangle ++(0.94,0.94);
+    }
+  }
+  \draw[->,thick] (0.47,8.4) -- (0.47,10.2) node[above,font=\scriptsize]{$v$ ($e_v$, toward the ship axis plane)};
+  \draw[->,thick] (8.8,0.47) -- (10.8,0.47) node[right,font=\scriptsize]{$u$};
+  \draw[|<->|] (-8,-9.2) -- (8,-9.2) node[midway,below,font=\scriptsize]{$\Denv = \SI{4.1675}{m}$ (16 TRSAs)};
+\end{tikzpicture}
+\caption{The 196 TRSAs of one face (each square: $25\times25$ Ku TRMs and $5\times5$ S TRMs).}
+\label{fig:octagon}
+\end{figure}
+
+%=====================================================================================================================
+\section{Antenna model}
+%=====================================================================================================================
+
+\subsection{Radiation pattern computed from the build-up}
+The pattern is not a textbook formula: it is computed from the element positions of the build-up
+(\code{core/antenna.py}). Elements are isotropic in the array factor; the element pattern enters only through the
+projected area $\cos\theta$ and the active mismatch (Section~\ref{sec:mismatch}). Near boresight, expressed in units
+of $\lambda/\Denv$, the pattern does not depend on frequency, so one computation per band serves the whole band (S and
+Ku sample the same octagon and agree to \SI{0.1}{\percent}). The rows are centred and palindromic, so the array factor
+is real,
+\[
+  AF(u,v) = \sum_{\text{quadrant}} w\,m\,\cos(k x u)\cos(k y v),
+\]
+with multiplicities $m$ for the symmetry; with the $x\leftrightarrow y$ symmetry of the octagon, cuts from
+\SIrange{0}{45}{\degree} suffice, each a matrix product. Results are cached under a hash of their inputs.
+
+\begin{itemize}
+  \item \textbf{Transmit beam}: uniform illumination (PAs saturated). Half-power beamwidth (smallest cut)
+        $1.036\,\lambda/\Denv$, i.e. \SI{1.525}{\degree} at \SI{2.8}{GHz} and \SI{0.305}{\degree} at \SI{14}{GHz};
+        first sidelobe \SI{-15.6}{dB}.
+  \item \textbf{Receive beam}: circular Taylor (Hansen) law, $\bar n = 5$, whose design level is \emph{fitted
+        numerically} (regula falsi) so that the level \emph{achieved} on the real octagon equals the option chosen for
+        the watch volume: \SIlist{-25;-30;-35}{dB}. Efficiency and beamwidth follow:
+        \begin{center}
+        \begin{tabular}{@{}lccc@{}}
+        \toprule
+        Option & design level & $\eta_{\mathrm{RX}}$ & HPBW ($\lambda/\Denv$)\\
+        \midrule
+        \SI{-25}{dB} (default) & \SI{29.5}{dB} & 0.873 & 1.173\\
+        \SI{-30}{dB} & \SI{35.7}{dB} & 0.773 & 1.255\\
+        \SI{-35}{dB} & \SI{41.7}{dB} & 0.693 & 1.325\\
+        \bottomrule
+        \end{tabular}
+        \end{center}
+        Lowering the level rejects strong off-axis sources (bright target, Moon or Earth, jammer) at the cost of receive
+        gain ($-0.53$ and $-1.00\dB$ against the \SI{-25}{dB} option). One setting per volume serves S and Ku.
+  \item \textbf{Gain}: $G = 4\pi A\,\eta\,\eta_{\mathrm{ohm}}\cos\theta/\lambda^2$ with the emissive area $A$; at
+        \SI{2.8}{GHz} on boresight, \SI{41.62}{dBi} in transmission and \SI{41.03}{dBi} in reception (\SI{-25}{dB});
+        Ku transmit gain at \SI{14}{GHz}: \SI{55.60}{dBi}.
+  \item \textbf{Angle accuracy}: the Cram\'er--Rao bound of the full digital aperture with a margin of 1.13,
+        \[ \sigma_u = 1.13\,\frac{\lambda}{2\pi\,x_{\mathrm{rms}}\sqrt{2\,\SNR}}, \]
+        independent of the receive weighting (the maximum-likelihood estimator uses the whole aperture); the same
+        margin applies to the Doppler and range estimators.
+\end{itemize}
+
+\subsection{Far sidelobes and gap lobes}
+Beyond the near window ($8\,\lambda/\Denv$), the array factor is scanned on a 2D grid over the whole visible region of
+the band (radius $(1+\sin\theta_{\lim})\Denv/\lambda$ at the top of the band), grating-lobe neighbourhoods excluded.
+A cumulative profile stores the peak lobe level within a distance $r$ of the beam axis; a lobe at $r$ becomes visible
+once the beam is scanned to $\theta$ with $r\lambda/\Denv \le 1+\sin\theta$ (worst azimuth). The strongest far lobes,
+gap lobes included, are \SI{-25.3}{dB} in Ku and \SI{-30.7}{dB} in S (uniform); weighting does not lower gap lobes.
+For each sector the tool reports up to which scan angle the receive option is held over the visible region; in Ku the
+\SIlist{-30;-35}{dB} options are held up to \SIlist{75;62}{\degree} at \SI{14}{GHz} only.
+
+The same module provides \emph{azimuthal means} of the receive power pattern versus the distance to the beam axis
+(fine near the axis, annulus means beyond). They are used for the sky-noise integral, the sidelobe clutter and the
+jammer pick-up (Sections~\ref{sec:sky} and~\ref{sec:env}). By Parseval's theorem the normalisation is exact: a body
+filling the whole front half-space adds its brightness temperature (checked to within 1.00--1.04).
+
+\subsection{Active mismatch and grating lobes}\label{sec:mismatch}
+One model, applied to S and Ku, in transmission and in reception, describes the active reflection of the array: a
+current sheet matched at $\theta_m = \SI{45}{\degree}$ by a wide-angle impedance-matching (WAIM) layer, and the rise
+of the reflection as the first grating lobe approaches the visible region ($g_0 = 0.02$, $d_{\mathrm{mean}}$ the mean
+element pitch, worst azimuth):
+\begin{align*}
+  |\Gamma_{\mathrm{WAIM}}| &= \frac{|\cos\theta - \cos\theta_m|}{\cos\theta + \cos\theta_m},\qquad
+  |\Gamma_{\mathrm{GL}}| = \exp(-g/g_0),\quad g = \frac{\lambda}{d_{\mathrm{mean}}} - \sin\theta - 1,\\
+  1 - |\Gamma|^2 &= (1 - |\Gamma_{\mathrm{WAIM}}|^2)(1 - |\Gamma_{\mathrm{GL}}|^2),
+\end{align*}
+with a loss per pass $-10\log_{10}(1-|\Gamma|^2)$, counted twice (transmit and receive). At \SI{2.8}{GHz} the round
+trip costs \SI{0.26}{dB} on boresight, 0 at \SI{45}{\degree}, \SI{1.12}{dB} at \SI{70}{\degree} and \SI{2.11}{dB} at
+\SI{75}{\degree}. The upper edge of the S band is set by this wall: at \SI{2.93}{GHz} and \SI{70}{\degree} the loss is
+\SI{0.97}{dB} per pass; a grating lobe becomes visible at \SI{3.0}{GHz}. The optimiser flags any bin used beyond
+\SI{3}{dB} per pass.
+
+The transmit polarisation is linear along $e_v$ (the face axis in the plane of the ship axis), one PA per TRM; its
+purity (Ludwig-3 cross-polarisation, $(1+\cos\theta)/(1-\cos\theta)$ in the \SI{45}{\degree} plane) is reported. With
+the dual-polarisation receiver it costs nothing in the budget.
+
+\subsection{Sub-apertures for the transmit partition}\label{sec:subap}
+For the aperture-partition multibeam mode (Section~\ref{sec:multibeam}) the face is cut into halves (horizontal cut
+\code{h}: rows above the centre; vertical cut \code{v}: columns right of the centre) or quadrants, each uniform. Their
+2D patterns are evaluated directly (a half is not centred, so no symmetry is assumed), exactly, by a sum separable by
+element rows:
+\begin{center}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Aperture & S TRMs & $-3\dB$ widths $u\times v$ ($\lambda/\Denv$) & lattice cell / full face\\
+\midrule
+Full face & \num{4900} & $1.041\times1.041$ & 1\\
+Half & \num{2450} & $1.041\times1.928$ & $\times1.85$\\
+Quadrant & \num{1225} & $1.928\times1.928$ & $\times3.43$\\
+\bottomrule
+\end{tabular}
+\end{center}
+The cell ratio is below 2 and 4 because half an octagon is not half as wide in effective width. Because the octagon is
+symmetric in $x$ and $y$, the two halves are the same beam rotated by \SI{90}{\degree}: the code checks this exactly
+and then searches only one of them.
+
+%=====================================================================================================================
+\section{Transmit chain and power budget}
+%=====================================================================================================================
+
+\subsection{TRM model}
+The TRMs are GaN-on-diamond with micro-channel cooling. Peak power is specified at the PA output (where the
+power-added efficiency, PAE, is defined); the path from the PA to the element is a derived loss (harmonic filter,
+circulator, calibration coupler, line: \SI{0.6}{dB} in S, \SI{0.95}{dB} in Ku).
+
+\paragraph{PAE.} For a pulse of length $\tau$ in a train of duty cycle $d = \tau/\mathrm{PRI}$,
+\[
+  \eta = \eta_{\mathrm{sat}}\,\frac{\tau}{\tau + t_{\mathrm{edge}}}\,\min\bigl(1,\;1 - a\,(d - d_{\mathrm{ref}})\bigr),
+\]
+with the saturated PAE $\eta_{\mathrm{sat}}$ at the reference duty $d_{\mathrm{ref}} = 0.10$, the time $t_{\mathrm{edge}}$
+during which the PA draws power without full RF (switching, bias and phase settling), and a slope $a$ for channel
+heating. A single pulse uses $d_{\mathrm{ref}}$.
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+ & S & Ku\\
+\midrule
+$\eta_{\mathrm{sat}}$ & 0.80 & 0.65\\
+$t_{\mathrm{edge}}$ & \SI{0.2}{\micro s} & \SI{0.1}{\micro s}\\
+Duty slope $a$ & 0.05 ($-2.75\,\%$ at $d=0.65$) & 0.08 ($-4.4\,\%$ at $d=0.65$)\\
+Duty ceiling on trains & 0.65 & 0.65\\
+Energy buffer per TRM & \SI{25}{J} & \SI{1.2}{J}\\
+Longest pulse $\tau_{\max}$ & \SI{2.0}{ms} & \SI{2.08}{ms}\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Energy buffer.} Each TRM draws its pulse from a local capacitor bank. A pulse using a fraction
+$x = E/E_{\mathrm{buf}}$ of it loses on average $-10\log_{10}(1-x/2)$ (the PA output follows the stored energy); a
+pulse beyond $x = 0.2$ is refused, which sets
+$\tau_{\max} = 0.2\,E_{\mathrm{buf}}\,\eta_{\mathrm{sat}}/P_{\mathrm{pk}} - t_{\mathrm{edge}}$. The longest pulse ends
+\SI{0.97}{dB} down (mean \SI{0.46}{dB}); the AM/PM conversion of the PA as the buffer empties is reported, not
+counted (quasi-linear phase drift).
+
+\subsection{Electrical budget}
+The budget of a face is \emph{electrical}. A face is allocated \SI{2}{MW} by default (the ship provides \SI{8}{MW} for
+the radar, to be shared among the faces in later steps). The chain efficiency
+$0.95\times0.995\times(1-0.03) = 0.917$ (power supply, distribution, overhead) leaves \SI{1.834}{MW} for transmission.
+Each look costs its RF energy divided by its PAE; the heat is the electrical energy minus the RF energy (about
+\SI{370}{W} per S TRM during a long train at $d=0.65$, an input of the thermal step).
+
+%=====================================================================================================================
+\section{Band model}
+%=====================================================================================================================
+Each band has a usable band and a core band. A signal of bandwidth $B$ at centre $f$ occupies
+$[f-B/2,\,f+B/2]$, which must lie inside the usable band (and outside the spectrum the mission forbids); otherwise the
+waveform is not playable at $f$. Outside the core band, a raised-cosine derating reaches \texttt{edge\_derating\_db} at
+the usable edges (\SI{1.0}{dB} round trip in S, \SI{0.5}{dB} in Ku); its \emph{exact} average over the occupied
+spectrum is applied. The loader checks that the core band and the scan-limit break frequency lie inside the usable
+band, so the band can be changed in the file alone. With digital true time delay there is no aperture-fill limit
+(phase steering would limit the signal to $c/(\Denv\sin\theta)$, about \SI{75}{MHz} at \SI{75}{\degree}).
+
+%=====================================================================================================================
+\section{Receive chain}\label{sec:rx}
+%=====================================================================================================================
+
+\subsection{System noise temperature}
+$\Tsys$ is the Friis cascade referred to the antenna port: cold-sky antenna temperature, the losses before the LNA
+(circulator, limiter, line: they attenuate and add $(L-1)T_{\mathrm{phys}}$), the LNA, the post-LNA chain and the ADC,
+each divided by the gain ahead of it, and a digital-noise factor. Values (S / Ku): cold sky \SI{3.2}{K} / \SI{2.8}{K},
+front-end at \SI{320}{K}, pre-LNA losses \SI{0.85}{dB} / \SI{1.2}{dB}, LNA noise figure \SI{0.75}{dB} / \SI{1.15}{dB},
+giving \textbf{\SI{144.5}{K} in S and \SI{230.8}{K} in Ku} for the cold sky. The sky in front of the face is added per
+direction (Section~\ref{sec:sky}).
+
+\subsection{Converter and dynamic range}
+The ADC noise figure is derived from the converter, not entered:
+\[
+  \mathrm{NF}_{\mathrm{ADC}} = P_{\mathrm{FS}} - (6.02\,\mathrm{ENOB} + 1.76) - 10\log_{10}(k T_0 f_s),
+\]
+with 13 effective bits, a full scale of \SI{+10}{dBm} and $f_s = 1.25\times\SI{200}{MHz} = \SI{250}{MS/s}$
+complex: \SI{20.0}{dB}. Levels are referred to the antenna port: the clipping level is $P_{\mathrm{FS}} - \SI{3}{dB}$
+minus the gain to the ADC (\SI{53.4}{dB} above the noise in S). Digitisation happens per element, \emph{before}
+beamforming: a strong source in any front direction reaches every converter. The \emph{minimum unsaturated range} is
+where the peak echo per element of a full-power, single-beam look reaches the clipping level (S: \SI{12.2}{km} for
+the reference target, \SI{2.3}{km} for a KKV). The receiver is deaf for $\tau$ plus the limiter recovery
+(\SI{50}{ns} in S, \SI{25}{ns} in Ku).
+
+\subsection{Dual polarisation}
+Each TRM has two receive channels. A detection look uses a GLRT detector on the unknown polarisation of the echo,
+estimated over the look: one more unknown complex sample, a loss $\SNR_{\mathrm{req}}(n+1)-\SNR_{\mathrm{req}}(n)$
+(\SI{0.47}{dB} for one coherent sample, small for long noncoherent trains). A tracking look knows the polarisation
+from the track (\SI{0.05}{dB} residual). The dual-channel receiver also collects the cross-polar echo of the target,
+a gain $10\log_{10}(1+\rho)$ with $\rho$ the cross/co-polar RCS ratio, and the two channels add polarisation diversity
+to the target fluctuation (Section~\ref{sec:targets}).
+
+\subsection{Isolation between bands and faces}
+Leakage from each transmitting band and face to each receiving element is checked against three limits: LNA blocking,
+ADC clipping and in-channel desensitisation (\SI{6}{dB} below the noise). With the couplings assumed (\SI{90}{dB} to
+an adjacent face, \SI{120}{dB} to the opposite one, \SI{-30}{dB} inside a TRSA) a face cannot receive a band while
+another face transmits it: all faces share \textbf{a common transmit/receive cadence per band}. A further rule: no Ku
+reception on a face during an S transmission whose fifth harmonic $[5(f-B/2),\,5(f+B/2)]$ covers the Ku channel. These
+are rules for the scheduler (not yet enforced; no loss is put in the budget before the scheduling step).
+
+\subsection{Sky noise}\label{sec:sky}
+The antenna temperature depends on the look direction. With the receive gain written $G = G_0\,w\,g(\rho)$ (element
+pattern $w=\cos\theta$, nothing behind the face) and $d\Omega = du\,dv/w$, the factor $w$ cancels and the rise is
+\[
+  \Delta T = T_b\,\frac{A\,\eta_{\mathrm{RX}}\,\eta_{\mathrm{ohm}}}{\Denv^2}\int_{\text{body}} g(\rho)\,d\rho^2,
+\]
+the integral running over the body as seen in the $(u,v)$ plane of the face (front half only), $\rho$ being the
+distance to the beam axis in $\lambda/\Denv$ and $g$ the azimuthal mean of the computed receive pattern. The main lobe
+is therefore exact, not a Gaussian approximation. Small bodies (Sun, Moon) are sampled finely on their disk; large
+ones (Earth) by a polar grid in the near window and rings beyond. Brightness temperatures are class values per band
+(quiet, mid-cycle and active Sun: \SIlist{4.5e4;1.0e5;1.5e5}{K} in S; Earth \SI{290}{K} worst case, ocean and land
+variants; Moon \SI{230}{K}); the galactic background follows a plane-and-bulge model scaled as $f^{-2.5}$, with a
+worst case applied everywhere when the mission gives no galactic frame. The Sun in the beam adds about
+\SI{17}{dB} in S as in Ku; the Moon about \SI{2.6}{dB} in Ku.
+
+For a sector, $\Tsys$ is evaluated every half transmit beamwidth over the scanned positions. A position whose rise
+exceeds \SI{10}{dB} is \emph{blinded}: it is removed from the search and reported with the body responsible. The
+\emph{budget} $\Tsys$ of the sector is the $(1-\text{\code{short\_tol}})$ quantile (\SI{99}{\percent}) of the other
+positions, and all its ranges scale with $(T_{\mathrm{cold}}/T_{\mathrm{budget}})^{1/4}$. The same rule applies in Ku
+to the confirmation and tracking of the sector.
+
+%=====================================================================================================================
+\section{Waveforms}\label{sec:wf}
+%=====================================================================================================================
+
+\subsection{Modulation and pulse compression}
+Two families are modelled: linear FM (Doppler tolerant) and non-linear FM (low range sidelobes shaped by the frequency
+law, no weighting loss); phase codes are left out because they tolerate a Doppler shift poorly at closing speeds up to
+\SI{25}{km/s} ($f_d \approx \SI{470}{kHz}$ in S). For each look, with $f_{d,\max} = 2v/\lambda$:
+\begin{itemize}
+  \item if $f_{d,\max}/B \le 2\,\%$: NLFM, mismatch loss \SI{0.1}{dB};
+  \item otherwise: LFM with a Taylor ($\bar n = 5$) receive-only weighting at the sidelobe level of the volume; loss =
+        weighting loss $-\,20\log_{10}(1-f_d/B)$ (Doppler loss at the peak of the ambiguity function).
+\end{itemize}
+The range sidelobe level is the same as the angular option of the volume: one sidelobe policy per volume. Weighting
+at \SIlist{-25;-30;-35}{dB} costs \SIlist{0.41;0.68;0.93}{dB} and widens the main lobe by $\times$1.18, 1.27, 1.34.
+The physical range resolution is this widening times $c/2B$ (2 m requires \SI{89}{MHz} at \SI{-25}{dB}); the range
+estimator constant is $k_r = 0.6/(\text{RMS-bandwidth ratio})$. The range--Doppler coupling bias $c f_d \tau/2B$ is
+corrected by the Doppler measurement.
+
+\subsection{Intra-pulse effects and timeline}
+A target crosses $n_c = 2v\tau B/c$ range cells during the pulse; a filter matched to another speed then has a
+quadratic phase error, a loss $-20\log_{10}\bigl|\langle e^{\,j2\pi n_c x^2}\rangle_{x\in[-1/2,1/2]}\bigr|$ (1 dB at
+$n_c = 1.016$). This sets the spacing of the velocity bank (Section~\ref{sec:proc}).
+
+The receiver is deaf during the pulse and the limiter recovery: blind range $c(\tau + t_{\mathrm{rec}})/2$ (\SI{3}{km}
+for \SI{20}{\micro s}, \SI{300}{km} for \SI{2}{ms}), which must stay below the sector's shortest range of interest
+(\code{range\_min\_km}, 10\,\% of the required range by default). A train is unambiguous in range when
+$\mathrm{PRI} \ge 2R/c + \tau + t_{\mathrm{rec}}$; a sector may allow ambiguous trains, staggered over 3 PRIs at
+$\pm10\,\%$, with the mean eclipsing loss $-10\log_{10}(1-(\tau+t_{\mathrm{rec}})/\mathrm{PRI})$ (they are removed when
+a surface is in the main lobe, since its clutter would fold onto the targets).
+
+\subsection{Frequency agility}
+A noncoherent train may hop its carrier pulse to pulse over an excursion $\Delta f$; the occupied band becomes
+$B + \Delta f$ and the number of independent target samples is $\min(n, \lfloor \Delta f/(c/2L)\rfloor + 1)$ for a
+target of length $L$, which turns a declared Swerling~1/3 target into a 2/4-like one over the train.
+
+\subsection{Transmit multibeam}\label{sec:multibeam}
+In S, one dwell may serve $B_{\mathrm{tx}}$ beams. The digital receiver already forms many receive beams per position
+(no loss; a computing load). Three transmit modes are modelled:
+\begin{itemize}
+  \item \textbf{Phase-only superposition} ($B_{\mathrm{tx}} = 2, 4, 8$): every TRM sends the constant-envelope sum of the
+        beams (PAs saturated, PAE unchanged), power $P/B_{\mathrm{tx}}$ per beam, full transmit gain, a loss of
+        \SIlist{0.4;0.6;0.8}{dB} (power lost to the intermodulation of the constant-envelope sum).
+  \item \textbf{Aperture partition} ($B_{\mathrm{tx}} = 2, 4$): halves or quadrants (Section~\ref{sec:subap}), power
+        $P/B_{\mathrm{tx}}$ and gain $G\,N_{\mathrm{sub}}/N$ per beam, a wider beam on its own lattice: fewer positions.
+  \item \textbf{Time multiplex} ($B_{\mathrm{tx}} = 2, 4, 8$): full-power pulses sent back to back in the PRI; blind
+        range, buffer, duty and PAE computed on $B_{\mathrm{tx}}\tau$. Modelled, but not offered to the optimiser: in
+        the budget of transmit time with interleaved positions it spends the same energy and time per position as one
+        beam and is never better. Its value is in the timeline (latency, shared echo waiting), to be re-evaluated with
+        the scheduler.
+\end{itemize}
+Linear superposition (PA back-off) and frequency multiplexing were left out.
+
+\subsection{Search waveform space}
+The S search space is the product of: integration (coherent, noncoherent), transmit mode and beams, signal bandwidths
+\SIlist{10;20;30;50;75;100;150;200}{MHz} meeting the sector's resolution, pulses from \SI{5}{\micro s} to \SI{2}{ms}
+(13 values, the last one set by the buffer), 1 to 32 pulses, the agile variant of noncoherent trains and, where a
+surface clutters the sector, Taylor Doppler weightings of coherent trains. The PRI is the shortest unambiguous one
+(or \SI{1}{ms} for single pulses and allowed ambiguous trains). About \num{6500} candidates per sector.
+
+%=====================================================================================================================
+\section{Signal processing}\label{sec:proc}
+%=====================================================================================================================
+
+\subsection{Coherent blocks and coherence}
+A coherent train of $N$ pulses is cut into $M$ blocks ($M$ divides $N$) integrated noncoherently, $M$ minimising the
+required SNR of $M$ blocks plus the coherence loss of one block. Noncoherent trains, and declared Swerling~2/4 cases,
+have $M = N$. The coherence loss of a block of duration $T$ combines
+\begin{itemize}
+  \item the target decorrelation $\eta = \exp(-(T/T_0)^2)$, with $T_0 = \lambda/(2L\omega)$ from the target class
+        (length $L$, rotation rate $\omega$);
+  \item the residual phase variance $\sigma^2$, giving $4.34\,\sigma^2\dB$: oscillator phase noise filtered by the
+        round trip, $4\sin^2(\pi f\tau_{rt})$, integrated from $1/T$ to $B/2$ (one oscillator for transmit and receive;
+        an optimistic photonic oscillator, \SI{-150}{dBc/Hz} at \SI{1}{kHz} from \SI{10}{GHz}), plus the residual
+        platform motion $(4\pi\delta/\lambda)^2$ with $\delta = \SI{10}{\micro m}$ rms.
+\end{itemize}
+The losses are negligible with these values; the visible effect is the Doppler floor, reported per look.
+
+\subsection{Velocity and acceleration banks}
+Range migration is compensated (keystone or Radon type, residual \SI{0.1}{dB} when the target crosses more than 1.5
+cells). The filter for a velocity offset $\Delta v$ loses the intra-pulse term plus the range walk over the look; the
+bank step is chosen so that a target half a step off loses \SI{1}{dB}; the \emph{mean} loss over the step goes into the
+budget and the number of hypotheses into the false-alarm count (and, later, the computing load). Accelerations up to
+the class maximum add a quadratic phase on a coherent block and a residual range curvature; when they cost more than
+\SI{1}{dB}, a bank of acceleration hypotheses multiplies the velocity hypotheses.
+
+\subsection{Grids, CFAR and false alarms}
+The detection grid is oversampled $\times4$ in range and the Doppler transform zero-padded $\times4$: mean straddle
+\SI{0.05}{dB} and \SI{0.07}{dB}. The CA-CFAR uses \num{1024} reference cells (loss \SI{0.04}{dB}, exact for
+Swerling~1 on one sample); OS-CFAR (rank 0.75) and GO-CFAR (greatest of the two half windows, which holds the
+$\Pfa$ at a clutter edge, \SI{0.05}{dB}) are options. Independent cells per position: range extent over $c/2B$,
+Doppler cells of a block, velocity and acceleration hypotheses, and angular cells (receive beams per position $\times$
+the receive-beam spacing squared). The oversampled grids are not counted (correlated samples).
+
+%=====================================================================================================================
+\section{Detection criterion}\label{sec:det}
+%=====================================================================================================================
+
+\subsection{Exact detection laws}
+A square-law detector on $n$ noncoherently integrated samples (the coherent blocks) is modelled exactly: under noise
+alone the statistic is Gamma$(n,1)$, so $\Pfa = P(\mathrm{Poisson}(T) \le n-1)$; for a steady target of total SNR
+$\lambda$, $\Pd = \sum_k \mathrm{Pois}(k;\lambda)\,P(\mathrm{Poisson}(T)\le n+k-1)$. Fluctuating targets are mixtures
+over a Gamma-distributed target power of shape $k$ ($k=1$: Swerling~1, $2$: Swerling~3, $n$: Swerling~2, $2n$:
+Swerling~4, $\infty$: steady); non-integer shapes are allowed, which is how decorrelation inside a look and
+polarisation diversity enter. The laws are valid for any $\Pfa$ and agree with Shnidman's fit within its
+\SI{0.3}{dB} error.
+
+\subsection{Pd averaged over the target position}
+The random position of the target costs SNR. The offsets in the hexagonal transmit cell (real pattern), in the receive
+beam lattice, in range and Doppler straddle, and to the nearest velocity filter form a discrete loss law (16 quantiles
+each, combined as independent). The $\Pd$ of a look is the \emph{mean} $\Pd$ over this law, and the SNR it costs is
+the budget loss called ``positions''. The search lattice spacing of $1.4$ transmit beamwidths is the optimum of this
+criterion (flat within \SI{0.1}{dB} from 1.3 to 1.6); a cell corner is \SI{7.9}{dB} down, so the scheduler must shift
+the lattice every frame.
+
+\subsection{Cumulative Pd of the search}
+A target closing at $v$ is seen once per revisit $RR$, at ranges $R(1+(k+\phi)q)$ with $q = vRR/R$ and a uniform phase
+$\phi$; the look SNR scales as $(R/R_k)^4$. The requirement is that the \emph{cumulative} probability
+\[
+  P_{\mathrm{cum}}(R) = \bigl\langle 1 - \textstyle\prod_k (1 - P_{\mathrm{d},k})\bigr\rangle_\phi = 0.9
+\]
+at the sector's required range (looks below $\Pd = 10^{-3}$ no longer count). Against a single look at $R$ this changes
+the required SNR by $+6.0\dB$ for $q=1$ and $-6.8\dB$ for $q=0.1$.
+
+\subsection{False-alarm policy}
+By default a sector tolerates a number of false alarms per revisit (\code{fa\_per\_rr} = 10); the $\Pfa$ per cell is
+that number divided by positions times independent cells, bounded to $[10^{-14}, 10^{-4}]$ and rounded to a twentieth
+of a decade. Every false alarm is then confirmed in Ku like a detection. Ku looks use $\Pfa = 10^{-8}$.
+
+%=====================================================================================================================
+\section{Target models}\label{sec:targets}
+%=====================================================================================================================
+Targets are described by \emph{classes} whose values are \emph{class means}, not data on a particular weapon: the
+adversary's equipment is unknown and every value of a plausible range is possible. A sector names a class and may
+override any value. ST is the conventional reference target of the benchmark; GENERIC completes a sector that names no
+class.
+
+\begin{center}
+{\small\setlength{\tabcolsep}{4pt}\begin{tabular}{@{}lcccccccc@{}}
+\toprule
+Class & $v$ (km/s) & $L$ (m) & $\omega$ (\si{\degree/s}) & $a_{\max}$ & RCS S / Ku (\si{m^2}) & Fluct. & Depol. & $T_0$ S / Ku (s)\\
+\midrule
+ST (reference) & 5 & 10 & 0.1 & 0 & \num{1000} / \num{1000} & SW1/2 & \SI{-10}{dB} & 3.1 / 0.6\\
+GENERIC & 10 & 3 & 1 & 1\,g & 1 / 1 & SW1/2 & \SI{-10}{dB} & 1.0 / 0.20\\
+KKV & 25 & 1.5 & 1 & 10\,g & 1.27 / 13.8 & SW3/4 & \SI{-20}{dB} & 2.0 / 0.41\\
+SHIP & 5 & 100 & 0.1 & 1\,g & 300 / 300 & SW1/2 & \SI{-6}{dB} & 0.31 / 0.06\\
+DEBRIS & 15 & 0.5 & 10 & 0 & 0.01 / 0.01 & SW1/2 & \SI{-3}{dB} & 0.61 / 0.12\\
+DECOY & 25 & 1.5 & 0.5 & 0 & 0.135 / 0.135 & SW0 & \SI{-20}{dB} & 4.1 / 0.82\\
+\bottomrule
+\end{tabular}}
+\end{center}
+
+\paragraph{Frontal RCS and seeker optics.} The RCS is co-polar and frontal (the aspect of a closing target). The KKV
+front is a large infrared seeker mirror, metallic and therefore a perfect conductor at radar frequencies, pointed at
+its target. Its contribution is
+$\sigma_{\mathrm{opt}} = \max\bigl(\pi(2f)^2,\;\eta_r\,4\pi A^2/\lambda^2\bigr)$ with $A = \pi D^2/4$, $D = \SI{0.3}{m}$,
+$f/D = 1$, $\eta_r = 0.1$: direct reflection on the concave primary, and the ``cat's eye'' retro-reflection of the
+focal assembly, in $1/\lambda^2$, hence mostly in Ku. The decoy mimics the body without the optics, which will help
+discrimination.
+
+\paragraph{Fluctuation.} The fluctuation of a look is a Gamma shape: the family (SW1/2: one degree of freedom per
+independent sample, SW3/4: two, SW0: steady) times $\min(n, 1 + T_{\mathrm{obs}}/T_0)$ independent samples over the
+look ($n$ coherent blocks), times the polarisation diversity $(1+\rho)^2/(1+\rho^2)$ of the two receive channels.
+A declared Swerling case overrides the class.
+
+\paragraph{Masking.} The scene is unknown, so the masking of a weak target by a strong neighbour is an output: the
+envelope of the strong target's response at 1, 2 and 3 cells in range (with the look's weighting) and Doppler
+(\SI{-13.3}{dB} beyond one cell without a Doppler window).
+
+%=====================================================================================================================
+\section{Environment}\label{sec:env}
+%=====================================================================================================================
+
+\subsection{Spacecraft structure}
+The obstacles are in the near field of the aperture (Fraunhofer limit about \SI{325}{m} in S): the beam is a tube of
+the width of the aperture. Rays are cast from 37 points of the aperture along the pointing direction, exactly on the
+triangles of the 3D model; the blocked fraction $f$ costs $-20\log_{10}(1-f)$ per pass, and a position beyond
+\SI{3}{dB} per pass is masked. The structure also radiates: its emissivity times physical temperature (hull
+$\varepsilon = 0.01$ at \SI{290}{K}, radiators $0.05$ at \SI{750}{K}) is picked up by the main lobe through the
+blocked fraction and by the far sidelobes as a body of the sky. With the \SI{25}{\degree} tilt, the structure only
+blocks directions more than \SI{71.7}{\degree} from a face normal, all served by another face at a smaller scan: no
+position is masked and the radiators are never seen; the hull adds a negligible \SI{2.9}{K}.
+
+\subsection{Surfaces: shadow, clutter, converter saturation}
+Bodies with a surface (Earth, Moon) are spheres at a distance $D$ given by their angular radius. A direction inside the
+disk meets the surface at $d = D\cos\delta - \sqrt{R^2 - D^2\sin^2\delta}$; nothing exists beyond. The surface
+backscatter is ``constant-$\gamma$'', $\sigma_0 = \gamma\cos\theta_i$ ($\gamma$ = radar albedo; Earth \SI{-12}{dB} in
+S, Moon \SI{-11.5}{dB}). The sidelobe clutter in the target's range cell $r$ comes from the iso-range ring of the
+surface (area $2\pi R r\,\Delta r/D$ per cell), sampled on 720 points and seen through the two-way pattern:
+$y = \sigma_c/\sigma_{\mathrm{target}}$. The main-lobe echo of a surface is checked against the ADC clipping level per
+element (alert), and a limb inside a sector is flagged (GO-CFAR advised there).
+
+\subsection{Clutter per waveform}\label{sec:clutter}
+In S, the clutter is evaluated \emph{per candidate waveform and per \SI{1}{\degree} scan bin}, out of the $\Tsys$
+budget (Ku keeps a simpler noise-factor model until its own step):
+\begin{itemize}
+  \item \textbf{Clutter ratio} $y$, per pointing and per transmit beam of the search space (full face, or the 2D
+        pattern of a partition sub-aperture), at the requirement range of the pointing, for a reference range cell;
+        it scales exactly as $c/2B$ with the candidate's bandwidth, and is divided by the number of coherent blocks
+        $M$ (the per-block requirement).
+  \item \textbf{Doppler residual} $\rho(v)$: the surface's Doppler spectrum (Gaussian, mean and 1-$\sigma$ spread of
+        its closing speed given by the scenario), folded over the PRF, through the filter of a coherent block
+        (uniform weights $w_k$, or Taylor \SIlist{-30;-40}{dB}),
+        \[ H(x) = \Bigl|\textstyle\sum_k w_k e^{j2\pi kx}\Bigr|^2 \big/ \bigl(\textstyle\sum_k w_k\bigr)^2, \]
+        plus a white floor from the residual phase variance through the filter's noise bandwidth. $\rho = 1$ without
+        coherent blocks or without the scenario's closing speed (prudent). It is evaluated at 11 target speeds over the
+        sector's span.
+  \item \textbf{Range}: clutter is treated as noise at the detector, $S/(N + C)$ with $C/N = a\,S/N$,
+        $a = y\,\rho(v)/M$. In each bin $y$ is taken at the 99\,\% quantile of the pointings; the SNR increase $G$ that
+        restores the look's $\Pd$ \emph{averaged over the target speeds} is solved by bisection, and the range becomes
+        $R_n G^{-1/4}$. If no power restores it, the candidate is unplayable in the bin; a pointing that no candidate
+        can clear is blinded.
+  \item \textbf{Requirement brought back to the surface}: where a pointing meets a surface at $d$ below the required
+        range, the requirement becomes $d - \text{guard}$ (guard = max(\SI{10}{km}, range resolution)), rounded
+        \emph{up} on a grid of 5\,\% of the range; the cumulative criterion is recomputed for each such class; with
+        $d - \text{guard} \le 0$ there is no volume and the pointing is not scanned.
+\end{itemize}
+
+\subsection{Jammers}
+\paragraph{Stand-off jammers} are declared in the sky. Their noise enters $\Tsys$ through the receive pattern:
+$T_j = (\text{EIRP density}/4\pi R^2)/k \times A_{\mathrm{eff}}(\text{direction})$. A jammer more than one receive
+beamwidth off axis is in the sidelobes and adaptively nulled by \SI{40}{dB} (the 8 strongest per face).
+
+\paragraph{Self-protection jammers} are carried by the sector's target (barrage over the band of their class, EIRP
+densities from \SI{5}{dBW/MHz} on a KKV to \SI{27}{dBW/MHz} on a ship; in the main lobe, not nulled). They enter the
+range exactly: with $S \propto 1/R^4$ and $J \propto 1/R^2$, $S = \SNR_{\mathrm{req}}(N + J)$ is quadratic in
+$1/R^2$,
+\[
+  \frac{1}{R^2} = \frac12\left(\frac{1}{R_{bt}^2} + \sqrt{\frac{1}{R_{bt}^4} + \frac{4}{R_n^4}}\right),\qquad
+  R_{bt} = \sqrt{\frac{P\,G_t\,\sigma\,\tau N}{4\pi\,J_0\,\SNR_{\mathrm{req}}\,L}},
+\]
+with $R_n$ the range against noise alone and $R_{bt}$ the burn-through range. \textbf{Concept of operation}: the
+search does not have to burn through a self-protection jammer; it identifies the jamming axis, and the scheduler then
+points a Ku burn-through search along it (Ku transmit gain about 25 times the S one, hence a burn-through range about
+5 times larger for the same energy). Accordingly, a sector whose requirement the jammer puts out of the search's reach
+is planned against the noise alone and flagged for the Ku burn-through.
+
+\subsection{Other terms}
+Non-threatening objects (debris, satellites) seen per revisit are confirmed like targets. Faraday rotation over the
+round trip, $\Omega = 2\times2.36\cdot10^4\,B_\parallel\,\mathrm{TEC}/f^2$ (SI units), is reported from the scenario's
+electron content and field; it costs nothing with the dual-polarisation receiver.
+
+%=====================================================================================================================
+\section{Radar equation and loss budget}\label{sec:solve}
+%=====================================================================================================================
+The range of one look is the energy form of the radar equation,
+\[
+  R^4 = \frac{P_{\mathrm{beam}}\,G_{\mathrm{TX}}\,G_{\mathrm{RX}}\,\lambda^2\,\sigma\,\tau N}
+             {(4\pi)^3\,k\,\Tsys\,L\,\SNR_{\mathrm{req}}},
+\]
+with $\SNR_{\mathrm{req}}$ the SNR on the total integrated energy from the exact detection law (cumulative in search),
+$P_{\mathrm{beam}}$ and $G_{\mathrm{TX}}$ those of the transmit mode, $G_{\mathrm{RX}}$ with the receive weighting of
+the volume, and $\Tsys$ the budget temperature of the direction. The total loss $L$ is the sum of:
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}lL@{}}
+\toprule
+Fixed (S) & finite precision \SI{0.3}{dB}, calibration \SI{0.5}{dB}, Ku-element blockage \SI{0.2}{dB}, transmit chain
+\SI{0.6}{dB}\\
+Band & edge derating averaged over the occupied spectrum\\
+Waveform & compression (weighting, NLFM mismatch, LFM Doppler), eclipsing of staggered trains, buffer droop, multibeam
+superposition, Doppler weighting\\
+Antenna & active mismatch, transmit and receive\\
+Polarisation & GLRT recombination; cross-polar energy of the target (a gain)\\
+Processing & positions (grid cells, straddle, velocity-filter offset, through the averaged $\Pd$), CFAR, coherence,
+acceleration, migration residual\\
+\bottomrule
+\end{tabularx}
+\end{center}
+For the reference waveform (24 pulses of \SI{200}{\micro s}, 4-beam superposition) on the reference target at
+\SI{2.8}{GHz} on boresight, the losses total \SI{7.1}{dB}, the position term included; an independent hand derivation
+of the equation agrees within \SI{0.5}{\percent} (self-test).
+
+The cost of one search position is electrical: energy $P_{\mathrm{pk}}\,N\tau\,t/c_d/\eta$ and transmit time
+$N\tau\,t/c_d$, with $t$ the trains per dwell (the beams of a time multiplex, 1 otherwise) and $c_d$ the positions one
+dwell covers (1, $B_{\mathrm{tx}}$, or $B_{\mathrm{tx}}$ times the sub-aperture cell ratio).
+
+%=====================================================================================================================
+\section{Search optimiser}\label{sec:opt}
+%=====================================================================================================================
+For each sector, the optimiser (\code{core/optimizer.py}) chooses the S centre frequency and the waveforms, and
+computes the energy and time each face spends.
+
+\subsection{Frequency}
+The centre frequencies are \emph{derived from the band}: the usable lower edge plus multiples of \SI{5}{MHz}, kept
+where the signal fits inside the band and touches none of the spectrum exclusions of the mission. The search runs in
+two passes: the valid centres on a \SI{20}{MHz} step (plus the centre-most one of every free fragment of the band),
+then the \SI{5}{MHz} step within \SI{\pm20}{MHz} of the best. The optimum is flat in frequency: the grid serves mainly
+to avoid jammed or forbidden spectrum. A sector may force its candidate frequencies.
+
+\subsection{Waveform plan}
+At each frequency, the ranges of all candidates are computed in every \SI{1}{\degree} scan bin. In the model the scan
+angle enters a range only through the gains and the active mismatch, so $R(\theta) = R(0)\,h(f,\theta)$ with $h$
+independent of the waveform (checked at run time): one solution per candidate and frequency suffices.
+\begin{itemize}
+  \item One waveform per group of \SI{5}{\degree} bins, at most four distinct waveforms per sector; neighbouring groups
+        share one by dynamic programming over contiguous segments.
+  \item A candidate is admissible on a segment if it reaches the requirement in every populated bin. ``No excess
+        energy'': where it exceeds the requirement, the \emph{pulse is shortened} to $s\tau$ with $s = (R_{\mathrm{req}}/R)^4$
+        (PAs stay saturated; PAE of the shortened pulse exact; floor $\tau B \ge 1$; the losses of the full pulse are
+        kept, which is prudent). Energy and transmit time both decrease.
+  \item Objective: minimise $\max(\text{energy fraction}, \text{transmit-time fraction})$ over the faces, by a weighted
+        sum whose weight is swept (21 values).
+  \item With no admissible candidate on a segment: the fewest positions short of range, then the longest reach, then
+        the cost. A sector whose requirement a self-protection jammer puts out of reach is planned against the noise
+        alone (Section~\ref{sec:env}).
+  \item Ranking of frequencies: the unscanned fraction caused by the frequency first, then the positions short of
+        range (1\,\% tolerance), then the objective, then a deterministic secondary criterion (energy, time, number of
+        waveforms, distance to the core-band centre).
+\end{itemize}
+Dominated candidates (same cost function, range lower or equal everywhere) are pruned exactly before the plan. When a
+face is over-subscribed, the revisit is stretched in proportion.
+
+\subsection{Outputs and flags}
+Per sector: frequency and occupied band, waveforms per scan bin with their timing, ranges at best and worst scan,
+positions, receive beams per position, sky and environment summaries, energy and time per face, revisit alone and in
+the mission. Flags: resolution not met, range not reached, power or time over-subscribed, unscanned fraction,
+active mismatch, receive sidelobe option not held, sky blinding or rise above the budget, masking, clutter limitation,
+surfaces closer than the requirement, self-protection jamming, revisit below three target coherence times (the
+cumulative criterion assumes independent looks), spectrum exclusions removing most centres.
+
+%=====================================================================================================================
+\section{Confirmation and active tracking in Ku}\label{sec:ku}
+%=====================================================================================================================
+Every S detection, true target or false alarm, is confirmed in Ku (\code{core/tracking.py}). Three modes:
+\begin{itemize}
+  \item \textbf{KU1+7}: one Ku look, then a cluster of 7 beams on failure;
+  \item \textbf{KU7}: the cluster of 7 beams at once;
+  \item \textbf{S2}: a pointed S ``touch'', then KU1+7.
+\end{itemize}
+Each mode gets the smallest margin (\SI{0.5}{dB} steps) that confirms a true target with probability at least 0.98;
+the mode that minimises the load of the most loaded face is chosen, or the operator imposes one. The S2 touch recovers
+the transmit and receive grid losses (it is pointed and its receive beams are formed on the target). Ku looks are
+chosen in their own search space (pulses, pulse counts, PRIs, two bandwidths) at the provisional Ku frequency of
+\SI{14.0}{GHz}, with the Ku sky budget of the sector. Active tracking is described per range bracket (number of
+tracks, update period, range and velocity accuracies, angular zone); one Ku look per update at the upper limit of the
+bracket, driven by the most demanding of detection and the Cram\'er--Rao accuracy terms (angle, Doppler, range). S and
+Ku share the electrical energy of a face; their transmit times are counted separately.
+
+%=====================================================================================================================
+\section{Other functions}
+%=====================================================================================================================
+\paragraph{Redundancy.} A sector $A$ covers the need of a sector $B$ if, with $A$'s waveforms and revisit, $B$'s target,
+range and receive weighting (the digital receiver can apply both on the same look), the cumulative criterion of $B$ is
+met, with an unambiguous PRI and sufficient resolution.
+
+\paragraph{Fast estimate.} For live feedback while the operator edits, a precomputed table gives the cheapest energy per
+position versus range, RCS, speed and scan angle; only the full calculation is authoritative.
+
+\paragraph{Frames and navigation.}\label{sec:frames} The navigation message carries a Hamilton quaternion (ship to ICRF)
+and an optional orbit. Before any calculation, the mission is turned into the ship frame once: each sector given in
+another frame (inertial, RTN, limb-relative, two directions) receives its rotation matrix and the direction raster is
+rotated before the shape test; the inertial sky is rotated back. All later calculations stay in the ship frame.
+
+%=====================================================================================================================
+\section{Software}\label{sec:software}
+%=====================================================================================================================
+
+\subsection{Modules}
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.33\linewidth}L@{}}
+\toprule
+Module & Role\\
+\midrule
+\code{core/params.py} & loads \code{radar\_system.toml} once per process; an alternative file via \code{RADAR\_PARAMS}\\
+\code{core/radar\_model.py} & bands, TRMs, patterns, losses, waveforms, processing, targets, \code{solve()}\\
+\code{core/antenna.py} & radiation patterns from the build-up, far-lobe profiles, sub-apertures (cached)\\
+\code{core/detection.py} & exact detection laws, averaged and cumulative $\Pd$\\
+\code{core/sky.py} & sky noise per direction, blinding, sector budget\\
+\code{core/environment.py} & structure (3D model, ray casting, cached), surfaces and clutter, Doppler residual,
+jammers, Faraday\\
+\code{core/isolation.py} & leakage between bands and faces, scheduler rules\\
+\code{core/frames.py} & navigation, frames of the volumes\\
+\code{core/optimizer.py} & S search optimiser, mission run, sector summaries\\
+\code{core/tracking.py} & Ku confirmation and active tracking budget\\
+\code{core/redundancy.py} & redundancy between sectors\\
+\code{core/cost\_estimate.py} & fast estimate for the interface\\
+\code{core/mission.py} & mission model, validation, JSON / CSV\\
+\code{core/geometry.py} & sphere raster, 3D view of the ship\\
+\code{gui/} & PyQt5 interface with 3D views (PyVista)\\
+\bottomrule
+\end{tabularx}
+\end{center}
+Python 3.11 or later and NumPy only (no SciPy: the Bessel functions and their zeros are coded directly). The optimiser
+runs sectors, and the frequencies of a sector, in worker processes (pure-Python CPU work).
+
+\subsection{Tests}
+The test bench has two families: frozen outputs of every test mission compared at a relative tolerance of $10^{-9}$
+(non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
+exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
+frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
+before any refreeze. 170 tests pass at model V6.11.6.
+
+%=====================================================================================================================
+\section{Roadmap and open points}\label{sec:roadmap}
+%=====================================================================================================================
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}lL@{}}
+\toprule
+Phase & Steps (status on 23 October 2026)\\
+\midrule
+0, foundations & single parameter file, test bench, review of every value --- done\\
+1, antenna and RF & real pattern; active mismatch, grating and gap lobes; TRMs and transmit chain; band; receive chain,
+sky noise, converters, isolation --- done\\
+2, signal and detection & parametric waveforms; processing; detection criterion; target models; environment --- done\\
+3, radar functions & 3.0 frames and navigation --- done; 3.1 S search rebuilt --- passes P1 (frequency grid), P2
+(waveform space), P3 (transmit multibeam), P4 (environment per waveform) done, P5 (sky refinement near hot sources,
+search lattice per sector) and P6 to come; 3.2 Ku confirmation; 3.3 tracking; 3.4 ancillary functions\\
+4, resources & power bus and sharing among faces; thermal; scheduler and latency; computing and data\\
+5, mission and validation & richer mission model; global optimiser; validation engine; Monte-Carlo simulation;
+operator interface; verification and documentation\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Main provisional dispositions, each assigned to a later step:
+\begin{itemize}
+  \item \textbf{Scheduler (4.3)}: common cadence of the faces per band and the S-harmonic rule; search-lattice shift
+        every frame; eclipsing by other looks and faces; latency rebuilt from scratch; time multiplex and superposition
+        re-evaluated once a timeline cost exists; the Ku burn-through search pointed along a jamming axis; choice of
+        the CFAR per pointing.
+  \item \textbf{Ku (3.2)}: Ku frequency choice from spectrum knowledge (fixed at \SI{14.0}{GHz} today); Ku clutter per
+        waveform; Ku multibeam for latency; burn-through waveform.
+  \item \textbf{Tracking (3.3)}: Kalman or IMM; acceleration known from the track; residual range--Doppler coupling;
+        polarimetric discrimination of decoys; switchable receive attenuator.
+  \item \textbf{Resources (4.1, 4.2, 4.4)}: instantaneous power of a face during a look (\SI{8.2}{MW} at $d = 0.65$
+        against \SI{2}{MW} allocated: only the mean over the revisit is checked today); buffer recharge; micro-channel
+        capacity and thermal time constants; number of simultaneous receive beams, converter data rates, computing
+        load of velocity banks and adaptive nulling.
+  \item \textbf{Antenna}: element pattern and mutual coupling at tile edges not modelled (isotropic elements);
+        couplings between faces are optimistic orders of magnitude needing an electromagnetic simulation; random
+        amplitude and phase errors of the TRMs neglected.
+\end{itemize}
+
+\appendix
+%=====================================================================================================================
+\section{Key derived values}
+%=====================================================================================================================
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}lL@{}}
+\toprule
+Quantity & Value\\
+\midrule
+Search positions per face at \SI{2.8}{GHz} & about \num{1664} over the full sector (lattice of 1.4 transmit
+beamwidths)\\
+Receive beams per position & 6.1 / 5.3 / 4.8 at \SIlist{-25;-30;-35}{dB} (spacing 0.5 receive beamwidth)\\
+Mean transmit grid loss over a cell & \SI{3.4}{dB} (real pattern); receive grid \SI{0.40}{dB}\\
+Transmit power available per face (\SI{2}{MW} allocated) & \SI{1.834}{MW} electrical\\
+Longest pulse & \SI{2.0}{ms} in S (\SI{300}{km} blind), \SI{2.08}{ms} in Ku\\
+PAE at $d=0.65$, long pulse & 0.778 in S, 0.621 in Ku\\
+ADC noise figure & \SI{20.0}{dB} (13 bits, \SI{+10}{dBm}, \SI{250}{MS/s})\\
+Noise at the ADC & \SI{-56.4}{dBFS} in S\\
+Minimum unsaturated range (S, boresight) & reference target \SI{12.2}{km}, KKV \SI{2.3}{km}, ship \SI{9.1}{km}\\
+Range weighting \SIlist{-25;-30;-35}{dB} & loss \SIlist{0.41;0.68;0.93}{dB}, widening $\times$1.18 / 1.27 / 1.34\\
+Doppler at \SI{25}{km/s} & \SI{470}{kHz} in S; NLFM possible above \SI{23}{MHz} in S, \SI{117}{MHz} in Ku\\
+Round-trip active mismatch at \SI{2.8}{GHz} & \SI{0.26}{dB} at \SI{0}{\degree}, 0 at \SI{45}{\degree},
+\SI{1.12}{dB} at \SI{70}{\degree}, \SI{2.11}{dB} at \SI{75}{\degree}\\
+Sector area in $(u,v)$ & 2.0006\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\end{document}
