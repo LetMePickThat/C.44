@@ -17,7 +17,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 
 (D) signale une étape qui demande une décision ou des données de l'utilisateur. Le détail des choix déjà faits est dans `Choix_architecturaux.md`.
 
-## État d'avancement (22 octobre 2026)
+## État d'avancement (23 octobre 2026)
 
 | Étape | État |
 |---|---|
@@ -35,7 +35,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 2.4 | ✔ fait (commit 008d583) |
 | 2.5 | ✔ fait (commit baeadcf) |
 | 3.0 | ✔ fait (commit 22114fd ; ajoutée le 22 octobre 2026) |
-| 3.1 | en cours : variables validées ; P1 (grille de fréquences), élargissement de la bande S, P2 (formes d'onde), accélérations X1, X2, X3, X5, P3 (multifaisceau) et P4 (environnement par forme d'onde) faits et commités (`90555d8`, `b4be91e`, `cd97216`, `f6a526c`, `b0dbc09`, `f8fa433`) ; reste P5 (ciel, pas de grille), P6 (rapport, documentation) |
+| 3.1 | ✔ fait : P1 à P6, bande S élargie, accélérations (`90555d8`, `b4be91e`, `cd97216`, `f6a526c`, `b0dbc09`, `f8fa433`, `d19829e`, puis le commit de P6) |
 | 3.2 et suivantes | à faire |
 
 ---
@@ -253,7 +253,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 
   Renvois : enveloppe d'attitudes au pire cas par face → **5.3** ; profil d'attitude dans le temps et réaffectation des secteurs aux faces en vol → **4.3**, **5.2** ; volume lié à une piste ou à une désignation → **3.3** ; régions non centrées sur le vaisseau (parallaxe) et erreurs de navigation → simulateur global ; l'interface ne saisit pas encore le ciel (JSON seulement, comme avant).
 
-- **3.1 Veille S reconstruite sur les nouveaux modèles** (optimizer.py). En cours : cadrage et variables des blocs A à E validés (détail dans `Choix_architecturaux.md` §11) ; codage en six passes avec pause (P1 grille de fréquences ✔, P2 formes d'onde ✔, P3 multifaisceau ✔, P4 environnement ✔, P5 ciel et pas de grille, P6 rapport et documentation) ; avant P2, élargissement de la bande S (décision de l'utilisateur).
+- **3.1 Veille S reconstruite sur les nouveaux modèles** (optimizer.py). En cours : cadrage et variables des blocs A à E validés (détail dans `Choix_architecturaux.md` §11) ; codage en six passes avec pause (P1 grille de fréquences ✔, P2 formes d'onde ✔, P3 multifaisceau ✔, P4 environnement ✔, P5 ciel et pas de grille ✔, P6 rapport et documentation ✔) ; avant P2, élargissement de la bande S (décision de l'utilisateur).
   - **Renvois de l'étape 1.3** : loi de PAE en fonction du recul du PA (multifaisceau par superposition, et réduction de puissance « pas d'énergie en trop », aujourd'hui à PAE constante) ; impulsions candidates entre 0,8 et 2 ms. *Levé en P3 : la superposition est en phase seule et la réduction raccourcit l'impulsion, les PA restent saturés ; la loi n'est plus nécessaire.*
   - **Multifaisceau en émission** : tous les modes de formation sont possibles, et l'optimiseur doit les évaluer et choisir selon le contexte :
     - (a) superposition de B faisceaux par TRM : enveloppe non constante, donc recul du PA, qui demande le modèle de PA de l'étape 1.3 ;
@@ -315,6 +315,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Renvoi de l'étape 3.1 (P4, brouilleur d'autoprotection), concept de l'utilisateur** : la veille S n'a pas à percer le brouillage d'autoprotection ; qu'elle ne le passe que tard est accepté. Elle sert à **identifier l'axe de brouillage** (le secteur et la direction où le bruit du brouilleur apparaît) ; l'ordonnanceur pointe alors une **recherche Ku ciblée dans cet axe** pour la percée (burn-through). Ordre de grandeur : à énergie égale, gain d'émission Ku environ 25 fois celui de la S, donc une portée de percée environ 5 fois plus grande (R_bt ∝ √(P G_t σ τ N / (J₀ SNR L)), densité du brouilleur égale dans les deux bandes pour SPJ_KKV). À modéliser : détection et localisation angulaire du brouilleur par la veille (rapport J/N, sans percée), déclenchement et coût de la recherche Ku de percée dans le budget de la face (avec 3.2 pour la forme d'onde Ku et 3.3 pour la piste).
   - **Renvoi de l'étape 3.1 (P3, multifaisceau S)** : réévaluer l'entrée du multiplexage en temps (et de la superposition) dans `tool.optimizer.tx_modes` une fois le coût de chronologie modélisé. Sans ce terme, le multiplexage est exactement dominé : mêmes énergie et temps d'émission par position qu'un faisceau, avec une zone aveugle, un rapport cyclique et un affaissement de la réserve sur B·τ. Avec lui (entrelacement imparfait, attente des échos partagée par B positions, occupation du séquenceur), il peut diviser la trame par B. Le modèle est prêt (`tx_mode` = "tdm") ; il reste à ajouter le terme de coût et le mode à `tx_modes`.
   - **Renvoi de l'étape 2.5** : choix du CFAR (CA, OS, GO) par pointage, GO près des limbes.
+  - **Renvoi de l'étape 3.1 (P5)** : ce que le calculateur radar recalcule en vol (carte du ciel et aveuglement quand l'attitude change, formes d'onde), à quelle cadence ; le budget de calcul est à l'étape 4.4.
   - **Renvoi de l'étape 2.3** : décalage de la grille de veille à chaque trame (`grid_dithering`), supposé par le critère cumulé.
   - **Renvois de l'étape 1.5** : (1) **cadence commune d'émission et de réception de toutes les faces, par bande** (`isolation.interface_mode` = sync) : aucune face ne reçoit une bande pendant qu'une autre l'émet ; coût estimé de 0 à 1 dB si les émissions sont alignées, jusqu'à −10 log(1 − Σ des facteurs d'émission des autres faces) sinon (0,5 à 1,5 dB en forte charge), aucune perte comptée avant cette étape ; (2) pas de réception Ku sur une face pendant une émission S dont l'harmonique couvre le canal Ku ; (3) **annulation active à revoir ici** (coûts : perte avant le LNA versée dans T_sys, puissance injectée égale à la fuite, temps d'adaptation à chaque pointage, calcul dans l'espace des faisceaux ; solution mixte proposée : synchronisation entre faces voisines, annulation entre faces opposées) ; (4) pointages aveuglés par le Soleil à sortir du plan de balayage ; (5) **renvoi de l'étape 2.1** : éclipsage par les autres observations (positions entrelacées) et par les autres faces synchronisées.
 
@@ -325,6 +326,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Entrées de l'étape 2.2** : hypothèses de vitesse par forme d'onde (`velocity_hypotheses`, jusqu'à plusieurs centaines), grilles de détection ×4 en distance et en Doppler, transformées par bloc cohérent. **Capacité du formateur de faisceaux** (faisceaux simultanés par face, débit) à fixer ici comme ressource et à comparer au besoin calculé par l'ordonnanceur (4.3) : question de l'utilisateur à l'étape 2.2.
   - **Entrées de l'étape 1.5** : deux CAN I/Q par TRM (deux voies de polarisation) à 250 Méch/s et 13 bits, soit 9 800 CAN en S et 245 000 en Ku par face, et une formation de faisceau doublée ; leur consommation est à budgéter.
   - Leur consommation électrique alimente le bilan de puissance de l'étape 4.1, à la place de `overhead_frac`.
+  - **Renvoi de l'étape 3.1 (P5)** : aujourd'hui, l'optimiseur de veille (ciel, aveuglement, formes d'onde) ne tourne qu'en préparation de mission (Pmiss) ; son coût n'est pas celui du calculateur radar. Décider ce que le calculateur recalcule en vol (attitude qui change, spectre mesuré en temps réel) et avec quel budget de calcul (avec 4.3 et 5.2).
 
 ## Phase 5 : mission et validation
 
@@ -336,7 +338,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Renvois de l'étape 2.3** : Pd cumulée et taux de fausses alarmes **par secteur** ; **plafond du nombre d'observations** pour une cible surgissante (sortie d'horizon, lancement), aujourd'hui sans plafond (bout optimiste) ; la Pd cumulée suppose que la cible est présente sur toute son approche.
   - `confirmation.p_min` (0,98) comme réglage de mission, avec en **option à étudier** un réglage par volume (secteur).
 
-- **5.2 Optimiseur global.** Répartition conjointe de la veille, de la confirmation et de la poursuite sur toutes les ressources et toutes les faces, **y compris la répartition à la demande des 8 MW du vaisseau entre les faces** (voir 4.1). **Renvoi de l'étape 2.2** : l'optimiseur doit compter le **coût de confirmation des fausses alarmes** dans le choix des formes d'onde de veille (les bancs de vitesses des trains multiplient les fausses alarmes par 50 à 535).
+- **5.2 Optimiseur global.** Répartition conjointe de la veille, de la confirmation et de la poursuite sur toutes les ressources et toutes les faces, **y compris la répartition à la demande des 8 MW du vaisseau entre les faces** (voir 4.1). **Renvoi de l'étape 2.2** : l'optimiseur doit compter le **coût de confirmation des fausses alarmes** dans le choix des formes d'onde de veille (les bancs de vitesses des trains multiplient les fausses alarmes par 50 à 535). **Renvoi de l'étape 3.1 (P5)** : répartir le calcul entre la préparation de mission (Pmiss) et le vol (replanification en vol, avec 4.3 et 4.4).
 
 - **5.3 Moteur de validation.** Verdict par contrainte, ressource limitante, conseil chiffré de relâchement, redondances et recouvrements.
   - **Renvoi de l'étape 2.4** : les classes de cibles étant des moyennes, **sensibilité du verdict aux valeurs de la menace** (de combien la SER et les autres valeurs peuvent baisser avant que le secteur ne tienne plus).

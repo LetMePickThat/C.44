@@ -79,11 +79,11 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 113.38522254872407,
-    "energy_fraction": 0.06183125205447972,
-    "energy_j_per_refresh": 2267704.4509744816,
+    "avg_power_kw": 113.3852225487241,
+    "energy_fraction": 0.061831252054479736,
+    "energy_j_per_refresh": 2267704.450974482,
     "positions": 1641.3796131067072,
-    "time_fraction_min": 0.00925593653458972,
+    "time_fraction_min": 0.009255936534589724,
     "unreachable_pct": 0.0
    },
    "3": {
@@ -107,48 +107,48 @@
   "cancelled": false,
   "faces_total": {
    "0": {
-    "avg_power_kW": 529.5536,
-    "dissipation_kW": 106.7008,
-    "energy_fraction": 0.2888,
-    "ku_duty_pct": 9.2272,
-    "p_available_kW": 1304.2314,
-    "positions": 1626.0,
-    "power_margin": 0.7112,
-    "time_fraction": 0.0431,
-    "time_margin_s": 0.9569
+    "avg_power_kW": 534.7903,
+    "dissipation_kW": 107.8742,
+    "energy_fraction": 0.2916,
+    "ku_duty_pct": 9.1902,
+    "p_available_kW": 1298.9947,
+    "positions": 1875.8,
+    "power_margin": 0.7084,
+    "time_fraction": 0.0436,
+    "time_margin_s": 0.9564
    },
    "1": {
-    "avg_power_kW": 529.5536,
-    "dissipation_kW": 106.7008,
-    "energy_fraction": 0.2888,
-    "ku_duty_pct": 9.2272,
-    "p_available_kW": 1304.2314,
-    "positions": 1626.0,
-    "power_margin": 0.7112,
-    "time_fraction": 0.0431,
-    "time_margin_s": 0.9569
+    "avg_power_kW": 534.7903,
+    "dissipation_kW": 107.8742,
+    "energy_fraction": 0.2916,
+    "ku_duty_pct": 9.1902,
+    "p_available_kW": 1298.9947,
+    "positions": 1875.8,
+    "power_margin": 0.7084,
+    "time_fraction": 0.0436,
+    "time_margin_s": 0.9564
    },
    "2": {
-    "avg_power_kW": 529.5536,
-    "dissipation_kW": 106.7008,
-    "energy_fraction": 0.2888,
-    "ku_duty_pct": 9.2272,
-    "p_available_kW": 1304.2314,
-    "positions": 1626.0,
-    "power_margin": 0.7112,
-    "time_fraction": 0.0431,
-    "time_margin_s": 0.9569
+    "avg_power_kW": 534.7903,
+    "dissipation_kW": 107.8742,
+    "energy_fraction": 0.2916,
+    "ku_duty_pct": 9.1902,
+    "p_available_kW": 1298.9947,
+    "positions": 1875.8,
+    "power_margin": 0.7084,
+    "time_fraction": 0.0436,
+    "time_margin_s": 0.9564
    },
    "3": {
-    "avg_power_kW": 529.5536,
-    "dissipation_kW": 106.7008,
-    "energy_fraction": 0.2888,
-    "ku_duty_pct": 9.2272,
-    "p_available_kW": 1304.2314,
-    "positions": 1626.0,
-    "power_margin": 0.7112,
-    "time_fraction": 0.0431,
-    "time_margin_s": 0.9569
+    "avg_power_kW": 534.7903,
+    "dissipation_kW": 107.8742,
+    "energy_fraction": 0.2916,
+    "ku_duty_pct": 9.1902,
+    "p_available_kW": 1298.9947,
+    "positions": 1875.8,
+    "power_margin": 0.7084,
+    "time_fraction": 0.0436,
+    "time_margin_s": 0.9564
    }
   },
   "global": {
@@ -164,6 +164,7 @@
   },
   "sectors": [
    {
+    "beam_spacing_hpbw": 1.6,
     "environment": {
      "burn_through_best_km": null,
      "burn_through_km": null,
@@ -173,14 +174,14 @@
     },
     "faces": {
      "0": {
-      "avg_power_kW": 0.6741945409840773,
-      "dissipation_kW": 0.1352539338213782,
-      "dissipation_kW_m2": 0.010172222091797646,
-      "energy_J_per_refresh": 80903.34491808928,
-      "energy_fraction": 0.0003676519008411986,
-      "positions": 25.4,
+      "avg_power_kW": 0.6362526831522816,
+      "dissipation_kW": 0.12756829062426214,
+      "dissipation_kW_m2": 0.009594197724516572,
+      "energy_J_per_refresh": 76350.32197827379,
+      "energy_fraction": 0.0003469614394011738,
+      "positions": 19.5,
       "theta_max_deg": 65.0,
-      "time_fraction": 5.499393950639787e-05
+      "time_fraction": 5.190657066612441e-05
      }
     },
     "flags": [],
@@ -196,10 +197,10 @@
     },
     "id": "CONE_D1",
     "mismatch_db_per_pass_max": 0.26464784408125186,
-    "positions_total": 25.4,
+    "positions_total": 19.5,
     "range_km": {
-     "at_best_scan": 9636,
-     "at_worst_scan": 8430,
+     "at_best_scan": 9145,
+     "at_worst_scan": 8000,
      "positions_short_of_range_pct": 0.0,
      "requested": 8000
     },
@@ -208,10 +209,10 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 0.04411822810094383,
+    "rr_alone_s": 0.04163537272814086,
     "rr_est_mission_s": 120.0,
     "rr_target_s": 120,
-    "rx_beams_per_position": 6.118998226960277,
+    "rx_beams_per_position": 7.992160949499142,
     "rx_sll_db": -25.0,
     "rx_sll_held_up_to_deg": 65.0,
     "s_min_unsaturated_range_km": 12.321755779508262,
@@ -272,7 +273,7 @@
      "pri_ms": 1.0,
      "pulses_per_block": 1,
      "range_resolution_m": 1.7743151612725794,
-     "rx_beams_per_position": 6.118998226960277,
+     "rx_beams_per_position": 7.992160949499142,
      "rx_deaf_us": 400.05,
      "sig_bw_mhz": 100.0,
      "staggered": false,
@@ -285,11 +286,11 @@
     },
     "wf_by_bin": [
      {
-      "elec_J_per_position": 2834.0032577334605,
-      "pae_at_scale": 0.7993083988190023,
-      "positions": 11.3,
-      "pulse_scale": 0.578,
-      "range_km_at_bin_max": 9176,
+      "elec_J_per_position": 3492.991411322606,
+      "pae_at_scale": 0.799438876375806,
+      "positions": 8.7,
+      "pulse_scale": 0.712,
+      "range_km_at_bin_max": 8708,
       "theta_hi_deg": 55.0,
       "theta_lo_deg": 50.0,
       "wf": {
@@ -317,7 +318,7 @@
        "pri_ms": 1.0,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 7.992160949499142,
        "rx_deaf_us": 400.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -330,11 +331,11 @@
       }
      },
      {
-      "elec_J_per_position": 3842.6715593681265,
-      "pae_at_scale": 0.7994899381928122,
-      "positions": 11.0,
-      "pulse_scale": 0.784,
-      "range_km_at_bin_max": 8503,
+      "elec_J_per_position": 4736.407358922508,
+      "pae_at_scale": 0.7995861842423018,
+      "positions": 8.4,
+      "pulse_scale": 0.966,
+      "range_km_at_bin_max": 8069,
       "theta_hi_deg": 60.0,
       "theta_lo_deg": 55.0,
       "wf": {
@@ -362,7 +363,7 @@
        "pri_ms": 1.0,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 7.992160949499142,
        "rx_deaf_us": 400.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -375,11 +376,11 @@
       }
      },
      {
-      "elec_J_per_position": 5962.444466515887,
-      "pae_at_scale": 0.7996712757643267,
-      "positions": 3.1,
-      "pulse_scale": 0.811,
-      "range_km_at_bin_max": 8430,
+      "elec_J_per_position": 7351.678220021373,
+      "pae_at_scale": 0.7997333942072353,
+      "positions": 2.4,
+      "pulse_scale": 1.0,
+      "range_km_at_bin_max": 8000,
       "theta_hi_deg": 65.0,
       "theta_lo_deg": 60.0,
       "wf": {
@@ -407,7 +408,7 @@
        "pri_ms": 1.0,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 7.992160949499142,
        "rx_deaf_us": 600.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -442,12 +443,12 @@
       "name": "WF-CONE_D1-1",
       "pae": 0.79960019990005,
       "pfa": 5.62341e-08,
-      "positions": 22.3,
+      "positions": 17.1,
       "positions_per_dwell": 1.0,
       "pri_ms": 1.0,
       "pulses_per_block": 1,
       "range_resolution_m": 1.7743151612725794,
-      "rx_beams_per_position": 6.118998226960277,
+      "rx_beams_per_position": 7.992160949499142,
       "rx_deaf_us": 400.05,
       "sig_bw_mhz": 100.0,
       "staggered": false,
@@ -481,12 +482,12 @@
       "name": "WF-CONE_D1-2",
       "pae": 0.7997334221926025,
       "pfa": 5.62341e-08,
-      "positions": 3.1,
+      "positions": 2.4,
       "positions_per_dwell": 1.0,
       "pri_ms": 1.0,
       "pulses_per_block": 1,
       "range_resolution_m": 1.7743151612725794,
-      "rx_beams_per_position": 6.118998226960277,
+      "rx_beams_per_position": 7.992160949499142,
       "rx_deaf_us": 600.05,
       "sig_bw_mhz": 100.0,
       "staggered": false,
@@ -502,6 +503,7 @@
     ]
    },
    {
+    "beam_spacing_hpbw": 1.6,
     "environment": {
      "burn_through_best_km": null,
      "burn_through_km": null,
@@ -511,14 +513,14 @@
     },
     "faces": {
      "1": {
-      "avg_power_kW": 0.6741945322842399,
-      "dissipation_kW": 0.1352539320814107,
-      "dissipation_kW_m2": 0.0101722219609376,
-      "energy_J_per_refresh": 80903.34387410877,
-      "energy_fraction": 0.0003676518960970015,
-      "positions": 25.4,
+      "avg_power_kW": 0.6362526749408546,
+      "dissipation_kW": 0.12756828898197675,
+      "dissipation_kW_m2": 0.009594197601003034,
+      "energy_J_per_refresh": 76350.32099290255,
+      "energy_fraction": 0.0003469614349233169,
+      "positions": 19.5,
       "theta_max_deg": 65.0,
-      "time_fraction": 5.499393879620705e-05
+      "time_fraction": 5.190656999580385e-05
      }
     },
     "flags": [],
@@ -534,10 +536,10 @@
     },
     "id": "CONE_D2",
     "mismatch_db_per_pass_max": 0.26464784408125186,
-    "positions_total": 25.4,
+    "positions_total": 19.5,
     "range_km": {
-     "at_best_scan": 9636,
-     "at_worst_scan": 8430,
+     "at_best_scan": 9145,
+     "at_worst_scan": 8000,
      "positions_short_of_range_pct": 0.0,
      "requested": 8000
     },
@@ -546,10 +548,10 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 0.04411822753164018,
+    "rr_alone_s": 0.04163537219079803,
     "rr_est_mission_s": 120.0,
     "rr_target_s": 120,
-    "rx_beams_per_position": 6.118998226960277,
+    "rx_beams_per_position": 7.992160949499142,
     "rx_sll_db": -25.0,
     "rx_sll_held_up_to_deg": 65.0,
     "s_min_unsaturated_range_km": 12.321755779508262,
@@ -610,7 +612,7 @@
      "pri_ms": 1.0,
      "pulses_per_block": 1,
      "range_resolution_m": 1.7743151612725794,
-     "rx_beams_per_position": 6.118998226960277,
+     "rx_beams_per_position": 7.992160949499142,
      "rx_deaf_us": 400.05,
      "sig_bw_mhz": 100.0,
      "staggered": false,
@@ -623,11 +625,11 @@
     },
     "wf_by_bin": [
      {
-      "elec_J_per_position": 2834.003221166829,
-      "pae_at_scale": 0.7993083988100786,
-      "positions": 11.3,
-      "pulse_scale": 0.578,
-      "range_km_at_bin_max": 9176,
+      "elec_J_per_position": 3492.9913662458125,
+      "pae_at_scale": 0.7994388763685647,
+      "positions": 8.7,
+      "pulse_scale": 0.712,
+      "range_km_at_bin_max": 8708,
       "theta_hi_deg": 55.0,
       "theta_lo_deg": 50.0,
       "wf": {
@@ -655,7 +657,7 @@
        "pri_ms": 1.0,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 7.992160949499142,
        "rx_deaf_us": 400.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -668,11 +670,11 @@
       }
      },
      {
-      "elec_J_per_position": 3842.6715097755714,
-      "pae_at_scale": 0.7994899381862296,
-      "positions": 11.0,
-      "pulse_scale": 0.784,
-      "range_km_at_bin_max": 8503,
+      "elec_J_per_position": 4736.407297788263,
+      "pae_at_scale": 0.7995861842369606,
+      "positions": 8.4,
+      "pulse_scale": 0.966,
+      "range_km_at_bin_max": 8069,
       "theta_hi_deg": 60.0,
       "theta_lo_deg": 55.0,
       "wf": {
@@ -700,7 +702,7 @@
        "pri_ms": 1.0,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 7.992160949499142,
        "rx_deaf_us": 400.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -713,11 +715,11 @@
       }
      },
      {
-      "elec_J_per_position": 5962.444389548619,
-      "pae_at_scale": 0.7996712757600833,
-      "positions": 3.1,
-      "pulse_scale": 0.811,
-      "range_km_at_bin_max": 8430,
+      "elec_J_per_position": 7351.678125113562,
+      "pae_at_scale": 0.7997333942037935,
+      "positions": 2.4,
+      "pulse_scale": 1.0,
+      "range_km_at_bin_max": 8000,
       "theta_hi_deg": 65.0,
       "theta_lo_deg": 60.0,
       "wf": {
@@ -745,7 +747,7 @@
        "pri_ms": 1.0,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 7.992160949499142,
        "rx_deaf_us": 600.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -780,12 +782,12 @@
       "name": "WF-CONE_D2-1",
       "pae": 0.79960019990005,
       "pfa": 5.62341e-08,
-      "positions": 22.3,
+      "positions": 17.1,
       "positions_per_dwell": 1.0,
       "pri_ms": 1.0,
       "pulses_per_block": 1,
       "range_resolution_m": 1.7743151612725794,
-      "rx_beams_per_position": 6.118998226960277,
+      "rx_beams_per_position": 7.992160949499142,
       "rx_deaf_us": 400.05,
       "sig_bw_mhz": 100.0,
       "staggered": false,
@@ -819,12 +821,12 @@
       "name": "WF-CONE_D2-2",
       "pae": 0.7997334221926025,
       "pfa": 5.62341e-08,
-      "positions": 3.1,
+      "positions": 2.4,
       "positions_per_dwell": 1.0,
       "pri_ms": 1.0,
       "pulses_per_block": 1,
       "range_resolution_m": 1.7743151612725794,
-      "rx_beams_per_position": 6.118998226960277,
+      "rx_beams_per_position": 7.992160949499142,
       "rx_deaf_us": 600.05,
       "sig_bw_mhz": 100.0,
       "staggered": false,
@@ -840,6 +842,7 @@
     ]
    },
    {
+    "beam_spacing_hpbw": 1.6,
     "environment": {
      "burn_through_best_km": null,
      "burn_through_km": null,
@@ -849,14 +852,14 @@
     },
     "faces": {
      "2": {
-      "avg_power_kW": 0.6741945454260435,
-      "dissipation_kW": 0.13525393470977146,
-      "dissipation_kW_m2": 0.010172222158612215,
-      "energy_J_per_refresh": 80903.34545112522,
-      "energy_fraction": 0.0003676519032634925,
-      "positions": 25.4,
+      "avg_power_kW": 0.6362526873448752,
+      "dissipation_kW": 0.12756829146278087,
+      "dissipation_kW_m2": 0.009594197787580161,
+      "energy_J_per_refresh": 76350.32248138502,
+      "energy_fraction": 0.0003469614416874799,
+      "positions": 19.5,
       "theta_max_deg": 65.0,
-      "time_fraction": 5.499393986900735e-05
+      "time_fraction": 5.190657100837697e-05
      }
     },
     "flags": [],
@@ -872,10 +875,10 @@
     },
     "id": "CONE_D3",
     "mismatch_db_per_pass_max": 0.26464784408125186,
-    "positions_total": 25.4,
+    "positions_total": 19.5,
     "range_km": {
-     "at_best_scan": 9636,
-     "at_worst_scan": 8430,
+     "at_best_scan": 9145,
+     "at_worst_scan": 8000,
      "positions_short_of_range_pct": 0.0,
      "requested": 8000
     },
@@ -884,10 +887,10 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 0.0441182283916191,
+    "rr_alone_s": 0.04163537300249759,
     "rr_est_mission_s": 120.0,
     "rr_target_s": 120,
-    "rx_beams_per_position": 6.118998226960277,
+    "rx_beams_per_position": 7.992160949499142,
     "rx_sll_db": -25.0,
     "rx_sll_held_up_to_deg": 65.0,
     "s_min_unsaturated_range_km": 12.321755779508262,
@@ -948,7 +951,7 @@
      "pri_ms": 1.0,
      "pulses_per_block": 1,
      "range_resolution_m": 1.7743151612725794,
-     "rx_beams_per_position": 6.118998226960277,
+     "rx_beams_per_position": 7.992160949499142,
      "rx_deaf_us": 400.05,
      "sig_bw_mhz": 100.0,
      "staggered": false,
@@ -961,11 +964,11 @@
     },
     "wf_by_bin": [
      {
-      "elec_J_per_position": 2834.003276403665,
-      "pae_at_scale": 0.7993083988235585,
-      "positions": 11.3,
-      "pulse_scale": 0.578,
-      "range_km_at_bin_max": 9176,
+      "elec_J_per_position": 3492.991434337931,
+      "pae_at_scale": 0.7994388763795033,
+      "positions": 8.7,
+      "pulse_scale": 0.712,
+      "range_km_at_bin_max": 8708,
       "theta_hi_deg": 55.0,
       "theta_lo_deg": 50.0,
       "wf": {
@@ -993,7 +996,7 @@
        "pri_ms": 1.0,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 7.992160949499142,
        "rx_deaf_us": 400.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -1006,11 +1009,11 @@
       }
      },
      {
-      "elec_J_per_position": 3842.6715846891125,
-      "pae_at_scale": 0.7994899381961733,
-      "positions": 11.0,
-      "pulse_scale": 0.784,
-      "range_km_at_bin_max": 8503,
+      "elec_J_per_position": 4736.4073901364545,
+      "pae_at_scale": 0.7995861842450289,
+      "positions": 8.4,
+      "pulse_scale": 0.966,
+      "range_km_at_bin_max": 8069,
       "theta_hi_deg": 60.0,
       "theta_lo_deg": 55.0,
       "wf": {
@@ -1038,7 +1041,7 @@
        "pri_ms": 1.0,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 7.992160949499142,
        "rx_deaf_us": 400.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -1051,11 +1054,11 @@
       }
      },
      {
-      "elec_J_per_position": 5962.444505813865,
-      "pae_at_scale": 0.7996712757664933,
-      "positions": 3.1,
-      "pulse_scale": 0.811,
-      "range_km_at_bin_max": 8430,
+      "elec_J_per_position": 7351.678268479435,
+      "pae_at_scale": 0.7997333942089926,
+      "positions": 2.4,
+      "pulse_scale": 1.0,
+      "range_km_at_bin_max": 8000,
       "theta_hi_deg": 65.0,
       "theta_lo_deg": 60.0,
       "wf": {
@@ -1083,7 +1086,7 @@
        "pri_ms": 1.0,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 7.992160949499142,
        "rx_deaf_us": 600.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -1118,12 +1121,12 @@
       "name": "WF-CONE_D3-1",
       "pae": 0.79960019990005,
       "pfa": 5.62341e-08,
-      "positions": 22.3,
+      "positions": 17.1,
       "positions_per_dwell": 1.0,
       "pri_ms": 1.0,
       "pulses_per_block": 1,
       "range_resolution_m": 1.7743151612725794,
-      "rx_beams_per_position": 6.118998226960277,
+      "rx_beams_per_position": 7.992160949499142,
       "rx_deaf_us": 400.05,
       "sig_bw_mhz": 100.0,
       "staggered": false,
@@ -1157,12 +1160,12 @@
       "name": "WF-CONE_D3-2",
       "pae": 0.7997334221926025,
       "pfa": 5.62341e-08,
-      "positions": 3.1,
+      "positions": 2.4,
       "positions_per_dwell": 1.0,
       "pri_ms": 1.0,
       "pulses_per_block": 1,
       "range_resolution_m": 1.7743151612725794,
-      "rx_beams_per_position": 6.118998226960277,
+      "rx_beams_per_position": 7.992160949499142,
       "rx_deaf_us": 600.05,
       "sig_bw_mhz": 100.0,
       "staggered": false,
@@ -1178,6 +1181,7 @@
     ]
    },
    {
+    "beam_spacing_hpbw": 1.6,
     "environment": {
      "burn_through_best_km": null,
      "burn_through_km": null,
@@ -1187,14 +1191,14 @@
     },
     "faces": {
      "3": {
-      "avg_power_kW": 0.6741944695855892,
-      "dissipation_kW": 0.13525391954168056,
-      "dissipation_kW_m2": 0.010172221017845474,
-      "energy_J_per_refresh": 80903.33635027069,
-      "energy_fraction": 0.00036765186190616084,
-      "positions": 25.4,
+      "avg_power_kW": 0.6362526157621164,
+      "dissipation_kW": 0.1275682771462291,
+      "dissipation_kW_m2": 0.009594196710856253,
+      "energy_J_per_refresh": 76350.31389145397,
+      "energy_fraction": 0.00034696140265195563,
+      "positions": 19.5,
       "theta_max_deg": 65.0,
-      "time_fraction": 5.4993933677949856e-05
+      "time_fraction": 5.1906565164886455e-05
      }
     },
     "flags": [],
@@ -1210,10 +1214,10 @@
     },
     "id": "CONE_D4",
     "mismatch_db_per_pass_max": 0.26464784408125186,
-    "positions_total": 25.4,
+    "positions_total": 19.5,
     "range_km": {
-     "at_best_scan": 9636,
-     "at_worst_scan": 8430,
+     "at_best_scan": 9145,
+     "at_worst_scan": 8000,
      "positions_short_of_range_pct": 0.0,
      "requested": 8000
     },
@@ -1222,10 +1226,10 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 0.0441182234287393,
+    "rr_alone_s": 0.041635368318234674,
     "rr_est_mission_s": 120.0,
     "rr_target_s": 120,
-    "rx_beams_per_position": 6.118998226960277,
+    "rx_beams_per_position": 7.992160949499142,
     "rx_sll_db": -25.0,
     "rx_sll_held_up_to_deg": 65.0,
     "s_min_unsaturated_range_km": 12.321755779508262,
@@ -1286,7 +1290,7 @@
      "pri_ms": 1.0,
      "pulses_per_block": 1,
      "range_resolution_m": 1.7743151612725794,
-     "rx_beams_per_position": 6.118998226960277,
+     "rx_beams_per_position": 7.992160949499142,
      "rx_deaf_us": 400.05,
      "sig_bw_mhz": 100.0,
      "staggered": false,
@@ -1299,11 +1303,11 @@
     },
     "wf_by_bin": [
      {
-      "elec_J_per_position": 2834.0029576356465,
-      "pae_at_scale": 0.7993083987457674,
-      "positions": 11.3,
-      "pulse_scale": 0.578,
-      "range_km_at_bin_max": 9176,
+      "elec_J_per_position": 3492.9910413829466,
+      "pae_at_scale": 0.7994388763163779,
+      "positions": 8.7,
+      "pulse_scale": 0.712,
+      "range_km_at_bin_max": 8708,
       "theta_hi_deg": 55.0,
       "theta_lo_deg": 50.0,
       "wf": {
@@ -1331,7 +1335,7 @@
        "pri_ms": 1.0,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 7.992160949499142,
        "rx_deaf_us": 400.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -1344,11 +1348,11 @@
       }
      },
      {
-      "elec_J_per_position": 3842.6711523681543,
-      "pae_at_scale": 0.7994899381387888,
-      "positions": 11.0,
-      "pulse_scale": 0.784,
-      "range_km_at_bin_max": 8503,
+      "elec_J_per_position": 4736.406857201326,
+      "pae_at_scale": 0.7995861841984669,
+      "positions": 8.4,
+      "pulse_scale": 0.966,
+      "range_km_at_bin_max": 8069,
       "theta_hi_deg": 60.0,
       "theta_lo_deg": 55.0,
       "wf": {
@@ -1376,7 +1380,7 @@
        "pri_ms": 1.0,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 7.992160949499142,
        "rx_deaf_us": 400.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -1389,11 +1393,11 @@
       }
      },
      {
-      "elec_J_per_position": 5962.443834855051,
-      "pae_at_scale": 0.7996712757295017,
-      "positions": 3.1,
-      "pulse_scale": 0.811,
-      "range_km_at_bin_max": 8430,
+      "elec_J_per_position": 7351.677441124734,
+      "pae_at_scale": 0.7997333941789889,
+      "positions": 2.4,
+      "pulse_scale": 1.0,
+      "range_km_at_bin_max": 8000,
       "theta_hi_deg": 65.0,
       "theta_lo_deg": 60.0,
       "wf": {
@@ -1421,7 +1425,7 @@
        "pri_ms": 1.0,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 7.992160949499142,
        "rx_deaf_us": 600.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -1456,12 +1460,12 @@
       "name": "WF-CONE_D4-1",
       "pae": 0.79960019990005,
       "pfa": 5.62341e-08,
-      "positions": 22.3,
+      "positions": 17.1,
       "positions_per_dwell": 1.0,
       "pri_ms": 1.0,
       "pulses_per_block": 1,
       "range_resolution_m": 1.7743151612725794,
-      "rx_beams_per_position": 6.118998226960277,
+      "rx_beams_per_position": 7.992160949499142,
       "rx_deaf_us": 400.05,
       "sig_bw_mhz": 100.0,
       "staggered": false,
@@ -1495,12 +1499,12 @@
       "name": "WF-CONE_D4-2",
       "pae": 0.7997334221926025,
       "pfa": 5.62341e-08,
-      "positions": 3.1,
+      "positions": 2.4,
       "positions_per_dwell": 1.0,
       "pri_ms": 1.0,
       "pulses_per_block": 1,
       "range_resolution_m": 1.7743151612725794,
-      "rx_beams_per_position": 6.118998226960277,
+      "rx_beams_per_position": 7.992160949499142,
       "rx_deaf_us": 600.05,
       "sig_bw_mhz": 100.0,
       "staggered": false,
@@ -1516,6 +1520,7 @@
     ]
    },
    {
+    "beam_spacing_hpbw": 1.3,
     "environment": {
      "burn_through_best_km": null,
      "burn_through_km": null,
@@ -1525,48 +1530,48 @@
     },
     "faces": {
      "0": {
-      "avg_power_kW": 528.8793659245234,
-      "dissipation_kW": 106.56552930249875,
-      "dissipation_kW_m2": 8.014615181740828,
-      "energy_J_per_refresh": 10577587.318490468,
-      "energy_fraction": 0.2884086007490101,
-      "positions": 1600.6,
+      "avg_power_kW": 534.1540726074927,
+      "dissipation_kW": 107.74662871705138,
+      "dissipation_kW_m2": 8.10344369280793,
+      "energy_J_per_refresh": 10683081.452149853,
+      "energy_fraction": 0.2912850048438027,
+      "positions": 1856.3,
       "theta_max_deg": 75.0,
-      "time_fraction": 0.043093248634900494
+      "time_fraction": 0.04351096366228994
      },
      "1": {
-      "avg_power_kW": 528.8793659245234,
-      "dissipation_kW": 106.56552930249872,
-      "dissipation_kW_m2": 8.014615181740826,
-      "energy_J_per_refresh": 10577587.318490468,
-      "energy_fraction": 0.2884086007490101,
-      "positions": 1600.6,
+      "avg_power_kW": 534.1540726074927,
+      "dissipation_kW": 107.74662871705138,
+      "dissipation_kW_m2": 8.10344369280793,
+      "energy_J_per_refresh": 10683081.452149853,
+      "energy_fraction": 0.2912850048438027,
+      "positions": 1856.3,
       "theta_max_deg": 75.0,
-      "time_fraction": 0.04309324863490047
+      "time_fraction": 0.043510963662289924
      },
      "2": {
-      "avg_power_kW": 528.8793659245234,
-      "dissipation_kW": 106.56552930249872,
-      "dissipation_kW_m2": 8.014615181740826,
-      "energy_J_per_refresh": 10577587.318490468,
-      "energy_fraction": 0.2884086007490101,
-      "positions": 1600.6,
+      "avg_power_kW": 534.1540726074927,
+      "dissipation_kW": 107.74662871705138,
+      "dissipation_kW_m2": 8.10344369280793,
+      "energy_J_per_refresh": 10683081.452149853,
+      "energy_fraction": 0.2912850048438027,
+      "positions": 1856.3,
       "theta_max_deg": 75.0,
-      "time_fraction": 0.04309324863490047
+      "time_fraction": 0.043510963662289924
      },
      "3": {
-      "avg_power_kW": 528.8793659245235,
-      "dissipation_kW": 106.56552930249872,
-      "dissipation_kW_m2": 8.014615181740826,
-      "energy_J_per_refresh": 10577587.318490472,
-      "energy_fraction": 0.28840860074901015,
-      "positions": 1600.6,
+      "avg_power_kW": 534.1540726074927,
+      "dissipation_kW": 107.74662871705138,
+      "dissipation_kW_m2": 8.10344369280793,
+      "energy_J_per_refresh": 10683081.452149853,
+      "energy_fraction": 0.2912850048438027,
+      "positions": 1856.3,
       "theta_max_deg": 75.0,
-      "time_fraction": 0.04309324863490048
+      "time_fraction": 0.043510963662289924
      }
     },
     "flags": [
-     "range 500 km not reached on 0.6 % of positions at full power (worst scan 466 km)",
+     "range 500 km not reached on 0.3 % of positions at full power (worst scan 484 km)",
      "14.4 % of the sector is outside the scanned zone (scan limit / eps window)"
     ],
     "frequency": {
@@ -1581,11 +1586,11 @@
     },
     "id": "VEILLE_KV",
     "mismatch_db_per_pass_max": 0.9898528954625464,
-    "positions_total": 6402.2,
+    "positions_total": 7425.1,
     "range_km": {
-     "at_best_scan": 676,
-     "at_worst_scan": 466,
-     "positions_short_of_range_pct": 0.6,
+     "at_best_scan": 701,
+     "at_worst_scan": 484,
+     "positions_short_of_range_pct": 0.3,
      "requested": 500
     },
     "range_min_km": 50.0,
@@ -1593,10 +1598,10 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 5.768172014980203,
+    "rr_alone_s": 5.825700096876054,
     "rr_est_mission_s": 20.0,
     "rr_target_s": 20,
-    "rx_beams_per_position": 6.118998226960277,
+    "rx_beams_per_position": 5.276075001817792,
     "rx_sll_db": -25.0,
     "rx_sll_held_up_to_deg": 75.0,
     "s_min_unsaturated_range_km": 1.3116775185708547,
@@ -1657,7 +1662,7 @@
      "pri_ms": 3.536,
      "pulses_per_block": 1,
      "range_resolution_m": 1.7743151612725794,
-     "rx_beams_per_position": 6.118998226960277,
+     "rx_beams_per_position": 5.276075001817792,
      "rx_deaf_us": 200.05,
      "sig_bw_mhz": 100.0,
      "staggered": false,
@@ -1670,11 +1675,11 @@
     },
     "wf_by_bin": [
      {
-      "elec_J_per_position": 2962.865196121089,
-      "pae_at_scale": 0.7973539126888852,
-      "positions": 77.4,
-      "pulse_scale": 0.301,
-      "range_km_at_bin_max": 675,
+      "elec_J_per_position": 2565.337296353616,
+      "pae_at_scale": 0.7969438716650853,
+      "positions": 89.8,
+      "pulse_scale": 0.261,
+      "range_km_at_bin_max": 700,
       "theta_hi_deg": 5.0,
       "theta_lo_deg": 0.0,
       "wf": {
@@ -1702,7 +1707,7 @@
        "pri_ms": 3.536,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 5.276075001817792,
        "rx_deaf_us": 200.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -1715,11 +1720,11 @@
       }
      },
      {
-      "elec_J_per_position": 3016.0584446943826,
-      "pae_at_scale": 0.7974005808760797,
-      "positions": 230.0,
-      "pulse_scale": 0.307,
-      "range_km_at_bin_max": 672,
+      "elec_J_per_position": 2611.3699172459083,
+      "pae_at_scale": 0.7969977443838105,
+      "positions": 266.8,
+      "pulse_scale": 0.265,
+      "range_km_at_bin_max": 697,
       "theta_hi_deg": 10.0,
       "theta_lo_deg": 5.0,
       "wf": {
@@ -1747,7 +1752,7 @@
        "pri_ms": 3.536,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 5.276075001817792,
        "rx_deaf_us": 200.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -1760,11 +1765,11 @@
       }
      },
      {
-      "elec_J_per_position": 3111.2401481593265,
-      "pae_at_scale": 0.7974801045156742,
-      "positions": 375.5,
-      "pulse_scale": 0.316,
-      "range_km_at_bin_max": 667,
+      "elec_J_per_position": 2693.7387025523203,
+      "pae_at_scale": 0.7970895469584443,
+      "positions": 435.4,
+      "pulse_scale": 0.274,
+      "range_km_at_bin_max": 691,
       "theta_hi_deg": 15.0,
       "theta_lo_deg": 10.0,
       "wf": {
@@ -1792,7 +1797,7 @@
        "pri_ms": 3.536,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 5.276075001817792,
        "rx_deaf_us": 200.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -1805,11 +1810,11 @@
       }
      },
      {
-      "elec_J_per_position": 3255.3716456526877,
-      "pae_at_scale": 0.7975916728246774,
-      "positions": 509.7,
-      "pulse_scale": 0.331,
-      "range_km_at_bin_max": 659,
+      "elec_J_per_position": 2818.4678883174684,
+      "pae_at_scale": 0.7972183468782822,
+      "positions": 591.1,
+      "pulse_scale": 0.287,
+      "range_km_at_bin_max": 683,
       "theta_hi_deg": 20.0,
       "theta_lo_deg": 15.0,
       "wf": {
@@ -1837,7 +1842,7 @@
        "pri_ms": 3.536,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 5.276075001817792,
        "rx_deaf_us": 200.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -1850,11 +1855,11 @@
       }
      },
      {
-      "elec_J_per_position": 3459.8725828374413,
-      "pae_at_scale": 0.7977340205998077,
-      "positions": 628.6,
-      "pulse_scale": 0.352,
-      "range_km_at_bin_max": 649,
+      "elec_J_per_position": 2995.439860626569,
+      "pae_at_scale": 0.7973826882311836,
+      "positions": 729.0,
+      "pulse_scale": 0.305,
+      "range_km_at_bin_max": 673,
       "theta_hi_deg": 25.0,
       "theta_lo_deg": 20.0,
       "wf": {
@@ -1882,7 +1887,7 @@
        "pri_ms": 3.536,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 5.276075001817792,
        "rx_deaf_us": 200.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -1895,11 +1900,11 @@
       }
      },
      {
-      "elec_J_per_position": 3742.780532356079,
-      "pae_at_scale": 0.7979053006361918,
-      "positions": 727.0,
-      "pulse_scale": 0.381,
-      "range_km_at_bin_max": 636,
+      "elec_J_per_position": 3240.2640579993367,
+      "pae_at_scale": 0.7975804441058916,
+      "positions": 843.1,
+      "pulse_scale": 0.33,
+      "range_km_at_bin_max": 660,
       "theta_hi_deg": 30.0,
       "theta_lo_deg": 25.0,
       "wf": {
@@ -1927,7 +1932,7 @@
        "pri_ms": 3.536,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 5.276075001817792,
        "rx_deaf_us": 200.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -1940,11 +1945,11 @@
       }
      },
      {
-      "elec_J_per_position": 4132.644016877249,
-      "pae_at_scale": 0.7981029094284476,
-      "positions": 805.1,
-      "pulse_scale": 0.421,
-      "range_km_at_bin_max": 621,
+      "elec_J_per_position": 3577.6459337834904,
+      "pae_at_scale": 0.7978086148978669,
+      "positions": 933.8,
+      "pulse_scale": 0.364,
+      "range_km_at_bin_max": 644,
       "theta_hi_deg": 35.0,
       "theta_lo_deg": 30.0,
       "wf": {
@@ -1972,7 +1977,7 @@
        "pri_ms": 3.536,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 5.276075001817792,
        "rx_deaf_us": 200.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -1985,11 +1990,11 @@
       }
      },
      {
-      "elec_J_per_position": 4675.744778288769,
-      "pae_at_scale": 0.7983232617750217,
-      "positions": 858.0,
-      "pulse_scale": 0.476,
-      "range_km_at_bin_max": 602,
+      "elec_J_per_position": 4047.6369970652026,
+      "pae_at_scale": 0.7980630674129907,
+      "positions": 995.0,
+      "pulse_scale": 0.412,
+      "range_km_at_bin_max": 624,
       "theta_hi_deg": 40.0,
       "theta_lo_deg": 35.0,
       "wf": {
@@ -2017,7 +2022,7 @@
        "pri_ms": 3.536,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 5.276075001817792,
        "rx_deaf_us": 200.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -2030,11 +2035,11 @@
       }
      },
      {
-      "elec_J_per_position": 5450.17465408861,
-      "pae_at_scale": 0.7985615139885254,
-      "positions": 657.1,
-      "pulse_scale": 0.555,
-      "range_km_at_bin_max": 579,
+      "elec_J_per_position": 4717.816725442545,
+      "pae_at_scale": 0.7983382143783332,
+      "positions": 762.1,
+      "pulse_scale": 0.48,
+      "range_km_at_bin_max": 601,
       "theta_hi_deg": 45.0,
       "theta_lo_deg": 40.0,
       "wf": {
@@ -2062,7 +2067,7 @@
        "pri_ms": 3.536,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 5.276075001817792,
        "rx_deaf_us": 200.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -2075,11 +2080,11 @@
       }
      },
      {
-      "elec_J_per_position": 6595.143323865746,
-      "pae_at_scale": 0.7988112464559141,
-      "positions": 492.9,
-      "pulse_scale": 0.672,
-      "range_km_at_bin_max": 552,
+      "elec_J_per_position": 5708.655039007456,
+      "pae_at_scale": 0.7986266467414077,
+      "positions": 571.6,
+      "pulse_scale": 0.582,
+      "range_km_at_bin_max": 573,
       "theta_hi_deg": 50.0,
       "theta_lo_deg": 45.0,
       "wf": {
@@ -2107,7 +2112,7 @@
        "pri_ms": 3.536,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 5.276075001817792,
        "rx_deaf_us": 200.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -2120,11 +2125,11 @@
       }
      },
      {
-      "elec_J_per_position": 8377.331379492472,
-      "pae_at_scale": 0.799064141115488,
-      "positions": 337.7,
-      "pulse_scale": 0.854,
-      "range_km_at_bin_max": 520,
+      "elec_J_per_position": 7250.933228887051,
+      "pae_at_scale": 0.7989187598682104,
+      "positions": 391.7,
+      "pulse_scale": 0.739,
+      "range_km_at_bin_max": 539,
       "theta_hi_deg": 55.0,
       "theta_lo_deg": 50.0,
       "wf": {
@@ -2152,7 +2157,7 @@
        "pri_ms": 3.536,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 5.276075001817792,
        "rx_deaf_us": 200.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -2165,11 +2170,11 @@
       }
      },
      {
-      "elec_J_per_position": 12489.274857583901,
-      "pae_at_scale": 0.7987445227862465,
-      "positions": 246.6,
-      "pulse_scale": 0.636,
-      "range_km_at_bin_max": 560,
+      "elec_J_per_position": 10721.674605119691,
+      "pae_at_scale": 0.7985375418880449,
+      "positions": 286.0,
+      "pulse_scale": 0.546,
+      "range_km_at_bin_max": 582,
       "theta_hi_deg": 60.0,
       "theta_lo_deg": 55.0,
       "wf": {
@@ -2197,7 +2202,7 @@
        "pri_ms": 3.536,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 5.276075001817792,
        "rx_deaf_us": 200.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -2210,11 +2215,11 @@
       }
      },
      {
-      "elec_J_per_position": 18554.11399537922,
-      "pae_at_scale": 0.799154904405357,
-      "positions": 197.4,
-      "pulse_scale": 0.946,
-      "range_km_at_bin_max": 507,
+      "elec_J_per_position": 15926.81119946003,
+      "pae_at_scale": 0.7990154965860001,
+      "positions": 228.9,
+      "pulse_scale": 0.812,
+      "range_km_at_bin_max": 527,
       "theta_hi_deg": 65.0,
       "theta_lo_deg": 60.0,
       "wf": {
@@ -2242,7 +2247,7 @@
        "pri_ms": 3.536,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 5.276075001817792,
        "rx_deaf_us": 200.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -2255,11 +2260,11 @@
       }
      },
      {
-      "elec_J_per_position": 38614.71885625413,
-      "pae_at_scale": 0.7991878744445418,
-      "positions": 150.8,
-      "pulse_scale": 0.984,
-      "range_km_at_bin_max": 502,
+      "elec_J_per_position": 33124.0382390092,
+      "pae_at_scale": 0.7990532555308106,
+      "positions": 174.9,
+      "pulse_scale": 0.844,
+      "range_km_at_bin_max": 522,
       "theta_hi_deg": 70.0,
       "theta_lo_deg": 65.0,
       "wf": {
@@ -2287,7 +2292,7 @@
        "pri_ms": 3.536,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 5.276075001817792,
        "rx_deaf_us": 200.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -2302,9 +2307,9 @@
      {
       "elec_J_per_position": 78478.4,
       "pae_at_scale": 0.7992007992007992,
-      "positions": 108.4,
+      "positions": 125.8,
       "pulse_scale": 1.0,
-      "range_km_at_bin_max": 466,
+      "range_km_at_bin_max": 484,
       "theta_hi_deg": 75.0,
       "theta_lo_deg": 70.0,
       "wf": {
@@ -2332,7 +2337,7 @@
        "pri_ms": 3.536,
        "pulses_per_block": 1,
        "range_resolution_m": 1.7743151612725794,
-       "rx_beams_per_position": 6.118998226960277,
+       "rx_beams_per_position": 5.276075001817792,
        "rx_deaf_us": 200.05,
        "sig_bw_mhz": 100.0,
        "staggered": false,
@@ -2367,12 +2372,12 @@
       "name": "WF-VEILLE_KV-1",
       "pae": 0.7992007992007992,
       "pfa": 5.62341e-11,
-      "positions": 5698.9,
+      "positions": 6609.4,
       "positions_per_dwell": 1.0,
       "pri_ms": 3.536,
       "pulses_per_block": 1,
       "range_resolution_m": 1.7743151612725794,
-      "rx_beams_per_position": 6.118998226960277,
+      "rx_beams_per_position": 5.276075001817792,
       "rx_deaf_us": 200.05,
       "sig_bw_mhz": 100.0,
       "staggered": false,
@@ -2406,12 +2411,12 @@
       "name": "WF-VEILLE_KV-2",
       "pae": 0.7992007992007992,
       "pfa": 2.51189e-11,
-      "positions": 444.0,
+      "positions": 515.0,
       "positions_per_dwell": 1.0,
       "pri_ms": 3.536,
       "pulses_per_block": 1,
       "range_resolution_m": 1.7743151612725794,
-      "rx_beams_per_position": 6.118998226960277,
+      "rx_beams_per_position": 5.276075001817792,
       "rx_deaf_us": 200.05,
       "sig_bw_mhz": 100.0,
       "staggered": false,
@@ -2445,12 +2450,12 @@
       "name": "WF-VEILLE_KV-3",
       "pae": 0.7992007992007992,
       "pfa": 1.25893e-11,
-      "positions": 150.8,
+      "positions": 174.9,
       "positions_per_dwell": 1.0,
       "pri_ms": 3.536,
       "pulses_per_block": 1,
       "range_resolution_m": 1.7743151612725794,
-      "rx_beams_per_position": 6.118998226960277,
+      "rx_beams_per_position": 5.276075001817792,
       "rx_deaf_us": 200.05,
       "sig_bw_mhz": 100.0,
       "staggered": false,
@@ -2484,12 +2489,12 @@
       "name": "WF-VEILLE_KV-4",
       "pae": 0.7992007992007992,
       "pfa": 5.62341e-12,
-      "positions": 108.4,
+      "positions": 125.8,
       "positions_per_dwell": 1.0,
       "pri_ms": 3.536,
       "pulses_per_block": 1,
       "range_resolution_m": 1.7743151612725794,
-      "rx_beams_per_position": 6.118998226960277,
+      "rx_beams_per_position": 5.276075001817792,
       "rx_deaf_us": 200.05,
       "sig_bw_mhz": 100.0,
       "staggered": false,
@@ -2513,73 +2518,73 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 6.783625832729351e-05,
-     "confirm_ku_time": 6.67286118737813e-05,
+     "confirm_energy": 6.783625832729359e-05,
+     "confirm_ku_time": 6.672861187378126e-05,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 106.74449688205196,
-     "dissipation_kW_m2": 8.028075033998071,
-     "load": 0.2888678362583273,
-     "p_left_kW": 1304.0634948870231,
-     "search_energy": 0.2888,
-     "search_s_time": 0.0431,
+     "dissipation_kW": 107.91789688205195,
+     "dissipation_kW_m2": 8.116324484977284,
+     "load": 0.2916678362583273,
+     "p_left_kW": 1298.928896887023,
+     "search_energy": 0.2916,
+     "search_s_time": 0.0436,
      "status": "OK",
-     "total_energy": 0.2888678362583273,
-     "total_ku_time": 6.67286118737813e-05,
-     "total_s_time": 0.0431
+     "total_energy": 0.2916678362583273,
+     "total_ku_time": 6.672861187378126e-05,
+     "total_s_time": 0.0436
     },
     "1": {
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 6.783619744918945e-05,
-     "confirm_ku_time": 6.672861187378127e-05,
+     "confirm_energy": 6.783619744918953e-05,
+     "confirm_ku_time": 6.67286118737813e-05,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 106.74449684288139,
-     "dissipation_kW_m2": 8.028075031052119,
-     "load": 0.2888678361974492,
-     "p_left_kW": 1304.0634949986604,
-     "search_energy": 0.2888,
-     "search_s_time": 0.0431,
+     "dissipation_kW": 107.91789684288138,
+     "dissipation_kW_m2": 8.11632448203133,
+     "load": 0.29166783619744924,
+     "p_left_kW": 1298.9288969986603,
+     "search_energy": 0.2916,
+     "search_s_time": 0.0436,
      "status": "OK",
-     "total_energy": 0.2888678361974492,
-     "total_ku_time": 6.672861187378127e-05,
-     "total_s_time": 0.0431
+     "total_energy": 0.29166783619744924,
+     "total_ku_time": 6.67286118737813e-05,
+     "total_s_time": 0.0436
     },
     "2": {
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 6.783622650029085e-05,
-     "confirm_ku_time": 6.672861187378127e-05,
+     "confirm_energy": 6.783622650029091e-05,
+     "confirm_ku_time": 6.67286118737813e-05,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 106.74449686157362,
-     "dissipation_kW_m2": 8.02807503245793,
-     "load": 0.2888678362265003,
-     "p_left_kW": 1304.0634949453872,
-     "search_energy": 0.2888,
-     "search_s_time": 0.0431,
+     "dissipation_kW": 107.91789686157362,
+     "dissipation_kW_m2": 8.116324483437143,
+     "load": 0.29166783622650033,
+     "p_left_kW": 1298.928896945387,
+     "search_energy": 0.2916,
+     "search_s_time": 0.0436,
      "status": "OK",
-     "total_energy": 0.2888678362265003,
-     "total_ku_time": 6.672861187378127e-05,
-     "total_s_time": 0.0431
+     "total_energy": 0.29166783622650033,
+     "total_ku_time": 6.67286118737813e-05,
+     "total_s_time": 0.0436
     },
     "3": {
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "confirm_energy": 6.783623198961733e-05,
-     "confirm_ku_time": 6.672861187378127e-05,
+     "confirm_energy": 6.783623198961738e-05,
+     "confirm_ku_time": 6.67286118737813e-05,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 106.74449686510562,
-     "dissipation_kW_m2": 8.028075032723565,
-     "load": 0.28886783623198964,
-     "p_left_kW": 1304.0634949353207,
-     "search_energy": 0.2888,
-     "search_s_time": 0.0431,
+     "dissipation_kW": 107.9178968651056,
+     "dissipation_kW_m2": 8.116324483702776,
+     "load": 0.29166783623198966,
+     "p_left_kW": 1298.9288969353206,
+     "search_energy": 0.2916,
+     "search_s_time": 0.0436,
      "status": "OK",
-     "total_energy": 0.28886783623198964,
-     "total_ku_time": 6.672861187378127e-05,
-     "total_s_time": 0.0431
+     "total_energy": 0.29166783623198966,
+     "total_ku_time": 6.67286118737813e-05,
+     "total_s_time": 0.0436
     }
    },
    "ku_freq_ghz": 14.0,
@@ -2607,17 +2612,17 @@
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.2889,
+       "mission_max_load": 0.2917,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.289,
+       "mission_max_load": 0.2918,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.2889,
+       "mission_max_load": 0.2917,
        "why_not": ""
       }
      },
@@ -2627,13 +2632,13 @@
       "admissible": true,
       "faces": {
        "0": {
-        "energy_fraction": 6.164635660172926e-05,
-        "ku_time_fraction": 5.588525226049932e-05,
+        "energy_fraction": 6.164635660172935e-05,
+        "ku_time_fraction": 5.588525226049929e-05,
         "s_time_fraction": 0.0
        }
       },
       "ku_looks_fa": 8.0,
-      "ku_looks_true": 2.2918911562490103,
+      "ku_looks_true": 2.29189115624901,
       "margin_db": 0.0,
       "success": 0.9806703612086648,
       "why_not": ""
@@ -2672,17 +2677,17 @@
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.2889,
+       "mission_max_load": 0.2917,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.289,
+       "mission_max_load": 0.2918,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.2889,
+       "mission_max_load": 0.2917,
        "why_not": ""
       }
      },
@@ -2692,13 +2697,13 @@
       "admissible": true,
       "faces": {
        "1": {
-        "energy_fraction": 6.16462957236252e-05,
-        "ku_time_fraction": 5.58852522604993e-05,
+        "energy_fraction": 6.164629572362529e-05,
+        "ku_time_fraction": 5.5885252260499325e-05,
         "s_time_fraction": 0.0
        }
       },
       "ku_looks_fa": 8.0,
-      "ku_looks_true": 2.2918911562490103,
+      "ku_looks_true": 2.29189115624901,
       "margin_db": 0.0,
       "success": 0.9806703612086648,
       "why_not": ""
@@ -2737,17 +2742,17 @@
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.2889,
+       "mission_max_load": 0.2917,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.289,
+       "mission_max_load": 0.2918,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.2889,
+       "mission_max_load": 0.2917,
        "why_not": ""
       }
      },
@@ -2757,13 +2762,13 @@
       "admissible": true,
       "faces": {
        "2": {
-        "energy_fraction": 6.16463247747266e-05,
-        "ku_time_fraction": 5.58852522604993e-05,
+        "energy_fraction": 6.164632477472667e-05,
+        "ku_time_fraction": 5.5885252260499325e-05,
         "s_time_fraction": 0.0
        }
       },
       "ku_looks_fa": 8.0,
-      "ku_looks_true": 2.2918911562490103,
+      "ku_looks_true": 2.29189115624901,
       "margin_db": 0.0,
       "success": 0.9806703612086648,
       "why_not": ""
@@ -2802,17 +2807,17 @@
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.2889,
+       "mission_max_load": 0.2917,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.289,
+       "mission_max_load": 0.2918,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.2889,
+       "mission_max_load": 0.2917,
        "why_not": ""
       }
      },
@@ -2822,13 +2827,13 @@
       "admissible": true,
       "faces": {
        "3": {
-        "energy_fraction": 6.164633026405308e-05,
-        "ku_time_fraction": 5.58852522604993e-05,
+        "energy_fraction": 6.164633026405314e-05,
+        "ku_time_fraction": 5.5885252260499325e-05,
         "s_time_fraction": 0.0
        }
       },
       "ku_looks_fa": 8.0,
-      "ku_looks_true": 2.2918911562490103,
+      "ku_looks_true": 2.29189115624901,
       "margin_db": 0.0,
       "success": 0.9806703612086648,
       "why_not": ""
@@ -2867,17 +2872,17 @@
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.2889,
+       "mission_max_load": 0.2917,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.2889,
+       "mission_max_load": 0.2917,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.2892,
+       "mission_max_load": 0.292,
        "why_not": ""
       }
      },
@@ -2887,23 +2892,23 @@
       "admissible": true,
       "faces": {
        "0": {
-        "energy_fraction": 6.18990172556424e-06,
-        "ku_time_fraction": 1.0843359613281974e-05,
+        "energy_fraction": 6.1899017255642426e-06,
+        "ku_time_fraction": 1.084335961328197e-05,
         "s_time_fraction": 0.0
        },
        "1": {
-        "energy_fraction": 6.189901725564239e-06,
-        "ku_time_fraction": 1.0843359613281967e-05,
+        "energy_fraction": 6.1899017255642426e-06,
+        "ku_time_fraction": 1.084335961328197e-05,
         "s_time_fraction": 0.0
        },
        "2": {
-        "energy_fraction": 6.189901725564239e-06,
-        "ku_time_fraction": 1.0843359613281967e-05,
+        "energy_fraction": 6.1899017255642426e-06,
+        "ku_time_fraction": 1.084335961328197e-05,
         "s_time_fraction": 0.0
        },
        "3": {
-        "energy_fraction": 6.189901725564239e-06,
-        "ku_time_fraction": 1.0843359613281967e-05,
+        "energy_fraction": 6.1899017255642426e-06,
+        "ku_time_fraction": 1.084335961328197e-05,
         "s_time_fraction": 0.0
        }
       },

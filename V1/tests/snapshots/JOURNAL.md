@@ -397,3 +397,31 @@ rhythm decided on 23 October 2026 (full suite, impact report and snapshots every
 are kept: test_snapshots fails until P6 refreezes them. Spot checks (not frozen): mission_example sectors choose
 1.6 / 1.5 / 1.6 with the 1.3-1.6 range (the range was then widened to 2.0); mission_example runs in about 2 min 20 in
 parallel on the laptop (71 s before P5).
+
+Same day, still P5 (V6.11.7, snapshots NOT refrozen): rotation test D7 settled by the user (option 3): every
+refined cell split into 8 x 8 points (tool.sky.refine_subsamples = 8), each blinded or not and counted on its own
+in the budget quantile; cells scanned for the share left (positions count it). Measured at the test angles 0.37 /
+1.13 deg: budget 0.15 / 0.81 %, blinded 0.16 / 0.40 % (per-cell values: 1.05 / 0.92 % and 0.70 / 1.41 %); drift
+1.4 % at 2.9 deg (open point o). Snapshots will move at P6 near hot sources (sky_demo, frames, environment).
+
+## 2026-10-23 -- step 3.1 pass P6 (radar_model V6.11.7): snapshots refrozen (P5 + P6)
+
+Causes: P5 sky refinement (refined cells evaluated one by one, then split into 8 x 8 points, each blinded or not and
+counted on its own in the budget quantile; option 3, user) and the search lattice spacing chosen per sector among
+1.3 to 2.0 (E7 a). The runtime changes of the same day (caches A1-A5, look cut-off, Numba sums of the body noise) do
+not move any output (mission_example identical to the character; mission_sky_demo Numba vs NumPy within 1e-9).
+cost_table.json regenerated (parameter fingerprint). 4966 output values differ; the model case does not change
+at the 1e-9 tolerance (model.json is rewritten with last-digit, ~1e-16, changes of the confirmation tables: the
+looks left out before the interpolation (A2) change the grouping of the product, not its value).
+Test values only, not radar performance. Main moves:
+- mission_sky_demo EARTH: range at worst scan 1748 -> 1018 km (-42 %), positions short of range 0.3 -> 0.8 % (still
+  under short_tol 1 %), blinded 14.48 -> 15.59 %, F3 energy +17 %: the 8 x 8 split along the Earth limb with the
+  per-sector spacing; the plan now accepts a few more short positions at the worst scan (believed, not verified).
+  SUN budget T_sys 379.5 -> 370.8 K, blinded 1.094 -> 0.978 %. MOON confirmation mode KU1+7 -> S2 (F2 Ku time -75 %).
+- Waveform sets move in every mission with the per-sector spacing (e.g. mission_example S03 400/1000 us -> 600/1500 us;
+  mission_redundancy_demo B5_LONG three waveforms -> one; mission_synthetic_mix SHIPW partition x2h -> x4). Face
+  energy and time change by -98 % (an almost idle face of mission_redundancy_demo) to +17 %.
+- Ranges at worst scan move by -13 % to +22 % outside EARTH (the cheapest plan per spacing, not a longer reach).
+Case times (P6 script, one computation for the report and the freeze, frequencies in parallel): model 4 s,
+mission_example 245 s, _csv 51 s, veille500 155 s, redundancy_demo 589 s, synthetic_mix 259 s, sky_demo 278 s,
+target_library 251 s, environment 285 s, frames 835 s (49 min in all).

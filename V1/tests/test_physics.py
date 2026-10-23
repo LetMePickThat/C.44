@@ -609,7 +609,8 @@ def test_false_alarms_count_independent_cells(runs):
     assert {"coherent_blocks", "pulses_per_block", "velocity_hypotheses", "block_ms"} <= set(w)
     trk_s = next(x for x in res["tracking"]["sectors"] if x["id"] == "S02")
     sec = next(x for x in md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_example.json"))["sectors"] if x["id"] == "S02")
-    angle = rm.rx_beams_per_position(w["freq_ghz"], mo.rx_sll_db(sec)) * rm.RX_BEAM_SPACING_HPBW ** 2
+    angle = (rm.rx_beams_per_position(w["freq_ghz"], mo.rx_sll_db(sec), s["beam_spacing_hpbw"])   # the sector's
+             * rm.RX_BEAM_SPACING_HPBW ** 2)                                                         # spacing (P5)
     cells = rm.independent_cells(mo.range_min_km(sec), sec["range_km"], w["sig_bw_mhz"], w["pulses_per_block"],
                                  w["velocity_hypotheses"], angle)
     assert trk_s["false_alarms_per_rr"] == pytest.approx(round(s["positions_total"] * cells * w["pfa"], 1), abs=0.11)
@@ -795,10 +796,19 @@ def test_eps_window_only_removes_positions():
     assert rm.n_search_positions(2.8, -90.0, 90.0) == full
 
 
+def _one_frequency(m: dict, f_ghz: float = 2.8) -> dict:
+    """The mission with one forced S frequency per sector (test protocol, step 4: a test that only needs a run, not
+    the frequency search, skips it; a sector that already forces its frequency keeps it)."""
+    for sec in m["sectors"]:
+        sec.setdefault("freq_ghz_candidates", [f_ghz])
+    return m
+
+
 def test_eps_window_is_not_written_into_the_model():
-    """Mission inputs are passed explicitly; running a mission leaves the model's defaults untouched."""
+    """Mission inputs are passed explicitly; running a mission leaves the model's defaults untouched (one frequency
+    per sector: the run, not the search, is tested)."""
     before = (rm.SECTOR_EPS_MIN_DEG, rm.SECTOR_EPS_MAX_DEG)
-    mo.run(md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_synthetic_mix.json")), workers=1)
+    mo.run(_one_frequency(md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_synthetic_mix.json"))), workers=1)
     assert (rm.SECTOR_EPS_MIN_DEG, rm.SECTOR_EPS_MAX_DEG) == before
 
 
@@ -963,7 +973,8 @@ def test_tracking_loads_add_up(runs):
 
 
 def test_parallel_run_equals_sequential():
-    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_redundancy_demo.json"))
+    """Ten sectors (enough for the parallel run), one frequency each: the parallel and sequential runs agree."""
+    m = _one_frequency(md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_redundancy_demo.json")))
     assert json.dumps(mo.run(m, workers=1), sort_keys=True) == json.dumps(mo.run(m, workers=2), sort_keys=True)
 
 
@@ -1258,7 +1269,10 @@ def test_frequency_grid_is_derived_from_the_band_and_the_exclusions():
     assert all(mo.signal_fits(f, 10.0, excl) for f in mo.valid_centres(10.0, excl))
 
 
-def test_two_pass_frequency_search_matches_the_exhaustive_one():
+def test_two_pass_frequency_search_matches_the_exhaustive_one(monkeypatch):
+    """The two-pass frequency search finds the exhaustive optimum (one lattice spacing: the frequency search is
+    tested, not the spacing choice, which test_optimiser_keeps_the_cheapest_spacing covers)."""
+    monkeypatch.setattr(rm, "BEAM_SPACING_OPTIONS", (rm.BEAM_SPACING_HPBW,))
     m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_example.json"))
     sec = m["sectors"][0]
     sph = mo._sphere(-90.0, 90.0)
@@ -1536,12 +1550,10 @@ def _sun_sector(dphi: float = 0.0):
     return sec, sky
 
 
-@pytest.mark.xfail(strict=False, reason="step 3.1 P5: the 1 % criterion (D7) is not met on the 0.2 deg raster "
-                   "(2.9 % on the budget, 2.0 % on the blinded fraction; 31 % and 11.5 % before the refinement): "
-                   "decision pending (finer raster or another criterion)")
 def test_sky_refinement_is_invariant_under_rotation():
-    """S1-S4: cells near a hot source are evaluated one by one; turning the sky and the sector together about the
-    ship axis by angles off the raster changes the budget T_sys and the blinded fraction by less than 1 %."""
+    """S1-S4: cells near a hot source are evaluated one by one, split into refine_subsamples^2 points (option 3);
+    turning the sky and the sector together about the ship axis by angles off the raster changes the budget T_sys and
+    the blinded fraction by less than 1 % (D7; 0.81 % and 0.40 % at most, 1.05 % and 1.41 % with per-cell values)."""
     sph = mo._sphere(-90.0, 90.0)
     ref = None
     for dphi in (0.0, 0.37, 1.13):
@@ -1559,6 +1571,73 @@ def test_sky_refinement_is_invariant_under_rotation():
     fine = mo._refine_cells(sky_mod_parse(sky), sky, rm.BAND_S, "S", 2.8, -25.0, sph, ii, jj, ii, jj,
                             sph.owner[ii, jj].astype(np.int64))
     assert 0 < fine.sum() < len(fine)
+
+
+def test_sky_rotation_drift_is_measured():
+    """Option 3, point 6: over larger rotations the budget T_sys drifts steadily (about 1.4 % at 2.9 deg), believed
+    physical (the faces stay fixed, so the scan angle and the pattern change) and open until 5.6. No criterion: the
+    test prints the drift and checks only that the blinded fraction stays within 1 %."""
+    sph = mo._sphere(-90.0, 90.0)
+    out = []
+    for dphi in (0.0, 1.57, 2.9):
+        sec, sky = _sun_sector(dphi)
+        s, _ = mo.sector_sky(sec, sph, sph.mask(sec), 2.8, "S", sky)
+        out.append((dphi, s["t_sys_budget_k"], s["blinded_pct"]))
+    print("rotation drift (deg, budget %, blinded %):",
+          [(d, round(100 * (b / out[0][1] - 1), 2), round(100 * (p / out[0][2] - 1), 2)) for d, b, p in out[1:]])
+    assert all(np.isfinite(b) for _, b, _ in out)
+    assert all(p == pytest.approx(out[0][2], rel=0.01) for _, _, p in out)
+
+
+def test_refined_cells_are_shared_point_by_point():
+    """Option 3: a refined cell on the edge of the region blinded around the Sun is scanned for a share between 0 and
+    1, and the positions count that share."""
+    sph = mo._sphere(-90.0, 90.0)
+    sec, sky = _sun_sector()
+    m = sph.mask(sec)
+    _, keep = mo.sector_sky(sec, sph, m, 2.8, "S", sky)
+    k = keep[m & sph.scan_zone]
+    assert (k == 0.0).any() and ((k > 0.0) & (k < 1.0)).any()
+    pos, _, _, _ = mo.search_positions(sec, sph, m, 2.8, sky)
+    pos_bin, _ = mo.positions_table(sph, m & (keep == 1.0), 2.8, mo.grid_spacing(sec))
+    pos_all, _ = mo.positions_table(sph, m & (keep > 0.0), 2.8, mo.grid_spacing(sec))
+    tot = lambda p: sum(float(v.sum()) for v in p.values())    # noqa: E731
+    assert tot(pos_bin) < tot(pos) < tot(pos_all)
+
+
+def test_numba_sky_sums_equal_the_numpy_ones():
+    """N4: the compiled sums of body_rise_k (small body, near zone, far lobes) equal the numpy path to 1e-12: a small
+    body (Sun) and a large one (Earth, 60 deg), beam axes around each."""
+    from core import sky as skym
+    if skym._nb is None:
+        pytest.skip("numba not installed")
+    sky = skym.parse({"bodies": [{"id": "SUN", "type": "sun", "phi_deg": 20.0, "eps_deg": 20.0,
+                                  "angular_radius_deg": 0.267},
+                                 {"id": "E", "type": "earth_ocean", "phi_deg": 200.0, "eps_deg": -60.0,
+                                  "angular_radius_deg": 60.0}]})
+    rng = np.random.default_rng(3)
+    frames = [mo.face_frame(p) for p in mo.FACE_PHI]
+    seen = 0
+    for b in sky.bodies:
+        c = np.array(b.c)
+        fr = frames[int(np.argmax([np.dot(f[0], c) for f in frames]))]
+        v = rng.normal(size=(3000, 3))
+        v -= (v @ c)[:, None] * c
+        v /= np.linalg.norm(v, axis=1)[:, None]
+        a = np.radians(rng.uniform(0.0, math.degrees(b.radius_rad) + 6.0, 3000))
+        d = np.cos(a)[:, None] * c + np.sin(a)[:, None] * v
+        d = d[d @ fr[0] > 0.1]
+        saved = skym.USE_NUMBA
+        try:
+            skym.USE_NUMBA = False
+            ref = skym.body_rise_k(b, "S", 2.8, -25.0, fr, d)
+            skym.USE_NUMBA = True
+            got = skym.body_rise_k(b, "S", 2.8, -25.0, fr, d)
+        finally:
+            skym.USE_NUMBA = saved
+        assert np.allclose(got, ref, rtol=1e-12, atol=0.0)
+        seen += int((ref > 0).sum())
+    assert seen > 1000
 
 
 def sky_mod_parse(sky):
@@ -1700,7 +1779,11 @@ def test_limb_band_follows_the_altitude():
 
 
 def test_inertial_frame_with_identity_attitude_is_the_ship_frame():
+    """Sectors and sky in ICRF axes with the identity attitude give the ship-frame run (the Sun and Moon sectors,
+    one frequency: the frames are tested, the full mission is in the snapshots)."""
     m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_sky_demo.json"))
+    m["sectors"] = [s for s in m["sectors"] if s["id"] in ("SUN", "MOON")]
+    _one_frequency(m)
     ref = _strip_frames(mo.run(m, workers=1))
     got = _strip_frames(mo.run(_framed(m, [{"q_ship_to_icrf": [1.0, 0.0, 0.0, 0.0]}]), workers=1))
     assert tb.differences(ref, got) == []

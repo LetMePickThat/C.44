@@ -13,9 +13,17 @@
 # Changes V6.11.6 -> V6.11.7 (roadmap step 3.1, pass P5, IN PROGRESS: frozen outputs and impact report not refreshed)
 #   - Sky refinement near hot sources (S1-S4): the raster cells of a block whose sky rise exceeds 0.5 dB, and those
 #     within 3 TX beamwidths of a stand-off jammer, of a small body's centre or of a large body's limb, are evaluated
-#     one by one (optimizer._refine_cells). Rotation test (Sun, 1 %) NOT met: 2.9 % on the budget T_sys, 2.0 % on the
-#     blinded fraction (31 % and 11.5 % before); the residual comes from the per-cell blinding on the 0.2 deg raster.
-#     A 4 x 4 sub-sampling of refined cells was tried (no gain) and left off (tool.sky.refine_subsamples = 1).
+#     one by one (optimizer._refine_cells), then split into tool.sky.refine_subsamples^2 = 8 x 8 points of equal
+#     weight (option 3, user), each blinded or not on its own rise and counted on its own in the budget quantile; the
+#     cell is scanned for the share left (sector_sky returns that share per raster cell, positions_table counts it).
+#     Rotation test (Sun, 1 %) met: 0.81 % on the budget T_sys, 0.40 % on the blinded fraction (1.05 % and 1.41 %
+#     with per-cell values); a steady drift at larger angles (1.4 % at 2.9 deg) is measured, not judged (open point).
+#   - Runtime, exact (outputs of mission_example identical to the character): A1 unbounded cache of the cumulative-Pd
+#     inversion (detection._required_snr_db, ~1e5 laws per mission, the 8 spacings emptied the 8192 entries); A2 looks
+#     whose Pd is below the floor left out before the interpolation (bit-identical); A3 unbounded caches of
+#     position_losses / _fixed_position_law; A4 mean-curve cache 4096 -> 32768 (~0.5 GB); A5 the frequency workers take
+#     one centre at all its spacings (shared sky and caches). mission_example 1727 s -> 188 s sequential, 146 s
+#     parallel. Numba sums of sky.body_rise_k (tool.sky.use_numba; numpy path kept, ~1e-14 relative).
 #   - Search lattice spacing per sector (E7 a): every spacing of search_grid.beam_spacing_options_hpbw (1.3 to 2.0 by
 #     0.1) is tried at every centre frequency, the cheapest kept; solve(grid_spacing_hpbw), positions, grid losses,
 #     RX beams per position, Pfa cells, the Ku budget and the redundancy follow the sector's spacing.
@@ -1680,7 +1688,7 @@ def _beam_loss_db(beam: "antenna.Beam", r_lam_d: np.ndarray) -> np.ndarray:
     return -10.0 * np.log10(np.maximum(g, 1e-12))
 
 
-@functools.lru_cache(maxsize=1 << 12)
+@functools.lru_cache(maxsize=None)   # exact; ~1e4 laws per mission, emptied when bounded (step 3.1 A3)
 def position_losses(band_name: str, rx_sll_db: float, psl_db: float, search: bool, doppler: bool,
                     bank: Tuple[float, float, float, float, int, bool],
                     tx_sub: Optional[str] = None, doppler_window_db: Optional[float] = None,
@@ -1703,7 +1711,7 @@ def position_losses(band_name: str, rx_sll_db: float, psl_db: float, search: boo
     return tuple(law[0]), tuple(law[1]), means
 
 
-@functools.lru_cache(maxsize=256)
+@functools.lru_cache(maxsize=None)
 def _fixed_position_law(band_name: str, rx_sll_db: float, psl_db: float, search: bool, doppler: bool,
                         tx_sub: Optional[str], doppler_window_db: Optional[float] = None,
                         spacing_hpbw: float = BEAM_SPACING_HPBW) -> Tuple[Tuple[Tuple[float, ...], Tuple[float, ...]], Tuple]:

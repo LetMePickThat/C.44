@@ -37,13 +37,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small C.44 radar -- design and modelling reference}
-\rhead{\small Model V6.11.6}
+\rhead{\small Model V6.11.7}
 \cfoot{\thepage}
 
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{23 October 2026 -- radar model V6.11.6 (roadmap step 3.1, pass P4)}
+\date{23 October 2026 -- radar model V6.11.7 (roadmap step 3.1, pass P6)}
 
 \begin{document}
 \maketitle
@@ -441,11 +441,18 @@ variants; Moon \SI{230}{K}); the galactic background follows a plane-and-bulge m
 worst case applied everywhere when the mission gives no galactic frame. The Sun in the beam adds about
 \SI{17}{dB} in S as in Ku; the Moon about \SI{2.6}{dB} in Ku.
 
-For a sector, $\Tsys$ is evaluated every half transmit beamwidth over the scanned positions. A position whose rise
-exceeds \SI{10}{dB} is \emph{blinded}: it is removed from the search and reported with the body responsible. The
-\emph{budget} $\Tsys$ of the sector is the $(1-\text{\code{short\_tol}})$ quantile (\SI{99}{\percent}) of the other
-positions, and all its ranges scale with $(T_{\mathrm{cold}}/T_{\mathrm{budget}})^{1/4}$. The same rule applies in Ku
-to the confirmation and tracking of the sector.
+For a sector, $\Tsys$ is evaluated every half transmit beamwidth over the scanned positions (raster of
+\SI{0.2}{\degree}). Near hot sources the noise varies faster than that step, so the raster cells are evaluated one by
+one where the rise of their block exceeds \SI{0.5}{dB}, and within three transmit beamwidths of a stand-off jammer,
+of a small body's centre or of a large body's limb; each such cell is then split into $8\times8$ points of equal
+weight. A point whose rise exceeds \SI{10}{dB} is \emph{blinded}: the cell is searched only for the share of its
+points left, and the blinded share is reported with the body responsible. The \emph{budget} $\Tsys$ of the sector is
+the $(1-\text{\code{short\_tol}})$ quantile (\SI{99}{\percent}) of the positions not blinded, every point counting
+for its own weight, and all its ranges scale with $(T_{\mathrm{cold}}/T_{\mathrm{budget}})^{1/4}$. Turning the sky and
+the sector together about the ship axis by angles off the raster moves the budget and the blinded share by less than
+\SI{1}{\percent} (Sun, \SI{0.37}{\degree} and \SI{1.13}{\degree}); a steady drift at larger angles (\SI{1.4}{\percent}
+at \SI{2.9}{\degree}), believed to come from the fixed faces, is still to be confirmed. The same rule applies in Ku to
+the confirmation and tracking of the sector.
 
 %=====================================================================================================================
 \section{Waveforms}\label{sec:wf}
@@ -558,9 +565,10 @@ polarisation diversity enter. The laws are valid for any $\Pfa$ and agree with S
 The random position of the target costs SNR. The offsets in the hexagonal transmit cell (real pattern), in the receive
 beam lattice, in range and Doppler straddle, and to the nearest velocity filter form a discrete loss law (16 quantiles
 each, combined as independent). The $\Pd$ of a look is the \emph{mean} $\Pd$ over this law, and the SNR it costs is
-the budget loss called ``positions''. The search lattice spacing of $1.4$ transmit beamwidths is the optimum of this
-criterion (flat within \SI{0.1}{dB} from 1.3 to 1.6); a cell corner is \SI{7.9}{dB} down, so the scheduler must shift
-the lattice every frame.
+the budget loss called ``positions''. A spacing of $1.4$ transmit beamwidths is the optimum of this criterion for
+one look (flat within \SI{0.1}{dB} from 1.3 to 1.6); since the cumulative criterion lowers the $\Pd$ asked of a look,
+the optimiser chooses the spacing of each sector among 1.3 to 2.0 by steps of 0.1 (Section~\ref{sec:opt}). A cell
+corner is \SI{7.9}{dB} down at 1.4, so the scheduler must shift the lattice every frame.
 
 \subsection{Cumulative Pd of the search}
 A target closing at $v$ is seen once per revisit $RR$, at ranges $R(1+(k+\phi)q)$ with $q = vRR/R$ and a uniform phase
@@ -756,8 +764,10 @@ independent of the waveform (checked at run time): one solution per candidate an
         range (1\,\% tolerance), then the objective, then a deterministic secondary criterion (energy, time, number of
         waveforms, distance to the core-band centre).
 \end{itemize}
-Dominated candidates (same cost function, range lower or equal everywhere) are pruned exactly before the plan. When a
-face is over-subscribed, the revisit is stretched in proportion.
+Dominated candidates (same cost function, range lower or equal everywhere) are pruned exactly before the plan. Every
+search lattice spacing (1.3 to 2.0 transmit beamwidths) is evaluated at every centre frequency, and the cheapest plan
+is kept: the spacing changes the positions, the grid losses, the receive beams per position, the false-alarm cells and
+the Ku budget that follow. When a face is over-subscribed, the revisit is stretched in proportion.
 
 \subsection{Outputs and flags}
 Per sector: frequency and occupied band, waveforms per scan bin with their timing, ranges at best and worst scan,
@@ -829,15 +839,17 @@ jammers, Faraday\\
 \bottomrule
 \end{tabularx}
 \end{center}
-Python 3.11 or later and NumPy only (no SciPy: the Bessel functions and their zeros are coded directly). The optimiser
-runs sectors, and the frequencies of a sector, in worker processes (pure-Python CPU work).
+Python 3.11 or later and NumPy (no SciPy: the Bessel functions and their zeros are coded directly); Numba, when
+installed, compiles the sums of the body noise (same formulas in double precision, parallel; the NumPy path gives the
+same result to $10^{-14}$). The optimiser runs sectors, and the frequencies of a sector with all their lattice spacings,
+in worker processes; the detection laws, position-loss laws and cumulative-$\Pd$ inversions are cached exactly.
 
 \subsection{Tests}
 The test bench has two families: frozen outputs of every test mission compared at a relative tolerance of $10^{-9}$
 (non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
 exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
 frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
-before any refreeze. 170 tests pass at model V6.11.6.
+before any refreeze. At model V6.11.7 the bench has 176 tests (164 physical, 12 frozen outputs), run at three levels: fast tests, tests touched by a change, and the full bench with a new freeze.
 
 %=====================================================================================================================
 \section{Roadmap and open points}\label{sec:roadmap}

@@ -33,6 +33,11 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+try:                                   # optional (requirements.txt): compiled, parallel sums of body_rise_k
+    import numba as _nb
+except ImportError:                    # pragma: no cover - numpy path, same result to ~1e-14
+    _nb = None
+
 from . import antenna
 from . import radar_model as rm
 from .params import P
@@ -58,6 +63,7 @@ if not GAL_T_HIGH_K <= GAL_T_PLANE_K <= GAL_T_CENTRE_K:
 
 _T = "tool.sky."
 EVAL_STEP_HPBW: float = P.get(_T + "eval_step_hpbw")      # evaluation step over a sector, in TX beamwidths
+USE_NUMBA: bool = bool(P.get(_T + "use_numba")) and _nb is not None   # step 3.1: numba sums when installed
 NEAR_R_STEP: float = P.get(_T + "near_r_step_lam_d")
 NEAR_PHI_STEP: float = math.radians(P.get(_T + "near_phi_step_deg"))
 RING_LAM_D: float = P.get(_T + "body_ring_lam_d")
@@ -259,13 +265,7 @@ def body_rise_k(body: Body, band_name: str, f_ghz: float, rx_sll_db: float, fram
         keep = ws > 0.0
         if keep.any():
             us, vs, wt = s[keep] @ eu, s[keep] @ ev, ws[keep] * dom[keep] * k_lam ** 2
-            r_near = np.arange(len(prof.near)) * antenna.R_STEP
-            step = max(1, CHUNK * 64 // len(us))
-            for lo in range(0, len(dirs), step):
-                sl = slice(lo, lo + step)
-                rho = np.hypot(us[None, :] - ub[sl, None], vs[None, :] - vb[sl, None]) * k_lam
-                g = np.where(rho <= antenna.R_MAX, np.interp(rho, r_near, prof.near), prof.g_far(rho))
-                out[sl] = (g * wt[None, :]).sum(axis=1)
+            out = _disk_sum(prof, ub, vb, us, vs, wt, k_lam, True)
         return tb * prof.norm * out
     # near zone (rho <= R_MAX): polar grid around each beam axis
     r_near_uv = antenna.R_MAX / k_lam
@@ -279,7 +279,45 @@ def body_rise_k(body: Body, band_name: str, f_ghz: float, rx_sll_db: float, fram
     dv = (np.outer(prof.near_rho, np.sin(phis)) / k_lam).ravel()
     gw = np.repeat(prof.near_w, len(phis))
     cu, cv, cw = float(eu @ c), float(ev @ c), float(n @ c)
-    cos_r = math.cos(body.radius_rad)
+    if len(part):
+        out[part] = _near_sum(ub, vb, part, du, dv, gw, cu, cv, cw, math.cos(body.radius_rad))
+    # far part (rho > R_MAX): samples over the body disk, front half only
+    s, dom = _disk_samples(body, k_lam, RING_LAM_D)
+    ws = s @ n
+    keep = ws > 0.0
+    if keep.any():
+        us, vs, wt = s[keep] @ eu, s[keep] @ ev, ws[keep] * dom[keep] * k_lam ** 2
+        out += _disk_sum(prof, ub, vb, us, vs, wt, k_lam, False)
+    return tb * prof.norm * out
+
+
+# ----------------------------------------------------------------------------- the sums of body_rise_k (step 3.1)
+def _disk_sum(prof: "_Profile", ub, vb, us, vs, wt, k_lam: float, with_near: bool,
+              use_numba: Optional[bool] = None) -> np.ndarray:
+    """sum_j g(rho_ij) wt_j over the disk samples j for each beam axis i, rho = distance in lambda / D_env: g = the
+    near profile (linear between its points) up to R_MAX when with_near, the far table beyond (0 inside without)."""
+    if USE_NUMBA if use_numba is None else use_numba:
+        return _nb_disk_sum(ub, vb, us, vs, wt, k_lam, antenna.R_MAX, antenna.R_STEP, prof.near, prof.far,
+                            antenna.FAR_PROFILE_STEP, with_near)
+    out = np.zeros(len(ub))
+    r_near = np.arange(len(prof.near)) * antenna.R_STEP
+    step = max(1, CHUNK * 64 // len(us))
+    for lo in range(0, len(ub), step):
+        sl = slice(lo, lo + step)
+        rho = np.hypot(us[None, :] - ub[sl, None], vs[None, :] - vb[sl, None]) * k_lam
+        g = np.where(rho <= antenna.R_MAX, np.interp(rho, r_near, prof.near), prof.g_far(rho)) if with_near \
+            else prof.g_far(rho)
+        out[sl] = (g * wt[None, :]).sum(axis=1)
+    return out
+
+
+def _near_sum(ub, vb, part, du, dv, gw, cu: float, cv: float, cw: float, cos_r: float,
+              use_numba: Optional[bool] = None) -> np.ndarray:
+    """Near-zone integral of the beam axes part: weights gw of the polar-grid points (du, dv) that fall inside the
+    body (direction cosines on the unit sphere, cosine to the body centre at least cos_r)."""
+    if USE_NUMBA if use_numba is None else use_numba:
+        return _nb_near_sum(ub, vb, np.asarray(part, dtype=np.int64), du, dv, gw, cu, cv, cw, cos_r)
+    out = np.zeros(len(part))
     step = max(1, CHUNK * 64 // len(du))
     for lo in range(0, len(part), step):
         idx = part[lo:lo + step]
@@ -287,19 +325,49 @@ def body_rise_k(body: Body, band_name: str, f_ghz: float, rx_sll_db: float, fram
         vv = vb[idx, None] + dv[None, :]
         q = 1.0 - uu * uu - vv * vv
         inside = (q > 0.0) & (uu * cu + vv * cv + np.sqrt(np.maximum(q, 0.0)) * cw >= cos_r)
-        out[idx] = (inside * gw[None, :]).sum(axis=1)
-    # far part (rho > R_MAX): samples over the body disk, front half only
-    s, dom = _disk_samples(body, k_lam, RING_LAM_D)
-    ws = s @ n
-    keep = ws > 0.0
-    if keep.any():
-        us, vs, wt = s[keep] @ eu, s[keep] @ ev, ws[keep] * dom[keep] * k_lam ** 2
-        step = max(1, CHUNK * 64 // len(us))
-        for lo in range(0, len(dirs), step):
-            sl = slice(lo, lo + step)
-            rho = np.hypot(us[None, :] - ub[sl, None], vs[None, :] - vb[sl, None]) * k_lam
-            out[sl] += (prof.g_far(rho) * wt[None, :]).sum(axis=1)
-    return tb * prof.norm * out
+        out[lo:lo + step] = (inside * gw[None, :]).sum(axis=1)
+    return out
+
+
+if _nb is not None:
+    @_nb.njit(parallel=True, cache=True)
+    def _nb_disk_sum(ub, vb, us, vs, wt, k_lam, r_max, r_step, near, far, far_step, with_near):
+        """Numba form of _disk_sum (same formulas, float64, parallel over the beam axes; only the order of the
+        additions differs: ~1e-14 relative)."""
+        out = np.zeros(len(ub))
+        nn, nf = len(near), len(far)
+        for i in _nb.prange(len(ub)):
+            acc = 0.0
+            for j in range(len(us)):
+                rho = math.hypot(us[j] - ub[i], vs[j] - vb[i]) * k_lam
+                if rho > r_max:
+                    k = min(int(rho / far_step), nf - 1)
+                    acc += far[k] * wt[j]
+                elif with_near:
+                    k = int(rho / r_step)
+                    if k >= nn - 1:
+                        g = near[nn - 1]
+                    else:                       # as np.interp on the grid k r_step
+                        g = (near[k + 1] - near[k]) / r_step * (rho - k * r_step) + near[k]
+                    acc += g * wt[j]
+            out[i] = acc
+        return out
+
+    @_nb.njit(parallel=True, cache=True)
+    def _nb_near_sum(ub, vb, part, du, dv, gw, cu, cv, cw, cos_r):
+        """Numba form of _near_sum (same test per grid point, parallel over the beam axes)."""
+        out = np.zeros(len(part))
+        for t in _nb.prange(len(part)):
+            i = part[t]
+            acc = 0.0
+            for k in range(len(du)):
+                uu = ub[i] + du[k]
+                vv = vb[i] + dv[k]
+                q = 1.0 - uu * uu - vv * vv
+                if q > 0.0 and uu * cu + vv * cv + math.sqrt(q) * cw >= cos_r:
+                    acc += gw[k]
+            out[t] = acc
+        return out
 
 
 def rise_k(sky: Sky, band_name: str, f_ghz: float, rx_sll_db: float, frames: Sequence, dirs: np.ndarray,

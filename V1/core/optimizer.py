@@ -301,9 +301,10 @@ def grid_spacing(sec: dict) -> float:
     return float(sec.get("_grid_spacing", rm.BEAM_SPACING_HPBW))
 
 
-def positions_table(sph: Sphere, m: np.ndarray, f_ghz: float,
-                    spacing_hpbw: Optional[float] = None) -> Tuple[Dict[int, np.ndarray], float]:
-    """Beam positions per face and per 1-deg scan bin inside mask m. Also the unscanned sector fraction (solid angle)."""
+def positions_table(sph: Sphere, m: np.ndarray, f_ghz: float, spacing_hpbw: Optional[float] = None,
+                    keep: Optional[np.ndarray] = None) -> Tuple[Dict[int, np.ndarray], float]:
+    """Beam positions per face and per 1-deg scan bin inside mask m, each raster cell counted for its scanned share keep
+    (sector_sky; whole if None). Also the unscanned sector fraction (solid angle, geometry only)."""
     cell = rm.beam_cell_area_uv(f_ghz, spacing_hpbw)
     lim = rm.band_for_frequency(f_ghz).scan_limit_deg(f_ghz)
     nb = int(math.ceil(rm.SECTOR_RADIUS_DEG / THETA_BIN_DEG)) + 1
@@ -315,6 +316,8 @@ def positions_table(sph: Sphere, m: np.ndarray, f_ghz: float,
         if not s.any():
             continue
         wgt = sph.w[s] * sph.d_omega[s] / cell
+        if keep is not None:
+            wgt = wgt * keep[s]
         idx = np.minimum((sph.theta[s] / THETA_BIN_DEG).astype(int), nb - 1)
         np.add.at(out[k], idx, wgt)
     scanned_om = float((sph.d_omega * sel).sum())
@@ -456,7 +459,8 @@ def _surface_env_s(sec: dict, f_ghz: float, sll: float, dirs: np.ndarray, owners
 
 
 def sector_sky(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, band_name: str, sky: Optional[dict]) -> Tuple[dict, np.ndarray]:
-    """T_sys over the sector's scanned positions at f in a band (core/sky.py): (summary, blinded mask on the raster).
+    """T_sys over the sector's scanned positions at f in a band (core/sky.py): (summary, scanned share of each raster
+    cell: 0 blinded, 1 scanned; step 3.1, P5: the refined cells are shared, point by point).
     T_sys is evaluated every sky.EVAL_STEP_HPBW TX beamwidths (blocks of raster cells share the value of their block
     centre), weighted by the position density w dOmega; the budget is the (1 - short_tol) position quantile of the
     positions not blinded. Step 2.5: the environment (core/environment.py) adds the structure noise and the stand-off
@@ -473,11 +477,11 @@ def sector_sky(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, band_name: s
     sky_obj = skym.parse(sky)
     sel = m & sph.scan_zone & (sph.theta <= band.scan_limit_deg(f_ghz))
     ii, jj = np.nonzero(sel)
-    blind = np.zeros(sph.phi.shape, dtype=bool)
+    keep = np.ones(sph.phi.shape)
     if ii.size == 0:
         res = ({"band": band_name, "t_sys_cold_k": band.t_sys_k, "t_sys_budget_k": band.t_sys_k, "rise_db": 0.0,
                 "blinded_pct": 0.0, "blinded_by": [], "above_budget_pct": 0.0, "worst_rise_db": 0.0,
-                "galactic": sky_obj.galactic, "blind_rise_db": skym.BLIND_RISE_DB, **_EMPTY_ENV}, blind)
+                "galactic": sky_obj.galactic, "blind_rise_db": skym.BLIND_RISE_DB, **_EMPTY_ENV}, keep)
     else:
         stride = max(1, int(round(skym.EVAL_STEP_HPBW * rm.hpbw_deg(f_ghz) / (360.0 / sph.n_phi))))
         ri = np.minimum(ii // stride * stride + stride // 2, sph.n_phi - 1)
@@ -498,38 +502,44 @@ def sector_sky(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, band_name: s
             parts["clutter"] = np.where(np.isfinite(factor), t_base * (factor - info["f_block"]), np.inf)
         cell_parts = {k: v[inv] for k, v in parts.items()}
         t_sys = (t_base * factor)[inv]
-        if fine.any() and REFINE_SUB > 1:
-            # step 3.1, P5 (1 a): a refined cell takes the mean of its noise rise over SUB x SUB points (sky, structure,
-            # stand-off jammers), the blockage and clutter factors staying those of its centre
-            rise_c = rise[inv]
-            sub_rise, sub_parts = _subsampled_rise(sky_obj, sky, band_name, f_ghz, sll, sph, ii[fine], jj[fine],
-                                                   own[fine])
-            rise_c[fine] = sub_rise
-            for k, v in sub_parts.items():
-                cell_parts[k][fine] = v
-            tb_c = rm.t_sys_with_rise(band, rise_c)
-            f_c, fb_c = factor[inv], info["f_block"][inv]
-            with np.errstate(invalid="ignore"):
-                cell_parts["blockage"] = tb_c * (fb_c - 1.0)
-                cell_parts["clutter"] = np.where(np.isfinite(f_c), tb_c * (f_c - fb_c), np.inf)
-            t_sys = tb_c * f_c
         weights = (sph.w * sph.d_omega)[ii, jj]
         mk = masked[inv]
-        summary, b = skym.summarise(band, np.where(mk, 0.0, t_sys), np.where(mk, 0.0, weights),
-                                    cell_parts, tol, sky_obj)
+        split = fine & ~mk if REFINE_SUB > 1 else np.zeros(len(ii), dtype=bool)
+        n2, ne = REFINE_SUB * REFINE_SUB, int((~split).sum())
+        x_t, x_w = np.where(mk, 0.0, t_sys)[~split], np.where(mk, 0.0, weights)[~split]
+        x_parts = {k: v[~split] for k, v in cell_parts.items()}
+        if split.any():
+            # step 3.1, P5 (option 3): a refined cell is split into SUB x SUB points of equal weight, each blinded or
+            # not on its own noise rise (sky, structure, stand-off jammers) and entering the budget quantile on its
+            # own, the blockage and clutter factors staying those of its centre; the cell is scanned for the share left
+            sub_rise, sub_parts = _subsampled_rise(sky_obj, sky, band_name, f_ghz, sll, sph, ii[split], jj[split],
+                                                   own[split])
+            f_c, fb_c = np.repeat(factor[inv][split], n2), np.repeat(info["f_block"][inv][split], n2)
+            tb_c = rm.t_sys_with_rise(band, sub_rise)
+            with np.errstate(invalid="ignore"):
+                sub_parts["blockage"] = tb_c * (fb_c - 1.0)
+                sub_parts["clutter"] = np.where(np.isfinite(f_c), tb_c * (f_c - fb_c), np.inf)
+            x_t = np.concatenate([x_t, tb_c * f_c])
+            x_w = np.concatenate([x_w, np.repeat(weights[split], n2) / n2])
+            x_parts = {k: np.concatenate([v, sub_parts[k]]) for k, v in x_parts.items()}
+        summary, xb = skym.summarise(band, x_t, x_w, x_parts, tol, sky_obj)
+        frac = np.zeros(len(ii))                       # blinded share of each scanned cell
+        frac[~split] = xb[:ne]
+        if split.any():
+            frac[split] = xb[ne:].reshape(-1, n2).mean(axis=1)
         w_all = float(weights.sum())
         summary.update(_env_summary(info, inv, mk, weights, w_all, cell_parts["structure"], band, sec))
-        b = b | mk
+        frac[mk] = 1.0
         se = info.get("s_env")
         if se is not None:                             # step 3.1, P4: no volume in front of a surface (Q9)
-            nv = se["no_volume"][inv] & ~b
-            summary["no_volume_pct"] = 100.0 * float(weights[nv].sum()) / w_all if w_all > 0 else 0.0
-            b = b | nv
+            nv = se["no_volume"][inv] & (frac < 1.0)
+            summary["no_volume_pct"] = 100.0 * float((weights * (1.0 - frac))[nv].sum()) / w_all if w_all > 0 else 0.0
+            frac[nv] = 1.0
             s_env = {**se, "ii": ii, "jj": jj, "inv": inv, "w": weights, "theta": sph.theta[ii, jj],
-                     "blind": b.copy(), "w_all": w_all}
-        blind[ii[b], jj[b]] = True
-        res = (summary, blind)
-    blind.setflags(write=False)
+                     "keep": 1.0 - frac, "w_all": w_all}
+        keep[ii, jj] = 1.0 - frac
+        res = (summary, keep)
+    keep.setflags(write=False)
     if len(_SKY_CACHE) >= MASK_CACHE_SIZE:
         _SKY_CACHE.clear()
         _S_ENV.clear()
@@ -542,12 +552,13 @@ def sector_sky(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, band_name: s
 _S_ENV: Dict[tuple, dict] = {}
 REFINE_RISE_DB = P.get("tool.sky.refine_rise_db")            # step 3.1, P5 (D5)
 REFINE_RADIUS_HPBW = P.get("tool.sky.refine_radius_hpbw")    # step 3.1, P5 (D6)
-REFINE_SUB = P.get("tool.sky.refine_subsamples")             # step 3.1, P5 (1 a): points per side of a refined cell
+REFINE_SUB = P.get("tool.sky.refine_subsamples")             # step 3.1, P5 (option 3): points per side of a refined cell
+
 
 
 def _subsampled_rise(sky_obj, sky: Optional[dict], band_name: str, f_ghz: float, sll: float, sph: Sphere,
                      ii: np.ndarray, jj: np.ndarray, own: np.ndarray) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
-    """Mean noise rise (K) of raster cells over REFINE_SUB x REFINE_SUB points spread uniformly inside each cell: sky
+    """Noise rise (K) at REFINE_SUB x REFINE_SUB points spread uniformly inside each raster cell, cell after cell: sky
     (bodies, galaxy), structure and stand-off jammers, with their parts (step 3.1, P5). Returns (rise, parts)."""
     n = REFINE_SUB
     off = (np.arange(n) + 0.5) / n - 0.5
@@ -568,8 +579,7 @@ def _subsampled_rise(sky_obj, sky: Optional[dict], band_name: str, f_ghz: float,
             jp[f"jammer {jid}"][sel] = v
     parts = dict(parts, structure=st, **jp)
     rise = rise + st + sum(jp.values())
-    mean = lambda x: x.reshape(len(ii), n * n).mean(axis=1)    # noqa: E731
-    return mean(rise), {k: mean(v) for k, v in parts.items()}
+    return rise, parts
 
 
 def _refine_cells(sky_obj, sky: Optional[dict], band, band_name: str, f_ghz: float, sll: float, sph: Sphere,
@@ -644,9 +654,9 @@ def search_positions(sec: dict, sph: Sphere, m: np.ndarray, f_ghz: float, sky: O
     summary and the range factor of the sky noise, (T_sys cold / T_sys budget)^(1/4). Blinded positions are not
     scanned (removed from the positions, reported in the summary)."""
     pos, unscanned = positions_table(sph, m, f_ghz, grid_spacing(sec))
-    summary, blind = sector_sky(sec, sph, m, f_ghz, "S", sky)
-    if blind.any():
-        pos, _ = positions_table(sph, m & ~blind, f_ghz, grid_spacing(sec))
+    summary, keep = sector_sky(sec, sph, m, f_ghz, "S", sky)
+    if (keep[m] < 1.0).any():
+        pos, _ = positions_table(sph, m, f_ghz, grid_spacing(sec), keep)
     t_b = summary["t_sys_budget_k"]
     factor = (summary["t_sys_cold_k"] / t_b) ** 0.25 if t_b else 1.0
     return pos, unscanned, summary, factor
@@ -1089,7 +1099,9 @@ def _surface_columns(sec: dict, sph: Sphere, m: np.ndarray, f: float, tgt, cands
     tol = sec.get("short_tol", SHORT_TOL)
     inv, ii, jj = se["inv"], se["ii"], se["jj"]
     k_cell = se["k_idx"][inv]
-    base_ok = ~se["blind"]
+    keep_c = se["keep"]
+    base_ok = keep_c > 0.0
+    w_k = se["w"] * keep_c                                 # scanned weight of each cell
     y_cell = {p: se["y"][p][:, inv] for p in se["y"]}
     pats = [rm.tx_subaperture(w) for w in cands]
     v_lo, v_hi = float(sec.get("v_close_min_mps", 0.0)), float(sec["v_close_max_mps"])
@@ -1139,9 +1151,11 @@ def _surface_columns(sec: dict, sph: Sphere, m: np.ndarray, f: float, tgt, cands
     # positions per requirement class
     raster_cls = np.full(sph.phi.shape, -1)
     raster_cls[ii[usable], jj[usable]] = k_cell[usable]
+    keep_r = np.ones(sph.phi.shape)
+    keep_r[ii, jj] = keep_c
     Pc = np.zeros((4, K * nb))
     for k in range(K):
-        pos_k, _ = positions_table(sph, m & (raster_cls == k), f, grid_spacing(sec))
+        pos_k, _ = positions_table(sph, m & (raster_cls == k), f, grid_spacing(sec), keep_r)
         Pc[:, k * nb:(k + 1) * nb] = np.array([pos_k[i] for i in range(4)])
     # clutter quantile per column, TX beam and surface (Q2)
     bins = np.minimum((se["theta"] / THETA_BIN_DEG).astype(int), nb - 1)
@@ -1153,7 +1167,7 @@ def _surface_columns(sec: dict, sph: Sphere, m: np.ndarray, f: float, tgt, cands
         for pt in y_cell:
             for si in range(ns):
                 yq[pt][k * nb:(k + 1) * nb, si] = _weighted_quantile_by_bin(y_cell[pt][si, sel], bins[sel],
-                                                                            se["w"][sel], 1.0 - tol, nb)
+                                                                            w_k[sel], 1.0 - tol, nb)
     # ranges per column
     rc = np.full((C_, K * nb), np.nan)
     col_k = np.repeat(np.arange(K), nb)
@@ -1178,7 +1192,7 @@ def _surface_columns(sec: dict, sph: Sphere, m: np.ndarray, f: float, tgt, cands
         rc[:, cols] = np.where(np.isfinite(g), r_k, np.nan)
     # summary (copy: the sky summary is cached)
     w_all = se["w_all"]
-    pct = (lambda sel: 100.0 * float(se["w"][sel].sum()) / w_all if w_all > 0 else 0.0)  # noqa: E731
+    pct = (lambda sel: 100.0 * float(w_k[sel].sum()) / w_all if w_all > 0 else 0.0)  # noqa: E731
     sky_s = dict(sky_s)
     sky_s["clutter_limited_pct"] = pct(clutter_blind)
     sky_s["range_reduced_pct"] = pct(usable & (classes[np.maximum(k_cell, 0)] < float(sec["range_km"]) - 1e-9))
@@ -1422,11 +1436,14 @@ def _short_columns(P: np.ndarray, r: np.ndarray, r_want) -> int:
     return int(((P.sum(axis=0) > 0) & (best < np.broadcast_to(np.asarray(r_want, dtype=float), best.shape))).sum())
 
 
-def _freq_task(sec: dict, eps_min: float, eps_max: float, f: float, sky: Optional[dict]) -> Optional[tuple]:
-    """Worker entry point of the parallel frequency evaluation (X3)."""
+def _freq_task(sec: dict, eps_min: float, eps_max: float, f: float, sky: Optional[dict],
+               spacings: Tuple[float, ...]) -> List[Optional[tuple]]:
+    """Worker entry point of the parallel frequency evaluation (X3): one centre at every lattice spacing, in the same
+    process so that the spacings share its sky, environment and law caches (step 3.1 A5)."""
     sph = _sphere(eps_min, eps_max)
-    return _freq_ranges(sec, sph, sph.mask(sec), f, sky, candidate_waveforms(sec, sky), sector_target(sec),
-                        exclusions_s(sec))
+    m = sph.mask(sec)
+    cands, tgt, excl = candidate_waveforms(sec, sky), sector_target(sec), exclusions_s(sec)
+    return [_freq_ranges(dict(sec, _grid_spacing=sp), sph, m, f, sky, cands, tgt, excl) for sp in spacings]
 
 
 _IN_POOL_WORKER = False
@@ -1470,13 +1487,17 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
         jobs = [(f, sp) for f in fs for sp in rm.BEAM_SPACING_OPTIONS if (f, sp) not in evaluated]
         if not jobs:
             return
-        secs = [dict(sec, _grid_spacing=sp) for _, sp in jobs]
-        if _freq_parallel_ok(len(jobs)):
+        by_f: Dict[float, List[float]] = {}
+        for f, sp in jobs:
+            by_f.setdefault(f, []).append(sp)
+        if _freq_parallel_ok(len(by_f)):
             ex = _executor()
-            res = list(ex.map(_freq_task, secs, [sph.window[0]] * len(jobs), [sph.window[1]] * len(jobs),
-                              [f for f, _ in jobs], [sky] * len(jobs)))
+            out = list(ex.map(_freq_task, [sec] * len(by_f), [sph.window[0]] * len(by_f), [sph.window[1]] * len(by_f),
+                              list(by_f), [sky] * len(by_f), [tuple(v) for v in by_f.values()]))
+            got = {(f, sp): x for (f, sps), xs in zip(by_f.items(), out) for sp, x in zip(sps, xs)}
+            res = [got[j] for j in jobs]
         else:
-            res = [_freq_ranges(sc, sph, m, f, sky, cands, tgt, excl) for sc, (f, _) in zip(secs, jobs)]
+            res = [_freq_ranges(dict(sec, _grid_spacing=sp), sph, m, f, sky, cands, tgt, excl) for f, sp in jobs]
         for (f, sp), x in zip(jobs, res):
             evaluated[f, sp] = None if x is None else _freq_plan(f, sp, x)
 

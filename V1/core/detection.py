@@ -169,7 +169,7 @@ def snr_req_db(n: int, swerling: Fluctuation, pfa: float, pd: float) -> float:
     return _invert(pd_curve(n, swerling, pfa), pd)
 
 
-@functools.lru_cache(maxsize=4096)
+@functools.lru_cache(maxsize=1 << 15)   # ~0.5 GB when full; as fast as unbounded on mission_example (step 3.1 A4)
 def _mean_curve_cached(n: int, swerling: Fluctuation, pfa: float, losses_db: Tuple[float, ...],
                        weights: Tuple[float, ...]) -> np.ndarray:
     base = pd_curve(n, swerling, pfa)
@@ -224,21 +224,28 @@ def required_snr_db(n: int, swerling: Fluctuation, pfa: float, p_target: float, 
                     weights: Sequence[float] = (1.0,), q: float = 0.0, floor: float = 1e-3) -> float:
     """Mean total SNR (at the requirement range, before the position losses) meeting p_target: one look (q = 0) or
     cumulative over looks spaced q = v RR / R, Pd averaged over the position losses. The cumulative probability is
-    solved by bisection on the SNR at R, all looks and phases at once; looks below `floor` do not count. Cached
-    (exact): the optimiser asks the same few hundred laws tens of thousands of times (step 3.1)."""
+    solved by bisection on the SNR at R, all looks and phases at once; looks below `floor` do not count (and are left
+    out before the interpolation: bit-identical, step 3.1 A2). Cached without bound (exact): the optimiser asks each
+    of its ~1e5 laws per mission about 15 times; a bounded cache was emptied by the 8 lattice spacings (step 3.1 A1)."""
     return _required_snr_db(n, swerling, pfa, p_target, tuple(float(x) for x in losses_db),
                             tuple(float(x) for x in weights), float(q), float(floor))
 
 
-@functools.lru_cache(maxsize=8192)
+@functools.lru_cache(maxsize=None)
 def _required_snr_db(n, swerling, pfa, p_target, losses_db, weights, q, floor) -> float:
     curve = mean_curve(n, swerling, pfa, losses_db, weights)
     if q <= 0.0:
         return _invert(curve, p_target)
     shifts = _look_shifts(round(q, 9))
+    # a look whose SNR x - shift is at or below the last grid point before the (monotone) curve reaches `floor` has a
+    # Pd below it, set to 0 below: the looks from the first such one of phase 0 on (shifts grow with k) are left out
+    i0 = int(np.searchsorted(np.maximum.accumulate(curve), floor))
+    x_dead = float(SNR_GRID_DB[i0 - 1]) if i0 > 0 else -math.inf
+    first = shifts[0]
 
     def p_cum(x: float) -> float:
-        pk = np.interp(x - shifts, SNR_GRID_DB, curve, left=float(curve[0]), right=float(curve[-1]))
+        sh = shifts[:, :int(np.searchsorted(first, x - x_dead, side="left"))]
+        pk = np.interp(x - sh, SNR_GRID_DB, curve, left=float(curve[0]), right=float(curve[-1]))
         pk = np.where(pk < floor, 0.0, pk)
         return float(np.mean(1.0 - np.prod(1.0 - pk, axis=1)))
 

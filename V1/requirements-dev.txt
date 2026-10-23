@@ -2,3 +2,5 @@
 -r requirements.txt
 pytest>=8
 pytest-xdist>=3
+pytest-testmon>=2.1   # test protocol: tests/run_tests.py
+psutil                # memory figures of the timing scripts

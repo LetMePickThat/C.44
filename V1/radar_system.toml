@@ -609,12 +609,16 @@ far_step_lam_d = 0.125          # grid step of the far-sidelobe scan over the vi
 
 [tool.sky]                    # sky-noise evaluation (core/sky.py)
 eval_step_hpbw  = 0.5            # T_sys evaluated every 0.5 TX beamwidth over a sector (at least the optimiser raster)
+use_numba       = true           # step 3.1 (user): compiled parallel sums of the body noise when numba is installed
+                                 # (same formulas in float64, ~1e-14 relative from the numpy path; false = numpy)
 refine_rise_db  = 0.5            # step 3.1, P5 (D5): every raster cell is evaluated where the sky rise exceeds this,
 refine_radius_hpbw = 3.0         # and within this many TX beamwidths (D6) of a stand-off jammer, of a small body's
                                  # centre and of a large body's limb (S1-S3)
-refine_subsamples = 1            # points per side over which a refined cell averages its noise rise (1 = its centre). 4
-                                 # (0.05 deg) was tried (P5, 1 a): no gain on the rotation test, whose residual comes from
-                                 # the per-cell blinding on the 0.2 deg raster (sphere_res_deg), not from the cell value
+refine_subsamples = 8            # step 3.1, P5 (option 3, user): every refined cell is split into 8 x 8 points (0.025
+                                 # deg at the 0.2 deg raster) of equal weight, each blinded or not on its own rise and
+                                 # entering the budget quantile on its own; the cell is scanned for the share left
+                                 # (1 = per-cell values). A MEAN of the rise over 4 x 4 points was tried first, no gain:
+                                 # one value per cell still jitters the blinding and the quantile in the hot ring
 near_r_step_lam_d = 0.05         # radial step of the near-zone integral around the beam (lambda / D_env)
 near_phi_step_deg = 10.0         # azimuth step of the near-zone integral
 body_ring_lam_d = 2.0            # ring spacing of the body-disk sampling of the far integral (lambda / D_env)
