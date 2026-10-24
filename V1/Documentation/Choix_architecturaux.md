@@ -1579,3 +1579,21 @@ Codage proposé en passes : Q1 fréquence Ku (A, D6) ; Q2 espace des observation
 **Tests de Q1 à Q5 (24 octobre 2026)** : auto-test réussi ; tests nouveaux de la 3.2 réussis après deux corrections (quantiles du SNR détecté à k = 1, marge S2 vectorisée, grille du toucher ramenée à 0,5 dB) ; suite physique complète : 171 réussis, 1 échec attendu (`test_cost_table_matches_the_parameter_file`, table de coût non régénérée), environ 21 min en parallèle (3 606 s cumulées). Tests de valeurs figées non lancés : ils échouent par construction tant que Q6 n'est pas faite. Le temps de calcul des missions a crû de ×1,5 à ×4,9 (`test_parallel_run_equals_sequential` 229 → 1 115 s), au-delà de l'estimation. Commit intermédiaire de Q1 à Q5 validé par l'utilisateur (valeurs figées et table de coût non régénérées).
 
 **Reprise : Q6**, dans l'ordre validé : (a) profiler une mission et chercher des accélérations **exactes** (aucune approximation sans accord) ; puis table de coût régénérée, rapport d'impact, valeurs figées regelées (`JOURNAL.md`), documentation (§11, feuille de route, `design/radar_design.tex`), au N3 choisi par l'utilisateur ; avant ce N3, rendre les tests de valeurs figées moins coûteux (parallélisme en fréquence sous pytest).
+
+**Profilage (Q6 a, 24 octobre 2026, arrêt de session ici)** : `mission_example` en tout séquentiel sous cProfile (`RADAR_FREQ_PARALLEL=0`, `optimizer.run(mission, workers=1)`, script dans un `if __name__ == "__main__"` sous Windows), 533 s profilées (le profileur gonfle le code Python très appelé).
+
+| Partie | Temps | Ce qui coûte |
+|---|---|---|
+| Recherche S (3 secteurs, 57 fréquences × 8 pas = 456 plans) | 361 s (68 %) | `rm.solve` appelé 985 000 fois (environ 2 160 formes d'onde par plan, à θ = 0) : 315 s, dont 117 s d'inversion des lois (`detection.required_snr_db`, 105 000 lois nouvelles) et environ 200 s de pertes, blocs, fluctuation, bancs et diagnostic (`pulse`, `frame`, Pd par observation) dont l'optimiseur ne garde que 5 nombres |
+| Budget Ku (57 couples secteur × fréquence) | 172 s (32 %) | marge S2 (`tracking.ConfirmStats.s2_vec`) 99 s : `pd_single` 74 s (dont 70 s de `np.interp` sur de grands tableaux), gains des 7 faisceaux (`_tx_gain`) 23 s recalculés à chaque pas de bissection ; espaces d'observations Ku (`_LookSpace`) 52 s |
+
+Accélérations exactes proposées, **en attente du choix de l'utilisateur** (aucune codée) :
+
+| | Proposition | Exactitude | Gain estimé (temps profilé) |
+|---|---|---|---|
+| E1 | `solve` en deux parties : une commune aux 8 pas de grille, calculée une fois par (forme d'onde, fréquence) (blocs cohérents, fluctuation, bancs, pertes fixes, gains), et une propre au pas et à la Pfa (pertes de position, SNR requis, CFAR, polarisation) ; voie de l'optimiseur sans diagnostic ; `solve` reste la référence et partage le même code | identique au bit (mêmes opérations, même ordre de sommation), test d'égalité contre `solve` | −120 à −160 s (recherche S), −30 s (espaces Ku) |
+| E2 | `s2_vec` : gains des faisceaux gardés par grille de toucher (indépendants de la marge Ku) | identique au bit | −22 s |
+| E3 | `pd_single` : interpolation par indice sur la grille SNR régulière (comme `optimizer._pd_at`) au lieu de `np.interp` | écarts d'arrondi (~1e-16), classe de A2 | −40 à −50 s |
+| E4 | Budget Ku : fréquences Ku d'un secteur en processus parallèles (comme la recherche S) | identique | temps réel du budget Ku divisé par 3 à 6 |
+
+Écarté : accélérer l'inversion des lois (117 s) demanderait une autre recherche de racine, qui change le résultat à la tolérance (1e-4 dB). Total attendu : environ −250 s profilées sur 533 (−40 à −50 % par mission), plus E4. Vérification proposée après codage, sur accord : test d'égalité E1 / E2 (< 1 min), puis nouveau profilage (~6 min). **Reprise : demander à l'utilisateur lesquelles de E1 à E4 coder.**

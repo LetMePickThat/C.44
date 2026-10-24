@@ -36,7 +36,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 2.5 | ✔ fait (commit baeadcf) |
 | 3.0 | ✔ fait (commit 22114fd ; ajoutée le 22 octobre 2026) |
 | 3.1 | ✔ fait : P1 à P6, bande S élargie, accélérations (`90555d8`, `b4be91e`, `cd97216`, `f6a526c`, `b0dbc09`, `f8fa433`, `d19829e`, puis le commit de P6) |
-| 3.2 | en cours : blocs A à E validés, passes Q1 à Q5 codées et testées (V6.12.0, commit intermédiaire). **Reprise : Q6** (profilage d'une mission et accélérations exactes, puis table de coût, rapport d'impact, valeurs figées, documentation, au N3 choisi par l'utilisateur) |
+| 3.2 | en cours : blocs A à E validés, passes Q1 à Q5 codées et testées (V6.12.0, commit intermédiaire). **Reprise : Q6, étape (a)** : profilage fait (24 octobre 2026), accélérations exactes E1 à E4 proposées, **choix de l'utilisateur attendu** (détail : `Choix_architecturaux.md` §11, étape 3.2, « Profilage ») ; ensuite table de coût, rapport d'impact, valeurs figées, documentation, au N3 choisi par l'utilisateur |
 | 3.3 et suivantes | à faire |
 
 ---
