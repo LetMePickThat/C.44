@@ -4,19 +4,29 @@
 TRACKING -- confirmation and active tracking (AT) budget, added per face to the S-band search budget of
 core.optimizer.run() (called at its end; the result goes under the report key "tracking").
 
-Decisions of 2026-10-19 (tracking plan, steps 1-2):
+Decisions of 2026-10-19 (tracking plan, steps 1-2), rebuilt at roadmap step 3.2 (23 October 2026, blocks A-E):
   - Angle measured on the detection echo itself (fully digital RX, ML estimator on the full aperture):
     sigma per axis = K x HPBW_TX / sqrt(SNR of the echo), K = Cramer-Rao bound of the aperture x margin
-    (radar_model.angle_k_tx, step 1.1, ~0.49); residual S/Ku alignment bias confirmation.bias_mrad per axis. The echoes that cross the threshold have a random SNR (Swerling), drawn here by quantiles.
+    (radar_model.angle_k_tx, step 1.1, ~0.49); residual S/Ku alignment bias confirmation.bias_mrad per axis. The
+    echoes that cross the threshold have a random SNR, drawn here by quantiles of the target's Gamma law (3.2 E4).
   - Every S detection is confirmed: true targets AND false alarms (radar_model.DETECT_PFA per range-Doppler cell).
     Modes:  KU1+7 = one Ku look on the S estimate, then a 7-beam Ku cluster if it fails (two round trips);
             KU7   = 7-beam Ku cluster at once (one round trip);
-            S2    = immediate S touch pointed on the detection (rejects the false alarms in S), then KU1+7 to start
-                    the track with the improved angle estimate.
-    Each mode gets the smallest power margin (0.5 dB steps) giving a confirmation probability >= CONFIRM_P_MIN.
-    The mode is chosen automatically per sector: admissible modes (probability reachable, Ku scan coverage; latency is left to the scheduler, roadmap 4.3),
-    then the one that minimises the most loaded face's max(energy, S time, Ku time) over the whole mission; the
-    sector key "confirm_mode" forces one.
+            S2    = immediate S touch pointed on the detection (an S waveform of role CONFIRM: the sector's search
+                    waveform, pointed; rejects the false alarms in S), then KU1+7 on the improved angle estimate.
+    The cluster is sent as 7 successive looks, or at once (step 3.2 C): phase-only superposition of the 7 beams
+    (power / 7, loss interpolated in the superposition table), or a partition of the face into 2 or 4
+    sub-apertures (wider beams, gain N_sub / N, power / B); the cheapest is kept, the round trips are published.
+    Each mode gets the smallest power margin reaching CONFIRM_P_MIN, solved continuously (bisection, 3.2 B6).
+  - Ku frequency per sector (step 3.2 A): centres derived from the Ku band (usable_lo + k x ku_freq_step), the signal
+    inside the band and outside the mission's Ku exclusions; the valid centres on the coarse step plus the centre-most
+    one of every free fragment are evaluated, and the (frequency, mode) pair that minimises the mission's most loaded
+    face is kept (ties: nearest the core-band centre). The S 5th harmonic on the Ku channel is flagged (a time rule
+    for the scheduler, step 4.3), not a frequency rule.
+  - Ku looks (step 3.2 B, E): pulses, PRIs, bandwidths of [tool.confirmation], both integrations, an agile variant of
+    the noncoherent trains; the self-protection jammer of the sector and the sidelobe clutter of its surfaces per
+    look (the P4 model of the search); a look that exceeds its need is shortened at saturated PAs, as the search.
+    Range at scan theta = range at broadside x the scan factor h(f, theta) common to every waveform (exact, checked).
   - Active tracking per operator range bracket (sector key "tracking"): number of targets, update period, angular
     uncertainty-zone opening (full width at +/-2 sigma: sigma = opening / 4), range and radial-velocity accuracy
     (1 sigma). One Ku look per track update at the bracket's outer range, SNR = max(detection, accuracy):
@@ -36,209 +46,594 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from . import detection
+from . import environment as env
 from . import isolation as iso
 from . import optimizer as mo
 from . import radar_model as rm
+from . import sky as skym
 from .params import P
 
 # Values from radar_system.toml ([confirmation], [tracking], [band.Ku], [tool.confirmation]).
 _T = "tool.confirmation."
-KU_FREQ_GHZ = P.get("confirmation.ku_freq_ghz")      # Ku confirmation / tracking frequency
+BAND = rm.BAND_KU
+KU_REF_GHZ = round((BAND.core_lo_ghz + BAND.core_hi_ghz) / 2.0, 9)   # functions without a sector (fast estimate)
+KU_FREQ_STEP_GHZ = P.get(_T + "ku_freq_step_mhz") / 1e3              # Ku centre grid (step 3.2, A2)
+KU_FREQ_COARSE_GHZ = P.get(_T + "ku_freq_coarse_mhz") / 1e3          # Ku centres evaluated (A5)
 K_ML_S = rm.angle_k_tx("S")                          # S angle accuracy x sqrt(SNR), in S TX beamwidths (CRLB x margin)
 BIAS_MRAD = P.get("confirmation.bias_mrad")          # residual S/Ku alignment bias per axis (absolute angle, constant in u, v)
 CONFIRM_P_MIN = P.get("confirmation.p_min")          # minimum probability of confirming a true target
 CONFIRM_MODES = ("KU1+7", "KU7", "S2")
 CLUSTER_N = 7                   # hexagonal cluster: centre + first ring, spacing rm.BEAM_SPACING_HPBW
 ANGLE_ZONE_SIGMAS = P.get("tracking.angle_zone_sigmas")     # angular zone opening = full width at +/-2 sigma
-MARGIN_DB = np.arange(0.0, P.get(_T + "margin_db_max") + P.get(_T + "margin_db_step") / 2.0,
-                      P.get(_T + "margin_db_step"))  # power margins tried on confirmation looks
+MARGIN_MAX_DB = P.get(_T + "margin_db_max")          # power margins of the confirmation looks: 0 .. max dB,
+MARGIN_TOL_DB = P.get(_T + "margin_db_tol")          # solved continuously to this tolerance (step 3.2, B6)
+TOUCH_STEP_DB = P.get(_T + "s2_touch_step_db")       # S2: margin grid of the S touch (its Ku margin by bisection)
+MARGIN_DB = np.arange(0.0, MARGIN_MAX_DB + 0.25, 0.5)   # report grid of confirm_tables() only (test bench)
 FA_R4_MEAN = P.get("confirmation.fa_r4_mean")        # a false alarm's Ku look is sized for the threat at the declared
                                                      # range: mean of (R / R_det)^4 over a range uniform in [0, R_det]
-# Ku look search space (confirmation and tracking)
-KU_TAU = tuple(P.get(_T + "ku_tau_s"))
+# Ku look search space (confirmation and tracking, step 3.2 B)
+KU_TAU = tuple(sorted({t for t in P.get(_T + "ku_tau_s") if t <= rm.tau_max_s(BAND)} | {rm.tau_max_s(BAND)}))
 KU_N = tuple(P.get(_T + "ku_n_pulses"))
 KU_PRI = tuple(P.get(_T + "ku_pri_s"))
 KU_BW = tuple(P.get(_T + "ku_sig_bw_mhz"))
-KU_DUTY_MAX = rm.BAND_KU.duty_max                    # Ku TRM duty ceiling (not in the model yet)
+KU_INTEGRATIONS = tuple(P.get(_T + "ku_integrations"))     # both offered, the optimiser chooses (E5)
+KU_CLUSTER_TX = tuple(P.get(_T + "ku_cluster_tx"))         # cluster sent as: sequential | superposition | partition (C1)
+KU_DUTY_MAX = BAND.duty_max                          # Ku TRM duty ceiling
 N_SNR_Q = P.get(_T + "n_snr_quantiles")              # quantiles of the detected-echo SNR
 GH_NODES, GH_WEIGHTS = np.polynomial.hermite_e.hermegauss(P.get(_T + "gh_nodes"))
 GH_WEIGHTS = GH_WEIGHTS / GH_WEIGHTS.sum()
 _TX_LOSS_DB_PER_HPBW2 = 10.0 * math.log10(math.e) * 4.0 * math.log(2.0)   # 12.04 dB at 1 HPBW (radar_model.grid_loss_db)
 _CLUSTER_XY = np.array([(0.0, 0.0)] + [(rm.BEAM_SPACING_HPBW * math.cos(math.radians(60 * j)),
                                         rm.BEAM_SPACING_HPBW * math.sin(math.radians(60 * j))) for j in range(6)])
+if not set(KU_INTEGRATIONS) <= {"COHERENT", "NONCOHERENT"} or not KU_INTEGRATIONS:
+    raise ValueError(f"{P.path}: tool.confirmation.ku_integrations must list COHERENT and / or NONCOHERENT")
+if not set(KU_CLUSTER_TX) <= {"sequential", "superposition", "partition"} or "sequential" not in KU_CLUSTER_TX:
+    raise ValueError(f"{P.path}: tool.confirmation.ku_cluster_tx: sequential (always) and optionally superposition, "
+                     f"partition")
+if min(KU_BW) <= 0 or max(KU_BW) > BAND.bi_max_mhz:
+    raise ValueError(f"{P.path}: tool.confirmation.ku_sig_bw_mhz must lie in (0, {BAND.bi_max_mhz:g}] MHz")
 
 
-# ----------------------------------------------------------------------------- detection statistics
-def pd_single(snr, swerling: int):
-    """Probability of detection of one look (single sample) at mean SNR snr (linear, array), Pfa = DETECT_PFA.
-    Closed forms for SW1/2 (chi2, 2 dof) and SW3/4 (4 dof); steady target by inverting the model's Shnidman fit."""
-    snr = np.maximum(np.asarray(snr, dtype=float), 0.0)
-    t = -math.log(rm.DETECT_PFA)
-    if swerling in (1, 2):
-        return np.exp(-t / (1.0 + snr))
-    if swerling in (3, 4):
-        return (1.0 + 2.0 * t * snr / (2.0 + snr) ** 2) * np.exp(-2.0 * t / (2.0 + snr))
-    pds = np.linspace(0.1, 0.99, 90)
-    req = np.array([rm.shnidman_total_snr_db(p, rm.DETECT_PFA, 1, 0) for p in pds])
-    return np.interp(10.0 * np.log10(np.maximum(snr, 1e-12)), req, pds, left=0.0, right=0.99)
+# ----------------------------------------------------------------------------- Ku frequency (step 3.2, A)
+def exclusions_ku(sec: dict) -> Tuple[Tuple[float, float], ...]:
+    """The Ku spectrum the sector must not touch (GHz): copy of the mission's spectrum_exclusions_ghz["Ku"] made by
+    optimizer.with_spectrum()."""
+    return tuple((float(a), float(b)) for a, b in sec.get("ku_spectrum_exclusions_ghz", ()))
 
 
-def _snr_ref(swerling: int) -> float:
+def ku_centre_grid() -> List[float]:
+    n = int(math.floor((BAND.usable_hi_ghz - BAND.usable_lo_ghz) / KU_FREQ_STEP_GHZ + 1e-9))
+    return [round(BAND.usable_lo_ghz + k * KU_FREQ_STEP_GHZ, 9) for k in range(n + 1)]
+
+
+def ku_valid_centres(excl) -> List[float]:
+    """Centres where at least the narrowest Ku signal fits inside the band and outside the exclusions (A2)."""
+    return [f for f in ku_centre_grid() if mo.signal_fits(f, min(KU_BW), excl, BAND)]
+
+
+def ku_centres(sec: dict) -> List[float]:
+    """Ku centres evaluated for a sector (A5): forced (ku_freq_ghz_candidates, kept where a signal fits), else the
+    valid centres on the coarse step plus the valid centre nearest the middle of every free fragment."""
+    excl = exclusions_ku(sec)
+    forced = sec.get("ku_freq_ghz_candidates")
+    if forced:
+        return sorted({round(float(f), 9) for f in forced if mo.signal_fits(float(f), min(KU_BW), excl, BAND)})
+    valid = ku_valid_centres(excl)
+    k = int(round(KU_FREQ_COARSE_GHZ / KU_FREQ_STEP_GHZ))
+    out = {f for f in valid if int(round((f - BAND.usable_lo_ghz) / KU_FREQ_STEP_GHZ)) % k == 0}
+    for a, b in mo.free_fragments(excl, BAND):
+        inside = [f for f in valid if a <= f <= b]
+        if inside:
+            out.add(min(inside, key=lambda f: (abs(f - (a + b) / 2.0), f)))
+    return sorted(out)
+
+
+def validate_ku_frequencies(sec: dict) -> List[str]:
+    """Forced Ku centres (sector key ku_freq_ghz_candidates, A7): in the Ku band, and at least one where a Ku signal
+    fits outside the exclusions."""
+    fs = sec.get("ku_freq_ghz_candidates")
+    if fs is None:
+        return []
+    if not isinstance(fs, (list, tuple)) or not fs or not all(isinstance(f, (int, float)) for f in fs):
+        return ["ku_freq_ghz_candidates must be a list of frequencies (GHz)"]
+    out = [f"ku_freq_ghz_candidates: {f:g} GHz is outside the Ku band" for f in fs if not BAND.contains(f)]
+    if not out and not any(mo.signal_fits(f, min(KU_BW), exclusions_ku(sec), BAND) for f in fs):
+        out.append("ku_freq_ghz_candidates: no Ku signal fits at these frequencies (band edges or spectrum exclusions)")
+    return out
+
+
+def _core_distance(f: float) -> float:
+    return abs(f - KU_REF_GHZ)
+
+
+# ----------------------------------------------------------------------------- detection statistics (step 3.2 E4)
+def pd_single(snr, fluct):
+    """Probability of detection of one look (single sample) at mean SNR snr (linear, array), Pfa = DETECT_PFA, for the
+    target's fluctuation (a Swerling case or a Gamma shape, exact laws of core/detection.py)."""
+    snr = np.maximum(np.asarray(snr, dtype=float), 1e-30)
+    return detection.pd_at(1, fluct, rm.DETECT_PFA, 10.0 * np.log10(snr))
+
+
+def _snr_ref(fluct) -> float:
     """Mean SNR (linear) of a look designed for Pd = DETECT_PD (single sample)."""
-    return rm.db_to_lin(rm.shnidman_total_snr_db(rm.DETECT_PD, rm.DETECT_PFA, 1, swerling))
+    return rm.db_to_lin(detection.snr_req_db(1, fluct, rm.DETECT_PFA, rm.DETECT_PD))
 
 
-def detected_snr_quantiles(snr_mean: float, swerling: int) -> np.ndarray:
-    """SNR of the echoes that crossed the threshold, at mean SNR snr_mean (N_SNR_Q equal-probability quantiles).
-    The fluctuation is chi2 with 2 (SW1/2) or 4 (SW3/4) dof, conditioned on detection (probability DETECT_PD)."""
-    if swerling == 0:
+@functools.lru_cache(maxsize=256)
+def detected_snr_quantiles(snr_mean: float, fluct) -> np.ndarray:
+    """SNR of the echoes that crossed the threshold, at mean SNR snr_mean (N_SNR_Q equal-probability quantiles): the
+    power is Gamma(k) with mean snr_mean (k = the look's shape; steady: one value), conditioned on detection by taking
+    the strongest DETECT_PD of the law."""
+    k = detection.shape_of(fluct, 1)
+    if math.isinf(k) or k > 1e4:
         return np.full(N_SNR_Q, snr_mean)
-    k = 1.0 if swerling in (1, 2) else 2.0
     x = snr_mean * np.linspace(0.0, 40.0, 40001)
     y = k * x / snr_mean
-    surv = np.exp(-y) * (1.0 + y) if k == 2.0 else np.exp(-y)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        dens = np.power(y, k - 1.0) * np.exp(-y - math.lgamma(k))   # density of y = k x / snr_mean (0^0 = 1)
+    dens = np.where(np.isfinite(dens), dens, 0.0)             # y = 0 with k < 1: integrable, left out
+    seg = 0.5 * (dens[1:] + dens[:-1]) * np.diff(y)           # trapezoids
+    surv = np.concatenate([np.cumsum(seg[::-1])[::-1], [0.0]])   # P(Y > y_i)
+    surv = surv / surv[0]
     u = (np.arange(N_SNR_Q) + 0.5) / N_SNR_Q
-    return np.interp(rm.DETECT_PD * (1.0 - u), surv[::-1], x[::-1])
+    out = np.interp(rm.DETECT_PD * (1.0 - u), surv[::-1], x[::-1])
+    out.setflags(write=False)
+    return out
 
 
-def _tx_gain(dx, dy):
-    """Two-axis pointing error (in beamwidths) -> TX gain factor (Gaussian main lobe, as the grid loss)."""
-    return 10.0 ** (-_TX_LOSS_DB_PER_HPBW2 * (dx * dx + dy * dy) / 10.0)
+def _tx_gain(dx, dy, ku: float = 1.0, kv: float = 1.0):
+    """Two-axis pointing error (in full-face beamwidths) -> TX gain factor of a beam ku x kv beamwidths wide (Gaussian
+    main lobe, as the grid loss)."""
+    return 10.0 ** (-_TX_LOSS_DB_PER_HPBW2 * ((dx / ku) ** 2 + (dy / kv) ** 2) / 10.0)
 
 
-def _ku_after_s(sigma_ku, bias_ku: float, snr_ku, swerling: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+# ----------------------------------------------------------------------------- the 7-beam cluster (step 3.2 C)
+@dataclasses.dataclass(frozen=True)
+class ClusterTx:
+    """How the confirmation cluster is transmitted: beam centres and widths (full-face Ku beamwidths), EIRP of each
+    beam relative to one full-face beam at full power, look energies one cluster costs, round trips."""
+    name: str
+    beams: Tuple[Tuple[float, float, float, float], ...]
+    eirp: float
+    looks: float
+
+
+def superposition_loss_db(b: int) -> float:
+    """TX loss of a phase-only superposition of b beams: the [multibeam] table, interpolated in log2(b) between its
+    entries (7 beams: between 4 and 8, 0.76 dB; step 3.2 C2). The search keeps its own entries only."""
+    xs = sorted(rm.MB_SUP_LOSS_DB)
+    if b in rm.MB_SUP_LOSS_DB:
+        return rm.MB_SUP_LOSS_DB[b]
+    if b < xs[0] or b > xs[-1]:
+        raise ValueError(f"superposition of {b} beams is outside the [multibeam] table {xs}")
+    return float(np.interp(math.log2(b), [math.log2(x) for x in xs], [rm.MB_SUP_LOSS_DB[x] for x in xs]))
+
+
+@functools.lru_cache(maxsize=4)
+def cluster_variants() -> Tuple[ClusterTx, ...]:
+    """The ways of sending the cluster that tool.confirmation.ku_cluster_tx offers."""
+    hexs = tuple((float(x), float(y), 1.0, 1.0) for x, y in _CLUSTER_XY)
+    out = [ClusterTx("sequential", hexs, 1.0, float(CLUSTER_N))]
+    if "superposition" in KU_CLUSTER_TX:
+        out.append(ClusterTx(f"superposition x{CLUSTER_N}", hexs,
+                             1.0 / (CLUSTER_N * rm.db_to_lin(superposition_loss_db(CLUSTER_N))), 1.0))
+    if "partition" in KU_CLUSTER_TX:
+        s = rm.BEAM_SPACING_HPBW
+        for b in rm.MB_PART_BEAMS:
+            kinds = ["quarter"] if b == 4 else ["half_h", "half_v"]
+            for kind in kinds:
+                sa = rm.subaperture("Ku", kind)
+                ku, kv = sa.hpbw_u / sa.full_hpbw_u, sa.hpbw_v / sa.full_hpbw_v
+                if b == 4:      # a rhombus of the stretched hexagonal lattice around the estimate
+                    pts = [(0.0, 0.0), (1.0, 0.0), (0.5, math.sqrt(3) / 2), (1.5, math.sqrt(3) / 2)]
+                    cx, cy = 0.75, math.sqrt(3) / 4
+                    beams = tuple(((x - cx) * s * ku, (y - cy) * s * kv, ku, kv) for x, y in pts)
+                elif ku >= kv:  # two neighbours along the wide axis of the half beam
+                    beams = ((-0.5 * s * ku, 0.0, ku, kv), (0.5 * s * ku, 0.0, ku, kv))
+                else:
+                    beams = ((0.0, -0.5 * s * kv, ku, kv), (0.0, 0.5 * s * kv, ku, kv))
+                out.append(ClusterTx(f"partition {kind}", beams, (sa.n_elements / sa.n_total) / b, 1.0))
+    return tuple(out)
+
+
+def _cluster_pd(ex, ey, snr, fluct, cl: ClusterTx):
+    """Probability that at least one beam of the cluster detects, for errors ex, ey (broadcast) and centre SNR snr."""
+    miss = 1.0
+    for cx, cy, ku, kv in cl.beams:
+        miss = miss * (1.0 - pd_single(_tx_gain(ex - cx, ey - cy, ku, kv)[..., None] * cl.eirp * snr, fluct))
+    return 1.0 - miss
+
+
+def _ku_after_s(sigma_ku, bias_ku: float, snr_ku, fluct, cl: ClusterTx) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """KU1+7 and KU7 statistics for angle errors of standard deviation sigma_ku per axis (Ku beamwidths, array over
     the leading axes) plus a bias per axis. snr_ku: centre-look SNR (array over margins, last axis).
-    Returns (success KU1+7, Ku looks KU1+7, success KU7), each averaged over the Gaussian errors."""
+    Returns (success KU1+7, Ku look energies KU1+7, success KU7), each averaged over the Gaussian errors."""
     ex = bias_ku + sigma_ku[..., None, None] * GH_NODES[:, None]            # (..., 12, 1)
     ey = bias_ku + sigma_ku[..., None, None] * GH_NODES[None, :]            # (..., 1, 12)
     w = GH_WEIGHTS[:, None] * GH_WEIGHTS[None, :]
-    g = np.stack([_tx_gain(ex - cx, ey - cy) for cx, cy in _CLUSTER_XY], axis=-1)   # (..., 12, 12, 7)
-    pd = pd_single(g[..., None] * snr_ku, swerling)                         # (..., 12, 12, 7, M)
-    p1 = pd[..., 0, :]
-    p7 = 1.0 - np.prod(1.0 - pd, axis=-2)
+    p1 = pd_single(_tx_gain(ex, ey)[..., None] * snr_ku, fluct)            # (..., 12, 12, M)
+    p7 = _cluster_pd(ex, ey, snr_ku, fluct, cl)
     s17 = p1 + (1.0 - p1) * p7
-    l17 = 1.0 + (1.0 - p1) * CLUSTER_N
+    l17 = 1.0 + (1.0 - p1) * cl.looks
     avg = lambda a: np.tensordot(w, a, axes=([0, 1], [-3, -2]))           # noqa: E731
     return avg(s17), avg(l17), avg(p7)
 
 
-@functools.lru_cache(maxsize=64)
-def confirm_tables(swerling: int, f_s_ghz: float, spacing_hpbw: Optional[float] = None) -> dict:
-    """Confirmation statistics of the three modes vs the power margins (independent of range and scan angle:
-    S and Ku beams widen together on the same face, and the detection always happens at the design SNR)."""
-    q = rm.hpbw_deg(f_s_ghz) / rm.hpbw_deg(KU_FREQ_GHZ)                    # S TX beamwidth in Ku TX beamwidths
-    x_det = detected_snr_quantiles(_snr_ref(swerling), swerling)          # (M,)
-    sig_ku = K_ML_S * q / np.sqrt(x_det)
-    bias_ku = BIAS_MRAD * 1e-3 / math.radians(rm.hpbw_deg(KU_FREQ_GHZ))   # in Ku beamwidths (boresight = u, v width)
-    m_lin = 10.0 ** (MARGIN_DB / 10.0)
-    snr_ku = _snr_ref(swerling) * m_lin                                    # Ku centre-look SNR per margin
-    s17, l17, s7 = (a.mean(axis=0) for a in _ku_after_s(sig_ku, bias_ku, snr_ku, swerling))   # (n_margin,)
-    # S2: pointed S touch (no grid loss, pointing error in S beams), then KU1+7 on the combined angle estimate
-    sig_s, bias_s = sig_ku / q, bias_ku / q
-    ex = bias_s + sig_s[:, None, None] * GH_NODES[:, None]
-    ey = bias_s + sig_s[:, None, None] * GH_NODES[None, :]
-    w = GH_WEIGHTS[:, None] * GH_WEIGHTS[None, :]
-    touch_snr = _snr_ref(swerling) * rm.db_to_lin(rm.grid_loss_db(spacing_hpbw) + rm.grid_rx_loss_db()) * m_lin   # (n_ms,)
-    pt = pd_single(_tx_gain(ex, ey)[..., None] * touch_snr, swerling)                   # (M, 12, 12, n_ms)
-    pt = np.tensordot(w, pt, axes=([0, 1], [1, 2]))                                    # (M, n_ms)
-    sig2 = K_ML_S * q / np.sqrt(x_det[:, None] + touch_snr[None, :])                   # (M, n_ms)
-    s2_succ = np.zeros((len(m_lin), len(m_lin)))
-    s2_looks = np.zeros_like(s2_succ)
-    for i in range(len(m_lin)):
-        a17, b17, _ = _ku_after_s(sig2[:, i], bias_ku, snr_ku, swerling)                 # (M, n_mku)
-        s2_succ[i] = (pt[:, i, None] * a17).mean(axis=0)
-        s2_looks[i] = (pt[:, i, None] * b17).mean(axis=0)
-    return {"KU1+7": (s17, l17), "KU7": (s7, np.full_like(s7, float(CLUSTER_N))), "S2": (s2_succ, s2_looks)}
+class ConfirmStats:
+    """Confirmation statistics of the three modes as functions of the power margins, for one sector: the S echo law
+    (shape at the S frequency), the Ku look law (at the Ku frequency), the S / Ku beamwidth ratio, the search lattice
+    and the way the cluster is sent. Independent of range and scan angle (S and Ku beams widen together on the same
+    face, and the detection always happens at the design SNR)."""
+
+    def __init__(self, fl_s, fl_ku, f_s_ghz: float, f_ku_ghz: float, spacing_hpbw: Optional[float],
+                 cl: ClusterTx):
+        self.fl_s, self.fl_ku, self.cl = fl_s, fl_ku, cl
+        self.q = rm.hpbw_deg(f_s_ghz) / rm.hpbw_deg(f_ku_ghz)                 # S TX beamwidth in Ku TX beamwidths
+        self.snr_s = _snr_ref(fl_s)
+        self.x_det = detected_snr_quantiles(self.snr_s, fl_s)                  # (M,)
+        self.sig_ku = K_ML_S * self.q / np.sqrt(self.x_det)
+        self.bias_ku = BIAS_MRAD * 1e-3 / math.radians(rm.hpbw_deg(f_ku_ghz))  # in Ku beamwidths
+        self.snr_ku = _snr_ref(fl_ku)                                          # Ku centre-look SNR at 0 dB margin
+        self.touch_snr0 = self.snr_s * rm.db_to_lin(rm.grid_loss_db(spacing_hpbw) + rm.grid_rx_loss_db())
+        self._memo: Dict[tuple, Tuple[float, float]] = {}
+
+    def ku(self, mode: str, m_db: float) -> Tuple[float, float]:
+        """(success, Ku look energies per target) of KU1+7 or KU7 at margin m_db."""
+        key = (mode, round(m_db, 6))
+        if key not in self._memo:
+            s17, l17, s7 = (a.mean(axis=0) for a in _ku_after_s(self.sig_ku, self.bias_ku,
+                                                              np.array([self.snr_ku * rm.db_to_lin(m_db)]),
+                                                              self.fl_ku, self.cl))
+            self._memo[("KU1+7", round(m_db, 6))] = (float(s17[0]), float(l17[0]))
+            self._memo[("KU7", round(m_db, 6))] = (float(s7[0]), float(self.cl.looks))
+        return self._memo[key]
+
+    def s2_vec(self, mt_db: np.ndarray, mk_db: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """(success, Ku look energies per target) of S2 for paired margins (arrays of the same length): pointed S touch
+        at mt_db (no grid loss, pointing error in S beams), then KU1+7 at mk_db on the combined angle estimate. The
+        touch part is kept per touch grid (it does not depend on the Ku margin)."""
+        mt_db, mk_db = np.asarray(mt_db, dtype=float), np.asarray(mk_db, dtype=float)
+        key = tuple(np.round(mt_db, 6))
+        tp = self._memo.get(("touch", key))
+        if tp is None:
+            sig_s, bias_s = self.sig_ku / self.q, self.bias_ku / self.q
+            ex = bias_s + sig_s[:, None, None] * GH_NODES[:, None]
+            ey = bias_s + sig_s[:, None, None] * GH_NODES[None, :]
+            w = GH_WEIGHTS[:, None] * GH_WEIGHTS[None, :]
+            t_snr = self.touch_snr0 * 10.0 ** (mt_db / 10.0)                                 # (n,)
+            pt = pd_single(_tx_gain(ex, ey)[..., None] * t_snr, self.fl_s)                   # (M, 12, 12, n)
+            pt = np.tensordot(w, pt, axes=([0, 1], [1, 2]))                                  # (M, n)
+            sig2 = K_ML_S * self.q / np.sqrt(self.x_det[:, None] + t_snr[None, :])           # (M, n)
+            tp = self._memo[("touch", key)] = (pt, sig2)
+        pt, sig2 = tp
+        snr = (self.snr_ku * 10.0 ** (mk_db / 10.0))[None, :, None, None]                    # paired with mt
+        ex = self.bias_ku + sig2[..., None, None] * GH_NODES[:, None]                         # (M, n, 12, 1)
+        ey = self.bias_ku + sig2[..., None, None] * GH_NODES[None, :]                         # (M, n, 1, 12)
+        p1 = pd_single(_tx_gain(ex, ey) * snr, self.fl_ku)                                    # (M, n, 12, 12)
+        miss = 1.0
+        for cx, cy, ku, kv in self.cl.beams:
+            miss = miss * (1.0 - pd_single(_tx_gain(ex - cx, ey - cy, ku, kv) * self.cl.eirp * snr, self.fl_ku))
+        p7 = 1.0 - miss
+        w = GH_WEIGHTS[:, None] * GH_WEIGHTS[None, :]
+        s17 = np.tensordot(p1 + (1.0 - p1) * p7, w, axes=([2, 3], [0, 1]))                    # (M, n)
+        l17 = np.tensordot(1.0 + (1.0 - p1) * self.cl.looks, w, axes=([2, 3], [0, 1]))
+        return (pt * s17).mean(axis=0), (pt * l17).mean(axis=0)
+
+    def s2(self, m_touch_db: float, m_ku_db: float) -> Tuple[float, float]:
+        """s2_vec for one pair of margins."""
+        a, b = self.s2_vec(np.array([m_touch_db]), np.array([m_ku_db]))
+        return float(a[0]), float(b[0])
+
+    def s2_min_margins(self, mt_db: np.ndarray) -> np.ndarray:
+        """Smallest Ku margin (dB, within MARGIN_TOL_DB) reaching CONFIRM_P_MIN after a touch at each mt_db, by a
+        bisection run for every touch margin at once; NaN where even MARGIN_MAX_DB does not."""
+        n = len(mt_db)
+        top = self.s2_vec(mt_db, np.full(n, MARGIN_MAX_DB))[0] >= CONFIRM_P_MIN
+        zero = self.s2_vec(mt_db, np.zeros(n))[0] >= CONFIRM_P_MIN
+        lo, hi = np.zeros(n), np.full(n, MARGIN_MAX_DB)
+        while (hi - lo).max() > MARGIN_TOL_DB:
+            mid = 0.5 * (lo + hi)
+            ok = self.s2_vec(mt_db, mid)[0] >= CONFIRM_P_MIN
+            lo, hi = np.where(ok, lo, mid), np.where(ok, mid, hi)
+        return np.where(~top, np.nan, np.where(zero, 0.0, hi))
+
+    def min_margin(self, f) -> Optional[float]:
+        """Smallest margin (dB, within MARGIN_TOL_DB) at which f(margin) = success reaches CONFIRM_P_MIN; None if even
+        MARGIN_MAX_DB does not (success increases with the margin)."""
+        if f(MARGIN_MAX_DB) < CONFIRM_P_MIN:
+            return None
+        if f(0.0) >= CONFIRM_P_MIN:
+            return 0.0
+        lo, hi = 0.0, MARGIN_MAX_DB
+        while hi - lo > MARGIN_TOL_DB:
+            mid = 0.5 * (lo + hi)
+            lo, hi = (mid, hi) if f(mid) < CONFIRM_P_MIN else (lo, mid)
+        return hi
 
 
-# ----------------------------------------------------------------------------- Ku looks
-def _ku_integration(swerling: int) -> str:
-    return "COHERENT" if swerling in (0, 1, 3) else "NONCOHERENT"
+def confirm_tables(fluct, f_s_ghz: float, spacing_hpbw: Optional[float] = None, f_ku_ghz: float = KU_REF_GHZ,
+                   cluster: str = "sequential") -> dict:
+    """Confirmation statistics of the three modes on the report grid MARGIN_DB (test bench), with the same
+    fluctuation for the S echo and the Ku look."""
+    cl = next(c for c in cluster_variants() if c.name == cluster)
+    st = ConfirmStats(fluct, fluct, f_s_ghz, f_ku_ghz, spacing_hpbw, cl)
+    s17 = np.array([st.ku("KU1+7", m) for m in MARGIN_DB])
+    s7 = np.array([st.ku("KU7", m) for m in MARGIN_DB])
+    mt, mk = np.meshgrid(MARGIN_DB, MARGIN_DB, indexing="ij")
+    a, b = st.s2_vec(mt.ravel(), mk.ravel())
+    return {"KU1+7": (s17[:, 0], s17[:, 1]), "KU7": (s7[:, 0], s7[:, 1]),
+            "S2": (a.reshape(mt.shape), b.reshape(mt.shape))}
+
+
+# ----------------------------------------------------------------------------- Ku looks (step 3.2, B and E)
+def _ku_agility(length_m: float, n: int, bw_mhz: float) -> float:
+    """Excursion of the agile variant of a noncoherent Ku train (step 3.2 B7, the search rule B7-B8): (n - 1) c / 2L
+    for n independent draws, within the Ku band minus the signal, on the Ku grid step; 0 if not even 2 draws fit."""
+    if n < 2 or not length_m or length_m <= 0:
+        return 0.0
+    dfc = rm.C_MPS / (2.0 * length_m) / 1e6
+    width = (BAND.usable_hi_ghz - BAND.usable_lo_ghz) * 1e3 - bw_mhz
+    step = KU_FREQ_STEP_GHZ * 1e3
+    a = math.floor(min((n - 1) * dfc, width) / step + 1e-9) * step
+    return a if a >= dfc - 1e-9 else 0.0
 
 
 @functools.lru_cache(maxsize=256)
-def _ku_candidates(integ: str, pack: Optional[rm.TrackingPack]) -> Tuple[Tuple[rm.Waveform, Optional[rm.Waveform]], ...]:
-    """(detection waveform, tracking waveform or None) pairs with the same timing."""
+def _ku_candidates(pack: Optional[rm.TrackingPack], length_m: float) -> Tuple[Tuple[rm.Waveform, Optional[rm.Waveform]], ...]:
+    """(detection waveform, tracking waveform or None) pairs with the same timing: every pulse, PRI, pulse count,
+    bandwidth and integration of the space, and the agile variant of each noncoherent train (B7; length_m: the
+    target length that sets the excursion)."""
     out = []
-    for bw in KU_BW:
-        for pri in KU_PRI:
-            for n in KU_N:
-                for tau in KU_TAU:
-                    if tau > KU_DUTY_MAX * pri:
-                        continue
-                    try:
-                        det = rm.Waveform("KU-CONF", "CONFIRM", "Ku", tau, n, pri, bw, 1, integ)
-                        trk = None if pack is None else rm.Waveform("KU-TRK", "TRACK", "Ku", tau, n, pri, bw, 1, integ,
-                                                                    tracking_pack=pack)
-                    except ValueError:
-                        continue
-                    out.append((det, trk))
+    for integ in KU_INTEGRATIONS:
+        for bw in KU_BW:
+            for pri in KU_PRI:
+                for n in KU_N:
+                    for tau in KU_TAU:
+                        if tau > KU_DUTY_MAX * pri:
+                            continue
+                        ags = [0.0]
+                        if integ == "NONCOHERENT":
+                            a = _ku_agility(length_m, n, bw)
+                            if a > 0:
+                                ags.append(a)
+                        for ag in ags:
+                            try:
+                                det = rm.Waveform("KU-CONF", "CONFIRM", "Ku", tau, n, pri, bw, 1, integ, agility_mhz=ag)
+                                trk = None if pack is None else rm.Waveform("KU-TRK", "TRACK", "Ku", tau, n, pri, bw, 1,
+                                                                            integ, tracking_pack=pack, agility_mhz=ag)
+                            except ValueError:
+                                continue
+                            out.append((det, trk))
     return tuple(out)
 
 
-@functools.lru_cache(maxsize=1 << 17)
-def _ku_reach(w: rm.Waveform, theta: float, tgt: rm.Target, rx_sll_db: float, t_sys_k: Optional[float] = None,
-              v_span_mps: Optional[float] = None) -> Tuple[float, str]:
-    """Range at full power and SNR driver of one Ku waveform (0 if not playable). tgt: frozen, named "ku" by the
-    caller so that sectors sharing a threat share the cache."""
-    try:
-        r = rm.solve(w, KU_FREQ_GHZ, theta, tgt, rm.FACE_ELEC_POWER_MW, rx_sll_db, t_sys_k, v_span_mps)
-        return r.range_km, r.driver
-    except ValueError:
-        return 0.0, "-"
+@functools.lru_cache(maxsize=4096)
+def _ku_scan(f: float, theta: float) -> Optional[Tuple[float, float]]:
+    """(h, h_bt): R(theta) / R(0) of the noise-limited range and of the self-protection burn-through range at f. As
+    in the search (optimizer._scan_factor), the scan enters only through the array gain and the active mismatch, so
+    both are the same for every waveform: checked on two dissimilar Ku waveforms; None if a model change breaks it
+    (callers then solve() at theta)."""
+    tgt = rm.Target("ref", 1.0, 1, 5000.0)
+    hs = []
+    for w in (rm.Waveform("ref1", "CONFIRM", "Ku", 20e-6, 1, 1e-3, 25.0, 1, "NONCOHERENT"),
+              rm.Waveform("ref2", "CONFIRM", "Ku", 200e-6, 8, 2e-3, 100.0, 1, "COHERENT")):
+        try:
+            hs.append(rm.solve(w, f, float(theta), tgt).range_km / rm.solve(w, f, 0.0, tgt).range_km)
+        except ValueError:
+            return None
+    if not math.isclose(hs[0], hs[1], rel_tol=1e-9):
+        return None
+    g = rm.gain_lin(1.0, f, float(theta)) / rm.gain_lin(1.0, f, 0.0)
+    mm = 2.0 * (rm.active_mismatch(f, float(theta))["loss_db_per_pass"] - rm.active_mismatch(f, 0.0)["loss_db_per_pass"])
+    return hs[0], math.sqrt(g * 10.0 ** (-mm / 10.0))
+
+
+class _LookSpace:
+    """The Ku candidates of one look type at one frequency (target, RX option, velocity span, jammer, track pack): the
+    broadside parts of every candidate (noise range, burn-through range, required SNR with the position losses, look
+    law; cold sky), and their costs as functions of the pulse scale."""
+
+    def __init__(self, f: float, tgt: rm.Target, sll: float, v_span: Optional[float], spj: Optional[float],
+                 pack: Optional[rm.TrackingPack], excl: Tuple[Tuple[float, float], ...], staggered: bool):
+        self.f = f
+        pairs = [(d, t) for d, t in _ku_candidates(pack, float(tgt.length_m or 0.0))
+                 if mo.signal_fits(f, d.occupied_mhz, excl, BAND)]
+        if staggered:
+            pairs = [(dataclasses.replace(d, staggered=True) if d.n > 1 else d,
+                      None if t is None else (dataclasses.replace(t, staggered=True) if t.n > 1 else t)) for d, t in pairs]
+        rows = []
+        for d, t in pairs:
+            pd_ = mo.parts_at(d, f, 0.0, tgt, sll, v_span, None, None, spj)
+            if pd_ is None:
+                continue
+            if t is not None:
+                pt = mo.parts_at(t, f, 0.0, tgt, sll, v_span, None, None, spj)
+                if pt is None:
+                    continue
+                if rm.jammed_range_km(pt[0], pt[1]) < rm.jammed_range_km(pd_[0], pd_[1]):
+                    pd_ = pt                                  # the accuracy drives this look (SNR = max(det, acc))
+            rows.append((d, t, pd_))
+        self.det = [r[0] for r in rows]
+        self.trk = [r[1] for r in rows]
+        self.rn = np.array([r[2][0] for r in rows])
+        self.rbt = np.array([r[2][1] for r in rows])
+        self.sdb = np.array([r[2][2] for r in rows])
+        self.law = np.array([r[2][4] for r in rows], dtype=int)
+        self.costs = mo.PositionCosts(self.det) if self.det else None
+        self.blind = np.array([rm.blind_range_km(BAND, d.tau_s) for d in self.det])
+        self.bw = np.array([d.sig_bw_mhz for d in self.det])
+
+
+_SPACES: Dict[tuple, _LookSpace] = {}
+
+
+def _space(f: float, tgt: rm.Target, sll: float, v_span: Optional[float], spj: Optional[float],
+           pack: Optional[rm.TrackingPack], excl: Tuple[Tuple[float, float], ...], staggered: bool) -> _LookSpace:
+    key = (f, tgt, sll, v_span, spj, pack, excl, staggered)
+    sp = _SPACES.get(key)
+    if sp is None:
+        if len(_SPACES) >= 512:
+            _SPACES.clear()
+        sp = _SPACES[key] = _LookSpace(f, tgt, sll, v_span, spj, pack, excl, staggered)
+    return sp
+
+
+def _clutter_gain(sp: _LookSpace, clutter: Optional[List[dict]], tgt: rm.Target) -> np.ndarray:
+    """SNR increase G (>= 1, inf = blinded) that restores each candidate's look Pd against the sidelobe clutter of the
+    surfaces (the search model of P4, R1 b1: clutter ratio y at the 99 % quantile of the group's pointings, for the
+    look's range cell c / 2B and coherent blocks, through its Doppler filter, Pd averaged over the target speeds)."""
+    if not clutter or not sp.det:
+        return np.ones(len(sp.det))
+    v_lo, v_hi = clutter[0]["v_lo"], clutter[0]["v_hi"]
+    nv = len(env.target_velocities(v_lo, v_hi))
+    a = np.zeros((len(sp.det), nv))
+    for j, w in enumerate(sp.det):
+        mb, t_b = rm.coherent_blocks(w.n, w.pri_s, w.tau_s, w.integration, tgt.swerling, tgt, sp.f)
+        ppb = w.n // mb
+        beta = (mo.B_REF_MHZ / w.sig_bw_mhz) / mb
+        for c in clutter:
+            rho = np.ones(nv)
+            if w.integration == "COHERENT" and ppb >= 2 and c["closing_mps"] is not None and c["spread_mps"] is not None:
+                pv = rm.oscillator_phase_var(sp.f, t_b, rm.C_MPS * w.pri_s / 2e3, w.sig_bw_mhz)
+                rho = env.doppler_residual(c["closing_mps"], c["spread_mps"], v_lo, v_hi, sp.f, w.pri_s, ppb,
+                                           w.doppler_window_db, pv)
+            a[j] += beta * c["y"] * rho
+    if not a.any():
+        return np.ones(len(sp.det))
+    curves = mo._curves(sp.law)
+    pstar = mo._pd_at(curves, sp.law, sp.sdb)
+    g = np.ones(len(sp.det))
+    need = a.max(axis=1) > 0.0
+    if need.any():
+        g[need] = mo._clutter_gain(curves, sp.law[need], sp.sdb[need], pstar[need], a[need])
+    return g
+
+
+def _look_scale(sp: _LookSpace, idx: int, x: float) -> Tuple[float, float, float]:
+    """(electrical J, Ku TX s, heat J) of candidate idx when it must deliver x times its full-pulse energy at the
+    range: shortened at saturated PAs below 1 (no excess energy, step 3.2 B5, floor tau B >= 1), repeated above."""
+    if x <= 1.0:
+        e, t, _, eta = sp.costs(np.array([x]), np.array([idx]))
+        e, t, eta = float(e[0]), float(t[0]), float(eta[0])
+    else:
+        e1, t1, _, eta1 = sp.costs(np.array([1.0]), np.array([idx]))
+        e, t, eta = float(e1[0]) * x, float(t1[0]) * x, float(eta1[0])
+    return e, t, e * (1.0 - eta)
 
 
 def ku_look(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: float,
             pack: Optional[rm.TrackingPack] = None, rx_sll_db: Optional[float] = None,
             t_sys_k: Optional[float] = None, r_min_km: Optional[float] = None,
-            v_span_mps: Optional[float] = None) -> Optional[dict]:
-    """Cheapest Ku look reaching r_km at scan theta (power backed off to just reach it), for detection only
-    (pack None) or for a track update (SNR = max(detection, accuracy)). Cost = max(energy / face average power,
-    Ku TX time), as the search objective. None when no candidate reaches r_km. rx_sll_db: RX weighting of the
-    volume (None = default option); t_sys_k: the sector's Ku budget T_sys (sky noise, None = cold sky). energy_J is
-    electrical (RF / PAE), energy_rf_J the radiated energy. Step 2.1: pulses whose blind range exceeds r_min_km are
-    left out; a train whose PRI is below 2 r / c + tau + recovery is range-ambiguous at r_km, so it is staggered and
-    pays the mean eclipsing loss. v_span_mps: velocity span of the look's velocity bank (step 2.2; None = 0 to the
-    target speed, 0 = velocity known, e.g. a track update)."""
+            v_span_mps: Optional[float] = None, f_ghz: float = KU_REF_GHZ, spj: Optional[float] = None,
+            clutter: Optional[List[dict]] = None, excl: Tuple[Tuple[float, float], ...] = ()) -> Optional[dict]:
+    """Cheapest Ku look reaching r_km at scan theta, for detection only (pack None) or for a track update (SNR =
+    max(detection, accuracy)). Cost = max(energy / face average power, Ku TX time) at the design point, the pulse
+    shortened to just reach r_km (step 3.2 B5). rx_sll_db: RX weighting of the volume (None = default option);
+    t_sys_k: the sector's Ku budget T_sys at f (sky noise, None = cold sky; the range scales as its fourth root);
+    spj: self-protection jammer density of the sector at f (step 3.2 E1); clutter: the surfaces of the look's group
+    (step 3.2 E3); excl: the Ku exclusions (an agile train must stay outside them). Pulses whose blind range exceeds
+    r_min_km are left out; a train whose PRI is below 2 r / c + tau + recovery is range-ambiguous at r_km, so it is
+    staggered and pays the mean eclipsing loss. v_span_mps: velocity span of the look's velocity bank (None = 0 to the
+    target speed, 0 = velocity known, e.g. a track update). None when no candidate reaches r_km."""
     sll = rm.RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
-    best = None
+    if abs(theta) > BAND.scan_limit_deg(f_ghz):
+        return None
     tgt_c = dataclasses.replace(tgt, name="ku")
-    for det, trk in _ku_candidates(_ku_integration(tgt.swerling_case(KU_FREQ_GHZ)), pack):
-        if r_min_km is not None and rm.blind_range_km(rm.BAND_KU, det.tau_s) > r_min_km + 1e-9:
+    hb = _ku_scan(f_ghz, float(theta))
+    sky_f = (BAND.t_sys_k / t_sys_k) ** 0.25 if t_sys_k else 1.0
+    best = None
+    for staggered in (False, True):
+        sp = _space(f_ghz, tgt_c, sll, v_span_mps, spj, pack, tuple(excl), staggered)
+        if not sp.det:
             continue
-        if det.n > 1 and det.pri_s < rm.unambiguous_pri_s(rm.BAND_KU, r_km, det.tau_s):
-            det = dataclasses.replace(det, staggered=True)
-            trk = None if trk is None else dataclasses.replace(trk, staggered=True)
-        r_eff, driver = _ku_reach(det, theta, tgt_c, sll, t_sys_k, v_span_mps)
-        if trk is not None:
-            r_trk, d_trk = _ku_reach(trk, theta, tgt_c, sll, t_sys_k, v_span_mps)
-            if r_trk < r_eff:
-                r_eff, driver = r_trk, d_trk.replace("Track-", "")
-            else:
-                driver = "DET"
-        if r_eff < r_km or r_eff <= 0:
+        # ambiguity at r_km decides which variant of each train plays: unstaggered where unambiguous, staggered else
+        amb = np.array([d.n > 1 and d.pri_s < rm.unambiguous_pri_s(BAND, r_km, d.tau_s) for d in sp.det])
+        ok = amb if staggered else ~amb
+        if r_min_km is not None:
+            ok &= sp.blind <= r_min_km + 1e-9
+        if not ok.any():
             continue
-        e_rf = rm.BAND_KU.p_pk_total_w * det.n * det.tau_s * (r_km / r_eff) ** 4
-        eta = rm.pae_wf(det)
-        e = e_rf / eta                                       # electrical (step 1.3); PAE kept under back-off (3.1)
-        t = det.n * det.tau_s
-        cost = max(e / p_avg_max_w, t)
-        if best is None or cost < best["cost"]:
-            best = {"cost": cost, "energy_J": e, "energy_rf_J": e_rf, "pae": eta, "time_s": t, "driver": driver,
-                    "wf": det}
-    return best
+        g = _clutter_gain(sp, clutter, tgt_c)
+        if hb is None:
+            rr = np.array([_solve_range(d, f_ghz, theta, tgt_c, sll, t_sys_k, v_span_mps, spj) for d in sp.det])
+        else:
+            with np.errstate(divide="ignore", invalid="ignore"):
+                rr = rm.jammed_range_km(sp.rn * hb[0] * sky_f * g ** -0.25, sp.rbt * hb[1] * g ** -0.5)
+        rr = np.where(ok & np.isfinite(g) & (rr >= r_km), rr, np.nan)
+        if not np.isfinite(rr).any():
+            continue
+        s = np.where(np.isfinite(rr), (r_km / rr) ** 4, 1.0)
+        e, t, _, _ = sp.costs(s)
+        cost = np.where(np.isfinite(rr), np.maximum(e / p_avg_max_w, t), np.inf)
+        j = int(np.argmin(cost))
+        if best is None or cost[j] < best[0]:
+            best = (float(cost[j]), sp, j, float(s[j]), float(rr[j]))
+    if best is None:
+        return None
+    cost, sp, j, s, rr = best
+    e, t, q = _look_scale(sp, j, s)
+    w = sp.det[j]
+    return {"cost": cost, "energy_J": e, "energy_rf_J": e - q, "pae": (e - q) / e if e else 0.0, "time_s": t,
+            "driver": _driver(sp.trk[j], f_ghz, theta, tgt_c, sll, t_sys_k, v_span_mps, spj) if pack else "DET",
+            "wf": w, "scale": s, "reach_km": rr, "space": sp, "index": j, "f_ghz": f_ghz}
 
 
-def _wf_label(w: rm.Waveform) -> str:
-    return (f"{KU_FREQ_GHZ} GHz {w.integration[:4]} tau {w.tau_s * 1e6:.0f} us x N {w.n} @ PRI {w.pri_s * 1e3:g} ms "
-            f"B {w.sig_bw_mhz:.0f} MHz")
+def _solve_range(w, f, theta, tgt, sll, t_sys, v_span, spj) -> float:
+    try:
+        return rm.solve(w, f, float(theta), tgt, rm.FACE_ELEC_POWER_MW, sll, t_sys, v_span,
+                        spj_density_w_hz=spj).range_km
+    except ValueError:
+        return float("nan")
+
+
+def _driver(trk, f, theta, tgt, sll, t_sys, v_span, spj) -> str:
+    """SNR driver of a track update (DET, ANG, DOP, RNG)."""
+    if trk is None:
+        return "DET"
+    try:
+        d = rm.solve(trk, f, float(theta), tgt, rm.FACE_ELEC_POWER_MW, sll, t_sys, v_span, spj_density_w_hz=spj).driver
+    except ValueError:
+        return "-"
+    return d.replace("Track-", "")
+
+
+def look_cost(look: dict, x: float) -> Tuple[float, float, float]:
+    """(electrical J, Ku TX s, heat J) of a chosen look when it must deliver x times the energy of its design point
+    (a margin, a false alarm's (R / R_det)^4)."""
+    return _look_scale(look["space"], look["index"], look["scale"] * x)
+
+
+def ku_burn_through(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: float, rx_sll_db: Optional[float],
+                    t_sys_k: Optional[float], f_ghz: float, spj: float, excl) -> dict:
+    """Ku search look pointed in the jamming axis (step 3.2 E2, scheduled at 4.3): the cheapest Ku look that reaches
+    r_km against the self-protection jammer, or else the longest reach of the space."""
+    look = ku_look(theta, tgt, r_km, p_avg_max_w, rx_sll_db=rx_sll_db, t_sys_k=t_sys_k, f_ghz=f_ghz, spj=spj,
+                   excl=excl)
+    if look is not None:
+        return {"reaches_requirement": True, "range_km": round(look["reach_km"], 1), "wf": _wf_label(look["wf"], f_ghz),
+                "energy_J": look["energy_J"], "time_s": look["time_s"]}
+    sll = rm.RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
+    sp = _space(f_ghz, dataclasses.replace(tgt, name="ku"), sll, None, spj, None, tuple(excl), False)
+    hb = _ku_scan(f_ghz, float(theta))
+    if not sp.det or hb is None:
+        return {"reaches_requirement": False, "range_km": 0.0, "wf": "-"}
+    sky_f = (BAND.t_sys_k / t_sys_k) ** 0.25 if t_sys_k else 1.0
+    rr = rm.jammed_range_km(sp.rn * hb[0] * sky_f, sp.rbt * hb[1])
+    j = int(np.nanargmax(rr))
+    return {"reaches_requirement": False, "range_km": round(float(rr[j]), 1), "wf": _wf_label(sp.det[j], f_ghz)}
+
+
+def _wf_label(w: rm.Waveform, f_ghz: float = KU_REF_GHZ) -> str:
+    ag = f" agile {w.agility_mhz:g} MHz" if w.agility_mhz else ""
+    return (f"{f_ghz:g} GHz {w.integration[:4]} tau {w.tau_s * 1e6:.0f} us x N {w.n} @ PRI {w.pri_s * 1e3:g} ms "
+            f"B {w.sig_bw_mhz:.0f} MHz{ag}")
 
 
 # ----------------------------------------------------------------------------- per-sector budget
 def _groups(P: np.ndarray, r: dict) -> List[dict]:
-    """Scan-angle groups of the sector (optimizer.BIN_DEG wide), with their positions per face, worst angle and the
-    search waveform the optimiser chose there."""
+    """Scan-angle groups of the sector (optimizer.BIN_DEG wide), with their positions per face, scan span, worst angle
+    and the search waveform the optimiser chose there."""
     p_tot = P.sum(axis=0)
     by_lo = {round(b["theta_lo_deg"]): b for b in r.get("wf_by_bin", [])}
     out = []
@@ -247,29 +642,100 @@ def _groups(P: np.ndarray, r: dict) -> List[dict]:
         b = by_lo.get(round(lo * mo.THETA_BIN_DEG))
         if not idx or b is None:
             continue
-        out.append({"theta": (idx[-1] + 1) * mo.THETA_BIN_DEG, "pos": P[:, idx].sum(axis=1), "wf": b["wf"],
+        out.append({"theta": (idx[-1] + 1) * mo.THETA_BIN_DEG, "theta_lo": idx[0] * mo.THETA_BIN_DEG,
+                    "pos": P[:, idx].sum(axis=1), "wf": b["wf"],
                     "elec_J_per_position": b["elec_J_per_position"], "pae_at_scale": b["pae_at_scale"]})
     return out
 
 
-def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky: Optional[dict] = None) -> dict:
-    """Confirmation (all modes) and AT loads per face of one sector, per second, as fractions of the face resources:
-    "e" = energy (shared S + Ku), "ts" = S TX time, "tk" = Ku TX time. ku_sky: the sector's Ku sky summary
-    (optimizer.sector_sky): every Ku look uses its budget T_sys."""
+class _SectorClutter:
+    """Sidelobe clutter of the sector's surfaces for its Ku looks (step 3.2 E3): per scan group and look range, the
+    clutter ratio y of each surface (full-face Ku beam, range cell of B_REF_MHZ) at the (1 - short_tol) quantile of the
+    group's pointings, with the surface's Doppler (P4 Q2, Q4-Q8)."""
+
+    def __init__(self, sec: dict, sph, m: np.ndarray, sky: Optional[dict], f: float, keep: np.ndarray):
+        self.sec, self.f = sec, f
+        self.surf = [s_ for s_ in env.surfaces(sky)]
+        self.tol = sec.get("short_tol", mo.SHORT_TOL)
+        self.sll = mo.rx_sll_db(sec)
+        self.tgt = mo.sector_target(sec)
+        sel = m & sph.scan_zone & (sph.theta <= BAND.scan_limit_deg(f)) & (keep > 0.0)
+        ii, jj = np.nonzero(sel)
+        self.theta = sph.theta[ii, jj]
+        self.w = (sph.w * sph.d_omega)[ii, jj] * keep[ii, jj]
+        self.own = sph.owner[ii, jj].astype(np.int64)
+        self.dirs = skym.unit(sph.phi[ii, jj], sph.eps[ii, jj])
+        self.v_lo, self.v_hi = float(sec.get("v_close_min_mps", 0.0)), float(sec["v_close_max_mps"])
+        self._memo: Dict[tuple, Optional[List[dict]]] = {}
+
+    def __call__(self, gr: dict, r_km: float) -> Optional[List[dict]]:
+        key = (gr["theta_lo"], gr["theta"], round(r_km, 6))
+        if key in self._memo:
+            return self._memo[key]
+        out = []
+        cells = (self.theta >= gr["theta_lo"] - 1e-9) & (self.theta <= gr["theta"] + 1e-9)
+        if cells.any():
+            dr_ref = rm.C_MPS / (2.0 * mo.B_REF_MHZ * 1e6)
+            for s_ in self.surf:
+                if not s_.d_min_km < r_km < s_.d_horizon_km:
+                    continue                                   # no iso-range ring at this range
+                y = np.zeros(int(cells.sum()))
+                d, o = self.dirs[cells], self.own[cells]
+                for k in np.unique(o):
+                    sk = o == k
+                    y[sk] = env.clutter_over_signal(s_, int(k), d[sk], "Ku", self.f, self.sll, float(r_km), dr_ref,
+                                                    self.tgt.rcs_at(self.f))
+                yq = float(mo._weighted_quantile_by_bin(y, np.zeros(len(y), dtype=int), self.w[cells], 1.0 - self.tol,
+                                                        1)[0])
+                if yq > 0.0:
+                    out.append({"y": yq, "closing_mps": s_.closing_mps, "spread_mps": s_.spread_mps,
+                                "v_lo": self.v_lo, "v_hi": self.v_hi, "id": s_.id})
+        self._memo[key] = out or None
+        return self._memo[key]
+
+
+def _s_touch_wf(w: dict) -> rm.Waveform:
+    """The S2 touch (step 3.2 D1): the group's search waveform, pointed, as an S waveform of role CONFIRM."""
+    return rm.Waveform("S-TOUCH", "CONFIRM", "S", w["tau_us"] * 1e-6, int(w["n_pulses"]), w["pri_ms"] * 1e-3,
+                       w["sig_bw_mhz"], 1, w["integration"], agility_mhz=w.get("agility_mhz", 0.0) or 0.0)
+
+
+def _harmonic_cover(r: dict, f_ku: float, bw_ku: float) -> List[Tuple[str, float, str]]:
+    """S waveforms of the sector whose 5th-harmonic (or other order) band covers part of the Ku channel f_ku +/- B/2
+    (step 3.2 A3): (name, covered share of the channel, harmonic bands)."""
+    lo, hi = f_ku - bw_ku / 2e3, f_ku + bw_ku / 2e3
+    out = []
+    for w in r.get("wf_set", [r["wf"]]):
+        occ = w["sig_bw_mhz"] + (w.get("agility_mhz") or 0.0)
+        bands = iso.harmonic_bands_ghz(w["freq_ghz"], occ)
+        cov = sum(max(0.0, min(b, hi) - max(a, lo)) for a, b in bands) / (hi - lo)
+        if cov > 0.0:
+            out.append((w["name"], min(cov, 1.0), ", ".join(f"{a:.3f}-{b:.3f}" for a, b in bands)))
+    return out
+
+
+def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky: Optional[dict] = None,
+                  f_ku: float = KU_REF_GHZ, clutter: Optional[_SectorClutter] = None) -> dict:
+    """Confirmation (all modes) and AT loads per face of one sector at the Ku frequency f_ku, per second, as fractions
+    of the face resources: "e" = energy (shared S + Ku), "ts" = S TX time, "tk" = Ku TX time. ku_sky: the sector's Ku
+    sky summary at f_ku (optimizer.sector_sky): every Ku look uses its budget T_sys; clutter: the sector's surfaces."""
     tgt = mo.sector_target(sec)                      # class + sector values (step 2.4)
-    sw = tgt.swerling_case(KU_FREQ_GHZ)             # closed-form confirmation statistics: nearest Swerling case
+    f_s = r["wf"]["freq_ghz"]
+    fl_ku = rm.look_fluctuation(tgt, f_ku, tgt.swerling, 1, 0.0)    # one short Ku look (step 3.2 E4)
+    fl_s = rm.look_fluctuation(tgt, f_s, tgt.swerling, 1, 0.0)      # the S echo
     r_det, rr = sec["range_km"], sec["rr_target_s"]
     sll = mo.rx_sll_db(sec)
-    f_s = r["wf"]["freq_ghz"]
     groups = _groups(P, r)
     p_face = P.sum(axis=1)
     p_all = float(p_face.sum())
-    ku_lim = rm.BAND_KU.scan_limit_deg(KU_FREQ_GHZ)
+    ku_lim = BAND.scan_limit_deg(f_ku)
     flags: List[str] = []
     t_ku = ku_sky["t_sys_budget_k"] if ku_sky is not None else None
     if ku_sky is not None:
         flags.extend(mo.sky_flags(ku_sky, "Ku"))
-    r_sat_ku = rm.min_unsaturated_range_km(KU_FREQ_GHZ, 0.0, tgt.rcs_at(KU_FREQ_GHZ))
+    spj = env.spj_density_w_hz(sec, f_ku)                       # step 3.2 E1
+    excl = exclusions_ku(sec)
+    r_sat_ku = rm.min_unsaturated_range_km(f_ku, 0.0, tgt.rcs_at(f_ku))
     r_min_sec = mo.range_min_km(sec)          # shortest range of interest: Ku blind range limit (step 2.1)
     spacing = r.get("beam_spacing_hpbw")                 # the sector's search lattice (step 3.1, P5)
     angle_cells = rm.rx_beams_per_position(f_s, sll, spacing) * rm.RX_BEAM_SPACING_HPBW ** 2   # independent cells per position
@@ -279,18 +745,15 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                          f"interest ({r_min_sec:.0f} km, range_min_km): Ku looks only need a blind range below that")
         if b["r_min_km"] < r_sat_ku:
             flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: below {r_sat_ku:.1f} km the Ku echo of "
-                         f"{tgt.rcs_at(KU_FREQ_GHZ):g} m2 clips the per-element ADCs (fixed gain; attenuator option at 3.3)")
+                         f"{tgt.rcs_at(f_ku):g} m2 clips the per-element ADCs (fixed gain; attenuator option at 3.3)")
 
-    # --- confirmation: per scan-angle group, true detections and false alarms per face (per refresh), with the
-    #     look costs at the design point (Ku look at the sector's detection range, S touch = the search look
-    #     pointed, i.e. without grid loss). A margin m scales the energy; the TX time grows once the waveform is
-    #     at full power.
-    # true targets + non-threatening objects (step 2.5, E): an object seen by the search is confirmed like a target;
-    # its Ku look at its own detection range costs the same as the threat's at r_det (R^4 / sigma is the same)
+    # --- confirmation: per scan-angle group, true detections and false alarms per face (per refresh), with the Ku
+    #     look at the sector's detection range (S touch = the search look pointed, i.e. without grid loss)
     n_new = float(sec.get("new_targets_per_rr", 1.0)) + float(sec.get("objects_per_rr", 0.0))
     fa = np.zeros(4)
     cg = []
     ku_missing = 0.0
+    v_span = mo.velocity_span_mps(sec)
     for gr in groups:
         w = gr["wf"]
         cells = rm.independent_cells(r_min_sec, r_det, w["sig_bw_mhz"], w["pulses_per_block"],
@@ -299,35 +762,38 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         fa_g = gr["pos"] * cells * w.get("pfa", rm.DETECT_PFA)    # Pfa per cell of the waveform (step 2.3)
         fa += fa_g
         look = (ku_look(gr["theta"], tgt, r_det, p_avg_max_w, rx_sll_db=sll, t_sys_k=t_ku, r_min_km=r_min_sec,
-                        v_span_mps=mo.velocity_span_mps(sec))
+                        v_span_mps=v_span, f_ghz=f_ku, spj=spj,
+                        clutter=clutter(gr, r_det) if clutter is not None else None, excl=excl)
                 if gr["theta"] <= ku_lim else None)
         if look is None:
             ku_missing += float(gr["pos"].sum())
         e_s = gr["elec_J_per_position"]           # search look of the group: shortened pulse, its PAE (step 3.1, C)
         cg.append({"true": n_new * gr["pos"] / p_all, "fa": fa_g, "e_s_rf": e_s * gr["pae_at_scale"], "e_s": e_s,
-                   "ku": look})
+                   "ku": look, "touch": _s_touch_wf(w)})
     if ku_missing > 0:
-        flags.append(f"{100 * ku_missing / p_all:.1f} % of the positions are out of Ku reach (scan limit or range): "
-                     f"no Ku confirmation or track there")
+        flags.append(f"{100 * ku_missing / p_all:.1f} % of the positions are out of Ku reach (scan limit, range, "
+                     f"jammer or clutter): no Ku confirmation or track there")
     th_ku = max((gr["theta"] for gr in groups if gr["theta"] <= ku_lim), default=0.0)
-    held = rm.rx_sll_held_up_to_deg(KU_FREQ_GHZ, sll, th_ku)
+    held = rm.rx_sll_held_up_to_deg(f_ku, sll, th_ku)
     if held < th_ku:
-        flags.append(f"Ku RX sidelobes {sll:g} dB held only up to {held:g} deg scan at {KU_FREQ_GHZ} GHz (worst "
-                     f"visible sidelobe {rm.sidelobe_visible_db(KU_FREQ_GHZ, th_ku, 'rx', sll):.1f} dB at {th_ku:g} deg: "
+        flags.append(f"Ku RX sidelobes {sll:g} dB held only up to {held:g} deg scan at {f_ku:g} GHz (worst "
+                     f"visible sidelobe {rm.sidelobe_visible_db(f_ku, th_ku, 'rx', sll):.1f} dB at {th_ku:g} deg: "
                      f"TRSA gap lobes)")
 
     def ku_cost(looks_true: float, looks_fa: float, m: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Electrical energy, Ku TX time and heat (electrical - RF energy) per face, per refresh."""
+        """Electrical energy, Ku TX time and heat (electrical - RF energy) per face, per refresh; a margin m (linear)
+        multiplies the energy each look must deliver, a false alarm's look needs FA_R4_MEAN of it."""
         e, t, q = np.zeros(4), np.zeros(4), np.zeros(4)
         for c in cg:
             lk = c["ku"]
             if lk is None:
                 continue
-            bo = lk["energy_rf_J"] / (rm.BAND_KU.p_pk_total_w * lk["time_s"])    # power back-off of the look
-            n_eq = c["true"] * looks_true + c["fa"] * looks_fa * FA_R4_MEAN     # looks, in design-range equivalents
-            e += n_eq * lk["energy_J"] * m
-            q += n_eq * (lk["energy_J"] - lk["energy_rf_J"]) * m
-            t += (c["true"] * looks_true * max(1.0, bo * m) + c["fa"] * looks_fa * max(1.0, bo * m * FA_R4_MEAN)) * lk["time_s"]
+            e1, t1, q1 = look_cost(lk, m)
+            e2, t2, q2 = look_cost(lk, m * FA_R4_MEAN)
+            nt, nf = c["true"] * looks_true, c["fa"] * looks_fa
+            e += nt * e1 + nf * e2
+            t += nt * t1 + nf * t2
+            q += nt * q1 + nf * q2
         return e, t, q
 
     def s_touch_cost(m: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -336,40 +802,50 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         e_rf = sum((n * c["e_s_rf"] for n, c in zip(n_c, cg)), np.zeros(4))
         return e, e_rf / rm.BAND_S.p_pk_total_w, e - e_rf                         # one beam at full peak power
 
-    tables = confirm_tables(sw, f_s, spacing)
-    m_lin = 10.0 ** (MARGIN_DB / 10.0)
+    def load_of(e, ts, tk) -> float:
+        return max(float((e / p_avg_max_w).max()), float(ts.max()), float(tk.max()))
+
     modes: Dict[str, dict] = {}
     for mode in CONFIRM_MODES:
-        succ, looks = tables[mode]
-        why = []
-        if ku_missing > 0:
-            why.append("part of the sector is out of Ku reach")
-        ok = np.argwhere(succ >= CONFIRM_P_MIN)
-        if ok.size == 0:
-            why.append(f"confirmation probability < {CONFIRM_P_MIN} even with {MARGIN_DB[-1]:.0f} dB margin")
+        why = ["part of the sector is out of Ku reach"] if ku_missing > 0 else []
+        best = None
+        for cl in cluster_variants():
+            st = ConfirmStats(fl_s, fl_ku, f_s, f_ku, spacing, cl)
+            if mode == "S2":
+                mts = np.arange(0.0, MARGIN_MAX_DB + TOUCH_STEP_DB / 2.0, TOUCH_STEP_DB)
+                mks = st.s2_min_margins(mts)
+                ok = np.isfinite(mks)
+                if not ok.any():
+                    continue
+                succs, lookss = st.s2_vec(mts[ok], mks[ok])
+                for mt, mk, succ, looks in zip(mts[ok], mks[ok], succs, lookss):
+                    succ, looks = float(succ), float(looks)
+                    e_s, ts, q_s = s_touch_cost(rm.db_to_lin(mt))
+                    e_k, tk, q_k = ku_cost(looks, 0.0, rm.db_to_lin(mk))
+                    e, q = e_s + e_k, q_s + q_k
+                    load = load_of(e, ts, tk)
+                    if best is None or load < best[0]:
+                        best = (load, {"margin_db": [round(float(mt), 3), round(float(mk), 3)], "success": succ,
+                                       "ku_looks_true": looks, "ku_looks_fa": 0.0, "cluster_tx": cl.name,
+                                       "round_trips": 3, "s_touch_wf": "pointed search waveform (role CONFIRM)"},
+                                e, ts, tk, q)
+            else:
+                mk = st.min_margin(lambda x: st.ku(mode, x)[0])
+                if mk is None:
+                    continue
+                succ, looks = st.ku(mode, mk)
+                l_fa = cl.looks + (1.0 if mode == "KU1+7" else 0.0)       # a false alarm fails every look
+                e, tk, q = ku_cost(looks, l_fa, rm.db_to_lin(mk))
+                ts = np.zeros(4)
+                load = load_of(e, ts, tk)
+                if best is None or load < best[0]:
+                    best = (load, {"margin_db": round(float(mk), 3), "success": succ, "ku_looks_true": looks,
+                                   "ku_looks_fa": l_fa, "cluster_tx": cl.name,
+                                   "round_trips": 2 if mode == "KU1+7" else 1}, e, ts, tk, q)
+        if best is None:
+            why.append(f"confirmation probability < {CONFIRM_P_MIN} even with {MARGIN_MAX_DB:g} dB margin")
             modes[mode] = {"admissible": False, "why_not": "; ".join(why)}
             continue
-        best = None
-        for ij in ok:
-            if mode == "S2":
-                i, j = ij
-                e_s, ts, q_s = s_touch_cost(m_lin[i])
-                e_k, tk, q_k = ku_cost(float(looks[i, j]), 0.0, m_lin[j])
-                e, q = e_s + e_k, q_s + q_k
-                info = {"margin_db": [float(MARGIN_DB[i]), float(MARGIN_DB[j])], "success": float(succ[i, j]),
-                        "ku_looks_true": float(looks[i, j]), "ku_looks_fa": 0.0}
-            else:
-                j = int(ij[0])
-                l_fa = float(CLUSTER_N + (1 if mode == "KU1+7" else 0))
-                e, tk, q = ku_cost(float(looks[j]), l_fa, m_lin[j])
-                ts = np.zeros(4)
-                info = {"margin_db": float(MARGIN_DB[j]), "success": float(succ[j]),
-                        "ku_looks_true": float(looks[j]), "ku_looks_fa": l_fa}
-            load = max(float((e / p_avg_max_w).max()), float(ts.max()), float(tk.max()))
-            if best is None or load < best[0]:
-                best = (load, info, e, ts, tk, q)
-            if mode != "S2":
-                break                                      # smallest margin meeting the probability
         _, info, e, ts, tk, q = best
         modes[mode] = {**info, "admissible": not why, "why_not": "; ".join(why),
                        "e": e / p_avg_max_w / rr, "ts": ts / rr, "tk": tk / rr, "q_w": q / rr}
@@ -382,8 +858,9 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         drivers: Dict[str, float] = {}
         wf_main, pos_main, unreachable = None, -1.0, 0.0
         for gr in groups:
-            look = (ku_look(gr["theta"], tgt, b["r_max_km"], p_avg_max_w, pack, sll, t_ku, max(b["r_min_km"], r_min_sec),
-                            v_span_mps=0.0)                      # track update: velocity known (step 2.2)
+            look = (ku_look(gr["theta"], tgt, b["r_max_km"], p_avg_max_w, pack, sll, t_ku,
+                            max(b["r_min_km"], r_min_sec), v_span_mps=0.0, f_ghz=f_ku, spj=spj,   # velocity known
+                            clutter=clutter(gr, b["r_max_km"]) if clutter is not None else None, excl=excl)
                     if gr["theta"] <= ku_lim else None)
             share = gr["pos"] / p_all * b["n_targets"]                       # tracks per face in this group
             if look is None:
@@ -400,26 +877,36 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                  "driver": max(drivers, key=drivers.get) if drivers else "-",
                  "energy_per_update_J": float(e_face.sum() / n_tr) if n_tr > 0 else 0.0,
                  "avg_power_kW": float(e_face.sum() / b["rr_s"] / 1e3),
-                 "wf": _wf_label(wf_main) if wf_main is not None else "-",
+                 "wf": _wf_label(wf_main, f_ku) if wf_main is not None else "-",
                  "e": e_face / p_avg_max_w / b["rr_s"], "tk": t_face / b["rr_s"], "q_w": q_face / b["rr_s"],
                  "unreachable_tracks": unreachable}
         if unreachable > 0:
             flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: {unreachable:.1f} track(s) out of Ku reach "
-                         f"at {b['r_max_km']:.0f} km (scan limit or range)")
+                         f"at {b['r_max_km']:.0f} km (scan limit, range, jammer or clutter)")
         at.append(out_b)
-    # S harmonic in the Ku channel on the same face (isolation matrix: frequency rule) -> a scheduler rule
+
+    # --- S harmonic on the Ku channel of the same face (step 3.2 A3): flagged, a time rule for the scheduler
     rules = []
+    bw_ku = max([c["ku"]["wf"].sig_bw_mhz for c in cg if c["ku"] is not None] or [min(KU_BW)])
     if iso.same_face_s_to_ku_verdict() == "frequency_rule":
-        ku_bws = sorted({c["ku"]["wf"].sig_bw_mhz for c in cg if c["ku"] is not None})
-        for w in r.get("wf_set", [r["wf"]]):
-            hit = [bw for bw in ku_bws if iso.harmonic_conflict(w["freq_ghz"], w["sig_bw_mhz"], KU_FREQ_GHZ, bw)]
-            if hit:
-                bands = ", ".join(f"{a:.3f}-{b:.3f}" for a, b in iso.harmonic_bands_ghz(w["freq_ghz"], w["sig_bw_mhz"]))
-                rules.append(f"{w['name']} ({w['freq_ghz']} GHz, {w['sig_bw_mhz']:g} MHz) puts its harmonic on {bands} GHz, "
-                             f"over the Ku channel {KU_FREQ_GHZ} GHz / {max(hit):g} MHz: on the same face, no Ku reception "
-                             f"during this S transmission")
+        for name, cov, bands in _harmonic_cover(r, f_ku, bw_ku):
+            flags.append(f"S waveform {name}: its harmonics ({bands} GHz) cover {100 * cov:.0f} % of the Ku channel "
+                         f"{f_ku:g} GHz / {bw_ku:g} MHz on the same face")
+            rules.append(f"{name} puts its harmonics on {bands} GHz, over {100 * cov:.0f} % of the Ku channel "
+                         f"{f_ku:g} GHz / {bw_ku:g} MHz: on the same face, no Ku reception during this S transmission")
+
+    # --- Ku burn-through search in the jamming axis (step 3.2 E2), for a sector the jammer puts out of search reach
+    bt = None
+    if spj is not None and (r.get("sky") or {}).get("spj_out_of_reach"):
+        th = max((gr["theta"] for gr in groups if gr["theta"] <= ku_lim), default=None)
+        if th is not None:
+            bt = ku_burn_through(th, tgt, r_det, p_avg_max_w, sll, t_ku, f_ku, spj, excl)
+            flags.append(f"Ku burn-through look in the jamming axis: {bt['range_km']:.0f} km "
+                         f"({'reaches' if bt['reaches_requirement'] else 'does not reach'} the requirement, "
+                         f"{bt['wf']}); triggered by the scheduler (step 4.3)")
     return {"faces": [k for k in range(4) if p_face[k] > 0], "false_alarms_per_rr": fa, "modes": modes, "at": at,
-            "flags": flags, "ku_sky": ku_sky, "ku_min_unsaturated_range_km": r_sat_ku, "scheduler_rules": rules}
+            "flags": flags, "ku_sky": ku_sky, "ku_min_unsaturated_range_km": r_sat_ku, "scheduler_rules": rules,
+            "ku_freq_ghz": f_ku, "ku_burn_through": bt}
 
 
 # ----------------------------------------------------------------------------- mission budget
@@ -427,10 +914,11 @@ _RES = ("e", "ts", "tk")
 _RES_NAME = {"e": "energy", "ts": "S time on air", "tk": "Ku time on air"}
 
 
-def _face_loads(base: Dict[str, np.ndarray], sbs: Dict[str, dict], choice: Dict[str, str]) -> Dict[str, np.ndarray]:
+def _face_loads(base: Dict[str, np.ndarray], sbs: Dict[str, Dict[float, dict]], choice: Dict[str, tuple]) -> Dict[str, np.ndarray]:
+    """Face loads with each sector at its (Ku frequency, confirmation mode or None)."""
     tot = {k: v.copy() for k, v in base.items()}
-    for sid, sb in sbs.items():
-        mode = choice.get(sid)
+    for sid, (f, mode) in choice.items():
+        sb = sbs[sid][f]
         if mode is not None:
             for key in _RES:
                 tot[key] += sb["modes"][mode][key]
@@ -444,10 +932,22 @@ def _max_load(tot: Dict[str, np.ndarray]) -> float:
     return float(max(tot[k].max() for k in _RES))
 
 
+def _own_load(sb: dict, mode: Optional[str]) -> float:
+    """A sector's own peak face load at one frequency: its confirmation mode plus its tracks."""
+    tot = {k: np.zeros(4) for k in _RES}
+    if mode is not None:
+        for k in _RES:
+            tot[k] += sb["modes"][mode][k]
+    for b in sb["at"]:
+        tot["e"] += b["e"]
+        tot["tk"] += b["tk"]
+    return _max_load(tot)
+
+
 def budget(mission: dict, res: dict) -> dict:
-    """Mission confirmation + AT budget on top of an optimizer.run() result: per sector the confirmation mode
-    (with the reason) and the AT cost per bracket, per face the search / confirmation / AT shares and the verdict,
-    and what to relax when a face does not fit."""
+    """Mission confirmation + AT budget on top of an optimizer.run() result: per sector the Ku frequency and the
+    confirmation mode (with the reason) and the AT cost per bracket, per face the search / confirmation / AT shares and
+    the verdict, and what to relax when a face does not fit."""
     g = res["global"]
     p_avg_max = g["face_elec_avail_kW"] * 1e3
     sph = mo._sphere(g["eps_min_deg"], g["eps_max_deg"])
@@ -457,7 +957,8 @@ def budget(mission: dict, res: dict) -> dict:
         base["e"][int(k)] = v["energy_fraction"]
         base["ts"][int(k)] = v["time_fraction"]
     sky = mission.get("global", {}).get("sky")
-    sbs: Dict[str, dict] = {}
+    sbs: Dict[str, Dict[float, dict]] = {}
+    n_cands: Dict[str, int] = {}
     for r in res["sectors"]:
         if r["status"] != "OK":
             continue
@@ -465,55 +966,78 @@ def budget(mission: dict, res: dict) -> dict:
         m = sph.mask(sec)
         sec_s = dict(sec, _grid_spacing=r.get("beam_spacing_hpbw", rm.BEAM_SPACING_HPBW))   # its lattice (P5)
         P, _, _, _ = mo.search_positions(sec_s, sph, m, r["wf"]["freq_ghz"], sky)    # blinded positions left out
-        ku_sky, _ = mo.sector_sky(sec, sph, m, KU_FREQ_GHZ, "Ku", sky)
-        sbs[r["id"]] = sector_budget(sec, r, np.array([P[k] for k in range(4)]), p_avg_max, ku_sky)
+        Pm = np.array([P[k] for k in range(4)])
+        fs = ku_centres(sec) or [KU_REF_GHZ]
+        n_cands[r["id"]] = len(fs)
+        sbs[r["id"]] = {}
+        for f in fs:
+            ku_sky, keep = mo.sector_sky(sec, sph, m, f, "Ku", sky)
+            clut = _SectorClutter(sec, sph, m, sky, f, keep) if env.surfaces(sky) else None
+            sbs[r["id"]][f] = sector_budget(sec, r, Pm, p_avg_max, ku_sky, f, clut)
 
-    # confirmation mode: forced, or automatic (greedy on the mission's most loaded face, two passes)
-    choice: Dict[str, Optional[str]] = {}
+    # (Ku frequency, confirmation mode): forced mode, or automatic (greedy on the mission's most loaded face, two
+    # passes); ties: own load, then the frequency nearest the core-band centre (step 3.2 A4)
+    choice: Dict[str, tuple] = {}
     forced: Dict[str, bool] = {}
-    for sid, sb in sbs.items():
+
+    def options(sid: str) -> List[tuple]:
+        want = secs[sid].get("confirm_mode", "auto")
+        out = []
+        for f, sb in sbs[sid].items():
+            if want in CONFIRM_MODES:
+                if "e" in sb["modes"][want]:
+                    out.append((f, want))
+            else:
+                out.extend((f, md_) for md_ in CONFIRM_MODES if sb["modes"][md_]["admissible"])
+        return out
+
+    for sid in sbs:
         want = secs[sid].get("confirm_mode", "auto")
         forced[sid] = want in CONFIRM_MODES
-        adm = [m for m in CONFIRM_MODES if sb["modes"][m]["admissible"]]
-        if forced[sid]:
-            choice[sid] = want if "e" in sb["modes"][want] else (adm[0] if adm else None)
+        opts = options(sid)
+        if not opts and forced[sid]:                       # forced mode impossible: fall back to an admissible one
+            opts = [(f, md_) for f, sb in sbs[sid].items() for md_ in CONFIRM_MODES if sb["modes"][md_]["admissible"]]
+        if opts:
+            choice[sid] = min(opts, key=lambda o: (_own_load(sbs[sid][o[0]], o[1]), _core_distance(o[0]), o[0]))
         else:
-            choice[sid] = min(adm, key=lambda m: max(sb["modes"][m][k].max() for k in _RES)) if adm else None
+            f0 = min(sbs[sid], key=lambda f: (_own_load(sbs[sid][f], None), _core_distance(f), f))
+            choice[sid] = (f0, None)
     for _ in range(2):
-        for sid, sb in sbs.items():
-            if forced[sid]:
+        for sid in sbs:
+            opts = options(sid)
+            if forced[sid] or not opts:
                 continue
             best = None
-            for m in CONFIRM_MODES:
-                if not sb["modes"][m]["admissible"]:
-                    continue
-                load = _max_load(_face_loads(base, sbs, {**choice, sid: m}))
-                own = max(sb["modes"][m][k].max() for k in _RES)
-                if best is None or (load, own) < best[0]:
-                    best = ((load, own), m)
-            if best is not None:
-                choice[sid] = best[1]
+            for o in opts:
+                key = (_max_load(_face_loads(base, sbs, {**choice, sid: o})), _own_load(sbs[sid][o[0]], o[1]),
+                       _core_distance(o[0]), o[0])
+                if best is None or key < best[0]:
+                    best = (key, o)
+            choice[sid] = best[1]
     tot = _face_loads(base, sbs, choice)
 
     # per-sector report
     out_secs, warn = [], []
-    for sid, sb in sbs.items():
-        mode = choice[sid]
+    for sid, per_f in sbs.items():
+        f, mode = choice[sid]
+        sb = per_f[f]
         alts = {}
-        for m in CONFIRM_MODES:
-            md_ = sb["modes"][m]
-            alts[m] = {"admissible": md_["admissible"], "why_not": md_["why_not"]}
-            if "e" in md_:
-                alts[m]["mission_max_load"] = round(_max_load(_face_loads(base, sbs, {**choice, sid: m})), 4)
+        for md_ in CONFIRM_MODES:
+            m_ = sb["modes"][md_]
+            alts[md_] = {"admissible": m_["admissible"], "why_not": m_["why_not"]}
+            if "e" in m_:
+                alts[md_]["mission_max_load"] = round(_max_load(_face_loads(base, sbs, {**choice, sid: (f, md_)})), 4)
+        want = secs[sid].get("confirm_mode")
         if mode is None:
             reason = "no admissible confirmation mode"
-            warn.append(f"sector {sid}: no admissible confirmation mode ({'; '.join(sb['modes'][m]['why_not'] for m in CONFIRM_MODES)})")
-        elif forced[sid] and mode == secs[sid].get("confirm_mode"):
+            warn.append(f"sector {sid}: no admissible confirmation mode at any Ku frequency "
+                        f"({'; '.join(sb['modes'][m]['why_not'] for m in CONFIRM_MODES)})")
+        elif forced[sid] and mode == want:
             reason = "forced by the operator"
             if not sb["modes"][mode]["admissible"]:
                 warn.append(f"sector {sid}: forced confirmation mode {mode} breaks a constraint ({sb['modes'][mode]['why_not']})")
         elif forced[sid]:
-            reason = f"forced mode {secs[sid]['confirm_mode']} impossible ({sb['modes'][secs[sid]['confirm_mode']]['why_not']})"
+            reason = f"forced mode {want} impossible ({sb['modes'][want]['why_not']})"
         else:
             others = [m for m in CONFIRM_MODES if m != mode and sb["modes"][m]["admissible"]]
             refused = [f"{m}: {sb['modes'][m]['why_not']}" for m in CONFIRM_MODES if not sb["modes"][m]["admissible"]]
@@ -529,29 +1053,31 @@ def budget(mission: dict, res: dict) -> dict:
             conf.update({"faces": {str(k): {"energy_fraction": float(md_["e"][k]), "s_time_fraction": float(md_["ts"][k]),
                                             "ku_time_fraction": float(md_["tk"][k])} for k in sb["faces"]}})
         out_secs.append({
-            "id": sid, "confirm_mode": mode, "reason": reason, "forced": forced[sid],
-            "false_alarms_per_rr": round(float(sb["false_alarms_per_rr"].sum()), 1),
+            "id": sid, "ku_freq_ghz": f, "ku_freq_candidates": n_cands[sid], "confirm_mode": mode, "reason": reason,
+            "forced": forced[sid], "false_alarms_per_rr": round(float(sb["false_alarms_per_rr"].sum()), 1),
             "confirmation": conf, "alternatives": alts,
             "at": [{**{k: v for k, v in b.items() if k not in ("e", "tk", "q_w")},
                     "faces": {str(k): {"energy_fraction": float(b["e"][k]), "ku_time_fraction": float(b["tk"][k])}
                               for k in sb["faces"]}} for b in sb["at"]],
             "ku_sky": sb["ku_sky"], "ku_min_unsaturated_range_km": sb["ku_min_unsaturated_range_km"],
-            "scheduler_rules": sb["scheduler_rules"],
+            "ku_burn_through": sb["ku_burn_through"], "scheduler_rules": sb["scheduler_rules"],
             "flags": sb["flags"]})
         for fl in sb["flags"]:
             warn.append(f"sector {sid}: {fl}")
 
     # per-face totals, verdict and what to relax
+    chosen = {sid: sbs[sid][choice[sid][0]] for sid in sbs}
+    mode_of = {sid: choice[sid][1] for sid in sbs}
     faces, advice = {}, []
     for k in range(4):
-        conf_e = sum(sbs[s]["modes"][choice[s]]["e"][k] for s in sbs if choice[s] is not None)
-        at_e = sum(b["e"][k] for s in sbs for b in sbs[s]["at"])
-        conf_ts = sum(sbs[s]["modes"][choice[s]]["ts"][k] for s in sbs if choice[s] is not None)
-        conf_tk = sum(sbs[s]["modes"][choice[s]]["tk"][k] for s in sbs if choice[s] is not None)
-        at_tk = sum(b["tk"][k] for s in sbs for b in sbs[s]["at"])
+        conf_e = sum(chosen[s]["modes"][mode_of[s]]["e"][k] for s in sbs if mode_of[s] is not None)
+        at_e = sum(b["e"][k] for s in sbs for b in chosen[s]["at"])
+        conf_ts = sum(chosen[s]["modes"][mode_of[s]]["ts"][k] for s in sbs if mode_of[s] is not None)
+        conf_tk = sum(chosen[s]["modes"][mode_of[s]]["tk"][k] for s in sbs if mode_of[s] is not None)
+        at_tk = sum(b["tk"][k] for s in sbs for b in chosen[s]["at"])
         heat = float(res["faces_total"][str(k)].get("dissipation_kW", 0.0) * 1e3
-                     + sum(sbs[s]["modes"][choice[s]]["q_w"][k] for s in sbs if choice[s] is not None)
-                     + sum(b["q_w"][k] for s in sbs for b in sbs[s]["at"]))
+                     + sum(chosen[s]["modes"][mode_of[s]]["q_w"][k] for s in sbs if mode_of[s] is not None)
+                     + sum(b["q_w"][k] for s in sbs for b in chosen[s]["at"]))
         load = {key: float(tot[key][k]) for key in _RES}
         worst = max(load, key=load.get)
         faces[str(k)] = {"search_energy": float(base["e"][k]), "confirm_energy": float(conf_e), "at_energy": float(at_e),
@@ -563,13 +1089,13 @@ def budget(mission: dict, res: dict) -> dict:
                          "p_left_kW": max(0.0, 1.0 - load["e"]) * p_avg_max / 1e3,
                          "dissipation_kW": heat / 1e3, "dissipation_kW_m2": heat / 1e3 / rm.TOTAL_AREA_M2}
         if load[worst] > 1.0:
-            advice.append(_relax_advice(k, worst, load[worst], res, sbs, choice, secs))
+            advice.append(_relax_advice(k, worst, load[worst], res, chosen, mode_of, secs))
     for a in advice:
         warn.append(a)
     rules = ([f"search lattice shifted every frame (grid_dithering, step 2.3): the cumulative detection criterion "
               f"draws the target position in its cell anew at each revisit"] if rm.GRID_DITHERING else [])
     rules += iso.scheduler_rules() + [f"sector {s['id']}: {t}" for s in out_secs for t in s["scheduler_rules"]]
-    return {"ku_freq_ghz": KU_FREQ_GHZ, "pfa": rm.DETECT_PFA, "confirm_p_min": CONFIRM_P_MIN,
+    return {"pfa": rm.DETECT_PFA, "confirm_p_min": CONFIRM_P_MIN,
             "sectors": out_secs, "faces": faces, "advice": advice, "scheduler_rules": rules, "warnings": warn}
 
 

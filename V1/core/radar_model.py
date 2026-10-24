@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.11.7
+# Radar Performance Model - V6.12.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,22 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.11.7 -> V6.12.0 (roadmap step 3.2: Ku confirmation rebuilt, blocks A-E, all validated by the user)
+#   - Ku frequency per sector (A): centres usable_lo + k x 10 MHz, signal inside the band and outside the mission's
+#     Ku exclusions, the valid ones every 50 MHz plus the centre-most of each free fragment; the (frequency, mode) pair
+#     minimising the mission's most loaded face is kept (ties: nearest the core-band centre); sector key
+#     ku_freq_ghz_candidates forces; confirmation.ku_freq_ghz removed. S harmonics on the Ku channel flagged with the
+#     covered share (time rule for 4.3, not a frequency rule).
+#   - Ku look space (B): 5 us to 2.08 ms pulses, PRI 0.5-5 ms, bands 25-200 MHz, both integrations (E5), agile variant
+#     of noncoherent trains; the look is shortened at saturated PAs (no excess energy, as the search); range at a scan
+#     angle = broadside range x h(f, theta) common to every waveform (exact, checked); margins solved continuously.
+#   - Cluster (C): sequential, phase-only superposition of the 7 beams (loss 0.76 dB, log2 interpolation of the
+#     [multibeam] table), or partition into 2 / 4 Ku sub-apertures; the cheapest kept; round trips published.
+#   - S2 touch = an S waveform of role CONFIRM (S allowed_roles + CONFIRM); role PROMOTE removed (D).
+#   - Confirmation statistics with the target's Gamma law at each band (E4); self-protection jammer in every Ku look,
+#     Ku burn-through look in the jamming axis (E1-E2); sidelobe clutter per Ku look with the P4 model, out of the Ku
+#     T_sys budget (E3).
 #
 # Changes V6.11.6 -> V6.11.7 (roadmap step 3.1, pass P5, IN PROGRESS: frozen outputs and impact report not refreshed)
 #   - Sky refinement near hot sources (S1-S4): the raster cells of a block whose sky rise exceeds 0.5 dB, and those
@@ -398,7 +414,7 @@
 #  NEW
 #   - Two bands (S, Ku) with their own TRM count, peak power, losses, T_sys, scan limit.
 #   - Only waveforms PLAYABLE at the chosen frequency are evaluated.
-#     Role policy: S = SEARCH/TWS only (no tracking), Ku = CONFIRM/PROMOTE/TRACK only (no search).
+#     Role policy: S = SEARCH/TWS only (no tracking), Ku = CONFIRM/TRACK only (no search; PROMOTE removed, 3.2).
 #   - TX and RX gains separated (TX illumination 1.0, RX 0.88 in S) [V].
 #   - Average-power / duty check against the electrical budget (PAE 75 % [V]).
 #   - Range-migration loss (target closing speed) and range-ambiguity flag.
@@ -431,7 +447,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.11.7"
+MODEL_VERSION = "6.12.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -2004,13 +2020,13 @@ def tracking_snr_req(pack: TrackingPack, f_ghz: float, theta_deg: float, t_obs_s
 # -----------------------------------------------------------------------------
 # Waveforms
 # -----------------------------------------------------------------------------
-DETECT_ROLES = ("SEARCH", "TWS", "CONFIRM", "PROMOTE")
+DETECT_ROLES = ("SEARCH", "TWS", "CONFIRM")
 
 
 @dataclass(frozen=True)
 class Waveform:
     name: str
-    role: str                 # SEARCH | TWS | CONFIRM | PROMOTE | TRACK
+    role: str                 # SEARCH | TWS (reserved, 3.3) | CONFIRM | TRACK
     band: str                 # "S" | "Ku"
     tau_s: float
     n: int                    # pulses per dwell

@@ -1514,3 +1514,68 @@ Effet sur les missions de test (valeurs de test seulement) : temps d'émission S
 
 Coût mesuré : l'évaluation du ciel du secteur de test passe de 0,02 à 0,09 s par fréquence. Le masquage par la structure, l'aveuglement par le fouillis et l'absence de volume devant une surface restent par cellule entière.
 
+### Étape 3.2 : confirmation Ku reconstruite (en cours, 23 octobre 2026)
+
+Cadrage validé : cinq blocs, A fréquence Ku, B espace des observations Ku, C multifaisceau Ku, D passage S → Ku et rôles, E environnement et cible en Ku. Règle de la soirée : le surcoût de calcul de chaque bloc est estimé avant de coder, et aucun test ne tourne sans l'accord de l'utilisateur.
+
+| Bloc A (tout validé) | Décision |
+|---|---|
+| A1 granularité | une fréquence Ku par secteur |
+| A2 grille | dérivée de la bande Ku : 13,5 GHz + k × 10 MHz, signal entier dans la bande et hors des exclusions |
+| A3 harmonique 5 des émissions S de la même face | pas une règle de fréquence (elle viderait la bande : 2,8 GHz ± 50 MHz donne 13,75–14,25 GHz) ; recouvrement signalé par secteur avec la part du canal couverte ; la contrainte reste la règle de temps de l'étape 4.3 |
+| A4 critère | pour chaque fréquence, le meilleur mode de confirmation et la poursuite ; on garde le couple qui minimise la face la plus chargée (critère actuel des modes) ; à égalité, la fréquence la plus proche du centre de la bande centrale |
+| A5 candidates | centres valides tous les 50 MHz, plus le centre le plus central de chaque morceau libre (environ 20), sans passe fine (optimum plat en fréquence) ; surcoût estimé environ +40 % |
+| A6 exclusions | `spectrum_exclusions_ghz["Ku"]`, mêmes règles que la S |
+| A7 forçage | clé de secteur `ku_freq_ghz_candidates` contrôlée ; `confirmation.ku_freq_ghz` supprimée |
+| A8 au-dessus de 14,25 GHz | rien de spécial : la couverture Ku entre déjà dans l'admissibilité des modes |
+
+| Bloc B (tout validé) | Décision |
+|---|---|
+| B1 impulsions | ajouter 5 µs, 800 µs, 1,5 ms et τ_max (2,08 ms, dérivé de la réserve) à 10–400 µs |
+| B2 nombre d'impulsions | inchangé (1 à 64) |
+| B3 PRI | ajouter 5 ms (0,5, 1, 2, 5 ms) |
+| B4 bandes | 25, 50, 100, 200 MHz |
+| B5 observation trop forte | comme la S : impulsion raccourcie à PA saturé (τ' = s τ, plancher τB ≥ 1, PAE exacte), au lieu de la baisse de puissance |
+| B6 marge des tables de confirmation | continue, par bissection jusqu'à `p_min` (0,01 dB), au lieu de la grille de 0,5 dB |
+| B7 agilité | règle de la S pour les trains non cohérents de n ≥ 2 |
+| B8 modulation | règle de la S |
+| Coût | élagage exact des candidats dominés (P1) ; pas d'ordre fréquence puis observations (P2, non exact). Surcoût estimé +40 à +60 % par mission. **Précision de l'utilisateur** : le temps de calcul en préparation de mission n'est pas la variable autour de laquelle on développe (une ou deux missions par jour au plus) ; la gêne des tests longs vient de leur fréquence, pas du temps d'une mission. |
+
+| Bloc C (tout validé) | Décision |
+|---|---|
+| C1 modes de la grappe Ku | superposition à phase seule et partition ; multiplexage en temps modélisé, hors du choix jusqu'à 4.3 |
+| C2 grappe de 7 en superposition | entrée de 7 faisceaux ajoutée à `[multibeam]`, interpolée en log₂ entre 4 et 8 : 0,76 dB, statut D |
+| C3 partition en Ku | sous-ouvertures Ku calculées comme en S depuis la composition de la face Ku (à vérifier ou à ajouter dans le code) |
+| C4 table de pertes | une seule table pour S et Ku |
+| C5 latence | sortie seulement : allers-retours de chaque mode publiés par secteur pour 4.3 |
+| C6 pistes proches en angle | renvoyé à 4.3 |
+| C7 premier temps de KU1+7 | inchangé, un faisceau |
+
+| Bloc D (tout validé) | Décision |
+|---|---|
+| D1 toucher S2 | vraie forme d'onde S de rôle `CONFIRM` (`CONFIRM` ajouté aux rôles permis en S, statut D) : la forme d'onde de veille du secteur, pointée, avec la marge de la table |
+| D2 rôles | `PROMOTE` supprimé ; `TWS` gardé, réservé à la poursuite en veille (3.3) |
+| D3 biais S/Ku | inchangé, 1,1 mrad par axe (V) |
+| D4 étalonnage | renvoyé à 3.4 |
+| D5 banc de vitesses de la confirmation Ku | inchangé (toute la plage) ; resserrement sur la vitesse mesurée en veille renvoyé à 3.3 |
+| D6 tables de confirmation | à la fréquence Ku du secteur |
+| D7 fausses alarmes | inchangé, (R/R_dét)⁴ moyen 0,2 (V) |
+
+| Bloc E (tout validé) | Décision |
+|---|---|
+| E1 brouilleur d'autoprotection | compté dans chaque observation Ku (forme exacte de la S, densité Ku de la classe) ; alerte si aucune ne tient |
+| E2 recherche Ku de percée | calculée ici (meilleure observation Ku pointée dans l'axe du brouillage, portée de percée, coût) ; déclenchement et chronologie à 4.3 |
+| E3 fouillis Ku | modèle de P4 par observation (code généralisé hors des colonnes de veille S) |
+| E4 tables de confirmation | vraie loi de fluctuation de la cible (forme Gamma, diversité) |
+| E5 intégration Ku | cohérente et non cohérente offertes, l'optimiseur choisit |
+| E6 ciel Ku | à la fréquence Ku du secteur, avec le raffinement de P5 |
+
+Coût estimé (information) : mission complète environ 1,5 à 2,5 fois plus longue qu'à la fin de la 3.1.
+
+Codage proposé en passes : Q1 fréquence Ku (A, D6) ; Q2 espace des observations (B) ; Q3 multifaisceau Ku (C) ; Q4 toucher S2 et rôles, loi de fluctuation, intégration (D1, D2, E4, E5) ; Q5 brouilleur, percée et fouillis Ku (E1 à E3, E6) ; Q6 rapport d'impact, valeurs figées et documentation, au N3 choisi par l'utilisateur. Entre les passes, seuls les tests nouveaux ou touchés, sur accord.
+
+**Passes Q1 à Q5 codées (modèle V6.12.0, 23 octobre 2026, non testées à l'écriture)** : `core/tracking.py` reconstruit. Fréquence Ku par secteur (grille de 10 MHz dérivée de la bande, centres tous les 50 MHz et centre de chaque morceau libre, couple (fréquence, mode) choisi sur la face la plus chargée de la mission, à égalité le plus proche du centre de la bande centrale) ; exclusions Ku copiées dans chaque secteur (`ku_spectrum_exclusions_ghz`) ; forçage `ku_freq_ghz_candidates` contrôlé à la validation de la mission. Espace Ku : `[tool.confirmation]` (impulsions 5 µs à τ_max, PRI 0,5 à 5 ms, bandes 25 à 200 MHz, deux intégrations, variante agile des trains non cohérents) ; portée à l'angle θ = portée à 0 × h(f, θ), commune à toutes les formes d'onde (vérifiée au calcul) ; ciel en T^-1/4 ; brouilleur d'autoprotection par la forme exacte ; impulsion raccourcie à PA saturé (`PositionCosts` rendu indépendant de la bande). Marges continues (`margin_db_tol` 0,01 dB ; toucher S2 sur la grille de 0,5 dB d'avant (`s2_touch_step_db`), sa marge Ku par bissection). Grappe : séquentielle, superposition (0,76 dB par interpolation en log₂, la table de la veille n'est pas modifiée) ou partition Ku (moitiés, quarts) ; la moins chère est gardée ; allers-retours publiés. Tables de confirmation avec la loi Gamma de la cible à chaque bande (lois exactes de `core/detection.py`). Fouillis Ku par observation (modèle de P4 : rapport au quantile du groupe, rejet Doppler, gain qui rétablit le Pd), retiré du budget T_sys Ku. Recherche Ku de percée publiée pour un secteur hors de portée sous brouillage. Rôles : `CONFIRM` permis en S, `PROMOTE` supprimé. Faraday de la Ku au centre de la bande centrale (la fréquence Ku est choisie après le plan de veille).
+
+**Tests de Q1 à Q5 (24 octobre 2026)** : auto-test réussi ; tests nouveaux de la 3.2 réussis après deux corrections (quantiles du SNR détecté à k = 1, marge S2 vectorisée, grille du toucher ramenée à 0,5 dB) ; suite physique complète : 171 réussis, 1 échec attendu (`test_cost_table_matches_the_parameter_file`, table de coût non régénérée), environ 21 min en parallèle (3 606 s cumulées). Tests de valeurs figées non lancés : ils échouent par construction tant que Q6 n'est pas faite. Le temps de calcul des missions a crû de ×1,5 à ×4,9 (`test_parallel_run_equals_sequential` 229 → 1 115 s), au-delà de l'estimation. Commit intermédiaire de Q1 à Q5 validé par l'utilisateur (valeurs figées et table de coût non régénérées).
+
+**Reprise : Q6**, dans l'ordre validé : (a) profiler une mission et chercher des accélérations **exactes** (aucune approximation sans accord) ; puis table de coût régénérée, rapport d'impact, valeurs figées regelées (`JOURNAL.md`), documentation (§11, feuille de route, `design/radar_design.tex`), au N3 choisi par l'utilisateur ; avant ce N3, rendre les tests de valeurs figées moins coûteux (parallélisme en fréquence sous pytest).

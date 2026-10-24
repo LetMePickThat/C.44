@@ -177,7 +177,7 @@ eta_illum_tx        = { value = 1.0, unit = "-", status = "V", source = "TX illu
 # eta_illum_rx is DERIVED from the RX weighting of the volume (core/antenna.py, aperture.rx_sll_options_db)
 # t_sys_k is DERIVED from [band.S.rx] (Friis cascade at the antenna port, cold sky): 144.5 K since step 1.5 (154.3 K
 # at review 0.3, 346.5 K entered as a block before); the sky in front of the face adds to it by direction ([sky])
-allowed_roles       = { value = ["SEARCH", "TWS"], unit = "", status = "D", source = "S = search / TWS only: radar-software band-use policy, defined with the radar functions and scheduler (3.x / 4.3); the S2 confirmation touch is an S confirmation look outside this policy (not checked: no Waveform)", date = "2026-10-20" }
+allowed_roles       = { value = ["SEARCH", "TWS", "CONFIRM"], unit = "", status = "D", source = "S = search / TWS, and CONFIRM for the S2 touch (the sector's search waveform pointed on a detection, step 3.2 D1): radar-software band-use policy, defined with the radar functions and scheduler (3.x / 4.3); TWS reserved for track-while-scan (3.3)", date = "2026-10-20" }
 pol_rx_dual         = { value = true, unit = "", status = "V", source = "dual-polarised digital RX (per-TRM ADC)", date = "2026-10-20" }
 pol_track_est_loss_db= { value = 0.05, unit = "dB", status = "V", source = "dual-pol RX, TRACK looks: the target polarisation is known from the previous looks, coherent recombination with estimated weights, residual estimation loss (step 1.5). Detection looks (search, confirmation) recombine by the GLRT on the unknown polarisation: loss COMPUTED, SNR_req(n + 1) - SNR_req(n) (radar_model.pol_recombination_loss_db), no entry; it replaces the 0.5 dB placeholder pol_loss_dual_db. S has no TRACK role today (entry kept for symmetry)", date = "2026-10-21" }
 pol_loss_single_db  = { value = 3.0, unit = "dB", status = "V", source = "single-pol RX on a depolarising target; kept to study a single-pol receiver (used only if pol_rx_dual = false)", date = "2026-10-20" }
@@ -253,7 +253,7 @@ eta_illum_tx        = { value = 1.0, unit = "-", status = "V", source = "TX illu
 # eta_illum_rx is DERIVED from the RX weighting of the volume (core/antenna.py), same options as S
 # t_sys_k is DERIVED from [band.Ku.rx] (Friis cascade at the antenna port, cold sky): 230.8 K since step 1.5 (238.7 K
 # at review 0.3, 400 K entered as a block in V5.6.0); the sky adds to it by direction ([sky])
-allowed_roles       = { value = ["CONFIRM", "PROMOTE", "TRACK"], unit = "", status = "D", source = "Ku = confirmation / promotion / tracking only: radar-software band-use policy, defined with the radar functions and scheduler (3.x / 4.3)", date = "2026-10-20" }
+allowed_roles       = { value = ["CONFIRM", "TRACK"], unit = "", status = "D", source = "Ku = confirmation / tracking only: radar-software band-use policy, defined with the radar functions and scheduler (3.x / 4.3); PROMOTE removed at step 3.2 (D2, never defined)", date = "2026-10-23" }
 pol_rx_dual         = { value = true, unit = "", status = "V", source = "dual-polarised digital RX (per-TRM ADC), as in S", date = "2026-10-20" }
 pol_track_est_loss_db= { value = 0.05, unit = "dB", status = "V", source = "as S: TRACK looks recombine coherently with the polarisation estimated on the previous looks (step 1.5); detection looks use the computed GLRT loss", date = "2026-10-21" }
 pol_loss_single_db  = { value = 3.0, unit = "dB", status = "V", source = "single-pol RX on a depolarising target, as in S; kept to study a single-pol receiver", date = "2026-10-20" }
@@ -502,7 +502,6 @@ depol_db    = { value = -20.0, unit = "dB", status = "V", source = "smooth ballo
 
 # --- confirmation and active tracking (core/tracking.py) ----------------------------------------------------------
 [confirmation]
-ku_freq_ghz      = { value = 14.0, unit = "GHz", status = "D", source = "INTERIM fixed Ku confirmation / tracking frequency (core band, below the 14.25 GHz scan break): the optimiser MUST choose it (3.2), and in real time from the usable (non-jammed) spectrum", date = "2026-10-20" }
 bias_mrad        = { value = 1.1, unit = "mrad", status = "V", source = "residual S/Ku alignment bias per axis, as an ABSOLUTE angle (direction cosines, i.e. constant across scan); was 1/20 of the S beamwidth (1.13 mrad at 2.8 GHz), which would have grown with the beamwidth; S/Ku calibration at 3.2", date = "2026-10-20" }
 p_min            = { value = 0.98, unit = "-", status = "V", source = "minimum probability of confirming a true target (smallest Ku margin per mode reaching it; end-to-end 0.9 x 0.98 per pass): operational requirement, per-mission setting at 5.1, per-volume (sector) setting as an option to study", date = "2026-10-19" }
 fa_r4_mean       = { value = 0.2, unit = "-", status = "V", source = "false alarm's Ku look sized for the threat: mean of (R/R_det)^4 = 1/5 exactly, assuming false alarms uniform in range over [0, R_det]", date = "2026-10-20" }
@@ -577,12 +576,18 @@ parallel_min_sectors = 6        # below this, sequential run
 max_workers          = 0        # 0 = automatic (half the logical CPUs)
 
 [tool.confirmation]           # Ku look search space and statistics (core/tracking.py)
-ku_tau_s        = [10e-6, 20e-6, 50e-6, 100e-6, 200e-6, 400e-6]
+ku_tau_s        = [5e-6, 10e-6, 20e-6, 50e-6, 100e-6, 200e-6, 400e-6, 800e-6, 1.5e-3]   # + tau_max (2.08 ms, from
+                                # the TRM buffer) added by the code (step 3.2 B1: 5 us for 2 km self-defence ranges)
 ku_n_pulses     = [1, 2, 4, 8, 16, 32, 64]
-ku_pri_s        = [0.5e-3, 1e-3, 2e-3]
-ku_sig_bw_mhz   = [50.0, 200.0]
-margin_db_max   = 12.0          # power margins tried on confirmation looks: 0 .. max by step
-margin_db_step  = 0.5
+ku_pri_s        = [0.5e-3, 1e-3, 2e-3, 5e-3]   # 5 ms: a 2 ms pulse needs PRI >= 3.1 ms at duty 0.65 (B3)
+ku_sig_bw_mhz   = [25.0, 50.0, 100.0, 200.0]   # range accuracy, cells, migration; 200 = Ku hardware ceiling (B4)
+ku_integrations = ["COHERENT", "NONCOHERENT"]  # both offered, the optimiser chooses (step 3.2 E5)
+ku_cluster_tx   = ["sequential", "superposition", "partition"]   # ways of sending the 7-beam cluster (step 3.2 C1)
+ku_freq_step_mhz   = 10.0       # Ku centre grid: usable_lo + k x step, signal inside the band and the exclusions (A2)
+ku_freq_coarse_mhz = 50.0       # Ku centres evaluated: valid ones on this step + the centre-most of each free fragment (A5)
+margin_db_max   = 12.0          # power margins of the confirmation looks: 0 .. max dB,
+margin_db_tol   = 0.01          # solved by bisection to this tolerance (step 3.2 B6; was a 0.5 dB grid)
+s2_touch_step_db = 0.5          # S2: grid of the S touch margin (the former grid), its Ku margin by bisection (B6)
 n_snr_quantiles = 32            # quantiles of the detected-echo SNR
 gh_nodes        = 12            # Gauss-Hermite nodes of the pointing-error average
 

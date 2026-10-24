@@ -235,7 +235,7 @@ def _estimate_at_faces(sec: dict, grid: geo.SphereGrid, face_sel: Dict[int, Tupl
     if not brackets or npos_all <= 0:
         return {}
     tgt = _sector_target(sec)
-    ku_lim = rm.BAND_KU.scan_limit_deg(trk.KU_FREQ_GHZ)
+    ku_lim = rm.BAND_KU.scan_limit_deg(trk.KU_REF_GHZ)   # the fast estimate: Ku core-band centre (step 3.2)
     out: Dict[int, Tuple[float, float, float]] = {}
     for k, (sel, w_sel) in face_sel.items():
         npos_k = float(w_sel.sum())

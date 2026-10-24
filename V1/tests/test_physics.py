@@ -1848,6 +1848,93 @@ def test_confirmation_probability_grows_with_margin():
         assert all(b >= a - 1e-12 for a, b in zip(succ, succ[1:]))
 
 
+# ----------------------------------------------------------------------------- Ku confirmation rebuilt (step 3.2)
+def test_ku_centres_follow_the_band_and_the_exclusions():
+    """A2, A5-A7: centres usable_lo + k x 10 MHz with the narrowest Ku signal inside; the coarse 50 MHz step plus the
+    centre-most centre of each free fragment; forced centres checked."""
+    grid = trk.ku_centre_grid()
+    assert grid[0] == rm.BAND_KU.usable_lo_ghz and all(abs((b - a) - 0.010) < 1e-9 for a, b in zip(grid, grid[1:]))
+    free = trk.ku_centres({})
+    assert free and all(mo.signal_fits(f, min(trk.KU_BW), (), rm.BAND_KU) for f in free)
+    cut = trk.ku_centres({"ku_spectrum_exclusions_ghz": [[13.8, 14.2]]})
+    assert all(not (13.8 - min(trk.KU_BW) / 2e3 < f < 14.2 + min(trk.KU_BW) / 2e3) for f in cut)
+    assert any(f < 13.8 for f in cut) and any(f > 14.2 for f in cut)
+    assert trk.ku_centres({"ku_freq_ghz_candidates": [14.1]}) == [14.1]
+    assert trk.validate_ku_frequencies({"ku_freq_ghz_candidates": [2.8]})
+    assert not trk.validate_ku_frequencies({"ku_freq_ghz_candidates": [14.0]})
+
+
+def test_ku_cluster_superposition_loss_is_interpolated():
+    """C2: 7 beams between the 4- and 8-beam entries of [multibeam], in log2 of the count (0.76 dB); the search table
+    keeps its own entries."""
+    assert trk.superposition_loss_db(7) == pytest.approx(0.6 + 0.2 * (math.log2(7) - 2.0), abs=1e-12)
+    assert 7 not in rm.MB_SUP_LOSS_DB
+    names = [c.name for c in trk.cluster_variants()]
+    assert names[0] == "sequential" and any(n.startswith("superposition") for n in names) \
+        and any(n.startswith("partition") for n in names)
+    seq = trk.cluster_variants()[0]
+    assert seq.looks == trk.CLUSTER_N and all(c.looks == 1.0 for c in trk.cluster_variants()[1:])
+
+
+def test_ku_scan_factor_is_common_to_the_waveforms():
+    """The Ku range at a scan angle is the broadside range x h(f, theta), the same for every waveform (exact)."""
+    h = trk._ku_scan(14.0, 40.0)
+    assert h is not None and 0.0 < h[0] < 1.0 and 0.0 < h[1] < 1.0
+    w = rm.Waveform("x", "CONFIRM", "Ku", 50e-6, 4, 1e-3, 50.0, 1, "COHERENT")
+    tgt = rm.TARGETS["KKV"]
+    assert rm.solve(w, 14.0, 40.0, tgt).range_km == pytest.approx(rm.solve(w, 14.0, 0.0, tgt).range_km * h[0], rel=1e-9)
+
+
+def test_ku_look_is_shortened_to_its_need():
+    """B5: the chosen look just reaches the range: pulse shortened at saturated PAs (scale <= 1, floor tau B >= 1),
+    its energy = P_pk x n x tau' / PAE of the shortened pulse; its reach is at least the range asked."""
+    look = trk.ku_look(30.0, rm.TARGETS["KKV"], 500.0, rm.face_elec_avail_w(2.0), f_ghz=14.0)
+    assert look is not None and look["reach_km"] >= 500.0 and 0.0 < look["scale"] <= 1.0
+    w = look["wf"]
+    tau = w.tau_s * max(look["scale"], min(1.0, rm.PULSE_TB_MIN / (w.sig_bw_mhz * 1e6) / w.tau_s))
+    assert look["time_s"] == pytest.approx(w.n * tau, rel=1e-12)
+    e2, t2, _ = trk.look_cost(look, 2.0)
+    assert e2 >= look["energy_J"] and t2 >= look["time_s"]
+
+
+def test_confirmation_margin_is_solved_continuously():
+    """B6: the margin found is the smallest reaching p_min within the tolerance (success grows with the margin)."""
+    tgt = rm.TARGETS["KKV"]
+    fl = rm.look_fluctuation(tgt, 14.0, tgt.swerling, 1, 0.0)
+    st = trk.ConfirmStats(fl, fl, 2.8, 14.0, None, trk.cluster_variants()[0])
+    m = st.min_margin(lambda x: st.ku("KU1+7", x)[0])
+    assert m is not None and st.ku("KU1+7", m)[0] >= trk.CONFIRM_P_MIN
+    if m > 0:
+        assert st.ku("KU1+7", max(0.0, m - 2 * trk.MARGIN_TOL_DB))[0] < trk.CONFIRM_P_MIN
+
+
+def test_single_look_pd_uses_the_exact_law():
+    """E4: the confirmation statistics use the exact detection laws; SW1 matches its closed form."""
+    t = -math.log(rm.DETECT_PFA)
+    snr = np.array([1.0, 10.0, 100.0])
+    assert np.allclose(trk.pd_single(snr, 1), np.exp(-t / (1.0 + snr)), atol=5e-3)
+    q = trk.detected_snr_quantiles(10.0, 1)
+    u = (np.arange(trk.N_SNR_Q) + 0.5) / trk.N_SNR_Q
+    assert np.allclose(q, -10.0 * np.log(rm.DETECT_PD * (1.0 - u)), rtol=2e-3)     # SW1 closed form (exponential)
+    assert np.all(np.diff(q) > 0)
+
+
+def test_s2_touch_is_an_s_confirm_waveform_and_promote_is_gone():
+    """D1-D2: CONFIRM is allowed in S (the S2 touch); PROMOTE is not a role any more."""
+    rm.Waveform("t", "CONFIRM", "S", 100e-6, 1, 1e-3, 75.0, 1, "COHERENT")
+    with pytest.raises(ValueError):
+        rm.Waveform("p", "PROMOTE", "Ku", 100e-6, 1, 1e-3, 50.0, 1, "COHERENT")
+    assert "PROMOTE" not in rm.DETECT_ROLES
+
+
+def test_harmonic_cover_of_the_ku_channel():
+    """A3: the share of the Ku channel the S harmonics cover is reported (a scheduler time rule, not a frequency rule)."""
+    r = {"wf": {"name": "W", "freq_ghz": 2.8, "sig_bw_mhz": 100.0}}
+    cov = trk._harmonic_cover(r, 14.0, 50.0)
+    assert cov and cov[0][1] == pytest.approx(1.0)
+    assert not trk._harmonic_cover(r, 13.55, 50.0)
+
+
 # ----------------------------------------------------------------------------- parameter file
 def test_parameter_file_entries_are_complete():
     n, counts = params.summary(params.P)

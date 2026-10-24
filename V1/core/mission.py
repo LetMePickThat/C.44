@@ -324,6 +324,8 @@ def validate_mission(mission: dict) -> List[str]:
     if not validate_spectrum(mission.get("global", {}).get("spectrum_exclusions_ghz")):
         for i, sec in enumerate(mo.with_spectrum(mission).get("sectors", [])):
             errs.extend(f"sector #{i + 1} ({sec.get('id')}): {e}" for e in mo.validate_frequencies(sec, mo.exclusions_s(sec)))
+            from . import tracking as trk                  # step 3.2 A7 (late import: tracking imports the optimiser)
+            errs.extend(f"sector #{i + 1} ({sec.get('id')}): {e}" for e in trk.validate_ku_frequencies(sec))
     return errs
 
 

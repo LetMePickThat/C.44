@@ -133,12 +133,19 @@ def exclusions_s(sec: dict) -> Tuple[Tuple[float, float], ...]:
 
 
 def with_spectrum(mission: dict) -> dict:
-    """The mission with its global S exclusions copied into every sector (sector-level functions see them)."""
-    ex = (mission.get("global", {}).get("spectrum_exclusions_ghz") or {}).get("S")
-    if not ex:
+    """The mission with its global S and Ku exclusions copied into every sector (sector-level functions see them):
+    spectrum_exclusions_ghz (S) and ku_spectrum_exclusions_ghz (Ku, step 3.2 A6)."""
+    ex = mission.get("global", {}).get("spectrum_exclusions_ghz") or {}
+    s_ex, ku_ex = ex.get("S"), ex.get("Ku")
+    if not s_ex and not ku_ex:
         return mission
     out = dict(mission)
-    out["sectors"] = [dict(s, spectrum_exclusions_ghz=[list(x) for x in ex]) for s in mission.get("sectors", [])]
+    add = {}
+    if s_ex:
+        add["spectrum_exclusions_ghz"] = [list(x) for x in s_ex]
+    if ku_ex:
+        add["ku_spectrum_exclusions_ghz"] = [list(x) for x in ku_ex]
+    out["sectors"] = [dict(s, **add) for s in mission.get("sectors", [])]
     return out
 
 
@@ -380,9 +387,8 @@ def _environment(sec: dict, band_name: str, f_ghz: float, sll: float, dirs: np.n
                 sel = owners == k
                 xs[sel] = env.clutter_over_signal(s_, int(k), dirs[sel], band_name, f_ghz, sll, r_km, dr_m,
                                                   tgt.rcs_at(f_ghz)) * snr
-        x += xs
         if band_name != "S":
-            x_out = xs
+            x_out = xs                                 # Ku: per look in core/tracking.py (step 3.2 E3), out of the budget
         delta = np.arccos(np.clip(dirs @ np.array(s_.c), -1.0, 1.0))
         a = math.asin(min(s_.radius_km / s_.dist_km, 1.0))
         if np.any(np.abs(delta - a) < 2.0 * hp):
@@ -875,7 +881,7 @@ class PositionCosts:
     shortened pulse exact; vectorised form of radar_model.search_position_costs."""
 
     def __init__(self, cands: List):
-        b = rm.BAND_S
+        b = rm.BANDS[cands[0].band] if cands else rm.BAND_S      # S search, or the Ku looks (step 3.2)
         self.tau = np.array([w.tau_s for w in cands])
         self.n = np.array([w.n for w in cands], dtype=float)
         self.pri = np.array([w.pri_s for w in cands])
@@ -1737,7 +1743,8 @@ def environment_summary(sec: dict, tgt: "rm.Target", f: float, w, pfa: float, w_
                                            rm.gain_lin(rm.BAND_S.eta_illum_tx, f, 0.0) * rm.tx_gain_ratio(wf), tgt.rcs_at(f),
                                            wf.tau_s * wf.n, r.snr_req_db, r.l_tot_db, erp)
     if sec.get("tec_tecu") is not None and sec.get("b_parallel_nt") is not None:
-        ku = P.get("confirmation.ku_freq_ghz")
+        ku = (rm.BAND_KU.core_lo_ghz + rm.BAND_KU.core_hi_ghz) / 2.0   # Ku core-band centre (step 3.2: the Ku
+                                                                         # frequency is chosen per sector after the plan)
         out["faraday_deg"] = {"S": env.faraday_round_trip_deg(sec["tec_tecu"], sec["b_parallel_nt"], f),
                               "Ku": env.faraday_round_trip_deg(sec["tec_tecu"], sec["b_parallel_nt"], ku)}
     return out
@@ -2062,13 +2069,14 @@ def print_report(res: dict) -> None:
     trk = res.get("tracking")
     if trk:
         print("-" * 100)
-        print(f" CONFIRMATION + ACTIVE TRACKING (Ku {trk['ku_freq_ghz']} GHz, Pfa {trk['pfa']:g}, "
+        print(f" CONFIRMATION + ACTIVE TRACKING (Ku per sector, Pfa {trk['pfa']:g}, "
               f"P confirm >= {trk['confirm_p_min']})")
         for s in trk["sectors"]:
             c = s["confirmation"]
             m = c.get("margin_db")
             m_txt = "-" if m is None else (f"S {m[0]:g} dB / Ku {m[1]:g} dB" if isinstance(m, list) else f"{m:g} dB")
-            print(f"[{s['id']}] confirm {s['confirm_mode']} ({s['reason']}) | {s['false_alarms_per_rr']:.0f} false alarms / RR"
+            print(f"[{s['id']}] Ku {s['ku_freq_ghz']:g} GHz | confirm {s['confirm_mode']} "
+                  f"({c.get('cluster_tx', '-')}) ({s['reason']}) | {s['false_alarms_per_rr']:.0f} false alarms / RR"
                   f" | P confirm {c.get('success', 0):.3f} | margin {m_txt} | Ku looks {c.get('ku_looks_true', 0):.2f} "
                   f"per target, {c.get('ku_looks_fa', 0):.0f} per false alarm")
             for b in s["at"]:
