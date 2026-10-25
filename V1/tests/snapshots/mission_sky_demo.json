@@ -159,7 +159,8 @@
         "confirmation SUN": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      },
      "S": {
@@ -177,14 +178,17 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 19.92739131877674,
+       "end_s": 19.64725168331117,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
         "search SUN": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search SUN": 0.0
+       }
       }
      }
     },
@@ -218,7 +222,8 @@
         "track updates MOON/0": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      },
      "S": {
@@ -237,7 +242,7 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 19.774790483025352,
+       "end_s": 19.91427043311652,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
@@ -245,7 +250,11 @@
         "search SUN": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search MOON": 0.0,
+        "search SUN": 0.0
+       }
       }
      }
     },
@@ -269,7 +278,8 @@
         "calibration Ku": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      },
      "S": {
@@ -287,14 +297,17 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 19.715109744942918,
+       "end_s": 19.950210919431317,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
         "search EARTH": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search EARTH": 0.0
+       }
       }
      }
     },
@@ -318,7 +331,8 @@
         "calibration Ku": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      },
      "S": {
@@ -336,14 +350,17 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 19.78260996542031,
+       "end_s": 19.55804124568505,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
         "search EARTH": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search EARTH": 0.0
+       }
       }
      }
     }
@@ -362,7 +379,33 @@
      "latency_ok": true,
      "latency_q95_s": 0.021032364311040597,
      "latency_required_s": 21.428571428571427,
-     "priority": "P4_1"
+     "priority": "P4_1",
+     "scan": {
+      "0": {
+       "frame_tx_s": 0.026650799999999995,
+       "mean_step_deg": 9.510970382494273,
+       "plan_positions": 45.3,
+       "pointing_rate_hz": 2.45,
+       "pointings": 49,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 0.75,
+        "50%": 0.6818181818181818
+       }
+      },
+      "1": {
+       "frame_tx_s": 0.027251399999999995,
+       "mean_step_deg": 9.181925008519501,
+       "plan_positions": 45.3,
+       "pointing_rate_hz": 2.45,
+       "pointings": 49,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 0.75,
+        "50%": 0.6818181818181818
+       }
+      }
+     }
     },
     {
      "confirm_mode": null,
@@ -371,7 +414,33 @@
      "latency_ok": true,
      "latency_q95_s": 0.0,
      "latency_required_s": 21.428571428571427,
-     "priority": "P4_1"
+     "priority": "P4_1",
+     "scan": {
+      "2": {
+       "frame_tx_s": 0.674678,
+       "mean_step_deg": 10.03123798689536,
+       "plan_positions": 67.7,
+       "pointing_rate_hz": 4.25,
+       "pointings": 85,
+       "uniformity": {
+        "10%": 0.5,
+        "25%": 0.5714285714285714,
+        "50%": 0.8695652173913043
+       }
+      },
+      "3": {
+       "frame_tx_s": 0.2114048,
+       "mean_step_deg": 8.86869467790874,
+       "plan_positions": 7.8,
+       "pointing_rate_hz": 0.65,
+       "pointings": 13,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 1.0,
+        "50%": 0.8333333333333334
+       }
+      }
+     }
     },
     {
      "confirm_mode": "KU1+7",
@@ -380,7 +449,21 @@
      "latency_ok": true,
      "latency_q95_s": 0.04104876541276741,
      "latency_required_s": 42.857142857142854,
-     "priority": "P4_1"
+     "priority": "P4_1",
+     "scan": {
+      "1": {
+       "frame_tx_s": 0.0016323999999999998,
+       "mean_step_deg": 6.098200142039846,
+       "plan_positions": 12.8,
+       "pointing_rate_hz": 1.4,
+       "pointings": 14,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 1.0,
+        "50%": 1.0
+       }
+      }
+     }
     }
    ],
    "slots": {

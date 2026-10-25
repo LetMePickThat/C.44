@@ -37,13 +37,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small C.44 radar -- design and modelling reference}
-\rhead{\small Model V6.18.0}
+\rhead{\small Model V6.19.0}
 \cfoot{\thepage}
 
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{25 October 2026 -- radar model V6.18.0 (roadmap step 4.3 coded)}
+\date{25 October 2026 -- radar model V6.19.0 (roadmap step 4.3 bis coded)}
 
 \begin{document}
 \maketitle
@@ -949,6 +949,18 @@ highest priority, then of nearest deadline, is served. After the longest contigu
 (about \SI{0.3}{s}) or the cold plate allows, a recharge pause is inserted. The timeline reports the start delays, the
 share of updates later than \SI{10}{\percent} of their period (counted as misses), the calibration delay and the pauses.
 
+\paragraph{Scan order inside a volume.} The search pointings of a volume on a face are the points of its hexagonal
+lattice in $(u,v)$ (where the beam keeps a constant width, so its widening at large scan is exact), shifted from one
+frame to the next by $0$, $(a+b)/3$ and $2(a+b)/3$ of the lattice basis (the frame-to-frame shift the cumulative
+criterion assumes). They are served in \emph{bit-reversed Morton} order (a two-dimensional van der Corput sequence):
+the first $4^k$ pointings fall one in each of the $4^k$ sub-squares of the volume, at every scale, so the coverage is
+uniform from the start of the frame, and a frame stretched or cut by the priority shedding degrades uniformly. The
+cells of the code are no finer than the pointing spacing. Changing the pointing costs nothing with digital true time
+delay, so no locality is sought. Each pointing lasts the transmit time of its scan bin's waveform; a multibeam dwell
+serves the next pointings together. The synthetic timeline serves these dwells; the tool reports per volume and face
+the pointings, the transmit time of a frame, the coverage uniformity at 10, 25 and 50\,\% of the frame, the mean step
+and rate of the pointings (inputs of the computing step) and the spread of the revisit of the directions.
+
 \paragraph{Rules between faces and bands.} All faces transmit a band in common slots (otherwise the transmission of one
 face would blind the receivers of the others); the slots are sized by the busiest face, and every face is deaf in
 them: the search echoes lose $-10\log_{10}(1-\rho_{\mathrm{slots}})$, reported (flag above \SI{0.5}{dB}) but not yet
@@ -1006,6 +1018,7 @@ jammers, Faraday\\
 \code{core/tracking.py} & Ku confirmation and active tracking budget\\
 \code{core/trackmodel.py} & track model: Singer Kalman filter, loss chain, initiation, discrimination\\
 \code{core/scheduler.py} & priorities, waits, synthetic timeline, common slots, latency\\
+\code{core/scanorder.py} & search pointings of a volume, shifts, bit-reversed Morton order\\
 \code{core/redundancy.py} & redundancy between sectors\\
 \code{core/cost\_estimate.py} & fast estimate for the interface\\
 \code{core/mission.py} & mission model, validation, JSON / CSV\\
@@ -1025,7 +1038,7 @@ The test bench has two families: frozen outputs of every test mission compared a
 (non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
 exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
 frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
-before any refreeze. At model V6.18.0 the bench has 211 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
+before any refreeze. At model V6.19.0 the bench has 213 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
 
 %=====================================================================================================================
 \section{Roadmap and open points}\label{sec:roadmap}
@@ -1043,7 +1056,7 @@ sky noise, converters, isolation --- done\\
 calibration --- done (degraded modes and TRM failures deferred to the end of the development)\\
 4, resources & 4.1 power: shared ship budget, always-on consumption, TRM supply, face storage --- done; 4.2 thermal:
 coolant, cold plate, junction, ship heat rejection --- done; 4.3 scheduler: priorities, queues, synthetic timeline,
-common slots, latency --- coded;
+common slots, latency --- done; 4.3 bis scan order inside a volume --- coded;
 scheduler and latency; computing and data\\
 5, mission and validation & richer mission model; global optimiser; validation engine; Monte-Carlo simulation;
 operator interface; verification and documentation\\

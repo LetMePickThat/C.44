@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.18.0
+# Radar Performance Model - V6.19.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,14 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.18.0 -> V6.19.0 (roadmap step 4.3 bis: scan order inside a volume, validated by the user on 25 October 2026)
+#   - core/scanorder.py: the real search pointings of a volume per face on the (u, v) hexagonal lattice of its plan,
+#     shifted frame to frame (3 shifts, grid dithering), ordered by bit-reversed Morton (prefix-uniform coverage at
+#     every scale), each lasting the transmit time of its scan bin's waveform, grouped by positions_per_dwell.
+#   - The scheduler's synthetic timeline serves these dwells in scan order (was identical mean tasks); outputs per
+#     volume and face: pointings, frame transmit time, coverage uniformity at 10/25/50 % of the frame, mean step,
+#     pointing rate; spread of the revisit of the directions (flag above tool.scanorder.revisit_flag_frac).
 #
 # Changes V6.17.0 -> V6.18.0 (roadmap step 4.3: scheduler, validated by the user on 25 October 2026)
 #   - core/scheduler.py: task classes per face and band (P0 calibration, P1 self-protection volumes, P2 confirmation
@@ -528,7 +536,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.18.0"
+MODEL_VERSION = "6.19.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

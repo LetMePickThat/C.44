@@ -120,7 +120,8 @@
         "confirmation S01": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      },
      "S": {
@@ -138,14 +139,17 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 19.97632965695409,
+       "end_s": 19.964533034758677,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
-        "search S01": 0.0043745344729997394
+        "search S01": 0.004493268683917984
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search S01": 0.004493268683917984
+       }
       }
      }
     },
@@ -172,7 +176,8 @@
         "confirmation S02": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      },
      "S": {
@@ -190,14 +195,17 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 4.9716950998627345,
+       "end_s": 4.966087979025546,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
-        "search S02": 0.009925211173611127
+        "search S02": 0.009928365532275147
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search S02": 0.009928365532275147
+       }
       }
      }
     },
@@ -221,7 +229,8 @@
         "calibration Ku": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      },
      "S": {
@@ -243,7 +252,8 @@
         "calibration S": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      }
     },
@@ -267,7 +277,8 @@
         "calibration Ku": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      },
      "S": {
@@ -289,7 +300,8 @@
         "calibration S": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      }
     }
@@ -305,7 +317,21 @@
      "latency_ok": true,
      "latency_q95_s": 0.06771505174627221,
      "latency_required_s": 100.0,
-     "priority": "P4_1"
+     "priority": "P4_1",
+     "scan": {
+      "0": {
+       "frame_tx_s": 0.005753319999999999,
+       "mean_step_deg": 17.136910692568826,
+       "plan_positions": 477.7,
+       "pointing_rate_hz": 24.4,
+       "pointings": 488,
+       "uniformity": {
+        "10%": 0.72,
+        "25%": 0.96,
+        "50%": 1.0
+       }
+      }
+     }
     },
     {
      "confirm_mode": "KU1+7",
@@ -314,7 +340,21 @@
      "latency_ok": true,
      "latency_q95_s": 0.007672697523169391,
      "latency_required_s": 2.0,
-     "priority": "P4_1"
+     "priority": "P4_1",
+     "scan": {
+      "1": {
+       "frame_tx_s": 0.004385849999999999,
+       "mean_step_deg": 8.163762606513343,
+       "plan_positions": 140.8,
+       "pointing_rate_hz": 29.4,
+       "pointings": 147,
+       "uniformity": {
+        "10%": 0.5333333333333333,
+        "25%": 0.84,
+        "50%": 0.96
+       }
+      }
+     }
     }
    ],
    "slots": {

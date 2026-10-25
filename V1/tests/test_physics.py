@@ -2402,3 +2402,32 @@ def test_scheduler_mission_keys():
     errs = md.validate_mission(m)
     assert any("self_protection" in e for e in errs) and any("search_priority" in e for e in errs)         and any("latency_max_s" in e for e in errs)
 
+
+# ----------------------------------------------------------------------------- scan order (step 4.3 bis)
+from core import scanorder as so  # noqa: E402
+
+
+def test_bit_reversed_morton_is_prefix_uniform():
+    """V1: on a square grid of 32 x 32 points, the first 4^k pointings fall one in each of the 4^k sub-squares."""
+    g = np.array([(i, j) for i in range(32) for j in range(32)], dtype=float)
+    order = so.order_bitrev_morton(g)
+    assert sorted(order.tolist()) == list(range(len(g)))
+    for k in (1, 2, 3):
+        n = 4 ** k
+        cells = {(int(g[i, 0] * 2 ** k // 32), int(g[i, 1] * 2 ** k // 32)) for i in order[:n]}
+        assert len(cells) == n
+    u = so.uniformity(g, order)
+    assert all(v == pytest.approx(1.0) for v in u.values())
+
+
+def test_lattice_shifts_and_counts():
+    """V2: the shifted lattices of a uniform region have about the same number of points, area / cell area."""
+    uu, vv = np.meshgrid(np.linspace(-0.3, 0.3, 301), np.linspace(-0.3, 0.3, 301), indexing="ij")
+    sel = np.ones(uu.shape, bool)
+    d = 0.02
+    n = [len(so.lattice(sel, uu, vv, d, s_)) for s_ in range(so.N_SHIFTS)]
+    expect = 0.6 * 0.6 / (math.sqrt(3) / 2 * d * d)
+    assert all(abs(x - expect) / expect < 0.05 for x in n)
+    p0, p1 = so.lattice(sel, uu, vv, d, 0), so.lattice(sel, uu, vv, d, 1)
+    assert not np.allclose(p0[:5], p1[:5])
+

@@ -516,3 +516,15 @@ late track update. The always-on power and thermal-inertia entries are now read 
 read" test had found them unread when their functions were not called).
 N3 19.6 min: 200 passed; the snapshot tests and test_every_parameter_is_read_by_the_code failed before the fix and
 the refreeze.
+
+## 2026-10-25 -- step 4.3 bis: scan order within a volume (radar_model V6.19.0)
+
+Causes: new outputs only -- per sector and face, key "scan" in the scheduler report (real pointings of the hexagonal
+lattice in (u, v), frame transmit time, uniformity of the coverage at 10 / 25 / 50 % of the frame, mean step, pointing
+rate) and "revisit_spread_s" per face timeline; the search releases of the synthetic timeline now follow the real
+pointings, so the start delays move by a few ms (189 values differ). No key figure, waveform set or confirmation mode
+changes. Test missions: real pointings 0 to +20 % over the plan's area estimate (edge effects of small volumes);
+uniformity at 25 % of the frame 0.92 to 1.0 on the large volumes, down to 0.36 on small or ragged ones.
+Bench fix: the 'model' case stored the internal look-space object of ku_look (its repr holds a memory address, so the
+snapshot only matched through the case cache); it is now dropped from the case output.
+N3 21.6 min: 203 passed; only the snapshot tests failed before the refreeze.

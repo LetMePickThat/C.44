@@ -311,7 +311,8 @@
         "confirmation PROT": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      },
      "S": {
@@ -331,16 +332,21 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 19.960954173592334,
+       "end_s": 19.942486209027454,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
         "search HORIZON": 0.0,
         "search ORBIT": 0.0,
-        "search PROT": 0.0007239044451224554
+        "search PROT": 0.0010721432483454339
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search HORIZON": 0.0,
+        "search ORBIT": 0.0,
+        "search PROT": 0.0010721432483454339
+       }
       }
      }
     },
@@ -373,7 +379,8 @@
         "confirmation PROT": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      },
      "S": {
@@ -394,17 +401,23 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 19.953789916700458,
+       "end_s": 19.949941368982092,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
         "search AXIS": 0.0,
         "search HORIZON": 0.0,
         "search ORBIT": 0.0,
-        "search PROT": 0.007888161337000101
+        "search PROT": 0.007967442987803752
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search AXIS": 0.0,
+        "search HORIZON": 0.0,
+        "search ORBIT": 0.0,
+        "search PROT": 0.007967442987803752
+       }
       }
      }
     },
@@ -435,7 +448,8 @@
         "confirmation PROT": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      },
      "S": {
@@ -455,16 +469,21 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 19.980819051455573,
+       "end_s": 19.961605329017424,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
-        "search AXIS": 0.0,
+        "search AXIS": 0.00021868199040575576,
         "search ORBIT": 0.0,
-        "search PROT": 0.0007474780658505153
+        "search PROT": 0.00020557673847676483
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search AXIS": 0.00021868199040575576,
+        "search ORBIT": 0.0,
+        "search PROT": 0.00020557673847676483
+       }
       }
      }
     },
@@ -496,7 +515,8 @@
         "confirmation PROT": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      },
      "S": {
@@ -517,17 +537,23 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 19.98548288283748,
+       "end_s": 19.962725237993048,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
         "search DEEP": 0.0,
         "search HORIZON": 0.0,
         "search ORBIT": 0.0,
-        "search PROT": 0.006307961611520696
+        "search PROT": 0.00975307032886974
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search DEEP": 0.0,
+        "search HORIZON": 0.0,
+        "search ORBIT": 0.0,
+        "search PROT": 0.00975307032886974
+       }
       }
      }
     }
@@ -548,7 +574,57 @@
      "latency_ok": true,
      "latency_q95_s": 0.005002902120247999,
      "latency_required_s": 4.285714285714286,
-     "priority": "P4_1"
+     "priority": "P4_1",
+     "scan": {
+      "0": {
+       "frame_tx_s": 0.0012224199999999999,
+       "mean_step_deg": 31.737391663272696,
+       "plan_positions": 289.7,
+       "pointing_rate_hz": 15.05,
+       "pointings": 301,
+       "uniformity": {
+        "10%": 0.8,
+        "25%": 0.96,
+        "50%": 1.0
+       }
+      },
+      "1": {
+       "frame_tx_s": 0.0012224199999999999,
+       "mean_step_deg": 31.737391663272696,
+       "plan_positions": 289.7,
+       "pointing_rate_hz": 15.05,
+       "pointings": 301,
+       "uniformity": {
+        "10%": 0.8,
+        "25%": 0.96,
+        "50%": 1.0
+       }
+      },
+      "2": {
+       "frame_tx_s": 0.0012224199999999999,
+       "mean_step_deg": 31.737391663272696,
+       "plan_positions": 289.7,
+       "pointing_rate_hz": 15.05,
+       "pointings": 301,
+       "uniformity": {
+        "10%": 0.8,
+        "25%": 0.96,
+        "50%": 1.0
+       }
+      },
+      "3": {
+       "frame_tx_s": 0.0012224199999999999,
+       "mean_step_deg": 31.737391663272696,
+       "plan_positions": 289.7,
+       "pointing_rate_hz": 15.05,
+       "pointings": 301,
+       "uniformity": {
+        "10%": 0.8,
+        "25%": 0.96,
+        "50%": 1.0
+       }
+      }
+     }
     },
     {
      "confirm_mode": "KU1+7",
@@ -557,7 +633,21 @@
      "latency_ok": true,
      "latency_q95_s": 0.04169435219643831,
      "latency_required_s": 42.857142857142854,
-     "priority": "P4_1"
+     "priority": "P4_1",
+     "scan": {
+      "3": {
+       "frame_tx_s": 0.6893350596,
+       "mean_step_deg": 7.9512301070058635,
+       "plan_positions": 83.6,
+       "pointing_rate_hz": 4.45,
+       "pointings": 89,
+       "uniformity": {
+        "10%": 0.7777777777777778,
+        "25%": 0.8095238095238095,
+        "50%": 1.0
+       }
+      }
+     }
     },
     {
      "confirm_mode": "KU1+7",
@@ -566,7 +656,57 @@
      "latency_ok": true,
      "latency_q95_s": 0.027855548424422796,
      "latency_required_s": 28.571428571428573,
-     "priority": "P4_1"
+     "priority": "P4_1",
+     "scan": {
+      "0": {
+       "frame_tx_s": 0.0350604,
+       "mean_step_deg": 6.059633866290339,
+       "plan_positions": 29.3,
+       "pointing_rate_hz": 1.8,
+       "pointings": 36,
+       "uniformity": {
+        "10%": 0.75,
+        "25%": 0.8888888888888888,
+        "50%": 0.9444444444444444
+       }
+      },
+      "1": {
+       "frame_tx_s": 0.023006399999999996,
+       "mean_step_deg": 4.3957516494339846,
+       "plan_positions": 13.7,
+       "pointing_rate_hz": 0.85,
+       "pointings": 17,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 1.0,
+        "50%": 0.875
+       }
+      },
+      "2": {
+       "frame_tx_s": 0.0350604,
+       "mean_step_deg": 6.059633866290339,
+       "plan_positions": 29.3,
+       "pointing_rate_hz": 1.8,
+       "pointings": 36,
+       "uniformity": {
+        "10%": 0.75,
+        "25%": 0.8888888888888888,
+        "50%": 0.9444444444444444
+       }
+      },
+      "3": {
+       "frame_tx_s": 0.023006399999999996,
+       "mean_step_deg": 4.3957516494339846,
+       "plan_positions": 13.7,
+       "pointing_rate_hz": 0.85,
+       "pointings": 17,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 1.0,
+        "50%": 0.875
+       }
+      }
+     }
     },
     {
      "confirm_mode": "KU1+7",
@@ -575,7 +715,45 @@
      "latency_ok": true,
      "latency_q95_s": 0.027788110174498556,
      "latency_required_s": 28.571428571428573,
-     "priority": "P4_1"
+     "priority": "P4_1",
+     "scan": {
+      "0": {
+       "frame_tx_s": 0.0277392,
+       "mean_step_deg": 5.137803787382973,
+       "plan_positions": 20.2,
+       "pointing_rate_hz": 1.4,
+       "pointings": 28,
+       "uniformity": {
+        "10%": 0.6666666666666666,
+        "25%": 0.7142857142857143,
+        "50%": 0.8181818181818182
+       }
+      },
+      "1": {
+       "frame_tx_s": 0.010699199999999999,
+       "mean_step_deg": 3.670659751040604,
+       "plan_positions": 11.7,
+       "pointing_rate_hz": 0.7,
+       "pointings": 14,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 1.0,
+        "50%": 1.0
+       }
+      },
+      "3": {
+       "frame_tx_s": 0.012059199999999999,
+       "mean_step_deg": 3.7778697716927874,
+       "plan_positions": 11.7,
+       "pointing_rate_hz": 0.75,
+       "pointings": 15,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 1.0,
+        "50%": 1.0
+       }
+      }
+     }
     },
     {
      "confirm_mode": "KU1+7",
@@ -584,7 +762,33 @@
      "latency_ok": true,
      "latency_q95_s": 0.02774495216113628,
      "latency_required_s": 28.571428571428573,
-     "priority": "P4_1"
+     "priority": "P4_1",
+     "scan": {
+      "1": {
+       "frame_tx_s": 0.014181599999999997,
+       "mean_step_deg": 4.775632626714413,
+       "plan_positions": 21.3,
+       "pointing_rate_hz": 1.2,
+       "pointings": 24,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 0.8333333333333334,
+        "50%": 0.75
+       }
+      },
+      "2": {
+       "frame_tx_s": 0.014301599999999998,
+       "mean_step_deg": 4.722664938077636,
+       "plan_positions": 21.3,
+       "pointing_rate_hz": 1.15,
+       "pointings": 23,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 0.8333333333333334,
+        "50%": 0.9166666666666666
+       }
+      }
+     }
     }
    ],
    "slots": {

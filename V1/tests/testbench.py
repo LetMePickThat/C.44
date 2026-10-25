@@ -202,6 +202,7 @@ def model_case() -> dict:
     for v in out["ku_look"].values():
         if v is not None:
             v["wf"] = trk._wf_label(v["wf"])
+            v.pop("space", None)   # internal look-space object (its repr holds a memory address)
     return to_plain(out)
 
 

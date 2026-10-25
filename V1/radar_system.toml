@@ -688,6 +688,12 @@ max_workers          = 0        # 0 = automatic (half the logical CPUs)
 horizon_max_s = 60.0            # B1: synthetic timeline over the longest revisit of a face, at most this
 seed          = 1               # B3: random arrivals drawn once (reproducible)
 
+[tool.scanorder]              # step 4.3 bis: search pointings inside a volume
+n_shifts     = 3                # V2: cycle of lattice shifts 0, (a+b)/3, 2(a+b)/3 (grid dithering of step 2.3)
+coarse_cells = 5                # V6: coarse cells per axis of the uniformity measure
+uniformity_fractions = [0.1, 0.25, 0.5]   # V6: fractions of the frame where the coverage uniformity is measured
+revisit_flag_frac = 0.1         # V5: revisit of a direction off the target by more than this share is flagged
+
 [tool.thermal]                # step 4.2
 junction_check = false          # B6: waveforms whose junction exceeds tj_max_c removed (true) or only reported (false);
                                 # false until the user decides on the measured impact (duty_max stays the limit)

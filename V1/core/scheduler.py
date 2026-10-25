@@ -43,6 +43,7 @@ PROCESSING_S = P.get(_S + "processing_s")
 CAL_MAX_DELAY_FRAC = P.get(_S + "calibration_max_delay_frac")
 ECLIPSE_FLAG_DB = P.get(_S + "eclipse_flag_db")
 HORIZON_MAX_S = P.get(_TS + "horizon_max_s")
+REVISIT_FLAG_FRAC = P.get("tool.scanorder.revisit_flag_frac")
 SEED = P.get(_TS + "seed")
 C = rm.C_MPS
 
@@ -63,16 +64,18 @@ class Klass:
     """One task class of a face and band: priority, load rho (share of the time), service time S, label."""
 
     def __init__(self, prio: Tuple[int, int], label: str, rho: float, service_s: float, kind: str,
-                 sector: Optional[str] = None, period_s: Optional[float] = None, count: float = 0.0):
+                 sector: Optional[str] = None, period_s: Optional[float] = None, count: float = 0.0,
+                 dwells: Optional[List[float]] = None):
         self.prio, self.label, self.rho, self.s, self.kind = prio, label, max(0.0, rho), max(service_s, 0.0), kind
         self.sector, self.period, self.count = sector, period_s, count
+        self.dwells = dwells or []          # step 4.3 bis: the search dwells of a frame in scan order
 
     @property
     def rate(self) -> float:
         return self.rho / self.s if self.s > 0 else 0.0
 
 
-def _classes(k: int, mission: dict, res: dict) -> Dict[str, List[Klass]]:
+def _classes(k: int, mission: dict, res: dict, scans: Optional[Dict[str, Dict[int, dict]]] = None) -> Dict[str, List[Klass]]:
     """Task classes of face k per band from the optimiser and the confirmation / tracking budget (A1-A6)."""
     secs = {s["id"]: s for s in mission["sectors"]}
     trk = res.get("tracking", {})
@@ -90,8 +93,9 @@ def _classes(k: int, mission: dict, res: dict) -> Dict[str, List[Klass]]:
         sec = secs[r["id"]]
         rr = float(r["rr_target_s"])
         rho = float(f["time_fraction"])
+        sc = (scans or {}).get(r["id"], {}).get(k)
         out["S"].append(Klass(priority_of(sec), f"search {r['id']}", rho, rho * rr / f["positions"], "search",
-                              r["id"], rr, f["positions"]))
+                              r["id"], rr, f["positions"], sc["dwell_times_s"] if sc else None))
         t = tsec.get(r["id"])
         if t is None:
             continue
@@ -175,8 +179,16 @@ def _timeline(classes: List[Klass], horizon: float, rng: random.Random, max_cont
             continue
         if c.kind == "cal":
             tasks.append((0.0, c.prio, c.period * CAL_MAX_DELAY_FRAC, c.s, c.label, c.kind))
+        elif c.kind == "search" and c.dwells:
+            # step 4.3 bis: the real dwells of the frame in scan order, spread over the revisit, frame after frame
+            step = c.period / len(c.dwells)
+            t, j = rng.random() * step, 0
+            while t < horizon:
+                tasks.append((t, c.prio, t + c.period, c.dwells[j % len(c.dwells)], c.label, c.kind))
+                t += step
+                j += 1
         elif c.kind in ("search", "update"):
-            n_per = c.count if c.kind == "search" else c.count
+            n_per = c.count
             if n_per <= 0:
                 continue
             step = c.period / n_per
@@ -221,6 +233,9 @@ def _timeline(classes: List[Klass], horizon: float, rng: random.Random, max_cont
         t += dur
         busy_run += dur
     return {"max_delay_s": {lab: max(v) for lab, v in delays.items()},
+            # step 4.3 bis (V5): spread of the start delays of a search volume = spread of the revisit of its directions
+            "revisit_spread_s": {c.label: max(delays[c.label]) - min(delays[c.label]) for c in classes
+                                 if c.kind == "search" and delays.get(c.label)},
             "late_update_frac": late_updates / n_updates if n_updates else 0.0,
             "calibration_delay_s": cal_delay, "recharge_pauses": pauses, "pause_time_s": pause_time,
             "end_s": t}
@@ -234,7 +249,15 @@ def schedule(mission: dict, res: dict) -> dict:
     trk = res.get("tracking", {})
     tsec = {s["id"]: s for s in trk.get("sectors", [])}
     rng = random.Random(SEED)
-    per_face = {k: _classes(k, mission, res) for k in range(4)}
+    # step 4.3 bis: the real search pointings of each volume per face, in scan order
+    from . import optimizer as mo
+    from . import scanorder as so
+    g = res.get("global", {})
+    sph = mo._sphere(g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0))
+    sky = mission.get("global", {}).get("sky")
+    scans = {r["id"]: so.sector_scan(secs[r["id"]], r, sph, sky) for r in res.get("sectors", [])
+             if r.get("status") == "OK"}
+    per_face = {k: _classes(k, mission, res, scans) for k in range(4)}
     # common cadence per band (D1): slots sized by the busiest face; S harmonic on the Ku channel (D2)
     slots = {b: max(sum(c.rho for c in per_face[k][b]) for k in range(4)) for b in ("S", "Ku")}
     eclipse = {b: -10.0 * math.log10(max(1e-9, 1.0 - min(slots[b], 0.999999))) for b in slots}
@@ -269,6 +292,11 @@ def schedule(mission: dict, res: dict) -> dict:
             for lab, v in stretch.items():
                 if v > 1.0:
                     flags.append(f"face F{k + 1} {b}: {lab} stretched x{v:.2f} (priority shedding, step 4.3)")
+            for c in cl:
+                sp = (tl or {}).get("revisit_spread_s", {}).get(c.label)
+                if c.kind == "search" and sp is not None and c.period and sp > REVISIT_FLAG_FRAC * c.period:
+                    flags.append(f"face F{k + 1}: {c.label}: revisit of its directions spread by {sp:.2f} s "
+                                 f"({100 * sp / c.period:.0f} % of the {c.period:g} s revisit, step 4.3 bis)")
             if tl and tl["late_update_frac"] > 0.0:
                 flags.append(f"face F{k + 1} {b}: {100 * tl['late_update_frac']:.1f} % of the track updates start "
                              f"later than {100 * UPDATE_JITTER_FRAC:g} % of their period in the synthetic timeline")
@@ -304,7 +332,11 @@ def schedule(mission: dict, res: dict) -> dict:
         sectors.append({"id": r["id"], "priority": "P1" if sec.get("self_protection") else
                         f"P4_{int(sec.get('search_priority', 1))}", "confirm_mode": mode,
                         "latency_q95_s": lat, "latency_required_s": req, "latency_ok": ok,
-                        "go_cfar_advised": bool(r.get("sky", {}).get("limbs"))})
+                        "go_cfar_advised": bool(r.get("sky", {}).get("limbs")),
+                        # step 4.3 bis: the scan of the volume per face
+                        "scan": {str(k): {x: v[x] for x in ("pointings", "plan_positions", "frame_tx_s", "uniformity",
+                                                             "mean_step_deg", "pointing_rate_hz")}
+                                 for k, v in scans.get(r["id"], {}).items()}})
         if not ok:
             flags.append(f"sector {r['id']}: confirmation latency {lat:.3g} s (95 %) above the {req:.3g} s required")
     return {"faces": faces, "slots": slots, "eclipse_db": eclipse, "sectors": sectors, "flags": flags,

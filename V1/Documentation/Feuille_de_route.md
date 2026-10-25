@@ -42,6 +42,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 4.1 | codée le 25 octobre 2026 (V6.16.0) : réserve commune des 8 MW (plafond physique 8 MW, plafond facultatif de l'opérateur), consommation permanente 106,9 kW par face, alimentation des TRM (formes d'onde retirées), stockage de face (observation, rafale, pointe), règle d'émission contiguë pour 4.3, transitoires ; N3 et commit sur demande |
 | 4.2 | ✔ fait le 25 octobre 2026 (V6.17.0) : fluide et plaque froide dérivés (capacité ≈ 15,9 MW par face, jamais limitante), jonction mesurée sans effet (contrôle désactivé, `duty_max` gardé), rejet du vaisseau 6 MW (D) commun aux faces |
 | 4.3 | codée le 25 octobre 2026 (V6.18.0) : `core/scheduler.py` (priorités P0 étalonnage, P1 autoprotection, P2 confirmation / initialisation, P3 mises à jour, P4_n veille ; bilan statistique + chronologie synthétique ; créneaux communs et éclipse ; harmonique ; latence) ; GO-CFAR seulement conseillé, gain du multiplexage en temps non chiffré ; N3 et commit sur demande |
+| 4.3 bis | codée le 25 octobre 2026 (V6.19.0) : ordre des pointages dans un volume (`core/scanorder.py` : grille réelle en (u, v), ordre de Morton à bits renversés, 3 décalages de grille, durées par tranche, multifaisceau, uniformité, revisite par direction) ; N3 passé (21,6 min, snapshots regelés) ; commit sur demande |
 | 4.4 et suivantes | à faire |
 
 ---

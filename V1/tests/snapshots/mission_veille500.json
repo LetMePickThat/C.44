@@ -194,7 +194,8 @@
         "confirmation VEILLE_KV": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      },
      "S": {
@@ -213,15 +214,19 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 59.99881723145485,
+       "end_s": 59.99890685981342,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
-        "search CONE_D1": 0.0,
-        "search VEILLE_KV": 0.0009024826952524663
+        "search CONE_D1": 0.004961842879529499,
+        "search VEILLE_KV": 0.0010086606160505818
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search CONE_D1": 0.004961842879529499,
+        "search VEILLE_KV": 0.0010086606160505818
+       }
       }
      }
     },
@@ -250,7 +255,8 @@
         "confirmation VEILLE_KV": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      },
      "S": {
@@ -269,15 +275,19 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 59.98999288496056,
+       "end_s": 59.99018550303948,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
-        "search CONE_D2": 2.8095543898487563e-05,
-        "search VEILLE_KV": 0.009726829189549535
+        "search CONE_D2": 0.003501437193834833,
+        "search VEILLE_KV": 0.009730017389989807
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search CONE_D2": 0.003501437193834833,
+        "search VEILLE_KV": 0.009730017389989807
+       }
       }
      }
     },
@@ -306,7 +316,8 @@
         "confirmation VEILLE_KV": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      },
      "S": {
@@ -325,15 +336,19 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 59.99101751296713,
+       "end_s": 59.9911981725229,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
         "search CONE_D3": 0.0,
-        "search VEILLE_KV": 0.008702201182975777
+        "search VEILLE_KV": 0.008717347906569693
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search CONE_D3": 0.0,
+        "search VEILLE_KV": 0.008717347906569693
+       }
       }
      }
     },
@@ -362,7 +377,8 @@
         "confirmation VEILLE_KV": 0.0
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
       }
      },
      "S": {
@@ -381,15 +397,19 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 59.99009036181679,
+       "end_s": 59.990281842234786,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
-        "search CONE_D4": 0.00041406433950896826,
-        "search VEILLE_KV": 0.00962935233331893
+        "search CONE_D4": 0.0,
+        "search VEILLE_KV": 0.009633678194680726
        },
        "pause_time_s": 0.0,
-       "recharge_pauses": 0
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search CONE_D4": 0.0,
+        "search VEILLE_KV": 0.009633678194680726
+       }
       }
      }
     }
@@ -410,7 +430,21 @@
      "latency_ok": true,
      "latency_q95_s": 0.10777657700275318,
      "latency_required_s": 160.0,
-     "priority": "P4_1"
+     "priority": "P4_1",
+     "scan": {
+      "0": {
+       "frame_tx_s": 0.006982799999999999,
+       "mean_step_deg": 6.408730506685852,
+       "plan_positions": 17.4,
+       "pointing_rate_hz": 0.16666666666666666,
+       "pointings": 20,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 1.0,
+        "50%": 0.9
+       }
+      }
+     }
     },
     {
      "confirm_mode": "KU1+7",
@@ -419,7 +453,21 @@
      "latency_ok": true,
      "latency_q95_s": 0.10777657695312903,
      "latency_required_s": 160.0,
-     "priority": "P4_1"
+     "priority": "P4_1",
+     "scan": {
+      "1": {
+       "frame_tx_s": 0.006982799999999999,
+       "mean_step_deg": 6.408730506685852,
+       "plan_positions": 17.4,
+       "pointing_rate_hz": 0.16666666666666666,
+       "pointings": 20,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 1.0,
+        "50%": 0.9
+       }
+      }
+     }
     },
     {
      "confirm_mode": "KU1+7",
@@ -428,7 +476,21 @@
      "latency_ok": true,
      "latency_q95_s": 0.107776576979899,
      "latency_required_s": 160.0,
-     "priority": "P4_1"
+     "priority": "P4_1",
+     "scan": {
+      "2": {
+       "frame_tx_s": 0.006982799999999999,
+       "mean_step_deg": 6.408730506685852,
+       "plan_positions": 17.4,
+       "pointing_rate_hz": 0.16666666666666666,
+       "pointings": 20,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 1.0,
+        "50%": 0.9
+       }
+      }
+     }
     },
     {
      "confirm_mode": "KU1+7",
@@ -437,7 +499,21 @@
      "latency_ok": true,
      "latency_q95_s": 0.10777657698040848,
      "latency_required_s": 160.0,
-     "priority": "P4_1"
+     "priority": "P4_1",
+     "scan": {
+      "3": {
+       "frame_tx_s": 0.006982799999999999,
+       "mean_step_deg": 6.408730506685852,
+       "plan_positions": 17.4,
+       "pointing_rate_hz": 0.16666666666666666,
+       "pointings": 20,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 1.0,
+        "50%": 0.9
+       }
+      }
+     }
     },
     {
      "confirm_mode": "KU1+7",
@@ -446,7 +522,57 @@
      "latency_ok": true,
      "latency_q95_s": 0.007674194894673616,
      "latency_required_s": 2.0,
-     "priority": "P4_1"
+     "priority": "P4_1",
+     "scan": {
+      "0": {
+       "frame_tx_s": 1.0259916,
+       "mean_step_deg": 20.905762987100463,
+       "plan_positions": 1863.0,
+       "pointing_rate_hz": 94.25,
+       "pointings": 1885,
+       "uniformity": {
+        "10%": 0.92,
+        "25%": 0.96,
+        "50%": 1.0
+       }
+      },
+      "1": {
+       "frame_tx_s": 1.0259916,
+       "mean_step_deg": 20.905762987100463,
+       "plan_positions": 1863.0,
+       "pointing_rate_hz": 94.25,
+       "pointings": 1885,
+       "uniformity": {
+        "10%": 0.92,
+        "25%": 0.96,
+        "50%": 1.0
+       }
+      },
+      "2": {
+       "frame_tx_s": 1.0259916,
+       "mean_step_deg": 20.905762987100463,
+       "plan_positions": 1863.0,
+       "pointing_rate_hz": 94.25,
+       "pointings": 1885,
+       "uniformity": {
+        "10%": 0.92,
+        "25%": 0.96,
+        "50%": 1.0
+       }
+      },
+      "3": {
+       "frame_tx_s": 1.0259916,
+       "mean_step_deg": 20.905762987100463,
+       "plan_positions": 1863.0,
+       "pointing_rate_hz": 94.25,
+       "pointings": 1885,
+       "uniformity": {
+        "10%": 0.92,
+        "25%": 0.96,
+        "50%": 1.0
+       }
+      }
+     }
     }
    ],
    "slots": {
