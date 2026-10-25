@@ -1692,21 +1692,21 @@
      "total_s_time": 0.0013
     },
     "1": {
-     "at_energy": 3.3256184373030585e-06,
-     "at_ku_time": 3.314563247817538e-07,
+     "at_energy": 1.578649887960495e-05,
+     "at_ku_time": 4.3628162451973476e-07,
      "binding": "energy",
      "confirm_energy": 0.00028300295858355647,
      "confirm_ku_time": 3.4534373385396026e-05,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 3.8645352391499386,
-     "dissipation_kW_m2": 0.29064523022396577,
-     "load": 0.010286328577020859,
-     "p_left_kW": 1814.9220849503877,
+     "dissipation_kW": 3.8690726201596903,
+     "dissipation_kW_m2": 0.2909864790589701,
+     "load": 0.01029878945746316,
+     "p_left_kW": 1814.8992343747454,
      "search_energy": 0.01,
      "search_s_time": 0.0015,
      "status": "OK",
-     "total_energy": 0.010286328577020859,
-     "total_ku_time": 3.486582971017778e-05,
+     "total_energy": 0.01029878945746316,
+     "total_ku_time": 3.497065500991576e-05,
      "total_s_time": 0.0015
     },
     "2": {
@@ -1798,7 +1798,9 @@
       "success": 0.9801291829088441,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.3,
+     "false_tracks_per_s": 5.150774179931741e-07,
      "flags": [
       "0.07 % of the Ku positions blinded by the sky (SUN: T_sys rise above 10 dB), not scanned",
       "1.00 % of the Ku positions above the budget T_sys (234.9 K): sky noise up to +10.0 dB, range reduced there",
@@ -1810,6 +1812,7 @@
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 0.32568522302233877,
      "ku_min_unsaturated_range_km": 1.8314625990929638,
      "ku_sky": {
       "above_budget_pct": 0.9964736027108992,
@@ -1867,7 +1870,9 @@
      "at": [],
      "confirm_mode": null,
      "confirmation": {},
+     "discrimination": null,
      "false_alarms_per_rr": 10.0,
+     "false_tracks_per_s": 4.982938481594364e-07,
      "flags": [
       "5.96 % of the Ku positions look at EARTH closer than the required range (down to 1369 km): nothing can come from behind its surface",
       "clutter edge in the Ku sector (limb of EARTH): GO-CFAR advised there (choice per position at 4.3 / 5.2)",
@@ -1878,6 +1883,7 @@
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.0,
+     "ku_min_unsaturated_range_attenuated_km": 0.3233835318273817,
      "ku_min_unsaturated_range_km": 1.8185192383254527,
      "ku_sky": {
       "above_budget_pct": 0.9999823054216187,
@@ -1931,25 +1937,41 @@
      },
      "at": [
       {
+       "accel_bank_mps2": 9.80665,
        "angle_zone_deg": 0.2,
-       "avg_power_kW": 0.006098469206049789,
+       "attenuation_db": 0.0,
+       "avg_power_kW": 0.028949044847936357,
+       "cluster_update_share": 0.0,
+       "deception_verification": false,
        "driver": "DOP",
-       "energy_per_update_J": 6.0984692060497885,
+       "energy_per_update_J": 3.1513392078027507,
        "faces": {
         "1": {
-         "energy_fraction": 3.3256184373030585e-06,
-         "ku_time_fraction": 3.314563247817538e-07
+         "energy_fraction": 1.578649887960495e-05,
+         "ku_time_fraction": 4.3628162451973476e-07
         }
        },
+       "filtered_range_sigma_m": 8.201851609300029,
+       "filtered_vr_sigma_mps": 4.275564290018719,
+       "init_energy_J": 83.19147742480816,
+       "init_looks": 1,
+       "initiations_per_s": 0.10154397674901798,
        "n_targets": 2.0,
+       "p_loss_per_update": 0.0015439767490179738,
+       "pointing_sigma_hpbw": 0.16631632670160507,
+       "predicted_angle_sigma_mrad": 0.8726646259993605,
        "r_max_km": 1000.0,
        "r_min_km": 5.0,
        "range_acc_m": 10.0,
+       "rr_alert_s": null,
        "rr_s": 2.0,
-       "sigma_theta_deg": 0.05,
+       "rr_tenable": true,
+       "sigma_theta_deg": 0.0759694450849501,
+       "track_losses_per_s": 0.0015439767490179738,
        "unreachable_tracks": 0.0,
+       "velocity_bank_mps": 51.959558919205925,
        "vr_acc_mps": 5.0,
-       "wf": "14.2 GHz COHE tau 100 us x N 1 @ PRI 0.5 ms B 50 MHz"
+       "wf": "14.2 GHz COHE tau 100 us x N 1 @ PRI 0.5 ms B 200 MHz"
       }
      ],
      "confirm_mode": "KU1+7",
@@ -1970,7 +1992,9 @@
       "success": 0.9800958478988742,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.2,
+     "false_tracks_per_s": 1.0165435008230646e-06,
      "flags": [
       "1.00 % of the Ku positions above the budget T_sys (231.4 K): sky noise up to +2.6 dB, range reduced there",
       "clutter edge in the Ku sector (limb of MOON): GO-CFAR advised there (choice per position at 4.3 / 5.2)",
@@ -1981,6 +2005,7 @@
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 0.5791593262545596,
      "ku_min_unsaturated_range_km": 3.2568522302233878,
      "ku_sky": {
       "above_budget_pct": 0.999794355079626,
@@ -2021,7 +2046,27 @@
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     }
-   ]
+   ],
+   "separability": {
+    "DEBRIS": {
+     "DECOY": 1.0
+    },
+    "GENERIC": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0,
+     "KKV": 1.0,
+     "SHIP": 1.0
+    },
+    "KKV": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0,
+     "SHIP": 1.0
+    },
+    "SHIP": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0
+    }
+   }
   },
   "warnings": [
    "sector SUN: 0.07 % of the Ku positions blinded by the sky (SUN: T_sys rise above 10 dB), not scanned",

@@ -449,3 +449,22 @@ Case times (first N3 with the progress bar, each case once in its own process, a
 mission_example 0.9, _csv 0.6, veille500 0.7, redundancy_demo 1.8, synthetic_mix 1.0, sky_demo 1.3, target_library
 1.2, environment 3.6, frames 2.7; cost table 1.9; test suite 2.7 (178 passed); whole N3 18.7 min (was 49 min of
 cases + over an hour of tests).
+
+## 2026-10-25 -- step 3.3 coded: active-tracking model (radar_model V6.14.0)
+
+Causes: core/trackmodel.py (steady-state Singer Kalman per axis, requirements turned into measurement errors, floors,
+Markov loss chain, initiation, discrimination); track looks pointed at the prediction (pointing loss law), Pd
+tracking.pd_update, velocity / acceleration banks of the predicted errors, range-Doppler coupling residual; AT cost
+averaged over 8 ranges of each bracket, single look or 7-beam sequential cluster, initiation and re-initiation
+costs; attenuator; new outputs per bracket (period held / alert, predicted and filtered accuracies, pointing, loss,
+initiation), discrimination per sector, false tracks, class separability. cost_table.json regenerated. 416 output
+values differ. Test values only, not radar performance. Main moves:
+- No S search output changes. Model case: TRACK looks now bank over the class acceleration (104 values).
+- mission_synthetic_mix: Ku time of the faces x3 to x3.8 (AT brackets KV 0-250 km and 250-500 km: pointing loss 0.16
+  and 0.40 HPBW, velocity banks, initiation), face energy +0.03 %; both periods held; loss per update 0.0014 / 0.0072.
+- mission_target_library T_DECOY 200-600 km: Ku time +7 to +9 %, 32 initiation looks (unpowered target, low process
+  noise, transverse velocity unknown at hand-over), period held.
+- mission_sky_demo MOON 5-1000 km: F2 energy +0.12 %, period held.
+- Separability of every class pair ~1 (class means without RCS spread: optimistic, renvoi 5.1).
+Case times: model 0.2 min, mission_example 1.0, _csv 0.6, veille500 0.7, redundancy_demo 1.9, synthetic_mix 1.4,
+sky_demo 1.4, target_library 1.3, environment 3.7, frames ~2.7; cost table 1.9; test suite 3.9 (190 passed); N3 21.0 min.

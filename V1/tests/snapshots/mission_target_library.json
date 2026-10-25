@@ -3691,39 +3691,39 @@
      "total_s_time": 0.0189
     },
     "2": {
-     "at_energy": 3.80690388111528e-06,
-     "at_ku_time": 4.5317902764538686e-07,
+     "at_energy": 1.024146800855226e-05,
+     "at_ku_time": 1.1253219860781985e-06,
      "binding": "energy",
      "confirm_energy": 7.678270138788988e-05,
      "confirm_ku_time": 9.695495399718567e-06,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 52.33684306299682,
-     "dissipation_kW_m2": 3.9361664106823517,
-     "load": 0.142180589605269,
-     "p_left_kW": 1573.0563674907016,
+     "dissipation_kW": 52.3408003579433,
+     "dissipation_kW_m2": 3.936464032214983,
+     "load": 0.14218702416939644,
+     "p_left_kW": 1573.044567883523,
      "search_energy": 0.1421,
      "search_s_time": 0.0213,
      "status": "OK",
-     "total_energy": 0.142180589605269,
-     "total_ku_time": 1.0148674427363954e-05,
+     "total_energy": 0.14218702416939644,
+     "total_ku_time": 1.0820817385796765e-05,
      "total_s_time": 0.0213
     },
     "3": {
-     "at_energy": 5.153355325394693e-06,
-     "at_ku_time": 6.092996448832038e-07,
+     "at_energy": 1.475797841309933e-05,
+     "at_ku_time": 1.6185572123291662e-06,
      "binding": "energy",
      "confirm_energy": 8.289864533277519e-05,
      "confirm_ku_time": 1.0557474342721452e-05,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 55.51767370201582,
-     "dissipation_kW_m2": 4.175391361723159,
-     "load": 0.15098805200065818,
-     "p_left_kW": 1556.905375061973,
+     "dissipation_kW": 55.52358694194415,
+     "dissipation_kW_m2": 4.17583608660571,
+     "load": 0.1509976566237459,
+     "p_left_kW": 1556.887762248224,
      "search_energy": 0.1509,
      "search_s_time": 0.0226,
      "status": "OK",
-     "total_energy": 0.15098805200065818,
-     "total_ku_time": 1.1166773987604655e-05,
+     "total_energy": 0.1509976566237459,
+     "total_ku_time": 1.2176031555050619e-05,
      "total_s_time": 0.0226
     }
    },
@@ -3798,7 +3798,9 @@
       "success": 0.980034894161286,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.6,
+     "false_tracks_per_s": 5.277222580109268e-07,
      "flags": [
       "S waveform WF-T_KKV-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 200 MHz on the same face",
       "S waveform WF-T_KKV-2: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 200 MHz on the same face",
@@ -3809,6 +3811,7 @@
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 0.6324644168651684,
      "ku_min_unsaturated_range_km": 3.556608783157002,
      "ku_sky": {
       "above_budget_pct": 0.9315174557373515,
@@ -3873,7 +3876,9 @@
       "success": 0.980034894161286,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 9.9,
+     "false_tracks_per_s": 3.313858836980696e-07,
      "flags": [
       "S waveform WF-T_KKV_RETRO: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 200 MHz on the same face"
      ],
@@ -3882,6 +3887,7 @@
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 1.1222885651814298,
      "ku_min_unsaturated_range_km": 6.311092389901007,
      "ku_sky": {
       "above_budget_pct": 0.9198695803922637,
@@ -3959,7 +3965,9 @@
       "success": 0.9803018211076453,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.5,
+     "false_tracks_per_s": 8.755071181643649e-08,
      "flags": [
       "S waveform WF-T_SHIP-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
       "S waveform WF-T_SHIP-2: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
@@ -3971,6 +3979,7 @@
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 1.3554339766594505,
      "ku_min_unsaturated_range_km": 7.622165386427001,
      "ku_sky": {
       "above_budget_pct": 0.8977043758598017,
@@ -4041,7 +4050,9 @@
       "success": 0.9803919363279844,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.1,
+     "false_tracks_per_s": 3.3779418613568933e-07,
      "flags": [
       "S waveform WF-T_DEBRIS-1: its harmonics (13.975-14.475 GHz) cover 75 % of the Ku channel 14 GHz / 100 MHz on the same face",
       "S waveform WF-T_DEBRIS-2: its harmonics (13.975-14.475 GHz) cover 75 % of the Ku channel 14 GHz / 100 MHz on the same face",
@@ -4053,6 +4064,7 @@
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.0,
+     "ku_min_unsaturated_range_attenuated_km": 0.1022628518364079,
      "ku_min_unsaturated_range_km": 0.5750662761942995,
      "ku_sky": {
       "above_budget_pct": 0.7398186987618008,
@@ -4101,29 +4113,45 @@
      },
      "at": [
       {
+       "accel_bank_mps2": 0.01,
        "angle_zone_deg": 0.2,
-       "avg_power_kW": 0.01643118892900989,
+       "attenuation_db": 0.0,
+       "avg_power_kW": 0.045843609856328356,
+       "cluster_update_share": 0.0,
+       "deception_verification": false,
        "driver": "DOP",
-       "energy_per_update_J": 16.43118892900989,
+       "energy_per_update_J": 7.309371688819476,
        "faces": {
         "2": {
-         "energy_fraction": 3.80690388111528e-06,
-         "ku_time_fraction": 4.5317902764538686e-07
+         "energy_fraction": 1.024146800855226e-05,
+         "ku_time_fraction": 1.1253219860781985e-06
         },
         "3": {
-         "energy_fraction": 5.153355325394693e-06,
-         "ku_time_fraction": 6.092996448832038e-07
+         "energy_fraction": 1.475797841309933e-05,
+         "ku_time_fraction": 1.6185572123291662e-06
         }
        },
+       "filtered_range_sigma_m": 9.99980413075798,
+       "filtered_vr_sigma_mps": 0.35533868988492484,
+       "init_energy_J": 1003.4172721033464,
+       "init_looks": 32,
+       "initiations_per_s": 0.034322928659902496,
        "n_targets": 2.0,
+       "p_loss_per_update": 0.0009895953265691613,
+       "pointing_sigma_hpbw": 0.16631632667544427,
+       "predicted_angle_sigma_mrad": 0.8726646258620944,
        "r_max_km": 600.0,
        "r_min_km": 200.0,
        "range_acc_m": 10.0,
+       "rr_alert_s": null,
        "rr_s": 2.0,
-       "sigma_theta_deg": 0.05,
+       "rr_tenable": true,
+       "sigma_theta_deg": 0.4236282277053422,
+       "track_losses_per_s": 0.0009895953265691613,
        "unreachable_tracks": 0.0,
+       "velocity_bank_mps": 2.2063012616094295,
        "vr_acc_mps": 5.0,
-       "wf": "14.2 GHz COHE tau 200 us x N 1 @ PRI 0.5 ms B 200 MHz"
+       "wf": "14.2 GHz COHE tau 5 us x N 1 @ PRI 0.5 ms B 200 MHz"
       }
      ],
      "confirm_mode": "KU1+7",
@@ -4149,7 +4177,9 @@
       "success": 0.9806702446424982,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.1,
+     "false_tracks_per_s": 3.3740789327868584e-07,
      "flags": [
       "S waveform WF-T_DECOY-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 200 MHz on the same face",
       "S waveform WF-T_DECOY-2: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 200 MHz on the same face",
@@ -4161,6 +4191,7 @@
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 0.1974156128282098,
      "ku_min_unsaturated_range_km": 1.1101495733108038,
      "ku_sky": {
       "above_budget_pct": 0.6303258631284032,
@@ -4189,7 +4220,27 @@
       "WF-T_DECOY-4 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 200 MHz: on the same face, no Ku reception during this S transmission"
      ]
     }
-   ]
+   ],
+   "separability": {
+    "DEBRIS": {
+     "DECOY": 1.0
+    },
+    "GENERIC": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0,
+     "KKV": 1.0,
+     "SHIP": 1.0
+    },
+    "KKV": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0,
+     "SHIP": 1.0
+    },
+    "SHIP": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0
+    }
+   }
   },
   "warnings": [
    "sectors T_KKV_RETRO / T_DECOY share 0.037 sr: each is budgeted independently there -- fine for intentional layered coverage (different RCS/range/RR on the same sky), check for a duplicated requirement if not",

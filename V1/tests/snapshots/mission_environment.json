@@ -2492,7 +2492,9 @@
       "success": 0.9801840099643111,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 14.5,
+     "false_tracks_per_s": 1.2046754229481757e-07,
      "flags": [
       "10.34 % of the Ku positions look at EARTH closer than the required range (down to 20020 km): nothing can come from behind its surface",
       "clutter edge in the Ku sector (limb of EARTH): GO-CFAR advised there (choice per position at 4.3 / 5.2)",
@@ -2506,6 +2508,7 @@
      "ku_burn_through": null,
      "ku_freq_candidates": 19,
      "ku_freq_ghz": 14.25,
+     "ku_min_unsaturated_range_attenuated_km": 4.293798182986567,
      "ku_min_unsaturated_range_km": 24.145801603205793,
      "ku_sky": {
       "above_budget_pct": 0.9999985724184256,
@@ -2581,7 +2584,9 @@
       "success": 0.9801757234924922,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.6,
+     "false_tracks_per_s": 5.292035318469768e-07,
      "flags": [
       "S waveform WF-E_KKV_SPJ-1: its harmonics (13.750-14.250 GHz) cover 100 % of the Ku channel 14 GHz / 200 MHz on the same face",
       "S waveform WF-E_KKV_SPJ-2: its harmonics (13.750-14.250 GHz) cover 100 % of the Ku channel 14 GHz / 200 MHz on the same face",
@@ -2598,6 +2603,7 @@
      },
      "ku_freq_candidates": 19,
      "ku_freq_ghz": 14.0,
+     "ku_min_unsaturated_range_attenuated_km": 0.6235990444190691,
      "ku_min_unsaturated_range_km": 3.506755130260547,
      "ku_sky": {
       "above_budget_pct": 0.998101295838652,
@@ -2671,7 +2677,9 @@
       "success": 0.980181280654858,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.5,
+     "false_tracks_per_s": 1.7428147904383336e-07,
      "flags": [
       "0.01 % of the Ku positions blinded by the sky (jammer J_ESC, jammer J_SHIP: T_sys rise above 10 dB), not scanned",
       "1.00 % of the Ku positions above the budget T_sys (231.0 K): sky noise up to +3.2 dB, range reduced there",
@@ -2687,6 +2695,7 @@
      "ku_burn_through": null,
      "ku_freq_candidates": 19,
      "ku_freq_ghz": 14.15,
+     "ku_min_unsaturated_range_attenuated_km": 0.5781387803933594,
      "ku_min_unsaturated_range_km": 3.2511132791033397,
      "ku_sky": {
       "above_budget_pct": 0.9995376053100851,
@@ -2728,7 +2737,27 @@
       "WF-E_JAMMED-4 puts its harmonics on 13.925-14.425 GHz, over 100 % of the Ku channel 14.15 GHz / 50 MHz: on the same face, no Ku reception during this S transmission"
      ]
     }
-   ]
+   ],
+   "separability": {
+    "DEBRIS": {
+     "DECOY": 1.0
+    },
+    "GENERIC": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0,
+     "KKV": 1.0,
+     "SHIP": 1.0
+    },
+    "KKV": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0,
+     "SHIP": 1.0
+    },
+    "SHIP": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0
+    }
+   }
   },
   "warnings": [
    "sector E_EARTH: 10.34 % of the Ku positions look at EARTH closer than the required range (down to 20020 km): nothing can come from behind its surface",

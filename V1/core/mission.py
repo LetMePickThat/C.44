@@ -25,7 +25,11 @@ range_km): the blind range c (tau + limiter recovery) / 2 of the sector's wavefo
 Sky, global key "sky" (step 1.5, core/sky.py): the bodies in front of the faces and the galactic frame, in the ship
 frame or, sky key "frame" = "inertial" (step 3.0), in ICRF axes (no sky = cold sky + worst-case galactic rise).
 Frames (step 3.0, core/frames.py): global key "nav" (navigation message: attitude, optional orbit) and sector key
-"frame" (ship, inertial, rtn, limb with limb_alt_km, two_dir with frame_p/s_ra/dec_deg); absent = ship frame.
+"frame" (ship, inertial, rtn, limb with limb_alt_km, two_dir with frame_p/s_ra/dec_deg, track with
+track_ra_deg / track_dec_deg / track_sigma_deg, step 3.3); absent = ship frame.
+Track model (step 3.3, core/trackmodel.py), per sector: "maneuver_tau_s" and "aspect_offset_deg" override the class,
+"discriminate_against" (a class the target must be told from; default DECOY for a KKV), "jammer_deceptive" (true: the
+self-protection jammer is deceptive, verification looks counted).
 
 Validation messages are operator-facing.
 """
@@ -258,6 +262,14 @@ def validate_environment(sec: dict, tag: str) -> List[str]:
             errs.append(f"{tag}: unknown jammer_type '{jt}' ({', '.join(mo.env.JAMMER_CLASSES)})")
         elif mo.env.JAMMER_CLASSES[jt]["nature"] != "SPJ":
             errs.append(f"{tag}: jammer_type '{jt}' is a stand-off jammer: give it in the mission sky (jammers)")
+    if sec.get("jammer_deceptive") is not None and not isinstance(sec["jammer_deceptive"], bool):
+        errs.append(f"{tag}: jammer_deceptive must be true or false")
+    da = sec.get("discriminate_against")
+    if da is not None and da not in mo.rm.TARGETS:
+        errs.append(f"{tag}: unknown discriminate_against '{da}' (classes: {', '.join(mo.rm.TARGETS)})")
+    for k in ("maneuver_tau_s", "aspect_offset_deg"):
+        if sec.get(k) is not None and (not isinstance(sec[k], (int, float)) or sec[k] < 0):
+            errs.append(f"{tag}: {k} must be a number >= 0")
     if sec.get("objects_per_rr") is not None and sec["objects_per_rr"] < 0:
         errs.append(f"{tag}: objects_per_rr must be >= 0")
     if (sec.get("tec_tecu") is None) != (sec.get("b_parallel_nt") is None):
@@ -349,6 +361,7 @@ _CSV_FIELDS = [
     "jammer_erp_dbw_mhz", "objects_per_rr", "tec_tecu", "b_parallel_nt", "range_km", "rr_target_s",
     "v_close_min_mps", "v_close_max_mps", "res_max_m", "range_min_km", "fa_per_rr", "allow_ambiguous", "rx_sll_db",
     "confirm_mode", "new_targets_per_rr", "tracking", "frame", "limb_alt_km", *frames.TWO_DIR_KEYS,
+    *frames.TRACK_KEYS, "maneuver_tau_s", "aspect_offset_deg", "discriminate_against", "jammer_deceptive",
 ]
 
 

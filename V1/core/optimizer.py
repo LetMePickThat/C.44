@@ -768,7 +768,8 @@ def _law_id(law: tuple) -> int:
 @functools.lru_cache(maxsize=SOLVE_CACHE_SIZE)
 def _parts_cached(w, f: float, theta: float, tgt, rx_sll_db: float, v_span_mps: Optional[float] = None,
                   pfa: Optional[float] = None, cum: Optional[Tuple[float, float, float]] = None,
-                  spj: Optional[float] = None, spacing: Optional[float] = None) -> Optional[tuple]:
+                  spj: Optional[float] = None, spacing: Optional[float] = None,
+                  pointing: Optional[Tuple[str, float]] = None, pd: Optional[float] = None) -> Optional[tuple]:
     """(range against the noise, burn-through range of a self-protection jammer, required SNR of a look with the
     position losses (dB, the axis of its Pd curve), total loss, look-law id), keyed on everything the range depends on
     (Waveform and Target are frozen dataclasses; the target name is set to a constant by range_at). The model's
@@ -777,7 +778,7 @@ def _parts_cached(w, f: float, theta: float, tgt, rx_sll_db: float, v_span_mps: 
     if b is None:
         return None
     try:
-        k = rm.solve_look(b, None, pfa, cum, spj, spacing)
+        k = rm.solve_look(b, None, pfa, cum, spj, spacing, pointing, pd)
     except ValueError:
         return None
     return (k.r_noise_km, k.r_bt_km, k.snr_db + k.losses["positions"], k.l_tot,
@@ -823,19 +824,19 @@ def range_at(w, f, theta, tgt, rx_sll: Optional[float] = None, v_span: Optional[
 
 def parts_at(w, f, theta, tgt, rx_sll: Optional[float] = None, v_span: Optional[float] = None,
              pfa: Optional[float] = None, cum: Optional[Tuple[float, float, float]] = None, spj: Optional[float] = None,
-             spacing: Optional[float] = None):
+             spacing: Optional[float] = None, pointing: Optional[Tuple[str, float]] = None, pd: Optional[float] = None):
     """_parts_cached of a candidate; a superposition from its one-beam twin, exactly: the noise range x (1 / (B L))^(1/4),
     the burn-through range x (1 / (B L))^(1/2) (it goes as the square root of the power per beam over the losses)."""
     if w.tx_mode == "superposition":
         p = parts_at(dataclasses.replace(w, b_tx=1, tx_mode="single"), f, theta, tgt, rx_sll, v_span, pfa, cum, spj,
-                     spacing)
+                     spacing, pointing, pd)
         if p is None:
             return None
         k = 1.0 / (w.b_tx * rm.db_to_lin(rm.multibeam_tx_loss_db(w)))
         return (p[0] * k ** 0.25, p[1] * k ** 0.5, p[2], p[3] + rm.multibeam_tx_loss_db(w), p[4])
     return _parts_cached(w, f, theta, tgt if tgt.name == "cache" else dataclasses.replace(tgt, name="cache"),
                          rm.RX_SLL_DEFAULT_DB if rx_sll is None else float(rx_sll), v_span, pfa, cum, spj,
-                         None if spacing is None else float(spacing))
+                         None if spacing is None else float(spacing), pointing, pd)
 
 
 def fa_per_rr(sec: dict) -> float:
@@ -2051,9 +2052,10 @@ def load_mission(path: str) -> dict:
                 for k, v in row.items():
                     if v is None or v == "":
                         continue
-                    if k in ("id", "shape", "confirm_mode", "target_type", "fluctuation", "jammer_type", "frame"):
+                    if k in ("id", "shape", "confirm_mode", "target_type", "fluctuation", "jammer_type", "frame",
+                             "discriminate_against"):
                         s[k] = v
-                    elif k == "allow_ambiguous":
+                    elif k in ("allow_ambiguous", "jammer_deceptive"):
                         s[k] = v.lower() == "true"
                     elif k == "tracking":
                         s[k] = json.loads(v)      # AT range brackets, a JSON list in one column
@@ -2139,6 +2141,19 @@ def print_report(res: dict) -> None:
                 print(f"     AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: {b['n_targets']:g} targets / {b['rr_s']:g} s, "
                       f"zone {b['angle_zone_deg']:g} deg, {b['range_acc_m']:g} m, {b['vr_acc_mps']:g} m/s -> "
                       f"{b['energy_per_update_J']:.0f} J/update, {b['avg_power_kW']:.1f} kW, driver {b['driver']} | {b['wf']}")
+                if "rr_tenable" in b:                     # step 3.3: track model
+                    rr_txt = ("period held" if b["rr_tenable"] else
+                              f"period NOT held (longest {b['rr_alert_s']:.3g} s)" if b["rr_alert_s"] else
+                              "period NOT held (none)")
+                    print(f"        {rr_txt} | predicted angle {b['predicted_angle_sigma_mrad']:.3g} mrad, pointing "
+                          f"{b['pointing_sigma_hpbw']:.2f} HPBW, cluster {100 * b['cluster_update_share']:.0f} % | "
+                          f"loss {b['p_loss_per_update']:.2g}/update | init {b['init_looks']} looks, "
+                          f"{b['initiations_per_s']:.3g}/s")
+            if s.get("discrimination"):
+                d = s["discrimination"]
+                print(f"     discrimination vs {d['against']}: {d['looks']} looks"
+                      + (f", {d['range_km']:.0f} km" if d.get("range_km") is not None else "")
+                      + f", index {d['dominant_index']}" + (", TX pol switching" if d["polarisation_switching"] else ""))
         for k, v in trk["faces"].items():
             if res["faces_total"][k]["positions"] > 0:
                 print(f" face {k}: energy {100 * v['total_energy']:.1f} % (search {100 * v['search_energy']:.1f} + confirm "

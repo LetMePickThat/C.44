@@ -385,7 +385,8 @@ class PrepTab(QWidget):
         self.cb_frame.addItems(frames.FRAMES)
         self.cb_frame.setToolTip("Frame of the volume (step 3.0): ship (tied to the ship), inertial (ICRF: phi = RA, "
                                  "eps = Dec), rtn (local orbital), limb (eps counted from the limb of the central "
-                                 "body, box only), two_dir (Z = primary direction, X toward the secondary)")
+                                 "body, box only), two_dir (Z = primary direction, X toward the secondary), track (cap around "
+                                 "a track or a designation, radius k sigma; step 3.3)")
         self.cb_frame.currentTextChanged.connect(self._on_frame_changed)
         top.addRow("id", self.ed_id)
         top.addRow("shape", self.cb_shape)
@@ -407,6 +408,13 @@ class PrepTab(QWidget):
                                                    "secondary Dec (deg)")):
             ft.addRow(label, self.sb_two_dir[k])
         v.addWidget(self.grp_two_dir)
+        self.grp_track = QGroupBox("Track / designation (ICRF, cap of k sigma)")      # step 3.3, F8
+        ftr = QFormLayout(self.grp_track)
+        self.sb_track = {"track_ra_deg": self._spin(0, 360, 1, 0.0), "track_dec_deg": self._spin(-90, 90, 1, 0.0),
+                         "track_sigma_deg": self._spin(0.001, 30, 3, 0.1)}
+        for k, label in zip(frames.TRACK_KEYS, ("centre RA (deg)", "centre Dec (deg)", "sigma (deg)")):
+            ftr.addRow(label, self.sb_track[k])
+        v.addWidget(self.grp_track)
 
         self.grp_box = QGroupBox("Zone (box)")
         fb = QFormLayout(self.grp_box)
@@ -462,10 +470,12 @@ class PrepTab(QWidget):
 
         for sb in (self.sb_phi_min, self.sb_phi_max, self.sb_box_eps_min, self.sb_box_eps_max,
                    self.sb_phi0, self.sb_eps0, self.sb_radius, self.sb_rcs, self.sb_range,
-                   self.sb_rr, self.sb_vmin, self.sb_vmax, self.sb_limb_alt, *self.sb_two_dir.values()):
+                   self.sb_rr, self.sb_vmin, self.sb_vmax, self.sb_limb_alt, *self.sb_two_dir.values(),
+                   *self.sb_track.values()):
             sb.valueChanged.connect(self._on_field_changed)
         self.grp_limb.setVisible(False)
         self.grp_two_dir.setVisible(False)
+        self.grp_track.setVisible(False)
 
         self.grp_box.setVisible(True)
         self.grp_cap.setVisible(False)
@@ -700,7 +710,8 @@ class PrepTab(QWidget):
         self._updating_form = True
         try:
             enabled = sec is not None
-            for w in (self.ed_id, self.cb_shape, self.cb_frame, self.grp_limb, self.grp_two_dir, self.sb_rcs,
+            for w in (self.ed_id, self.cb_shape, self.cb_frame, self.grp_limb, self.grp_two_dir, self.grp_track,
+                      self.sb_rcs,
                       self.sb_swerling, self.sb_range,
                       self.sb_rr, self.sb_vmin, self.sb_vmax, self.cb_rx_sll, self.grp_box, self.grp_cap, self.grp_at):
                 w.setEnabled(enabled)
@@ -716,9 +727,12 @@ class PrepTab(QWidget):
             self.cb_frame.setCurrentText(fr)
             self.grp_limb.setVisible(fr == "limb")
             self.grp_two_dir.setVisible(fr == "two_dir")
+            self.grp_track.setVisible(fr == "track")
             self.sb_limb_alt.setValue(sec.get("limb_alt_km", frames.LIMB_ALT_KM_DEFAULT))
             for k, sb in self.sb_two_dir.items():
                 sb.setValue(sec.get(k, 0.0))
+            for k, sb in self.sb_track.items():
+                sb.setValue(sec.get(k, 0.1 if k == "track_sigma_deg" else 0.0))
             self.sb_phi_min.setValue(sec.get("phi_min_deg", md.SECTOR_DEFAULTS_BOX["phi_min_deg"]))
             self.sb_phi_max.setValue(sec.get("phi_max_deg", md.SECTOR_DEFAULTS_BOX["phi_max_deg"]))
             self.sb_box_eps_min.setValue(sec.get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"]))
@@ -814,6 +828,9 @@ class PrepTab(QWidget):
     def _on_frame_changed(self, fr: str) -> None:
         self.grp_limb.setVisible(fr == "limb")
         self.grp_two_dir.setVisible(fr == "two_dir")
+        self.grp_track.setVisible(fr == "track")
+        if fr == "track" and self.cb_shape.currentText() != "cap":
+            self.cb_shape.setCurrentText("cap")              # a track sector is a cap (step 3.3, F8)
         if self._updating_form or self._cur_index < 0:
             return
         self._sync_form_to_model()
@@ -833,6 +850,11 @@ class PrepTab(QWidget):
             sec.pop("limb_alt_km", None)
         for k, sb in self.sb_two_dir.items():
             if sec["frame"] == "two_dir":
+                sec[k] = sb.value()
+            else:
+                sec.pop(k, None)
+        for k, sb in self.sb_track.items():
+            if sec["frame"] == "track":
                 sec[k] = sb.value()
             else:
                 sec.pop(k, None)

@@ -1077,8 +1077,9 @@ def test_depolarisation_gain_and_acceleration_bank():
     assert rm.acceleration_loss_db(9.8, 2.8, 0.1, 0.1, 75.0, True) == pytest.approx(
         rm.velocity_mismatch_loss_db(round(9.8 * 0.01 / rm.lambda_m(2.8), 6))
         + rm.walk_loss_db(9.8 * 0.01 / (8 * rm.C_MPS / 150e6), True), abs=1e-3)
-    r = rm.solve(tb.KU_TRACK, 14.0, 0.0, rm.TARGETS["KKV"])
-    assert r.pulse["acceleration_max_mps2"] == 0.0 and r.losses["acceleration"] == 0.0
+    r = rm.solve(tb.KU_TRACK, 14.0, 0.0, dataclasses.replace(rm.TARGETS["KKV"], accel_max_mps2=0.0))
+    assert r.pulse["acceleration_max_mps2"] == 0.0 and r.losses["acceleration"] == 0.0   # step 3.3 (E1): the track
+    # model passes +/- k sigma of the predicted acceleration as the target's accel_max_mps2 (a known one: 0)
 
 
 def test_os_cfar_and_masking_outputs():
@@ -2115,3 +2116,152 @@ def test_gui_modules_import():
     import gui.main_window  # noqa: F401
     import gui.prep_tab  # noqa: F401
     import gui.results_tab  # noqa: F401
+
+
+# ----------------------------------------------------------------------------- track model (step 3.3)
+from core import frames as fr_  # noqa: E402
+from core import trackmodel as tm  # noqa: E402
+
+
+def test_singer_model_is_consistent():
+    """A1: the discretised Singer model: F of a constant-acceleration model for a long time constant, Q symmetric and
+    positive, the steady filtered covariance below the predicted one."""
+    f, q = tm.singer(2.0, 10.0, 1e6)
+    assert np.allclose(f, [[1, 2, 2], [0, 1, 2], [0, 0, 1]], atol=1e-5)
+    assert np.allclose(q, q.T) and np.all(np.linalg.eigvalsh(q) > -1e-12)
+    p, pf = tm.steady(f, q, np.array([[1.0, 0.0, 0.0]]), np.array([[25.0]]))
+    assert np.all(np.diag(pf) <= np.diag(p) + 1e-12) and pf[0, 0] < 25.0
+
+
+def test_allowed_measurement_meets_the_requirement_and_shrinks_with_the_period():
+    """A7: the largest measurement error meets the predicted-angle requirement exactly; a longer period or a
+    manoeuvring class allows less."""
+    sm, tau = tm.manoeuvre(rm.TARGETS["KKV"])
+    zone = math.radians(0.2 / 4.0)
+    a1 = tm.allowed_measurement(1.0, sm, tau, 5e5, zone, 10.0, 5.0)
+    a2 = tm.allowed_measurement(2.0, sm, tau, 5e5, zone, 10.0, 5.0)
+    assert 0 < a2["theta"] < a1["theta"] and 0 < a2["vr"] < a1["vr"]
+    f, q = tm.singer(2.0, sm, tau)
+    p, _ = tm.steady(f, q, np.array([[1.0, 0.0, 0.0]]), np.array([[(a2["theta"] * 5e5) ** 2]]))
+    assert math.sqrt(p[0, 0]) == pytest.approx(zone * 5e5, rel=1e-3)
+    calm = tm.allowed_measurement(2.0, *tm.manoeuvre(rm.TARGETS["DEBRIS"]), 5e5, zone, 10.0, 5.0)
+    assert calm["theta"] > a2["theta"]
+
+
+def test_track_state_floors_and_feasibility():
+    """E4-E6: a requirement tighter than the measurement floor cannot be held; a shorter period helps."""
+    t = rm.TARGETS["KKV"]
+    ok = tm.TrackState(t, 2.0, 500.0, 0.2, 10.0, 5.0, 14.0, 0.0)
+    assert ok.feasible and ok.pack().sigma_theta_deg > 0 and 0 < ok.pointing_hpbw < 1
+    assert ok.a_bank_mps2 <= t.accel_max_mps2 + 1e-12 and ok.v_span_mps > 0
+    tight = tm.TrackState(t, 2.0, 500.0, 1e-5, 10.0, 5.0, 14.0, 0.0)
+    assert not tight.feasible
+    assert tm.TrackState(t, 0.05, 500.0, 0.02, 10.0, 5.0, 14.0, 0.0).allowed["theta"] > \
+        tm.TrackState(t, 2.0, 500.0, 0.02, 10.0, 5.0, 14.0, 0.0).allowed["theta"]
+    assert [ok.coast_pointing(k) for k in range(3)] == sorted(ok.coast_pointing(k) for k in range(3))
+
+
+def test_pointing_law_and_cluster_cell():
+    """B1 / B4: the pointing error costs more as it grows; the cluster cell law is a fixed loss."""
+    w = rm.Waveform("k", "CONFIRM", "Ku", 50e-6, 4, 1e-3, 50.0, 1, "COHERENT")
+    r = [rm.solve(w, 14.0, 0.0, rm.TARGETS["KKV"], pointing=pt).range_km
+         for pt in (None, ("gauss", 0.05), ("gauss", 0.2), ("gauss", 0.4))]
+    assert r == sorted(r, reverse=True)
+    c = rm.solve(w, 14.0, 0.0, rm.TARGETS["KKV"], pointing=("cluster", rm.BEAM_SPACING_HPBW))
+    assert "pointing_tx" in c.pulse["position_losses_mean_db"] and "grid_rx" in c.pulse["position_losses_mean_db"]
+    assert rm.solve(w, 14.0, 0.0, rm.TARGETS["KKV"], pd=0.5).range_km > r[0]
+
+
+def test_track_look_banks_and_coupling_residual():
+    """B3 / E1 / E2: a TRACK look covers the velocity span and the acceleration it is given; the range accuracy pays
+    the range-Doppler coupling residual of long pulses."""
+    pk = rm.TrackingPack(0.05, 5.0, 1.0)
+    w = rm.Waveform("t", "TRACK", "Ku", 100e-6, 8, 1e-3, 50.0, 1, "COHERENT", tracking_pack=pk)
+    calm = dataclasses.replace(rm.TARGETS["KKV"], accel_max_mps2=0.0)
+    r0 = rm.solve(w, 14.0, 0.0, calm).pulse
+    r1 = rm.solve(w, 14.0, 0.0, calm, v_span_mps=500.0).pulse
+    assert r0["velocity_hypotheses"] <= r1["velocity_hypotheses"]
+    a1 = rm.solve(w, 14.0, 0.0, rm.TARGETS["KKV"]).pulse
+    assert a1["acceleration_max_mps2"] == rm.TARGETS["KKV"].accel_max_mps2
+    s0, _ = rm.tracking_snr_req(pk, 14.0, 0.0, 8e-3, 50.0, rm.RANGE_CRLB_KR, 0.0)
+    s1, _ = rm.tracking_snr_req(pk, 14.0, 0.0, 8e-3, 50.0, rm.RANGE_CRLB_KR, 1e-3)
+    assert s1 >= s0
+
+
+def test_attenuator_steps():
+    """E3: attenuation on its steps, None beyond the largest; the attenuated unsaturated range."""
+    r_sat = rm.min_unsaturated_range_km(14.0, 0.0, 1.0)
+    assert rm.attenuation_needed_db(14.0, 0.0, 1.0, 2 * r_sat) == 0.0
+    assert rm.attenuation_needed_db(14.0, 0.0, 1.0, r_sat / 1.5) == rm.ATTENUATOR_STEP_DB["Ku"]
+    assert rm.attenuation_needed_db(14.0, 0.0, 1.0, r_sat / 100.0) is None
+    assert rm.min_unsaturated_range_attenuated_km(14.0, 0.0, 1.0) == pytest.approx(
+        r_sat / 10 ** (rm.ATTENUATOR_MAX_DB["Ku"] / 40.0))
+
+
+def test_track_loss_chain():
+    """B7: no loss with perfect looks; with a constant Pd the loss per update follows the renewal chain."""
+    assert tm.loss_per_update([1.0, 1.0, 1.0])[0] == 0.0
+    pd = 0.9
+    p, _ = tm.loss_per_update([pd] * 3)
+    pi = np.array([1.0, 1 - pd, (1 - pd) ** 2])
+    assert p == pytest.approx(pi[-1] / pi.sum() * (1 - pd))
+    assert tm.loss_per_update([0.9, 0.7, 0.5])[0] > p
+
+
+def test_initiation_converges():
+    """C1-C3: a track settles in a finite number of looks, more for a manoeuvring class at a tight zone."""
+    t = rm.TARGETS["KKV"]
+    st = tm.TrackState(t, 2.0, 500.0, 0.2, 10.0, 5.0, 14.0, 0.0)
+    n, sig = tm.initiation(st, t, 1e-4, 10.0, 5.0, 0.2, 10.0, 5.0)
+    assert 1 <= n < 200 and sig > 0
+
+
+def test_discrimination_indices():
+    """F1-F5: KKV and decoy are told apart; more looks never hurt; Faraday uncertainty weakens the depolarisation
+    index unless the TX polarisation is switched."""
+    a = rm.TARGETS["KKV"]
+    b = dataclasses.replace(rm.TARGETS["DECOY"], depol_ku_db=rm.TARGETS["KKV"].depol_ku_db + 6.0)
+    d = tm.discrimination(a, b, 14.0, 20.0, 0.0, 5.0)
+    assert d["looks"] is not None and d["looks"] >= 1
+    p = [tm.p_correct(tm.indices(a, b, 14.0, 20.0, n, 0.0, False, 1e9)) for n in (1, 5, 20)]
+    assert p == sorted(p)
+    plain = tm.indices(a, b, 14.0, 20.0, 10, 0.0, False, 1e9)["depolarisation"]
+    far = tm.indices(a, b, 14.0, 20.0, 10, math.radians(90.0), False, 1e9)["depolarisation"]
+    sw = tm.indices(a, b, 14.0, 20.0, 10, math.radians(90.0), True, 1e9)["depolarisation"]
+    assert far < plain and sw > far
+    sep = tm.separability(14.0, 20.0)
+    assert all(0.5 <= v <= 1.0 for row in sep.values() for v in row.values())
+
+
+def test_aspect_table_and_track_frame():
+    """F6: an RCS(aspect) table scales the RCS at the class offset; F8: a 'track' sector becomes a cap of k sigma
+    around its designation."""
+    t = dataclasses.replace(rm.TARGETS["KKV"], aspect_deg=(0.0, 90.0), aspect_rcs_db=(0.0, -10.0),
+                            aspect_offset_deg=45.0)
+    assert t.aspect_factor() == pytest.approx(10 ** -0.5)
+    assert t.rcs_at(14.0) < rm.TARGETS["KKV"].rcs_at(14.0)
+    m = md.empty_mission()
+    m["sectors"] = [{**md.new_sector([], "cap"), "frame": "track", "track_ra_deg": 40.0, "track_dec_deg": 10.0,
+                     "track_sigma_deg": 0.5}]
+    assert md.validate_mission(m) == []
+    s = fr_.resolve(m)[0]["sectors"][0]
+    assert (s["phi0_deg"], s["eps0_deg"]) == (40.0, 10.0) and s["radius_deg"] == pytest.approx(tm.TRACK_FRAME_K * 0.5)
+    m["sectors"][0]["shape"] = "box"
+    assert any("takes a cap" in e for e in md.validate_mission(m))
+
+
+def test_track_model_mission_keys():
+    """Sector keys of step 3.3 are checked."""
+    m = md.empty_mission()
+    m["sectors"] = [{**md.new_sector([]), "discriminate_against": "NOPE", "jammer_deceptive": "yes",
+                     "maneuver_tau_s": -1}]
+    errs = md.validate_mission(m)
+    assert any("discriminate_against" in e for e in errs) and any("jammer_deceptive" in e for e in errs) \
+        and any("maneuver_tau_s" in e for e in errs)
+
+
+def test_start_bracket():
+    """C6: tracks start in the bracket covering the confirmation range, else in the farthest one."""
+    bs = [{"r_min_km": 0.0, "r_max_km": 300.0}, {"r_min_km": 300.0, "r_max_km": 800.0}]
+    assert trk._start_bracket(bs, 500.0) == 1 and trk._start_bracket(bs, 2000.0) == 1
+    assert trk._start_bracket([], 500.0) is None

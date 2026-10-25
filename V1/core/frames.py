@@ -25,6 +25,9 @@ toward +Z; box and cap shapes are described in the sector's frame:
   limb     Z local zenith, X = v projected on the local horizontal, Y = Z x X; box only, eps COUNTED FROM THE LIMB of
            the central body at altitude limb_alt_km (sector key, default tool.frames.limb_alt_km): the limb is
            acos((R + limb_alt) / |r|) below the local horizontal and the band follows the altitude; needs the orbit
+  track    (step 3.3, F8) a cap around a track or an external designation: centre track_ra_deg / track_dec_deg (ICRF),
+           radius tracking.track_frame_k x track_sigma_deg (the designation's angular sigma); the cap's own
+           phi0_deg / eps0_deg / radius_deg are set from them
   two_dir  Z = primary direction, X in the plane of the two directions on the secondary's side; directions in ICRF
            (frame_p_ra_deg, frame_p_dec_deg, frame_s_ra_deg, frame_s_dec_deg)
 
@@ -46,16 +49,18 @@ import numpy as np
 
 from .params import P
 
-FRAMES = ("ship", "inertial", "rtn", "limb", "two_dir")
+FRAMES = ("ship", "inertial", "rtn", "limb", "two_dir", "track")
+TRACK_KEYS = ("track_ra_deg", "track_dec_deg", "track_sigma_deg")       # step 3.3, F8
 SKY_FRAMES = ("ship", "inertial")
 ORBIT_FRAMES = ("rtn", "limb")
 ATTITUDE_REFS = ("icrf", "rtn")                  # frames of the yaw / pitch / roll shown by the GUI
 TWO_DIR_KEYS = ("frame_p_ra_deg", "frame_p_dec_deg", "frame_s_ra_deg", "frame_s_dec_deg")
-SECTOR_FRAME_FIELDS = ("frame", "limb_alt_km") + TWO_DIR_KEYS     # the operator's frame inputs of a sector
+SECTOR_FRAME_FIELDS = ("frame", "limb_alt_km") + TWO_DIR_KEYS + TRACK_KEYS   # the operator's frame inputs of a sector
 RESOLVED_FIELDS = ("frame_m", "frame_eps_offset_deg")              # added by resolve_sector()
 _T = "tool.frames."
 Q_NORM_TOL: float = P.get(_T + "q_norm_tol")                 # |q| - 1 beyond this: refused; within: normalised
 TWO_DIR_MIN_SEP_DEG: float = P.get(_T + "two_dir_min_sep_deg")
+TRACK_FRAME_K: float = P.get("tracking.track_frame_k")
 SKY_NAV_TOL_DEG: float = P.get(_T + "sky_nav_tol_deg")       # sky central body vs navigation: alert beyond
 LIMB_ALT_KM_DEFAULT: float = P.get(_T + "limb_alt_km")
 BODY_RADIUS_KM: Dict[str, float] = {k: float(v["radius_km"]) for k, v in P.section("sky.surface").items()}
@@ -242,6 +247,17 @@ def validate_sector(sec: dict, g: dict, tag: str) -> List[str]:
             n = Nav(nav[0])
             if n.has_orbit and np.linalg.norm(n.r) <= n.body_radius_km + alt:
                 errs.append(f"{tag}: the ship is below the limb altitude ({alt:g} km above the {n.body})")
+    if fr == "track":
+        miss = [k for k in TRACK_KEYS if not isinstance(sec.get(k), (int, float))]
+        if miss:
+            errs.append(f"{tag}: frame 'track' needs {', '.join(miss)}")
+        else:
+            if not -90.0 <= sec["track_dec_deg"] <= 90.0:
+                errs.append(f"{tag}: track_dec_deg ({sec['track_dec_deg']}) outside [-90, 90] deg")
+            if sec["track_sigma_deg"] <= 0:
+                errs.append(f"{tag}: track_sigma_deg must be > 0")
+        if sec.get("shape", "box") != "cap":
+            errs.append(f"{tag}: frame 'track' takes a cap (centred on the track, radius k sigma)")
     if fr == "two_dir":
         miss = [k for k in TWO_DIR_KEYS if not isinstance(sec.get(k), (int, float))]
         if miss:
@@ -267,7 +283,7 @@ def sector_matrix(sec: dict, nav: Nav) -> Tuple[Optional[np.ndarray], float]:
     fr = sec.get("frame", "ship")
     if fr == "ship":
         return None, 0.0
-    if fr == "inertial":
+    if fr in ("inertial", "track"):
         a = np.eye(3)
     elif fr == "rtn":
         a = nav.rtn()
@@ -287,6 +303,9 @@ def resolve_sector(sec: dict, g: dict) -> dict:
         return sec
     m, off = sector_matrix(sec, parse_nav(g.get("nav")))
     out = dict(sec)
+    if sec.get("frame") == "track":                 # step 3.3, F8: the cap from the designation (ICRF)
+        out.update(shape="cap", phi0_deg=float(sec["track_ra_deg"]) % 360.0, eps0_deg=float(sec["track_dec_deg"]),
+                   radius_deg=TRACK_FRAME_K * float(sec["track_sigma_deg"]))
     if not np.array_equal(m, np.eye(3)) or off:
         out["frame_m"] = tuple(float(c) for c in m.ravel())
     if off:

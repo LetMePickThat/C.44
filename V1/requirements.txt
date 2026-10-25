@@ -3,6 +3,7 @@
 # Installed automatically by "Radar mission prep.bat" on first start, or by hand:
 #     python -m pip install -r requirements.txt
 numpy
+scipy               # step 3.3: Riccati equation and matrix exponential of the track model
 numba>=0.60          # optional: compiled sky-noise sums (core/sky.py), numpy path without it
 PyQt5>=5.15
 pyvista>=0.49

@@ -37,6 +37,7 @@ waveform search as the exact budget, just without its per-scan-angle-bin groupin
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import math
 import os
@@ -250,7 +251,10 @@ def _estimate_at_faces(sec: dict, grid: geo.SphereGrid, face_sel: Dict[int, Tupl
                 unreachable += n_tr_k
                 continue
             pack = rm.TrackingPack(b["angle_zone_deg"] / trk.ANGLE_ZONE_SIGMAS, b["vr_acc_mps"], b.get("range_acc_m"))
-            look = trk.ku_look(theta_k, tgt, b["r_max_km"], p_avg_max_w, pack, sec.get("rx_sll_db"))
+            # the fast estimate keeps the former track look (acceleration known, no pointing law): the exact track
+            # model of step 3.3 runs in the full calculation only (recalibration renvoi 5.5)
+            look = trk.ku_look(theta_k, dataclasses.replace(tgt, accel_max_mps2=0.0), b["r_max_km"], p_avg_max_w, pack,
+                               sec.get("rx_sll_db"))
             if look is None:
                 unreachable += n_tr_k
                 continue

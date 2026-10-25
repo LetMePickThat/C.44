@@ -2644,7 +2644,9 @@
       "success": 0.9801291829088441,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.6,
+     "false_tracks_per_s": 8.811282582137352e-08,
      "flags": [
       "S waveform WF-CONE_D1-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
       "S waveform WF-CONE_D1-2: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face"
@@ -2654,6 +2656,7 @@
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
      "ku_min_unsaturated_range_km": 10.299071050104983,
      "ku_sky": {
       "above_budget_pct": 0.0,
@@ -2717,7 +2720,9 @@
       "success": 0.9801291829088441,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.6,
+     "false_tracks_per_s": 8.811282582137352e-08,
      "flags": [
       "S waveform WF-CONE_D2-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
       "S waveform WF-CONE_D2-2: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face"
@@ -2727,6 +2732,7 @@
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
      "ku_min_unsaturated_range_km": 10.299071050104983,
      "ku_sky": {
       "above_budget_pct": 0.0,
@@ -2790,7 +2796,9 @@
       "success": 0.9801291829088441,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.6,
+     "false_tracks_per_s": 8.811282582137352e-08,
      "flags": [
       "S waveform WF-CONE_D3-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
       "S waveform WF-CONE_D3-2: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face"
@@ -2800,6 +2808,7 @@
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
      "ku_min_unsaturated_range_km": 10.299071050104983,
      "ku_sky": {
       "above_budget_pct": 0.0,
@@ -2863,7 +2872,9 @@
       "success": 0.9801291829088441,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.6,
+     "false_tracks_per_s": 8.811282582137352e-08,
      "flags": [
       "S waveform WF-CONE_D4-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
       "S waveform WF-CONE_D4-2: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face"
@@ -2873,6 +2884,7 @@
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
      "ku_min_unsaturated_range_km": 10.299071050104983,
      "ku_sky": {
       "above_budget_pct": 0.0,
@@ -2951,7 +2963,9 @@
       "success": 0.9802694196053727,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 9.6,
+     "false_tracks_per_s": 4.817659688830941e-07,
      "flags": [
       "S waveform WF-VEILLE_KV-1: its harmonics (13.238-14.463 GHz) cover 100 % of the Ku channel 14 GHz / 200 MHz on the same face",
       "S waveform WF-VEILLE_KV-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 200 MHz on the same face",
@@ -2963,6 +2977,7 @@
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.0,
+     "ku_min_unsaturated_range_attenuated_km": 0.1960204320042933,
      "ku_min_unsaturated_range_km": 1.1023038949767903,
      "ku_sky": {
       "above_budget_pct": 0.9977339891965205,
@@ -2991,7 +3006,27 @@
       "WF-VEILLE_KV-4 puts its harmonics on 13.600-14.100 GHz, over 100 % of the Ku channel 14 GHz / 200 MHz: on the same face, no Ku reception during this S transmission"
      ]
     }
-   ]
+   ],
+   "separability": {
+    "DEBRIS": {
+     "DECOY": 1.0
+    },
+    "GENERIC": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0,
+     "KKV": 1.0,
+     "SHIP": 1.0
+    },
+    "KKV": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0,
+     "SHIP": 1.0
+    },
+    "SHIP": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0
+    }
+   }
   },
   "warnings": [
    "sector CONE_D1: S waveform WF-CONE_D1-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",

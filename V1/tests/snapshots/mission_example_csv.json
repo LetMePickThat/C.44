@@ -1258,13 +1258,16 @@
       "success": 0.9803581804347975,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.0,
+     "false_tracks_per_s": 5.01185311300844e-07,
      "flags": [],
      "forced": false,
      "id": "S01",
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
      "ku_min_unsaturated_range_km": 10.299071050104983,
      "ku_sky": {
       "above_budget_pct": 0.8595286173532642,
@@ -1325,13 +1328,16 @@
       "success": 0.9800958478988742,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.5,
+     "false_tracks_per_s": 2.0967180565948294e-06,
      "flags": [],
      "forced": false,
      "id": "S02",
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 0.1974156128282098,
      "ku_min_unsaturated_range_km": 1.1101495733108038,
      "ku_sky": {
       "above_budget_pct": 0.0,
@@ -1355,7 +1361,27 @@
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     }
-   ]
+   ],
+   "separability": {
+    "DEBRIS": {
+     "DECOY": 1.0
+    },
+    "GENERIC": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0,
+     "KKV": 1.0,
+     "SHIP": 1.0
+    },
+    "KKV": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0,
+     "SHIP": 1.0
+    },
+    "SHIP": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0
+    }
+   }
   },
   "warnings": []
  },

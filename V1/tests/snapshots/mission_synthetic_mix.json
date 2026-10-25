@@ -48,33 +48,33 @@
   },
   "KV": {
    "0": {
-    "at_avg_power_kw": 0.02288971531714227,
-    "at_ku_time_fraction": 1.0694084306005419e-06,
+    "at_avg_power_kw": 0.02288971518691329,
+    "at_ku_time_fraction": 1.0694084213870628e-06,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 75.85773576657553,
-    "energy_fraction": 0.041366755517454626,
+    "avg_power_kw": 75.8577357664453,
+    "energy_fraction": 0.04136675551738361,
     "energy_j_per_refresh": 1516696.9210251677,
     "positions": 1437.1462616156073,
     "time_fraction_min": 0.006190599677653746,
     "unreachable_pct": 0.0
    },
    "1": {
-    "at_avg_power_kw": 0.019080262381124424,
-    "at_ku_time_fraction": 8.815100863511183e-07,
+    "at_avg_power_kw": 0.01908026227377709,
+    "at_ku_time_fraction": 8.815100787564767e-07,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 61.49420291784635,
-    "energy_fraction": 0.03353403093484043,
+    "avg_power_kw": 61.494202917739,
+    "energy_fraction": 0.03353403093478189,
     "energy_j_per_refresh": 1229502.4531093044,
     "positions": 1223.8895066986222,
     "time_fraction_min": 0.005018377359629815,
     "unreachable_pct": 0.0
    },
    "3": {
-    "at_avg_power_kw": 0.004016864270026135,
-    "at_ku_time_fraction": 2.0257234339014573e-07,
+    "at_avg_power_kw": 0.004016864245357555,
+    "at_ku_time_fraction": 2.0257234164488558e-07,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 14.363740260063173,
-    "energy_fraction": 0.007832837688204001,
+    "avg_power_kw": 14.363740260038503,
+    "energy_fraction": 0.007832837688190548,
     "energy_j_per_refresh": 287194.4679158629,
     "positions": 213.25675491698502,
     "time_fraction_min": 0.0011722223180239302,
@@ -2399,39 +2399,39 @@
    "confirm_p_min": 0.98,
    "faces": {
     "0": {
-     "at_energy": 1.3611949007065834e-05,
-     "at_ku_time": 1.1979657259477815e-06,
+     "at_energy": 6.618742729500355e-05,
+     "at_ku_time": 7.791127166103531e-06,
      "binding": "energy",
-     "confirm_energy": 1.2590491317484767e-05,
-     "confirm_ku_time": 1.3386582900429222e-06,
+     "confirm_energy": 1.2680345704681499e-05,
+     "confirm_ku_time": 1.3503614075268669e-06,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 66.15764440888364,
-     "dissipation_kW_m2": 4.975605758617644,
-     "load": 0.17852620244032458,
-     "p_left_kW": 1506.406327857969,
+     "dissipation_kW": 66.192316299267,
+     "dissipation_kW_m2": 4.9782133734895915,
+     "load": 0.17857886777299967,
+     "p_left_kW": 1506.3097509608895,
      "search_energy": 0.1785,
      "search_s_time": 0.0267,
      "status": "OK",
-     "total_energy": 0.17852620244032458,
-     "total_ku_time": 2.5366240159907037e-06,
+     "total_energy": 0.17857886777299967,
+     "total_ku_time": 9.141488573630398e-06,
      "total_s_time": 0.0267
     },
     "1": {
-     "at_energy": 1.1173874772003908e-05,
-     "at_ku_time": 9.718136742028155e-07,
+     "at_energy": 5.398909552619508e-05,
+     "at_ku_time": 6.327283709950237e-06,
      "binding": "energy",
-     "confirm_energy": 8.885155988817173e-06,
-     "confirm_ku_time": 9.270840124944016e-07,
+     "confirm_energy": 8.957939824417919e-06,
+     "confirm_ku_time": 9.365652320528218e-07,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 52.94193782722721,
-     "dissipation_kW_m2": 3.981674575616498,
-     "load": 0.1428200590307608,
-     "p_left_kW": 1571.8837180502762,
+     "dissipation_kW": 52.97025335561664,
+     "dissipation_kW_m2": 3.9838041391366565,
+     "load": 0.14286294703535063,
+     "p_left_kW": 1571.8050706707793,
      "search_energy": 0.1428,
      "search_s_time": 0.0213,
      "status": "OK",
-     "total_energy": 0.1428200590307608,
-     "total_ku_time": 1.898897686697217e-06,
+     "total_energy": 0.14286294703535063,
+     "total_ku_time": 7.263848942003058e-06,
      "total_s_time": 0.0213
     },
     "2": {
@@ -2453,21 +2453,21 @@
      "total_s_time": 0.0
     },
     "3": {
-     "at_energy": 2.438074235061919e-06,
-     "at_ku_time": 2.2615205174496542e-07,
+     "at_energy": 1.219833176880846e-05,
+     "at_ku_time": 1.4638434561532888e-06,
      "binding": "energy",
-     "confirm_energy": 3.7176805626669186e-06,
-     "confirm_ku_time": 3.9799588285625267e-07,
+     "confirm_energy": 3.7347511142629035e-06,
+     "confirm_ku_time": 4.002177807817769e-07,
      "confirm_s_time": 0.0,
-     "dissipation_kW": 13.212353971662603,
-     "dissipation_kW_m2": 0.993679038812205,
-     "load": 0.035706155754797735,
-     "p_left_kW": 1768.307587169188,
+     "dissipation_kW": 13.218710333656533,
+     "dissipation_kW_m2": 0.9941570901639942,
+     "load": 0.03571593308288308,
+     "p_left_kW": 1768.2896576516048,
      "search_energy": 0.0357,
      "search_s_time": 0.0053,
      "status": "OK",
-     "total_energy": 0.035706155754797735,
-     "total_ku_time": 6.241479346012181e-07,
+     "total_energy": 0.03571593308288308,
+     "total_ku_time": 1.8640612369350658e-06,
      "total_s_time": 0.0053
     }
    },
@@ -2480,25 +2480,27 @@
     "sector FWD: WF-FWD-1 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 25 MHz: on the same face, no Ku reception during this S transmission",
     "sector FWD: WF-FWD-2 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 25 MHz: on the same face, no Ku reception during this S transmission",
     "sector FWD: WF-FWD-3 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 25 MHz: on the same face, no Ku reception during this S transmission",
-    "sector KV: WF-KV-1 puts its harmonics on 13.238-14.463 GHz, over 100 % of the Ku channel 14.2 GHz / 200 MHz: on the same face, no Ku reception during this S transmission",
-    "sector KV: WF-KV-2 puts its harmonics on 13.238-14.463 GHz, over 100 % of the Ku channel 14.2 GHz / 200 MHz: on the same face, no Ku reception during this S transmission"
+    "sector KV: WF-KV-1 puts its harmonics on 13.238-14.463 GHz, over 100 % of the Ku channel 13.8 GHz / 200 MHz: on the same face, no Ku reception during this S transmission",
+    "sector KV: WF-KV-2 puts its harmonics on 13.238-14.463 GHz, over 100 % of the Ku channel 13.8 GHz / 200 MHz: on the same face, no Ku reception during this S transmission",
+    "sector KV: WF-KV-3 puts its harmonics on 13.600-14.100 GHz, over 100 % of the Ku channel 13.8 GHz / 200 MHz: on the same face, no Ku reception during this S transmission",
+    "sector KV: WF-KV-4 puts its harmonics on 13.600-14.100 GHz, over 100 % of the Ku channel 13.8 GHz / 200 MHz: on the same face, no Ku reception during this S transmission"
    ],
    "sectors": [
     {
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.1785,
+       "mission_max_load": 0.1786,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.1785,
+       "mission_max_load": 0.1786,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.1785,
+       "mission_max_load": 0.1786,
        "why_not": ""
       }
      },
@@ -2536,7 +2538,9 @@
       "success": 0.9801291829088441,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.0,
+     "false_tracks_per_s": 8.304926370045042e-08,
      "flags": [
       "S waveform WF-FWD-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
       "S waveform WF-FWD-2: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
@@ -2547,6 +2551,7 @@
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
      "ku_min_unsaturated_range_km": 10.299071050104983,
      "ku_sky": {
       "above_budget_pct": 0.8977043758598016,
@@ -2578,12 +2583,12 @@
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.1785,
+       "mission_max_load": 0.1786,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.1785,
+       "mission_max_load": 0.1786,
        "why_not": ""
       },
       "S2": {
@@ -2594,62 +2599,94 @@
      },
      "at": [
       {
+       "accel_bank_mps2": 9.80665,
        "angle_zone_deg": 0.2,
-       "avg_power_kW": 0.018121743318546123,
+       "attenuation_db": 0.0,
+       "avg_power_kW": 0.011117981703467006,
+       "cluster_update_share": 0.0,
+       "deception_verification": false,
        "driver": "DOP",
-       "energy_per_update_J": 3.624348663709225,
+       "energy_per_update_J": 2.175403376013558,
        "faces": {
         "0": {
-         "energy_fraction": 4.941076330798357e-06,
-         "ku_time_fraction": 3.781769621484385e-07
+         "energy_fraction": 3.031429994101545e-06,
+         "ku_time_fraction": 1.339836289971109e-07
         },
         "1": {
-         "energy_fraction": 4.075385458699446e-06,
-         "ku_time_fraction": 3.090639591711436e-07
+         "energy_fraction": 2.5362094869531156e-06,
+         "ku_time_fraction": 1.0885252811552747e-07
         },
         "3": {
-         "energy_fraction": 8.656908720989092e-07,
-         "ku_time_fraction": 6.911300297729473e-08
+         "energy_fraction": 4.952205071484311e-07,
+         "ku_time_fraction": 2.5131100881583415e-08
         }
        },
+       "filtered_range_sigma_m": 7.739730157120957,
+       "filtered_vr_sigma_mps": 4.376831518912918,
+       "init_energy_J": 14.702201929239527,
+       "init_looks": 1,
+       "initiations_per_s": 0.006785137229581349,
        "n_targets": 5,
+       "p_loss_per_update": 0.0013570274459162699,
+       "pointing_sigma_hpbw": 0.16163135974917792,
+       "predicted_angle_sigma_mrad": 0.8726646259826979,
        "r_max_km": 250,
        "r_min_km": 0,
        "range_acc_m": 10.0,
+       "rr_alert_s": null,
        "rr_s": 1.0,
-       "sigma_theta_deg": 0.05,
+       "rr_tenable": true,
+       "sigma_theta_deg": 0.07603025435450705,
+       "track_losses_per_s": 0.006785137229581349,
        "unreachable_tracks": 0.0,
+       "velocity_bank_mps": 38.55722417697136,
        "vr_acc_mps": 5.0,
-       "wf": "14.2 GHz COHE tau 100 us x N 1 @ PRI 0.5 ms B 200 MHz"
+       "wf": "13.8 GHz COHE tau 50 us x N 1 @ PRI 0.5 ms B 200 MHz"
       },
       {
+       "accel_bank_mps2": 9.80665,
        "angle_zone_deg": 0.5,
-       "avg_power_kW": 0.031801032501298294,
+       "attenuation_db": 0.0,
+       "avg_power_kW": 0.2316290410208691,
+       "cluster_update_share": 0.0,
+       "deception_verification": false,
        "driver": "ANG",
-       "energy_per_update_J": 21.200688334198862,
+       "energy_per_update_J": 128.71846584330194,
        "faces": {
         "0": {
-         "energy_fraction": 8.670872676267477e-06,
-         "ku_time_fraction": 8.19788763799343e-07
+         "energy_fraction": 6.3155997300902e-05,
+         "ku_time_fraction": 7.65714353710642e-06
         },
         "1": {
-         "energy_fraction": 7.0984893133044605e-06,
-         "ku_time_fraction": 6.627497150316719e-07
+         "energy_fraction": 5.1452886039241964e-05,
+         "ku_time_fraction": 6.2184311818347094e-06
         },
         "3": {
-         "energy_fraction": 1.57238336296301e-06,
-         "ku_time_fraction": 1.570390487676707e-07
+         "energy_fraction": 1.1703111261660029e-05,
+         "ku_time_fraction": 1.4387123552717054e-06
         }
        },
+       "filtered_range_sigma_m": 24.128023642181454,
+       "filtered_vr_sigma_mps": 8.538537581061668,
+       "init_energy_J": 327.34939007351045,
+       "init_looks": 1,
+       "initiations_per_s": 0.1107285505175844,
        "n_targets": 3,
+       "p_loss_per_update": 0.007152367011722929,
+       "pointing_sigma_hpbw": 0.40407839936559337,
+       "predicted_angle_sigma_mrad": 2.181661564917054,
        "r_max_km": 500,
        "r_min_km": 250,
        "range_acc_m": 30.0,
+       "rr_alert_s": null,
        "rr_s": 2.0,
-       "sigma_theta_deg": 0.125,
+       "rr_tenable": true,
+       "sigma_theta_deg": 0.21132650176958792,
+       "track_losses_per_s": 0.010728550517584394,
        "unreachable_tracks": 0.0,
+       "velocity_bank_mps": 81.12770261739016,
        "vr_acc_mps": 10.0,
-       "wf": "14.2 GHz NONC tau 5 us x N 4 @ PRI 5 ms B 200 MHz agile 140 MHz"
+       "wf": "13.8 GHz NONC tau 5 us x N 4 @ PRI 2 ms B 200 MHz agile 140 MHz"
       }
      ],
      "confirm_mode": "KU1+7",
@@ -2658,43 +2695,48 @@
       "cluster_tx": "superposition x7",
       "faces": {
        "0": {
-        "energy_fraction": 8.543509787176475e-06,
-        "ku_time_fraction": 8.741808611621034e-07,
+        "energy_fraction": 8.633364174373207e-06,
+        "ku_time_fraction": 8.858839786460479e-07,
         "s_time_fraction": 0.0
        },
        "1": {
-        "energy_fraction": 6.979383686225693e-06,
-        "ku_time_fraction": 7.080446941104118e-07,
+        "energy_fraction": 7.052167521826439e-06,
+        "ku_time_fraction": 7.175259136688319e-07,
         "s_time_fraction": 0.0
        },
        "3": {
-        "energy_fraction": 1.5641261009507788e-06,
-        "ku_time_fraction": 1.661361670516913e-07,
+        "energy_fraction": 1.581196652546764e-06,
+        "ku_time_fraction": 1.683580649772155e-07,
         "s_time_fraction": 0.0
        }
       },
       "ku_looks_fa": 2.0,
-      "ku_looks_true": 1.0635379822351905,
-      "margin_db": 6.844,
+      "ku_looks_true": 1.0613588752691039,
+      "margin_db": 6.656,
       "round_trips": 2,
-      "success": 0.9803581804347975,
+      "success": 0.9801831189888472,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.1,
+     "false_tracks_per_s": 5.064877112119326e-07,
      "flags": [
       "AT 0-250 km starts below the sector's shortest range of interest (50 km, range_min_km): Ku looks only need a blind range below that",
-      "AT 0-250 km: below 1.1 km the Ku echo of 0.135 m2 clips the per-element ADCs (fixed gain; attenuator option at 3.3)",
-      "S waveform WF-KV-1: its harmonics (13.238-14.463 GHz) cover 100 % of the Ku channel 14.2 GHz / 200 MHz on the same face",
-      "S waveform WF-KV-2: its harmonics (13.238-14.463 GHz) cover 100 % of the Ku channel 14.2 GHz / 200 MHz on the same face"
+      "AT 0-250 km: below 0.19 km the Ku echo of 0.135 m2 clips the per-element ADCs even with the 30 dB attenuator (step 3.3, E3)",
+      "S waveform WF-KV-1: its harmonics (13.238-14.463 GHz) cover 100 % of the Ku channel 13.8 GHz / 200 MHz on the same face",
+      "S waveform WF-KV-2: its harmonics (13.238-14.463 GHz) cover 100 % of the Ku channel 13.8 GHz / 200 MHz on the same face",
+      "S waveform WF-KV-3: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 200 MHz on the same face",
+      "S waveform WF-KV-4: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 200 MHz on the same face"
      ],
      "forced": false,
      "id": "KV",
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
-     "ku_freq_ghz": 14.2,
-     "ku_min_unsaturated_range_km": 1.1101495733108038,
+     "ku_freq_ghz": 13.8,
+     "ku_min_unsaturated_range_attenuated_km": 0.19461524950003772,
+     "ku_min_unsaturated_range_km": 1.0944019730610164,
      "ku_sky": {
-      "above_budget_pct": 0.9415684673365274,
+      "above_budget_pct": 0.975592362069639,
       "adc_margin_db_min": null,
       "band": "Ku",
       "blind_rise_db": 10.0,
@@ -2705,34 +2747,36 @@
       "limbs": [],
       "main_lobe_surface": false,
       "masked_by_structure_pct": 0.0,
-      "rise_db": 0.0024667294866345113,
-      "structure_rise_k_max": 0.0002612794419935604,
+      "rise_db": 0.0026480526117301974,
+      "structure_rise_k_max": 0.00011787347234832562,
       "surfaces": {},
-      "t_sys_budget_k": 230.9230785117929,
+      "t_sys_budget_k": 230.93272002696432,
       "t_sys_cold_k": 230.7919548038089,
-      "worst_rise_db": 0.002469170511669518
+      "worst_rise_db": 0.0026488523186948675
      },
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
-      "WF-KV-1 puts its harmonics on 13.238-14.463 GHz, over 100 % of the Ku channel 14.2 GHz / 200 MHz: on the same face, no Ku reception during this S transmission",
-      "WF-KV-2 puts its harmonics on 13.238-14.463 GHz, over 100 % of the Ku channel 14.2 GHz / 200 MHz: on the same face, no Ku reception during this S transmission"
+      "WF-KV-1 puts its harmonics on 13.238-14.463 GHz, over 100 % of the Ku channel 13.8 GHz / 200 MHz: on the same face, no Ku reception during this S transmission",
+      "WF-KV-2 puts its harmonics on 13.238-14.463 GHz, over 100 % of the Ku channel 13.8 GHz / 200 MHz: on the same face, no Ku reception during this S transmission",
+      "WF-KV-3 puts its harmonics on 13.600-14.100 GHz, over 100 % of the Ku channel 13.8 GHz / 200 MHz: on the same face, no Ku reception during this S transmission",
+      "WF-KV-4 puts its harmonics on 13.600-14.100 GHz, over 100 % of the Ku channel 13.8 GHz / 200 MHz: on the same face, no Ku reception during this S transmission"
      ]
     },
     {
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.1785,
+       "mission_max_load": 0.1786,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.1785,
+       "mission_max_load": 0.1786,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.1785,
+       "mission_max_load": 0.1786,
        "why_not": ""
       }
      },
@@ -2760,13 +2804,16 @@
       "success": 0.9803808606455304,
       "why_not": ""
      },
+     "discrimination": null,
      "false_alarms_per_rr": 10.2,
+     "false_tracks_per_s": 1.7076113993229595e-07,
      "flags": [],
      "forced": true,
      "id": "SHIPW",
      "ku_burn_through": null,
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 2.4103403323606787,
      "ku_min_unsaturated_range_km": 13.554339766594506,
      "ku_sky": {
       "above_budget_pct": 0.7303726484742706,
@@ -2790,16 +2837,38 @@
      "reason": "forced by the operator",
      "scheduler_rules": []
     }
-   ]
+   ],
+   "separability": {
+    "DEBRIS": {
+     "DECOY": 1.0
+    },
+    "GENERIC": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0,
+     "KKV": 1.0,
+     "SHIP": 1.0
+    },
+    "KKV": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0,
+     "SHIP": 1.0
+    },
+    "SHIP": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0
+    }
+   }
   },
   "warnings": [
    "sector FWD: S waveform WF-FWD-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
    "sector FWD: S waveform WF-FWD-2: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
    "sector FWD: S waveform WF-FWD-3: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
    "sector KV: AT 0-250 km starts below the sector's shortest range of interest (50 km, range_min_km): Ku looks only need a blind range below that",
-   "sector KV: AT 0-250 km: below 1.1 km the Ku echo of 0.135 m2 clips the per-element ADCs (fixed gain; attenuator option at 3.3)",
-   "sector KV: S waveform WF-KV-1: its harmonics (13.238-14.463 GHz) cover 100 % of the Ku channel 14.2 GHz / 200 MHz on the same face",
-   "sector KV: S waveform WF-KV-2: its harmonics (13.238-14.463 GHz) cover 100 % of the Ku channel 14.2 GHz / 200 MHz on the same face"
+   "sector KV: AT 0-250 km: below 0.19 km the Ku echo of 0.135 m2 clips the per-element ADCs even with the 30 dB attenuator (step 3.3, E3)",
+   "sector KV: S waveform WF-KV-1: its harmonics (13.238-14.463 GHz) cover 100 % of the Ku channel 13.8 GHz / 200 MHz on the same face",
+   "sector KV: S waveform WF-KV-2: its harmonics (13.238-14.463 GHz) cover 100 % of the Ku channel 13.8 GHz / 200 MHz on the same face",
+   "sector KV: S waveform WF-KV-3: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 200 MHz on the same face",
+   "sector KV: S waveform WF-KV-4: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 200 MHz on the same face"
   ]
  },
  "validation": []

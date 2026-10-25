@@ -2952,7 +2952,7 @@
    "pae": 0.03095238095238093,
    "reach_km": 2452.595479854252,
    "scale": 0.00022386248728410667,
-   "space": "<core.tracking._LookSpace object at 0x00000279D79E2510>",
+   "space": "<core.tracking._LookSpace object at 0x0000020385935BE0>",
    "time_s": 5e-09,
    "wf": "14 GHz COHE tau 5 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
@@ -2966,7 +2966,7 @@
    "pae": 0.03095238095238093,
    "reach_km": 3008.9272022618666,
    "scale": 9.88185089313689e-05,
-   "space": "<core.tracking._LookSpace object at 0x00000279D8AA6210>",
+   "space": "<core.tracking._LookSpace object at 0x00000203A8472490>",
    "time_s": 5e-09,
    "wf": "14 GHz COHE tau 50 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
@@ -2980,7 +2980,7 @@
    "pae": 0.23493315192121725,
    "reach_km": 2452.595479854252,
    "scale": 0.011320256147107419,
-   "space": "<core.tracking._LookSpace object at 0x00000279D79E2510>",
+   "space": "<core.tracking._LookSpace object at 0x0000020385935BE0>",
    "time_s": 5.66012807355371e-08,
    "wf": "14 GHz COHE tau 5 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
@@ -2994,7 +2994,7 @@
    "pae": 0.25120631108237657,
    "reach_km": 5049.744672575644,
    "scale": 0.0006299154627150251,
-   "space": "<core.tracking._LookSpace object at 0x00000279D8AA6210>",
+   "space": "<core.tracking._LookSpace object at 0x00000203A8472490>",
    "time_s": 6.299154627150252e-08,
    "wf": "14 GHz COHE tau 100 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
@@ -3008,7 +3008,7 @@
    "pae": 0.03095238095238093,
    "reach_km": 1734.2468899628097,
    "scale": 0.0008954499601851527,
-   "space": "<core.tracking._LookSpace object at 0x00000279D79E2510>",
+   "space": "<core.tracking._LookSpace object at 0x0000020385935BE0>",
    "time_s": 5e-09,
    "wf": "14 GHz COHE tau 5 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
@@ -3022,7 +3022,7 @@
    "pae": 0.03095238095238093,
    "reach_km": 3570.7086902243664,
    "scale": 4.982729795847514e-05,
-   "space": "<core.tracking._LookSpace object at 0x00000279D8AA6210>",
+   "space": "<core.tracking._LookSpace object at 0x00000203A8472490>",
    "time_s": 5e-09,
    "wf": "14 GHz COHE tau 100 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
@@ -3036,7 +3036,7 @@
    "pae": 0.4508609703861334,
    "reach_km": 1734.2468899628097,
    "scale": 0.045281025147140566,
-   "space": "<core.tracking._LookSpace object at 0x00000279D79E2510>",
+   "space": "<core.tracking._LookSpace object at 0x0000020385935BE0>",
    "time_s": 2.2640512573570285e-07,
    "wf": "14 GHz COHE tau 5 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
@@ -3050,7 +3050,7 @@
    "pae": 0.4653231697244844,
    "reach_km": 3570.7086902243664,
    "scale": 0.0025196618819495575,
-   "space": "<core.tracking._LookSpace object at 0x00000279D8AA6210>",
+   "space": "<core.tracking._LookSpace object at 0x00000203A8472490>",
    "time_s": 2.5196618819495574e-07,
    "wf": "14 GHz COHE tau 100 us x N 1 @ PRI 0.5 ms B 200 MHz"
   }
@@ -24284,7 +24284,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.841344826272102,
+   "l_tot_db": 4.180997544844094,
    "look_law": [
     2,
     {
@@ -24363,7 +24363,7 @@
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.0,
+    "acceleration": 0.3396527185719918,
     "buffer_droop": 0.008380777686529452,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -24384,8 +24384,8 @@
    "p_diss_trm_w": 3.2538461538461556,
    "pae": 0.6483790523690772,
    "pulse": {
-    "acceleration_hypotheses": 1,
-    "acceleration_max_mps2": 0.0,
+    "acceleration_hypotheses": 5,
+    "acceleration_max_mps2": 98.0665,
     "am_pm_drift_deg": 0.033555518829533795,
     "blind_range_km": 5.9995965657250006,
     "block_s": 0.03154,
@@ -24441,8 +24441,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 21317.0708102905,
-   "range_noise_km": 21317.0708102905,
+   "range_km": 20904.327941145442,
+   "range_noise_km": 20904.327941145442,
    "snr_req_db": 9.855504319078609,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -24452,7 +24452,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.6015591010063925,
+   "l_tot_db": 3.9412118195783847,
    "look_law": [
     2,
     {
@@ -24531,7 +24531,7 @@
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.0,
+    "acceleration": 0.3396527185719918,
     "buffer_droop": 0.008380777686529452,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -24552,8 +24552,8 @@
    "p_diss_trm_w": 3.2538461538461556,
    "pae": 0.6483790523690772,
    "pulse": {
-    "acceleration_hypotheses": 1,
-    "acceleration_max_mps2": 0.0,
+    "acceleration_hypotheses": 5,
+    "acceleration_max_mps2": 98.0665,
     "am_pm_drift_deg": 0.033555518829533795,
     "blind_range_km": 5.9995965657250006,
     "block_s": 0.03154,
@@ -24609,8 +24609,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 13892.796290216716,
-   "range_noise_km": 13892.796290216716,
+   "range_km": 13623.802831767267,
+   "range_noise_km": 13623.802831767267,
    "snr_req_db": 13.694154384029913,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -24620,7 +24620,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 4.703005145774675,
+   "l_tot_db": 5.042657864346667,
    "look_law": [
     2,
     {
@@ -24699,7 +24699,7 @@
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.0,
+    "acceleration": 0.3396527185719918,
     "buffer_droop": 0.008380777686529452,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -24720,8 +24720,8 @@
    "p_diss_trm_w": 3.2538461538461556,
    "pae": 0.6483790523690772,
    "pulse": {
-    "acceleration_hypotheses": 1,
-    "acceleration_max_mps2": 0.0,
+    "acceleration_hypotheses": 5,
+    "acceleration_max_mps2": 98.0665,
     "am_pm_drift_deg": 0.033555518829533795,
     "blind_range_km": 5.9995965657250006,
     "block_s": 0.03154,
@@ -24777,8 +24777,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 6938.054459766428,
-   "range_noise_km": 6938.054459766428,
+   "range_km": 6803.719281659956,
+   "range_noise_km": 6803.719281659956,
    "snr_req_db": 19.17447062616826,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -24788,7 +24788,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.600778890588823,
+   "l_tot_db": 3.940431599593887,
    "look_law": [
     2,
     {
@@ -24867,7 +24867,7 @@
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.0,
+    "acceleration": 0.3396527090050639,
     "buffer_droop": 0.008380777686529452,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -24888,8 +24888,8 @@
    "p_diss_trm_w": 3.2538461538461556,
    "pae": 0.6483790523690772,
    "pulse": {
-    "acceleration_hypotheses": 1,
-    "acceleration_max_mps2": 0.0,
+    "acceleration_hypotheses": 5,
+    "acceleration_max_mps2": 98.0665,
     "am_pm_drift_deg": 0.033555518829533795,
     "blind_range_km": 5.9995965657250006,
     "block_s": 0.03154,
@@ -24945,8 +24945,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 22571.58804851148,
-   "range_noise_km": 22571.58804851148,
+   "range_km": 22134.555126147996,
+   "range_noise_km": 22134.555126147996,
    "snr_req_db": 9.6037217729182,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -24956,7 +24956,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.430347414491241,
+   "l_tot_db": 3.770000123496305,
    "look_law": [
     2,
     {
@@ -25035,7 +25035,7 @@
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.0,
+    "acceleration": 0.3396527090050639,
     "buffer_droop": 0.008380777686529452,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -25056,8 +25056,8 @@
    "p_diss_trm_w": 3.2538461538461556,
    "pae": 0.6483790523690772,
    "pulse": {
-    "acceleration_hypotheses": 1,
-    "acceleration_max_mps2": 0.0,
+    "acceleration_hypotheses": 5,
+    "acceleration_max_mps2": 98.0665,
     "am_pm_drift_deg": 0.033555518829533795,
     "blind_range_km": 5.9995965657250006,
     "block_s": 0.03154,
@@ -25113,8 +25113,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 19740.2902504444,
-   "range_noise_km": 19740.2902504444,
+   "range_km": 19358.077146168638,
+   "range_noise_km": 19358.077146168638,
    "snr_req_db": 10.8531091390012,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25124,7 +25124,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.6955975143775954,
+   "l_tot_db": 4.0352502233826595,
    "look_law": [
     2,
     {
@@ -25203,7 +25203,7 @@
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.0,
+    "acceleration": 0.3396527090050639,
     "buffer_droop": 0.008380777686529452,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -25224,8 +25224,8 @@
    "p_diss_trm_w": 3.2538461538461556,
    "pae": 0.6483790523690772,
    "pulse": {
-    "acceleration_hypotheses": 1,
-    "acceleration_max_mps2": 0.0,
+    "acceleration_hypotheses": 5,
+    "acceleration_max_mps2": 98.0665,
     "am_pm_drift_deg": 0.033555518829533795,
     "blind_range_km": 5.9995965657250006,
     "block_s": 0.03154,
@@ -25281,8 +25281,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 18856.811776987717,
-   "range_noise_km": 18856.811776987717,
+   "range_km": 18491.704654722183,
+   "range_noise_km": 18491.704654722183,
    "snr_req_db": 10.8531091390012,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25292,7 +25292,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.937619632029319,
+   "l_tot_db": 4.277272341034383,
    "look_law": [
     2,
     {
@@ -25371,7 +25371,7 @@
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.0,
+    "acceleration": 0.3396527090050639,
     "buffer_droop": 0.008380777686529452,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -25392,8 +25392,8 @@
    "p_diss_trm_w": 3.2538461538461556,
    "pae": 0.6483790523690772,
    "pulse": {
-    "acceleration_hypotheses": 1,
-    "acceleration_max_mps2": 0.0,
+    "acceleration_hypotheses": 5,
+    "acceleration_max_mps2": 98.0665,
     "am_pm_drift_deg": 0.033555518829533795,
     "blind_range_km": 5.9995965657250006,
     "block_s": 0.03154,
@@ -25449,8 +25449,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 18095.246250011893,
-   "range_noise_km": 18095.246250011893,
+   "range_km": 17744.884621378005,
+   "range_noise_km": 17744.884621378005,
    "snr_req_db": 10.8531091390012,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25460,7 +25460,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.360993165325546,
+   "l_tot_db": 3.7006458743306094,
    "look_law": [
     2,
     {
@@ -25539,7 +25539,7 @@
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.0,
+    "acceleration": 0.3396527090050639,
     "buffer_droop": 0.008380777686529452,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -25560,8 +25560,8 @@
    "p_diss_trm_w": 3.2538461538461556,
    "pae": 0.6483790523690772,
    "pulse": {
-    "acceleration_hypotheses": 1,
-    "acceleration_max_mps2": 0.0,
+    "acceleration_hypotheses": 5,
+    "acceleration_max_mps2": 98.0665,
     "am_pm_drift_deg": 0.033555518829533795,
     "blind_range_km": 5.9995965657250006,
     "block_s": 0.03154,
@@ -25617,8 +25617,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 14710.39231868757,
-   "range_noise_km": 14710.39231868757,
+   "range_km": 14425.568506985348,
+   "range_noise_km": 14425.568506985348,
    "snr_req_db": 13.442371837869501,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25628,7 +25628,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 4.462523806683988,
+   "l_tot_db": 4.802176515689053,
    "look_law": [
     2,
     {
@@ -25707,7 +25707,7 @@
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.0,
+    "acceleration": 0.3396527090050639,
     "buffer_droop": 0.008380777686529452,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -25728,8 +25728,8 @@
    "p_diss_trm_w": 3.2538461538461556,
    "pae": 0.6483790523690772,
    "pulse": {
-    "acceleration_hypotheses": 1,
-    "acceleration_max_mps2": 0.0,
+    "acceleration_hypotheses": 5,
+    "acceleration_max_mps2": 98.0665,
     "am_pm_drift_deg": 0.033555518829533795,
     "blind_range_km": 5.9995965657250006,
     "block_s": 0.03154,
@@ -25785,8 +25785,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 7346.325670124368,
-   "range_noise_km": 7346.325670124368,
+   "range_km": 7204.085515406496,
+   "range_noise_km": 7204.085515406496,
    "snr_req_db": 18.922688080007855,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25796,7 +25796,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.8602626912500235,
+   "l_tot_db": 4.19991539147429,
    "look_law": [
     2,
     {
@@ -25875,7 +25875,7 @@
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.0,
+    "acceleration": 0.3396527002242663,
     "buffer_droop": 0.008380777686529452,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -25896,8 +25896,8 @@
    "p_diss_trm_w": 3.2538461538461556,
    "pae": 0.6483790523690772,
    "pulse": {
-    "acceleration_hypotheses": 1,
-    "acceleration_max_mps2": 0.0,
+    "acceleration_hypotheses": 5,
+    "acceleration_max_mps2": 98.0665,
     "am_pm_drift_deg": 0.033555518829533795,
     "blind_range_km": 5.9995965657250006,
     "block_s": 0.03154,
@@ -25953,8 +25953,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 23193.624311843574,
-   "range_noise_km": 23193.624311843574,
+   "range_km": 22744.54748428827,
+   "range_noise_km": 22744.54748428827,
    "snr_req_db": 9.359032644577969,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25964,7 +25964,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.620476966719008,
+   "l_tot_db": 3.960129666943274,
    "look_law": [
     2,
     {
@@ -26043,7 +26043,7 @@
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.0,
+    "acceleration": 0.3396527002242663,
     "buffer_droop": 0.008380777686529452,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -26064,8 +26064,8 @@
    "p_diss_trm_w": 3.2538461538461556,
    "pae": 0.6483790523690772,
    "pulse": {
-    "acceleration_hypotheses": 1,
-    "acceleration_max_mps2": 0.0,
+    "acceleration_hypotheses": 5,
+    "acceleration_max_mps2": 98.0665,
     "am_pm_drift_deg": 0.033555518829533795,
     "blind_range_km": 5.9995965657250006,
     "block_s": 0.03154,
@@ -26121,8 +26121,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 15115.786810028518,
-   "range_noise_km": 15115.786810028518,
+   "range_km": 14823.113724727933,
+   "range_noise_km": 14823.113724727933,
    "snr_req_db": 13.197682709529271,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -26132,7 +26132,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 4.747520110805026,
+   "l_tot_db": 5.087172811029292,
    "look_law": [
     2,
     {
@@ -26211,7 +26211,7 @@
    "losses": {
     "S_blockage": 0.3,
     "TX_chain": 0.95,
-    "acceleration": 0.0,
+    "acceleration": 0.3396527002242663,
     "buffer_droop": 0.008380777686529452,
     "calibration": 0.8,
     "cfar": 0.03912038775132617,
@@ -26232,8 +26232,8 @@
    "p_diss_trm_w": 3.2538461538461556,
    "pae": 0.6483790523690772,
    "pulse": {
-    "acceleration_hypotheses": 1,
-    "acceleration_max_mps2": 0.0,
+    "acceleration_hypotheses": 5,
+    "acceleration_max_mps2": 98.0665,
     "am_pm_drift_deg": 0.033555518829533795,
     "blind_range_km": 5.9995965657250006,
     "block_s": 0.03154,
@@ -26289,8 +26289,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 7537.700326551894,
-   "range_noise_km": 7537.700326551894,
+   "range_km": 7391.754763918029,
+   "range_noise_km": 7391.754763918029,
    "snr_req_db": 18.67799895166762,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -41491,11 +41491,15 @@
   "targets": {
    "DEBRIS": {
     "accel_max_mps2": 0.0,
+    "aspect_deg": [],
+    "aspect_offset_deg": 0.0,
+    "aspect_rcs_db": [],
     "depol_ku_db": -3.0,
     "depol_s_db": -3.0,
     "fluct_ku": "SW1/2",
     "fluct_s": "SW1/2",
     "length_m": 0.5,
+    "maneuver_tau_s": 0.0,
     "name": "DEBRIS",
     "optics_diameter_m": 0.0,
     "optics_f_ratio": 1.0,
@@ -41509,11 +41513,15 @@
    },
    "DECOY": {
     "accel_max_mps2": 0.0,
+    "aspect_deg": [],
+    "aspect_offset_deg": 0.0,
+    "aspect_rcs_db": [],
     "depol_ku_db": -20.0,
     "depol_s_db": -20.0,
     "fluct_ku": "SW0",
     "fluct_s": "SW0",
     "length_m": 1.5,
+    "maneuver_tau_s": 5.0,
     "name": "DECOY",
     "optics_diameter_m": 0.0,
     "optics_f_ratio": 1.0,
@@ -41527,11 +41535,15 @@
    },
    "GENERIC": {
     "accel_max_mps2": 9.80665,
+    "aspect_deg": [],
+    "aspect_offset_deg": 0.0,
+    "aspect_rcs_db": [],
     "depol_ku_db": -10.0,
     "depol_s_db": -10.0,
     "fluct_ku": "SW1/2",
     "fluct_s": "SW1/2",
     "length_m": 3.0,
+    "maneuver_tau_s": 20.0,
     "name": "GENERIC",
     "optics_diameter_m": 0.0,
     "optics_f_ratio": 1.0,
@@ -41545,11 +41557,15 @@
    },
    "KKV": {
     "accel_max_mps2": 98.0665,
+    "aspect_deg": [],
+    "aspect_offset_deg": 0.0,
+    "aspect_rcs_db": [],
     "depol_ku_db": -20.0,
     "depol_s_db": -20.0,
     "fluct_ku": "SW3/4",
     "fluct_s": "SW3/4",
     "length_m": 1.5,
+    "maneuver_tau_s": 5.0,
     "name": "KKV",
     "optics_diameter_m": 0.3,
     "optics_f_ratio": 1.0,
@@ -41563,11 +41579,15 @@
    },
    "SHIP": {
     "accel_max_mps2": 9.80665,
+    "aspect_deg": [],
+    "aspect_offset_deg": 0.0,
+    "aspect_rcs_db": [],
     "depol_ku_db": -6.0,
     "depol_s_db": -6.0,
     "fluct_ku": "SW1/2",
     "fluct_s": "SW1/2",
     "length_m": 100.0,
+    "maneuver_tau_s": 60.0,
     "name": "SHIP",
     "optics_diameter_m": 0.0,
     "optics_f_ratio": 1.0,
@@ -41581,11 +41601,15 @@
    },
    "ST": {
     "accel_max_mps2": 0.0,
+    "aspect_deg": [],
+    "aspect_offset_deg": 0.0,
+    "aspect_rcs_db": [],
     "depol_ku_db": -10.0,
     "depol_s_db": -10.0,
     "fluct_ku": "SW1/2",
     "fluct_s": "SW1/2",
     "length_m": 10.0,
+    "maneuver_tau_s": 0.0,
     "name": "ST",
     "optics_diameter_m": 0.0,
     "optics_f_ratio": 1.0,

@@ -52,6 +52,7 @@ from . import isolation as iso
 from . import optimizer as mo
 from . import radar_model as rm
 from . import sky as skym
+from . import trackmodel as tm
 from .params import P
 
 # Values from radar_system.toml ([confirmation], [tracking], [band.Ku], [tool.confirmation]).
@@ -61,6 +62,7 @@ KU_REF_GHZ = round((BAND.core_lo_ghz + BAND.core_hi_ghz) / 2.0, 9)   # functions
 KU_FREQ_STEP_GHZ = P.get(_T + "ku_freq_step_mhz") / 1e3              # Ku centre grid (step 3.2, A2)
 KU_FREQ_COARSE_GHZ = P.get(_T + "ku_freq_coarse_mhz") / 1e3          # Ku centres evaluated (A5)
 KU_FREQ_QUIET_CENTRES = P.get(_T + "ku_freq_quiet_centres")          # quiet Ku spectrum (A8, 25 Oct 2026)
+K_ML_KU = rm.angle_k_tx("Ku")                        # Ku angle accuracy x sqrt(SNR), in Ku TX beamwidths (3.3)
 K_ML_S = rm.angle_k_tx("S")                          # S angle accuracy x sqrt(SNR), in S TX beamwidths (CRLB x margin)
 BIAS_MRAD = P.get("confirmation.bias_mrad")          # residual S/Ku alignment bias per axis (absolute angle, constant in u, v)
 CONFIRM_P_MIN = P.get("confirmation.p_min")          # minimum probability of confirming a true target
@@ -457,8 +459,9 @@ class _LookSpace:
     law; cold sky), and their costs as functions of the pulse scale."""
 
     def __init__(self, f: float, tgt: rm.Target, sll: float, v_span: Optional[float], spj: Optional[float],
-                 pack: Optional[rm.TrackingPack], excl: Tuple[Tuple[float, float], ...], staggered: bool):
-        self.f = f
+                 pack: Optional[rm.TrackingPack], excl: Tuple[Tuple[float, float], ...], staggered: bool,
+                 pointing: Optional[Tuple[str, float]] = None, pd: Optional[float] = None):
+        self.f, self.pointing, self.pd = f, pointing, pd
         pairs = [(d, t) for d, t in _ku_candidates(pack, float(tgt.length_m or 0.0))
                  if mo.signal_fits(f, d.occupied_mhz, excl, BAND)]
         if staggered:
@@ -466,22 +469,24 @@ class _LookSpace:
                       None if t is None else (dataclasses.replace(t, staggered=True) if t.n > 1 else t)) for d, t in pairs]
         rows = []
         for d, t in pairs:
-            pd_ = mo.parts_at(d, f, 0.0, tgt, sll, v_span, None, None, spj)
+            pd_ = mo.parts_at(d, f, 0.0, tgt, sll, v_span, None, None, spj, None, pointing, pd)
             if pd_ is None:
                 continue
+            det = pd_
             if t is not None:
-                pt = mo.parts_at(t, f, 0.0, tgt, sll, v_span, None, None, spj)
+                pt = mo.parts_at(t, f, 0.0, tgt, sll, v_span, None, None, spj, None, pointing, pd)
                 if pt is None:
                     continue
                 if rm.jammed_range_km(pt[0], pt[1]) < rm.jammed_range_km(pd_[0], pd_[1]):
                     pd_ = pt                                  # the accuracy drives this look (SNR = max(det, acc))
-            rows.append((d, t, pd_))
+            rows.append((d, t, pd_, det))
         self.det = [r[0] for r in rows]
         self.trk = [r[1] for r in rows]
         self.rn = np.array([r[2][0] for r in rows])
         self.rbt = np.array([r[2][1] for r in rows])
         self.sdb = np.array([r[2][2] for r in rows])
         self.law = np.array([r[2][4] for r in rows], dtype=int)
+        self.det_parts = [r[3] for r in rows]          # detection parts of each row (step 3.3: Pd of coasted looks)
         self.costs = mo.PositionCosts(self.det) if self.det else None
         self.blind = np.array([rm.blind_range_km(BAND, d.tau_s) for d in self.det])
         self.bw = np.array([d.sig_bw_mhz for d in self.det])
@@ -491,13 +496,14 @@ _SPACES: Dict[tuple, _LookSpace] = {}
 
 
 def _space(f: float, tgt: rm.Target, sll: float, v_span: Optional[float], spj: Optional[float],
-           pack: Optional[rm.TrackingPack], excl: Tuple[Tuple[float, float], ...], staggered: bool) -> _LookSpace:
-    key = (f, tgt, sll, v_span, spj, pack, excl, staggered)
+           pack: Optional[rm.TrackingPack], excl: Tuple[Tuple[float, float], ...], staggered: bool,
+           pointing: Optional[Tuple[str, float]] = None, pd: Optional[float] = None) -> _LookSpace:
+    key = (f, tgt, sll, v_span, spj, pack, excl, staggered, pointing, pd)
     sp = _SPACES.get(key)
     if sp is None:
         if len(_SPACES) >= 512:
             _SPACES.clear()
-        sp = _SPACES[key] = _LookSpace(f, tgt, sll, v_span, spj, pack, excl, staggered)
+        sp = _SPACES[key] = _LookSpace(f, tgt, sll, v_span, spj, pack, excl, staggered, pointing, pd)
     return sp
 
 
@@ -548,7 +554,8 @@ def ku_look(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: float,
             pack: Optional[rm.TrackingPack] = None, rx_sll_db: Optional[float] = None,
             t_sys_k: Optional[float] = None, r_min_km: Optional[float] = None,
             v_span_mps: Optional[float] = None, f_ghz: float = KU_REF_GHZ, spj: Optional[float] = None,
-            clutter: Optional[List[dict]] = None, excl: Tuple[Tuple[float, float], ...] = ()) -> Optional[dict]:
+            clutter: Optional[List[dict]] = None, excl: Tuple[Tuple[float, float], ...] = (),
+            pointing: Optional[Tuple[str, float]] = None, pd: Optional[float] = None) -> Optional[dict]:
     """Cheapest Ku look reaching r_km at scan theta, for detection only (pack None) or for a track update (SNR =
     max(detection, accuracy)). Cost = max(energy / face average power, Ku TX time) at the design point, the pulse
     shortened to just reach r_km (step 3.2 B5). rx_sll_db: RX weighting of the volume (None = default option);
@@ -557,7 +564,8 @@ def ku_look(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: float,
     (step 3.2 E3); excl: the Ku exclusions (an agile train must stay outside them). Pulses whose blind range exceeds
     r_min_km are left out; a train whose PRI is below 2 r / c + tau + recovery is range-ambiguous at r_km, so it is
     staggered and pays the mean eclipsing loss. v_span_mps: velocity span of the look's velocity bank (None = 0 to the
-    target speed, 0 = velocity known, e.g. a track update). None when no candidate reaches r_km."""
+    target speed, 0 = velocity known, e.g. a track update). pointing, pd: pointing-error law and Pd of a track update
+    (step 3.3, core/trackmodel.py). None when no candidate reaches r_km."""
     sll = rm.RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
     if abs(theta) > BAND.scan_limit_deg(f_ghz):
         return None
@@ -566,7 +574,7 @@ def ku_look(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: float,
     sky_f = (BAND.t_sys_k / t_sys_k) ** 0.25 if t_sys_k else 1.0
     best = None
     for staggered in (False, True):
-        sp = _space(f_ghz, tgt_c, sll, v_span_mps, spj, pack, tuple(excl), staggered)
+        sp = _space(f_ghz, tgt_c, sll, v_span_mps, spj, pack, tuple(excl), staggered, pointing, pd)
         if not sp.det:
             continue
         # ambiguity at r_km decides which variant of each train plays: unstaggered where unambiguous, staggered else
@@ -578,7 +586,8 @@ def ku_look(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: float,
             continue
         g = _clutter_gain(sp, clutter, tgt_c)
         if hb is None:
-            rr = np.array([_solve_range(d, f_ghz, theta, tgt_c, sll, t_sys_k, v_span_mps, spj) for d in sp.det])
+            rr = np.array([_solve_range(d, f_ghz, theta, tgt_c, sll, t_sys_k, v_span_mps, spj, pointing, pd)
+                           for d in sp.det])
         else:
             with np.errstate(divide="ignore", invalid="ignore"):
                 rr = rm.jammed_range_km(sp.rn * hb[0] * sky_f * g ** -0.25, sp.rbt * hb[1] * g ** -0.5)
@@ -601,10 +610,10 @@ def ku_look(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: float,
             "wf": w, "scale": s, "reach_km": rr, "space": sp, "index": j, "f_ghz": f_ghz}
 
 
-def _solve_range(w, f, theta, tgt, sll, t_sys, v_span, spj) -> float:
+def _solve_range(w, f, theta, tgt, sll, t_sys, v_span, spj, pointing=None, pd=None) -> float:
     try:
         return rm.solve(w, f, float(theta), tgt, rm.FACE_ELEC_POWER_MW, sll, t_sys, v_span,
-                        spj_density_w_hz=spj).range_km
+                        spj_density_w_hz=spj, pointing=pointing, pd=pd).range_km
     except ValueError:
         return float("nan")
 
@@ -736,6 +745,112 @@ def _harmonic_cover(r: dict, f_ku: float, bw_ku: float) -> List[Tuple[str, float
     return out
 
 
+# ----------------------------------------------------------------------------- active tracking (step 3.3)
+def _start_bracket(brackets: List[dict], r_det: float) -> Optional[int]:
+    """Index of the bracket where tracks start (C6): the one covering the confirmation range, else the farthest one
+    when the target is confirmed beyond every bracket (designated by the S search at its entry); None otherwise."""
+    if not brackets:
+        return None
+    for i, b in enumerate(brackets):
+        if b["r_min_km"] <= r_det <= b["r_max_km"]:
+            return i
+    far = max(range(len(brackets)), key=lambda i: brackets[i]["r_max_km"])
+    return far if r_det > brackets[far]["r_max_km"] else None
+
+
+def _rounded_pack(st: "tm.TrackState") -> rm.TrackingPack:
+    """The accuracy pack of a track state, on 3 significant digits (shares the look spaces between nearby states)."""
+    pk = st.pack()
+    r3 = lambda x: None if x is None else float(f"{x:.3g}")             # noqa: E731
+    return rm.TrackingPack(r3(pk.sigma_theta_deg), r3(pk.sigma_vr_mps), r3(pk.sigma_r_m))
+
+
+def _track_update(gr: dict, tgt: rm.Target, st: "tm.TrackState", r_km: float, ctx, pointing_hpbw=None) -> Optional[dict]:
+    """Cheapest update of a track (B1-B4): one look pointed at the prediction (Gaussian pointing law), or the 7-beam
+    sequential cluster (cell law of the cluster, 7 looks), with the velocity and acceleration banks of the predicted
+    errors (B3, E1) and Pd tracking.pd_update; with its loss probability per update (B6-B7, single looks; a cluster
+    keeps Pd at every coasted update). None when neither reaches r_km."""
+    p_avg_max_w, sll, t_ku, r_min_sec, f_ku, spj, excl, clutter = ctx
+    tgt_t = tm.track_target(tgt, st)
+    pack = _rounded_pack(st)
+    v_span = round(st.v_span_mps, 1)
+    sig = st.pointing_hpbw if pointing_hpbw is None else pointing_hpbw
+    pt1 = ("gauss", float(f"{sig:.3g}"))
+    clut = clutter(gr, r_km) if clutter is not None else None
+    kw = dict(rx_sll_db=sll, t_sys_k=t_ku, r_min_km=r_min_sec, v_span_mps=v_span, f_ghz=f_ku, spj=spj, clutter=clut,
+              excl=excl, pd=tm.PD_UPDATE)
+    single = ku_look(gr["theta"], tgt_t, r_km, p_avg_max_w, pack, pointing=pt1, **kw)
+    cluster = ku_look(gr["theta"], tgt_t, r_km, p_avg_max_w, pack, pointing=("cluster", rm.BEAM_SPACING_HPBW), **kw)
+    opts = []
+    if single is not None:
+        opts.append((single["cost"], "single", single, 1.0))
+    if cluster is not None:
+        opts.append((cluster["cost"] * CLUSTER_N, "cluster", cluster, float(CLUSTER_N)))
+    if not opts:
+        return None
+    _, mode, look, mult = min(opts, key=lambda o: o[0])
+    if mode == "single" and pointing_hpbw is None:
+        pds = [_coast_pd(look, st.coast_pointing(k), tgt_t, f_ku, sll, v_span, spj) for k in range(tm.N_MISS_LOST)]
+    else:
+        pds = [tm.PD_UPDATE] * tm.N_MISS_LOST
+    p_loss, _ = tm.loss_per_update(pds)
+    return {"look": look, "mode": mode, "mult": mult, "p_loss": p_loss, "pds": pds}
+
+
+def _coast_pd(look: dict, sigma_hpbw: float, tgt_t: rm.Target, f_ku: float, sll: float, v_span: float,
+              spj: Optional[float]) -> float:
+    """Pd of the chosen look when it points with the error sigma_hpbw of a coasted track (B6): the detection law of
+    the look with that pointing, at the SNR the look delivers (its design SNR, plus the margin when the accuracy and
+    not the detection sized it)."""
+    sp, j = look["space"], look["index"]
+    d = sp.det[j]
+    p0 = sp.det_parts[j]
+    margin = 40.0 * math.log10(p0[0] / sp.rn[j]) if sp.rn[j] > 0 and p0[0] > sp.rn[j] else 0.0
+    pk = mo.parts_at(d, f_ku, 0.0, tgt_t, sll, v_span, None, None, spj, None, ("gauss", float(f"{sigma_hpbw:.3g}")),
+                     tm.PD_UPDATE)
+    if pk is None:
+        return 0.0
+    law = np.array([pk[4]])
+    return float(mo._pd_at(mo._curves(law), law, np.array([p0[2] + margin]))[0])
+
+
+def _initiation_cost(gr: dict, tgt: rm.Target, st: "tm.TrackState", r_km: float, hand_theta: float, zone: float,
+                     racc: Optional[float], vacc: float, ctx) -> Optional[dict]:
+    """(looks, electrical J, Ku TX s, heat J) of one track initiation (C1-C3): the looks until the requirements hold,
+    each pointed with the mean predicted error of the initiation (single look or cluster, the cheaper)."""
+    n, sig = tm.initiation(st, tgt, hand_theta, st.allowed["r"] if math.isfinite(st.allowed["r"]) else 1e3,
+                           st.allowed["vr"], zone, racc, vacc)
+    upd = _track_update(gr, tgt, st, r_km, ctx, pointing_hpbw=max(sig, st.pointing_hpbw))
+    if upd is None:
+        return None
+    e, t, q = look_cost(upd["look"], 1.0)
+    return {"looks": n, "energy_J": n * e * upd["mult"], "time_s": n * t * upd["mult"], "heat_J": n * q * upd["mult"]}
+
+
+def _longest_period(tgt: rm.Target, gr: Optional[dict], ranges: List[float], t_s: float, zone: float,
+                    racc: Optional[float], vacc: float, ctx) -> Optional[float]:
+    """Longest update period, below the operator's, at which every failing range of the bracket holds its
+    requirements with a reachable look (A8, D2); None if even a very short period does not."""
+    if gr is None:
+        return None
+    f_ku = ctx[4]
+
+    def ok(t):
+        for rk in ranges:
+            st = tm.TrackState(tgt, t, rk, zone, racc, vacc, f_ku, 0.0)
+            if not st.feasible or _track_update(gr, tgt, st, rk, ctx, pointing_hpbw=st.pointing_hpbw) is None:
+                return False
+        return True
+
+    lo, hi = t_s / 1024.0, t_s
+    if not ok(lo):
+        return None
+    for _ in range(tm.RR_ALERT_ITER):
+        mid = math.sqrt(lo * hi)
+        lo, hi = (mid, hi) if ok(mid) else (lo, mid)
+    return lo
+
+
 def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky: Optional[dict] = None,
                   f_ku: float = KU_REF_GHZ, clutter: Optional[_SectorClutter] = None) -> dict:
     """Confirmation (all modes) and AT loads per face of one sector at the Ku frequency f_ku, per second, as fractions
@@ -758,6 +873,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
     spj = env.spj_density_w_hz(sec, f_ku)                       # step 3.2 E1
     excl = exclusions_ku(sec)
     r_sat_ku = rm.min_unsaturated_range_km(f_ku, 0.0, tgt.rcs_at(f_ku))
+    r_sat_att = rm.min_unsaturated_range_attenuated_km(f_ku, 0.0, tgt.rcs_at(f_ku))     # step 3.3, E3
     r_min_sec = mo.range_min_km(sec)          # shortest range of interest: Ku blind range limit (step 2.1)
     spacing = r.get("beam_spacing_hpbw")                 # the sector's search lattice (step 3.1, P5)
     angle_cells = rm.rx_beams_per_position(f_s, sll, spacing) * rm.RX_BEAM_SPACING_HPBW ** 2   # independent cells per position
@@ -765,9 +881,10 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         if b["r_min_km"] < r_min_sec:
             flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km starts below the sector's shortest range of "
                          f"interest ({r_min_sec:.0f} km, range_min_km): Ku looks only need a blind range below that")
-        if b["r_min_km"] < r_sat_ku:
-            flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: below {r_sat_ku:.1f} km the Ku echo of "
-                         f"{tgt.rcs_at(f_ku):g} m2 clips the per-element ADCs (fixed gain; attenuator option at 3.3)")
+        if b["r_min_km"] < r_sat_att:
+            flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: below {r_sat_att:.2f} km the Ku echo of "
+                         f"{tgt.rcs_at(f_ku):g} m2 clips the per-element ADCs even with the "
+                         f"{rm.ATTENUATOR_MAX_DB['Ku']:g} dB attenuator (step 3.3, E3)")
 
     # --- confirmation: per scan-angle group, true detections and false alarms per face (per refresh), with the Ku
     #     look at the sector's detection range (S touch = the search look pointed, i.e. without grid loss)
@@ -872,40 +989,140 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         modes[mode] = {**info, "admissible": not why, "why_not": "; ".join(why),
                        "e": e / p_avg_max_w / rr, "ts": ts / rr, "tk": tk / rr, "q_w": q / rr}
 
-    # --- active tracking per bracket
+    # --- active tracking per bracket (step 3.3: track model of core/trackmodel.py)
     at = []
-    for b in sec.get("tracking", []):
-        pack = rm.TrackingPack(b["angle_zone_deg"] / ANGLE_ZONE_SIGMAS, b["vr_acc_mps"], b["range_acc_m"])
+    n_tr_all = sum(float(b["n_targets"]) for b in sec.get("tracking", []))
+    start = _start_bracket(sec.get("tracking", []), r_det)
+    main_gr = max(groups, key=lambda g: float(g["pos"].sum())) if groups else None
+    fl_conf = rm.look_fluctuation(tgt, f_ku, tgt.swerling, 1, 0.0)
+    conf_snr = _snr_ref(fl_conf)
+    hand_theta = K_ML_KU * math.radians(rm.hpbw_deg(f_ku)) / math.sqrt(conf_snr)    # Ku confirmation accuracy (C1)
+    deceptive = bool(sec.get("jammer_deceptive")) and sec.get("jammer_type") is not None
+    tm_ctx = (p_avg_max_w, sll, t_ku, r_min_sec, f_ku, spj, excl, clutter)
+    for bi, b in enumerate(sec.get("tracking", [])):
+        T = float(b["rr_s"])
+        zone, racc, vacc = float(b["angle_zone_deg"]), b.get("range_acc_m"), float(b["vr_acc_mps"])
+        r_lo = max(float(b["r_min_km"]), r_min_sec, 1e-3)
+        r_hi = max(float(b["r_max_km"]), r_lo)
+        ranges = [r_lo + (i + 0.5) * (r_hi - r_lo) / tm.N_RANGES for i in range(tm.N_RANGES)]        # D1
+        states = [tm.TrackState(tgt, T, rk, zone, racc, vacc, f_ku, 0.0) for rk in ranges]
         e_face, t_face, q_face = np.zeros(4), np.zeros(4), np.zeros(4)
         drivers: Dict[str, float] = {}
         wf_main, pos_main, unreachable = None, -1.0, 0.0
+        n_cluster, n_upd, p_loss, infeasible = 0.0, 0.0, [], []
         for gr in groups:
-            look = (ku_look(gr["theta"], tgt, b["r_max_km"], p_avg_max_w, pack, sll, t_ku,
-                            max(b["r_min_km"], r_min_sec), v_span_mps=0.0, f_ghz=f_ku, spj=spj,   # velocity known
-                            clutter=clutter(gr, b["r_max_km"]) if clutter is not None else None, excl=excl)
-                    if gr["theta"] <= ku_lim else None)
             share = gr["pos"] / p_all * b["n_targets"]                       # tracks per face in this group
-            if look is None:
+            if gr["theta"] > ku_lim:
                 unreachable += float(share.sum())
                 continue
-            e_face += share * look["energy_J"]
-            t_face += share * look["time_s"]
-            q_face += share * (look["energy_J"] - look["energy_rf_J"])
-            drivers[look["driver"]] = drivers.get(look["driver"], 0.0) + float(share.sum())
-            if gr["pos"].sum() > pos_main:
-                wf_main, pos_main = look["wf"], float(gr["pos"].sum())
+            ok_w = 0.0
+            for rk, st in zip(ranges, states):
+                upd = _track_update(gr, tgt, st, rk, tm_ctx) if st.feasible else None
+                if upd is None:
+                    infeasible.append(rk)
+                    continue
+                ok_w += 1.0 / len(ranges)
+                look, mult = upd["look"], upd["mult"] * (1.0 + (tm.DECEPTION_VERIFY_RATE if deceptive else 0.0))
+                e, tk, q = look_cost(look, 1.0)
+                w = share / len(ranges)
+                e_face += w * e * mult
+                t_face += w * tk * mult
+                q_face += w * q * mult
+                drivers[look["driver"]] = drivers.get(look["driver"], 0.0) + float(w.sum())
+                n_upd += float(w.sum())
+                n_cluster += float(w.sum()) if upd["mode"] == "cluster" else 0.0
+                if gr is main_gr:
+                    p_loss.append(upd["p_loss"])
+                if gr["pos"].sum() > pos_main:
+                    wf_main, pos_main = look["wf"], float(gr["pos"].sum())
+            unreachable += float(share.sum()) * (1.0 - ok_w)
         n_tr = float(b["n_targets"])
-        out_b = {**b, "sigma_theta_deg": pack.sigma_theta_deg,
+        pl = float(np.mean(p_loss)) if p_loss else 0.0
+        loss_rate = n_tr * pl / T                                          # tracks lost per second (B7)
+        # initiation (C) in the bracket where tracks start, and re-initiation of the lost tracks (B8), at the bracket's
+        # start range (start bracket) or mid-range; each also costs a confirmation look of the main group
+        r_init = min(r_det, r_hi) if bi == start else 0.5 * (r_lo + r_hi)
+        st0 = tm.TrackState(tgt, T, r_init, zone, racc, vacc, f_ku, 0.0)
+        new_rate = (n_new / rr) if bi == start else 0.0
+        init = _initiation_cost(main_gr, tgt, st0, r_init, hand_theta, zone, racc, vacc, tm_ctx) \
+            if (main_gr is not None and st0.feasible) else None
+        conf_e = 0.0
+        if cg and main_gr is not None:
+            c0 = cg[groups.index(main_gr)]["ku"]
+            conf_e = look_cost(c0, 1.0)[0] if c0 is not None else 0.0
+        init_rate = new_rate + loss_rate
+        if init is not None and n_tr_all > 0:
+            fshare = p_face / max(p_all, 1e-12)
+            e_face_s = fshare * init_rate * (init["energy_J"] + conf_e)
+            t_init = fshare * init_rate * init["time_s"]
+            q_init = fshare * init_rate * init["heat_J"]
+        else:
+            e_face_s = t_init = q_init = np.zeros(4)
+        # A8: the operator's period, or the longest one that holds every requirement at the worst point (D2)
+        rr_alert = None
+        if infeasible:
+            rr_alert = _longest_period(tgt, main_gr, sorted(set(infeasible)), T, zone, racc, vacc, tm_ctx)
+            flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: update period {T:g} s not tenable "
+                         + (f"(longest tenable {rr_alert:.3g} s)" if rr_alert else "(no period tenable)")
+                         + ": accept it, or relax the accuracies, the number of tracks or the range")
+        mid = states[len(states) // 2]
+        out_b = {**b, "sigma_theta_deg": math.degrees(mid.noise_theta),
                  "driver": max(drivers, key=drivers.get) if drivers else "-",
                  "energy_per_update_J": float(e_face.sum() / n_tr) if n_tr > 0 else 0.0,
-                 "avg_power_kW": float(e_face.sum() / b["rr_s"] / 1e3),
+                 "avg_power_kW": float((e_face.sum() / T + e_face_s.sum()) / 1e3),
                  "wf": _wf_label(wf_main, f_ku) if wf_main is not None else "-",
-                 "e": e_face / p_avg_max_w / b["rr_s"], "tk": t_face / b["rr_s"], "q_w": q_face / b["rr_s"],
-                 "unreachable_tracks": unreachable}
+                 "e": (e_face / T + e_face_s) / p_avg_max_w, "tk": t_face / T + t_init,
+                 "q_w": q_face / T + q_init, "unreachable_tracks": unreachable,
+                 # step 3.3 outputs
+                 "rr_tenable": not infeasible, "rr_alert_s": rr_alert,
+                 "predicted_angle_sigma_mrad": 1e3 * math.sqrt(mid.p_cross[0, 0]) / mid.r_m,
+                 "filtered_range_sigma_m": math.sqrt(mid.pf_range[0, 0]),
+                 "filtered_vr_sigma_mps": math.sqrt(mid.pf_range[1, 1]),
+                 "pointing_sigma_hpbw": mid.pointing_hpbw, "velocity_bank_mps": mid.v_span_mps,
+                 "accel_bank_mps2": mid.a_bank_mps2,
+                 "cluster_update_share": n_cluster / n_upd if n_upd > 0 else 0.0,
+                 "p_loss_per_update": pl, "track_losses_per_s": loss_rate,
+                 "initiations_per_s": init_rate, "init_looks": init["looks"] if init else None,
+                 "init_energy_J": init["energy_J"] if init else None,
+                 "attenuation_db": rm.attenuation_needed_db(f_ku, 0.0, tgt.rcs_at(f_ku), r_lo),
+                 "deception_verification": deceptive}
         if unreachable > 0:
             flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: {unreachable:.1f} track(s) out of Ku reach "
-                         f"at {b['r_max_km']:.0f} km (scan limit, range, jammer or clutter)")
+                         f"(scan limit, range, jammer, clutter or accuracy)")
+        if deceptive:
+            flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: deceptive self-protection jammer: risk of "
+                         f"track capture, {tm.DECEPTION_VERIFY_RATE:g} verification look(s) per update counted (F7)")
         at.append(out_b)
+
+    # --- discrimination of the sector's class from the class it must be told from (F1-F5), on the track updates
+    disc = None
+    other = sec.get("discriminate_against") or ("DECOY" if tgt.target_type == "KKV" else None)
+    if other is not None and other in rm.TARGETS and sec.get("tracking") and start is not None:
+        b = sec["tracking"][start]
+        T = float(b["rr_s"])
+        st_d = tm.TrackState(tgt, T, min(r_det, float(b["r_max_km"])), float(b["angle_zone_deg"]),
+                             b.get("range_acc_m"), float(b["vr_acc_mps"]), f_ku, 0.0)
+        far = (math.radians(env.faraday_round_trip_deg(sec["tec_tecu"], sec["b_parallel_nt"], f_ku))
+               if sec.get("tec_tecu") is not None and sec.get("b_parallel_nt") is not None else 0.0)
+        disc = tm.discrimination(tgt, rm.TARGETS[other], f_ku, rm.db_to_lin(rm.lin_to_db(conf_snr)), far,
+                                 math.sqrt(st_d.pf_cross[2, 2]))
+        disc["against"] = other
+        r0 = min(r_det, float(b["r_max_km"]))
+        if disc["looks"] is not None:
+            disc["time_s"] = disc["looks"] * T
+            disc["range_km"] = r0 - tgt.v_close_mps * disc["time_s"] / 1e3
+            if disc["range_km"] < r_min_sec:
+                flags.append(f"{tgt.target_type} / {other} discrimination at P {tm.P_DISCRIMINATION:g} reached at "
+                             f"{disc['range_km']:.0f} km, below the shortest range of interest {r_min_sec:.0f} km")
+        else:
+            disc["time_s"] = disc["range_km"] = None
+            flags.append(f"{tgt.target_type} / {other} discrimination does not reach P {tm.P_DISCRIMINATION:g} within "
+                         f"{tm.DISC_N_MAX} track looks (P {disc['p_at_max_looks']:.3f})")
+
+    # --- false tracks (C5): false alarms passing the Ku confirmation gate
+    false_tracks = float(fa.sum()) / rr * rm.DETECT_PFA * tm.GATE_CELLS
+    if false_tracks > tm.FALSE_TRACK_FLAG_PER_S:
+        flags.append(f"{false_tracks:.2g} false tracks per second (false alarms through the Ku confirmation gate)")
 
     # --- S harmonic on the Ku channel of the same face (step 3.2 A3): flagged, a time rule for the scheduler
     rules = []
@@ -927,7 +1144,9 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                          f"({'reaches' if bt['reaches_requirement'] else 'does not reach'} the requirement, "
                          f"{bt['wf']}); triggered by the scheduler (step 4.3)")
     return {"faces": [k for k in range(4) if p_face[k] > 0], "false_alarms_per_rr": fa, "modes": modes, "at": at,
-            "flags": flags, "ku_sky": ku_sky, "ku_min_unsaturated_range_km": r_sat_ku, "scheduler_rules": rules,
+            "flags": flags, "ku_sky": ku_sky, "ku_min_unsaturated_range_km": r_sat_ku,
+            "ku_min_unsaturated_range_attenuated_km": r_sat_att, "discrimination": disc,
+            "false_tracks_per_s": false_tracks, "scheduler_rules": rules,
             "ku_freq_ghz": f_ku, "ku_burn_through": bt}
 
 
@@ -1102,6 +1321,8 @@ def budget(mission: dict, res: dict) -> dict:
                               for k in sb["faces"]}} for b in sb["at"]],
             "ku_sky": sb["ku_sky"], "ku_min_unsaturated_range_km": sb["ku_min_unsaturated_range_km"],
             "ku_burn_through": sb["ku_burn_through"], "scheduler_rules": sb["scheduler_rules"],
+            "discrimination": sb.get("discrimination"), "false_tracks_per_s": sb.get("false_tracks_per_s"),
+            "ku_min_unsaturated_range_attenuated_km": sb.get("ku_min_unsaturated_range_attenuated_km"),
             "flags": sb["flags"]})
         for fl in sb["flags"]:
             warn.append(f"sector {sid}: {fl}")
@@ -1137,7 +1358,9 @@ def budget(mission: dict, res: dict) -> dict:
               f"draws the target position in its cell anew at each revisit"] if rm.GRID_DITHERING else [])
     rules += iso.scheduler_rules() + [f"sector {s['id']}: {t}" for s in out_secs for t in s["scheduler_rules"]]
     return {"pfa": rm.DETECT_PFA, "confirm_p_min": CONFIRM_P_MIN,
-            "sectors": out_secs, "faces": faces, "advice": advice, "scheduler_rules": rules, "warnings": warn}
+            "sectors": out_secs, "faces": faces, "advice": advice, "scheduler_rules": rules, "warnings": warn,
+            # step 3.3 (F3): P(correct) between the library classes after a few looks at the design SNR (indicator)
+            "separability": tm.separability(KU_REF_GHZ, _snr_ref(1))}
 
 
 def _relax_advice(k: int, key: str, load: float, res: dict, sbs: Dict[str, dict], choice: Dict[str, Optional[str]],

@@ -192,8 +192,8 @@ class ResultsTab(QWidget):
         self.grp_at = QGroupBox("AT range brackets (select a sector above)")
         pv = QVBoxLayout(self.grp_at)
         self.table_at = QTableWidget()
-        cols = ["bracket (km)", "targets", "RR (s)", "zone (deg)", "sR (m)", "sV (m/s)", "J / update", "kW",
-                "driver", "Ku waveform"]
+        cols = ["bracket (km)", "targets", "RR (s)", "RR held", "zone (deg)", "sR (m)", "sV (m/s)", "J / update", "kW",
+                "driver", "pointing (HPBW)", "loss / update", "init looks", "Ku waveform"]
         self.table_at.setColumnCount(len(cols))
         self.table_at.setHorizontalHeaderLabels(cols)
         self.table_at.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
@@ -393,9 +393,14 @@ class ResultsTab(QWidget):
         self.grp_at.setTitle(f"AT range brackets -- {r['id']}" if r else "AT range brackets (select a sector above)")
         self.table_at.setRowCount(len(brackets))
         for i, b in enumerate(brackets):
-            vals = [f"{b['r_min_km']:g}-{b['r_max_km']:g}", f"{b['n_targets']:g}", f"{b['rr_s']:g}",
+            # step 3.3: the operator's period held, or the longest tenable one (alert)
+            held = ("yes" if b.get("rr_tenable", True) else
+                    f"no, {b['rr_alert_s']:.3g} s" if b.get("rr_alert_s") else "no")
+            vals = [f"{b['r_min_km']:g}-{b['r_max_km']:g}", f"{b['n_targets']:g}", f"{b['rr_s']:g}", held,
                     f"{b['angle_zone_deg']:g}", f"{b['range_acc_m']:g}", f"{b['vr_acc_mps']:g}",
-                    f"{b['energy_per_update_J']:.3g}", f"{b['avg_power_kW']:.3g}", b["driver"], b["wf"]]
+                    f"{b['energy_per_update_J']:.3g}", f"{b['avg_power_kW']:.3g}", b["driver"],
+                    f"{b.get('pointing_sigma_hpbw', 0.0):.2f}", f"{b.get('p_loss_per_update', 0.0):.2g}",
+                    f"{b.get('init_looks') if b.get('init_looks') is not None else '-'}", b["wf"]]
             for c, val in enumerate(vals):
                 self.table_at.setItem(i, c, QTableWidgetItem(val))
 

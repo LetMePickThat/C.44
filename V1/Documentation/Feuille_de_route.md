@@ -37,7 +37,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 3.0 | ✔ fait (commit 22114fd ; ajoutée le 22 octobre 2026) |
 | 3.1 | ✔ fait : P1 à P6, bande S élargie, accélérations (`90555d8`, `b4be91e`, `cd97216`, `f6a526c`, `b0dbc09`, `f8fa433`, `d19829e`, puis le commit de P6) |
 | 3.2 | ✔ fait le 25 octobre 2026 : Q1 à Q5 (`8720343`, V6.12.0), Q6 : accélérations exactes E1 à E4 (V6.12.1), règle de précision absolue supprimée et approximations A1, A2, A4, A5, A6, A8, A9, banc T1 / T3 et barre de progression du N3 (V6.13.0), valeurs figées regelées (`JOURNAL.md`) |
-| 3.3 | cadrage ouvert le 25 octobre 2026 : blocs A à F validés (tout le bloc F en 3.3), période fixée par l'opérateur avec valeur calculée en alerte ; bloc A validé (Kalman en régime établi, Singer, 3 axes), bloc B validé (perte de pointage, grappe ou observation simple, perte de piste par chaîne de Markov), bloc C validé (initialisation), questions du bloc D en cours |
+| 3.3 | codée le 25 octobre 2026 (V6.14.0, passes R1 à R6) : modèle de piste (`core/trackmodel.py`), budget de poursuite reconstruit, discrimination, atténuateur, aspect, repère `track` ; N3 du 25 octobre (21 min, 190 tests passent, valeurs figées regelées, `JOURNAL.md`) ; trois valeurs D à confirmer (`faraday_uncert_frac`, `deception_verify_rate`, `track_frame_k`) ; commit sur demande |
 | 3.4 et suivantes | à faire |
 
 ---
@@ -333,6 +333,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 ## Phase 5 : mission et validation
 
 - **5.1 Modèle de mission enrichi.**
+  - **Renvoi de l'étape 3.3** : dispersion de SER par classe dans la bibliothèque (la matrice de séparabilité donne aujourd'hui P ≈ 1 entre toutes les classes, moyennes sans dispersion) ; `tracking.pd_update` et `tracking.p_discrimination` comme réglages de mission.
   - Menaces, priorités, phases temporelles et modes, avec des fichiers qui restent compatibles.
   - **Volumes par défaut** (idée de l'utilisateur, étape 2.3) : des volumes types prêts à l'emploi pour les besoins récurrents, par exemple l'autoprotection du vaisseau contre un KKV ; leurs paramètres standards (portée, revisite, etc.) seront discutés à ce moment-là, pas pendant la construction de l'outil.
   - **Bibliothèque de menaces** : l'opérateur choisit un type de cible par secteur au lieu de ressaisir SER, Swerling et vitesse. **Depuis l'étape 2.4**, la bibliothèque existe (`[targets.*]`, clé de secteur `target_type`) et entre dans le bilan ; reste l'interface : liste des classes, affichage des valeurs, surcharges (aujourd'hui l'interface conserve la clé, et une SER ou un Swerling modifié devient une surcharge).
@@ -356,6 +357,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - Arrondi de `pulse_scale` (était `power_scale`).
   - **Renvois de l'étape 2.1** : les vues (3D, interface) n'affichent que le **volume utile**, sans la zone aveugle (demande de l'utilisateur) ; édition de `range_min_km` dans l'interface.
   - **Renvoi de l'étape 2.3** : l'estimation rapide reste au critère d'une observation à `detection.pfa` ; à recaler sur la Pd cumulée et le taux de fausses alarmes.
+  - **Renvoi de l'étape 3.3** : l'estimation rapide garde l'ancienne observation de poursuite (accélération connue, sans loi de pointage, sans initialisation ni perte de piste) ; à recaler sur le modèle de piste.
   - **Renvoi de l'étape 1.5** : l'estimation rapide (`cost_table.json`) est au ciel froid, sans le bruit du ciel ni l'aveuglement ; l'interface n'édite pas le ciel de la mission (il viendra du simulateur de scénario), elle le conserve.
   - **Renvoi de l'étape 2.4** : la table de coût est calculée sur GENERIC en Swerling 1 ; un secteur à classe y entre par sa SER frontale en S.
 

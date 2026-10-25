@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.13.0
+# Radar Performance Model - V6.14.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,24 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.13.0 -> V6.14.0 (roadmap step 3.3: active tracking, blocks A-F validated by the user on 25 October 2026)
+#   - core/trackmodel.py: steady-state Kalman per axis (Singer: sigma_m^2 = a_max^2 / 3 (1 + 4 p_max - p0) + floor,
+#     class time constant [targets.*].maneuver_tau_s), exact discretisation, Riccati; requirements: angular zone on the
+#     predicted angle, range and radial velocity on the filtered track, turned into the largest measurement errors
+#     (decoupled, prudent), floors 0.05 mrad / 0.05 m / 0.01 m/s in quadrature; the operator's period is checked at
+#     every range of the bracket, the longest tenable one given as an alert.
+#   - solve(): pointing law of a track look (Gaussian error on the TX and RX beams, or the cell of a 7-beam cluster),
+#     Pd of the look (tracking.pd_update); a TRACK look banks over the velocity span and the acceleration its caller
+#     gives (+/- 3 sigma of the predicted values; was one hypothesis and a known acceleration); range accuracy pays the
+#     range-Doppler coupling residual c tau sigma_fd / 2B.
+#   - tracking.py AT budget: cost averaged over 8 ranges of the bracket, single look or sequential cluster (cheaper),
+#     Markov chain of the misses (track lost after 3), initiation looks from the confirmation hand-over (C1-C3) in the
+#     start bracket and after each loss, attenuator (30 dB, 10 dB steps) moves the ADC saturation flag, false tracks,
+#     KKV / decoy discrimination on the track looks (4 indices, Faraday, TX polarisation switching option),
+#     class separability matrix, deceptive-jammer verification looks.
+#   - Target RCS(aspect) table (optional) and aspect offset per class; sector frame 'track' (cap of k sigma around a
+#     designation); new sector keys maneuver_tau_s, aspect_offset_deg, discriminate_against, jammer_deceptive.
 #
 # Changes V6.12.1 -> V6.13.0 (25 October 2026: approximations chosen by the user, the absolute-precision rule removed;
 # every one is a [tool.*] setting whose exact value stays available)
@@ -469,7 +487,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.13.0"
+MODEL_VERSION = "6.14.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -921,7 +939,10 @@ def band_for_frequency(f_ghz: float) -> Optional[BandConfig]:
 FLUCTUATIONS: Dict[str, float] = {"SW0": math.inf, "SW1/2": 1.0, "SW3/4": 2.0}   # Gamma shape per independent sample
 _TARGET_KEYS = ("v_close_mps", "length_m", "rotation_dps", "accel_max_mps2")
 _TARGET_BAND_KEYS = ("rcs_m2", "fluctuation", "depol_db")
-_TARGET_OPTICS = {"optics_diameter_m": 0.0, "optics_f_ratio": 1.0, "optics_retro_eff": 0.0}   # absent = no optics
+_TARGET_OPTICS = {"optics_diameter_m": 0.0, "optics_f_ratio": 1.0, "optics_retro_eff": 0.0,   # absent = no optics
+                  "maneuver_tau_s": 0.0,            # step 3.3 (A5): Singer time constant, 0 = no manoeuvre
+                  "aspect_offset_deg": 0.0,         # step 3.3 (F6): aspect of a closing target off its nose
+                  "aspect_deg": (), "aspect_rcs_db": ()}   # F6: optional RCS(aspect) table, dB vs the frontal RCS
 DEFAULT_TARGET_TYPE: str = P.get("tool.targets.default_type")
 TARGET_TYPES: Tuple[str, ...] = tuple(dict.fromkeys(p.path.split(".")[1] for p in P if p.path.startswith("targets.")))
 
@@ -950,6 +971,11 @@ def _target_class_values(name: str) -> Dict[str, object]:
     if v["length_m"] <= 0 or v["rotation_dps"] < 0 or v["accel_max_mps2"] < 0 or v["v_close_mps"] <= 0:
         raise ValueError(f"{P.path}: target class '{name}': length_m and v_close_mps must be > 0, rotation_dps and "
                          f"accel_max_mps2 >= 0")
+    if v["maneuver_tau_s"] < 0 or len(v["aspect_deg"]) != len(v["aspect_rcs_db"]) or list(v["aspect_deg"]) != sorted(
+            v["aspect_deg"]):
+        raise ValueError(f"{P.path}: target class '{name}': maneuver_tau_s >= 0; aspect_deg (increasing) and "
+                         f"aspect_rcs_db of the same length")
+    v["aspect_deg"], v["aspect_rcs_db"] = tuple(map(float, v["aspect_deg"])), tuple(map(float, v["aspect_rcs_db"]))
     if v["optics_diameter_m"] < 0 or v["optics_f_ratio"] <= 0 or not 0.0 <= v["optics_retro_eff"] <= 1.0:
         raise ValueError(f"{P.path}: target class '{name}': optics_diameter_m >= 0, optics_f_ratio > 0, "
                          f"optics_retro_eff in [0, 1]")
@@ -984,13 +1010,24 @@ class Target:
     optics_f_ratio: float = _DEF["optics_f_ratio"]
     optics_retro_eff: float = _DEF["optics_retro_eff"]
     target_type: str = DEFAULT_TARGET_TYPE
+    maneuver_tau_s: float = _DEF["maneuver_tau_s"]           # step 3.3 (A5)
+    aspect_offset_deg: float = _DEF["aspect_offset_deg"]     # step 3.3 (F6)
+    aspect_deg: Tuple[float, ...] = _DEF["aspect_deg"]
+    aspect_rcs_db: Tuple[float, ...] = _DEF["aspect_rcs_db"]
 
     def _ku(self, f_ghz: float) -> bool:
         band = band_for_frequency(f_ghz)
         return band is not None and band.name == "Ku"
 
+    def aspect_factor(self) -> float:
+        """RCS factor of the aspect seen (step 3.3, F6): the class table RCS(aspect) in dB relative to the frontal RCS,
+        at the class aspect offset of a closing target (interpolated, flat beyond the table); 1 without a table."""
+        if not self.aspect_deg:
+            return 1.0
+        return db_to_lin(float(np.interp(abs(self.aspect_offset_deg), self.aspect_deg, self.aspect_rcs_db)))
+
     def body_rcs_m2(self, f_ghz: float) -> float:
-        return (self.rcs_m2 if self.rcs_ku_m2 is None else self.rcs_ku_m2) if self._ku(f_ghz) else self.rcs_m2
+        return ((self.rcs_m2 if self.rcs_ku_m2 is None else self.rcs_ku_m2) if self._ku(f_ghz) else self.rcs_m2)             * self.aspect_factor()
 
     def optics_rcs_m2(self, f_ghz: float) -> float:
         """Frontal return of a focusing optic facing the radar (step 2.4, K): the larger of the direct reflection on the
@@ -1032,14 +1069,16 @@ def _target_of_class(name: str) -> Target:
                   fluct_ku=v["fluct_ku"], depol_s_db=v["depol_s_db"], depol_ku_db=v["depol_ku_db"],
                   length_m=v["length_m"], rotation_dps=v["rotation_dps"], accel_max_mps2=v["accel_max_mps2"],
                   optics_diameter_m=v["optics_diameter_m"], optics_f_ratio=v["optics_f_ratio"],
-                  optics_retro_eff=v["optics_retro_eff"], target_type=name)
+                  optics_retro_eff=v["optics_retro_eff"], target_type=name, maneuver_tau_s=v["maneuver_tau_s"],
+                  aspect_offset_deg=v["aspect_offset_deg"], aspect_deg=v["aspect_deg"], aspect_rcs_db=v["aspect_rcs_db"])
 
 
 TARGETS: Dict[str, Target] = {name: _target_of_class(name) for name in TARGET_TYPES}
 
 # Sector keys overriding a class value (step 2.4, A2); rcs_m2, depol_db and fluctuation apply to both bands.
 SECTOR_TARGET_KEYS = ("target_type", "rcs_m2", "swerling", "fluctuation", "depol_db", "length_m", "rotation_dps",
-                      "accel_max_mps2", "optics_diameter_m", "optics_f_ratio", "optics_retro_eff")
+                      "accel_max_mps2", "optics_diameter_m", "optics_f_ratio", "optics_retro_eff", "maneuver_tau_s",
+                      "aspect_offset_deg")
 
 
 def target_for_sector(sec: dict) -> Target:
@@ -1063,7 +1102,8 @@ def target_for_sector(sec: dict) -> Target:
         kw.update(fluct_s=sec["fluctuation"], fluct_ku=sec["fluctuation"])
     if "depol_db" in sec:
         kw.update(depol_s_db=float(sec["depol_db"]), depol_ku_db=float(sec["depol_db"]))
-    for k in ("length_m", "rotation_dps", "accel_max_mps2", "optics_diameter_m", "optics_f_ratio", "optics_retro_eff"):
+    for k in ("length_m", "rotation_dps", "accel_max_mps2", "optics_diameter_m", "optics_f_ratio", "optics_retro_eff",
+              "maneuver_tau_s", "aspect_offset_deg"):
         if k in sec:
             kw[k] = float(sec[k])
     return dataclasses.replace(base, **kw)
@@ -1732,15 +1772,20 @@ POS_LAW_STEP_DB = P.get("tool.detection.pos_law_step_db")   # 0 = exact laws (A1
 def position_losses(band_name: str, rx_sll_db: float, psl_db: float, search: bool, doppler: bool,
                     bank: Tuple[float, float, float, float, int, bool],
                     tx_sub: Optional[str] = None, doppler_window_db: Optional[float] = None,
-                    spacing_hpbw: Optional[float] = None) -> Tuple[Tuple[float, ...], Tuple[float, ...], Dict[str, float]]:
+                    spacing_hpbw: Optional[float] = None,
+                    pointing: Optional[Tuple[str, float]] = None) -> Tuple[Tuple[float, ...], Tuple[float, ...], Dict[str, float]]:
     """Discrete law of the losses due to the random position of the target (step 2.3, B1): search TX lattice (hexagon
     of BEAM_SPACING_HPBW TX beamwidths, real pattern; tx_sub = the sub-aperture of a partition, its own stretched
     lattice and 2D pattern, step 3.1 C), RX beam lattice, range straddle on the detection grid, Doppler
     straddle (coherent blocks of more than one pulse), offset to the nearest velocity filter (bank = (half step,
     tau, B, T_obs, N, coherent); half step 0 = none). Each to OFFSET_QUANTILES quantiles, summed as independent.
+    pointing (step 3.3, B1 / B4): ("gauss", sigma) = a track look pointed at the predicted direction, error sigma per
+    axis in TX beamwidths (Rayleigh offsets on the real TX pattern); ("cluster", s) = the cell of a hexagonal cluster
+    of spacing s TX beamwidths. RX: a gauss look forms its RX beam on the predicted direction (same offset), a cluster
+    uses the digital RX lattice of the search (grid_rx).
     Returns (losses dB, weights, mean of each component)."""
     law, means = _fixed_position_law(band_name, rx_sll_db, psl_db, search, doppler, tx_sub, doppler_window_db,
-                                     _spacing(spacing_hpbw))
+                                     _spacing(spacing_hpbw), pointing)
     means = dict(means)
     half, tau_s, bw, t_obs, n, coh = bank
     if half > 0.0:
@@ -1759,7 +1804,8 @@ def position_losses(band_name: str, rx_sll_db: float, psl_db: float, search: boo
 @functools.lru_cache(maxsize=None)
 def _fixed_position_law(band_name: str, rx_sll_db: float, psl_db: float, search: bool, doppler: bool,
                         tx_sub: Optional[str], doppler_window_db: Optional[float] = None,
-                        spacing_hpbw: float = BEAM_SPACING_HPBW) -> Tuple[Tuple[Tuple[float, ...], Tuple[float, ...]], Tuple]:
+                        spacing_hpbw: float = BEAM_SPACING_HPBW,
+                        pointing: Optional[Tuple[str, float]] = None) -> Tuple[Tuple[Tuple[float, ...], Tuple[float, ...]], Tuple]:
     """The part of position_losses that does not depend on the velocity bank (grids, straddles), combined in the same
     order; cached apart (a few dozen keys) since the bank changes with every waveform (exact)."""
     q = OFFSET_QUANTILES
@@ -1774,6 +1820,21 @@ def _fixed_position_law(band_name: str, rx_sll_db: float, psl_db: float, search:
         rxb = rx_beam(band_name, rx_sll_db)
         rx = _hex_cell_points(RX_BEAM_SPACING_HPBW * rxb.hpbw)
         parts["grid_rx"] = _beam_loss_db(rxb, np.hypot(rx[:, 0], rx[:, 1]))
+    if pointing is not None:
+        kind, val = pointing
+        if kind == "gauss":
+            w = (np.arange(401) + 0.5) / 401
+            r = float(val) * np.sqrt(-2.0 * np.log(1.0 - w))          # Rayleigh quantiles, sigma per axis
+        else:
+            c = _hex_cell_points(float(val))
+            r = np.hypot(c[:, 0], c[:, 1])
+        parts["pointing_tx"] = _beam_loss_db(pat.tx, r * pat.tx.hpbw)
+        rxb = rx_beam(band_name, rx_sll_db)
+        if kind == "gauss":                     # RX beam formed on the predicted direction: the same offset
+            parts["pointing_rx"] = _beam_loss_db(rxb, r * pat.tx.hpbw)
+        elif "grid_rx" not in parts:            # cluster: the digital RX lattice of each beam
+            rx = _hex_cell_points(RX_BEAM_SPACING_HPBW * rxb.hpbw)
+            parts["grid_rx"] = _beam_loss_db(rxb, np.hypot(rx[:, 0], rx[:, 1]))
     u = (np.arange(401) + 0.5) / 401 - 0.5
     parts["straddle_range"] = -10.0 * np.log10(_range_response(psl_db)(u / RANGE_GRID_OVERSAMPLING))
     if doppler:
@@ -2015,6 +2076,27 @@ def min_unsaturated_range_km(f_ghz: float, theta_deg: float, rcs_m2: float) -> f
     return 10.0 ** ((r1 - band.clip_ant_dbm) / 40.0)
 
 
+ATTENUATOR_MAX_DB: Dict[str, float] = {b: P.get(f"band.{b}.rx.attenuator_max_db") for b in ("S", "Ku")}   # 3.3 E3
+ATTENUATOR_STEP_DB: Dict[str, float] = {b: P.get(f"band.{b}.rx.attenuator_step_db") for b in ("S", "Ku")}
+
+
+def min_unsaturated_range_attenuated_km(f_ghz: float, theta_deg: float, rcs_m2: float) -> float:
+    """min_unsaturated_range_km with the switchable post-LNA attenuator at its largest step (step 3.3, E3): the echo
+    is lowered by A dB, so the range by 10^(A / 40)."""
+    band = band_for_frequency(f_ghz)
+    return min_unsaturated_range_km(f_ghz, theta_deg, rcs_m2) / 10.0 ** (ATTENUATOR_MAX_DB[band.name] / 40.0)
+
+
+def attenuation_needed_db(f_ghz: float, theta_deg: float, rcs_m2: float, r_km: float) -> Optional[float]:
+    """Attenuator setting (dB, on its steps) that keeps the echo at r_km below the ADC clipping level; 0 when none is
+    needed, None when even the largest step does not suffice (step 3.3, E3)."""
+    band = band_for_frequency(f_ghz)
+    need = 40.0 * math.log10(max(min_unsaturated_range_km(f_ghz, theta_deg, rcs_m2) / r_km, 1.0))
+    step = ATTENUATOR_STEP_DB[band.name]
+    a = math.ceil(need / step - 1e-9) * step if need > 0 else 0.0
+    return a if a <= ATTENUATOR_MAX_DB[band.name] + 1e-9 else None
+
+
 def rx_deaf_after_pulse_s(band: BandConfig, tau_s: float) -> float:
     """Time the receiver is deaf from the start of a pulse: the pulse itself plus the limiter recovery (step 2.1)."""
     return tau_s + band.limiter_recovery_s
@@ -2031,12 +2113,14 @@ class TrackingPack:
 
 
 def tracking_snr_req(pack: TrackingPack, f_ghz: float, theta_deg: float, t_obs_s: float,
-                     sig_bw_mhz: float, k_r: float = RANGE_CRLB_KR) -> Tuple[float, str]:
+                     sig_bw_mhz: float, k_r: float = RANGE_CRLB_KR, tau_s: float = 0.0) -> Tuple[float, str]:
     """SNR (linear) a track update needs for the pack's accuracies, and the dominant term (ANG / DOP / RNG).
     t_obs_s = coherent observation time of the Doppler measurement (the dwell, (N - 1) PRI + tau). k_r: range
     estimator constant of the look's spectrum (step 2.1: RANGE_CRLB_KR / RMS-bandwidth ratio of the weighting).
     Angle: Cramer-Rao bound of the full digital aperture x ANGLE_CRLB_MARGIN, sigma_u = lambda / (2 pi x_rms
-    sqrt(2 SNR)); in the scan plane (worst axis) an angle error is d_u / cos(theta)."""
+    sqrt(2 SNR)); in the scan plane (worst axis) an angle error is d_u / cos(theta). Range (step 3.3, E2): the residual
+    of the range-Doppler coupling c tau sigma_fd / 2B (the mean bias is removed with the measured Doppler) adds in
+    quadrature, sigma_fd = K_F / (t_obs sqrt(2 SNR)); tau_s = the pulse (0 = none)."""
     lam = lambda_m(f_ghz)
     sigma_u = math.radians(pack.sigma_theta_deg) * max(math.cos(math.radians(theta_deg)), 1e-6)
     ang = 0.5 * (ANGLE_CRLB_MARGIN * lam / (2.0 * math.pi * _pattern(f_ghz).x_rms_m * sigma_u)) ** 2
@@ -2044,7 +2128,8 @@ def tracking_snr_req(pack: TrackingPack, f_ghz: float, theta_deg: float, t_obs_s
     dop = 0.5 * (K_F / (t_obs_s * sigma_f)) ** 2
     rng = 0.0
     if pack.sigma_r_m is not None:
-        rng = 0.5 * ((k_r * C_MPS) / (2.0 * sig_bw_mhz * 1e6 * pack.sigma_r_m)) ** 2
+        b2 = 2.0 * sig_bw_mhz * 1e6
+        rng = 0.5 * (((k_r * C_MPS) / b2) ** 2 + (C_MPS * tau_s * K_F / (b2 * t_obs_s)) ** 2) / pack.sigma_r_m ** 2
     comps = {"ANG": ang, "DOP": dop, "RNG": rng}
     dom = max(comps, key=comps.get)
     return comps[dom], dom
@@ -2240,13 +2325,17 @@ def solve_base(wf: Waveform, f_ghz: float, theta_deg: float, target: Target, rx_
     fl = look_fluctuation(target, f_ghz, sw, n_blocks, t_span, wf.agility_mhz)   # Gamma shape (2.4 B3 + E2, 3.1 B7)
     b.n_blocks, b.t_block, b.ppb, b.t_span, b.fl = n_blocks, t_block, ppb, t_span, fl
     # velocity bank (COMPENSATED migration): over the span, one hypothesis on a TRACK look (step 2.2)
-    span = (target.v_close_mps if v_span_mps is None else float(v_span_mps)) if wf.role != "TRACK" else 0.0
+    # a TRACK look covers the span its caller gives (step 3.3, B3: +/- k sigma of the predicted radial velocity), else one
+    span = ((target.v_close_mps if v_span_mps is None else float(v_span_mps)) if wf.role != "TRACK"
+            else (0.0 if v_span_mps is None else float(v_span_mps)))
     n_hyp, bank_half = 1, 0.0
     if MIGRATION_MODE.upper() == "COMPENSATED":
         n_hyp, _, bank_half = velocity_bank(round(span, 6), wf.tau_s, wf.sig_bw_mhz, t_span, wf.n, n_blocks == 1)
     b.span, b.n_hyp, b.bank_half = span, n_hyp, bank_half
     # acceleration (step 2.4, C1-C2): bank over +/- a_max; a TRACK look knows it from the track (optimistic until 3.3)
-    a_max = b.a_max = target.accel_max_mps2 if wf.role != "TRACK" else 0.0
+    # step 3.3 (E1): a TRACK look banks over the target's accel_max_mps2 too; the track model passes +/- k sigma of the
+    # predicted acceleration as that value (was 0: acceleration assumed known)
+    a_max = b.a_max = target.accel_max_mps2
     b.n_acc, acc_loss = acceleration_bank(a_max, f_ghz, t_block if ppb > 1 else 0.0, t_span, wf.sig_bw_mhz,
                                           n_blocks == 1)
     b.search = wf.role in ("SEARCH", "TWS")
@@ -2254,7 +2343,7 @@ def solve_base(wf: Waveform, f_ghz: float, theta_deg: float, target: Target, rx_
     b.track_snr = None
     if wf.role not in DETECT_ROLES:
         b.track_snr = tracking_snr_req(wf.tracking_pack, f_ghz, theta_deg, wf.dwell_s, wf.sig_bw_mhz,
-                                       RANGE_CRLB_KR / wgt["rms_ratio"])
+                                       RANGE_CRLB_KR / wgt["rms_ratio"], wf.tau_s)
     losses: Dict[str, float] = dict(band.losses_db)
     losses["edge"] = band.edge_loss_db(f_ghz, wf.occupied_mhz)       # averaged over the hopped spectrum (3.1, B8)
     losses["compression"] = compression_loss_db(mod, f_ghz, wf.sig_bw_mhz, target.v_close_mps, psl)
@@ -2308,7 +2397,8 @@ class SolveLook:
 
 def solve_look(b: SolveBase, t_sys_k: Optional[float] = None, pfa: Optional[float] = None,
                cum: Optional[Tuple[float, float, float]] = None, spj_density_w_hz: Optional[float] = None,
-               grid_spacing_hpbw: Optional[float] = None) -> SolveLook:
+               grid_spacing_hpbw: Optional[float] = None, pointing: Optional[Tuple[str, float]] = None,
+               pd: Optional[float] = None) -> SolveLook:
     """Second part of solve() (same arguments): required SNR, position, polarisation and CFAR losses, ranges."""
     wf, band = b.wf, b.band
     k = SolveLook()
@@ -2317,13 +2407,14 @@ def solve_look(b: SolveBase, t_sys_k: Optional[float] = None, pfa: Optional[floa
                                               (round(b.bank_half, 9), wf.tau_s, wf.sig_bw_mhz, b.t_span, wf.n,
                                                b.n_blocks == 1),
                                               tx_subaperture(wf), wf.doppler_window_db if b.ppb > 1 else None,
-                                              grid_spacing_hpbw)
+                                              grid_spacing_hpbw, pointing)
     k.pos_l, k.pos_w, k.pos_parts = pos_l, pos_w, pos_parts
+    pd_l = DETECT_PD if pd is None else float(pd)
     q = k.q = cum[0] * cum[1] / (cum[2] * 1e3) if (cum is not None and b.search) else 0.0
     if b.track_snr is None:
         # exact law (step 2.3), n = coherent blocks integrated noncoherently, Pd averaged over the position
-        snr_db = detection.required_snr_db(b.n_blocks, b.fl, pfa_l, DETECT_PD, q=q, floor=CUM_PD_FLOOR)
-        positions_db = detection.required_snr_db(b.n_blocks, b.fl, pfa_l, DETECT_PD, pos_l, pos_w, q,
+        snr_db = detection.required_snr_db(b.n_blocks, b.fl, pfa_l, pd_l, q=q, floor=CUM_PD_FLOOR)
+        positions_db = detection.required_snr_db(b.n_blocks, b.fl, pfa_l, pd_l, pos_l, pos_w, q,
                                                  CUM_PD_FLOOR) - snr_db
         driver = ("Detect-CUM-" if q > 0 else "Detect-") + wf.integration[:4]
     else:
@@ -2351,21 +2442,23 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
           elec_mw: float = FACE_ELEC_POWER_MW, rx_sll_db: Optional[float] = None,
           t_sys_k: Optional[float] = None, v_span_mps: Optional[float] = None, pfa: Optional[float] = None,
           cum: Optional[Tuple[float, float, float]] = None, spj_density_w_hz: Optional[float] = None,
-          grid_spacing_hpbw: Optional[float] = None) -> Result:
+          grid_spacing_hpbw: Optional[float] = None, pointing: Optional[Tuple[str, float]] = None,
+          pd: Optional[float] = None) -> Result:
     """rx_sll_db: RX peak sidelobe level of the watch volume (an option of RX_SLL_OPTIONS_DB, None = default).
     spj_density_w_hz: EIRP density of a self-protection jammer carried by the target (step 3.1, P4 Q11-Q13: barrage
     noise in the main lobe, not nulled): S = SNR_req (N + J), J ~ 1 / R^2, solved exactly (jammed_range_km).
     grid_spacing_hpbw: spacing of the search TX lattice of the volume (step 3.1, P5 E7; None = BEAM_SPACING_HPBW).
     t_sys_k: system noise temperature of the look direction (sky noise, core/sky.py); None = the band's cold sky.
     v_span_mps: velocity span the bank covers (sector v_max - v_min); None = 0 to the target's speed. TRACK looks:
-    one hypothesis (velocity known from the track).
+    the span given (step 3.3, B3), one hypothesis when None. pointing: pointing-error law of a track look (step 3.3,
+    position_losses); pd: Pd of the look (None = DETECT_PD; track updates: tracking.pd_update).
     Detection criterion (step 2.3): pfa = false-alarm probability per cell (None = DETECT_PFA); cum = (v_close m/s,
     revisit s, requirement range km) for a SEARCH look = DETECT_PD reached CUMULATIVELY over the looks spaced v x RR
     (q = v RR / R), None = one look. The Pd of a look is averaged over the random position of the target (loss
     'positions' = the SNR this average costs); the returned range is where the criterion is met (exact at R).
     Computed as solve_base + solve_look (the optimiser's path, without the diagnostics) + the diagnostics."""
     b = solve_base(wf, f_ghz, theta_deg, target, rx_sll_db, v_span_mps)
-    k = solve_look(b, t_sys_k, pfa, cum, spj_density_w_hz, grid_spacing_hpbw)
+    k = solve_look(b, t_sys_k, pfa, cum, spj_density_w_hz, grid_spacing_hpbw, pointing, pd)
     band, sw, psl, wgt, n_blocks, ppb, fl = b.band, b.sw, b.psl, b.wgt, b.n_blocks, b.ppb, b.fl
     snr_db, positions_db, pfa_l, q, r_km = k.snr_db, k.positions_db, k.pfa, k.q, k.r_km
 
