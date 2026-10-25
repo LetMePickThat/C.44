@@ -91,7 +91,7 @@ def test_range_independent_of_face_electrical_power():
     """Electrical power sets the average-power budget, not the peak power of a look."""
     a = rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"], elec_mw=0.5)
     b = rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"], elec_mw=4.0)
-    assert a.range_km == b.range_km and b.p_avg_max_w == pytest.approx(8 * a.p_avg_max_w)
+    assert a.range_km == b.range_km and b.p_avg_max_w - a.p_avg_max_w == pytest.approx(3.5e6 * rm.CHAIN_EFF)   # 4.1
 
 
 def test_range_decreases_with_scan_angle():
@@ -911,7 +911,7 @@ def test_buffer_droop_and_tau_max_from_the_buffer():
 
 def test_electrical_budget_and_dissipation(runs):
     """The face has P_elec x CHAIN_EFF; each look costs RF / PAE; the heat is electrical - RF (> 0, < electrical)."""
-    assert rm.face_elec_avail_w(2.0) == pytest.approx(2e6 * rm.CHAIN_EFF)
+    assert rm.face_elec_avail_w(2.0) == pytest.approx(2e6 * rm.CHAIN_EFF - rm.non_tx_power_w())   # step 4.1
     r = rm.solve(rm.WF_LRS, 2.8, 0.0, rm.TARGETS["ST"])
     assert r.p_avg_used_w == pytest.approx(rm.BAND_S.p_pk_total_w * rm.WF_LRS.duty / r.pae)
     assert r.p_diss_trm_w == pytest.approx(2000.0 * rm.WF_LRS.duty * (1 / r.pae - 1))
@@ -968,8 +968,13 @@ def test_no_frequency_above_scan_break_when_it_leaves_sky_unscanned(runs):
 def test_tracking_loads_add_up(runs):
     for res in runs.values():
         for k, f in res["tracking"]["faces"].items():
-            assert f["total_energy"] == pytest.approx(f["search_energy"] + f["confirm_energy"] + f["at_energy"], abs=1e-12)
-            assert f["total_ku_time"] == pytest.approx(f["confirm_ku_time"] + f["at_ku_time"], abs=1e-12)
+            # step 4.1: the energy load is the face's bus draw over its cap (transmissions + always-on + pumps);
+            # step 3.4: the calibration time adds to the S and Ku times
+            assert f["total_energy"] == pytest.approx(f["bus_draw_MW"] / f["cap_MW"], rel=1e-12)
+            assert f["total_ku_time"] == pytest.approx(f["confirm_ku_time"] + f["at_ku_time"] + f["calibration_ku_time"],
+                                                       abs=1e-12)
+            assert f["total_s_time"] == pytest.approx(f["search_s_time"] + f["confirm_s_time"] + f["calibration_s_time"],
+                                                      abs=1e-12)
             assert f["load"] == pytest.approx(max(f["total_energy"], f["total_s_time"], f["total_ku_time"]), abs=1e-12)
 
 
@@ -2106,9 +2111,10 @@ def test_invalid_sector_is_refused(change, msg):
     assert any(msg in e for e in errs), errs
 
 
-def test_face_power_above_ship_total_is_refused():
-    errs = md.validate_global({**md.GLOBAL_DEFAULTS, "face_elec_mw": md.SHIP_ELEC_TOTAL_MW + 0.1})
-    assert any("ship total" in e for e in errs)
+def test_face_power_above_the_feeder_is_refused():
+    """Step 4.1: a face cap above the face feeder is refused (the ship total is shared, judged in the budget)."""
+    errs = md.validate_global({**md.GLOBAL_DEFAULTS, "face_elec_mw": md.FACE_FEEDER_MAX_MW + 0.1})
+    assert any("feeder" in e for e in errs)
 
 
 def test_gui_modules_import():
@@ -2297,3 +2303,31 @@ def test_array_error_figures_and_checks(monkeypatch):
     msgs = rm.calibration_checks()
     assert any("sidelobe floor" in m for m in msgs) and any("angle_floor" in m for m in msgs) \
         and any("bias_mrad" in m for m in msgs)
+
+
+# ----------------------------------------------------------------------------- electrical power (step 4.1)
+def test_always_on_consumption_and_bus_draw():
+    """B1-B6: two ADCs and two receive chains per TRM in both bands, beamforming and control; the bus draw adds the
+    pumps and goes through the PSU and the distribution."""
+    n = 2 * (rm.N_TRM["S"] * (0.1 + 0.5) + rm.N_TRM["Ku"] * (0.1 + 0.1))
+    assert rm.non_tx_power_w() == pytest.approx(n + 52e3)
+    assert rm.face_bus_draw_w(1e6, 2e5) == pytest.approx((1e6 + rm.non_tx_power_w() + rm.PUMP_FRAC * 2e5) / rm.CHAIN_EFF)
+
+
+def test_trm_supply_removes_waveforms():
+    """C1-C2: a train beyond the TRM supply (mean power or buffer recharge) is refused, a single pulse never."""
+    w = rm.Waveform("k", "CONFIRM", "Ku", 1e-3, 8, 2e-3, 50.0, 1, "COHERENT")
+    rm.trm_supply_check(w, rm.BAND_KU)
+    weak = dataclasses.replace(rm.BAND_KU, trm_supply_w=10.0)
+    with pytest.raises(ValueError):
+        rm.trm_supply_check(w, weak)
+    rm.trm_supply_check(dataclasses.replace(w, n=1), weak)
+
+
+def test_face_power_caps_in_the_mission():
+    """A: face_elec_mw is an optional cap per face (number, list of 4, 0 = none), each at most the feeder."""
+    for cap, ok in ((0.0, True), (3.0, True), ([1.0, 2.0, 3.0, 4.0], True), ([1.0, 2.0], False),
+                    (md.FACE_FEEDER_MAX_MW + 1.0, False), (-1.0, False)):
+        errs = md.validate_global({**md.GLOBAL_DEFAULTS, "face_elec_mw": cap})
+        assert (not any("face_elec_mw" in e for e in errs)) == ok, (cap, errs)
+

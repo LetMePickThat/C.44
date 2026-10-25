@@ -62,6 +62,7 @@ KU_REF_GHZ = round((BAND.core_lo_ghz + BAND.core_hi_ghz) / 2.0, 9)   # functions
 KU_FREQ_STEP_GHZ = P.get(_T + "ku_freq_step_mhz") / 1e3              # Ku centre grid (step 3.2, A2)
 KU_FREQ_COARSE_GHZ = P.get(_T + "ku_freq_coarse_mhz") / 1e3          # Ku centres evaluated (A5)
 KU_FREQ_QUIET_CENTRES = P.get(_T + "ku_freq_quiet_centres")          # quiet Ku spectrum (A8, 25 Oct 2026)
+SHIP_ELEC_W = P.get("power.ship_elec_total_mw") * 1e6     # ship total shared by the faces (step 4.1)
 K_ML_KU = rm.angle_k_tx("Ku")                        # Ku angle accuracy x sqrt(SNR), in Ku TX beamwidths (3.3)
 K_ML_S = rm.angle_k_tx("S")                          # S angle accuracy x sqrt(SNR), in S TX beamwidths (CRLB x margin)
 BIAS_MRAD = P.get("confirmation.bias_mrad")          # residual S/Ku alignment bias per axis (absolute angle, constant in u, v)
@@ -990,6 +991,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                        "e": e / p_avg_max_w / rr, "ts": ts / rr, "tk": tk / rr, "q_w": q / rr}
 
     # --- active tracking per bracket (step 3.3: track model of core/trackmodel.py)
+    ku_obs = [(c["ku"]["energy_J"], c["ku"]["time_s"]) for c in cg if c["ku"] is not None]   # step 4.1 (D4)
     at = []
     n_tr_all = sum(float(b["n_targets"]) for b in sec.get("tracking", []))
     start = _start_bracket(sec.get("tracking", []), r_det)
@@ -1024,6 +1026,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                 ok_w += 1.0 / len(ranges)
                 look, mult = upd["look"], upd["mult"] * (1.0 + (tm.DECEPTION_VERIFY_RATE if deceptive else 0.0))
                 e, tk, q = look_cost(look, 1.0)
+                ku_obs.append((e * upd["mult"], tk * upd["mult"]))
                 w = share / len(ranges)
                 e_face += w * e * mult
                 t_face += w * tk * mult
@@ -1147,6 +1150,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
             "flags": flags, "ku_sky": ku_sky, "ku_min_unsaturated_range_km": r_sat_ku,
             "ku_min_unsaturated_range_attenuated_km": r_sat_att, "discrimination": disc,
             "false_tracks_per_s": false_tracks, "scheduler_rules": rules,
+            "ku_obs_max": max(ku_obs, default=(0.0, 0.0)),
             "ku_freq_ghz": f_ku, "ku_burn_through": bt}
 
 
@@ -1193,6 +1197,38 @@ def _ku_freq_task(sec: dict, r: dict, Pm: np.ndarray, p_avg_max: float, eps_min:
     ku_sky, keep = mo.sector_sky(sec, sph, m, f, "Ku", sky)
     clut = _SectorClutter(sec, sph, m, sky, f, keep) if env.surfaces(sky) else None
     return sector_budget(sec, r, Pm, p_avg_max, ku_sky, f, clut)
+
+
+def _storage_checks(k: int, res: dict, sbs: Dict[str, dict], chosen: Dict[str, dict], recharge_w: float,
+                    tx_w: float, t_frac: float) -> dict:
+    """Face storage and transients of face k (step 4.1, D-E): the costliest observation (an S search dwell of the
+    plan or a Ku look of the budget) minus the recharge during it must fit in the usable storage, its peak power in the
+    storage discharge plus the feeder; the worst burst packs the transmissions of the longest revisit of the face
+    together (deficit = RR (P_tx - recharge x time share)); transient = the peak power of an observation of each band
+    and its slope on the pulse edge (outputs only)."""
+    usable = rm.STORE_DOD * rm.FACE_STORE_J
+    worst_obs, rr_max = 0.0, 0.0
+    for r in res["sectors"]:
+        if r.get("status") != "OK" or str(k) not in r.get("faces", {}):
+            continue
+        rr_max = max(rr_max, float(r["rr_target_s"]))
+        for b in r.get("wf_by_bin", []):
+            e = b["elec_J_per_position"] * b["wf"]["positions_per_dwell"]
+            worst_obs = max(worst_obs, e - recharge_w * b["wf"]["dwell_ms"] / 1e3)
+        sb = chosen.get(r["id"])
+        if sb is not None and k in sb["faces"]:
+            e, t = sb["ku_obs_max"]
+            worst_obs = max(worst_obs, e - recharge_w * t)
+    peak = {b: rm.BANDS[b].p_pk_total_w / rm.BANDS[b].pae_sat for b in ("S", "Ku")}
+    burst = rr_max * (tx_w - recharge_w * t_frac)
+    # longest contiguous transmission at the face's peak power the storage can carry (scheduler rule, step 4.3)
+    over = max(peak.values()) - recharge_w
+    t_cont = usable / over if over > 0 else math.inf
+    return {"max_contiguous_tx_s": t_cont,"store_obs_deficit_MJ": max(0.0, worst_obs) / 1e6, "store_burst_deficit_MJ": max(0.0, burst) / 1e6,
+            "store_usable_MJ": usable / 1e6, "store_obs_ok": worst_obs <= usable, "store_burst_ok": burst <= usable,
+            "peak_MW": {b: v / 1e6 for b, v in peak.items()},
+            "peak_ok": max(peak.values()) <= rm.FACE_STORE_MAX_W + recharge_w,
+            "transient_MW_per_us": {b: peak[b] / (rm.BANDS[b].pae_t_edge_s * 1e6) / 1e6 for b in peak}}
 
 
 def budget(mission: dict, res: dict) -> dict:
@@ -1335,6 +1371,10 @@ def budget(mission: dict, res: dict) -> dict:
     chosen = {sid: sbs[sid][choice[sid][0]] for sid in sbs}
     mode_of = {sid: choice[sid][1] for sid in sbs}
     faces, advice = {}, []
+    draws: List[float] = []
+    cap_in = g.get("face_elec_cap_mw")                 # step 4.1: optional operator cap per face
+    caps = ([float(cap_in)] * 4 if isinstance(cap_in, (int, float)) else
+            [float(c) for c in cap_in] if cap_in else [math.inf] * 4)
     for k in range(4):
         conf_e = sum(chosen[s]["modes"][mode_of[s]]["e"][k] for s in sbs if mode_of[s] is not None)
         at_e = sum(b["e"][k] for s in sbs for b in chosen[s]["at"])
@@ -1345,6 +1385,14 @@ def budget(mission: dict, res: dict) -> dict:
                      + sum(chosen[s]["modes"][mode_of[s]]["q_w"][k] for s in sbs if mode_of[s] is not None)
                      + sum(b["q_w"][k] for s in sbs for b in chosen[s]["at"]))
         load = {key: float(tot[key][k]) for key in _RES}
+        # step 4.1 (A): the face draws from the ship total in common, up to its feeder and the operator's cap
+        tx_w = load["e"] * p_avg_max
+        draw = rm.face_bus_draw_w(tx_w, heat)
+        cap_w = min(rm.FACE_FEEDER_MAX_MW, caps[k]) * 1e6
+        draws.append(draw)
+        load["e"] = draw / cap_w
+        recharge = max(0.0, cap_w * rm.CHAIN_EFF - rm.non_tx_power_w() - rm.PUMP_FRAC * heat)   # storage recharge
+        store = _storage_checks(k, res, sbs, chosen, recharge, tx_w, load["ts"] + load["tk"])
         worst = max(load, key=load.get)
         faces[str(k)] = {"search_energy": float(base["e"][k]), "confirm_energy": float(conf_e), "at_energy": float(at_e),
                          "total_energy": load["e"], "search_s_time": float(base["ts"][k] - cal_s),
@@ -1353,22 +1401,47 @@ def budget(mission: dict, res: dict) -> dict:
                          "calibration_s_time": cal_s, "calibration_ku_time": cal_ku,
                          "load": load[worst], "binding": _RES_NAME[worst],
                          "status": "OK" if load[worst] <= 1.0 else "OVER-SUBSCRIBED",
-                         "p_left_kW": max(0.0, 1.0 - load["e"]) * p_avg_max / 1e3,
+                         "p_left_kW": max(0.0, cap_w - draw) / 1e3,
+                         # step 4.1: power from the ship bus, always-on consumption, storage, transients
+                         "bus_draw_MW": draw / 1e6, "cap_MW": cap_w / 1e6, "non_tx_kW": rm.non_tx_power_w() / 1e3,
+                         "pumps_kW": rm.PUMP_FRAC * heat / 1e3, **store,
                          "dissipation_kW": heat / 1e3, "dissipation_kW_m2": heat / 1e3 / rm.TOTAL_AREA_M2}
         if load[worst] > 1.0:
             advice.append(_relax_advice(k, worst, load[worst], res, chosen, mode_of, secs))
+    # step 4.1 (A): the ship total shared by the faces
+    ship_w = SHIP_ELEC_W
+    tot_draw = float(sum(draws))
+    ship = {"draw_MW": tot_draw / 1e6, "budget_MW": ship_w / 1e6, "load": tot_draw / ship_w,
+            "status": "OK" if tot_draw <= ship_w else "OVER-SUBSCRIBED",
+            "suggested_allocation_MW": [round(d / tot_draw * ship_w / 1e6, 3) if tot_draw > 0 else ship_w / 4e6
+                                        for d in draws]}
+    if tot_draw > ship_w:
+        advice.append(f"ship power: the faces draw {tot_draw / 1e6:.2f} MW, above the {ship_w / 1e6:g} MW ship budget")
+    for k in range(4):
+        f_ = faces[str(k)]
+        for key, msg in (("store_obs_ok", "an observation draws more than the face storage can give"),
+                         ("store_burst_ok", f"the transmissions of a revisit, packed together, would exhaust the "
+                                            f"face storage: the scheduler must spread them (at most "
+                                            f"{f_['max_contiguous_tx_s']:.2f} s of contiguous transmission at peak power)"),
+                         ("peak_ok", "the peak power of an observation exceeds the storage discharge plus the feeder")):
+            if not f_[key]:
+                warn.append(f"face F{k + 1}: {msg} (step 4.1)")
     for a in advice:
         warn.append(a)
     rules = ([f"search lattice shifted every frame (grid_dithering, step 2.3): the cumulative detection criterion "
               f"draws the target position in its cell anew at each revisit"] if rm.GRID_DITHERING else [])
     rules += iso.scheduler_rules() + [f"sector {s['id']}: {t}" for s in out_secs for t in s["scheduler_rules"]]
+    rules += [f"face F{k + 1}: at most {faces[str(k)]['max_contiguous_tx_s']:.2f} s of contiguous transmission at peak "
+              f"power, then recharge (face storage {rm.STORE_DOD * rm.FACE_STORE_J / 1e6:g} MJ usable, step 4.1)"
+              for k in range(4) if math.isfinite(faces[str(k)]["max_contiguous_tx_s"])]
     warn.extend(rm.calibration_checks())                    # step 3.4 (B5-B6)
     return {"pfa": rm.DETECT_PFA, "confirm_p_min": CONFIRM_P_MIN,
             "sectors": out_secs, "faces": faces, "advice": advice, "scheduler_rules": rules, "warnings": warn,
             # step 3.3 (F3): P(correct) between the library classes after a few looks at the design SNR (indicator)
             "separability": tm.separability(KU_REF_GHZ, _snr_ref(1)),
             # step 3.4: residual array errors (gain loss, sidelobe floor, boresight, calibration share of the time)
-            "array_errors": {b: rm.array_errors(b) for b in ("S", "Ku")}}
+            "array_errors": {b: rm.array_errors(b) for b in ("S", "Ku")},
+            "ship_power": ship}                          # step 4.1
 
 
 def _relax_advice(k: int, key: str, load: float, res: dict, sbs: Dict[str, dict], choice: Dict[str, Optional[str]],

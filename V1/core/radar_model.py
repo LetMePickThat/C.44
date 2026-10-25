@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.15.0
+# Radar Performance Model - V6.16.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,17 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.15.0 -> V6.16.0 (roadmap step 4.1: electrical power, validated by the user on 25 October 2026)
+#   - The faces SHARE the ship total (8 MW): the sum of their mean bus draws (transmission + always-on consumption +
+#     pumps, through PSU and distribution) is checked against it; a face may exceed 2 MW when the others draw less,
+#     up to its feeder (power.face_feeder_max_mw 8 MW) and the operator's optional cap (mission face_elec_mw: a number,
+#     a list of 4, or 0 = none). The search optimiser keeps the reference 2 MW per face to weigh energy against time.
+#   - overhead_frac (3 %) replaced by the always-on consumption: 2 ADCs (0.1 W) and 2 receive chains (S 0.5 W, Ku
+#     0.1 W) per TRM, beamforming 50 kW, control 2 kW (106.9 kW per face), pumps 2 % of the heat; CHAIN_EFF 0.945.
+#   - TRM supply (S 1700 W, Ku 80 W): a train whose mean TRM power or buffer recharge exceeds it is removed.
+#   - Face storage 5 MJ (80 % usable, 15 MW discharge): costliest observation, worst burst of a revisit, peak power;
+#     longest contiguous transmission given as a scheduler rule; transients (peak MW and MW/us) as outputs.
 #
 # Changes V6.14.0 -> V6.15.0 (roadmap step 3.4: array errors and in-flight calibration, validated by the user on
 # 25 October 2026; degraded modes and TRM failures deferred to the end of development, MVP nominal)
@@ -496,7 +507,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.15.0"
+MODEL_VERSION = "6.16.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -522,7 +533,12 @@ if FA_MODE not in ("fa_rate", "pfa_cell"):
 # --- Power chain (electrical budget since step 1.3; the PAE is per band and per waveform: pae()) ---
 PAE_DUTY_REF: float = P.get("power.pae_duty_ref")
 TRM_TECHNOLOGY: str = P.get("power.trm_technology")
-CHAIN_EFF: float = P.get("power.psu_eff") * P.get("power.distribution_eff") * (1.0 - P.get("power.overhead_frac"))
+CHAIN_EFF: float = P.get("power.psu_eff") * P.get("power.distribution_eff")   # step 4.1: overhead_frac -> NON_TX
+FACE_FEEDER_MAX_MW: float = P.get("power.face_feeder_max_mw")      # step 4.1 (A)
+FACE_STORE_J: float = P.get("power.face_store_mj") * 1e6            # step 4.1 (D)
+FACE_STORE_MAX_W: float = P.get("power.face_store_max_mw") * 1e6
+STORE_DOD: float = P.get("power.store_dod")
+PUMP_FRAC: float = P.get("power.pump_frac")
 
 # --- Range migration ---
 MIGRATION_MODE: str = P.get("migration.mode")              # "COMPENSATED" (residual loss) | "UNCOMPENSATED"
@@ -722,6 +738,7 @@ class BandConfig:
     post_rej_db: float = 0.0          # rejection of the other band before the ADC
     limiter_recovery_s: float = 0.0   # receiver deaf for tau + this after each pulse (eclipsing, step 2.1)
     errors: Optional[Dict[str, float]] = None   # residual array errors and calibration cadence (step 3.4)
+    trm_supply_w: float = 0.0         # continuous supply capacity of one TRM, W (step 4.1, C; 0 = not checked)
 
     @property
     def noise_ant_dbm(self) -> float:
@@ -880,7 +897,7 @@ def _band(name: str) -> BandConfig:
         # step 3.4: 'calibration' = gain loss of the residual array errors, TX and RX (was a lumped 0.5 / 0.8 dB)
         losses_db={**P.section(b + "losses_db"), "calibration": 2.0 * array_error_loss_db(er),
                    "TX_chain": tx_chain_loss_db(P.section(b + "tx"), rx)},
-        errors=er,
+        errors=er, trm_supply_w=P.get(b + "trm_supply_w"),
         allowed_roles=tuple(P.get(b + "allowed_roles")),
         pol_rx_dual=P.get(b + "pol_rx_dual"), pol_loss_single_db=P.get(b + "pol_loss_single_db"),
         pol_track_est_loss_db=P.get(b + "pol_track_est_loss_db"),
@@ -923,6 +940,24 @@ def pulse_elec_energy_trm_j(wf: "Waveform") -> float:
     return BANDS[wf.band].p_pk_trm_w * wf.tx_block_s / pae_wf(wf)
 
 
+def trm_supply_check(wf: "Waveform", band: "BandConfig") -> None:
+    """Supply of a TRM over a pulse train (step 4.1, C1-C2), ValueError if not held (the waveform is removed from the
+    search spaces): the mean electrical power within the train must stay within the continuous supply capacity, and
+    the buffer, recharged at that capacity between pulses, must not lose more than buffer_max_fraction over the train
+    (net loss of the n - 1 first pulses plus the last pulse)."""
+    if band.trm_supply_w <= 0.0 or wf.n < 2:
+        return
+    e_p = pulse_elec_energy_trm_j(wf)
+    p_train = e_p / wf.pri_s
+    if p_train > band.trm_supply_w * (1.0 + 1e-12):
+        raise ValueError(f"{wf.name}: {p_train:.0f} W per TRM over the train exceeds its supply "
+                         f"{band.trm_supply_w:g} W")
+    drawn = (wf.n - 1) * max(0.0, e_p - band.trm_supply_w * wf.pri_s) + e_p
+    if band.e_buf_trm_j > 0 and drawn > band.buffer_max_fraction * band.e_buf_trm_j * (1.0 + 1e-12):
+        raise ValueError(f"{wf.name}: the train draws {drawn:.2f} J of the TRM buffer (max "
+                         f"{band.buffer_max_fraction * band.e_buf_trm_j:.2f} J with the {band.trm_supply_w:g} W supply)")
+
+
 def search_position_costs(wf: "Waveform", scale=1.0) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Cost of ONE position of the full-aperture search lattice (step 3.1, C), with the pulse shortened by `scale`
     ("no excess energy": PAs saturated, the pulse is cut to scale x tau, floored at PULSE_TB_MIN / B; the energy is
@@ -948,10 +983,25 @@ def tau_max_s(band: BandConfig) -> float:
     return band.buffer_max_fraction * band.e_buf_trm_j * band.pae_sat / band.p_pk_trm_w - band.pae_t_edge_s
 
 
+def non_tx_power_w() -> float:
+    """Always-on consumption of one face behind the PSU (W, step 4.1 B1-B4): two ADCs and two receive chains per TRM in
+    both bands, digital beamforming and processing, control. The pumps (a share of the heat) are added by the budget."""
+    adc = P.get("power.adc_w")
+    return (sum(2 * N_TRM[b] * (adc + P.get(f"band.{b}.rx.rx_chain_w")) for b in ("S", "Ku"))
+            + 1e3 * (P.get("power.dbf_kw") + P.get("power.control_kw")))
+
+
+def face_bus_draw_w(tx_elec_w: float, heat_w: float) -> float:
+    """Mean power one face draws from the ship bus (W, step 4.1): transmission (TRM supply), always-on consumption and
+    pumps, through the PSU and the distribution."""
+    return (tx_elec_w + non_tx_power_w() + PUMP_FRAC * heat_w) / CHAIN_EFF
+
+
 def face_elec_avail_w(elec_mw: float) -> float:
-    """Electrical power a face can spend on transmission (W) from its allocation (MW): PSU, distribution, overhead.
+    """Electrical power a face can spend on transmission (W) from an allocation (MW): PSU and distribution, minus the
+    always-on consumption (step 4.1; was a lumped 3 % overhead).
     Every look costs its RF energy / PAE (electrical budget, step 1.3)."""
-    return elec_mw * 1e6 * CHAIN_EFF
+    return elec_mw * 1e6 * CHAIN_EFF - non_tx_power_w()
 
 
 def trm_dissipation_w(wf: "Waveform") -> float:
@@ -2433,6 +2483,7 @@ def solve_base(wf: Waveform, f_ghz: float, theta_deg: float, target: Target, rx_
             raise ValueError(f"{wf.name}: pulse needs {x_buf:.2f} of the TRM buffer (max {band.buffer_max_fraction:g}): "
                              f"droop too large")
         losses["buffer_droop"] = -10.0 * math.log10(1.0 - x_buf / 2.0)
+        trm_supply_check(wf, band)
     b.x_buf = x_buf
     losses["multibeam_tx"] = multibeam_tx_loss_db(wf)
     losses["scan_mismatch"] = 2.0 * active_mismatch(f_ghz, theta_deg)["loss_db_per_pass"]   # TX and RX
@@ -2765,8 +2816,9 @@ def selftest() -> int:
           and abs(active_mismatch(2.9, 75.0)["loss_db_per_pass"] - 1.82) < 0.05)
     check("Angle CRLB x margin = 1.13 x 0.436 TX beamwidths / sqrt(SNR)", abs(angle_k_tx("S") - 0.4927) < 0.003,
           f"({angle_k_tx('S'):.4f})")
-    check("Chain efficiency 0.917 and 1.834 MW electrical for TX at 2 MW", abs(CHAIN_EFF - 0.917) < 1e-3
-          and abs(face_elec_avail_w(2.0) - 1.834e6) < 1e3)
+    check("Chain efficiency 0.945 and 1.784 MW electrical for TX at 2 MW (always-on 106.9 kW, step 4.1)",
+          abs(CHAIN_EFF - 0.94525) < 1e-6 and abs(non_tx_power_w() - 106880.0) < 1.0
+          and abs(face_elec_avail_w(2.0) - 1.78362e6) < 1e2)
     check("PAE: S 0.80 at d_ref, edges -1 % on 20 us, duty derating -2.75 % at d = 0.65; Ku 0.65",
           abs(pae(BAND_S, 1e-3) - 0.8 * 1e-3 / (1e-3 + 0.2e-6)) < 1e-12
           and abs(pae(BAND_S, 20e-6) / 0.8 - 20 / 20.2) < 1e-12

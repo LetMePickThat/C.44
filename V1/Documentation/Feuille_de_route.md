@@ -39,7 +39,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 3.2 | ✔ fait le 25 octobre 2026 : Q1 à Q5 (`8720343`, V6.12.0), Q6 : accélérations exactes E1 à E4 (V6.12.1), règle de précision absolue supprimée et approximations A1, A2, A4, A5, A6, A8, A9, banc T1 / T3 et barre de progression du N3 (V6.13.0), valeurs figées regelées (`JOURNAL.md`) |
 | 3.3 | codée le 25 octobre 2026 (V6.14.0, passes R1 à R6) : modèle de piste (`core/trackmodel.py`), budget de poursuite reconstruit, discrimination, atténuateur, aspect, repère `track` ; N3 du 25 octobre (21 min, 190 tests passent, valeurs figées regelées, `JOURNAL.md`) ; trois valeurs D à confirmer (`faraday_uncert_frac`, `deception_verify_rate`, `track_frame_k`) ; commit sur demande |
 | 3.4 | codée le 25 octobre 2026 (V6.15.0) : erreurs du réseau et étalonnage en vol (perte `calibration` dérivée ≈ 0,006 dB au lieu de 0,5 / 0,8 dB, plancher de lobes, contrôles de cohérence, temps d'étalonnage dans le budget des faces) ; modes dégradés et pannes reportés en fin de développement ; N3 et commit sur demande |
-| 4.1 | cadrage ouvert le 25 octobre 2026 : blocs A à E validés, forme d'onde au-delà de l'alimentation des TRM retirée, stockage contrôlé par observation et par rafale ; variables validées (réserve commune des 8 MW, plafond physique 8 MW par face, `face_elec_mw` plafond facultatif) ; codage à faire |
+| 4.1 | codée le 25 octobre 2026 (V6.16.0) : réserve commune des 8 MW (plafond physique 8 MW, plafond facultatif de l'opérateur), consommation permanente 106,9 kW par face, alimentation des TRM (formes d'onde retirées), stockage de face (observation, rafale, pointe), règle d'émission contiguë pour 4.3, transitoires ; N3 et commit sur demande |
 | 4.2 et suivantes | à faire |
 
 ---
@@ -309,6 +309,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - Bus de 8 MW, stockage, transitoires.
   - Les 8 MW du vaisseau sont **répartissables à la demande entre les faces**, par exemple 3 MW sur F1 et 5 MW sur F2 à F4. Le logiciel radar doit gérer cette répartition avec les autres paramètres pour tenir la mission (aussi en 5.2). Aujourd'hui, une mission a une seule valeur `face_elec_mw` appliquée aux 4 faces, et la validation vérifie seulement qu'une face ne dépasse pas 8 MW.
   - Remplacer `overhead_frac` = 3 % par un vrai bilan de consommation hors émission (réception numérique et CAN par TRM, environ 130 kW par face, contrôle, refroidissement), avec 4.4.
+  - ✔ **Fait le 25 octobre 2026 (V6.16.0)** ; renvois : chronologie réelle des émissions et du stockage (règle d'émission contiguë) → **4.3** ; chiffres de la formation de faisceaux → **4.4** ; pompes → **4.2** ; optimisation conjointe de la répartition entre faces → **5.2**.
 
 - **4.2 Thermique** (D) : dissipation, capacité de refroidissement, constantes de temps, régime permanent face au régime crête.
   - Entrées de l'étape 1.3 : chaleur calculée par TRM et par face (≈ 370 W par TRM S en pointe à d = 0,65) ; capacité des microcanaux à vérifier ; matériaux appariés en dilatation exigés par le jeu de 0,5 mm.

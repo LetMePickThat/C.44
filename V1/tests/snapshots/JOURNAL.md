@@ -486,3 +486,12 @@ cost_table.json regenerated. 5225 output values differ. Test values only, not ra
 The self-test hand derivation now computes the Ruze loss from the file instead of the former 0.5 dB.
 N3: 20.5 min, 190 passed; the snapshot tests and the self-test (hand derivation) failed before the fix and the
 intended refreeze.
+
+## 2026-10-25 -- step 4.1: electrical power (radar_model V6.16.0)
+
+Causes: faces share the 8 MW ship budget (energy load = bus draw / cap); always-on consumption 106.9 kW per face
+replaces overhead_frac 3 % (CHAIN_EFF 0.945, reference TX power 1.784 MW instead of 1.834); TRM supply check (68 Ku
+looks removed, no S waveform); face storage checks and contiguous-transmission scheduler rule. 1361 output values
+differ; no S waveform set changes. Face energy loads rise (always-on ~5.7 % of a 2 MW cap; idle faces now show it).
+N3 22.2 min: 194 passed; snapshot tests and test_tracking_loads_add_up (calibration time, new energy load) failed
+before the fix and the refreeze.

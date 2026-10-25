@@ -167,10 +167,14 @@ class PrepTab(QWidget):
         form = QFormLayout(box)
         self.sb_eps_min = self._spin(-90, 90, 1, self.mission["global"].get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"]))
         self.sb_eps_max = self._spin(-90, 90, 1, self.mission["global"].get("eps_max_deg", md.GLOBAL_DEFAULTS["eps_max_deg"]))
-        self.sb_elec = self._spin(0.1, md.SHIP_ELEC_TOTAL_MW, 0.1, self.mission["global"].get("face_elec_mw", md.GLOBAL_DEFAULTS["face_elec_mw"]))
+        self.sb_elec = self._spin(0.0, md.FACE_FEEDER_MAX_MW, 0.1, self._cap_value())
+        self.sb_elec.setSpecialValueText("shared (no cap)")            # step 4.1: faces share the ship total
+        self.sb_elec.setToolTip("Optional cap of the mean electrical power of each face (MW). The faces share the "
+                                f"ship's {md.SHIP_ELEC_TOTAL_MW:g} MW; 0 = no cap (a list of 4 caps can be given in the "
+                                "mission file)")
         form.addRow("Rear limit eps_min (deg)", self.sb_eps_min)
         form.addRow("Front limit eps_max (deg)", self.sb_eps_max)
-        form.addRow("Electrical power / face (MW)", self.sb_elec)
+        form.addRow("Power cap / face (MW)", self.sb_elec)
         for sb in (self.sb_eps_min, self.sb_eps_max, self.sb_elec):
             sb.valueChanged.connect(self._on_global_changed)
         return box
@@ -889,8 +893,14 @@ class PrepTab(QWidget):
     def _on_global_changed(self, *_args) -> None:
         self.mission["global"]["eps_min_deg"] = self.sb_eps_min.value()
         self.mission["global"]["eps_max_deg"] = self.sb_eps_max.value()
-        self.mission["global"]["face_elec_mw"] = self.sb_elec.value()
+        if not isinstance(self.mission["global"].get("face_elec_mw"), list) or self.sb_elec.value() > 0:
+            self.mission["global"]["face_elec_mw"] = self.sb_elec.value()     # a list of 4 caps is kept untouched
         self._schedule_refresh()
+
+    def _cap_value(self) -> float:
+        """The cap shown by the power spin box: the common cap, the largest of a list of 4, 0 = none (step 4.1)."""
+        v = self.mission["global"].get("face_elec_mw", md.GLOBAL_DEFAULTS["face_elec_mw"]) or 0.0
+        return float(max(v)) if isinstance(v, list) else float(v)
 
     # ------------------------------------------------------------------ refresh (debounced)
     def _schedule_refresh(self) -> None:
@@ -918,7 +928,7 @@ class PrepTab(QWidget):
 
     def _update_gauges(self, eps_min: float, eps_max: float) -> None:
         totals = {k: {"energy": 0.0, "time_min": 0.0, "kw": 0.0, "at_kw": 0.0, "at_ku_time": 0.0} for k in range(4)}
-        p_avg_max = rm.face_elec_avail_w(self.mission["global"].get("face_elec_mw", md.GLOBAL_DEFAULTS["face_elec_mw"]))
+        p_avg_max = rm.face_elec_avail_w(rm.FACE_ELEC_POWER_MW)       # the optimiser's reference (step 4.1)
         self._unreachable = {}
         self._at_unreachable = {}
         if self.cost_table is not None:
@@ -1181,7 +1191,7 @@ class PrepTab(QWidget):
             return
         self.sb_eps_min.setValue(self.mission["global"].get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"]))
         self.sb_eps_max.setValue(self.mission["global"].get("eps_max_deg", md.GLOBAL_DEFAULTS["eps_max_deg"]))
-        self.sb_elec.setValue(self.mission["global"].get("face_elec_mw", md.GLOBAL_DEFAULTS["face_elec_mw"]))
+        self.sb_elec.setValue(self._cap_value())
         self._load_nav_form()
         self._cur_index = 0
         self._reload_sector_list()

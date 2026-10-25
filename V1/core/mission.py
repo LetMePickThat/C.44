@@ -51,8 +51,9 @@ from .params import P
 # Defaults of a new mission / sector / AT bracket: radar_system.toml [tool.mission_defaults] and [power].
 _MD = "tool.mission_defaults"
 GLOBAL_DEFAULTS: Dict[str, float] = {"eps_min_deg": P.get(_MD + ".eps_min_deg"), "eps_max_deg": P.get(_MD + ".eps_max_deg"),
-                                     "face_elec_mw": P.get("power.face_elec_mw")}
-SHIP_ELEC_TOTAL_MW: float = P.get("power.ship_elec_total_mw")   # upper bound of one face's allocation
+                                     "face_elec_mw": 0.0}   # step 4.1: optional cap per face, 0 = none (shared)
+SHIP_ELEC_TOTAL_MW: float = P.get("power.ship_elec_total_mw")   # shared by the faces (step 4.1)
+FACE_FEEDER_MAX_MW: float = P.get("power.face_feeder_max_mw")   # largest mean power of one face
 
 _SECTOR_DEFAULTS_NEED: Dict[str, object] = {**P.section(_MD + ".sector"), "tracking": []}
 SECTOR_DEFAULTS_BOX: Dict[str, object] = {"shape": "box", **P.section(_MD + ".box"), **_SECTOR_DEFAULTS_NEED}
@@ -123,11 +124,16 @@ def validate_global(g: dict) -> List[str]:
         errs.append(f"front limit eps_max ({eps_max}) outside [-90, 90] deg")
     if eps_min > eps_max:
         errs.append(f"eps_min ({eps_min}) > eps_max ({eps_max}): empty scan window")
+    # step 4.1 (A): the faces share the ship total; face_elec_mw is an optional cap per face (a number for all, a list of
+    # 4, or 0 / absent = no cap), each at most the face feeder; the sum of the caps is not limited, the draw is
     elec = g.get("face_elec_mw", GLOBAL_DEFAULTS["face_elec_mw"])
-    if elec <= 0:
-        errs.append(f"electrical power per face ({elec} MW) must be > 0")
-    elif elec > SHIP_ELEC_TOTAL_MW:
-        errs.append(f"electrical power per face ({elec} MW) exceeds the ship total budget ({SHIP_ELEC_TOTAL_MW:g} MW)")
+    caps = elec if isinstance(elec, list) else [elec]
+    if isinstance(elec, list) and len(elec) != 4:
+        errs.append(f"face_elec_mw as a list needs 4 values (one cap per face), got {len(elec)}")
+    elif not all(isinstance(c, (int, float)) and c >= 0 for c in caps) or (isinstance(elec, list) and min(caps) <= 0):
+        errs.append(f"face_elec_mw ({elec}) must be >= 0 (0 = no cap; caps in a list > 0)")
+    elif max(caps) > FACE_FEEDER_MAX_MW:
+        errs.append(f"face_elec_mw cap ({max(caps)} MW) exceeds the face feeder ({FACE_FEEDER_MAX_MW:g} MW)")
     errs.extend(sky.validate(g.get("sky")))
     errs.extend(frames.validate_nav(g.get("nav")) + frames.validate_sky_frame(g.get("sky")))   # step 3.0
     errs.extend(validate_spectrum(g.get("spectrum_exclusions_ghz")))                           # step 3.1

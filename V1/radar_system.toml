@@ -95,8 +95,15 @@ trm_technology     = { value = "GaN-on-diamond, microchannel cooling", unit = ""
 pae_duty_ref       = { value = 0.10, unit = "-", status = "D", source = "duty at which band.<b>.pae_sat is specified (usual pulsed datasheet condition); PAE = pae_sat x tau / (tau + pae_t_edge_s) x min(1, 1 - pae_duty_slope (d - pae_duty_ref)), d = tau / PRI of a train (d_ref for a single pulse); step 1.3, replaces the constant pae 0.75 shared by S and Ku", date = "2026-10-20" }
 psu_eff            = { value = 0.95, unit = "-", status = "V", source = "power supply efficiency (CHAIN_EFF factor)", date = "2026-10-20" }
 distribution_eff   = { value = 0.995, unit = "-", status = "V", source = "distribution efficiency (CHAIN_EFF factor)", date = "2026-10-20" }
-overhead_frac      = { value = 0.03, unit = "-", status = "V", source = "overhead fraction (CHAIN_EFF = psu x distribution x (1 - overhead) = 0.917); non-TX consumption (digital RX / ADC per TRM, control, cooling) to be budgeted at 4.1 and 4.4", date = "" }
-face_elec_mw       = { value = 2.0, unit = "MW", status = "V", source = "electrical power allocated per face (default of a mission)", date = "2026-10-20" }
+adc_w              = { value = 0.1, unit = "W", status = "V", source = "one ADC (250 Msps, 13 bits), two per TRM (polarisations), always on (step 4.1, B1; optimistic end, today 0.3-1 W); replaces overhead_frac 3 %", date = "2026-10-25" }
+dbf_kw             = { value = 50.0, unit = "kW", status = "V", source = "digital beamforming and processing per face, always on (step 4.1, B3; provisional, step 4.4)", date = "2026-10-25" }
+control_kw         = { value = 2.0, unit = "kW", status = "V", source = "control and housekeeping per face (step 4.1, B4)", date = "2026-10-25" }
+pump_frac          = { value = 0.02, unit = "-", status = "V", source = "cooling pumps: this fraction of the face's mean dissipated heat (step 4.1, B5; step 4.2)", date = "2026-10-25" }
+face_feeder_max_mw = { value = 8.0, unit = "MW", status = "V", source = "mean power one face's feeder / converter / distribution can carry (step 4.1, A): a face may draw up to the whole ship budget when the others are idle", date = "2026-10-25" }
+face_store_mj      = { value = 5.0, unit = "MJ", status = "V", source = "energy storage per face, shared by S and Ku (step 4.1, D1: supercapacitors ~30 Wh/kg in 2050, ~46 kg)", date = "2026-10-25" }
+face_store_max_mw  = { value = 15.0, unit = "MW", status = "V", source = "largest discharge power of the face storage (step 4.1, D2: covers the S peak ~12 MW or the Ku peak ~14 MW)", date = "2026-10-25" }
+store_dod          = { value = 0.8, unit = "-", status = "V", source = "usable depth of discharge of the face storage (step 4.1, D3)", date = "2026-10-25" }
+face_elec_mw       = { value = 2.0, unit = "MW", status = "V", source = "REFERENCE allocation per face = ship total / 4: the search optimiser weighs energy against time with it (step 4.1, A5); since step 4.1 the faces draw from the ship total in common, the mission key face_elec_mw being an optional cap per face", date = "2026-10-25" }
 ship_elec_total_mw = { value = 8.0, unit = "MW", status = "V", source = "ship total for the radar, distributable on demand among the faces (e.g. 3 MW on F1 and 5 MW over F2-F4); per-face allocation managed by the radar software with the other parameters at 4.1 / 5.2", date = "2026-10-20" }
 
 [migration]
@@ -182,6 +189,7 @@ allowed_roles       = { value = ["SEARCH", "TWS", "CONFIRM"], unit = "", status 
 pol_rx_dual         = { value = true, unit = "", status = "V", source = "dual-polarised digital RX (per-TRM ADC)", date = "2026-10-20" }
 pol_track_est_loss_db= { value = 0.05, unit = "dB", status = "V", source = "dual-pol RX, TRACK looks: the target polarisation is known from the previous looks, coherent recombination with estimated weights, residual estimation loss (step 1.5). Detection looks (search, confirmation) recombine by the GLRT on the unknown polarisation: loss COMPUTED, SNR_req(n + 1) - SNR_req(n) (radar_model.pol_recombination_loss_db), no entry; it replaces the 0.5 dB placeholder pol_loss_dual_db. S has no TRACK role today (entry kept for symmetry)", date = "2026-10-21" }
 pol_loss_single_db  = { value = 3.0, unit = "dB", status = "V", source = "single-pol RX on a depolarising target; kept to study a single-pol receiver (used only if pol_rx_dual = false)", date = "2026-10-20" }
+trm_supply_w        = { value = 1700.0, unit = "W", status = "V", source = "continuous supply capacity of one TRM (step 4.1, C1, proposal of step 1.3): mean electrical power within a train and recharge of the buffer between pulses; a waveform beyond it is removed", date = "2026-10-25" }
 e_buf_trm_j         = { value = 25.0, unit = "J", status = "D", source = "per-TRM energy buffer (local capacitor bank feeding the pulse); was 5 J (no source). tau_max = 0.2 x 25 x 0.8 / 2000 W = 2.0 ms, wanted by the user for very long range search (blind range ~300 km is a non-event at 10000 km; the dwell time is driven by the pulse count at the long PRI); 5 cm3 at 5 J/cm3 (2050); ~270 kg of S + Ku buffers per face at 1 J/g (open point)", date = "2026-10-20" }
 buffer_max_fraction = { value = 0.2, unit = "-", status = "D", source = "largest fraction of the buffer one pulse may draw: PA power follows the stored energy, so the pulse ends at 1 - 0.2 = -0.97 dB (mean loss 0.46 dB at the limit); was 0.5 (-3 dB end of pulse, too much for a coherent radar). Sets tau_max (step 1.3)", date = "2026-10-20" }
 bi_max_mhz          = { value = 200.0, unit = "MHz", status = "V", source = "instantaneous bandwidth ceiling = the whole usable S band, confirmed at step 1.4: with the digital true-time delay the limit is the per-TRM converters and filters (ADC rate / data: step 4.4)", date = "2026-10-20" }
@@ -217,6 +225,7 @@ cal_duration_s     = { value = 0.01, unit = "s", status = "V", source = "duratio
 # (NF = P_FS - (6.02 ENOB + 1.76) - 10 log10(fs) + 174, fs = adc_oversampling x bi_max_mhz complex samples/s:
 # 13 bits at +10 dBm and 250 Msps -> 20.0 dB, was 27.5 dB entered; a higher full scale costs as much as a bit gains) and the dynamic range of the chain: T_sys 144.5 K.
 [band.S.rx]
+rx_chain_w         = { value = 0.5, unit = "W", status = "V", source = "receive chain per polarisation channel (LNA, amplifiers, LO distribution), always on (step 4.1, B2)", date = "2026-10-25" }
 attenuator_max_db  = { value = 30.0, unit = "dB", status = "V", source = "switchable attenuator per look AFTER the LNA (no noise-figure penalty while the echo is strong), for close tracking below the unsaturated range: that range / 10^(A/40) (step 3.3, E3)", date = "2026-10-25" }
 attenuator_step_db = { value = 10.0, unit = "dB", status = "V", source = "attenuator steps (step 3.3, E3)", date = "2026-10-25" }
 t_ant_k            = { value = 3.2, unit = "K", status = "V", source = "COLD-SKY antenna temperature in S: CMB 2.73 K + minimum galactic ~0.5 K at high latitude (step 1.5; was 10 K = CMB + a median galactic). The galactic plane and the bodies in front of the face are added by direction from the mission sky ([sky], core/sky.py)", date = "2026-10-21" }
@@ -274,6 +283,7 @@ allowed_roles       = { value = ["CONFIRM", "TRACK"], unit = "", status = "D", s
 pol_rx_dual         = { value = true, unit = "", status = "V", source = "dual-polarised digital RX (per-TRM ADC), as in S", date = "2026-10-20" }
 pol_track_est_loss_db= { value = 0.05, unit = "dB", status = "V", source = "as S: TRACK looks recombine coherently with the polarisation estimated on the previous looks (step 1.5); detection looks use the computed GLRT loss", date = "2026-10-21" }
 pol_loss_single_db  = { value = 3.0, unit = "dB", status = "V", source = "single-pol RX on a depolarising target, as in S; kept to study a single-pol receiver", date = "2026-10-20" }
+trm_supply_w        = { value = 80.0, unit = "W", status = "V", source = "continuous supply capacity of one TRM (step 4.1, C1, proposal of step 1.3): mean electrical power within a train and recharge of the buffer between pulses; a waveform beyond it is removed", date = "2026-10-25" }
 e_buf_trm_j         = { value = 1.2, unit = "J", status = "D", source = "per-TRM energy buffer in Ku (was not modelled): tau_max = 0.2 x 1.2 x 0.65 / 75 W = 2.08 ms, same rationale as S (very long pulses for very long range); 0.24 cm3 at 5 J/cm3", date = "2026-10-20" }
 buffer_max_fraction = { value = 0.2, unit = "-", status = "D", source = "as S: -0.97 dB at the end of the longest pulse", date = "2026-10-20" }
 bi_max_mhz          = { value = 200.0, unit = "MHz", status = "V", source = "Ku instantaneous bandwidth (hardware ceiling); digital per-TRM true-time delay (no beam squint), confirmed in review 0.3", date = "2026-10-20" }
@@ -306,6 +316,7 @@ cal_duration_s     = { value = 0.05, unit = "s", status = "V", source = "duratio
 # proposed estimates to confirm): T_sys = 238.7 K (low end of the ranges ~138 K, high end ~387 K, the former block 400 K).
 # Step 1.5 as S: cold-sky t_ant_k, ADC noise figure derived (20.0 dB), dynamic range: T_sys 230.8 K.
 [band.Ku.rx]
+rx_chain_w         = { value = 0.1, unit = "W", status = "V", source = "receive chain per polarisation channel (LNA, amplifiers, LO distribution), always on (step 4.1, B2)", date = "2026-10-25" }
 attenuator_max_db  = { value = 30.0, unit = "dB", status = "V", source = "switchable attenuator per look AFTER the LNA (no noise-figure penalty while the echo is strong), for close tracking below the unsaturated range: that range / 10^(A/40) (step 3.3, E3)", date = "2026-10-25" }
 attenuator_step_db = { value = 10.0, unit = "dB", status = "V", source = "attenuator steps (step 3.3, E3)", date = "2026-10-25" }
 t_ant_k            = { value = 2.8, unit = "K", status = "V", source = "COLD-SKY antenna temperature in Ku: CMB, galactic negligible (step 1.5; was 5 K); the sky in front of the face is added by direction ([sky])", date = "2026-10-21" }

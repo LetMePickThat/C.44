@@ -1964,7 +1964,10 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
     mission = with_spectrum(mission)                 # step 3.1: the S exclusions seen by every sector
     g = mission.get("global", {})
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
-    elec = g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW)
+    # step 4.1 (A): the faces share the ship total; the optimiser weighs energy against time with the REFERENCE
+    # allocation (ship total / 4, power.face_elec_mw); the mission's face_elec_mw is an optional cap per face
+    cap = g.get("face_elec_mw") or None                # 0 / absent = no cap
+    elec = rm.FACE_ELEC_POWER_MW
     p_avg_max = rm.face_elec_avail_w(elec)
     sky = g.get("sky")
     skym.parse(sky)                  # refuses an invalid sky before any work
@@ -2016,13 +2019,13 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
         v["time_margin_s"] = 1.0 - v["time_fraction"]      # S-band TX time only; Ku is a separate array
         if v["positions"] <= 0:
             continue
-        if v["energy_fraction"] > 1.0 or v["time_fraction"] > 1.0:
-            warn.append(f"face F{k + 1} over-subscribed: energy {100 * v['energy_fraction']:.0f} %, "
-                        f"time on air {100 * v['time_fraction']:.0f} % (RR stretched x{dil[k]:.2f})")
-        elif v["power_margin"] < TRACK_MARGIN_WARN:
+        if v["time_fraction"] > 1.0:       # energy: the ship total is shared (step 4.1), judged in the budget
+            warn.append(f"face F{k + 1} over-subscribed: time on air {100 * v['time_fraction']:.0f} % "
+                        f"(RR stretched x{dil[k]:.2f})")
+        elif v["energy_fraction"] <= 1.0 and v["power_margin"] < TRACK_MARGIN_WARN:
             warn.append(f"face F{k + 1} tracking margin < {100 * TRACK_MARGIN_WARN:.0f} % "
                         f"({v['p_available_kW']:.0f} kW left for Ku)")
-    out = {"global": {"eps_min_deg": eps_min, "eps_max_deg": eps_max, "face_elec_mw": elec,
+    out = {"global": {"eps_min_deg": eps_min, "eps_max_deg": eps_max, "face_elec_mw": elec, "face_elec_cap_mw": cap,
                       "face_elec_avail_kW": p_avg_max / 1e3, "objective": "max(energy,time)",
                       "bin_deg": BIN_DEG, "max_wf_per_sector": MAX_WF_PER_SECTOR,
                       "sky_bodies": [b["id"] for b in (sky or {}).get("bodies", [])],
@@ -2159,6 +2162,14 @@ def print_report(res: dict) -> None:
                 print(f" face {k}: energy {100 * v['total_energy']:.1f} % (search {100 * v['search_energy']:.1f} + confirm "
                       f"{100 * v['confirm_energy']:.1f} + AT {100 * v['at_energy']:.1f}) | S time {100 * v['total_s_time']:.1f} % "
                       f"| Ku time {100 * v['total_ku_time']:.1f} % -> {v['status']} (load {v['load']:.2f}, {v['binding']})")
+                if "bus_draw_MW" in v:                      # step 4.1
+                    print(f"        bus {v['bus_draw_MW']:.3f} MW of {v['cap_MW']:g} (always-on {v['non_tx_kW']:.0f} kW) | "
+                          f"storage obs {v['store_obs_deficit_MJ']:.3f} / burst {v['store_burst_deficit_MJ']:.3f} of "
+                          f"{v['store_usable_MJ']:g} MJ")
+        if trk.get("ship_power"):
+            sp = trk["ship_power"]
+            print(f" SHIP POWER: {sp['draw_MW']:.2f} of {sp['budget_MW']:g} MW ({sp['status']}), suggested split "
+                  f"{sp['suggested_allocation_MW']} MW")
         for rule in trk.get("scheduler_rules", []):
             print(" SCHEDULER RULE (step 4.3):", rule)
     for wmsg in res["warnings"]:

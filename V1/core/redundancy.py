@@ -214,7 +214,7 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid) -> Tuple[List[Finding
     mission = mo.with_spectrum(mission)
     g = mission.get("global", {})
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
-    p_avg_max_w = rm.face_elec_avail_w(g.get("face_elec_mw", rm.FACE_ELEC_POWER_MW))
+    p_avg_max_w = rm.face_elec_avail_w(rm.FACE_ELEC_POWER_MW)     # the optimiser's reference (step 4.1)
     sectors = mission.get("sectors", [])
     scanned = grid.scanned(eps_min, eps_max)
     masks: List[Optional[np.ndarray]] = []

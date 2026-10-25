@@ -6,7 +6,7 @@
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
     "avg_power_kw": 47.258594987539134,
-    "energy_fraction": 0.025771066394118795,
+    "energy_fraction": -0.44216499801215503,
     "energy_j_per_refresh": 945171.8997507826,
     "positions": 996.1985040129617,
     "time_fraction_min": 0.003857844488778705,
@@ -19,7 +19,7 @@
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
     "avg_power_kw": 21.557442685289253,
-    "energy_fraction": 0.011755708921868844,
+    "energy_fraction": -0.20169762991475723,
     "energy_j_per_refresh": 107787.21342644627,
     "positions": 174.89380211360498,
     "time_fraction_min": 0.0017597912396154496,
@@ -37,22 +37,22 @@
    "0": {
     "avg_power_kW": 3.3613,
     "dissipation_kW": 0.7191,
-    "energy_fraction": 0.0018,
-    "ku_duty_pct": 12.9499,
-    "p_available_kW": 1830.4237,
+    "energy_fraction": 0.0019,
+    "ku_duty_pct": 12.595,
+    "p_available_kW": 1780.2587,
     "positions": 477.7,
-    "power_margin": 0.9982,
+    "power_margin": 0.9981,
     "time_fraction": 0.0003,
     "time_margin_s": 0.9997
    },
    "1": {
     "avg_power_kW": 10.2115,
     "dissipation_kW": 2.0975,
-    "energy_fraction": 0.0056,
-    "ku_duty_pct": 12.9015,
-    "p_available_kW": 1823.5735,
+    "energy_fraction": 0.0057,
+    "ku_duty_pct": 12.5466,
+    "p_available_kW": 1773.4085,
     "positions": 140.8,
-    "power_margin": 0.9944,
+    "power_margin": 0.9943,
     "time_fraction": 0.0008,
     "time_margin_s": 0.9992
    },
@@ -60,8 +60,8 @@
     "avg_power_kW": 0.0,
     "dissipation_kW": 0.0,
     "energy_fraction": 0.0,
-    "ku_duty_pct": 12.9737,
-    "p_available_kW": 1833.785,
+    "ku_duty_pct": 12.6188,
+    "p_available_kW": 1783.62,
     "positions": 0.0,
     "power_margin": 1.0,
     "time_fraction": 0.0,
@@ -71,8 +71,8 @@
     "avg_power_kW": 0.0,
     "dissipation_kW": 0.0,
     "energy_fraction": 0.0,
-    "ku_duty_pct": 12.9737,
-    "p_available_kW": 1833.785,
+    "ku_duty_pct": 12.6188,
+    "p_available_kW": 1783.62,
     "positions": 0.0,
     "power_margin": 1.0,
     "time_fraction": 0.0,
@@ -83,7 +83,8 @@
    "bin_deg": 5,
    "eps_max_deg": 90.0,
    "eps_min_deg": -90.0,
-   "face_elec_avail_kW": 1833.7849999999999,
+   "face_elec_avail_kW": 1783.6199999999997,
+   "face_elec_cap_mw": null,
    "face_elec_mw": 2.0,
    "max_wf_per_sector": 4,
    "objective": "max(energy,time)",
@@ -106,7 +107,7 @@
       "dissipation_kW": 0.7190719088816102,
       "dissipation_kW_m2": 0.05408019530712149,
       "energy_J_per_refresh": 67225.43717117148,
-      "energy_fraction": 0.0018329694367434429,
+      "energy_fraction": 0.0018845224086736943,
       "positions": 477.7,
       "theta_max_deg": 51.0,
       "time_fraction": 0.00026961223976295544
@@ -137,7 +138,7 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 0.03665938873486886,
+    "rr_alone_s": 0.03769044817347389,
     "rr_est_mission_s": 20.0,
     "rr_target_s": 20.0,
     "rx_beams_per_position": 12.487751483592406,
@@ -844,7 +845,7 @@
       "dissipation_kW": 2.0974811777109066,
       "dissipation_kW_m2": 0.15774805042800355,
       "energy_J_per_refresh": 51057.386286085304,
-      "energy_fraction": 0.005568524803734932,
+      "energy_fraction": 0.0057251417102393235,
       "positions": 140.8,
       "theta_max_deg": 20.0,
       "time_fraction": 0.000827958783623077
@@ -875,7 +876,7 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 0.02784262401867466,
+    "rr_alone_s": 0.028625708551196616,
     "rr_est_mission_s": 5.0,
     "rr_target_s": 5.0,
     "rx_beams_per_position": 7.024360209520728,
@@ -1197,81 +1198,157 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
+     "bus_draw_MW": 0.11669596781500419,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
-     "confirm_energy": 1.2740019789407185e-05,
+     "cap_MW": 8.0,
+     "confirm_energy": 1.309833775665111e-05,
      "confirm_ku_time": 1.2306351054029733e-06,
      "confirm_s_time": 0.0,
      "dissipation_kW": 0.7311559971586281,
      "dissipation_kW_m2": 0.05498901937055354,
-     "load": 0.001812740019789407,
-     "p_left_kW": 1830.4608245428103,
-     "search_energy": 0.0018,
+     "load": 0.014586995976875523,
+     "max_contiguous_tx_s": 0.5988463218660841,
+     "non_tx_kW": 106.88,
+     "p_left_kW": 7883.304032184996,
+     "peak_MW": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     },
+     "peak_ok": true,
+     "pumps_kW": 0.014623119943172563,
+     "search_energy": 0.0019,
      "search_s_time": 0.0003,
      "status": "OK",
-     "total_energy": 0.001812740019789407,
+     "store_burst_deficit_MJ": 0.0,
+     "store_burst_ok": true,
+     "store_obs_deficit_MJ": 0.00020605572396149708,
+     "store_obs_ok": true,
+     "store_usable_MJ": 4.0,
+     "total_energy": 0.014586995976875523,
      "total_ku_time": 0.00016789730177206965,
-     "total_s_time": 0.0003333333333333333
+     "total_s_time": 0.0003333333333333333,
+     "transient_MW_per_us": {
+      "Ku": 141.34615384615387,
+      "S": 61.25000000000001
+     }
     },
     "1": {
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
+     "bus_draw_MW": 0.12394633566280096,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
-     "confirm_energy": 3.864673961364898e-05,
+     "cap_MW": 8.0,
+     "confirm_energy": 3.9733694061748186e-05,
      "confirm_ku_time": 3.25127819248665e-06,
      "confirm_s_time": 0.0,
      "dissipation_kW": 2.1384986930089442,
      "dissipation_kW_m2": 0.1608329091339719,
-     "load": 0.005638646739613649,
-     "p_left_kW": 1823.4449341885975,
-     "search_energy": 0.0056,
+     "load": 0.01549329195785012,
+     "max_contiguous_tx_s": 0.5988437983922226,
+     "non_tx_kW": 106.88,
+     "p_left_kW": 7876.053664337199,
+     "peak_MW": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     },
+     "peak_ok": true,
+     "pumps_kW": 0.04276997386017889,
+     "search_energy": 0.0057,
      "search_s_time": 0.0008,
      "status": "OK",
-     "total_energy": 0.005638646739613649,
+     "store_burst_deficit_MJ": 0.01379094025677493,
+     "store_burst_ok": true,
+     "store_obs_deficit_MJ": 1.0063367768273343e-05,
+     "store_obs_ok": true,
+     "store_usable_MJ": 4.0,
+     "total_energy": 0.01549329195785012,
      "total_ku_time": 0.00016991794485915333,
-     "total_s_time": 0.0008333333333333334
+     "total_s_time": 0.0008333333333333334,
+     "transient_MW_per_us": {
+      "Ku": 141.34615384615387,
+      "S": 61.25000000000001
+     }
     },
     "2": {
      "at_energy": 0.0,
      "at_ku_time": 0.0,
-     "binding": "Ku time on air",
+     "binding": "energy",
+     "bus_draw_MW": 0.1130706162390902,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
+     "cap_MW": 8.0,
      "confirm_energy": 0.0,
      "confirm_ku_time": 0.0,
      "confirm_s_time": 0.0,
      "dissipation_kW": 0.0,
      "dissipation_kW_m2": 0.0,
-     "load": 0.0001666666666666667,
-     "p_left_kW": 1833.7849999999999,
+     "load": 0.014133827029886276,
+     "max_contiguous_tx_s": 0.5988476328935027,
+     "non_tx_kW": 106.88,
+     "p_left_kW": 7886.929383760909,
+     "peak_MW": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     },
+     "peak_ok": true,
+     "pumps_kW": 0.0,
      "search_energy": 0.0,
      "search_s_time": 0.0,
      "status": "OK",
-     "total_energy": 0.0,
+     "store_burst_deficit_MJ": 0.0,
+     "store_burst_ok": true,
+     "store_obs_deficit_MJ": 0.0,
+     "store_obs_ok": true,
+     "store_usable_MJ": 4.0,
+     "total_energy": 0.014133827029886276,
      "total_ku_time": 0.0001666666666666667,
-     "total_s_time": 3.3333333333333335e-05
+     "total_s_time": 3.3333333333333335e-05,
+     "transient_MW_per_us": {
+      "Ku": 141.34615384615387,
+      "S": 61.25000000000001
+     }
     },
     "3": {
      "at_energy": 0.0,
      "at_ku_time": 0.0,
-     "binding": "Ku time on air",
+     "binding": "energy",
+     "bus_draw_MW": 0.1130706162390902,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
+     "cap_MW": 8.0,
      "confirm_energy": 0.0,
      "confirm_ku_time": 0.0,
      "confirm_s_time": 0.0,
      "dissipation_kW": 0.0,
      "dissipation_kW_m2": 0.0,
-     "load": 0.0001666666666666667,
-     "p_left_kW": 1833.7849999999999,
+     "load": 0.014133827029886276,
+     "max_contiguous_tx_s": 0.5988476328935027,
+     "non_tx_kW": 106.88,
+     "p_left_kW": 7886.929383760909,
+     "peak_MW": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     },
+     "peak_ok": true,
+     "pumps_kW": 0.0,
      "search_energy": 0.0,
      "search_s_time": 0.0,
      "status": "OK",
-     "total_energy": 0.0,
+     "store_burst_deficit_MJ": 0.0,
+     "store_burst_ok": true,
+     "store_obs_deficit_MJ": 0.0,
+     "store_obs_ok": true,
+     "store_usable_MJ": 4.0,
+     "total_energy": 0.014133827029886276,
      "total_ku_time": 0.0001666666666666667,
-     "total_s_time": 3.3333333333333335e-05
+     "total_s_time": 3.3333333333333335e-05,
+     "transient_MW_per_us": {
+      "Ku": 141.34615384615387,
+      "S": 61.25000000000001
+     }
     }
    },
    "pfa": 1e-08,
@@ -1279,24 +1356,28 @@
     "search lattice shifted every frame (grid_dithering, step 2.3): the cumulative detection criterion draws the target position in its cell anew at each revisit",
     "S band: common TX / RX cadence of all faces (interface_mode sync): no face receives S while another transmits S (adjacent and opposite faces fail the isolation)",
     "Ku band: common TX / RX cadence of all faces (interface_mode sync): no face receives Ku while another transmits Ku (adjacent and opposite faces fail the isolation)",
-    "S transmission and Ku reception on the same face(s) only if the S harmonic (order 5) misses the Ku channel"
+    "S transmission and Ku reception on the same face(s) only if the S harmonic (order 5) misses the Ku channel",
+    "face F1: at most 0.60 s of contiguous transmission at peak power, then recharge (face storage 4 MJ usable, step 4.1)",
+    "face F2: at most 0.60 s of contiguous transmission at peak power, then recharge (face storage 4 MJ usable, step 4.1)",
+    "face F3: at most 0.60 s of contiguous transmission at peak power, then recharge (face storage 4 MJ usable, step 4.1)",
+    "face F4: at most 0.60 s of contiguous transmission at peak power, then recharge (face storage 4 MJ usable, step 4.1)"
    ],
    "sectors": [
     {
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.0056,
+       "mission_max_load": 0.0057,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.0056,
+       "mission_max_load": 0.0057,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.0056,
+       "mission_max_load": 0.0057,
        "why_not": ""
       }
      },
@@ -1307,7 +1388,7 @@
       "cluster_tx": "superposition x7",
       "faces": {
        "0": {
-        "energy_fraction": 1.2740019789407185e-05,
+        "energy_fraction": 1.309833775665111e-05,
         "ku_time_fraction": 1.2306351054029733e-06,
         "s_time_fraction": 0.0
        }
@@ -1356,17 +1437,17 @@
      "alternatives": {
       "KU1+7": {
        "admissible": true,
-       "mission_max_load": 0.0056,
+       "mission_max_load": 0.0057,
        "why_not": ""
       },
       "KU7": {
        "admissible": true,
-       "mission_max_load": 0.0057,
+       "mission_max_load": 0.0058,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
-       "mission_max_load": 0.0058,
+       "mission_max_load": 0.0059,
        "why_not": ""
       }
      },
@@ -1377,7 +1458,7 @@
       "cluster_tx": "superposition x7",
       "faces": {
        "1": {
-        "energy_fraction": 3.864673961364898e-05,
+        "energy_fraction": 3.9733694061748186e-05,
         "ku_time_fraction": 3.25127819248665e-06,
         "s_time_fraction": 0.0
        }
@@ -1442,6 +1523,18 @@
      "DEBRIS": 1.0,
      "DECOY": 1.0
     }
+   },
+   "ship_power": {
+    "budget_MW": 8.0,
+    "draw_MW": 0.46678353595598554,
+    "load": 0.05834794199449819,
+    "status": "OK",
+    "suggested_allocation_MW": [
+     2.0,
+     2.124,
+     1.938,
+     1.938
+    ]
    }
   },
   "warnings": []
