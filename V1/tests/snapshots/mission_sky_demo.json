@@ -5,35 +5,35 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 218.08246746409498,
-    "energy_fraction": 0.12226957954278098,
-    "energy_j_per_refresh": 4361649.3492819,
+    "avg_power_kw": 218.08417629429388,
+    "energy_fraction": 0.12227053761131515,
+    "energy_j_per_refresh": 4361683.525885878,
     "positions": 160.49983493289184,
-    "time_fraction_min": 0.017802650405232243,
+    "time_fraction_min": 0.017802789901575012,
     "unreachable_pct": 0.0
    },
    "3": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 40.87130661748739,
-    "energy_fraction": 0.022914806190493152,
-    "energy_j_per_refresh": 817426.1323497478,
+    "avg_power_kw": 40.87162693903643,
+    "energy_fraction": 0.022914985781184578,
+    "energy_j_per_refresh": 817432.5387807286,
     "positions": 18.072134127578927,
-    "time_fraction_min": 0.0033364331932642767,
+    "time_fraction_min": 0.0033364593419621578,
     "unreachable_pct": 0.0
    }
   },
   "MOON": {
    "1": {
-    "at_avg_power_kw": 0.0053569975998868985,
-    "at_ku_time_fraction": 2.789984696518622e-07,
+    "at_avg_power_kw": 0.00535775502567972,
+    "at_ku_time_fraction": 2.7905205623856524e-07,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 32.40363225488754,
-    "energy_fraction": 0.018167340719933363,
-    "energy_j_per_refresh": 323982.7525728766,
+    "avg_power_kw": 32.40388686352168,
+    "energy_fraction": 0.01816748346818363,
+    "energy_j_per_refresh": 323985.29108496,
     "positions": 28.276604281190153,
-    "time_fraction_min": 0.0026447571638602172,
+    "time_fraction_min": 0.0026447778864078365,
     "unreachable_pct": 0.0
    }
   },
@@ -42,22 +42,22 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 28.84325698733473,
-    "energy_fraction": 0.01617118948393421,
-    "energy_j_per_refresh": 576865.1397466946,
+    "avg_power_kw": 28.843482826968433,
+    "energy_fraction": 0.016171316102627484,
+    "energy_j_per_refresh": 576869.6565393687,
     "positions": 57.82447516131592,
-    "time_fraction_min": 0.0023545515908028353,
+    "time_fraction_min": 0.002354570026691301,
     "unreachable_pct": 0.0
    },
    "1": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 28.84325698733473,
-    "energy_fraction": 0.01617118948393421,
-    "energy_j_per_refresh": 576865.1397466946,
+    "avg_power_kw": 28.843482826968433,
+    "energy_fraction": 0.016171316102627484,
+    "energy_j_per_refresh": 576869.6565393687,
     "positions": 57.82447516131592,
-    "time_fraction_min": 0.0023545515908028353,
+    "time_fraction_min": 0.002354570026691301,
     "unreachable_pct": 0.0
    }
   }
@@ -74,22 +74,23 @@
      "bands": {
       "Ku": {
        "beams_max": 32,
-       "beams_mean": 0.03662554767677905,
+       "beams_mean": 0.03663258226047615,
        "beams_peak": 7,
-       "bits_per_s": 28714429378.594772,
+       "bits_per_s": 28719944492.213303,
        "buffer_peak_GB": 0.14,
        "face_input_peak_tbps": 5.488,
        "link_trsa_peak_tbps": 0.028,
-       "open_windows_mean": 0.005232221096682721,
+       "open_windows_mean": 0.005233226037210879,
        "ops_per_s": {
-        "banks": 4453666597.496332,
-        "beamforming": 4493808197750.082,
-        "cfar": 347942702.9294009,
-        "compression": 835680390.4287586,
+        "banks": 4454522002.873899,
+        "beamforming": 4494671313031.382,
+        "cfar": 348009531.4745234,
+        "compression": 835840897.61632,
         "nulling": 0.0,
+        "repointing": 13.083065093027196,
         "tracks": 0.0
        },
-       "ops_total_per_s": 4499445487440.937,
+       "ops_total_per_s": 4500309685476.43,
        "transport": "subarray_beams"
       },
       "S": {
@@ -107,54 +108,56 @@
         "cfar": 144817956.40492445,
         "compression": 766248487.1685553,
         "nulling": 0.0,
+        "repointing": 226.5,
         "tracks": 0.0
        },
-       "ops_total_per_s": 178544771769.85382,
+       "ops_total_per_s": 178544771996.35382,
        "transport": "raw"
       }
      },
-     "bits_per_s": 117502429378.59477,
-     "bus_draw_MW_actual": 0.08618450077714963,
-     "capacity_ops_per_s": 3.999999412487853e+18,
-     "face_heat_kW_actual": 69.85990632827492,
+     "bits_per_s": 117507944492.2133,
+     "bus_draw_MW_actual": 0.08618451595335751,
+     "capacity_ops_per_s": 3.999999412460277e+18,
+     "face_heat_kW_actual": 69.8599114406943,
      "jammers_nulled": 0,
-     "load": 1.169497736576229e-06,
+     "load": 1.1697137861815243e-06,
      "memory": {
       "bandwidth_TB_per_s": 50.0,
       "buffers_peak_TB": 0.00014799216094949912,
       "capacity_TB": 4.0,
-      "traffic_TB_per_s": 0.014760633709102357
+      "traffic_TB_per_s": 0.01476133013288837
      },
-     "non_tx_kW_actual": 66.88005265502406,
-     "ops_total_per_s": 4677990259210.79,
+     "non_tx_kW_actual": 66.8800526639418,
+     "ops_total_per_s": 4678854457472.783,
      "power_kW": {
       "ceiling": 50.0,
-      "ops": 4.67799025921079e-05,
+      "ops": 4.678854457472783e-05,
       "static": 10.0,
-      "total": 10.000052655024062,
-      "transport": 5.875121468929738e-06
+      "total": 10.000052663941798,
+      "transport": 5.875397224610666e-06
      }
     },
     "1": {
      "bands": {
       "Ku": {
        "beams_max": 32,
-       "beams_mean": 0.20133754257739556,
+       "beams_mean": 0.20137621301057715,
        "beams_peak": 7,
-       "bits_per_s": 157852906505.38135,
+       "bits_per_s": 157883224945.6952,
        "buffer_peak_GB": 0.14,
        "face_input_peak_tbps": 21.952,
        "link_trsa_peak_tbps": 0.112,
-       "open_windows_mean": 0.028764063343674307,
+       "open_windows_mean": 0.028769587990360404,
        "ops_per_s": {
-        "banks": 24482447509.057682,
-        "beamforming": 24703979868092.18,
-        "cfar": 1912703929.2781768,
-        "compression": 4594005055.241194,
+        "banks": 24487149795.768234,
+        "beamforming": 24708724704001.3,
+        "cfar": 1913071297.8699965,
+        "compression": 4594887415.098641,
         "nulling": 0.0,
+        "repointing": 72.28285782327953,
         "tracks": 10000.0
        },
-       "ops_total_per_s": 24734969034585.758,
+       "ops_total_per_s": 24739719822582.32,
        "transport": "subarray_beams"
       },
       "S": {
@@ -172,32 +175,33 @@
         "cfar": 208755244.00091755,
         "compression": 1442847592.8361535,
         "nulling": 0.0,
+        "repointing": 354.5,
         "tracks": 0.0
        },
-       "ops_total_per_s": 336033962433.45416,
+       "ops_total_per_s": 336033962787.95416,
        "transport": "raw"
       }
      },
-     "bits_per_s": 296816906505.38135,
-     "bus_draw_MW_actual": 0.08848683792897392,
-     "capacity_ops_per_s": 3.999998515915468e+18,
-     "face_heat_kW_actual": 70.3845079285822,
+     "bits_per_s": 296847224945.6952,
+     "bus_draw_MW_actual": 0.08848692527903718,
+     "capacity_ops_per_s": 3.9999985157638753e+18,
+     "face_heat_kW_actual": 70.38453650883488,
      "jammers_nulled": 0,
-     "load": 6.26775307472365e-06,
+     "load": 6.268940772489658e-06,
      "memory": {
       "bandwidth_TB_per_s": 50.0,
       "buffers_peak_TB": 0.0001524877514835924,
       "capacity_TB": 4.0,
-      "traffic_TB_per_s": 0.037371629439063456
+      "traffic_TB_per_s": 0.03737545791558267
      },
-     "non_tx_kW_actual": 66.8802655508753,
-     "ops_total_per_s": 25071002997019.21,
+     "non_tx_kW_actual": 66.8802655998991,
+     "ops_total_per_s": 25075753785370.273,
      "power_kW": {
       "ceiling": 50.0,
-      "ops": 0.0002507100299701921,
+      "ops": 0.00025075753785370276,
       "static": 10.0,
-      "total": 10.000265550875296,
-      "transport": 1.4840845325269066e-05
+      "total": 10.000265599899102,
+      "transport": 1.484236124728476e-05
      }
     },
     "2": {
@@ -217,6 +221,7 @@
         "cfar": 0.0,
         "compression": 0.0,
         "nulling": 0.0,
+        "repointing": 0.0,
         "tracks": 0.0
        },
        "ops_total_per_s": 0.0,
@@ -237,18 +242,19 @@
         "cfar": 855478392647.265,
         "compression": 321243171457.9153,
         "nulling": 0.0,
+        "repointing": 338.5,
         "tracks": 0.0
        },
-       "ops_total_per_s": 100956701082961.03,
+       "ops_total_per_s": 100956701083299.53,
        "transport": "raw"
       }
      },
      "bits_per_s": 24448933480888.594,
-     "bus_draw_MW_actual": 0.2550902872400792,
+     "bus_draw_MW_actual": 0.255090291471764,
      "capacity_ops_per_s": 3.9998777553325957e+18,
-     "face_heat_kW_actual": 102.35966801368485,
+     "face_heat_kW_actual": 102.35987201368488,
      "jammers_nulled": 0,
-     "load": 2.523994663296062e-05,
+     "load": 2.5239946633045246e-05,
      "memory": {
       "bandwidth_TB_per_s": 50.0,
       "buffers_peak_TB": 0.005194171363408256,
@@ -256,12 +262,12 @@
       "traffic_TB_per_s": 3.0683800575297995
      },
      "non_tx_kW_actual": 66.88223201368487,
-     "ops_total_per_s": 100956701082961.03,
+     "ops_total_per_s": 100956701083299.53,
      "power_kW": {
       "ceiling": 50.0,
-      "ops": 0.0010095670108296103,
+      "ops": 0.0010095670108329954,
       "static": 10.0,
-      "total": 10.002232013684873,
+      "total": 10.002232013684878,
       "transport": 0.0012224466740444297
      }
     },
@@ -282,6 +288,7 @@
         "cfar": 0.0,
         "compression": 0.0,
         "nulling": 0.0,
+        "repointing": 0.0,
         "tracks": 0.0
        },
        "ops_total_per_s": 0.0,
@@ -302,18 +309,19 @@
         "cfar": 98563241693.48102,
         "compression": 37011768646.55449,
         "nulling": 0.0,
+        "repointing": 38.99999999999999,
         "tracks": 0.0
        },
-       "ops_total_per_s": 11631643551655.775,
+       "ops_total_per_s": 11631643551694.775,
        "transport": "raw"
       }
      },
      "bits_per_s": 2816863827931.034,
-     "bus_draw_MW_actual": 0.12323116123737307,
+     "bus_draw_MW_actual": 0.12323116335321543,
      "capacity_ops_per_s": 3.9999859156808607e+18,
-     "face_heat_kW_actual": 76.96418115962692,
+     "face_heat_kW_actual": 76.96428315962692,
      "jammers_nulled": 0,
-     "load": 2.90792112693624e-06,
+     "load": 2.90792112694599e-06,
      "memory": {
       "bandwidth_TB_per_s": 50.0,
       "buffers_peak_TB": 0.005194171363408256,
@@ -321,10 +329,10 @@
       "traffic_TB_per_s": 0.3535208928911733
      },
      "non_tx_kW_actual": 66.88025715962691,
-     "ops_total_per_s": 11631643551655.775,
+     "ops_total_per_s": 11631643551694.775,
      "power_kW": {
       "ceiling": 50.0,
-      "ops": 0.00011631643551655776,
+      "ops": 0.00011631643551694776,
       "static": 10.0,
       "total": 10.000257159626914,
       "transport": 0.00014084319139655172
@@ -343,55 +351,55 @@
      "reselect_ops": 36000.0
     },
     "MOON": {
-     "processing_s": 3.075981175885785e-08,
+     "processing_s": 3.075981179655718e-08,
      "reselect_ops": 4000.0
     },
     "SUN": {
-     "processing_s": 1.970705928208979e-08,
+     "processing_s": 1.9707059306242824e-08,
      "reselect_ops": 10000.0
     }
    }
   },
   "faces_total": {
    "0": {
-    "avg_power_kW": 14.4249,
+    "avg_power_kW": 14.425,
     "dissipation_kW": 2.8894,
     "energy_fraction": 0.0081,
     "ku_duty_pct": 12.5168,
-    "p_available_kW": 1769.1951,
+    "p_available_kW": 1769.195,
     "positions": 45.3,
     "power_margin": 0.9919,
     "time_fraction": 0.0012,
     "time_margin_s": 0.9988
    },
    "1": {
-    "avg_power_kW": 16.2426,
+    "avg_power_kW": 16.2427,
     "dissipation_kW": 3.2555,
     "energy_fraction": 0.0091,
     "ku_duty_pct": 12.5039,
-    "p_available_kW": 1767.3774,
+    "p_available_kW": 1767.3773,
     "positions": 58.1,
     "power_margin": 0.9909,
     "time_fraction": 0.0013,
     "time_margin_s": 0.9987
    },
    "2": {
-    "avg_power_kW": 173.5701,
-    "dissipation_kW": 34.7818,
+    "avg_power_kW": 173.5714,
+    "dissipation_kW": 34.782,
     "energy_fraction": 0.0973,
     "ku_duty_pct": 11.3908,
-    "p_available_kW": 1610.0499,
+    "p_available_kW": 1610.0486,
     "positions": 67.7,
     "power_margin": 0.9027,
     "time_fraction": 0.0142,
     "time_margin_s": 0.9858
    },
    "3": {
-    "avg_power_kW": 49.3422,
-    "dissipation_kW": 9.8862,
+    "avg_power_kW": 49.3425,
+    "dissipation_kW": 9.8863,
     "energy_fraction": 0.0277,
     "ku_duty_pct": 12.2697,
-    "p_available_kW": 1734.2778,
+    "p_available_kW": 1734.2775,
     "positions": 7.8,
     "power_margin": 0.9723,
     "time_fraction": 0.004,
@@ -414,29 +422,53 @@
    ],
    "sky_galactic": "frame"
   },
+  "repointing": {
+   "accel_max_dps2": 15.0,
+   "bands": {
+    "Ku": {
+     "accel_tenable_dps2": 130.80316179041495,
+     "error_hpbw": 0.005885028372556691,
+     "error_rms_deg": 0.0017326227915083884,
+     "hpbw_deg": 0.2944119691228724,
+     "loss_db": 0.0008340592079425268
+    },
+    "S": {
+     "accel_tenable_dps2": 647.5981157474987,
+     "error_hpbw": 0.0011890760037895844,
+     "error_rms_deg": 0.0017326227915083884,
+     "hpbw_deg": 1.4571169428922297,
+     "loss_db": 3.4050146840066366e-05
+    }
+   },
+   "flags": [],
+   "nav_age_s": 0.015,
+   "rate_max_dps": 30.0,
+   "sectors": {},
+   "track_axis_sigma_deg": 0.001225149325113947
+  },
   "scheduler": {
    "eclipse_db": {
-    "Ku": 0.0008503982960504745,
-    "S": 0.062091651094601026
+    "Ku": 0.0008504225956110418,
+    "S": 0.06209212425865759
    },
    "faces": {
     "0": {
      "Ku": {
-      "capacity": 0.9858045876181565,
+      "capacity": 0.9858044802147029,
       "feasible": true,
-      "load": 0.0001718988877633494,
+      "load": 0.00017189989270387758,
       "load_by_priority": {
        "P0": 0.0001666666666666667,
-       "P2": 5.23222109668272e-06
+       "P2": 5.233226037210878e-06
       },
       "mean_wait_s": {
-       "calibration Ku": 4.1674096816495235e-06,
-       "confirmation SUN": 4.168126177903562e-06
+       "calibration Ku": 4.167409700264503e-06,
+       "confirmation SUN": 4.168126200711182e-06
       },
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 17.33767747721045,
+       "end_s": 17.337677480767272,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration Ku": 0.0,
@@ -450,14 +482,14 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.001210426250205898,
+      "load": 0.0012104354790461096,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
-       "P4_1": 0.0011770929168725647
+       "P4_1": 0.0011771021457127762
       },
       "mean_wait_s": {
-       "calibration S": 4.725428452364665e-07,
-       "search SUN": 4.7311551667723236e-07
+       "calibration S": 4.72547641531014e-07,
+       "search SUN": 4.731203231560198e-07
       },
       "stretch": {},
       "timeline": {
@@ -478,25 +510,25 @@
     },
     "1": {
      "Ku": {
-      "capacity": 0.9858045876181565,
+      "capacity": 0.9858044802147029,
       "feasible": true,
-      "load": 0.00019579227414977298,
+      "load": 0.00019579786823489205,
       "load_by_priority": {
        "P0": 0.0001666666666666667,
-       "P2": 2.9023205873154868e-05,
-       "P3": 1.024016099514281e-07
+       "P2": 2.902878029275606e-05,
+       "P3": 1.0242127546928866e-07
       },
       "mean_wait_s": {
-       "calibration Ku": 4.167657999348977e-06,
-       "confirmation MOON": 4.1684737274413856e-06,
-       "confirmation SUN": 4.1684737274413856e-06,
-       "initiation MOON/0": 4.1684737274413856e-06,
-       "track updates MOON/0": 4.168595160546639e-06
+       "calibration Ku": 4.1676581133607224e-06,
+       "confirmation MOON": 4.168473864716817e-06,
+       "confirmation SUN": 4.168473864716817e-06,
+       "initiation MOON/0": 4.168473864716817e-06,
+       "track updates MOON/0": 4.1685953211501125e-06
       },
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 19.35842298094863,
+       "end_s": 19.358422981442224,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration Ku": 0.0,
@@ -513,15 +545,15 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.0013585475707036266,
+      "load": 0.0013585579608693201,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
-       "P4_1": 0.0013252142373702932
+       "P4_1": 0.0013252246275359868
       },
       "mean_wait_s": {
-       "calibration S": 4.811134143541314e-07,
-       "search MOON": 4.817679189901184e-07,
-       "search SUN": 4.817679189901184e-07
+       "calibration S": 4.811183450420167e-07,
+       "search MOON": 4.817728613982e-07,
+       "search SUN": 4.817728613982e-07
       },
       "stretch": {},
       "timeline": {
@@ -569,14 +601,14 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.014195412381843523,
+      "load": 0.014195519785297109,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
-       "P4_1": 0.01416207904851019
+       "P4_1": 0.014162186451963776
       },
       "mean_wait_s": {
-       "calibration S": 2.9793137315741827e-05,
-       "search EARTH": 3.0222153244109225e-05
+       "calibration S": 2.9793586684330096e-05,
+       "search EARTH": 3.0222612376280953e-05
       },
       "stretch": {},
       "timeline": {
@@ -622,14 +654,14 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.004059450151974144,
+      "load": 0.004059478798833988,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
-       "P4_1": 0.004026116818640811
+       "P4_1": 0.004026145465500655
       },
       "mean_wait_s": {
-       "calibration S": 2.0948924755623145e-05,
-       "search EARTH": 2.1034312498692632e-05
+       "calibration S": 2.0949220498851866e-05,
+       "search EARTH": 2.1034610052401325e-05
       },
       "stretch": {},
       "timeline": {
@@ -661,7 +693,7 @@
      "go_cfar_advised": false,
      "id": "SUN",
      "latency_ok": true,
-     "latency_q95_s": 0.02003238401809988,
+     "latency_q95_s": 0.020032387574924142,
      "latency_required_s": 21.428571428571427,
      "priority": "P4_1",
      "scan": {
@@ -731,7 +763,7 @@
      "go_cfar_advised": true,
      "id": "MOON",
      "latency_ok": true,
-     "latency_q95_s": 0.04004879617257917,
+     "latency_q95_s": 0.04004880022021122,
      "latency_required_s": 42.857142857142854,
      "priority": "P4_1",
      "scan": {
@@ -751,8 +783,8 @@
     }
    ],
    "slots": {
-    "Ku": 0.00019579227414977298,
-    "S": 0.014195412381843523
+    "Ku": 0.00019579786823489205,
+    "S": 0.014195519785297109
    }
   },
   "sectors": [
@@ -767,24 +799,24 @@
     },
     "faces": {
      "0": {
-      "avg_power_kW": 14.4249323308633,
-      "dissipation_kW": 2.8894217455121676,
-      "dissipation_kW_m2": 0.21730857566801295,
-      "energy_J_per_refresh": 288498.646617266,
-      "energy_fraction": 0.00808744706319917,
+      "avg_power_kW": 14.425045384155895,
+      "dissipation_kW": 2.889444356170686,
+      "dissipation_kW_m2": 0.21731027617781398,
+      "energy_J_per_refresh": 288500.9076831179,
+      "energy_fraction": 0.00808751044737999,
       "positions": 45.3,
       "theta_max_deg": 46.0,
-      "time_fraction": 0.0011770929168725647
+      "time_fraction": 0.0011771021457127762
      },
      "1": {
-      "avg_power_kW": 14.424932330863303,
-      "dissipation_kW": 2.889421745512168,
-      "dissipation_kW_m2": 0.21730857566801298,
-      "energy_J_per_refresh": 288498.64661726606,
-      "energy_fraction": 0.008087447063199171,
+      "avg_power_kW": 14.425045384155895,
+      "dissipation_kW": 2.8894443561706864,
+      "dissipation_kW_m2": 0.217310276177814,
+      "energy_J_per_refresh": 288500.9076831179,
+      "energy_fraction": 0.00808751044737999,
       "positions": 45.3,
       "theta_max_deg": 46.0,
-      "time_fraction": 0.0011770929168725647
+      "time_fraction": 0.0011771021457127764
      }
     },
     "flags": [
@@ -815,7 +847,7 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 0.16174894126398343,
+    "rr_alone_s": 0.16175020894759978,
     "rr_est_mission_s": 20.0,
     "rr_target_s": 20.0,
     "rx_beams_per_position": 7.992160949499142,
@@ -905,8 +937,8 @@
     },
     "wf_by_bin": [
      {
-      "elec_J_per_position": 5614.945240266806,
-      "pae_at_scale": 0.7996509315912924,
+      "elec_J_per_position": 5614.989244288083,
+      "pae_at_scale": 0.7996509343269013,
       "positions": 11.7,
       "pulse_scale": 0.764,
       "range_km_at_bin_max": 1605,
@@ -951,8 +983,8 @@
       }
      },
      {
-      "elec_J_per_position": 6201.102727162119,
-      "pae_at_scale": 0.7996839271842063,
+      "elec_J_per_position": 6201.15132687309,
+      "pae_at_scale": 0.7996839296613347,
       "positions": 33.7,
       "pulse_scale": 0.843,
       "range_km_at_bin_max": 1565,
@@ -997,8 +1029,8 @@
       }
      },
      {
-      "elec_J_per_position": 7017.651520666908,
-      "pae_at_scale": 0.7997207042848697,
+      "elec_J_per_position": 7017.7065224199205,
+      "pae_at_scale": 0.799720706473869,
       "positions": 33.3,
       "pulse_scale": 0.954,
       "range_km_at_bin_max": 1518,
@@ -1043,8 +1075,8 @@
       }
      },
      {
-      "elec_J_per_position": 8267.203877434067,
-      "pae_at_scale": 0.7997629186325803,
+      "elec_J_per_position": 8267.268676135884,
+      "pae_at_scale": 0.7997629204908198,
       "positions": 11.8,
       "pulse_scale": 0.843,
       "range_km_at_bin_max": 1565,
@@ -1089,8 +1121,8 @@
       }
      },
      {
-      "elec_J_per_position": 8560.819033863847,
-      "pae_at_scale": 0.799771049943674,
+      "elec_J_per_position": 8560.886134616188,
+      "pae_at_scale": 0.7997710517381986,
       "positions": 0.0,
       "pulse_scale": 0.873,
       "range_km_at_bin_max": 1552,
@@ -1229,24 +1261,24 @@
     },
     "faces": {
      "2": {
-      "avg_power_kW": 173.5701265929803,
-      "dissipation_kW": 34.781751917580394,
-      "dissipation_kW_m2": 2.615877374144911,
-      "energy_J_per_refresh": 3471402.5318596056,
-      "energy_fraction": 0.09731340004764485,
+      "avg_power_kW": 173.57144228528674,
+      "dissipation_kW": 34.782015056041686,
+      "dissipation_kW_m2": 2.6158971643483713,
+      "energy_J_per_refresh": 3471428.8457057346,
+      "energy_fraction": 0.09731413770045567,
       "positions": 67.7,
       "theta_max_deg": 71.0,
-      "time_fraction": 0.01416207904851019
+      "time_fraction": 0.014162186451963776
      },
      "3": {
-      "avg_power_kW": 49.34215364935218,
-      "dissipation_kW": 9.886208826672224,
-      "dissipation_kW_m2": 0.7435252268788712,
-      "energy_J_per_refresh": 986843.0729870435,
-      "energy_fraction": 0.027664050441995595,
+      "avg_power_kW": 49.342504573385256,
+      "dissipation_kW": 9.886279011478843,
+      "dissipation_kW_m2": 0.7435305053607625,
+      "energy_J_per_refresh": 986850.0914677051,
+      "energy_fraction": 0.027664247190200414,
       "positions": 7.8,
       "theta_max_deg": 70.0,
-      "time_fraction": 0.004026116818640811
+      "time_fraction": 0.004026145465500655
      }
     },
     "flags": [
@@ -1281,7 +1313,7 @@
      "achieved": 1.8984953033578444,
      "requested": 2.0
     },
-    "rr_alone_s": 1.9462680009528972,
+    "rr_alone_s": 1.9462827540091134,
     "rr_est_mission_s": 20.0,
     "rr_target_s": 20.0,
     "rx_beams_per_position": 9.83118955249738,
@@ -1373,8 +1405,8 @@
     },
     "wf_by_bin": [
      {
-      "elec_J_per_position": 7937.32700835366,
-      "pae_at_scale": 0.7997530654843958,
+      "elec_J_per_position": 7937.3892206998335,
+      "pae_at_scale": 0.7997530674198403,
       "positions": 1.8,
       "pulse_scale": 0.648,
       "range_km_at_bin_max": 1672,
@@ -1419,8 +1451,8 @@
       }
      },
      {
-      "elec_J_per_position": 8987.656261842765,
-      "pae_at_scale": 0.7997819231240162,
+      "elec_J_per_position": 8987.726709155531,
+      "pae_at_scale": 0.7997819248333394,
       "positions": 7.3,
       "pulse_scale": 0.733,
       "range_km_at_bin_max": 1621,
@@ -1465,8 +1497,8 @@
       }
      },
      {
-      "elec_J_per_position": 10515.05215947155,
-      "pae_at_scale": 0.7998136005442223,
+      "elec_J_per_position": 10515.134582128368,
+      "pae_at_scale": 0.7998136020053105,
       "positions": 11.1,
       "pulse_scale": 0.858,
       "range_km_at_bin_max": 1558,
@@ -1511,8 +1543,8 @@
       }
      },
      {
-      "elec_J_per_position": 16069.530323644307,
-      "pae_at_scale": 0.799756060076365,
+      "elec_J_per_position": 16069.656276238346,
+      "pae_at_scale": 0.7997560619883454,
       "positions": 13.8,
       "pulse_scale": 0.82,
       "range_km_at_bin_max": 1576,
@@ -1557,8 +1589,8 @@
       }
      },
      {
-      "elec_J_per_position": 28934.36179661391,
-      "pae_at_scale": 0.7997967814171493,
+      "elec_J_per_position": 28934.588594996447,
+      "pae_at_scale": 0.7997967830100402,
       "positions": 17.3,
       "pulse_scale": 0.984,
       "range_km_at_bin_max": 1506,
@@ -1603,8 +1635,8 @@
       }
      },
      {
-      "elec_J_per_position": 118904.2634129009,
-      "pae_at_scale": 0.7994725168114267,
+      "elec_J_per_position": 118905.19505125414,
+      "pae_at_scale": 0.7994725209443292,
       "positions": 14.1,
       "pulse_scale": 0.303,
       "range_km_at_bin_max": 2022,
@@ -1649,8 +1681,8 @@
       }
      },
      {
-      "elec_J_per_position": 193064.41987930087,
-      "pae_at_scale": 0.7996751343409666,
+      "elec_J_per_position": 193065.9329604818,
+      "pae_at_scale": 0.7996751368869782,
       "positions": 7.3,
       "pulse_scale": 0.492,
       "range_km_at_bin_max": 1791,
@@ -1961,14 +1993,14 @@
     },
     "faces": {
      "1": {
-      "avg_power_kW": 1.8176215835378087,
-      "dissipation_kW": 0.36603264266006813,
-      "dissipation_kW_m2": 0.027528702706000732,
-      "energy_J_per_refresh": 18176.215835378087,
-      "energy_fraction": 0.0010190632441539167,
+      "avg_power_kW": 1.8176358097749605,
+      "dissipation_kW": 0.3660354879074987,
+      "dissipation_kW_m2": 0.027528916692300072,
+      "energy_J_per_refresh": 18176.358097749606,
+      "energy_fraction": 0.0010190712202010298,
       "positions": 12.8,
       "theta_max_deg": 17.0,
-      "time_fraction": 0.0001481213204977286
+      "time_fraction": 0.00014812248182321041
      }
     },
     "flags": [
@@ -1998,7 +2030,7 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 0.010190632441539166,
+    "rr_alone_s": 0.010190712202010298,
     "rr_est_mission_s": 10.0,
     "rr_target_s": 10.0,
     "rx_beams_per_position": 12.487751483592406,
@@ -2095,8 +2127,8 @@
     },
     "wf_by_bin": [
      {
-      "elec_J_per_position": 1383.9258650732131,
-      "pae_at_scale": 0.7985837391659009,
+      "elec_J_per_position": 1383.9366963507048,
+      "pae_at_scale": 0.7985837502501607,
       "positions": 0.3,
       "pulse_scale": 0.564,
       "range_km_at_bin_max": 3462,
@@ -2141,8 +2173,8 @@
       }
      },
      {
-      "elec_J_per_position": 1408.8103570706178,
-      "pae_at_scale": 0.7986087552592419,
+      "elec_J_per_position": 1408.8213834516532,
+      "pae_at_scale": 0.7986087661480563,
       "positions": 5.1,
       "pulse_scale": 0.574,
       "range_km_at_bin_max": 3447,
@@ -2187,8 +2219,8 @@
       }
      },
      {
-      "elec_J_per_position": 1453.3373481460806,
-      "pae_at_scale": 0.798651379872333,
+      "elec_J_per_position": 1453.3487236350581,
+      "pae_at_scale": 0.798651390428102,
       "positions": 6.6,
       "pulse_scale": 0.592,
       "range_km_at_bin_max": 3420,
@@ -2233,8 +2265,8 @@
       }
      },
      {
-      "elec_J_per_position": 1477.3155380811827,
-      "pae_at_scale": 0.7986732692173902,
+      "elec_J_per_position": 1477.3271015679643,
+      "pae_at_scale": 0.7986732796021141,
       "positions": 0.8,
       "pulse_scale": 0.602,
       "range_km_at_bin_max": 3406,
@@ -2345,43 +2377,43 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "bus_draw_MW": 0.12850129246715328,
+     "bus_draw_MW": 0.1285013076339269,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 2.0,
-     "confirm_energy": 4.490653904954017e-05,
-     "confirm_ku_time": 5.23222109668272e-06,
+     "confirm_energy": 4.491452075198208e-05,
+     "confirm_ku_time": 5.233226037210878e-06,
      "confirm_s_time": 0.0,
-     "coolant_flow_L_s": 5.492992683662542,
+     "coolant_flow_L_s": 5.492992938837625,
      "cooling_capacity_kW": 15899.520000000002,
-     "dissipation_kW": 2.921425169853768,
-     "dissipation_kW_m2": 0.21971549967312717,
-     "face_heat_kW": 109.85985367325085,
+     "dissipation_kW": 2.921430173286775,
+     "dissipation_kW_m2": 0.21971587597295322,
+     "face_heat_kW": 109.85985877675252,
      "heat_burst_deficit_MJ": 0.0,
      "heat_burst_ok": true,
-     "heat_flux_W_cm2": 0.8291560022434703,
-     "heat_load": 0.006909633352028919,
-     "load": 0.06425064623357664,
-     "max_contiguous_tx_s": 0.3238590051118848,
+     "heat_flux_W_cm2": 0.8291560407616269,
+     "heat_load": 0.0069096336730135564,
+     "load": 0.06425065381696345,
+     "max_contiguous_tx_s": 0.3238590051092609,
      "max_contiguous_tx_thermal_s": Infinity,
      "non_tx_kW": 106.88,
-     "p_left_kW": 1871.4987075328468,
+     "p_left_kW": 1871.498692366073,
      "peak_MW": {
       "Ku": 14.134615384615383,
       "S": 12.25
      },
      "peak_ok": true,
-     "pumps_kW": 0.058428503397075365,
+     "pumps_kW": 0.05842860346573551,
      "search_energy": 0.0081,
      "search_s_time": 0.0012,
      "status": "OK",
-     "store_burst_deficit_MJ": 0.24042200025205354,
+     "store_burst_deficit_MJ": 0.24042224913388197,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 0.007133969776666565,
+     "store_obs_deficit_MJ": 0.007134036877498961,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
-     "total_energy": 0.06425064623357664,
-     "total_ku_time": 0.0001718988877633494,
+     "total_energy": 0.06425065381696345,
+     "total_ku_time": 0.00017189989270387758,
      "total_s_time": 0.0012333333333333332,
      "transient_MW_per_us": {
       "Ku": 141.34615384615387,
@@ -2389,46 +2421,46 @@
      }
     },
     "1": {
-     "at_energy": 1.4134362653459372e-05,
-     "at_ku_time": 3.633609441527572e-07,
+     "at_energy": 1.4136368773135431e-05,
+     "at_ku_time": 3.6343073152256085e-07,
      "binding": "energy",
-     "bus_draw_MW": 0.13080340439194638,
+     "bus_draw_MW": 0.1308034916901463,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 2.0,
-     "confirm_energy": 0.0002450382002412845,
-     "confirm_ku_time": 2.876224653895354e-05,
+     "confirm_energy": 0.0002450821451580392,
+     "confirm_ku_time": 2.8767770836702788e-05,
      "confirm_s_time": 0.0,
-     "coolant_flow_L_s": 5.519212118885345,
+     "coolant_flow_L_s": 5.519213545446789,
      "cooling_capacity_kW": 15899.520000000002,
-     "dissipation_kW": 3.435531742849893,
-     "dissipation_kW_m2": 0.2583805949617861,
-     "face_heat_kW": 110.3842423777069,
+     "dissipation_kW": 3.4355597146429147,
+     "dissipation_kW_m2": 0.2583826986735443,
+     "face_heat_kW": 110.38427090893578,
      "heat_burst_deficit_MJ": 0.0,
      "heat_burst_ok": true,
-     "heat_flux_W_cm2": 0.83311377232299,
-     "heat_load": 0.00694261476935825,
-     "load": 0.06540170219597319,
-     "max_contiguous_tx_s": 0.3238587355026561,
+     "heat_flux_W_cm2": 0.8331139876595202,
+     "heat_load": 0.0069426165638293335,
+     "load": 0.06540174584507315,
+     "max_contiguous_tx_s": 0.32385873548798705,
      "max_contiguous_tx_thermal_s": Infinity,
      "non_tx_kW": 106.88,
-     "p_left_kW": 1869.1965956080537,
+     "p_left_kW": 1869.1965083098537,
      "peak_MW": {
       "Ku": 14.134615384615383,
       "S": 12.25
      },
      "peak_ok": true,
-     "pumps_kW": 0.06871063485699785,
+     "pumps_kW": 0.0687111942928583,
      "search_energy": 0.0091,
      "search_s_time": 0.0013,
      "status": "OK",
-     "store_burst_deficit_MJ": 0.27931866835605146,
+     "store_burst_deficit_MJ": 0.2793201080101578,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 0.007133978002371732,
+     "store_obs_deficit_MJ": 0.007134045103571623,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
-     "total_energy": 0.06540170219597319,
-     "total_ku_time": 0.00019579227414977298,
+     "total_energy": 0.06540174584507315,
+     "total_ku_time": 0.00019579786823489205,
      "total_s_time": 0.0013333333333333333,
      "transient_MW_per_us": {
       "Ku": 141.34615384615387,
@@ -2439,42 +2471,42 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "bus_draw_MW": 0.2974047733403861,
+     "bus_draw_MW": 0.2974047775720709,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 2.0,
      "confirm_energy": 0.0,
      "confirm_ku_time": 0.0,
      "confirm_s_time": 0.0,
-     "coolant_flow_L_s": 7.1178718,
+     "coolant_flow_L_s": 7.117882000000001,
      "cooling_capacity_kW": 15899.520000000002,
-     "dissipation_kW": 34.7818,
-     "dissipation_kW_m2": 2.6158809903432507,
-     "face_heat_kW": 142.35743599999998,
+     "dissipation_kW": 34.782,
+     "dissipation_kW_m2": 2.6158960320086635,
+     "face_heat_kW": 142.35764,
      "heat_burst_deficit_MJ": 0.0,
      "heat_burst_ok": true,
-     "heat_flux_W_cm2": 1.0744281789638932,
-     "heat_load": 0.008953568158032442,
-     "load": 0.14870238667019306,
-     "max_contiguous_tx_s": 0.32384229765170347,
+     "heat_flux_W_cm2": 1.0744297186330154,
+     "heat_load": 0.008953580988608462,
+     "load": 0.14870238878603545,
+     "max_contiguous_tx_s": 0.3238422975468296,
      "max_contiguous_tx_thermal_s": Infinity,
      "non_tx_kW": 106.88,
-     "p_left_kW": 1702.595226659614,
+     "p_left_kW": 1702.595222427929,
      "peak_MW": {
       "Ku": 14.134615384615383,
       "S": 12.25
      },
      "peak_ok": true,
-     "pumps_kW": 0.6956359999999999,
+     "pumps_kW": 0.69564,
      "search_energy": 0.0973,
      "search_s_time": 0.0142,
      "status": "OK",
-     "store_burst_deficit_MJ": 2.957442303168,
+     "store_burst_deficit_MJ": 2.9574423043199998,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 0.008732127795471549,
+     "store_obs_deficit_MJ": 0.008732210222128368,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
-     "total_energy": 0.14870238667019306,
+     "total_energy": 0.14870238878603545,
      "total_ku_time": 0.0001666666666666667,
      "total_s_time": 0.014233333333333334,
      "transient_MW_per_us": {
@@ -2486,42 +2518,42 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
-     "bus_draw_MW": 0.16554773657762495,
+     "bus_draw_MW": 0.1655477386934673,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 2.0,
      "confirm_energy": 0.0,
      "confirm_ku_time": 0.0,
      "confirm_s_time": 0.0,
-     "coolant_flow_L_s": 5.848196199999999,
+     "coolant_flow_L_s": 5.8482012999999995,
      "cooling_capacity_kW": 15899.520000000002,
-     "dissipation_kW": 9.8862,
-     "dissipation_kW_m2": 0.7435245630396198,
-     "face_heat_kW": 116.963924,
+     "dissipation_kW": 9.8863,
+     "dissipation_kW_m2": 0.7435320838723264,
+     "face_heat_kW": 116.964026,
      "heat_burst_deficit_MJ": 0.0,
      "heat_burst_ok": true,
-     "heat_flux_W_cm2": 0.8827732459847845,
-     "heat_load": 0.00735644371653987,
-     "load": 0.08277386828881247,
-     "max_contiguous_tx_s": 0.3238553526630445,
+     "heat_flux_W_cm2": 0.8827740158193453,
+     "heat_load": 0.007356450131827878,
+     "load": 0.08277386934673366,
+     "max_contiguous_tx_s": 0.32385535261060333,
      "max_contiguous_tx_thermal_s": Infinity,
      "non_tx_kW": 106.88,
-     "p_left_kW": 1834.4522634223752,
+     "p_left_kW": 1834.4522613065326,
      "peak_MW": {
       "Ku": 14.134615384615383,
       "S": 12.25
      },
      "peak_ok": true,
-     "pumps_kW": 0.197724,
+     "pumps_kW": 0.19772600000000004,
      "search_energy": 0.0277,
      "search_s_time": 0.004,
      "status": "OK",
-     "store_burst_deficit_MJ": 0.8383180088159998,
+     "store_burst_deficit_MJ": 0.838318008984,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 0.00873162988347155,
+     "store_obs_deficit_MJ": 0.008731712308128367,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
-     "total_energy": 0.08277386828881247,
+     "total_energy": 0.08277386934673366,
      "total_ku_time": 0.0001666666666666667,
      "total_s_time": 0.004033333333333333,
      "transient_MW_per_us": {
@@ -2569,13 +2601,13 @@
       "cluster_tx": "superposition x7",
       "faces": {
        "0": {
-        "energy_fraction": 4.490653904954017e-05,
-        "ku_time_fraction": 5.23222109668272e-06,
+        "energy_fraction": 4.491452075198208e-05,
+        "ku_time_fraction": 5.233226037210878e-06,
         "s_time_fraction": 0.0
        },
        "1": {
-        "energy_fraction": 4.490653904954017e-05,
-        "ku_time_fraction": 5.232221096682721e-06,
+        "energy_fraction": 4.491452075198208e-05,
+        "ku_time_fraction": 5.233226037210878e-06,
         "s_time_fraction": 0.0
        }
       },
@@ -2774,31 +2806,31 @@
        "accel_bank_mps2": 9.80665,
        "angle_zone_deg": 0.2,
        "attenuation_db": 0.0,
-       "avg_power_kW": 0.025210331915963204,
+       "avg_power_kW": 0.025213910071139815,
        "cluster_update_share": 0.0,
        "deception_verification": false,
        "driver": "DOP",
-       "energy_per_update_J": 2.860868909890378,
+       "energy_per_update_J": 2.861146874421676,
        "faces": {
         "1": {
-         "energy_fraction": 1.4134362653459372e-05,
-         "ku_time_fraction": 3.633609441527572e-07
+         "energy_fraction": 1.4136368773135431e-05,
+         "ku_time_fraction": 3.6343073152256085e-07
         }
        },
        "filtered_range_sigma_m": 8.201851609300029,
        "filtered_vr_sigma_mps": 4.275564290018719,
-       "init_energy_J": 75.9016755442994,
+       "init_energy_J": 75.90865235496075,
        "init_looks": 1,
        "init_tk": [
         0.0,
-        2.609593342013291e-07,
+        2.610094560532722e-07,
         0.0,
         0.0
        ],
        "initiations_per_s": 0.10154397674901798,
        "n_targets": 2.0,
        "p_loss_per_update": 0.0015439767490179738,
-       "pointing_sigma_hpbw": 0.16631632670160507,
+       "pointing_sigma_hpbw": 0.16636624706727107,
        "predicted_angle_sigma_mrad": 0.8726646259993605,
        "r_max_km": 1000.0,
        "r_min_km": 5.0,
@@ -2837,8 +2869,8 @@
       "cluster_tx": "superposition x7",
       "faces": {
        "1": {
-        "energy_fraction": 0.00020013166119174433,
-        "ku_time_fraction": 2.3530025442270818e-05,
+        "energy_fraction": 0.00020016762440605712,
+        "ku_time_fraction": 2.3534544799491912e-05,
         "s_time_fraction": 0.0
        }
       },
@@ -2949,12 +2981,12 @@
    },
    "ship_power": {
     "budget_MW": 8.0,
-    "draw_MW": 0.7222572067771107,
-    "heat_MW": 0.5191090381220046,
-    "heat_load": 0.0865181730203341,
+    "draw_MW": 0.7222573155896114,
+    "heat_MW": 0.5191093837142197,
+    "heat_load": 0.0865182306190366,
     "heat_rejection_MW": 6.0,
     "heat_status": "OK",
-    "load": 0.09028215084713884,
+    "load": 0.09028216444870142,
     "status": "OK",
     "suggested_allocation_MW": [
      1.423,

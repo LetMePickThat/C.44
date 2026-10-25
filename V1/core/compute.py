@@ -21,6 +21,8 @@ Load (B), per look of a face (S search dwell, Ku confirmation, Ku track update),
   nulling        ops_per_cmac x (d^2 x snapshots + d^3 / 3 + d x b x fs x T), d = degrees of freedom, on a face a
                  stand-off jammer lights (up to jamming.max_nulled)
   tracks         track_update_ops per update
+  repointing     repointing.ops_per_pointing per pointing (step 4.5), and per frame of a volume not tied to the ship
+                 the same per raster direction of its share of the face (its mask follows the attitude)
 Means over the mission = sum of rate x cost. The looks of a face and band follow one another, their listening windows
 overlap: open windows ~ sum of rate x T (Little), so the simultaneous beams are ceil(that) x the beams of the largest
 dwell (an upper bound) and the mean beams sum rate x T x beams. RX beams of a dwell = RX beams per search position x
@@ -48,6 +50,7 @@ import numpy as np
 
 from . import environment as env
 from . import radar_model as rm
+from . import repoint
 from .params import P
 
 _C = "compute."
@@ -77,7 +80,7 @@ for _b, _t in TRANSPORT.items():
         raise ValueError(f"{P.path}: compute.transport_{_b} '{_t}' must be 'raw' or 'subarray_beams'")
 if NULLING_DOF not in ("trsa", "element"):
     raise ValueError(f"{P.path}: compute.nulling_dof '{NULLING_DOF}' must be 'trsa' or 'element'")
-FUNCTIONS = ("beamforming", "compression", "banks", "cfar", "nulling", "tracks")
+FUNCTIONS = ("beamforming", "compression", "banks", "cfar", "nulling", "tracks", "repointing")
 
 
 def _nlogn(n: float) -> float:
@@ -114,7 +117,7 @@ def look_cost(band: str, wf: dict, beams: float, nulled: int = 0) -> Dict[str, f
            "compression": FFT_K * 2 * beams * n * _nlogn(n_p),
            "banks": OPS_CMAC * 2 * beams * h * c_r * n + (FFT_K * 2 * beams * h * c_r * blocks * _nlogn(m) if m > 1 else 0.0),
            "cfar": CFAR_OPS * beams * h * c_r * m,
-           "nulling": 0.0, "tracks": 0.0}
+           "nulling": 0.0, "tracks": 0.0, "repointing": 0.0}
     if nulled > 0:
         d = dof(band)
         ops["nulling"] = OPS_CMAC * (d * d * NULL_SNAP * d + d ** 3 / 3.0 + d * beams * fs * t)
@@ -148,6 +151,9 @@ def _nulled_faces(mission: dict) -> List[int]:
 def _streams(mission: dict, res: dict, nulled: List[int]) -> Dict[int, Dict[str, list]]:
     """Per face and band, the streams of looks: (label, sector, kind, [(rate Hz, look cost, beams)], track updates /s)."""
     out = {k: {"S": [], "Ku": []} for k in range(4)}
+    from . import optimizer as mo                  # here: core.optimizer imports this module
+    g = mission.get("global", {})
+    n_dirs = mo._sphere(g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)).phi.size
     for r in res.get("sectors", []):
         if r.get("status") != "OK":
             continue
@@ -156,7 +162,7 @@ def _streams(mission: dict, res: dict, nulled: List[int]) -> Dict[int, Dict[str,
         for kk, f in r.get("faces", {}).items():
             k = int(kk)
             share = float(f["positions"]) / tot if tot > 0 else 0.0
-            looks = []
+            looks, pointings = [], 0.0
             for b in r.get("wf_by_bin", []):
                 w = b["wf"]
                 ppd = max(1.0, float(w.get("positions_per_dwell", 1.0)))
@@ -166,9 +172,12 @@ def _streams(mission: dict, res: dict, nulled: List[int]) -> Dict[int, Dict[str,
                 rate = float(b["positions"]) * share / ppd / rr
                 if rate > 0:
                     looks.append((rate, look_cost("S", w, beams, nulled[k]), beams))
+                    pointings += rate * ppd
+            mask = n_dirs * share / rr if r.get("frame", "ship") != "ship" else 0.0
             if looks:
                 out[k]["S"].append({"label": f"search {r['id']}", "sector": r["id"], "kind": "search",
-                                    "looks": looks, "updates": 0.0})
+                                    "looks": looks, "updates": 0.0,
+                                    "repoint_ops": repoint.OPS_PER_POINTING * (pointings + mask)})
     for t in res.get("tracking", {}).get("sectors", []):
         conf = t.get("confirmation") or {}
         cw = t.get("ku_confirm_wf")
@@ -181,7 +190,7 @@ def _streams(mission: dict, res: dict, nulled: List[int]) -> Dict[int, Dict[str,
                 if rate > 0:
                     out[k]["Ku"].append({"label": f"confirmation {t['id']}", "sector": t["id"], "kind": "confirm",
                                          "looks": [(rate, look_cost("Ku", cw, beams, nulled[k]), beams)],
-                                         "updates": 0.0})
+                                         "updates": 0.0, "repoint_ops": repoint.OPS_PER_POINTING * rate})
         for i, a in enumerate(t.get("at", [])):
             w = a.get("wf_params")
             if not w:
@@ -195,7 +204,7 @@ def _streams(mission: dict, res: dict, nulled: List[int]) -> Dict[int, Dict[str,
                 if rate > 0 or upd > 0:
                     out[k]["Ku"].append({"label": f"tracks {t['id']}/{i}", "sector": t["id"], "kind": "track",
                                          "looks": [(rate, look_cost("Ku", w, 1.0, nulled[k]), 1.0)] if rate > 0 else [],
-                                         "updates": upd})
+                                         "updates": upd, "repoint_ops": repoint.OPS_PER_POINTING * rate})
     return out
 
 
@@ -227,6 +236,7 @@ def budget(mission: dict, res: dict) -> dict:
                     bits += rate * c["bits"]
                     mem_tot += rate * c["mem_bits"]
                 ops["tracks"] += s["updates"] * TRACK_OPS
+                ops["repointing"] += s.get("repoint_ops", 0.0)
             tot = sum(ops.values())
             per_band[b] = {"ops_per_s": ops, "ops_total_per_s": tot, "bits_per_s": bits,
                            "open_windows_mean": conc, "beams_mean": beams_mean, "beams_peak": beams_peak, "beams_max": BEAMS_MAX[b],

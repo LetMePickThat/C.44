@@ -2950,8 +2950,8 @@
    "f_ghz": 14.0,
    "index": 633,
    "pae": 0.03095238095238093,
-   "reach_km": 2567.338404717238,
-   "scale": 0.00018644577616143095,
+   "reach_km": 2567.215143835409,
+   "scale": 0.00018648158636770993,
    "time_s": 5e-09,
    "wf": "14 GHz COHE tau 5 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
@@ -2963,35 +2963,35 @@
    "f_ghz": 14.0,
    "index": 636,
    "pae": 0.03095238095238093,
-   "reach_km": 3149.6977087409236,
-   "scale": 8.230183547206753e-05,
+   "reach_km": 3149.5464881163416,
+   "scale": 8.231764299405099e-05,
    "time_s": 5e-09,
    "wf": "14 GHz COHE tau 50 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
   "0.0 deg | 800.0 km | detect": {
-   "cost": 1.1660440199179087e-06,
+   "cost": 1.1661157718199455e-06,
    "driver": "DET",
-   "energy_J": 2.07977943480598,
-   "energy_rf_J": 0.43310663262388704,
+   "energy_J": 2.079907412933491,
+   "energy_rf_J": 0.43318981840676907,
    "f_ghz": 14.0,
    "index": 633,
-   "pae": 0.20824642525821063,
-   "reach_km": 2567.338404717238,
-   "scale": 0.009428171594533593,
-   "time_s": 4.7140857972667973e-08,
+   "pae": 0.2082736066581927,
+   "reach_km": 2567.215143835409,
+   "scale": 0.0094299824415079,
+   "time_s": 4.7149912207539504e-08,
    "wf": "14 GHz COHE tau 5 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
   "0.0 deg | 800.0 km | track": {
-   "cost": 1.208220641693438e-06,
+   "cost": 1.2083004943610544e-06,
    "driver": "DOP",
-   "energy_J": 2.1550065009372497,
-   "energy_rf_J": 0.4820042256092125,
+   "energy_J": 2.1551489277522635,
+   "energy_rf_J": 0.4820968030389714,
    "f_ghz": 14.0,
    "index": 637,
-   "pae": 0.22366717937954272,
-   "reach_km": 5285.993364339947,
-   "scale": 0.0005246304496426804,
-   "time_s": 5.246304496426804e-08,
+   "pae": 0.22369535433534035,
+   "reach_km": 5285.739577693733,
+   "scale": 0.0005247312141920779,
+   "time_s": 5.247312141920779e-08,
    "wf": "14 GHz COHE tau 100 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
   "60.0 deg | 300.0 km | detect": {
@@ -3002,8 +3002,8 @@
    "f_ghz": 14.0,
    "index": 633,
    "pae": 0.03095238095238093,
-   "reach_km": 1815.3823899763279,
-   "scale": 0.0007457831138477496,
+   "reach_km": 1815.2952313712003,
+   "scale": 0.0007459263546746335,
    "time_s": 5e-09,
    "wf": "14 GHz COHE tau 5 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
@@ -3015,35 +3015,35 @@
    "f_ghz": 14.0,
    "index": 637,
    "pae": 0.03095238095238093,
-   "reach_km": 3737.761741702049,
-   "scale": 4.149908881386016e-05,
+   "reach_km": 3737.5822874440896,
+   "scale": 4.150705944726046e-05,
    "time_s": 5e-09,
    "wf": "14 GHz COHE tau 100 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
   "60.0 deg | 800.0 km | detect": {
-   "cost": 2.2867724945478328e-06,
+   "cost": 2.287059502159522e-06,
    "driver": "DET",
-   "energy_J": 4.078733156725405,
-   "energy_rf_J": 1.7324265518715136,
+   "energy_J": 4.079245069241766,
+   "energy_rf_J": 1.7327592950071482,
    "f_ghz": 14.0,
    "index": 633,
-   "pae": 0.4247462349957666,
-   "reach_km": 1815.3823899763279,
-   "scale": 0.03771268684346152,
-   "time_s": 1.885634342173076e-07,
+   "pae": 0.42477450253539845,
+   "reach_km": 1815.2952313712003,
+   "scale": 0.037719930231448116,
+   "time_s": 1.885996511572406e-07,
    "wf": "14 GHz COHE tau 5 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
   "60.0 deg | 800.0 km | track": {
-   "cost": 2.455478983731578e-06,
+   "cost": 2.4557983944059843e-06,
    "driver": "DOP",
-   "energy_J": 4.379641424963316,
-   "energy_rf_J": 1.9280169262261557,
+   "energy_J": 4.380211132230401,
+   "energy_rf_J": 1.9283872359497614,
    "f_ghz": 14.0,
    "index": 637,
-   "pae": 0.4402225522931491,
-   "reach_km": 3737.761741702049,
-   "scale": 0.0020985218244638426,
-   "time_s": 2.0985218244638426e-07,
+   "pae": 0.4402498367625096,
+   "reach_km": 3737.5822874440896,
+   "scale": 0.0020989248826664064,
+   "time_s": 2.0989248826664066e-07,
    "wf": "14 GHz COHE tau 100 us x N 1 @ PRI 0.5 ms B 200 MHz"
   }
  },
@@ -3071,7 +3071,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.6227877579250265,
+   "l_tot_db": 5.622821808071866,
    "look_law": [
     24,
     {
@@ -3159,6 +3159,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05996193212718737,
     "positions": 5.079122266903802,
     "scan_mismatch": 0.25952763031546294,
@@ -3220,8 +3221,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 632.701691208329,
-   "range_noise_km": 632.701691208329,
+   "range_km": 632.7004510610743,
+   "range_noise_km": 632.7004510610743,
    "snr_req_db": 19.986150353766654,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -3239,7 +3240,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.227761510959969,
+   "l_tot_db": 8.227795561106808,
    "look_law": [
     24,
     {
@@ -3327,6 +3328,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 0.25952763031546294,
@@ -3388,8 +3390,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1225.2384816348733,
-   "range_noise_km": 1225.2384816348733,
+   "range_km": 1225.2360800668669,
+   "range_noise_km": 1225.2360800668669,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -3407,7 +3409,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.747942727324339,
+   "l_tot_db": 6.7479767774711785,
    "look_law": [
     24,
     {
@@ -3495,6 +3497,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06068918040400462,
     "positions": 4.830388497781648,
     "scan_mismatch": 0.25952763031546294,
@@ -3556,8 +3559,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1673.9907498468785,
-   "range_noise_km": 1673.9907498468785,
+   "range_km": 1673.987468687587,
+   "range_noise_km": 1673.987468687587,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -3575,7 +3578,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.572418009302219,
+   "l_tot_db": 7.572452059449059,
    "look_law": [
     24,
     {
@@ -3663,6 +3666,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060415886863218304,
     "positions": 4.957714192129771,
     "scan_mismatch": 0.25952763031546294,
@@ -3724,8 +3728,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1810.2047984114035,
-   "range_noise_km": 1810.2047984114035,
+   "range_km": 1810.201250261395,
+   "range_noise_km": 1810.201250261395,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -3743,7 +3747,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.520577687854109,
+   "l_tot_db": 6.52061173800095,
    "look_law": [
     24,
     {
@@ -3831,6 +3835,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05974218150853261,
     "positions": 5.163271542711595,
     "scan_mismatch": 0.25952763031546294,
@@ -3892,8 +3897,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8115.659340205866,
-   "range_noise_km": 8115.659340205866,
+   "range_km": 8115.643432847327,
+   "range_noise_km": 8115.643432847327,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -3911,7 +3916,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.621510884881769,
+   "l_tot_db": 6.621544935028609,
    "look_law": [
     24,
     {
@@ -3999,6 +4004,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 0.25952763031546294,
@@ -4060,8 +4066,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8790.406133214885,
-   "range_noise_km": 8790.406133214885,
+   "range_km": 8790.388903297242,
+   "range_noise_km": 8790.388903297242,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -4079,7 +4085,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.452356281827445,
+   "l_tot_db": 5.452390331974285,
    "look_law": [
     24,
     {
@@ -4167,6 +4173,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05996193212718737,
     "positions": 5.079122266903802,
     "scan_mismatch": 0.08909615421788107,
@@ -4228,8 +4235,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 594.6002645258541,
-   "range_noise_km": 594.6002645258541,
+   "range_km": 594.5990990605235,
+   "range_noise_km": 594.5990990605235,
    "snr_req_db": 19.986150353766654,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -4247,7 +4254,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.057330034862387,
+   "l_tot_db": 8.057364085009226,
    "look_law": [
     24,
     {
@@ -4335,6 +4342,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 0.08909615421788107,
@@ -4396,8 +4404,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1151.4543669007996,
-   "range_noise_km": 1151.4543669007996,
+   "range_km": 1151.452109955715,
+   "range_noise_km": 1151.452109955715,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -4415,7 +4423,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.577511251226756,
+   "l_tot_db": 6.577545301373596,
    "look_law": [
     24,
     {
@@ -4503,6 +4511,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06068918040400462,
     "positions": 4.830388497781648,
     "scan_mismatch": 0.08909615421788107,
@@ -4564,8 +4573,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1573.1826807225132,
-   "range_noise_km": 1573.1826807225132,
+   "range_km": 1573.179597155313,
+   "range_noise_km": 1573.179597155313,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -4583,7 +4592,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.401986533204638,
+   "l_tot_db": 7.402020583351478,
    "look_law": [
     24,
     {
@@ -4671,6 +4680,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060415886863218304,
     "positions": 4.957714192129771,
     "scan_mismatch": 0.08909615421788107,
@@ -4732,8 +4742,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1701.193891114451,
-   "range_noise_km": 1701.193891114451,
+   "range_km": 1701.1905566347696,
+   "range_noise_km": 1701.1905566347696,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -4751,7 +4761,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.3501462117565275,
+   "l_tot_db": 6.350180261903367,
    "look_law": [
     24,
     {
@@ -4839,6 +4849,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05974218150853261,
     "positions": 5.163271542711595,
     "scan_mismatch": 0.08909615421788107,
@@ -4900,8 +4911,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7626.932656481892,
-   "range_noise_km": 7626.932656481892,
+   "range_km": 7626.917707067773,
+   "range_noise_km": 7626.917707067773,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -4919,7 +4930,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.451079408784188,
+   "l_tot_db": 6.451113458931028,
    "look_law": [
     24,
     {
@@ -5007,6 +5018,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 0.08909615421788107,
@@ -5068,8 +5080,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8261.046058083391,
-   "range_noise_km": 8261.046058083391,
+   "range_km": 8261.02986575495,
+   "range_noise_km": 8261.02986575495,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -5087,7 +5099,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.622787757951542,
+   "l_tot_db": 5.622821808098382,
    "look_law": [
     24,
     {
@@ -5175,6 +5187,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05996193212718737,
     "positions": 5.079122266903802,
     "scan_mismatch": 0.25952763034197845,
@@ -5236,8 +5249,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 447.3876563209236,
-   "range_noise_km": 447.3876563209236,
+   "range_km": 447.38677940439015,
+   "range_noise_km": 447.38677940439015,
    "snr_req_db": 19.986150353766654,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -5255,7 +5268,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.227761510986484,
+   "l_tot_db": 8.227795561133323,
    "look_law": [
     24,
     {
@@ -5343,6 +5356,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 0.25952763034197845,
@@ -5404,8 +5418,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 866.3744389334059,
-   "range_noise_km": 866.3744389334059,
+   "range_km": 866.372740768383,
+   "range_noise_km": 866.372740768383,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -5423,7 +5437,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.747942727350853,
+   "l_tot_db": 6.747976777497694,
    "look_law": [
     24,
     {
@@ -5511,6 +5525,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06068918040400462,
     "positions": 4.830388497781648,
     "scan_mismatch": 0.25952763034197845,
@@ -5572,8 +5587,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1183.6902108584748,
-   "range_noise_km": 1183.6902108584748,
+   "range_km": 1183.6878907284897,
+   "range_noise_km": 1183.6878907284897,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -5591,7 +5606,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.572418009328735,
+   "l_tot_db": 7.572452059475575,
    "look_law": [
     24,
     {
@@ -5679,6 +5694,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060415886863218304,
     "positions": 4.957714192129771,
     "scan_mismatch": 0.25952763034197845,
@@ -5740,8 +5756,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1280.0080882911773,
-   "range_noise_km": 1280.0080882911773,
+   "range_km": 1280.0055793702454,
+   "range_noise_km": 1280.0055793702454,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -5759,7 +5775,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.520577687880625,
+   "l_tot_db": 6.520611738027465,
    "look_law": [
     24,
     {
@@ -5847,6 +5863,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05974218150853261,
     "positions": 5.163271542711595,
     "scan_mismatch": 0.25952763034197845,
@@ -5908,8 +5925,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 5738.637753250751,
-   "range_noise_km": 5738.637753250751,
+   "range_km": 5738.626505049658,
+   "range_noise_km": 5738.626505049658,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -5927,7 +5944,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.621510884908285,
+   "l_tot_db": 6.621544935055125,
    "look_law": [
     24,
     {
@@ -6015,6 +6032,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 0.25952763034197845,
@@ -6076,8 +6094,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 6215.755786170576,
-   "range_noise_km": 6215.755786170576,
+   "range_km": 6215.743602778971,
+   "range_noise_km": 6215.743602778971,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -6095,7 +6113,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.484447918302847,
+   "l_tot_db": 6.484481968449687,
    "look_law": [
     24,
     {
@@ -6183,6 +6201,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05996193212718737,
     "positions": 5.079122266903802,
     "scan_mismatch": 1.1211877906932841,
@@ -6244,8 +6263,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 352.1140330339194,
-   "range_noise_km": 352.1140330339194,
+   "range_km": 352.11334286150884,
+   "range_noise_km": 352.11334286150884,
    "snr_req_db": 19.986150353766654,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -6263,7 +6282,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.089421671337789,
+   "l_tot_db": 9.08945572148463,
    "look_law": [
     24,
     {
@@ -6351,6 +6370,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 1.1211877906932841,
@@ -6412,8 +6432,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 681.8753121599555,
-   "range_noise_km": 681.8753121599555,
+   "range_km": 681.8739756283669,
+   "range_noise_km": 681.8739756283669,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -6431,7 +6451,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.6096028877021595,
+   "l_tot_db": 7.609636937848999,
    "look_law": [
     24,
     {
@@ -6519,6 +6539,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06068918040400462,
     "positions": 4.830388497781648,
     "scan_mismatch": 1.1211877906932841,
@@ -6580,8 +6601,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 931.6169727069316,
-   "range_noise_km": 931.6169727069316,
+   "range_km": 931.6151466611866,
+   "range_noise_km": 931.6151466611866,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -6599,7 +6620,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.43407816968004,
+   "l_tot_db": 8.434112219826881,
    "look_law": [
     24,
     {
@@ -6687,6 +6708,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060415886863218304,
     "positions": 4.957714192129771,
     "scan_mismatch": 1.1211877906932841,
@@ -6748,8 +6770,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1007.4234367363448,
-   "range_noise_km": 1007.4234367363448,
+   "range_km": 1007.4214621037071,
+   "range_noise_km": 1007.4214621037071,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -6767,7 +6789,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.382237848231931,
+   "l_tot_db": 7.382271898378771,
    "look_law": [
     24,
     {
@@ -6855,6 +6877,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05974218150853261,
     "positions": 5.163271542711595,
     "scan_mismatch": 1.1211877906932841,
@@ -6916,8 +6939,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4516.563778345195,
-   "range_noise_km": 4516.563778345195,
+   "range_km": 4516.554925509414,
+   "range_noise_km": 4516.554925509414,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -6935,7 +6958,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.48317104525959,
+   "l_tot_db": 7.483205095406431,
    "look_law": [
     24,
     {
@@ -7023,6 +7046,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 1.1211877906932841,
@@ -7084,8 +7108,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4892.076943339848,
-   "range_noise_km": 4892.076943339848,
+   "range_km": 4892.067354467436,
+   "range_noise_km": 4892.067354467436,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -7103,7 +7127,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.223217579618571,
+   "l_tot_db": 7.223251629765411,
    "look_law": [
     24,
     {
@@ -7191,6 +7215,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05996193212718737,
     "positions": 5.079122266903802,
     "scan_mismatch": 1.8599574520090076,
@@ -7252,8 +7277,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 302.9404647389643,
-   "range_noise_km": 302.9404647389643,
+   "range_km": 302.9398709507843,
+   "range_noise_km": 302.9398709507843,
    "snr_req_db": 19.986150353766654,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -7271,7 +7296,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.828191332653512,
+   "l_tot_db": 9.828225382800353,
    "look_law": [
     24,
     {
@@ -7359,6 +7384,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 1.8599574520090076,
@@ -7420,8 +7446,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 586.6497912051816,
-   "range_noise_km": 586.6497912051816,
+   "range_km": 586.6486413234314,
+   "range_noise_km": 586.6486413234314,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -7439,7 +7465,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.348372549017883,
+   "l_tot_db": 8.348406599164724,
    "look_law": [
     24,
     {
@@ -7527,6 +7553,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06068918040400462,
     "positions": 4.830388497781648,
     "scan_mismatch": 1.8599574520090076,
@@ -7588,8 +7615,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 801.5144305349453,
-   "range_noise_km": 801.5144305349453,
+   "range_km": 801.5128595008633,
+   "range_noise_km": 801.5128595008633,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -7607,7 +7634,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.172847830995764,
+   "l_tot_db": 9.172881881142604,
    "look_law": [
     24,
     {
@@ -7695,6 +7722,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060415886863218304,
     "positions": 4.957714192129771,
     "scan_mismatch": 1.8599574520090076,
@@ -7756,8 +7784,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 866.7343402483301,
-   "range_noise_km": 866.7343402483301,
+   "range_km": 866.732641377871,
+   "range_noise_km": 866.732641377871,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -7775,7 +7803,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.121007509547654,
+   "l_tot_db": 8.121041559694493,
    "look_law": [
     24,
     {
@@ -7863,6 +7891,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05974218150853261,
     "positions": 5.163271542711595,
     "scan_mismatch": 1.8599574520090076,
@@ -7924,8 +7953,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 3885.8148260829494,
-   "range_noise_km": 3885.8148260829494,
+   "range_km": 3885.8072095668954,
+   "range_noise_km": 3885.8072095668954,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -7943,7 +7972,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.221940706575314,
+   "l_tot_db": 8.221974756722155,
    "look_law": [
     24,
     {
@@ -8031,6 +8060,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 1.8599574520090076,
@@ -8092,8 +8122,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4208.8866779455575,
-   "range_noise_km": 4208.8866779455575,
+   "range_km": 4208.878428182151,
+   "range_noise_km": 4208.878428182151,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -8111,7 +8141,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.632161855818799,
+   "l_tot_db": 5.632195905965639,
    "look_law": [
     24,
     {
@@ -8199,6 +8229,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.059956167359466406,
     "positions": 5.0885021295652955,
     "scan_mismatch": 0.25952763031546294,
@@ -8260,8 +8291,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 640.183075186623,
-   "range_noise_km": 640.183075186623,
+   "range_km": 640.1818203752416,
+   "range_noise_km": 640.1818203752416,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -8279,7 +8310,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.227761510959969,
+   "l_tot_db": 8.227795561106808,
    "look_law": [
     24,
     {
@@ -8367,6 +8398,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 0.25952763031546294,
@@ -8428,8 +8460,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1236.5312409252324,
-   "range_noise_km": 1236.5312409252324,
+   "range_km": 1236.5288172224907,
+   "range_noise_km": 1236.5288172224907,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -8447,7 +8479,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.747942727324339,
+   "l_tot_db": 6.7479767774711785,
    "look_law": [
     24,
     {
@@ -8535,6 +8567,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06068918040400462,
     "positions": 4.830388497781648,
     "scan_mismatch": 0.25952763031546294,
@@ -8596,8 +8629,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1689.419562176609,
-   "range_noise_km": 1689.419562176609,
+   "range_km": 1689.4162507755789,
+   "range_noise_km": 1689.4162507755789,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -8615,7 +8648,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.572418009302219,
+   "l_tot_db": 7.572452059449059,
    "look_law": [
     24,
     {
@@ -8703,6 +8736,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060415886863218304,
     "positions": 4.957714192129771,
     "scan_mismatch": 0.25952763031546294,
@@ -8764,8 +8798,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1826.8890662997549,
-   "range_noise_km": 1826.8890662997549,
+   "range_km": 1826.8854854472115,
+   "range_noise_km": 1826.8854854472115,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -8783,7 +8817,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.520577687854109,
+   "l_tot_db": 6.52061173800095,
    "look_law": [
     24,
     {
@@ -8871,6 +8905,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05974218150853261,
     "positions": 5.163271542711595,
     "scan_mismatch": 0.25952763031546294,
@@ -8932,8 +8967,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8190.459625036302,
-   "range_noise_km": 8190.459625036302,
+   "range_km": 8190.443571063063,
+   "range_noise_km": 8190.443571063063,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -8951,7 +8986,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.621510884881769,
+   "l_tot_db": 6.621544935028609,
    "look_law": [
     24,
     {
@@ -9039,6 +9074,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 0.25952763031546294,
@@ -9100,8 +9136,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8871.425413962937,
-   "range_noise_km": 8871.425413962937,
+   "range_km": 8871.408025240851,
+   "range_noise_km": 8871.408025240851,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -9119,7 +9155,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.461730379721217,
+   "l_tot_db": 5.461764429868057,
    "look_law": [
     24,
     {
@@ -9207,6 +9243,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.059956167359466406,
     "positions": 5.0885021295652955,
     "scan_mismatch": 0.08909615421788107,
@@ -9268,8 +9305,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 601.6311180138819,
-   "range_noise_km": 601.6311180138819,
+   "range_km": 601.6299387675012,
+   "range_noise_km": 601.6299387675012,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -9287,7 +9324,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.057330034862387,
+   "l_tot_db": 8.057364085009226,
    "look_law": [
     24,
     {
@@ -9375,6 +9412,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 0.08909615421788107,
@@ -9436,8 +9474,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1162.067073891436,
-   "range_noise_km": 1162.067073891436,
+   "range_km": 1162.0647961445748,
+   "range_noise_km": 1162.0647961445748,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -9455,7 +9493,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.577511251226756,
+   "l_tot_db": 6.577545301373596,
    "look_law": [
     24,
     {
@@ -9543,6 +9581,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06068918040400462,
     "positions": 4.830388497781648,
     "scan_mismatch": 0.08909615421788107,
@@ -9604,8 +9643,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1587.6823667831861,
-   "range_noise_km": 1587.6823667831861,
+   "range_km": 1587.679254795411,
+   "range_noise_km": 1587.679254795411,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -9623,7 +9662,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.401986533204638,
+   "l_tot_db": 7.402020583351478,
    "look_law": [
     24,
     {
@@ -9711,6 +9750,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060415886863218304,
     "positions": 4.957714192129771,
     "scan_mismatch": 0.08909615421788107,
@@ -9772,8 +9812,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1716.8734289403856,
-   "range_noise_km": 1716.8734289403856,
+   "range_km": 1716.870063727523,
+   "range_noise_km": 1716.870063727523,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -9791,7 +9831,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.3501462117565275,
+   "l_tot_db": 6.350180261903367,
    "look_law": [
     24,
     {
@@ -9879,6 +9919,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05974218150853261,
     "positions": 5.163271542711595,
     "scan_mismatch": 0.08909615421788107,
@@ -9940,8 +9981,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7697.2284526917065,
-   "range_noise_km": 7697.2284526917065,
+   "range_km": 7697.213365492057,
+   "range_noise_km": 7697.213365492057,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -9959,7 +10000,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.451079408784188,
+   "l_tot_db": 6.451113458931028,
    "look_law": [
     24,
     {
@@ -10047,6 +10088,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 0.08909615421788107,
@@ -10108,8 +10150,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8337.186340990622,
-   "range_noise_km": 8337.186340990622,
+   "range_km": 8337.169999420976,
+   "range_noise_km": 8337.169999420976,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -10127,7 +10169,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.63216185709619,
+   "l_tot_db": 5.63219590724303,
    "look_law": [
     24,
     {
@@ -10215,6 +10257,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.059956167359466406,
     "positions": 5.0885021295652955,
     "scan_mismatch": 0.2595276315928544,
@@ -10276,8 +10319,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 452.677793632032,
-   "range_noise_km": 452.677793632032,
+   "range_km": 452.6769063463951,
+   "range_noise_km": 452.6769063463951,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -10295,7 +10338,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.22776151223736,
+   "l_tot_db": 8.2277955623842,
    "look_law": [
     24,
     {
@@ -10383,6 +10426,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 0.2595276315928544,
@@ -10444,8 +10488,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 874.3596255429545,
-   "range_noise_km": 874.3596255429545,
+   "range_km": 874.3579117263102,
+   "range_noise_km": 874.3579117263102,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -10463,7 +10507,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.74794272860173,
+   "l_tot_db": 6.74797677874857,
    "look_law": [
     24,
     {
@@ -10551,6 +10595,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06068918040400462,
     "positions": 4.830388497781648,
     "scan_mismatch": 0.2595276315928544,
@@ -10612,8 +10657,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1194.6000285964465,
-   "range_noise_km": 1194.6000285964465,
+   "range_km": 1194.597687082323,
+   "range_noise_km": 1194.597687082323,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -10631,7 +10676,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.572418010579611,
+   "l_tot_db": 7.572452060726451,
    "look_law": [
     24,
     {
@@ -10719,6 +10764,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060415886863218304,
     "positions": 4.957714192129771,
     "scan_mismatch": 0.2595276315928544,
@@ -10780,8 +10826,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1291.8056471611271,
-   "range_noise_km": 1291.8056471611271,
+   "range_km": 1291.8031151160117,
+   "range_noise_km": 1291.8031151160117,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -10799,7 +10845,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.520577689131501,
+   "l_tot_db": 6.5206117392783405,
    "look_law": [
     24,
     {
@@ -10887,6 +10933,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05974218150853261,
     "positions": 5.163271542711595,
     "scan_mismatch": 0.2595276315928544,
@@ -10948,8 +10995,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 5791.52954147193,
-   "range_noise_km": 5791.52954147193,
+   "range_km": 5791.51818959859,
+   "range_noise_km": 5791.51818959859,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -10967,7 +11014,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.621510886159161,
+   "l_tot_db": 6.621544936306001,
    "look_law": [
     24,
     {
@@ -11055,6 +11102,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 0.2595276315928544,
@@ -11116,8 +11164,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 6273.045068542595,
-   "range_noise_km": 6273.045068542595,
+   "range_km": 6273.032772859292,
+   "range_noise_km": 6273.032772859292,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -11135,7 +11183,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.493823995631188,
+   "l_tot_db": 6.493858045778028,
    "look_law": [
     24,
     {
@@ -11223,6 +11271,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.059956167359466406,
     "positions": 5.0885021295652955,
     "scan_mismatch": 1.121189770127852,
@@ -11284,8 +11333,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 356.27756639663124,
-   "range_noise_km": 356.27756639663124,
+   "range_km": 356.27686806335345,
+   "range_noise_km": 356.27686806335345,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -11303,7 +11352,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.089423650772357,
+   "l_tot_db": 9.089457700919198,
    "look_law": [
     24,
     {
@@ -11391,6 +11440,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 1.121189770127852,
@@ -11452,8 +11502,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 688.1599316911368,
-   "range_noise_km": 688.1599316911368,
+   "range_km": 688.158582841178,
+   "range_noise_km": 688.158582841178,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -11471,7 +11521,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.609604867136727,
+   "l_tot_db": 7.609638917283568,
    "look_law": [
     24,
     {
@@ -11559,6 +11609,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06068918040400462,
     "positions": 4.830388497781648,
     "scan_mismatch": 1.121189770127852,
@@ -11620,8 +11671,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 940.2033786345897,
-   "range_noise_km": 940.2033786345897,
+   "range_km": 940.2015357587842,
+   "range_noise_km": 940.2015357587842,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -11639,7 +11690,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.434080149114608,
+   "l_tot_db": 8.434114199261447,
    "look_law": [
     24,
     {
@@ -11727,6 +11778,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060415886863218304,
     "positions": 4.957714192129771,
     "scan_mismatch": 1.121189770127852,
@@ -11788,8 +11840,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1016.7085258043558,
-   "range_noise_km": 1016.7085258043558,
+   "range_km": 1016.7065329721814,
+   "range_noise_km": 1016.7065329721814,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -11807,7 +11859,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.382239827666498,
+   "l_tot_db": 7.382273877813338,
    "look_law": [
     24,
     {
@@ -11895,6 +11947,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05974218150853261,
     "positions": 5.163271542711595,
     "scan_mismatch": 1.121189770127852,
@@ -11956,8 +12009,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4558.191454885206,
-   "range_noise_km": 4558.191454885206,
+   "range_km": 4558.182520455762,
+   "range_noise_km": 4558.182520455762,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -11975,7 +12028,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.483173024694159,
+   "l_tot_db": 7.4832070748409985,
    "look_law": [
     24,
     {
@@ -12063,6 +12116,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 1.121189770127852,
@@ -12124,8 +12178,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4937.165600690949,
-   "range_noise_km": 4937.165600690949,
+   "range_km": 4937.155923441068,
+   "range_noise_km": 4937.155923441068,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -12143,7 +12197,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.232608788480241,
+   "l_tot_db": 7.232642838627081,
    "look_law": [
     24,
     {
@@ -12231,6 +12285,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.059956167359466406,
     "positions": 5.0885021295652955,
     "scan_mismatch": 1.8599745629769053,
@@ -12292,8 +12347,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 306.52228369911785,
-   "range_noise_km": 306.52228369911785,
+   "range_km": 306.52168289027867,
+   "range_noise_km": 306.52168289027867,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -12311,7 +12366,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.82820844362141,
+   "l_tot_db": 9.82824249376825,
    "look_law": [
     24,
     {
@@ -12399,6 +12454,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 1.8599745629769053,
@@ -12460,8 +12516,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 592.0562328568512,
-   "range_noise_km": 592.0562328568512,
+   "range_km": 592.0550723780316,
+   "range_noise_km": 592.0550723780316,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -12479,7 +12535,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.34838965998578,
+   "l_tot_db": 8.348423710132622,
    "look_law": [
     24,
     {
@@ -12567,6 +12623,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06068918040400462,
     "positions": 4.830388497781648,
     "scan_mismatch": 1.8599745629769053,
@@ -12628,8 +12685,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 808.9010197174902,
-   "range_noise_km": 808.9010197174902,
+   "range_km": 808.899434205087,
+   "range_noise_km": 808.899434205087,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -12647,7 +12704,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.172864941963661,
+   "l_tot_db": 9.172898992110502,
    "look_law": [
     24,
     {
@@ -12735,6 +12792,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060415886863218304,
     "positions": 4.957714192129771,
     "scan_mismatch": 1.8599745629769053,
@@ -12796,8 +12854,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 874.7219824640111,
-   "range_noise_km": 874.7219824640111,
+   "range_km": 874.7202679371176,
+   "range_noise_km": 874.7202679371176,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -12815,7 +12873,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.121024620515552,
+   "l_tot_db": 8.121058670662391,
    "look_law": [
     24,
     {
@@ -12903,6 +12961,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05974218150853261,
     "positions": 5.163271542711595,
     "scan_mismatch": 1.8599745629769053,
@@ -12964,8 +13023,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 3921.6256819655564,
-   "range_noise_km": 3921.6256819655564,
+   "range_km": 3921.6179952572847,
+   "range_noise_km": 3921.6179952572847,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -12983,7 +13042,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.221957817543212,
+   "l_tot_db": 8.221991867690052,
    "look_law": [
     24,
     {
@@ -13071,6 +13130,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 1.8599745629769053,
@@ -13132,8 +13192,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4247.674896374912,
-   "range_noise_km": 4247.674896374912,
+   "range_km": 4247.666570583413,
+   "range_noise_km": 4247.666570583413,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -13151,7 +13211,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.632161855818799,
+   "l_tot_db": 5.632195905965639,
    "look_law": [
     24,
     {
@@ -13239,6 +13299,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.059956167359466406,
     "positions": 5.0885021295652955,
     "scan_mismatch": 0.25952763031546294,
@@ -13300,8 +13361,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 645.9767052695895,
-   "range_noise_km": 645.9767052695895,
+   "range_km": 645.9754391022176,
+   "range_noise_km": 645.9754391022176,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -13319,7 +13380,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.227761510959969,
+   "l_tot_db": 8.227795561106808,
    "look_law": [
     24,
     {
@@ -13407,6 +13468,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 0.25952763031546294,
@@ -13468,8 +13530,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1247.7217969921264,
-   "range_noise_km": 1247.7217969921264,
+   "range_km": 1247.719351354976,
+   "range_noise_km": 1247.719351354976,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -13487,7 +13549,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.747942727324339,
+   "l_tot_db": 6.7479767774711785,
    "look_law": [
     24,
     {
@@ -13575,6 +13637,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06068918040400462,
     "positions": 4.830388497781648,
     "scan_mismatch": 0.25952763031546294,
@@ -13636,8 +13699,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1704.7087386287128,
-   "range_noise_km": 1704.7087386287128,
+   "range_km": 1704.7053972596414,
+   "range_noise_km": 1704.7053972596414,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -13655,7 +13718,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.572418009302219,
+   "l_tot_db": 7.572452059449059,
    "look_law": [
     24,
     {
@@ -13743,6 +13806,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060415886863218304,
     "positions": 4.957714192129771,
     "scan_mismatch": 0.25952763031546294,
@@ -13804,8 +13868,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1843.422336020563,
-   "range_noise_km": 1843.422336020563,
+   "range_km": 1843.4187227614539,
+   "range_noise_km": 1843.4187227614539,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -13823,7 +13887,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.52992845973524,
+   "l_tot_db": 6.529962509882081,
    "look_law": [
     24,
     {
@@ -13911,6 +13975,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05969422514967704,
     "positions": 5.172670270951581,
     "scan_mismatch": 0.25952763031546294,
@@ -13972,8 +14037,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8281.781841427124,
-   "range_noise_km": 8281.781841427124,
+   "range_km": 8281.765608454845,
+   "range_noise_km": 8281.765608454845,
    "snr_req_db": 19.48911591038871,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -13991,7 +14056,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.621510884881769,
+   "l_tot_db": 6.621544935028609,
    "look_law": [
     24,
     {
@@ -14079,6 +14144,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 0.25952763031546294,
@@ -14140,8 +14206,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8951.711443302509,
-   "range_noise_km": 8951.711443302509,
+   "range_km": 8951.693897213214,
+   "range_noise_km": 8951.693897213214,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -14159,7 +14225,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.461730379721217,
+   "l_tot_db": 5.461764429868057,
    "look_law": [
     24,
     {
@@ -14247,6 +14313,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.059956167359466406,
     "positions": 5.0885021295652955,
     "scan_mismatch": 0.08909615421788107,
@@ -14308,8 +14375,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 607.0758544951734,
-   "range_noise_km": 607.0758544951734,
+   "range_km": 607.0746645766624,
+   "range_noise_km": 607.0746645766624,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -14327,7 +14394,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.057330034862387,
+   "l_tot_db": 8.057364085009226,
    "look_law": [
     24,
     {
@@ -14415,6 +14482,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 0.08909615421788107,
@@ -14476,8 +14544,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1172.5837323578594,
-   "range_noise_km": 1172.5837323578594,
+   "range_km": 1172.581433997484,
+   "range_noise_km": 1172.581433997484,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -14495,7 +14563,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.577511251226756,
+   "l_tot_db": 6.577545301373596,
    "look_law": [
     24,
     {
@@ -14583,6 +14651,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06068918040400462,
     "positions": 4.830388497781648,
     "scan_mismatch": 0.08909615421788107,
@@ -14644,8 +14713,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1602.0508258676582,
-   "range_noise_km": 1602.0508258676582,
+   "range_km": 1602.0476857165238,
+   "range_noise_km": 1602.0476857165238,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -14663,7 +14732,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.401986533204638,
+   "l_tot_db": 7.402020583351478,
    "look_law": [
     24,
     {
@@ -14751,6 +14820,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060415886863218304,
     "positions": 4.957714192129771,
     "scan_mismatch": 0.08909615421788107,
@@ -14812,8 +14882,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1732.411061739652,
-   "range_noise_km": 1732.411061739652,
+   "range_km": 1732.4076660717535,
+   "range_noise_km": 1732.4076660717535,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -14831,7 +14901,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.3594969836376585,
+   "l_tot_db": 6.359531033784498,
    "look_law": [
     24,
     {
@@ -14919,6 +14989,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05969422514967704,
     "positions": 5.172670270951581,
     "scan_mismatch": 0.08909615421788107,
@@ -14980,8 +15051,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7783.051226326734,
-   "range_noise_km": 7783.051226326734,
+   "range_km": 7783.035970907402,
+   "range_noise_km": 7783.035970907402,
    "snr_req_db": 19.48911591038871,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -14999,7 +15070,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.451079408784188,
+   "l_tot_db": 6.451113458931028,
    "look_law": [
     24,
     {
@@ -15087,6 +15158,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 0.08909615421788107,
@@ -15148,8 +15220,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8412.637529040821,
-   "range_noise_km": 8412.637529040821,
+   "range_km": 8412.621039580652,
+   "range_noise_km": 8412.621039580652,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -15167,7 +15239,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.451079408784188,
+   "l_tot_db": 6.451113458931028,
    "look_law": [
     24,
     {
@@ -15255,6 +15327,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 0.08909615421788107,
@@ -15316,8 +15389,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8412.637529040821,
-   "range_noise_km": 8412.637529040821,
+   "range_km": 8412.621039580652,
+   "range_noise_km": 8412.621039580652,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -15335,7 +15408,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.448336014609242,
+   "l_tot_db": 6.448370064756082,
    "look_law": [
     24,
     {
@@ -15423,6 +15496,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.723760154840672,
     "scan_mismatch": 0.08909615421788107,
@@ -15484,8 +15558,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8161.202533855133,
-   "range_noise_km": 8161.202533855133,
+   "range_km": 8161.186537228195,
+   "range_noise_km": 8161.186537228195,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -15503,7 +15577,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.446614192102053,
+   "l_tot_db": 6.446648242248893,
    "look_law": [
     24,
     {
@@ -15591,6 +15665,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.722038332333483,
     "scan_mismatch": 0.08909615421788107,
@@ -15652,8 +15727,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7942.616963345042,
-   "range_noise_km": 7942.616963345042,
+   "range_km": 7942.601395163766,
+   "range_noise_km": 7942.601395163766,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -15671,7 +15746,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.63216190940528,
+   "l_tot_db": 5.63219595955212,
    "look_law": [
     24,
     {
@@ -15759,6 +15834,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.059956167359466406,
     "positions": 5.0885021295652955,
     "scan_mismatch": 0.2595276839019442,
@@ -15820,8 +15896,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 456.77450737566477,
-   "range_noise_km": 456.77450737566477,
+   "range_km": 456.7736120601327,
+   "range_noise_km": 456.7736120601327,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -15839,7 +15915,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.22776156454645,
+   "l_tot_db": 8.22779561469329,
    "look_law": [
     24,
     {
@@ -15927,6 +16003,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 0.2595276839019442,
@@ -15988,8 +16065,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 882.2725409658639,
-   "range_noise_km": 882.2725409658639,
+   "range_km": 882.2708116392557,
+   "range_noise_km": 882.2708116392557,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -16007,7 +16084,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.74794278091082,
+   "l_tot_db": 6.7479768310576596,
    "look_law": [
     24,
     {
@@ -16095,6 +16172,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06068918040400462,
     "positions": 4.830388497781648,
     "scan_mismatch": 0.2595276839019442,
@@ -16156,8 +16234,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1205.411105314014,
-   "range_noise_km": 1205.411105314014,
+   "range_km": 1205.4087426092926,
+   "range_noise_km": 1205.4087426092926,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -16175,7 +16253,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.5724180628887,
+   "l_tot_db": 7.57245211303554,
    "look_law": [
     24,
     {
@@ -16263,6 +16341,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060415886863218304,
     "positions": 4.957714192129771,
     "scan_mismatch": 0.2595276839019442,
@@ -16324,8 +16403,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1303.4964303700096,
-   "range_noise_km": 1303.4964303700096,
+   "range_km": 1303.4938754099992,
+   "range_noise_km": 1303.4938754099992,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -16343,7 +16422,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.529928513321722,
+   "l_tot_db": 6.529962563468562,
    "look_law": [
     24,
     {
@@ -16431,6 +16510,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05969422514967704,
     "positions": 5.172670270951581,
     "scan_mismatch": 0.2595276839019442,
@@ -16492,8 +16572,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 5856.104082316492,
-   "range_noise_km": 5856.104082316492,
+   "range_km": 5856.09260387175,
+   "range_noise_km": 5856.09260387175,
    "snr_req_db": 19.48911591038871,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -16511,7 +16591,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.6215109384682505,
+   "l_tot_db": 6.621544988615091,
    "look_law": [
     24,
     {
@@ -16599,6 +16679,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 0.2595276839019442,
@@ -16660,8 +16741,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 6329.815845258927,
-   "range_noise_km": 6329.815845258927,
+   "range_km": 6329.803438300241,
+   "range_noise_km": 6329.803438300241,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -16679,7 +16760,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.493906771913964,
+   "l_tot_db": 6.493940822060805,
    "look_law": [
     24,
     {
@@ -16767,6 +16848,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.059956167359466406,
     "positions": 5.0885021295652955,
     "scan_mismatch": 1.1212725464106283,
@@ -16828,8 +16910,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 359.5001504696788,
-   "range_noise_km": 359.5001504696788,
+   "range_km": 359.49944581987165,
+   "range_noise_km": 359.49944581987165,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -16847,7 +16929,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.089506427055134,
+   "l_tot_db": 9.089540477201973,
    "look_law": [
     24,
     {
@@ -16935,6 +17017,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 1.1212725464106283,
@@ -16996,8 +17079,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 694.3844415810142,
-   "range_noise_km": 694.3844415810142,
+   "range_km": 694.3830805305051,
+   "range_noise_km": 694.3830805305051,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -17015,7 +17098,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.6096876434195035,
+   "l_tot_db": 7.609721693566343,
    "look_law": [
     24,
     {
@@ -17103,6 +17186,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06068918040400462,
     "positions": 4.830388497781648,
     "scan_mismatch": 1.1212725464106283,
@@ -17164,8 +17248,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 948.7076593392587,
-   "range_noise_km": 948.7076593392587,
+   "range_km": 948.7057997943648,
+   "range_noise_km": 948.7057997943648,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -17183,7 +17267,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.434162925397384,
+   "l_tot_db": 8.434196975544225,
    "look_law": [
     24,
     {
@@ -17271,6 +17355,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060415886863218304,
     "positions": 4.957714192129771,
     "scan_mismatch": 1.1212725464106283,
@@ -17332,8 +17417,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1025.9048070502574,
-   "range_noise_km": 1025.9048070502574,
+   "range_km": 1025.9027961926165,
+   "range_noise_km": 1025.9027961926165,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -17351,7 +17436,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.391673375830406,
+   "l_tot_db": 7.391707425977246,
    "look_law": [
     24,
     {
@@ -17439,6 +17524,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05969422514967704,
     "positions": 5.172670270951581,
     "scan_mismatch": 1.1212725464106283,
@@ -17500,8 +17586,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4608.992543945634,
-   "range_noise_km": 4608.992543945634,
+   "range_km": 4608.983509941885,
+   "range_noise_km": 4608.983509941885,
    "snr_req_db": 19.48911591038871,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -17519,7 +17605,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.483255800976935,
+   "l_tot_db": 7.483289851123775,
    "look_law": [
     24,
     {
@@ -17607,6 +17693,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 1.1212725464106283,
@@ -17668,8 +17755,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4981.823004724836,
-   "range_noise_km": 4981.823004724836,
+   "range_km": 4981.813239942778,
+   "range_noise_km": 4981.813239942778,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -17687,7 +17774,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.233324364114229,
+   "l_tot_db": 7.233358414261069,
    "look_law": [
     24,
     {
@@ -17775,6 +17862,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.059956167359466406,
     "positions": 5.0885021295652955,
     "scan_mismatch": 1.860690138610893,
@@ -17836,8 +17924,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 309.2835573371405,
-   "range_noise_km": 309.2835573371405,
+   "range_km": 309.28295111597834,
+   "range_noise_km": 309.28295111597834,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -17855,7 +17943,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.828924019255398,
+   "l_tot_db": 9.828958069402239,
    "look_law": [
     24,
     {
@@ -17943,6 +18031,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 1.860690138610893,
@@ -18004,8 +18093,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 597.389708936585,
-   "range_noise_km": 597.389708936585,
+   "range_km": 597.3885380037144,
+   "range_noise_km": 597.3885380037144,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -18023,7 +18112,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.349105235619769,
+   "l_tot_db": 8.349139285766608,
    "look_law": [
     24,
     {
@@ -18111,6 +18200,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06068918040400462,
     "positions": 4.830388497781648,
     "scan_mismatch": 1.860690138610893,
@@ -18172,8 +18262,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 816.1879191708038,
-   "range_noise_km": 816.1879191708038,
+   "range_km": 816.1863193754795,
+   "range_noise_km": 816.1863193754795,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -18191,7 +18281,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.17358051759765,
+   "l_tot_db": 9.173614567744488,
    "look_law": [
     24,
     {
@@ -18279,6 +18369,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060415886863218304,
     "positions": 4.957714192129771,
     "scan_mismatch": 1.860690138610893,
@@ -18340,8 +18431,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 882.6018231125548,
-   "range_noise_km": 882.6018231125548,
+   "range_km": 882.600093140527,
+   "range_noise_km": 882.600093140527,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -18359,7 +18450,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.131090968030671,
+   "l_tot_db": 8.13112501817751,
    "look_law": [
     24,
     {
@@ -18447,6 +18538,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05969422514967704,
     "positions": 5.172670270951581,
     "scan_mismatch": 1.860690138610893,
@@ -18508,8 +18600,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 3965.187797194237,
-   "range_noise_km": 3965.187797194237,
+   "range_km": 3965.1800251006443,
+   "range_noise_km": 3965.1800251006443,
    "snr_req_db": 19.48911591038871,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -18527,7 +18619,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.2226733931772,
+   "l_tot_db": 8.22270744332404,
    "look_law": [
     24,
     {
@@ -18615,6 +18707,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 1.860690138610893,
@@ -18676,8 +18769,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4285.939627319445,
-   "range_noise_km": 4285.939627319445,
+   "range_km": 4285.931226525933,
+   "range_noise_km": 4285.931226525933,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -18695,7 +18788,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.816502226904866,
+   "l_tot_db": 5.816536277051706,
    "look_law": [
     24,
     {
@@ -18783,6 +18876,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.059945831516149184,
     "positions": 5.097879196174439,
     "scan_mismatch": 0.25952763031546294,
@@ -18844,8 +18938,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 650.2109836310528,
-   "range_noise_km": 650.2109836310528,
+   "range_km": 650.2097091641477,
+   "range_noise_km": 650.2097091641477,
    "snr_req_db": 19.878798109780288,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -18863,7 +18957,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.40273515128021,
+   "l_tot_db": 8.402769201427049,
    "look_law": [
     24,
     {
@@ -18951,6 +19045,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 0.25952763031546294,
@@ -19012,8 +19107,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1252.7391477859499,
-   "range_noise_km": 1252.7391477859499,
+   "range_km": 1252.7366923143798,
+   "range_noise_km": 1252.7366923143798,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -19031,7 +19126,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.931715322127993,
+   "l_tot_db": 6.931749372274833,
    "look_law": [
     24,
     {
@@ -19119,6 +19214,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060650236460507045,
     "positions": 4.839226396208559,
     "scan_mismatch": 0.25952763031546294,
@@ -19180,8 +19276,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1720.051254480277,
-   "range_noise_km": 1720.051254480277,
+   "range_km": 1720.0478830386153,
+   "range_noise_km": 1720.0478830386153,
    "snr_req_db": 21.864101542409625,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -19199,7 +19295,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.756392194606334,
+   "l_tot_db": 7.7564262447531735,
    "look_law": [
     24,
     {
@@ -19287,6 +19383,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060281804343446765,
     "positions": 4.966848819633416,
     "scan_mismatch": 0.25952763031546294,
@@ -19348,8 +19445,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1857.3868143919588,
-   "range_noise_km": 1857.3868143919588,
+   "range_km": 1857.3831737613255,
+   "range_noise_km": 1857.3831737613255,
    "snr_req_db": 20.72923152833155,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -19367,7 +19464,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.714325512606138,
+   "l_tot_db": 6.7143595627529775,
    "look_law": [
     24,
     {
@@ -19455,6 +19552,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05974964671935368,
     "positions": 5.182038261932561,
     "scan_mismatch": 0.25952763031546294,
@@ -19516,8 +19614,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8331.943627022898,
-   "range_noise_km": 8331.943627022898,
+   "range_km": 8331.927295729403,
+   "range_noise_km": 8331.927295729403,
    "snr_req_db": 19.44450651543535,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -19535,7 +19633,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.79648452520201,
+   "l_tot_db": 6.79651857534885,
    "look_law": [
     24,
     {
@@ -19623,6 +19721,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 0.25952763031546294,
@@ -19684,8 +19783,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8987.708150761178,
-   "range_noise_km": 8987.708150761178,
+   "range_km": 8987.690534115382,
+   "range_noise_km": 8987.690534115382,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -19703,7 +19802,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.646070750807285,
+   "l_tot_db": 5.646104800954125,
    "look_law": [
     24,
     {
@@ -19791,6 +19890,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.059945831516149184,
     "positions": 5.097879196174439,
     "scan_mismatch": 0.08909615421788107,
@@ -19852,8 +19952,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 611.0551437380927,
-   "range_noise_km": 611.0551437380927,
+   "range_km": 611.0539460198481,
+   "range_noise_km": 611.0539460198481,
    "snr_req_db": 19.878798109780288,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -19871,7 +19971,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.232303675182628,
+   "l_tot_db": 8.232337725329467,
    "look_law": [
     24,
     {
@@ -19959,6 +20059,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 0.08909615421788107,
@@ -20020,8 +20121,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1177.2989372493287,
-   "range_noise_km": 1177.2989372493287,
+   "range_km": 1177.2966296467646,
+   "range_noise_km": 1177.2966296467646,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -20039,7 +20140,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.761283846030411,
+   "l_tot_db": 6.761317896177251,
    "look_law": [
     24,
     {
@@ -20127,6 +20228,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060650236460507045,
     "positions": 4.839226396208559,
     "scan_mismatch": 0.08909615421788107,
@@ -20188,8 +20290,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1616.4694122419257,
-   "range_noise_km": 1616.4694122419257,
+   "range_km": 1616.4662438291782,
+   "range_noise_km": 1616.4662438291782,
    "snr_req_db": 21.864101542409625,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -20207,7 +20309,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.585960718508752,
+   "l_tot_db": 7.585994768655592,
    "look_law": [
     24,
     {
@@ -20295,6 +20397,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060281804343446765,
     "positions": 4.966848819633416,
     "scan_mismatch": 0.08909615421788107,
@@ -20356,8 +20459,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1745.5345963357738,
-   "range_noise_km": 1745.5345963357738,
+   "range_km": 1745.5311749446703,
+   "range_noise_km": 1745.5311749446703,
    "snr_req_db": 20.72923152833155,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -20375,7 +20478,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.543894036508556,
+   "l_tot_db": 6.543928086655396,
    "look_law": [
     24,
     {
@@ -20463,6 +20566,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05974964671935368,
     "positions": 5.182038261932561,
     "scan_mismatch": 0.08909615421788107,
@@ -20524,8 +20628,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7830.192258820854,
-   "range_noise_km": 7830.192258820854,
+   "range_km": 7830.176911001227,
+   "range_noise_km": 7830.176911001227,
    "snr_req_db": 19.44450651543535,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -20543,7 +20647,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.626053049104429,
+   "l_tot_db": 6.626087099251269,
    "look_law": [
     24,
     {
@@ -20631,6 +20735,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 0.08909615421788107,
@@ -20692,8 +20797,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8446.466507332485,
-   "range_noise_km": 8446.466507332485,
+   "range_km": 8446.44995156474,
+   "range_noise_km": 8446.44995156474,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -20711,7 +20816,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.816518378976128,
+   "l_tot_db": 5.816552429122968,
    "look_law": [
     24,
     {
@@ -20799,6 +20904,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.059945831516149184,
     "positions": 5.097879196174439,
     "scan_mismatch": 0.25954378238672443,
@@ -20860,8 +20966,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 459.7681682403856,
-   "range_noise_km": 459.7681682403856,
+   "range_km": 459.7672670570325,
+   "range_noise_km": 459.7672670570325,
    "snr_req_db": 19.878798109780288,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -20879,7 +20985,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.40275130335147,
+   "l_tot_db": 8.402785353498311,
    "look_law": [
     24,
     {
@@ -20967,6 +21073,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 0.25954378238672443,
@@ -21028,8 +21135,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 885.8195228325893,
-   "range_noise_km": 885.8195228325893,
+   "range_km": 885.8177865536056,
+   "range_noise_km": 885.8177865536056,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -21047,7 +21154,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.931731474199254,
+   "l_tot_db": 6.931765524346094,
    "look_law": [
     24,
     {
@@ -21135,6 +21242,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060650236460507045,
     "positions": 4.839226396208559,
     "scan_mismatch": 0.25954378238672443,
@@ -21196,8 +21304,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1216.2587751681376,
-   "range_noise_km": 1216.2587751681376,
+   "range_km": 1216.2563912010928,
+   "range_noise_km": 1216.2563912010928,
    "snr_req_db": 21.864101542409625,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -21215,7 +21323,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.756408346677595,
+   "l_tot_db": 7.756442396824435,
    "look_law": [
     24,
     {
@@ -21303,6 +21411,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060281804343446765,
     "positions": 4.966848819633416,
     "scan_mismatch": 0.25954378238672443,
@@ -21364,8 +21473,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1313.3695905872296,
-   "range_noise_km": 1313.3695905872296,
+   "range_km": 1313.3670162750147,
+   "range_noise_km": 1313.3670162750147,
    "snr_req_db": 20.72923152833155,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -21383,7 +21492,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.7143416646773995,
+   "l_tot_db": 6.714375714824239,
    "look_law": [
     24,
     {
@@ -21471,6 +21580,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05974964671935368,
     "positions": 5.182038261932561,
     "scan_mismatch": 0.25954378238672443,
@@ -21532,8 +21642,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 5891.56836122004,
-   "range_noise_km": 5891.56836122004,
+   "range_km": 5891.5568132624,
+   "range_noise_km": 5891.5568132624,
    "snr_req_db": 19.44450651543535,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -21551,7 +21661,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.796500677273272,
+   "l_tot_db": 6.796534727420112,
    "look_law": [
     24,
     {
@@ -21639,6 +21749,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 0.25954378238672443,
@@ -21700,8 +21811,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 6355.2634716786115,
-   "range_noise_km": 6355.2634716786115,
+   "range_km": 6355.25101484049,
+   "range_noise_km": 6355.25101484049,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -21719,7 +21830,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.703759646459868,
+   "l_tot_db": 6.703793696606708,
    "look_law": [
     24,
     {
@@ -21807,6 +21918,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.059945831516149184,
     "positions": 5.097879196174439,
     "scan_mismatch": 1.1467850498704648,
@@ -21868,8 +21980,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 361.325579880133,
-   "range_noise_km": 361.325579880133,
+   "range_km": 361.32487165233437,
+   "range_noise_km": 361.32487165233437,
    "snr_req_db": 19.878798109780288,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -21887,7 +21999,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.289992570835212,
+   "l_tot_db": 9.29002662098205,
    "look_law": [
     24,
     {
@@ -21975,6 +22087,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05691865011761976,
     "positions": 5.966004415409884,
     "scan_mismatch": 1.1467850498704648,
@@ -22036,8 +22149,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 696.1535723136072,
-   "range_noise_km": 696.1535723136072,
+   "range_km": 696.1522077954567,
+   "range_noise_km": 696.1522077954567,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -22055,7 +22168,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.818972741682995,
+   "l_tot_db": 7.8190067918298345,
    "look_law": [
     24,
     {
@@ -22143,6 +22256,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060650236460507045,
     "positions": 4.839226396208559,
     "scan_mismatch": 1.1467850498704648,
@@ -22204,8 +22318,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 955.8413078135437,
-   "range_noise_km": 955.8413078135437,
+   "range_km": 955.8394342861133,
+   "range_noise_km": 955.8394342861133,
    "snr_req_db": 21.864101542409625,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -22223,7 +22337,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.643649614161335,
+   "l_tot_db": 8.643683664308176,
    "look_law": [
     24,
     {
@@ -22311,6 +22425,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.060281804343446765,
     "positions": 4.966848819633416,
     "scan_mismatch": 1.1467850498704648,
@@ -22372,8 +22487,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1032.1593831344742,
-   "range_noise_km": 1032.1593831344742,
+   "range_km": 1032.157360017351,
+   "range_noise_km": 1032.157360017351,
    "snr_req_db": 20.72923152833155,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -22391,7 +22506,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.60158293216114,
+   "l_tot_db": 7.60161698230798,
    "look_law": [
     24,
     {
@@ -22479,6 +22594,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.05974964671935368,
     "positions": 5.182038261932561,
     "scan_mismatch": 1.1467850498704648,
@@ -22540,8 +22656,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4630.103825300635,
-   "range_noise_km": 4630.103825300635,
+   "range_km": 4630.0947499170425,
+   "range_noise_km": 4630.0947499170425,
    "snr_req_db": 19.44450651543535,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -22559,7 +22675,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.6837419447570126,
+   "l_tot_db": 7.683775994903852,
    "look_law": [
     24,
     {
@@ -22647,6 +22763,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.6,
+    "nav_pointing": 3.4050146840066366e-05,
     "polarisation": 0.06088200418951217,
     "positions": 4.726503549015618,
     "scan_mismatch": 1.1467850498704648,
@@ -22708,8 +22825,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4994.515535913943,
-   "range_noise_km": 4994.515535913943,
+   "range_km": 4994.505746253481,
+   "range_noise_km": 4994.505746253481,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -22755,7 +22872,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 3.241363888570863,
+   "l_tot_db": 3.2421979477788057,
    "look_law": [
     1,
     {
@@ -22844,6 +22961,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.46349963054485954,
     "positions": 0.4780106003851188,
     "scan_mismatch": 0.25952763031546294,
@@ -22913,8 +23031,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 8467.658421817623,
-   "range_noise_km": 8467.658421817623,
+   "range_km": 8467.251879757496,
+   "range_noise_km": 8467.251879757496,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -22924,7 +23042,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 3.0015781633051537,
+   "l_tot_db": 3.0024122225130965,
    "look_law": [
     1,
     {
@@ -23013,6 +23131,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.46349963054485954,
     "positions": 0.4780106003851188,
     "scan_mismatch": 0.01974190504975368,
@@ -23082,8 +23201,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 6883.221133752855,
-   "range_noise_km": 6883.221133752855,
+   "range_km": 6882.890662356794,
+   "range_noise_km": 6882.890662356794,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -23093,7 +23212,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 4.103024208073436,
+   "l_tot_db": 4.103858267281379,
    "look_law": [
     1,
     {
@@ -23182,6 +23301,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.46349963054485954,
     "positions": 0.4780106003851188,
     "scan_mismatch": 1.1211879498180364,
@@ -23251,8 +23371,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 4712.459870708545,
-   "range_noise_km": 4712.459870708545,
+   "range_km": 4712.233620067735,
+   "range_noise_km": 4712.233620067735,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -23262,7 +23382,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 2.9924239079224715,
+   "l_tot_db": 2.993257967130414,
    "look_law": [
     1,
     {
@@ -23351,6 +23471,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.46349963054485954,
     "positions": 0.4780106003851188,
     "scan_mismatch": 0.25952763031546294,
@@ -23420,8 +23541,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 8841.23034654605,
-   "range_noise_km": 8841.23034654605,
+   "range_km": 8840.805868866379,
+   "range_noise_km": 8840.805868866379,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -23431,7 +23552,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 2.7526381826591937,
+   "l_tot_db": 2.7534722418671365,
    "look_law": [
     1,
     {
@@ -23520,6 +23641,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.46349963054485954,
     "positions": 0.4780106003851188,
     "scan_mismatch": 0.019741905052185447,
@@ -23589,8 +23711,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 7186.891645618751,
-   "range_noise_km": 7186.891645618751,
+   "range_km": 7186.5465946507065,
+   "range_noise_km": 7186.5465946507065,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -23600,7 +23722,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 3.854168824017637,
+   "l_tot_db": 3.855002883225579,
    "look_law": [
     1,
     {
@@ -23689,6 +23811,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.46349963054485954,
     "positions": 0.4780106003851188,
     "scan_mismatch": 1.1212725464106283,
@@ -23758,8 +23881,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 4920.337860471182,
-   "range_noise_km": 4920.337860471182,
+   "range_km": 4920.101629368003,
+   "range_noise_km": 4920.101629368003,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -23769,7 +23892,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 3.2435148560939684,
+   "l_tot_db": 3.2443489153019107,
    "look_law": [
     1,
     {
@@ -23858,6 +23981,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.46349963054485954,
     "positions": 0.4780106003851188,
     "scan_mismatch": 0.25952763031546294,
@@ -23927,8 +24051,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 8962.141604206476,
-   "range_noise_km": 8962.141604206476,
+   "range_km": 8961.711321437684,
+   "range_noise_km": 8961.711321437684,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -23938,7 +24062,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 3.003729131562953,
+   "l_tot_db": 3.004563190770895,
    "look_law": [
     1,
     {
@@ -24027,6 +24151,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.46349963054485954,
     "positions": 0.4780106003851188,
     "scan_mismatch": 0.01974190578444746,
@@ -24096,8 +24221,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 7285.178430462607,
-   "range_noise_km": 7285.178430462607,
+   "range_km": 7284.828660632511,
+   "range_noise_km": 7284.828660632511,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -24107,7 +24232,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 4.1307722756489715,
+   "l_tot_db": 4.131606334856913,
    "look_law": [
     1,
     {
@@ -24196,6 +24321,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.46349963054485954,
     "positions": 0.4780106003851188,
     "scan_mismatch": 1.146785049870466,
@@ -24265,8 +24391,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 4980.308074809822,
-   "range_noise_km": 4980.308074809822,
+   "range_km": 4980.068964467395,
+   "range_noise_km": 4980.068964467395,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -24276,7 +24402,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.386709787660651,
+   "l_tot_db": 3.387543846868594,
    "look_law": [
     2,
     {
@@ -24365,6 +24491,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.05,
     "positions": 0.12907848525306462,
     "scan_mismatch": 0.25952763031546294,
@@ -24433,8 +24560,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 21882.32196827486,
-   "range_noise_km": 21882.32196827486,
+   "range_km": 21881.271372725278,
+   "range_noise_km": 21881.271372725278,
    "snr_req_db": 9.855504319078609,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -24444,7 +24571,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.146924062394942,
+   "l_tot_db": 3.1477581216028847,
    "look_law": [
     2,
     {
@@ -24533,6 +24660,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.05,
     "positions": 0.12907848525306462,
     "scan_mismatch": 0.01974190504975368,
@@ -24601,8 +24729,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 14261.18270036529,
-   "range_noise_km": 14261.18270036529,
+   "range_km": 14260.498004513609,
+   "range_noise_km": 14260.498004513609,
    "snr_req_db": 13.694154384029913,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -24612,7 +24740,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 4.2483701071632245,
+   "l_tot_db": 4.249204166371167,
    "look_law": [
     2,
     {
@@ -24701,6 +24829,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.05,
     "positions": 0.12907848525306462,
     "scan_mismatch": 1.1211879498180364,
@@ -24769,8 +24898,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 7122.026420663063,
-   "range_noise_km": 7122.026420663063,
+   "range_km": 7121.68448394938,
+   "range_noise_km": 7121.68448394938,
    "snr_req_db": 19.17447062616826,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -24780,7 +24909,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.1461438424104444,
+   "l_tot_db": 3.146977901618387,
    "look_law": [
     2,
     {
@@ -24869,6 +24998,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.05,
     "positions": 0.12907848525306462,
     "scan_mismatch": 0.25952763031546294,
@@ -24937,8 +25067,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 23170.104451985517,
-   "range_noise_km": 23170.104451985517,
+   "range_km": 23168.992028511628,
+   "range_noise_km": 23168.992028511628,
    "snr_req_db": 9.6037217729182,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -24948,7 +25078,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 2.9757123663128624,
+   "l_tot_db": 2.976546425520805,
    "look_law": [
     2,
     {
@@ -25037,6 +25167,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.05,
     "positions": 0.12907848525306462,
     "scan_mismatch": 0.08909615421788107,
@@ -25105,8 +25236,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 20263.73093609029,
-   "range_noise_km": 20263.73093609029,
+   "range_km": 20262.758050965473,
+   "range_noise_km": 20262.758050965473,
    "snr_req_db": 10.8531091390012,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25116,7 +25247,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.2409624661992167,
+   "l_tot_db": 3.241796525407159,
    "look_law": [
     2,
     {
@@ -25205,6 +25336,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.05,
     "positions": 0.1224809177858573,
     "scan_mismatch": 0.08909615421788107,
@@ -25273,8 +25405,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 19356.825827460954,
-   "range_noise_km": 19356.825827460954,
+   "range_km": 19355.896483897788,
+   "range_noise_km": 19355.896483897788,
    "snr_req_db": 10.8531091390012,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25284,7 +25416,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.4829845838509406,
+   "l_tot_db": 3.483818643058883,
    "look_law": [
     2,
     {
@@ -25373,6 +25505,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.05,
     "positions": 0.11755358784655645,
     "scan_mismatch": 0.08909615421788107,
@@ -25441,8 +25574,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 18575.066353154714,
-   "range_noise_km": 18575.066353154714,
+   "range_km": 18574.17454276676,
+   "range_noise_km": 18574.17454276676,
    "snr_req_db": 10.8531091390012,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25452,7 +25585,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 2.906358117147167,
+   "l_tot_db": 2.9071921763551094,
    "look_law": [
     2,
     {
@@ -25541,6 +25674,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.05,
     "positions": 0.12907848525306462,
     "scan_mismatch": 0.019741905052185447,
@@ -25609,8 +25743,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 15100.458409090703,
-   "range_noise_km": 15100.458409090703,
+   "range_km": 15099.733418642967,
+   "range_noise_km": 15099.733418642967,
    "snr_req_db": 13.442371837869501,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25620,7 +25754,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 4.00788875850561,
+   "l_tot_db": 4.0087228177135525,
    "look_law": [
     2,
     {
@@ -25709,6 +25843,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.05,
     "positions": 0.12907848525306462,
     "scan_mismatch": 1.1212725464106283,
@@ -25777,8 +25912,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 7541.123502221157,
-   "range_noise_km": 7541.123502221157,
+   "range_km": 7540.761444172575,
+   "range_noise_km": 7540.761444172575,
    "snr_req_db": 18.922688080007855,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25788,7 +25923,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.4056276342908474,
+   "l_tot_db": 3.4064616934987897,
    "look_law": [
     2,
     {
@@ -25877,6 +26012,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.05,
     "positions": 0.12907848525306462,
     "scan_mismatch": 0.25952763031546294,
@@ -25945,8 +26081,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 23808.634866194152,
-   "range_noise_km": 23808.634866194152,
+   "range_km": 23807.49178613764,
+   "range_noise_km": 23807.49178613764,
    "snr_req_db": 9.359032644577969,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25956,7 +26092,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.165841909759832,
+   "l_tot_db": 3.166675968967774,
    "look_law": [
     2,
     {
@@ -26045,6 +26181,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.05,
     "positions": 0.12907848525306462,
     "scan_mismatch": 0.01974190578444746,
@@ -26113,8 +26250,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 15516.602495429339,
-   "range_noise_km": 15516.602495429339,
+   "range_km": 15515.857525423415,
+   "range_noise_km": 15515.857525423415,
    "snr_req_db": 13.197682709529271,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -26124,7 +26261,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 4.2928850538458505,
+   "l_tot_db": 4.293719113053792,
    "look_law": [
     2,
     {
@@ -26213,6 +26350,7 @@
     "finite_precision": 0.3,
     "migration": 0.1,
     "multibeam_tx": 0.0,
+    "nav_pointing": 0.0008340592079425268,
     "polarisation": 0.05,
     "positions": 0.12907848525306462,
     "scan_mismatch": 1.146785049870466,
@@ -26281,8 +26419,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 7737.572722259969,
-   "range_noise_km": 7737.572722259969,
+   "range_km": 7737.2012324574525,
+   "range_noise_km": 7737.2012324574525,
    "snr_req_db": 18.67799895166762,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -26626,7 +26764,8 @@
      "S_blockage": 0.3,
      "TX_chain": 0.95,
      "calibration": 0.00571224281655752,
-     "finite_precision": 0.3
+     "finite_precision": 0.3,
+     "nav_pointing": 0.0008340592079425268
     },
     "n_trm": 122500,
     "name": "Ku",
@@ -26694,7 +26833,8 @@
      "Ku_blockage": 0.2,
      "TX_chain": 0.6,
      "calibration": 0.00571224281655752,
-     "finite_precision": 0.3
+     "finite_precision": 0.3,
+     "nav_pointing": 3.4050146840066366e-05
     },
     "n_trm": 4900,
     "name": "S",

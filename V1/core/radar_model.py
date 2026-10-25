@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.20.0
+# Radar Performance Model - V6.21.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,13 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.20.0 -> V6.21.0 (roadmap step 4.5: re-pointing in flight, validated by the user on 25 October 2026)
+#   - core/repoint.py: each pointing turned into its face's (u, v) at its transmission with the latest navigation
+#     (age = latency + 1 / cadence); pointing error from the attitude and rate knowledge and the unmeasured angular
+#     acceleration; band loss 'nav_pointing' (two-way beam shape, at the top of the band); the per-axis error adds to
+#     the filter's pointing error of a track look; sectors migrating between faces at the maximum rate (transit
+#     time, load of the neighbouring face); compute function 'repointing' (per pointing and per frame mask).
 #
 # Changes V6.19.0 -> V6.20.0 (roadmap step 4.4: compute and data, validated by the user on 25 October 2026)
 #   - core/compute.py: per face and band, the looks (S search dwells, Ku confirmations and track updates) costed in
@@ -546,7 +553,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.20.0"
+MODEL_VERSION = "6.21.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -3100,6 +3107,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     report(args.freq, args.theta, args.target, args.elec_mw)
     return 0
 
+
+# step 4.5: mean beam-shape loss of the navigation pointing error, in every band's losses (at the top of the band, where
+# the beam is narrowest); set here because it needs the computed beamwidth (hpbw_deg)
+try:
+    from . import repoint as _repoint  # noqa: E402
+except ImportError:            # run as a script: python core/radar_model.py
+    import repoint as _repoint  # noqa: E402
+for _b in BANDS.values():
+    _b.losses_db["nav_pointing"] = _repoint.loss_db(hpbw_deg(_b.usable_hi_ghz))
 
 if __name__ == "__main__":
     sys.exit(main())

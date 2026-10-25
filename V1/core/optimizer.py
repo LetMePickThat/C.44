@@ -2046,6 +2046,9 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
     from . import compute                    # step 4.4: data, beams, processing load, power, latency
     out["compute"] = compute.budget(mission, out)
     warn.extend(out["compute"]["flags"])
+    from . import repoint                    # step 4.5: navigation pointing error, migration between faces
+    out["repointing"] = repoint.budget(mission, out)
+    warn.extend(out["repointing"]["flags"])
     from . import scheduler                  # step 4.3: the tasks of each face in time
     out["scheduler"] = scheduler.schedule(mission, out)
     warn.extend(out["scheduler"]["flags"])
@@ -2204,6 +2207,17 @@ def print_report(res: dict) -> None:
         for sid, s_ in cmp_["sectors"].items():
             print(f"   {sid}: processing latency {1e3 * s_['processing_s']:.3g} ms | in-flight reselection "
                   f"{s_['reselect_ops']:.3g} op")
+    rp = res.get("repointing")
+    if rp:                                                     # step 4.5
+        print("-" * 100)
+        print(f" RE-POINTING IN FLIGHT: up to {rp['rate_max_dps']:g} deg/s, {rp['accel_max_dps2']:g} deg/s2, navigation "
+              f"at most {1e3 * rp['nav_age_s']:.1f} ms old | track error {3600 * rp['track_axis_sigma_deg']:.2f} arcsec per axis")
+        for b, v in rp["bands"].items():
+            print(f"   {b}: pointing error {v['error_hpbw']:.4f} HPBW, loss {v['loss_db']:.4f} dB, acceleration tenable "
+                  f"{v['accel_tenable_dps2']:.3g} deg/s2")
+        for sid, s_ in rp["sectors"].items():
+            tr = [f"F{int(k) + 1} {v['transit_s']:.2f} s" for k, v in s_["faces"].items()]
+            print(f"   {sid} ({s_['frame']}): face transit at the maximum rate {', '.join(tr)}")
     for wmsg in res["warnings"]:
         print(" WARNING:", wmsg)
 

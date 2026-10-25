@@ -35,6 +35,7 @@ import numpy as np
 from scipy.linalg import expm, solve_discrete_are
 
 from . import radar_model as rm
+from . import repoint
 from .params import P
 
 _T, _TT = "tracking.", "tool.tracking."
@@ -193,7 +194,9 @@ class TrackState:
         self.p_range, self.pf_range = steady(f, q, _H_POS_VEL, np.diag([s_r * s_r, max(al["vr"], 1e-9) ** 2]))
         hp = math.radians(rm.hpbw_deg(f_ku, theta_deg))
         self.hpbw_rad = hp
-        self.pointing_hpbw = math.sqrt(self.p_cross[0, 0]) / self.r_m / hp
+        # step 4.5: the navigation's per-axis pointing error adds to the filter's (C3)
+        self.pointing_hpbw = math.hypot(math.sqrt(self.p_cross[0, 0]) / self.r_m,
+                                        math.radians(repoint.axis_sigma_deg())) / hp
         self.v_span_mps = 2.0 * VEL_BANK_SIGMAS * math.sqrt(self.p_range[1, 1])
         # never wider than the class's own acceleration (E1), never below the floor
         self.a_bank_mps2 = min(ACCEL_BANK_SIGMAS * math.sqrt(max(self.p_cross[2, 2], self.p_range[2, 2])),

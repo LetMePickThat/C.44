@@ -19,9 +19,12 @@ Each watch volume is outlined in its colour at its range: its boundary on the sp
 The play lasts --duration (default: the longest revisit), each volume looping on its own revisit (a 20 s volume
 loops 6 times in 120 s). The pointings are those of core/scanorder.py: the hexagonal lattice of each volume's plan in the face's (u, v),
 shifted frame to frame, in bit-reversed Morton order; pointing i of a frame is drawn at i x RR / N (the release times
-of the scheduler's synthetic timeline); recent beams fade out. The mission result is cached in tools/.viewer_cache
+of the scheduler's synthetic timeline). Three timings (key m, option --timing): 'trace' draws each beam for a share of
+its volume's revisit (--fade, a visual trace, NOT a physical duration); 'physical' draws it for its real duration, the
+transmission of its dwell plus the echo window 2 R / c, and at least one image; 'slow' is the physical timing in slow
+motion (--slow). The mission result is cached in tools/.viewer_cache
 (keyed by the code, the parameter file and the mission), else computed (a few minutes). Test values only.
-Keys: space = pause, v = ship / 1:1 view, q = quit.
+Keys: space = pause, v = ship / 1:1 view, m = timing (trace / physical / slow), q = quit.
 """
 import argparse
 import glob
@@ -39,6 +42,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 import pyvista as pv  # noqa: E402
+from scipy.constants import c as C_LIGHT  # noqa: E402
 import vtk  # noqa: E402
 
 from core import environment as env  # noqa: E402
@@ -54,6 +58,7 @@ BODY_RADIUS_KM = {"moon": geo.MOON_RADIUS_KM, "earth": 6371.0}
 CACHE_DIR = os.path.join(ROOT, "tools", ".viewer_cache")
 DEFAULT_MISSION = os.path.join(ROOT, "tools", "scenarios", "scan3d_shell_lp.json")
 SHIP_CAMERA = [(0.23, -0.16, 0.04), (0.0, 0.0, -0.025), (0.0, 0.0, 1.0)]
+TIMINGS = ("trace", "physical", "slow")
 CONE_SIDES = 12                                             # facets of a beam frustum
 BEAM_OPACITY = 0.25
 
@@ -108,8 +113,10 @@ def aperture_centre(k: int) -> np.ndarray:
 
 def pointing_events(path: str, duration: float = None):
     """(times s, origins (N, 3) km, unit directions (N, 3), lengths km (N,), sector index (N,), sector ids, revisits,
-    mission, duration, face (N,), (u, v) (N, 2), half beamwidth in (u, v) (N,)) of every pointing of each volume and
-    face over duration s (default: the longest revisit), each volume looping on its own revisit."""
+    mission, duration, face (N,), (u, v) (N, 2), half beamwidth in (u, v) (N,), physical duration s (N,)) of every
+    pointing of each volume and face over duration s (default: the longest revisit), each volume looping on its own
+    revisit. The physical duration of a pointing is the transmission of its dwell (its scan bin's waveform, shortened
+    pulse, core/scanorder.py) plus the echo window 2 R / c."""
     mission, _ = frames.resolve(mo.load_mission(path))
     res = mission_result(path)
     g = mission.get("global", {})
@@ -119,7 +126,7 @@ def pointing_events(path: str, duration: float = None):
     ok = [r for r in res["sectors"] if r.get("status") == "OK"]
     if duration is None:
         duration = max(float(r["rr_target_s"]) for r in ok)
-    t_all, o_all, d_all, l_all, s_all, ids, rrs, f_all, uv_all, hw_all = [], [], [], [], [], [], [], [], [], []
+    t_all, o_all, d_all, l_all, s_all, ids, rrs, f_all, uv_all, hw_all, on_all = [], [], [], [], [], [], [], [], [], [], []
     for r in ok:
         sec = secs[r["id"]]
         si = len(ids)
@@ -129,6 +136,8 @@ def pointing_events(path: str, duration: float = None):
         rrs.append(rr)
         n_frames = max(1, math.ceil(duration / rr - 1e-9))
         reach = float(sec["range_km"])
+        bins = so._bin_time(r)                     # (theta lo, theta hi, transmit time per position, positions per dwell)
+        echo_s = 2.0 * reach * 1e3 / C_LIGHT
         spacing = float(r.get("beam_spacing_hpbw", rm.BEAM_SPACING_HPBW))
         m = sph.mask(sec)
         _, keep = mo.sector_sky(sec, sph, m, f, "S", sky)
@@ -157,12 +166,17 @@ def pointing_events(path: str, duration: float = None):
                 f_all.append(np.full(len(order), k))
                 uv_all.append(np.c_[u, v])
                 hw_all.append(np.full(len(order), hpbw_uv / 2.0))
+                theta = np.degrees(np.arcsin(np.clip(np.hypot(u, v), 0.0, 1.0)))
+                tx = np.zeros(len(order))
+                for lo_, hi_, t_pos, cpd in sorted(bins):
+                    tx[theta >= lo_ - 1e-9] = t_pos * cpd          # the dwell of the bin the pointing falls in
+                on_all.append(tx + echo_s)
     ts = np.concatenate(t_all)
     idx = np.argsort(ts, kind="stable")
     idx = idx[ts[idx] < duration]
     return (ts[idx], np.concatenate(o_all)[idx], np.concatenate(d_all)[idx], np.concatenate(l_all)[idx],
             np.concatenate(s_all)[idx], ids, rrs, mission, duration, np.concatenate(f_all)[idx],
-            np.concatenate(uv_all)[idx], np.concatenate(hw_all)[idx])
+            np.concatenate(uv_all)[idx], np.concatenate(hw_all)[idx], np.concatenate(on_all)[idx])
 
 
 _FRAMES = [tuple(np.asarray(x) for x in env.face_frame(k)) for k in range(4)]
@@ -337,18 +351,20 @@ def main(argv) -> int:
                                                                     "revisit; each volume loops on its own)")
     ap.add_argument("--fade", type=float, default=0.02, help="a beam stays drawn this fraction of its sector's "
                                                                "revisit (default 0.02)")
+    ap.add_argument("--timing", choices=TIMINGS, default="trace", help="trace (default), physical or slow (m cycles)")
+    ap.add_argument("--slow", type=float, default=0.01, help="simulated seconds per second of the slow timing")
     ap.add_argument("--view", choices=("ship", "full"), default="ship", help="starting camera (v toggles)")
     ap.add_argument("--snapshot", help="render one instant (40 %% of the play) to this PNG and exit")
     a = ap.parse_args(argv)
     path = mission_path(a.mission)
     print(f"computing the pointings of {os.path.basename(path)} ...")
-    ts, org, dirs, lens, sidx, ids, rrs, mission, duration, face, uv, hw = pointing_events(path, a.duration)
+    ts, org, dirs, lens, sidx, ids, rrs, mission, duration, face, uv, hw, on_s = pointing_events(path, a.duration)
     rr_max = max(rrs)
     loops = [max(1, math.ceil(duration / rr - 1e-9)) for rr in rrs]
-    speed = a.speed
+    speed = {"trace": a.speed, "physical": a.speed, "slow": a.slow}
     fade = a.fade * np.asarray(rrs)[sidx]                     # per beam (s)
     print(f"{len(ts)} pointings over {duration:g} s; sectors {', '.join(f'{i} (RR {r:g} s)' for i, r in zip(ids, rrs))}; "
-          f"speed x{speed:g}")
+          f"physical durations {1e3 * on_s.min():.3g} to {1e3 * on_s.max():.3g} ms")
 
     pl = pv.Plotter(off_screen=bool(a.snapshot), window_size=(1400, 900))
     pl.set_background("#0c0c10")
@@ -393,7 +409,7 @@ def main(argv) -> int:
     ship_r = float(np.linalg.norm(env.MODEL_VERTICES, axis=1).max()) * KM
     for _, _, c, kind in bodies:
         corners = np.vstack([corners, c + BODY_RADIUS_KM[kind] * np.eye(3), c - BODY_RADIUS_KM[kind] * np.eye(3)])
-    state = {"paused": False, "t": 0.0, "last": None, "ticks": 0, "view": a.view}
+    state = {"paused": False, "t": 0.0, "last": None, "ticks": 0, "view": a.view, "timing": a.timing, "t_prev": 0.0}
     pl.iren.interactor.GetInteractorStyle().SetAutoAdjustCameraClippingRange(False)
 
     def set_clipping() -> None:
@@ -421,16 +437,24 @@ def main(argv) -> int:
         scale.update()
 
     def draw(t_sim: float) -> None:
-        sel = (ts <= t_sim) & (ts > t_sim - fade)
+        tm = state["timing"]
+        if tm == "trace":
+            sel = (ts <= t_sim) & (ts > t_sim - fade)
+            what = f"trace: {100 * a.fade:g} % of each revisit, not a physical duration"
+        else:                   # real duration, and at least one image: the beams on air since the previous image
+            sel = (ts <= t_sim) & (ts + on_s > min(state["t_prev"], t_sim - 1e-12))
+            what = "physical: dwell + echo window" + (f", slow motion" if tm == "slow" else "")
+        state["t_prev"] = t_sim
         beams.copy_from(beam_cones(face[sel], uv[sel], hw[sel], lens[sel], sidx[sel].astype(float)))
         lp = "  ".join(f"{sid} {min(n, int(t_sim // rr) + 1)}/{n}" for sid, rr, n in zip(ids, rrs, loops))
-        hud.SetInput(f"t = {t_sim:6.1f} / {duration:g} s  |  loop {lp}  |  "
-                     f"{int(sel.sum())} beams ({100 * a.fade:g} % of their revisit)  |  x{speed:g}  |  view {state['view']} (v)")
+        hud.SetInput(f"t = {t_sim:8.3f} / {duration:g} s  |  loop {lp}  |  {int(sel.sum())} beams  |  {what} (m)  |  "
+                     f"x{speed[tm]:g}  |  view {state['view']} (v)")
         set_clipping()
         scale.update()
 
     set_view(a.view)
     if a.snapshot:
+        state["t_prev"] = 0.4 * duration - 1.0 / 30.0 * speed[a.timing]
         draw(0.4 * duration)
         pl.screenshot(a.snapshot)
         print(f"wrote {a.snapshot}")
@@ -444,13 +468,14 @@ def main(argv) -> int:
     def tick(_step) -> None:
         now = time.perf_counter()
         if state["last"] is not None and not state["paused"]:
-            state["t"] = min(t_end, state["t"] + (now - state["last"]) * speed)
+            state["t"] = min(t_end, state["t"] + (now - state["last"]) * speed[state["timing"]])
         state["last"] = now
         state["ticks"] += 1
         draw(state["t"])
 
     pl.add_key_event("space", lambda: state.update(paused=not state["paused"]))
     pl.add_key_event("v", lambda: set_view("full" if state["view"] == "ship" else "ship"))
+    pl.add_key_event("m", lambda: state.update(timing=TIMINGS[(TIMINGS.index(state["timing"]) + 1) % len(TIMINGS)]))
     draw(0.0)
     pl.show(interactive_update=True)
     set_view(state["view"])

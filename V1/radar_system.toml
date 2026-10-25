@@ -193,6 +193,19 @@ update_jitter_frac = { value = 0.1, unit = "-", status = "V", source = "a track 
 calibration_max_delay_frac = { value = 0.1, unit = "-", status = "V", source = "a calibration may slip by at most this x its interval (A5)", date = "2026-10-25" }
 eclipse_flag_db    = { value = 0.5, unit = "dB", status = "V", source = "eclipse of the echoes by the common transmit slots flagged above this (C2)", date = "2026-10-25" }
 
+# Re-pointing in flight (step 4.5, core/repoint.py): the navigation keeps the pointings on their volumes and tracks
+# while the ship turns; its errors cost a beam-shape loss (band losses 'nav_pointing') and a track pointing error;
+# the maximum rate moves the sectors between faces. Rate and acceleration are editable here (user, 25 October 2026).
+[repointing]
+rate_max_dps          = { value = 30.0, unit = "deg/s", status = "V", source = "A1: largest angular rate of the ship (user, step 4.5)", date = "2026-10-25" }
+accel_max_dps2        = { value = 15.0, unit = "deg/s2", status = "V", source = "A2: largest angular acceleration of the ship (user, step 4.5); unmeasured between two navigation messages", date = "2026-10-25" }
+nav_rate_hz           = { value = 100.0, unit = "Hz", status = "V", source = "A3: navigation messages per second", date = "2026-10-25" }
+nav_latency_s         = { value = 0.005, unit = "s", status = "V", source = "A4: delay of a navigation message", date = "2026-10-25" }
+attitude_sigma_arcsec = { value = 1.0, unit = "arcsec", status = "V", source = "A5: attitude knowledge, 1 sigma per axis (star trackers 2050, optimistic end)", date = "2026-10-25" }
+rate_sigma_dps        = { value = 1.0e-4, unit = "deg/s", status = "V", source = "A6: angular rate knowledge, 1 sigma per axis", date = "2026-10-25" }
+tolerance_hpbw        = { value = 0.05, unit = "HPBW", status = "V", source = "C2: rms navigation pointing error allowed, in beamwidths", date = "2026-10-25" }
+ops_per_pointing      = { value = 100.0, unit = "op", status = "V", source = "E1: rotation, (u, v) and face choice of one pointing; also per raster direction for the mask of a volume not tied to the ship, once per frame", date = "2026-10-25" }
+
 # Compute and data (step 4.4, core/compute.py): data rates from the ADCs to the face processor, simultaneous RX beams,
 # processing load per function, buffers, processing latency (replaces scheduler.processing_s) and the power of the
 # processing (ceiling power.dbf_kw). Technology values for 2050-2060, optimistic end; every value may change as the

@@ -1816,7 +1816,13 @@ def test_inertial_frame_with_identity_attitude_is_the_ship_frame():
     _one_frequency(m)
     ref = _strip_frames(mo.run(m, workers=1))
     got = _strip_frames(mo.run(_framed(m, [{"q_ship_to_icrf": [1.0, 0.0, 0.0, 0.0]}]), workers=1))
-    assert tb.differences(ref, got) == []
+    # step 4.5: an ICRF volume re-points in flight whatever the attitude of the moment (its mask follows the ship's
+    # rotation, and it migrates between faces): only that re-pointing work and its totals may differ
+    repoint_paths = ("ops_per_s/repointing", "ops_total_per_s", "/load", "power_kW/ops")
+    diffs = [d for d in tb.differences(ref, got)
+             if not d[0].startswith("/repointing/sectors/")
+             and not (d[0].startswith("/compute/faces/") and d[0].endswith(repoint_paths))]
+    assert diffs == []
 
 
 def test_turning_the_ship_turns_the_faces():
@@ -2507,3 +2513,39 @@ def test_compute_memory_counts(runs):
             assert m["capacity_TB"] == pytest.approx(cmp.MEMORY_B / 1e12)
             assert m["bandwidth_TB_per_s"] == pytest.approx(cmp.MEMORY_BW_BPS / 8e12)
             assert m["traffic_TB_per_s"] >= 0.0
+
+
+# ----------------------------------------------------------------------------- re-pointing in flight (step 4.5)
+from core import repoint as rpt  # noqa: E402
+
+
+def test_repoint_navigation_error_by_hand():
+    """C1-C2: error of a transmission from the file's navigation values, its two-way loss in every band's losses, the
+    acceleration that reaches the tolerance gives exactly the tolerance."""
+    age = rpt.NAV_LATENCY_S + 1.0 / rpt.NAV_HZ
+    att = rpt.ATT_SIGMA_DEG
+    r2 = 2 * (att ** 2 + (rpt.RATE_SIGMA_DPS * age) ** 2) + (0.5 * rpt.ACCEL_MAX_DPS2 * age ** 2) ** 2
+    assert rpt.r2_deg2() == pytest.approx(r2)
+    for b in rm.BANDS.values():
+        hp = rm.hpbw_deg(b.usable_hi_ghz)
+        assert b.losses_db["nav_pointing"] == pytest.approx(2 * 12.0412 * r2 / hp ** 2, rel=1e-4)
+        a_t = rpt.accel_tenable_dps2(hp)
+        assert math.sqrt(rpt.r2_deg2(a_t)) == pytest.approx(rpt.TOL_HPBW * hp, rel=1e-9)
+    assert rpt.axis_sigma_deg() == pytest.approx(math.sqrt(r2 / 2))
+
+
+def test_repoint_migration_skips_ship_frame_and_flags_overload():
+    """D1-D2: a ship-frame volume never migrates; a volume whose face load would overload its neighbour is flagged."""
+    mission = {"global": {"eps_min_deg": -90.0, "eps_max_deg": 90.0},
+               "sectors": [{"id": "A", "shape": "cap", "phi0_deg": 45.0, "eps0_deg": 20.0, "radius_deg": 10.0},
+                           {"id": "B", "shape": "cap", "phi0_deg": 45.0, "eps0_deg": 20.0, "radius_deg": 10.0}]}
+    res = {"tracking": {"faces": {"0": {"load": 0.9}, "1": {"load": 0.9}, "2": {"load": 0.0}, "3": {"load": 0.0}}},
+           "sectors": [{"id": "A", "status": "OK", "frame": "ship", "faces": {"0": {"energy_fraction": 0.5}}},
+                       {"id": "B", "status": "OK", "frame": "inertial",
+                        "faces": {"0": {"energy_fraction": 0.3, "time_fraction": 0.05}}}]}
+    out = rpt.budget(mission, res)
+    assert "A" not in out["sectors"] and "B" in out["sectors"]
+    f = out["sectors"]["B"]["faces"]["0"]
+    assert f["neighbour_load_during_transit"] == pytest.approx(1.2)
+    assert f["transit_s"] == pytest.approx(f["extent_deg"] / rpt.RATE_MAX_DPS)
+    assert any("sector B" in x for x in out["flags"])

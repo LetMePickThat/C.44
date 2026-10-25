@@ -550,3 +550,16 @@ and mission_redundancy_demo disappear); new resources memory 4 TB and memory ban
 on chip). 112 values differ, all under run/compute and the warnings; no compute alert left on the test missions.
 N3 20.5 min: 207 passed; only the snapshot tests and test_compute_memory_counts (reads the snapshots) failed before
 the refreeze.
+
+## 2026-10-25 -- step 4.5: re-pointing in flight (radar_model V6.21.0)
+
+Causes: band loss 'nav_pointing' (two-way beam shape of the navigation pointing error at 30 deg/s and 15 deg/s2:
+3e-5 dB in S, 8e-4 dB in Ku) in every range, so every range, energy and time fraction moves slightly (ranges by at
+most 0.04 %, one rounded bin range 324 -> 323 km); track pointing error + 4.4 arcsec per axis; new outputs: report
+key "repointing" (navigation error per band, tenable acceleration, sector transit times between faces) and the
+compute function "repointing" (~1e7 op/s per face). 3774 values differ; no waveform set, frequency, confirmation mode
+or status changes.
+N3 23.8 min: 207 passed; besides the snapshot tests, the model self-test run as a script (relative import of the new
+module, fixed) and test_inertial_frame_with_identity_attitude_is_the_ship_frame (an ICRF volume now re-points in
+flight whatever the attitude: the re-pointing work and its totals are allowed to differ, test adapted) failed; both
+pass after the fixes.

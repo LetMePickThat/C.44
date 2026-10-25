@@ -37,13 +37,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small C.44 radar -- design and modelling reference}
-\rhead{\small Model V6.20.0}
+\rhead{\small Model V6.21.0}
 \cfoot{\thepage}
 
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{25 October 2026 -- radar model V6.20.0 (roadmap step 4.4 coded)}
+\date{25 October 2026 -- radar model V6.21.0 (roadmap step 4.5 coded)}
 
 \begin{document}
 \maketitle
@@ -1031,6 +1031,38 @@ precomputed waveform when the measured spectrum changes: \num{1000} operations p
 (provisional). The full re-optimisation stays in mission preparation.
 
 %=====================================================================================================================
+\section{Re-pointing in flight}\label{sec:repoint}
+%=====================================================================================================================
+The frames of Section~\ref{sec:frames} turn every volume into the ship frame for one navigation message. In flight the
+ship turns (up to \SI{30}{\degree/s} and \SI{15}{\degree/s^2}, editable settings) and moves on its orbit; the radar
+computer keeps the pointings on their volumes and tracks (\code{core/repoint.py}, roadmap step 4.5).
+
+\paragraph{Loop.} The pointing lattice of a volume is fixed once per frame in the volume's own frame; each pointing is
+turned into the $(u,v)$ of a face at the instant it is transmitted, with the latest navigation message propagated by
+the measured rate, and transmitted by the face that sees it then; the receive beams are formed with the attitude of the
+reception. The coverage of a volume therefore stays exact while the ship turns during a frame. Ship-frame volumes do
+not move; the limb offset follows the altitude.
+
+\paragraph{Errors.} At a transmission the navigation is at most the latency plus one message interval old
+(\SI{15}{ms}); the mean square pointing error is
+\[
+  \overline{r^2} = 2\left(\sigma_{\mathrm{att}}^2 + (\sigma_{\dot\theta}\,a)^2\right) + \left(\tfrac12\,\alpha_{\max}a^2\right)^2,
+\]
+with the attitude and rate knowledge $\sigma_{\mathrm{att}} = 1''$, $\sigma_{\dot\theta} = 10^{-4}\,\si{\degree/s}$ per
+axis and the unmeasured acceleration $\alpha_{\max}$, which dominates ($6''$). Its mean two-way beam-shape loss
+$2\times12.04\,\overline{r^2}/\theta_3^2$\,dB joins the losses of every band (\num{3e-5}\,dB in S, \num{8e-4}\,dB in Ku);
+the error is checked against \SI{5}{\percent} of a beamwidth (it is $0.001$ in S, $0.006$ in Ku). In a track look the
+per-axis error adds in quadrature to the filter's pointing error. The angular rate itself is measured and compensated:
+it does not enter the error.
+
+\paragraph{Migration between faces.} A volume not tied to the ship crosses a face boundary at the maximum rate in a
+fraction of a second to about a second; the neighbouring face must carry its load meanwhile (alert otherwise). The
+whole envelope of attitudes is checked later (validation engine).
+
+\paragraph{Computing.} About 100 operations per pointing, and per frame the mask of each volume not tied to the ship:
+about $10^7$ operations per second per face, negligible.
+
+%=====================================================================================================================
 \section{Other functions}
 %=====================================================================================================================
 \paragraph{Array errors and calibration.}\label{sec:cal} Every TRM is calibrated in flight through its coupler (transmit and receive
@@ -1079,6 +1111,7 @@ jammers, Faraday\\
 \code{core/scheduler.py} & priorities, waits, synthetic timeline, common slots, latency\\
 \code{core/scanorder.py} & search pointings of a volume, shifts, bit-reversed Morton order\\
 \code{core/compute.py} & data rates, receive beams, processing load, buffers, power and latency of the digital chain\\
+\code{core/repoint.py} & re-pointing in flight: navigation pointing error, its loss, migration between faces\\
 \code{core/redundancy.py} & redundancy between sectors\\
 \code{core/cost\_estimate.py} & fast estimate for the interface\\
 \code{core/mission.py} & mission model, validation, JSON / CSV\\
@@ -1098,7 +1131,7 @@ The test bench has two families: frozen outputs of every test mission compared a
 (non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
 exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
 frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
-before any refreeze. At model V6.20.0 the bench has 217 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
+before any refreeze. At model V6.21.0 the bench has 219 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
 
 %=====================================================================================================================
 \section{Roadmap and open points}\label{sec:roadmap}
@@ -1116,8 +1149,7 @@ sky noise, converters, isolation --- done\\
 calibration --- done (degraded modes and TRM failures deferred to the end of the development)\\
 4, resources & 4.1 power: shared ship budget, always-on consumption, TRM supply, face storage --- done; 4.2 thermal:
 coolant, cold plate, junction, ship heat rejection --- done; 4.3 scheduler: priorities, queues, synthetic timeline,
-common slots, latency --- done; 4.3 bis scan order inside a volume --- done; 4.4 compute and data --- coded;
-4.5 re-pointing in flight\\
+common slots, latency --- done; 4.3 bis scan order inside a volume --- done; 4.4 compute and data --- done; 4.5 re-pointing in flight --- coded\\
 5, mission and validation & richer mission model; global optimiser; validation engine; Monte-Carlo simulation;
 operator interface; verification and documentation\\
 \bottomrule
@@ -1133,8 +1165,8 @@ Main provisional dispositions, each assigned to a later step:
   \item \textbf{Computing}: the consumption of the processing fed back into the budgets that size the plan (5.2);
         memory capacity of the coherent buffers (output only today, up to \SI{167}{GB} on a face); cost of an
         in-flight waveform re-selection (provisional value).
-  \item \textbf{Re-pointing in flight (4.5)}: navigation cadence, rotation within a frame, sector migration between
-        faces, track compensation of the ship's rotation.
+  \item \textbf{Re-pointing in flight}: the maximum rate and acceleration per mission (system settings today); the
+        whole attitude envelope (5.3); the ship turning in the 3D view (phase 6).
   \item \textbf{Mission and validation (5.x)}: per-class RCS spread and RCS versus aspect (discrimination is optimistic
         today), track-update and discrimination probabilities as mission settings, joint optimisation of the power
         split among faces, recalibration of the fast estimate on the track model.
@@ -1245,6 +1277,7 @@ Thermal inertia & Heat the coolant and the structure store per kelvin: it absorb
 Digital down-conversion & Bringing the samples of a channel to the signal bandwidth, near the converter, to cut the data
 rate.\\
 Subarray beamforming & Partial beams formed inside a TRSA and summed by the face processor.\\
+Navigation message & Attitude, rate and orbit of the ship sent to the radar computer (here 100 per second).\\
 Little's law & Mean number of items in progress = arrival rate $\times$ time each item stays; here, open listening
 windows.\\
 \bottomrule
@@ -1457,6 +1490,8 @@ Processing power & Static share plus energy per operation and per bit & about \S
 \SI{50}{kW} ceiling (reported; the sizing keeps the ceiling)\\
 Processing latency & Data stream and processing after a dwell & \SI{0.01}{\micro s} to \SI{5}{ms}, in the confirmation
 latency\\
+Navigation pointing & Attitude and rate knowledge, unmeasured acceleration between messages & \num{3e-5}\,dB in S,
+\num{8e-4}\,dB in Ku ($\le 0.006$ beamwidth)\\
 Cooling of a face & Micro-channel cold plate, dielectric coolant & capacity \SI{15.9}{MW} per face: not limiting
 (dissipation $\le$ \SI{2}{MW})\\
 Junction temperature & Heating of the PA transistors by the pulses & $\le$\SI{63}{\celsius} against \SI{225}{\celsius}:
