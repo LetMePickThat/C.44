@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.16.0
+# Radar Performance Model - V6.17.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,18 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.16.0 -> V6.17.0 (roadmap step 4.2: thermal, validated by the user on 25 October 2026)
+#   - [thermal]: coolant (SmartCoolant derivative, 2050: cp 2.5 kJ/kg K, h 3000 W/m2 K, 0.8 kg/L), micro-channel area
+#     x10, plate-fluid dT 40 K, rise 10 K, inlet 20 C, inertia 50 L + 90 kJ/K, buffer 10 K, Tj max 225 C, ship heat
+#     rejection 6 MW (D). DERIVED: admissible flux 120 W/cm2, cooling capacity ~15.9 MW per face, flow, convection
+#     resistance per TRM, buffer 1.9 MJ.
+#   - Junction of a TRM PA: 2-pole Foster network per band + convection (junction_temp_c, output 'junction_c'); the
+#     removal of waveforms above Tj max is behind tool.thermal.junction_check (false: measured impact nil, Tj <= 63 C
+#     even CW; duty_max 0.65 kept, user decision).
+#   - Budget: face loop heat (transmissions + always-on electronics + pumps) against the cooling capacity (load 'heat'),
+#     heat burst against the cold-plate buffer with a scheduler rule, ship heat (faces + conversion losses) against the
+#     rejection reserved for the radar.
 #
 # Changes V6.15.0 -> V6.16.0 (roadmap step 4.1: electrical power, validated by the user on 25 October 2026)
 #   - The faces SHARE the ship total (8 MW): the sum of their mean bus draws (transmission + always-on consumption +
@@ -507,7 +519,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.16.0"
+MODEL_VERSION = "6.17.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -739,6 +751,7 @@ class BandConfig:
     limiter_recovery_s: float = 0.0   # receiver deaf for tau + this after each pulse (eclipsing, step 2.1)
     errors: Optional[Dict[str, float]] = None   # residual array errors and calibration cadence (step 3.4)
     trm_supply_w: float = 0.0         # continuous supply capacity of one TRM, W (step 4.1, C; 0 = not checked)
+    rth: Tuple[Tuple[float, float], ...] = ()   # junction-to-plate Foster poles (K/W, s) of a TRM PA (step 4.2)
 
     @property
     def noise_ant_dbm(self) -> float:
@@ -898,6 +911,7 @@ def _band(name: str) -> BandConfig:
         losses_db={**P.section(b + "losses_db"), "calibration": 2.0 * array_error_loss_db(er),
                    "TX_chain": tx_chain_loss_db(P.section(b + "tx"), rx)},
         errors=er, trm_supply_w=P.get(b + "trm_supply_w"),
+        rth=((P.get(b + "rth_fast_k_w"), P.get(b + "tau_fast_s")), (P.get(b + "rth_slow_k_w"), P.get(b + "tau_slow_s"))),
         allowed_roles=tuple(P.get(b + "allowed_roles")),
         pol_rx_dual=P.get(b + "pol_rx_dual"), pol_loss_single_db=P.get(b + "pol_loss_single_db"),
         pol_track_est_loss_db=P.get(b + "pol_track_est_loss_db"),
@@ -956,6 +970,64 @@ def trm_supply_check(wf: "Waveform", band: "BandConfig") -> None:
     if band.e_buf_trm_j > 0 and drawn > band.buffer_max_fraction * band.e_buf_trm_j * (1.0 + 1e-12):
         raise ValueError(f"{wf.name}: the train draws {drawn:.2f} J of the TRM buffer (max "
                          f"{band.buffer_max_fraction * band.e_buf_trm_j:.2f} J with the {band.trm_supply_w:g} W supply)")
+
+
+# ----------------------------------------------------------------------------- thermal (step 4.2)
+_TH = "thermal."
+TH_CP = P.get(_TH + "coolant_cp_kj_kgk") * 1e3
+TH_H = P.get(_TH + "coolant_h_w_m2k")
+TH_RHO = P.get(_TH + "coolant_density_kg_l")
+TH_AREA_FACTOR = P.get(_TH + "microchannel_area_factor")
+TH_DT_MAX = P.get(_TH + "plate_fluid_dt_max_k")
+TH_RISE = P.get(_TH + "coolant_rise_k")
+TH_INLET_C = P.get(_TH + "coolant_inlet_c")
+TJ_MAX_C = P.get(_TH + "tj_max_c")
+SHIP_HEAT_REJECTION_W = P.get(_TH + "ship_heat_rejection_mw") * 1e6
+JUNCTION_CHECK = P.get("tool.thermal.junction_check")
+for _k, _v in (("coolant_cp_kj_kgk", TH_CP), ("coolant_h_w_m2k", TH_H), ("coolant_density_kg_l", TH_RHO),
+               ("microchannel_area_factor", TH_AREA_FACTOR), ("plate_fluid_dt_max_k", TH_DT_MAX),
+               ("coolant_rise_k", TH_RISE)):
+    if _v <= 0:
+        raise ValueError(f"{P.path}: thermal.{_k} must be > 0")
+if TJ_MAX_C <= TH_INLET_C + TH_RISE:
+    raise ValueError(f"{P.path}: thermal.tj_max_c must be above the coolant outlet temperature")
+
+
+def face_cooling() -> Dict[str, float]:
+    """Derived cooling figures of one face (step 4.2, C1-C3): admissible flux h x area factor x dT (W/m2) over the
+    emissive area = capacity; flow for the coolant rise; thermal inertia of fluid + structure and the buffer of the
+    admissible plate rise."""
+    flux = TH_H * TH_AREA_FACTOR * TH_DT_MAX
+    cap = flux * PHYS_AREA_M2
+    inertia = P.get(_TH + "fluid_volume_l") * TH_RHO * TH_CP + P.get(_TH + "structure_heat_capacity_kj_k") * 1e3
+    return {"flux_max_w_cm2": flux / 1e4, "capacity_w": cap, "flow_l_s": cap / (TH_CP * TH_RISE) / TH_RHO,
+            "inertia_j_k": inertia, "buffer_j": inertia * P.get(_TH + "plate_rise_max_k")}
+
+
+def r_conv_trm(band_name: str) -> float:
+    """Plate-to-fluid convection resistance of one TRM footprint (K/W): 1 / (h x area factor x footprint)."""
+    return 1.0 / (TH_H * TH_AREA_FACTOR * PHYS_AREA_M2 / N_TRM[band_name])
+
+
+def junction_temp_c(wf: "Waveform", band: Optional["BandConfig"] = None) -> float:
+    """Junction temperature of a TRM PA at the end of the train (step 4.2, B1): coolant outlet + convection at the
+    mean heat of the dwell + the Foster poles driven by the pulses, P_d (1 - e^(-tau/tau_i)) sum_k e^(-k PRI/tau_i)."""
+    band = band or BANDS[wf.band]
+    eta = pae_wf(wf)
+    p_d = band.p_pk_trm_w * (1.0 / eta - 1.0)                         # heat while the pulse is on
+    t_on, pri = wf.tx_block_s, wf.pri_s
+    t = TH_INLET_C + TH_RISE + r_conv_trm(band.name) * trm_dissipation_w(wf)
+    for r_i, tau_i in band.rth:
+        acc = sum(math.exp(-k * pri / tau_i) for k in range(wf.n))
+        t += r_i * p_d * (1.0 - math.exp(-t_on / tau_i)) * acc
+    return t
+
+
+def junction_check(wf: "Waveform", band: "BandConfig") -> None:
+    """ValueError when the junction exceeds tj_max_c (step 4.2, B; active with tool.thermal.junction_check)."""
+    tj = junction_temp_c(wf, band)
+    if tj > TJ_MAX_C:
+        raise ValueError(f"{wf.name}: junction {tj:.0f} C above {TJ_MAX_C:g} C")
 
 
 def search_position_costs(wf: "Waveform", scale=1.0) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -2484,6 +2556,8 @@ def solve_base(wf: Waveform, f_ghz: float, theta_deg: float, target: Target, rx_
                              f"droop too large")
         losses["buffer_droop"] = -10.0 * math.log10(1.0 - x_buf / 2.0)
         trm_supply_check(wf, band)
+    if JUNCTION_CHECK:
+        junction_check(wf, band)
     b.x_buf = x_buf
     losses["multibeam_tx"] = multibeam_tx_loss_db(wf)
     losses["scan_mismatch"] = 2.0 * active_mismatch(f_ghz, theta_deg)["loss_db_per_pass"]   # TX and RX

@@ -1156,7 +1156,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
 
 # ----------------------------------------------------------------------------- mission budget
 _RES = ("e", "ts", "tk")
-_RES_NAME = {"e": "energy", "ts": "S time on air", "tk": "Ku time on air"}
+_RES_NAME = {"e": "energy", "ts": "S time on air", "tk": "Ku time on air", "heat": "heat"}
 
 
 def _face_loads(base: Dict[str, np.ndarray], sbs: Dict[str, Dict[float, dict]], choice: Dict[str, tuple]) -> Dict[str, np.ndarray]:
@@ -1229,6 +1229,24 @@ def _storage_checks(k: int, res: dict, sbs: Dict[str, dict], chosen: Dict[str, d
             "peak_MW": {b: v / 1e6 for b, v in peak.items()},
             "peak_ok": max(peak.values()) <= rm.FACE_STORE_MAX_W + recharge_w,
             "transient_MW_per_us": {b: peak[b] / (rm.BANDS[b].pae_t_edge_s * 1e6) / 1e6 for b in peak}}
+
+
+def _thermal_checks(tx_heat_w: float, t_frac: float, k: int, res: dict) -> dict:
+    """Face loop heat and burst (step 4.2, A and C): transmissions' heat + always-on electronics + pumps; worst burst =
+    the heat of the longest revisit of the face released during its time on air, the cooling removing its capacity
+    minus the steady load (deficit against the cold-plate buffer); longest contiguous transmission at the peak heat
+    of the face (all TRMs of the costlier band at saturated PAE)."""
+    cool = rm.face_cooling()
+    on = rm.non_tx_power_w() + rm.PUMP_FRAC * tx_heat_w
+    face_heat = tx_heat_w + on
+    rr_max = max((float(r["rr_target_s"]) for r in res["sectors"]
+                  if r.get("status") == "OK" and str(k) in r.get("faces", {})), default=0.0)
+    spare = cool["capacity_w"] - on
+    burst = rr_max * (tx_heat_w - spare * t_frac)
+    peak = max(rm.BANDS[b].p_pk_total_w * (1.0 / rm.BANDS[b].pae_sat - 1.0) for b in ("S", "Ku"))
+    t_cont = cool["buffer_j"] / (peak - spare) if peak > spare else math.inf
+    return {"face_heat_W": face_heat, "burst_deficit_J": max(0.0, burst), "burst_ok": burst <= cool["buffer_j"],
+            "t_cont_s": t_cont}
 
 
 def budget(mission: dict, res: dict) -> dict:
@@ -1372,6 +1390,8 @@ def budget(mission: dict, res: dict) -> dict:
     mode_of = {sid: choice[sid][1] for sid in sbs}
     faces, advice = {}, []
     draws: List[float] = []
+    heats: List[float] = []
+    cool = rm.face_cooling()                           # step 4.2
     cap_in = g.get("face_elec_cap_mw")                 # step 4.1: optional operator cap per face
     caps = ([float(cap_in)] * 4 if isinstance(cap_in, (int, float)) else
             [float(c) for c in cap_in] if cap_in else [math.inf] * 4)
@@ -1393,6 +1413,10 @@ def budget(mission: dict, res: dict) -> dict:
         load["e"] = draw / cap_w
         recharge = max(0.0, cap_w * rm.CHAIN_EFF - rm.non_tx_power_w() - rm.PUMP_FRAC * heat)   # storage recharge
         store = _storage_checks(k, res, sbs, chosen, recharge, tx_w, load["ts"] + load["tk"])
+        # step 4.2: heat of the face loop (transmissions, always-on electronics, pumps) against its cooling
+        th = _thermal_checks(heat, load["ts"] + load["tk"], k, res)
+        heats.append(th["face_heat_W"])
+        load["heat"] = th["face_heat_W"] / cool["capacity_w"]
         worst = max(load, key=load.get)
         faces[str(k)] = {"search_energy": float(base["e"][k]), "confirm_energy": float(conf_e), "at_energy": float(at_e),
                          "total_energy": load["e"], "search_s_time": float(base["ts"][k] - cal_s),
@@ -1405,9 +1429,16 @@ def budget(mission: dict, res: dict) -> dict:
                          # step 4.1: power from the ship bus, always-on consumption, storage, transients
                          "bus_draw_MW": draw / 1e6, "cap_MW": cap_w / 1e6, "non_tx_kW": rm.non_tx_power_w() / 1e3,
                          "pumps_kW": rm.PUMP_FRAC * heat / 1e3, **store,
+                         "face_heat_kW": th["face_heat_W"] / 1e3, "cooling_capacity_kW": cool["capacity_w"] / 1e3,
+                         "heat_load": load["heat"], "heat_flux_W_cm2": th["face_heat_W"] / rm.PHYS_AREA_M2 / 1e4,
+                         "coolant_flow_L_s": th["face_heat_W"] / (rm.TH_CP * rm.TH_RISE) / rm.TH_RHO,
+                         "heat_burst_deficit_MJ": th["burst_deficit_J"] / 1e6, "heat_burst_ok": th["burst_ok"],
+                         "max_contiguous_tx_thermal_s": th["t_cont_s"],
                          "dissipation_kW": heat / 1e3, "dissipation_kW_m2": heat / 1e3 / rm.TOTAL_AREA_M2}
         if load[worst] > 1.0:
-            advice.append(_relax_advice(k, worst, load[worst], res, chosen, mode_of, secs))
+            advice.append(f"face F{k + 1}: heat {th['face_heat_W'] / 1e6:.2f} MW above the cooling capacity "
+                          f"{cool['capacity_w'] / 1e6:.2f} MW (step 4.2)" if worst == "heat"
+                          else _relax_advice(k, worst, load[worst], res, chosen, mode_of, secs))
     # step 4.1 (A): the ship total shared by the faces
     ship_w = SHIP_ELEC_W
     tot_draw = float(sum(draws))
@@ -1417,13 +1448,24 @@ def budget(mission: dict, res: dict) -> dict:
                                         for d in draws]}
     if tot_draw > ship_w:
         advice.append(f"ship power: the faces draw {tot_draw / 1e6:.2f} MW, above the {ship_w / 1e6:g} MW ship budget")
+    # step 4.2 (D): heat of the four face loops + conversion losses against the ship's rejection for the radar
+    ship_heat = float(sum(heats)) + tot_draw * (1.0 - rm.CHAIN_EFF)
+    ship.update({"heat_MW": ship_heat / 1e6, "heat_rejection_MW": rm.SHIP_HEAT_REJECTION_W / 1e6,
+                 "heat_load": ship_heat / rm.SHIP_HEAT_REJECTION_W,
+                 "heat_status": "OK" if ship_heat <= rm.SHIP_HEAT_REJECTION_W else "OVER-SUBSCRIBED"})
+    if ship_heat > rm.SHIP_HEAT_REJECTION_W:
+        advice.append(f"ship heat: the radar rejects {ship_heat / 1e6:.2f} MW, above the "
+                      f"{rm.SHIP_HEAT_REJECTION_W / 1e6:g} MW reserved")
     for k in range(4):
         f_ = faces[str(k)]
         for key, msg in (("store_obs_ok", "an observation draws more than the face storage can give"),
                          ("store_burst_ok", f"the transmissions of a revisit, packed together, would exhaust the "
                                             f"face storage: the scheduler must spread them (at most "
                                             f"{f_['max_contiguous_tx_s']:.2f} s of contiguous transmission at peak power)"),
-                         ("peak_ok", "the peak power of an observation exceeds the storage discharge plus the feeder")):
+                         ("peak_ok", "the peak power of an observation exceeds the storage discharge plus the feeder"),
+                         ("heat_burst_ok", f"the heat of a revisit, packed together, would exceed the cold-plate buffer: "
+                                           f"at most {f_['max_contiguous_tx_thermal_s']:.2f} s of contiguous "
+                                           f"transmission at peak heat (step 4.2)")):
             if not f_[key]:
                 warn.append(f"face F{k + 1}: {msg} (step 4.1)")
     for a in advice:
@@ -1431,6 +1473,9 @@ def budget(mission: dict, res: dict) -> dict:
     rules = ([f"search lattice shifted every frame (grid_dithering, step 2.3): the cumulative detection criterion "
               f"draws the target position in its cell anew at each revisit"] if rm.GRID_DITHERING else [])
     rules += iso.scheduler_rules() + [f"sector {s['id']}: {t}" for s in out_secs for t in s["scheduler_rules"]]
+    rules += [f"face F{k + 1}: at most {faces[str(k)]['max_contiguous_tx_thermal_s']:.2f} s of contiguous transmission at "
+              f"peak heat, then cooling (cold-plate buffer {rm.face_cooling()['buffer_j'] / 1e6:.2f} MJ, step 4.2)"
+              for k in range(4) if math.isfinite(faces[str(k)]["max_contiguous_tx_thermal_s"])]
     rules += [f"face F{k + 1}: at most {faces[str(k)]['max_contiguous_tx_s']:.2f} s of contiguous transmission at peak "
               f"power, then recharge (face storage {rm.STORE_DOD * rm.FACE_STORE_J / 1e6:g} MJ usable, step 4.1)"
               for k in range(4) if math.isfinite(faces[str(k)]["max_contiguous_tx_s"])]

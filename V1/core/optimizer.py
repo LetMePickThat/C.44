@@ -1393,6 +1393,7 @@ def _wf_dict(name: str, w, f: float, sec: dict) -> dict:
             "blind_range_km": rm.blind_range_km(rm.BAND_S, w.tx_block_s), "staggered": w.staggered,
             "agility_mhz": w.agility_mhz, "frequency_draws": rm.frequency_draws(sector_target(sec), w.agility_mhz),
             "doppler_window_db": w.doppler_window_db,
+            "junction_c": rm.junction_temp_c(w),             # step 4.2 (B): TRM PA junction at the end of the train
             "cells_in_pulse": rm.cells_in_pulse(v_max, w.tau_s, w.sig_bw_mhz),
             "velocity_hypotheses_1db": rm.velocity_hypotheses(v_max - v_min, w.tau_s, w.sig_bw_mhz),
             **_processing_dict(w, sec, f)}

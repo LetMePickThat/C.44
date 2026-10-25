@@ -495,3 +495,12 @@ looks removed, no S waveform); face storage checks and contiguous-transmission s
 differ; no S waveform set changes. Face energy loads rise (always-on ~5.7 % of a 2 MW cap; idle faces now show it).
 N3 22.2 min: 194 passed; snapshot tests and test_tracking_loads_add_up (calibration time, new energy load) failed
 before the fix and the refreeze.
+
+## 2026-10-25 -- step 4.2: thermal (radar_model V6.17.0)
+
+Causes: new outputs only -- junction temperature of every search waveform (junction_c), face heat (transmissions +
+always-on electronics + pumps) against the derived cooling capacity (~15.9 MW per face, load 'heat' in the face
+verdict), heat burst against the cold-plate buffer, ship heat (faces + conversion losses) against the 6 MW rejection
+reserved for the radar. The junction check is off (measured: Tj <= 63 C even CW, user decision), so no waveform is
+removed. 746 output values differ (new keys); no key figure, waveform set or confirmation mode changes.
+N3 20.7 min: 197 passed; only the snapshot tests failed before the refreeze.

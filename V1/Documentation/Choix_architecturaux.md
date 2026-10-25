@@ -333,6 +333,23 @@ Ces trois pertes (`straddle_range`, `straddle_doppler`, `cfar`) remplacent les e
 
 **Depuis l'étape 4.1** : CHAIN_EFF = 0,95 × 0,995 = 0,945 ; consommation permanente 106,9 kW par face ; pour la référence de 2 MW, la face dispose de 2 × 0,945 − 0,107 = 1,784 MW pour l'émission. Par bande, `trm_supply_w` (S 1 700 W, Ku 80 W) et `rx.rx_chain_w` (S 0,5 W, Ku 0,1 W). Ce qui suit décrit l'état antérieur. Valeur dérivée jusqu'à l'étape 4.1 : CHAIN_EFF = 0,95 × 0,995 × (1 − 0,03) = 0,917. **Depuis l'étape 1.3, le bilan de la face est électrique** (Q1) : pour 2 MW alloués, la face dispose de 2 MW × 0,917 = 1,834 MW pour l'émission, et chaque observation coûte son énergie RF divisée par la PAE de sa bande et de sa forme d'onde. Auparavant, la conversion se faisait une fois par face avec une PAE unique (1,375 MW RF).
 
+### 5.6 bis `[thermal]` : thermique (étape 4.2)
+
+| Variable | Définition | Valeur | Statut | Justification |
+|---|---|---|---|---|
+| `coolant_cp_kj_kgk` | Capacité calorifique du fluide (dérivé du submer SmartCoolant, diélectrique). | 2,5 kJ/(kg·K) | V | 2,26 en 2020, +10 % en 2050-2060 (donnée et choix de l'utilisateur). |
+| `coolant_h_w_m2k` | Coefficient d'échange dans les microcanaux. | 3 000 W/(m²·K) | V | ≈ 2 050 en 2020 en circulation forcée, +50 %. |
+| `coolant_density_kg_l` | Densité du fluide. | 0,8 | V | 0,796 en 2020. |
+| `microchannel_area_factor` | Surface mouillée des microcanaux sur l'empreinte. | 10 | V | — |
+| `plate_fluid_dt_max_k` | Écart plaque–fluide maximal. | 40 K | V | Plaque ≤ 60 °C pour un fluide à 20 °C. |
+| `coolant_rise_k`, `coolant_inlet_c` | Échauffement du fluide sur une face, température d'entrée. | 10 K, 20 °C | V | — |
+| `fluid_volume_l`, `structure_heat_capacity_kj_k`, `plate_rise_max_k` | Inertie d'une face (fluide + structure) et échauffement admissible en rafale. | 50 L, 90 kJ/K, 10 K | V | Tampon ≈ 1,9 MJ. |
+| `tj_max_c` | Température maximale de jonction GaN. | 225 °C | V | Bout optimiste de 200-225 °C. |
+| `ship_heat_rejection_mw` | Rejet du vaisseau réservé au radar, commun aux faces. | 6 MW | **D** | Provisoire : donnée du vaisseau à confirmer. |
+| `band.<b>.rth_fast_k_w`, `tau_fast_s`, `rth_slow_k_w`, `tau_slow_s` | Réseau de Foster jonction–plaque d'un amplificateur de TRM. | S 0,02 K/W (10 µs) + 0,03 K/W (1 ms) ; Ku 0,2 K/W (5 µs) + 0,3 K/W (0,5 ms) | V | GaN sur diamant. |
+
+Valeurs dérivées : flux admissible 120 W/cm², capacité de refroidissement ≈ 15,9 MW par face, résistance de convection par TRM 0,012 K/W (S) et 0,31 K/W (Ku). Réglage d'outil `tool.thermal.junction_check` = false (B6 : aucun effet mesuré, `duty_max` gardé).
+
 ### 5.7 `[migration]` : migration en distance
 
 | Variable | Définition | Valeur | Statut | Justification |
@@ -1781,3 +1798,36 @@ Nouveaux réglages prévus : `tracking.pd_update`, `tracking.n_miss_lost`, `trac
 - Aucune forme d'onde S n'est retirée par l'alimentation des TRM ; 68 observations Ku sur 2 356 le sont (trains longs à fort facteur de charge).
 - Les missions de test gardent `face_elec_mw` = 2 : elles fonctionnent avec un plafond de 2 MW par face (comportement proche de l'ancien) ; un plafond nul ou absent met les faces en commun.
 - **N3 (25 octobre 2026, 22,2 min)** : 194 tests passent ; 1 361 valeurs figées changent, aucun jeu de formes d'onde S ne change ; la charge d'énergie des faces monte (consommation permanente ≈ 5,7 % d'un plafond de 2 MW, visible aussi sur les faces au repos) ; `test_tracking_loads_add_up` mis à jour (temps d'étalonnage de 3.4, charge d'énergie = appel du bus / plafond) ; valeurs regelées (`JOURNAL.md`). Référence anglaise enrichie : glossaire des grandeurs et des phénomènes physiques, tableau final des effets modélisés avec leurs fourchettes d'impact.
+
+### Étape 4.2 : thermique (cadrage ouvert le 25 octobre 2026)
+
+**Raison d'être** : la chaleur n'est aujourd'hui qu'une sortie (≈ 370 W par TRM S en pointe à d = 0,65 ; chaleur moyenne par face), sans capacité d'évacuation vérifiée ; la consommation permanente de 4.1 (106,9 kW par face) n'est pas comptée dans la dissipation ; `duty_max` (0,65, D), la pente de PAE, la dérive d'étalonnage et les pompes tiennent lieu de limites thermiques. **Entrées** : chaleurs (1.3, 4.1), résistances et constantes de temps thermiques, températures maximales, capacité de refroidissement par face, rejet du vaisseau réservé au radar. **Sorties** : montée de température de jonction par forme d'onde, chaleur totale et flux par face avec marge, température de la plaque froide sur une rafale, chaleur du vaisseau contre rejet, alertes et règles d'ordonnanceur. **Hors périmètre** : calcul détaillé (CFD, éléments finis), radiateurs, chronologie (4.3), dérive des performances RF avec la température.
+
+| Question de cadrage | Décision de l'utilisateur |
+|---|---|
+| Blocs A (bilan de chaleur complet), B (jonction GaN, Z_th transitoire), C (plaque froide à microcanaux, inertie, rafale), D (rejet du vaisseau, commun aux faces), E (couplages) | validés |
+| Forme d'onde au-delà de la température de jonction | **retirée**, mais **l'impact doit être quantifié** ; si l'impact sur le modèle est trop fort, retour à `duty_max` fixe |
+| Couplages (pompes dérivées du débit, dérive d'étalonnage reliée à la température, contrôle de dilatation du jeu de 0,5 mm) | **rien pour l'instant** : reportés en fin de développement avec les autres effets secondaires (modes dégradés, pannes de TRM) |
+
+**Fluide de refroidissement (donnée de l'utilisateur, 25 octobre 2026)** : dérivé du submer SmartCoolant (diélectrique ; en 2020 : capacité calorifique 2,26 kJ/(kg·K), coefficient d'échange ≈ 2 050 W/(m²·K) en circulation forcée, densité 0,796). **Valeurs 2050-2060 validées** (progrès réaliste) : capacité calorifique 2,5 kJ/(kg·K), coefficient d'échange 3 000 W/(m²·K) en microcanaux, densité 0,8, multiplication de surface des microcanaux ×10, écart plaque–fluide maximal 40 K (plaque ≤ 60 °C pour un fluide à 20 °C), échauffement du fluide 10 K. La capacité de refroidissement par face (C1, ≈ 1,6 MW) et le flux admissible (C2, ≈ 12 W/cm²) deviennent **dérivés** du fluide ; inertie (C3) ≈ 190 kJ/K (50 L de fluide + 100 kg de structure). **Exigence de l'utilisateur** : comme pour toutes les variables, le code doit absorber un changement ultérieur de ces valeurs (tout dérivé du fichier). Impact annoncé d'abord à tort (erreur d'unité de l'assistant, W/m² lus comme W/cm² ÷ 10) : ≈ 1,6 MW par face et 12 W/cm². **Valeurs corrigées en codant** : flux admissible 3 000 × 10 × 40 = 1,2·10⁶ W/m² = **120 W/cm²**, capacité **≈ 15,9 MW par face** (≈ 10,9 MW avec les valeurs 2020) : la plaque froide ne limite jamais une face (au plus 8 MW appelés) ; un TRM S en train dégage ≈ 14 W/cm², loin des 120.
+
+**Variables (validées le 25 octobre 2026, toutes les propositions)** : A1 chaleur d'émission = électrique − RF ; A2 électronique permanente 106,9 kW par face dans le circuit de la face ; A3 pertes d'alimentation et de distribution (5,5 % de l'appel) dans le circuit du vaisseau ; A4 pompes 2 % de la chaleur dans le circuit de la face ; B1 réseau de Foster à 2 pôles + résistance de convection plaque–fluide dérivée du fluide (régime établi) ; B2 S 0,02 K/W (10 µs) + 0,03 K/W (1 ms) ; B3 Ku 0,2 K/W (5 µs) + 0,3 K/W (0,5 ms) ; B4 fluide à 20 °C en entrée ; B5 jonction ≤ 225 °C ; B6 impact mesuré avant adoption (formes d'onde retirées, `duty_max` dérivé contre 0,65, effet sur deux missions), décision ensuite ; C4 échauffement admissible de la plaque 10 K (tampon ≈ 1,9 MJ) ; C5 rafale : alerte + règle d'ordonnanceur ; D1 rejet du vaisseau réservé au radar **6 MW (D, provisoire, donnée du vaisseau)** ; D2 commun aux 4 faces (somme des chaleurs + pertes de conversion).
+
+**Mesure B6 et décision (25 octobre 2026)** : sur 16 128 formes d'onde S et 2 356 observations Ku, jonction au plus 59 °C et 57 °C, ≈ 62 °C même en émission continue : **aucune forme d'onde retirée**, aucune limite thermique du facteur de charge. **Décision de l'utilisateur** : `duty_max` 0,65 gardé fixe (il traduit d'autres limites : PAE, alimentation des TRM) ; contrôle de jonction désactivé (`tool.thermal.junction_check` = false), température de jonction donnée en sortie (`junction_c` de chaque forme d'onde de veille). Seule contrainte thermique active : le rejet du vaisseau (6 MW, D) ; mission_veille500 : 1,0 MW (17 %).
+
+**Codage (V6.17.0)** : `radar_model.face_cooling`, `r_conv_trm`, `junction_temp_c`, `junction_check` ; budget : chaleur du circuit de la face (émission + électronique permanente + pompes) contre la capacité (charge « heat » dans le verdict), rafale thermique contre le tampon de la plaque avec règle d'ordonnanceur, chaleur du vaisseau (faces + pertes de conversion) contre le rejet ; 2 tests ajoutés, 1 adapté. **N3 (25 octobre 2026, 20,7 min)** : 197 tests passent ; 746 valeurs figées changent (nouvelles sorties seulement : aucun chiffre clé, aucune forme d'onde, aucun mode de confirmation ne change) ; valeurs regelées (`JOURNAL.md`).
+
+### Étape 4.3 : ordonnanceur (cadrage ouvert le 25 octobre 2026)
+
+**Raison d'être** : les ressources ne sont comptées qu'en moyenne (parts d'énergie et de temps d'émission), l'entrelacement est supposé parfait (`frame_interleaved`, D), la latence n'existe plus depuis la revue 0.3 et les règles d'ordonnancement accumulées (cadence commune par bande, harmonique S sur la Ku, décalage de grille, émission contiguë maximale électrique et thermique, étalonnages, percée Ku, CFAR par pointage, vérification face au brouilleur trompeur, réévaluation du multiplexage en temps et de la superposition) sont publiées sans être appliquées. L'étape vérifie que les tâches tiennent **dans le temps** et chiffre la **latence**. **Hors périmètre** : calcul (4.4), optimisation globale (5.2), Monte-Carlo à arrivées aléatoires (5.4), réaffectation des secteurs aux faces avec l'attitude (5.2, 5.4).
+
+| Question de cadrage | Décision de l'utilisateur |
+|---|---|
+| Blocs A (modèle des tâches), B (approche), C (entrelacement et éclipse), D (règles entre faces et bandes), E (latence), F (surcharge), G (règles accumulées) | validés |
+| Approche | **(a) bilan statistique** (occupation, files d'attente par priorité, latences moyennes et quantiles, pertes d'entrelacement) **+ (b) chronologie synthétique déterministe** par face sur un cycle (algorithme glouton, priorités et échéances) pour appliquer les règles ; la simulation à événements discrets reste en 5.4 |
+| Exigence de latence d'un secteur | **les deux** : clé de mission par secteur, prioritaire ; sinon dérivée du temps avant impact |
+| Priorités (corrigées par l'utilisateur le 25 octobre 2026 : faute de frappe dans la première version) | **P0 étalonnage** (sans lui le radar ne marche pas) ; **P1 volumes d'autoprotection** (une **case à cocher** sur un volume, qui le passe en P1 ; sinon c'est un volume de veille ordinaire) ; **P2 confirmation et initialisation** (ne pas perdre une détection de la veille : confirmer et initialiser au plus tôt) ; **P3 mises à jour de piste** (quelques manques restent gérables) ; **P4 veille**, avec une **sous-priorité par volume choisie par l'opérateur** (P4_1, P4_2, P4_3, …) |
+
+**Percée Ku dans l'axe d'un brouilleur (décision de l'utilisateur, 25 octobre 2026)** : **interdite par défaut** ; elle ne peut être autorisée que par l'opérateur **en vol** (« en live »), face à un brouillage réel, **jamais en préparation de mission**. Autorisée, la tâche de percée est de niveau **P3'** : planifiée en queue de P3 (après les mises à jour de piste), avant la veille P4. En Pmiss, l'observation de percée de l'étape 3.2 reste une **sortie d'information** (ce qu'elle coûterait si l'opérateur l'autorisait), hors budget et hors chronologie.
+
+Suite : questions des blocs A à G.

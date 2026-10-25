@@ -975,7 +975,8 @@ def test_tracking_loads_add_up(runs):
                                                        abs=1e-12)
             assert f["total_s_time"] == pytest.approx(f["search_s_time"] + f["confirm_s_time"] + f["calibration_s_time"],
                                                       abs=1e-12)
-            assert f["load"] == pytest.approx(max(f["total_energy"], f["total_s_time"], f["total_ku_time"]), abs=1e-12)
+            assert f["load"] == pytest.approx(max(f["total_energy"], f["total_s_time"], f["total_ku_time"],
+                                                  f.get("heat_load", 0.0)), abs=1e-12)        # step 4.2: heat
 
 
 def test_parallel_run_equals_sequential():
@@ -2330,4 +2331,27 @@ def test_face_power_caps_in_the_mission():
                     (md.FACE_FEEDER_MAX_MW + 1.0, False), (-1.0, False)):
         errs = md.validate_global({**md.GLOBAL_DEFAULTS, "face_elec_mw": cap})
         assert (not any("face_elec_mw" in e for e in errs)) == ok, (cap, errs)
+
+
+# ----------------------------------------------------------------------------- thermal (step 4.2)
+def test_cooling_figures_derive_from_the_coolant():
+    """C1-C3: flux = h x area factor x dT, capacity = flux x emissive area, flow for the rise, inertia and buffer."""
+    c = rm.face_cooling()
+    flux = rm.TH_H * rm.TH_AREA_FACTOR * rm.TH_DT_MAX
+    assert c["flux_max_w_cm2"] == pytest.approx(flux / 1e4) and c["capacity_w"] == pytest.approx(flux * rm.PHYS_AREA_M2)
+    assert c["flow_l_s"] == pytest.approx(c["capacity_w"] / (rm.TH_CP * rm.TH_RISE) / rm.TH_RHO)
+    assert c["buffer_j"] == pytest.approx(c["inertia_j_k"] * params.P.get("thermal.plate_rise_max_k"))
+    assert rm.r_conv_trm("S") == pytest.approx(1 / (rm.TH_H * rm.TH_AREA_FACTOR * rm.PHYS_AREA_M2 / rm.N_TRM["S"]))
+
+
+def test_junction_temperature_model():
+    """B1-B6: the junction warms with the duty and the train, stays under Tj max over the search spaces (measured:
+    the check is off, duty_max kept); with a weak cooling the check removes the waveform."""
+    a = rm.Waveform("a", "SEARCH", "S", 1e-4, 1, 1e-3, 10.0, 1, "COHERENT")
+    b = rm.Waveform("b", "SEARCH", "S", 2e-3, 32, 2e-3 / 0.65, 10.0, 1, "COHERENT")
+    assert rm.TH_INLET_C + rm.TH_RISE < rm.junction_temp_c(a) < rm.junction_temp_c(b) < rm.TJ_MAX_C
+    hot = dataclasses.replace(rm.BAND_S, rth=((2.0, 1e-5), (3.0, 1e-3)))
+    with pytest.raises(ValueError):
+        rm.junction_check(b, hot)
+    assert params.P.get("tool.thermal.junction_check") is False
 

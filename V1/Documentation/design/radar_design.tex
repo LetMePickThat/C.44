@@ -37,13 +37,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small C.44 radar -- design and modelling reference}
-\rhead{\small Model V6.16.0}
+\rhead{\small Model V6.17.0}
 \cfoot{\thepage}
 
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{25 October 2026 -- radar model V6.16.0 (roadmap step 4.1 coded)}
+\date{25 October 2026 -- radar model V6.17.0 (roadmap step 4.2 coded)}
 
 \begin{document}
 \maketitle
@@ -424,6 +424,36 @@ usable, \SI{15}{MW} discharge), recharged at the rate the feeder leaves after th
 \end{itemize}
 The step of the bus load at the start of an observation and its slope over the pulse edge (\SI{0.2}{\micro s} in S)
 are reported for the design of the bus; they are not modelled electrically.
+
+\subsection{Thermal budget}\label{sec:thermal}
+All the electrical power a face draws becomes heat, except the RF energy radiated away. Since roadmap step 4.2 the
+heat is checked at three scales, each with its own time constant.
+
+\paragraph{Coolant and cold plate.} Each face is cooled by micro-channels in its cold plate, with a dielectric coolant
+(a derivative of the submer SmartCoolant; 2020 values: heat capacity \SI{2.26}{kJ/(kg.K)}, heat-transfer coefficient
+about \SI{2050}{W/(m^2.K)} pumped, density 0.796). Assumed for 2050--2060: \SI{2.5}{kJ/(kg.K)},
+\SI{3000}{W/(m^2.K)}, 0.8. The micro-channels wet ten times the footprint; the plate may run \SI{40}{K} above a
+\SI{20}{\celsius} coolant. Hence an admissible heat flux of $h \times 10 \times \SI{40}{K} = \SI{120}{W/cm^2}$ and a
+cooling capacity of about \SI{15.9}{MW} per face: far above what a face dissipates (a TRM in a long S train releases
+about \SI{14}{W/cm^2} over its footprint; a face drawing the whole \SI{8}{MW} dissipates about \SI{2}{MW}). All these
+figures are derived from the file, so a change of the coolant specification is absorbed.
+
+\paragraph{Heat of a face.} The loop of a face carries the heat of the transmissions (electrical minus RF energy), the
+always-on electronics (\SI{106.9}{kW}) and the pumps; the losses of the power conversion go to the ship. A burst of
+transmissions is absorbed by the thermal inertia of the face (\SI{50}{L} of coolant and about \SI{100}{kg} of
+structure, \SI{190}{kJ/K}; \SI{10}{K} of admissible rise, a buffer of \SI{1.9}{MJ}); the tool checks the worst burst
+and gives the longest contiguous transmission at peak heat as a scheduler rule (none is needed today).
+
+\paragraph{Junction of the power amplifiers.} The junction temperature of a TRM amplifier follows a two-pole Foster
+network (die and diamond spreader: S \SI{0.02}{K/W} at \SI{10}{\micro s} and \SI{0.03}{K/W} at \SI{1}{ms}; Ku
+\SI{0.2}{K/W} and \SI{0.3}{K/W}) driven by the heat of each pulse, plus the convection to the coolant at the mean heat.
+Over every search waveform and Ku look it stays below \SI{63}{\celsius}, far from the \SI{225}{\celsius} limit, even in
+continuous transmission: thermal heating does not limit the duty cycle, whose ceiling of 0.65 stands for the efficiency
+and supply limits. The temperature is reported per waveform; the removal of waveforms above the limit exists as a
+setting and is off.
+
+\paragraph{Ship.} The heat of the four faces plus the conversion losses must fit in the heat rejection the spacecraft
+reserves for the radar, shared by the faces like the electrical budget (\SI{6}{MW}, provisional).
 
 %=====================================================================================================================
 \section{Band model}
@@ -946,7 +976,7 @@ The test bench has two families: frozen outputs of every test mission compared a
 (non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
 exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
 frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
-before any refreeze. At model V6.16.0 the bench has 205 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
+before any refreeze. At model V6.17.0 the bench has 207 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
 
 %=====================================================================================================================
 \section{Roadmap and open points}\label{sec:roadmap}
@@ -962,7 +992,8 @@ sky noise, converters, isolation --- done\\
 2, signal and detection & parametric waveforms; processing; detection criterion; target models; environment --- done\\
 3, radar functions & 3.0 frames and navigation; 3.1 S search; 3.2 Ku confirmation; 3.3 tracking; 3.4 array errors and
 calibration --- done (degraded modes and TRM failures deferred to the end of the development)\\
-4, resources & 4.1 power: shared ship budget, always-on consumption, TRM supply, face storage --- coded; thermal;
+4, resources & 4.1 power: shared ship budget, always-on consumption, TRM supply, face storage --- done; 4.2 thermal:
+coolant, cold plate, junction, ship heat rejection --- coded;
 scheduler and latency; computing and data\\
 5, mission and validation & richer mission model; global optimiser; validation engine; Monte-Carlo simulation;
 operator interface; verification and documentation\\
@@ -977,8 +1008,7 @@ Main provisional dispositions, each assigned to a later step:
         re-evaluated once a timeline cost exists; the Ku burn-through search pointed along a jamming axis; choice of
         the CFAR per pointing; longest contiguous transmission allowed by the face storage; S/Ku alignment on external
         references.
-  \item \textbf{Thermal (4.2)}: micro-channel capacity and time constants; pumps; the drift that sets the calibration
-        interval.
+  \item \textbf{Thermal}: ship heat rejection reserved for the radar (provisional \SI{6}{MW}).
   \item \textbf{Computing (4.4)}: simultaneous receive beams, converter data rates, beamforming power, computing load
         of velocity and acceleration banks and of adaptive nulling.
   \item \textbf{Mission and validation (5.x)}: per-class RCS spread and RCS versus aspect (discrimination is optimistic
@@ -987,7 +1017,8 @@ Main provisional dispositions, each assigned to a later step:
   \item \textbf{Antenna}: element pattern and mutual coupling at tile edges not modelled (isotropic elements);
         couplings between faces are optimistic orders of magnitude needing an electromagnetic simulation.
   \item \textbf{End of development}: degraded modes (face, TRMs, power or Ku aperture lost) and TRM failures over a
-        mission.
+        mission; thermal couplings (pumps from the flow, calibration drift from the temperature, expansion of the
+        \SI{0.5}{mm} gaps).
 \end{itemize}
 
 \appendix
@@ -1082,6 +1113,11 @@ and the receivers.\\
 Always-on power & Receivers, converters, beamforming, control: consumed whether the face transmits or not.\\
 Face storage & Energy reserve that delivers the peak power of a look (all TRMs at once) above what the bus supplies on
 average.\\
+Junction temperature & Temperature of the transistor channel of a PA; it rises with each pulse (fast pole) and over the
+train (slow pole); above about \SI{225}{\celsius} the lifetime of GaN drops.\\
+Cold plate, heat flux & Plate with micro-channels where the coolant takes the heat; the flux it can take per unit area
+is $h \times$ wetted-area factor $\times$ allowed temperature difference.\\
+Thermal inertia & Heat the coolant and the structure store per kelvin: it absorbs bursts of transmission.\\
 \bottomrule
 \end{longtable}}
 
@@ -1282,6 +1318,12 @@ Always-on power & Converters, receive chains, beamforming, control & \SI{106.9}{
 TRM supply & Mean power and buffer recharge over a train & removes waveforms (0 in S, 3\,\% of Ku looks)\\
 Face storage & Peak power of a look above the bus mean & scheduler rule $\approx$\SI{0.3}{s} of contiguous
 transmission\\
+Cooling of a face & Micro-channel cold plate, dielectric coolant & capacity \SI{15.9}{MW} per face: not limiting
+(dissipation $\le$ \SI{2}{MW})\\
+Junction temperature & Heating of the PA transistors by the pulses & $\le$\SI{63}{\celsius} against \SI{225}{\celsius}:
+not limiting\\
+Ship heat rejection & Heat of the radar against the rejection reserved & e.g. \SI{1.0}{MW} of \SI{6}{MW} (test
+mission)\\
 Calculation settings & Approximations of the optimiser (rounded laws, few frequencies in a quiet spectrum, \dots) &
 $\le$\SI{0.003}{dB} on $\SNR_{\mathrm{req}}$; search energy $-5$ to $+9\,\%$ per sector\\
 \bottomrule
