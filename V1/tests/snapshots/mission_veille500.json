@@ -105,6 +105,276 @@
  },
  "run": {
   "cancelled": false,
+  "compute": {
+   "faces": {
+    "0": {
+     "bands": {
+      "Ku": {
+       "beams_max": 16,
+       "beams_mean": 0.027215646991918106,
+       "beams_peak": 7,
+       "bits_per_s": 18533640612.497444,
+       "buffer_peak_GB": 0.56,
+       "face_input_peak_tbps": 21.952,
+       "link_trsa_peak_tbps": 0.112,
+       "open_windows_mean": 0.0038879495702740154,
+       "ops_per_s": {
+        "banks": 14154605583.557266,
+        "beamforming": 2900514755855.8496,
+        "cfar": 1105828561.2154114,
+        "compression": 552831931.7565401,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 2916328021932.379,
+       "transport": "subarray_beams"
+      },
+      "S": {
+       "beams_max": 64,
+       "beams_mean": 8.76176246510558,
+       "beams_peak": 18.044800893791024,
+       "bits_per_s": 65093827661651.23,
+       "buffer_peak_GB": 1.1939968772113736,
+       "face_input_peak_tbps": 39.2,
+       "link_trsa_peak_tbps": 0.2,
+       "open_windows_mean": 1.6605568281033474,
+       "ops_per_s": {
+        "banks": 348822505247124.0,
+        "beamforming": 85865272158034.67,
+        "cfar": 25396105212587.26,
+        "compression": 410250986997.2728,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 460494133604743.2,
+       "transport": "raw"
+      }
+     },
+     "bits_per_s": 65112361302263.73,
+     "bus_draw_MW_actual": 0.6242214882169225,
+     "capacity_ops_per_s": 3.9996744381934884e+18,
+     "face_heat_kW_actual": 174.15603920036904,
+     "jammers_nulled": 0,
+     "load": 0.0001158620454708763,
+     "non_tx_kW_actual": 66.88788972268136,
+     "ops_total_per_s": 463410461626675.56,
+     "power_kW": {
+      "ceiling": 50.0,
+      "ops": 0.0046341046162667555,
+      "static": 10.0,
+      "total": 10.00788972268138,
+      "transport": 0.0032556180651131866
+     }
+    },
+    "1": {
+     "bands": {
+      "Ku": {
+       "beams_max": 16,
+       "beams_mean": 0.027215613489508753,
+       "beams_peak": 7,
+       "bits_per_s": 18533627479.55297,
+       "buffer_peak_GB": 0.56,
+       "face_input_peak_tbps": 21.952,
+       "link_trsa_peak_tbps": 0.112,
+       "open_windows_mean": 0.003887944784215536,
+       "ops_per_s": {
+        "banks": 14154604886.707146,
+        "beamforming": 2900512700550.04,
+        "cfar": 1105828506.7739956,
+        "compression": 552831570.4854724,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 2916325965514.007,
+       "transport": "subarray_beams"
+      },
+      "S": {
+       "beams_max": 64,
+       "beams_mean": 8.76176246510558,
+       "beams_peak": 18.044800893791024,
+       "bits_per_s": 65093827661651.23,
+       "buffer_peak_GB": 1.1939968772113736,
+       "face_input_peak_tbps": 39.2,
+       "link_trsa_peak_tbps": 0.2,
+       "open_windows_mean": 1.6605568281033474,
+       "ops_per_s": {
+        "banks": 348822505247124.0,
+        "beamforming": 85865272158034.67,
+        "cfar": 25396105212587.26,
+        "compression": 410250986997.2728,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 460494133604743.2,
+       "transport": "raw"
+      }
+     },
+     "bits_per_s": 65112361289130.78,
+     "bus_draw_MW_actual": 0.6242214881445386,
+     "capacity_ops_per_s": 3.9996744381935544e+18,
+     "face_heat_kW_actual": 174.15603917592009,
+     "jammers_nulled": 0,
+     "load": 0.00011586204495672794,
+     "non_tx_kW_actual": 66.88788972266016,
+     "ops_total_per_s": 463410459570257.2,
+     "power_kW": {
+      "ceiling": 50.0,
+      "ops": 0.0046341045957025715,
+      "static": 10.0,
+      "total": 10.00788972266016,
+      "transport": 0.0032556180644565396
+     }
+    },
+    "2": {
+     "bands": {
+      "Ku": {
+       "beams_max": 16,
+       "beams_mean": 0.027215631562531855,
+       "beams_peak": 7,
+       "bits_per_s": 18533634564.17803,
+       "buffer_peak_GB": 0.56,
+       "face_input_peak_tbps": 21.952,
+       "link_trsa_peak_tbps": 0.112,
+       "open_windows_mean": 0.003887947366075979,
+       "ops_per_s": {
+        "banks": 14154605262.626026,
+        "beamforming": 2900513809293.8613,
+        "cfar": 1105828536.1426582,
+        "compression": 552831765.3747498,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 2916327074858.005,
+       "transport": "subarray_beams"
+      },
+      "S": {
+       "beams_max": 64,
+       "beams_mean": 8.76176246510558,
+       "beams_peak": 18.044800893791024,
+       "bits_per_s": 65093827661651.23,
+       "buffer_peak_GB": 1.1939968772113736,
+       "face_input_peak_tbps": 39.2,
+       "link_trsa_peak_tbps": 0.2,
+       "open_windows_mean": 1.6605568281033474,
+       "ops_per_s": {
+        "banks": 348822505247124.0,
+        "beamforming": 85865272158034.67,
+        "cfar": 25396105212587.26,
+        "compression": 410250986997.2728,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 460494133604743.2,
+       "transport": "raw"
+      }
+     },
+     "bits_per_s": 65112361296215.41,
+     "bus_draw_MW_actual": 0.6242214881835864,
+     "capacity_ops_per_s": 3.999674438193519e+18,
+     "face_heat_kW_actual": 174.1560391891092,
+     "jammers_nulled": 0,
+     "load": 0.00011586204523408754,
+     "non_tx_kW_actual": 66.8878897226716,
+     "ops_total_per_s": 463410460679601.2,
+     "power_kW": {
+      "ceiling": 50.0,
+      "ops": 0.004634104606796011,
+      "static": 10.0,
+      "total": 10.007889722671607,
+      "transport": 0.00325561806481077
+     }
+    },
+    "3": {
+     "bands": {
+      "Ku": {
+       "beams_max": 16,
+       "beams_mean": 0.027215631906491563,
+       "beams_peak": 7,
+       "bits_per_s": 18533634699.01024,
+       "buffer_peak_GB": 0.56,
+       "face_input_peak_tbps": 21.952,
+       "link_trsa_peak_tbps": 0.112,
+       "open_windows_mean": 0.0038879474152130806,
+       "ops_per_s": {
+        "banks": 14154605269.780392,
+        "beamforming": 2900513830395.102,
+        "cfar": 1105828536.7015932,
+        "compression": 552831769.0838171,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 2916327095970.668,
+       "transport": "subarray_beams"
+      },
+      "S": {
+       "beams_max": 64,
+       "beams_mean": 8.76176246510558,
+       "beams_peak": 18.044800893791024,
+       "bits_per_s": 65093827661651.23,
+       "buffer_peak_GB": 1.1939968772113736,
+       "face_input_peak_tbps": 39.2,
+       "link_trsa_peak_tbps": 0.2,
+       "open_windows_mean": 1.6605568281033474,
+       "ops_per_s": {
+        "banks": 348822505247124.0,
+        "beamforming": 85865272158034.67,
+        "cfar": 25396105212587.26,
+        "compression": 410250986997.2728,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 460494133604743.2,
+       "transport": "raw"
+      }
+     },
+     "bits_per_s": 65112361296350.234,
+     "bus_draw_MW_actual": 0.6242214881843295,
+     "capacity_ops_per_s": 3.999674438193518e+18,
+     "face_heat_kW_actual": 174.15603918936014,
+     "jammers_nulled": 0,
+     "load": 0.00011586204523936618,
+     "non_tx_kW_actual": 66.88788972267182,
+     "ops_total_per_s": 463410460700713.9,
+     "power_kW": {
+      "ceiling": 50.0,
+      "ops": 0.004634104607007138,
+      "static": 10.0,
+      "total": 10.007889722671823,
+      "transport": 0.003255618064817512
+     }
+    }
+   },
+   "flags": [],
+   "reselect_ops": {
+    "CONE_D1": 6000.0,
+    "CONE_D2": 6000.0,
+    "CONE_D3": 6000.0,
+    "CONE_D4": 6000.0,
+    "VEILLE_KV": 60000.0
+   },
+   "sectors": {
+    "CONE_D1": {
+     "processing_s": 2.2228200814450806e-08,
+     "reselect_ops": 6000.0
+    },
+    "CONE_D2": {
+     "processing_s": 2.2228200814439007e-08,
+     "reselect_ops": 6000.0
+    },
+    "CONE_D3": {
+     "processing_s": 2.222820081444537e-08,
+     "reselect_ops": 6000.0
+    },
+    "CONE_D4": {
+     "processing_s": 2.2228200814445492e-08,
+     "reselect_ops": 6000.0
+    },
+    "VEILLE_KV": {
+     "processing_s": 4.5461634784423645e-05,
+     "reselect_ops": 60000.0
+    }
+   }
+  },
   "faces_total": {
    "0": {
     "avg_power_kW": 521.0272,
@@ -428,7 +698,7 @@
      "go_cfar_advised": false,
      "id": "CONE_D1",
      "latency_ok": true,
-     "latency_q95_s": 0.10777657700275318,
+     "latency_q95_s": 0.10677659923095399,
      "latency_required_s": 160.0,
      "priority": "P4_1",
      "scan": {
@@ -451,7 +721,7 @@
      "go_cfar_advised": false,
      "id": "CONE_D2",
      "latency_ok": true,
-     "latency_q95_s": 0.10777657695312903,
+     "latency_q95_s": 0.10677659918132984,
      "latency_required_s": 160.0,
      "priority": "P4_1",
      "scan": {
@@ -474,7 +744,7 @@
      "go_cfar_advised": false,
      "id": "CONE_D3",
      "latency_ok": true,
-     "latency_q95_s": 0.107776576979899,
+     "latency_q95_s": 0.1067765992080998,
      "latency_required_s": 160.0,
      "priority": "P4_1",
      "scan": {
@@ -497,7 +767,7 @@
      "go_cfar_advised": false,
      "id": "CONE_D4",
      "latency_ok": true,
-     "latency_q95_s": 0.10777657698040848,
+     "latency_q95_s": 0.10677659920860928,
      "latency_required_s": 160.0,
      "priority": "P4_1",
      "scan": {
@@ -520,7 +790,7 @@
      "go_cfar_advised": false,
      "id": "VEILLE_KV",
      "latency_ok": true,
-     "latency_q95_s": 0.007674194894673616,
+     "latency_q95_s": 0.00671965652945804,
      "latency_required_s": 2.0,
      "priority": "P4_1",
      "scan": {
@@ -3256,6 +3526,17 @@
      "forced": false,
      "id": "CONE_D1",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 8,
+      "n_pulses": 8,
+      "pri_ms": 5.0,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 25.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 13
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
      "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
@@ -3344,6 +3625,17 @@
      "forced": false,
      "id": "CONE_D2",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 8,
+      "n_pulses": 8,
+      "pri_ms": 5.0,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 25.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 13
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
      "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
@@ -3432,6 +3724,17 @@
      "forced": false,
      "id": "CONE_D3",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 8,
+      "n_pulses": 8,
+      "pri_ms": 5.0,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 25.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 13
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
      "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
@@ -3520,6 +3823,17 @@
      "forced": false,
      "id": "CONE_D4",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 8,
+      "n_pulses": 8,
+      "pri_ms": 5.0,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 25.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 13
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
      "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
@@ -3625,6 +3939,17 @@
      "forced": false,
      "id": "VEILLE_KV",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 8,
+      "n_pulses": 8,
+      "pri_ms": 5.0,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 200.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 372
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.0,
      "ku_min_unsaturated_range_attenuated_km": 0.1960204320042933,

@@ -23,7 +23,7 @@ on their outputs; the result goes under the report key "scheduler".
   Common cadence per band (step 1.5): the faces transmit a band in common slots, sized by the busiest face; every face
   is deaf in them, so the search echoes lose -10 log10(1 - rho_slots) (eclipse, reported, flagged above
   scheduler.eclipse_flag_db; the plan is not redone, step 5.2). S harmonic on the Ku channel: on a flagged face the Ku
-  looks avoid the S slots. Latency of a confirmation: 95 % wait + service + round trips + processing, against the
+  looks avoid the S slots. Latency of a confirmation: 95 % wait + service + round trips + processing (step 4.4, core/compute.py), against the
   sector's latency_max_s or latency_frac x the time to impact at the detection range.
 """
 from __future__ import annotations
@@ -33,13 +33,13 @@ import math
 import random
 from typing import Dict, List, Optional, Tuple
 
+from . import compute
 from . import radar_model as rm
 from .params import P
 
 _S, _TS = "scheduler.", "tool.scheduler."
 LATENCY_FRAC = P.get(_S + "latency_frac")
 UPDATE_JITTER_FRAC = P.get(_S + "update_jitter_frac")
-PROCESSING_S = P.get(_S + "processing_s")
 CAL_MAX_DELAY_FRAC = P.get(_S + "calibration_max_delay_frac")
 ECLIPSE_FLAG_DB = P.get(_S + "eclipse_flag_db")
 HORIZON_MAX_S = P.get(_TS + "horizon_max_s")
@@ -327,7 +327,8 @@ def schedule(mission: dict, res: dict) -> dict:
             cls = next((c for c in per_face[k]["Ku"] if c.label == lab), None)
             if cls is None:
                 continue
-            lat = max(lat, _q95(w.get(lab, 0.0), w["_busy"]) + cls.s + trips * rtt + PROCESSING_S)
+            lat = max(lat, _q95(w.get(lab, 0.0), w["_busy"]) + cls.s + trips * rtt
+                      + compute.processing_s(res, r["id"]))       # step 4.4: processing of the detection
         ok = lat <= req
         sectors.append({"id": r["id"], "priority": "P1" if sec.get("self_protection") else
                         f"P4_{int(sec.get('search_priority', 1))}", "confirm_mode": mode,

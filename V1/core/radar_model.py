@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.19.0
+# Radar Performance Model - V6.20.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,16 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.19.0 -> V6.20.0 (roadmap step 4.4: compute and data, validated by the user on 25 October 2026)
+#   - core/compute.py: per face and band, the looks (S search dwells, Ku confirmations and track updates) costed in
+#     operations per function (beamforming, compression, velocity / acceleration banks and Doppler, CFAR, jammer
+#     nulling, tracks), transported bits (TRSA channels in S, TRSA partial beams in Ku), simultaneous RX beams and
+#     buffers (open listening windows, Little), against the beamformer, link and face-input capacities; power of the
+#     processing = static share of the ceiling power.dbf_kw + energy per operation and per bit; capacity from the
+#     ceiling; processing latency of a detection (replaces scheduler.processing_s); cost of an in-flight waveform
+#     reselection. The budgets that size the plan keep the ceiling; the consumption and the corrected draw / heat are
+#     reported. Ku looks of the tracking budget now carry their numbers (ku_confirm_wf, wf_params).
 #
 # Changes V6.18.0 -> V6.19.0 (roadmap step 4.3 bis: scan order inside a volume, validated by the user on 25 October 2026)
 #   - core/scanorder.py: the real search pointings of a volume per face on the (u, v) hexagonal lattice of its plan,
@@ -536,7 +546,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.19.0"
+MODEL_VERSION = "6.20.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

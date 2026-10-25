@@ -112,6 +112,269 @@
  },
  "run": {
   "cancelled": false,
+  "compute": {
+   "faces": {
+    "0": {
+     "bands": {
+      "Ku": {
+       "beams_max": 16,
+       "beams_mean": 0.010725802965832375,
+       "beams_peak": 7,
+       "bits_per_s": 25518564845.507942,
+       "buffer_peak_GB": 0.56,
+       "face_input_peak_tbps": 21.952,
+       "link_trsa_peak_tbps": 0.112,
+       "open_windows_mean": 0.00372024174474685,
+       "ops_per_s": {
+        "banks": 43040254844.342094,
+        "beamforming": 3993655398321.993,
+        "cfar": 3622621102.9716763,
+        "compression": 801596442.9615895,
+        "nulling": 0.0,
+        "tracks": 32500.000000000007
+       },
+       "ops_total_per_s": 4041119903212.2686,
+       "transport": "subarray_beams"
+      },
+      "S": {
+       "beams_max": 64,
+       "beams_mean": 6.178445316649528,
+       "beams_peak": 15.984321898998283,
+       "bits_per_s": 45891770586666.664,
+       "buffer_peak_GB": 0.5969984386056868,
+       "face_input_peak_tbps": 39.2,
+       "link_trsa_peak_tbps": 0.2,
+       "open_windows_mean": 1.1707084333333333,
+       "ops_per_s": {
+        "banks": 26932127590418.734,
+        "beamforming": 60548764103165.38,
+        "cfar": 2515891543928.0664,
+        "compression": 289138444647.72614,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 90285921682159.9,
+       "transport": "raw"
+      }
+     },
+     "bits_per_s": 45917289151512.17,
+     "bus_draw_MW_actual": 0.38083898203849076,
+     "capacity_ops_per_s": 3.999770413554242e+18,
+     "face_heat_kW_actual": 127.13311581966781,
+     "jammers_nulled": 0,
+     "load": 2.35831139871731e-05,
+     "non_tx_kW_actual": 66.88323913487343,
+     "ops_total_per_s": 94327041585372.17,
+     "power_kW": {
+      "ceiling": 50.0,
+      "ops": 0.0009432704158537218,
+      "static": 10.0,
+      "total": 10.003239134873429,
+      "transport": 0.002295864457575609
+     }
+    },
+    "1": {
+     "bands": {
+      "Ku": {
+       "beams_max": 16,
+       "beams_mean": 0.007681247814460337,
+       "beams_peak": 7,
+       "bits_per_s": 20276689624.560577,
+       "buffer_peak_GB": 0.56,
+       "face_input_peak_tbps": 21.952,
+       "link_trsa_peak_tbps": 0.112,
+       "open_windows_mean": 0.0028743311465347053,
+       "ops_per_s": {
+        "banks": 34810304500.08752,
+        "beamforming": 3173301926243.7305,
+        "cfar": 2930801522.566971,
+        "compression": 638442930.7947273,
+        "nulling": 0.0,
+        "tracks": 27677.356421620458
+       },
+       "ops_total_per_s": 3211681502874.536,
+       "transport": "subarray_beams"
+      },
+      "S": {
+       "beams_max": 64,
+       "beams_mean": 5.259441254853546,
+       "beams_peak": 7.992160949499142,
+       "bits_per_s": 39071689705123.42,
+       "buffer_peak_GB": 0.2984992193028434,
+       "face_input_peak_tbps": 39.2,
+       "link_trsa_peak_tbps": 0.2,
+       "open_windows_mean": 0.996726778191924,
+       "ops_per_s": {
+        "banks": 22936541635846.18,
+        "beamforming": 51542524297564.75,
+        "cfar": 2142631774269.8506,
+        "compression": 246141630861.99466,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 76867839338542.78,
+       "transport": "raw"
+      }
+     },
+     "bits_per_s": 39091966394747.984,
+     "bus_draw_MW_actual": 0.318860524317004,
+     "capacity_ops_per_s": 3.999804540168026e+18,
+     "face_heat_kW_actual": 115.12917611099515,
+     "jammers_nulled": 0,
+     "load": 2.002085852876533e-05,
+     "non_tx_kW_actual": 66.88275539352814,
+     "ops_total_per_s": 80079520841417.31,
+     "power_kW": {
+      "ceiling": 50.0,
+      "ops": 0.0008007952084141732,
+      "static": 10.0,
+      "total": 10.002755393528151,
+      "transport": 0.0019545983197373994
+     }
+    },
+    "2": {
+     "bands": {
+      "Ku": {
+       "beams_max": 16,
+       "beams_mean": 0.0005511816034942912,
+       "beams_peak": 7,
+       "bits_per_s": 216063188.56976214,
+       "buffer_peak_GB": 0.07,
+       "face_input_peak_tbps": 2.744,
+       "link_trsa_peak_tbps": 0.014,
+       "open_windows_mean": 8.302561380898934e-05,
+       "ops_per_s": {
+        "banks": 11368584.734541629,
+        "beamforming": 33813889011.167774,
+        "cfar": 892545.345973157,
+        "compression": 5933250.996235668,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 33832083392.244526,
+       "transport": "subarray_beams"
+      },
+      "S": {
+       "beams_max": 64,
+       "beams_mean": 0.046108628867463926,
+       "beams_peak": 154.613321648564,
+       "bits_per_s": 4956681867.106503,
+       "buffer_peak_GB": 0.0309226643297128,
+       "face_input_peak_tbps": 39.2,
+       "link_trsa_peak_tbps": 0.2,
+       "open_windows_mean": 0.0003622298299880744,
+       "ops_per_s": {
+        "banks": 61781135.77450073,
+        "beamforming": 94602364154.70422,
+        "cfar": 38613209.859062955,
+        "compression": 355709727.3923216,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 95058468227.7301,
+       "transport": "raw"
+      }
+     },
+     "bits_per_s": 5172745055.676265,
+     "bus_draw_MW_actual": 0.0709471259843806,
+     "capacity_ops_per_s": 3.999999974136275e+18,
+     "face_heat_kW_actual": 66.92593263319992,
+     "jammers_nulled": 0,
+     "load": 3.222263811334302e-08,
+     "non_tx_kW_actual": 66.88000154754276,
+     "ops_total_per_s": 128890551619.97462,
+     "power_kW": {
+      "ceiling": 50.0,
+      "ops": 1.2889055161997462e-06,
+      "static": 10.0,
+      "total": 10.000001547542768,
+      "transport": 2.5863725278381324e-07
+     }
+    },
+    "3": {
+     "bands": {
+      "Ku": {
+       "beams_max": 16,
+       "beams_mean": 0.002865585476432304,
+       "beams_peak": 7,
+       "bits_per_s": 5171719108.370982,
+       "buffer_peak_GB": 0.56,
+       "face_input_peak_tbps": 21.952,
+       "link_trsa_peak_tbps": 0.112,
+       "open_windows_mean": 0.000821297299418282,
+       "ops_per_s": {
+        "banks": 8226206409.948989,
+        "beamforming": 809374040460.0586,
+        "cfar": 691528059.2054901,
+        "compression": 161221293.90984914,
+        "nulling": 0.0,
+        "tracks": 4822.643578379539
+       },
+       "ops_total_per_s": 818453001045.7665,
+       "transport": "subarray_beams"
+      },
+      "S": {
+       "beams_max": 64,
+       "beams_mean": 0.9259941100340919,
+       "beams_peak": 154.613321648564,
+       "bits_per_s": 6817117835572.857,
+       "buffer_peak_GB": 0.2984992193028434,
+       "face_input_peak_tbps": 39.2,
+       "link_trsa_peak_tbps": 0.2,
+       "open_windows_mean": 0.17394679000358598,
+       "ops_per_s": {
+        "banks": 3997239032824.4854,
+        "beamforming": 9013038708146.65,
+        "cfar": 373415265279.74036,
+        "compression": 43018735648.59978,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 13426711741899.477,
+       "transport": "raw"
+      }
+     },
+     "bits_per_s": 6822289554681.229,
+     "bus_draw_MW_actual": 0.13273220431207539,
+     "capacity_ops_per_s": 3.9999658885522263e+18,
+     "face_heat_kW_actual": 78.88095279644449,
+     "jammers_nulled": 0,
+     "load": 3.561321556194878e-06,
+     "non_tx_kW_actual": 66.88048356612515,
+     "ops_total_per_s": 14245164742945.242,
+     "power_kW": {
+      "ceiling": 50.0,
+      "ops": 0.00014245164742945242,
+      "static": 10.0,
+      "total": 10.000483566125164,
+      "transport": 0.00034111447773406146
+     }
+    }
+   },
+   "flags": [
+    "face F3 S: 155 simultaneous RX beams needed, the beamformer forms 64",
+    "face F4 S: 155 simultaneous RX beams needed, the beamformer forms 64"
+   ],
+   "reselect_ops": {
+    "FWD": 18000.0,
+    "KV": 56000.0,
+    "SHIPW": 22000.0
+   },
+   "sectors": {
+    "FWD": {
+     "processing_s": 1.9687743114332565e-08,
+     "reselect_ops": 18000.0
+    },
+    "KV": {
+     "processing_s": 8.159277521601709e-06,
+     "reselect_ops": 56000.0
+    },
+    "SHIPW": {
+     "processing_s": 7.612420244242427e-08,
+     "reselect_ops": 22000.0
+    }
+   }
+  },
   "faces_total": {
    "0": {
     "avg_power_kW": 291.7592,
@@ -459,7 +722,7 @@
      "go_cfar_advised": false,
      "id": "FWD",
      "latency_ok": true,
-     "latency_q95_s": 0.08106997969586621,
+     "latency_q95_s": 0.08006999938360933,
      "latency_required_s": 120.0,
      "priority": "P4_1",
      "scan": {
@@ -518,7 +781,7 @@
      "go_cfar_advised": false,
      "id": "KV",
      "latency_ok": true,
-     "latency_q95_s": 0.007674460356364532,
+     "latency_q95_s": 0.006682619633886134,
      "latency_required_s": 2.0,
      "priority": "P4_1",
      "scan": {
@@ -565,7 +828,7 @@
      "go_cfar_advised": false,
      "id": "SHIPW",
      "latency_ok": true,
-     "latency_q95_s": 0.021014248758733648,
+     "latency_q95_s": 0.02001432488293609,
      "latency_required_s": 60.0,
      "priority": "P4_1",
      "scan": {
@@ -3118,6 +3381,17 @@
      "forced": false,
      "id": "FWD",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 8,
+      "n_pulses": 8,
+      "pri_ms": 5.0,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 25.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 13
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
      "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
@@ -3224,7 +3498,18 @@
        "unreachable_tracks": 0.0,
        "velocity_bank_mps": 38.55722417697136,
        "vr_acc_mps": 5.0,
-       "wf": "13.8 GHz COHE tau 20 us x N 1 @ PRI 0.5 ms B 200 MHz"
+       "wf": "13.8 GHz COHE tau 20 us x N 1 @ PRI 0.5 ms B 200 MHz",
+       "wf_params": {
+        "acceleration_hypotheses": 1,
+        "block_ms": 0.02,
+        "coherent_blocks": 1,
+        "n_pulses": 1,
+        "pri_ms": 0.5,
+        "pulses_per_block": 1,
+        "sig_bw_mhz": 200.0,
+        "tau_us": 20.0,
+        "velocity_hypotheses": 1
+       }
       },
       {
        "accel_bank_mps2": 9.80665,
@@ -3281,7 +3566,18 @@
        "unreachable_tracks": 0.0,
        "velocity_bank_mps": 81.12770261739016,
        "vr_acc_mps": 10.0,
-       "wf": "13.8 GHz NONC tau 5 us x N 4 @ PRI 2 ms B 200 MHz agile 140 MHz"
+       "wf": "13.8 GHz NONC tau 5 us x N 4 @ PRI 2 ms B 200 MHz agile 140 MHz",
+       "wf_params": {
+        "acceleration_hypotheses": 1,
+        "block_ms": 0.005,
+        "coherent_blocks": 4,
+        "n_pulses": 4,
+        "pri_ms": 2.0,
+        "pulses_per_block": 1,
+        "sig_bw_mhz": 200.0,
+        "tau_us": 5.0,
+        "velocity_hypotheses": 102
+       }
       }
      ],
      "confirm_mode": "KU1+7",
@@ -3332,6 +3628,17 @@
      "forced": false,
      "id": "KV",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 8,
+      "n_pulses": 8,
+      "pri_ms": 5.0,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 200.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 594
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 13.8,
      "ku_min_unsaturated_range_attenuated_km": 0.19461524950003772,
@@ -3424,6 +3731,17 @@
      "forced": true,
      "id": "SHIPW",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 1,
+      "n_pulses": 1,
+      "pri_ms": 0.5,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 25.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 1
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
      "ku_min_unsaturated_range_attenuated_km": 2.4103403323606787,
@@ -3503,7 +3821,9 @@
    "sector KV: S waveform WF-KV-4: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 200 MHz on the same face",
    "face F1: the transmissions of a revisit, packed together, would exhaust the face storage: the scheduler must spread them (at most 0.32 s of contiguous transmission at peak power) (step 4.1)",
    "face F2: the transmissions of a revisit, packed together, would exhaust the face storage: the scheduler must spread them (at most 0.32 s of contiguous transmission at peak power) (step 4.1)",
-   "face F4: the transmissions of a revisit, packed together, would exhaust the face storage: the scheduler must spread them (at most 0.32 s of contiguous transmission at peak power) (step 4.1)"
+   "face F4: the transmissions of a revisit, packed together, would exhaust the face storage: the scheduler must spread them (at most 0.32 s of contiguous transmission at peak power) (step 4.1)",
+   "face F3 S: 155 simultaneous RX beams needed, the beamformer forms 64",
+   "face F4 S: 155 simultaneous RX beams needed, the beamformer forms 64"
   ]
  },
  "validation": []

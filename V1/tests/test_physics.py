@@ -2431,3 +2431,68 @@ def test_lattice_shifts_and_counts():
     p0, p1 = so.lattice(sel, uu, vv, d, 0), so.lattice(sel, uu, vv, d, 1)
     assert not np.allclose(p0[:5], p1[:5])
 
+
+
+# ----------------------------------------------------------------------------- compute and data (step 4.4)
+from core import compute as cmp  # noqa: E402
+
+
+def test_compute_look_cost_by_hand():
+    """B1-B4: one S pulse of 1 ms PRI at 100 MHz, one beam, no bank: each function counted from the file's values."""
+    wf = {"n_pulses": 1, "pri_ms": 1.0, "sig_bw_mhz": 100.0, "velocity_hypotheses": 1, "acceleration_hypotheses": 1,
+          "coherent_blocks": 1, "pulses_per_block": 1}
+    c = cmp.look_cost("S", wf, 1.0)
+    fs = cmp.ADC_OVERSAMPLING["S"] * 100e6
+    ch = 2 * rm.N_TRM["S"]
+    assert c["listen_s"] == pytest.approx(1e-3)
+    sub = 2 * rm.N_TRSA if cmp.TRANSPORT["S"] == "subarray_beams" else 0
+    assert c["ops"]["beamforming"] == pytest.approx(cmp.OPS_CMAC * (ch + sub) * fs * 1e-3)
+    n_p = fs * 1e-3
+    assert c["ops"]["compression"] == pytest.approx(cmp.FFT_K * 2 * n_p * math.log2(n_p))
+    c_r = cmp.RANGE_OSR * 100e6 * 1e-3
+    assert c["ops"]["banks"] == pytest.approx(cmp.OPS_CMAC * 2 * c_r)
+    assert c["ops"]["cfar"] == pytest.approx(cmp.CFAR_OPS * c_r)
+    assert c["ops"]["nulling"] == 0.0
+    words = 2 * rm.N_TRSA if sub else ch
+    assert c["bits"] == pytest.approx(words * fs * 1e-3 * 2 * cmp.IQ_BITS)
+    # the banks scale with the hypotheses, the nulling appears with a jammer
+    c2 = cmp.look_cost("S", {**wf, "velocity_hypotheses": 10, "acceleration_hypotheses": 3}, 1.0, nulled=1)
+    assert c2["ops"]["banks"] == pytest.approx(30 * c["ops"]["banks"])
+    assert c2["ops"]["nulling"] > 0.0
+
+
+def test_compute_budget_invariants(runs):
+    """C4, D1, F2: power = static + operations + transport, capacity from the ceiling, the scheduler's latency holds
+    the processing latency; peak beams >= mean beams."""
+    for n, res in runs.items():
+        c = res["compute"]
+        for k, f in c["faces"].items():
+            p = f["power_kW"]
+            assert p["total"] == pytest.approx(p["static"] + p["ops"] + p["transport"])
+            assert p["static"] == pytest.approx(cmp.STATIC_FRAC * cmp.CEILING_W / 1e3)
+            assert p["ops"] == pytest.approx(cmp.E_OP_J * f["ops_total_per_s"] / 1e3)
+            assert f["capacity_ops_per_s"] == pytest.approx(
+                (cmp.CEILING_W * (1 - cmp.STATIC_FRAC) - 1e3 * p["transport"]) / cmp.E_OP_J)
+            for b, v in f["bands"].items():
+                assert v["beams_peak"] + 1e-9 >= v["beams_mean"]
+                assert v["ops_total_per_s"] == pytest.approx(sum(v["ops_per_s"].values()))
+        lat = {s["id"]: s["latency_q95_s"] for s in res["scheduler"]["sectors"]}
+        for sid, s in c["sectors"].items():
+            if sid in lat and lat[sid] > 0:
+                assert lat[sid] + 1e-12 >= s["processing_s"], (n, sid)
+
+
+def test_compute_partition_dwell_beams():
+    """A3: a partition's RX beams field is per TX beam (sub-aperture): the dwell forms field x b_tx beams; the other
+    modes field x positions per dwell."""
+    res = {"sectors": [{"id": "X", "status": "OK", "positions_total": 10.0, "rr_target_s": 1.0,
+                        "faces": {"0": {"positions": 10.0}},
+                        "wf_by_bin": [{"positions": 10.0, "wf": {"n_pulses": 1, "pri_ms": 1.0, "sig_bw_mhz": 10.0,
+                                                                   "positions_per_dwell": 6.0, "b_tx": 2,
+                                                                   "tx_mode": "partition", "rx_beams_per_position": 9.0}}]}]}
+    st = cmp._streams({"global": {}}, res, [0, 0, 0, 0])
+    (rate, _, beams), = st[0]["S"][0]["looks"]
+    assert beams == pytest.approx(18.0) and rate == pytest.approx(10.0 / 6.0)
+    res["sectors"][0]["wf_by_bin"][0]["wf"]["tx_mode"] = "superposition"
+    (rate, _, beams), = cmp._streams({"global": {}}, res, [0, 0, 0, 0])[0]["S"][0]["looks"]
+    assert beams == pytest.approx(54.0)

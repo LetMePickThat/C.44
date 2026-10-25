@@ -37,13 +37,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small C.44 radar -- design and modelling reference}
-\rhead{\small Model V6.19.0}
+\rhead{\small Model V6.20.0}
 \cfoot{\thepage}
 
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{25 October 2026 -- radar model V6.19.0 (roadmap step 4.3 bis coded)}
+\date{25 October 2026 -- radar model V6.20.0 (roadmap step 4.4 coded)}
 
 \begin{document}
 \maketitle
@@ -968,8 +968,64 @@ fed back into the plan. On a face where an S waveform's fifth harmonic covers th
 slots.
 
 \paragraph{Latency.} The latency of a confirmation is the 95\,\% wait of the P2 class, plus its service, its round
-trips and a processing delay (\SI{1}{ms}, provisional). It is compared with the sector's requirement, or by default
-with \SI{10}{\percent} of the time to impact at the detection range.
+trips and the processing latency of the detection (Section~\ref{sec:compute}). It is compared with the sector's
+requirement, or by default with \SI{10}{\percent} of the time to impact at the detection range.
+
+%=====================================================================================================================
+\section{Compute and data}\label{sec:compute}
+%=====================================================================================================================
+Every face is fully digital: each TRM has two converters (one per polarisation) sampling \SI{250}{Msps} on 13 bits,
+i.e. \SI{63.7}{Tbit/s} per face in S and \SI{1.59}{Pbit/s} in Ku before any reduction. The compute and data budget
+(\code{core/compute.py}, roadmap step 4.4) checks that the digital chain keeps up with what the plan asks: data rates,
+simultaneous receive beams, processing load, buffers, latency and the power of the processing. Every value below is a
+setting of the parameter file (section \code{[compute]}): the architecture will be refined and the code follows it.
+
+\paragraph{Architecture.} Hierarchical. Each TRSA brings its channels down to the signal bandwidth (digital
+down-conversion: complex samples at $1.25\,B$, I and Q on 16 bits). In S a TRSA has only 50 channels, fewer than the
+beams a dwell forms: it sends its channels and the face processor forms the beams. In Ku a TRSA has \num{1250} channels
+for a few beams: it forms partial beams and sends them (data divided by about 100). The face processor forms or sums
+the beams (at most 64 simultaneous beams in S, 16 in Ku), compresses the pulses, runs the velocity and acceleration
+banks and the CFAR, and nulls the sidelobe jammers on the 196 TRSA outputs; the central computer keeps the tracks.
+
+\paragraph{Load of a look.} With $f_s = 1.25\,B$, the listening time $T = N\cdot\mathrm{PRI}$, $n_p = f_s\,\mathrm{PRI}$
+samples per pulse, $c_r = 4\,B\,\mathrm{PRI}$ range cells of the detection grid, $h$ velocity $\times$ acceleration
+hypotheses, $M$ Doppler bins and $b$ receive beams, the operations of one look are
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+beamforming & $8\times$ channels $\times\, b\, f_s T$ (a complex multiply-accumulate is 8 operations)\\
+pulse compression & $10\, n_p\log_2 n_p$ per pulse, beam and polarisation (fast convolution)\\
+banks & $8\times 2\, b\, h\, c_r N$, plus the Doppler transform $10\,M\log_2 M$ per cell and hypothesis\\
+CFAR & 10 per tested cell and hypothesis\\
+jammer nulling & $d^2$ per training snapshot ($2d$ snapshots), $d^3/3$ per inversion, $d$ per sample and beam\\
+tracking & $10^4$ per track update\\
+\bottomrule
+\end{tabular}
+\end{center}
+The looks are the S search dwells (rate = positions / positions per dwell / revisit), the Ku confirmations and the Ku
+track updates, from the plan and the Ku budget. The listening windows of a face overlap; by Little's law their mean
+number is $\sum \text{rate}\times T$, so the simultaneous beams are that number rounded up times the beams of the
+largest dwell (an upper bound). On two test missions, S waveforms that partition the aperture into four
+transmit sub-beams over 13.7 positions need 155 to 171 simultaneous receive beams against the 64 of the
+beamformer: flagged; the optimiser does not know this capacity yet.
+
+\paragraph{Power and capacity.} The power of the processing has a ceiling (\SI{50}{kW} per face). A fixed share
+(\SI{20}{\percent}: leakage, clocks) is always consumed; the rest follows the load at \SI{0.01}{pJ} per operation and
+\SI{0.05}{pJ} per transported bit (2050--2060, optimistic end). The capacity is what the ceiling allows, about
+$4\times10^{18}$ operations per second per face; the test missions need $10^{11}$ to $2\times10^{16}$ (the most: the
+velocity banks of a sector cluttered by a surface), so the processing consumes about \SI{10}{kW} per face, not
+\SI{50}{kW}. The power and heat budgets that size the plan keep the ceiling (prudent: the consumption depends on the
+Ku load, computed after them); the consumption and the corrected bus draw and face heat are reported beside them.
+
+\paragraph{Latency.} The data reach the face processor while the echoes are received; after the end of a dwell remain
+the backlog of a link slower than the stream (none today: \SI{0.2}{Tbit/s} per TRSA link against \SI{4}{Tbit/s},
+\SI{39}{Tbit/s} into the face processor against \SI{400}{Tbit/s}) and the processing at the capacity the mean load
+leaves. This processing latency (\SI{0.01}{\micro s} to \SI{5}{ms} on the test missions) enters the confirmation
+latency of the scheduler.
+
+\paragraph{In flight.} The radar computer applies the mission plan, the scheduler and the tracking, and re-selects a
+precomputed waveform when the measured spectrum changes: \num{1000} operations per (waveform, scan bin) entry
+(provisional). The full re-optimisation stays in mission preparation.
 
 %=====================================================================================================================
 \section{Other functions}
@@ -1019,6 +1075,7 @@ jammers, Faraday\\
 \code{core/trackmodel.py} & track model: Singer Kalman filter, loss chain, initiation, discrimination\\
 \code{core/scheduler.py} & priorities, waits, synthetic timeline, common slots, latency\\
 \code{core/scanorder.py} & search pointings of a volume, shifts, bit-reversed Morton order\\
+\code{core/compute.py} & data rates, receive beams, processing load, buffers, power and latency of the digital chain\\
 \code{core/redundancy.py} & redundancy between sectors\\
 \code{core/cost\_estimate.py} & fast estimate for the interface\\
 \code{core/mission.py} & mission model, validation, JSON / CSV\\
@@ -1038,7 +1095,7 @@ The test bench has two families: frozen outputs of every test mission compared a
 (non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
 exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
 frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
-before any refreeze. At model V6.19.0 the bench has 213 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
+before any refreeze. At model V6.20.0 the bench has 216 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
 
 %=====================================================================================================================
 \section{Roadmap and open points}\label{sec:roadmap}
@@ -1056,8 +1113,8 @@ sky noise, converters, isolation --- done\\
 calibration --- done (degraded modes and TRM failures deferred to the end of the development)\\
 4, resources & 4.1 power: shared ship budget, always-on consumption, TRM supply, face storage --- done; 4.2 thermal:
 coolant, cold plate, junction, ship heat rejection --- done; 4.3 scheduler: priorities, queues, synthetic timeline,
-common slots, latency --- done; 4.3 bis scan order inside a volume --- coded;
-scheduler and latency; computing and data\\
+common slots, latency --- done; 4.3 bis scan order inside a volume --- done; 4.4 compute and data --- coded;
+4.5 re-pointing in flight\\
 5, mission and validation & richer mission model; global optimiser; validation engine; Monte-Carlo simulation;
 operator interface; verification and documentation\\
 \bottomrule
@@ -1070,8 +1127,11 @@ Main provisional dispositions, each assigned to a later step:
         superposition with an imperfect interleaving; GO-CFAR near limbs counted (advised only today); search-lattice
         shift every frame (a rule); S/Ku alignment on external references; Ku burn-through authorised in flight.
   \item \textbf{Thermal}: ship heat rejection reserved for the radar (provisional \SI{6}{MW}).
-  \item \textbf{Computing (4.4)}: simultaneous receive beams, converter data rates, beamforming power, computing load
-        of velocity and acceleration banks and of adaptive nulling.
+  \item \textbf{Computing}: the consumption of the processing fed back into the budgets that size the plan (5.2);
+        memory capacity of the coherent buffers (output only today, up to \SI{167}{GB} on a face); cost of an
+        in-flight waveform re-selection (provisional value).
+  \item \textbf{Re-pointing in flight (4.5)}: navigation cadence, rotation within a frame, sector migration between
+        faces, track compensation of the ship's rotation.
   \item \textbf{Mission and validation (5.x)}: per-class RCS spread and RCS versus aspect (discrimination is optimistic
         today), track-update and discrimination probabilities as mission settings, joint optimisation of the power
         split among faces, recalibration of the fast estimate on the track model.
@@ -1179,6 +1239,11 @@ train (slow pole); above about \SI{225}{\celsius} the lifetime of GaN drops.\\
 Cold plate, heat flux & Plate with micro-channels where the coolant takes the heat; the flux it can take per unit area
 is $h \times$ wetted-area factor $\times$ allowed temperature difference.\\
 Thermal inertia & Heat the coolant and the structure store per kelvin: it absorbs bursts of transmission.\\
+Digital down-conversion & Bringing the samples of a channel to the signal bandwidth, near the converter, to cut the data
+rate.\\
+Subarray beamforming & Partial beams formed inside a TRSA and summed by the face processor.\\
+Little's law & Mean number of items in progress = arrival rate $\times$ time each item stays; here, open listening
+windows.\\
 \bottomrule
 \end{longtable}}
 
@@ -1383,6 +1448,12 @@ Common transmit slots & All faces transmit a band together; receivers deaf in th
 $-10\log_{10}(1-\rho)$: \SI{0.1}{dB} on a test mission (\SI{2.4}{\percent} of the time)\\
 Priority queues & Waiting of a task behind higher priorities, without preemption & confirmation latency
 \SIrange{8}{80}{ms} (95\,\%) on a test mission\\
+Processing load & Beamforming, compression, banks, CFAR, nulling against the capacity of the ceiling power &
+$\le 0.6\,\%$ of the capacity on the test missions: not limiting\\
+Processing power & Static share plus energy per operation and per bit & about \SI{10}{kW} per face instead of the
+\SI{50}{kW} ceiling (reported; the sizing keeps the ceiling)\\
+Processing latency & Data stream and processing after a dwell & \SI{0.01}{\micro s} to \SI{5}{ms}, in the confirmation
+latency\\
 Cooling of a face & Micro-channel cold plate, dielectric coolant & capacity \SI{15.9}{MW} per face: not limiting
 (dissipation $\le$ \SI{2}{MW})\\
 Junction temperature & Heating of the PA transistors by the pulses & $\le$\SI{63}{\celsius} against \SI{225}{\celsius}:

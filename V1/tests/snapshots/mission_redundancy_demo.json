@@ -228,6 +228,305 @@
  },
  "run": {
   "cancelled": false,
+  "compute": {
+   "faces": {
+    "0": {
+     "bands": {
+      "Ku": {
+       "beams_max": 16,
+       "beams_mean": 0.030139597417982163,
+       "beams_peak": 7,
+       "bits_per_s": 11814722187.849007,
+       "buffer_peak_GB": 0.007,
+       "face_input_peak_tbps": 2.744,
+       "link_trsa_peak_tbps": 0.014,
+       "open_windows_mean": 0.0043350525507906525,
+       "ops_per_s": {
+        "banks": 48223355.868771456,
+        "beamforming": 1849004022398.3694,
+        "cfar": 3778420.7780817305,
+        "compression": 262432417.5502777,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 1849318456592.5664,
+       "transport": "subarray_beams"
+      },
+      "S": {
+       "beams_max": 64,
+       "beams_mean": 0.17648971427945792,
+       "beams_peak": 171.31669988760558,
+       "bits_per_s": 444250560423.23773,
+       "buffer_peak_GB": 0.1713166998876056,
+       "face_input_peak_tbps": 39.2,
+       "link_trsa_peak_tbps": 0.2,
+       "open_windows_mean": 0.011332922459776473,
+       "ops_per_s": {
+        "banks": 1129534171.3885307,
+        "beamforming": 1729599199938.6877,
+        "cfar": 705958857.1178316,
+        "compression": 7470619247.757683,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 1738905312214.952,
+       "transport": "raw"
+      }
+     },
+     "bits_per_s": 456065282611.08673,
+     "bus_draw_MW_actual": 0.08417295381135549,
+     "capacity_ops_per_s": 3.9999977196735867e+18,
+     "face_heat_kW_actual": 69.61935311718597,
+     "jammers_nulled": 0,
+     "load": 8.97056453597261e-07,
+     "non_tx_kW_actual": 66.88005868550181,
+     "ops_total_per_s": 3588223768807.5186,
+     "power_kW": {
+      "ceiling": 50.0,
+      "ops": 3.588223768807518e-05,
+      "static": 10.0,
+      "total": 10.000058685501818,
+      "transport": 2.2803264130554337e-05
+     }
+    },
+    "1": {
+     "bands": {
+      "Ku": {
+       "beams_max": 16,
+       "beams_mean": 0,
+       "beams_peak": 0.0,
+       "bits_per_s": 0.0,
+       "buffer_peak_GB": 0.0,
+       "face_input_peak_tbps": 0.0,
+       "link_trsa_peak_tbps": 0.0,
+       "open_windows_mean": 0,
+       "ops_per_s": {
+        "banks": 0.0,
+        "beamforming": 0.0,
+        "cfar": 0.0,
+        "compression": 0.0,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 0.0,
+       "transport": "subarray_beams"
+      },
+      "S": {
+       "beams_max": 64,
+       "beams_mean": 0,
+       "beams_peak": 0.0,
+       "bits_per_s": 0.0,
+       "buffer_peak_GB": 0.0,
+       "face_input_peak_tbps": 0.0,
+       "link_trsa_peak_tbps": 0.0,
+       "open_windows_mean": 0,
+       "ops_per_s": {
+        "banks": 0.0,
+        "beamforming": 0.0,
+        "cfar": 0.0,
+        "compression": 0.0,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 0.0,
+       "transport": "raw"
+      }
+     },
+     "bits_per_s": 0.0,
+     "bus_draw_MW_actual": 0.07075376884422112,
+     "capacity_ops_per_s": 4e+18,
+     "face_heat_kW_actual": 66.88,
+     "jammers_nulled": 0,
+     "load": 0.0,
+     "non_tx_kW_actual": 66.88,
+     "ops_total_per_s": 0.0,
+     "power_kW": {
+      "ceiling": 50.0,
+      "ops": 0.0,
+      "static": 10.0,
+      "total": 10.0,
+      "transport": 0.0
+     }
+    },
+    "2": {
+     "bands": {
+      "Ku": {
+       "beams_max": 16,
+       "beams_mean": 5.797700157013295e-06,
+       "beams_peak": 7,
+       "bits_per_s": 2272698.4615492118,
+       "buffer_peak_GB": 0.000875,
+       "face_input_peak_tbps": 2.744,
+       "link_trsa_peak_tbps": 0.014,
+       "open_windows_mean": 3.5754200911701175e-06,
+       "ops_per_s": {
+        "banks": 9276.320251221272,
+        "beamforming": 355677309.2324517,
+        "cfar": 5797.700157013296,
+        "compression": 50481.91080113266,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 355742865.16366106,
+       "transport": "subarray_beams"
+      },
+      "S": {
+       "beams_max": 64,
+       "beams_mean": 0.23110872738283655,
+       "beams_peak": 171.31669988760558,
+       "bits_per_s": 54674640572.651276,
+       "buffer_peak_GB": 0.1713166998876056,
+       "face_input_peak_tbps": 39.2,
+       "link_trsa_peak_tbps": 0.2,
+       "open_windows_mean": 0.001394761239098247,
+       "ops_per_s": {
+        "banks": 1479095855.2501538,
+        "beamforming": 2264865528351.7983,
+        "cfar": 924434909.5313461,
+        "compression": 9782583161.62936,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 2277051642278.209,
+       "transport": "raw"
+      }
+     },
+     "bits_per_s": 54676913271.11282,
+     "bus_draw_MW_actual": 0.07075727688490117,
+     "capacity_ops_per_s": 3.9999997266154337e+18,
+     "face_heat_kW_actual": 66.89737276445648,
+     "jammers_nulled": 0,
+     "load": 5.693518851988477e-07,
+     "non_tx_kW_actual": 66.88002550791951,
+     "ops_total_per_s": 2277407385143.3726,
+     "power_kW": {
+      "ceiling": 50.0,
+      "ops": 2.2774073851433726e-05,
+      "static": 10.0,
+      "total": 10.000025507919515,
+      "transport": 2.7338456635556415e-06
+     }
+    },
+    "3": {
+     "bands": {
+      "Ku": {
+       "beams_max": 16,
+       "beams_mean": 0.00684325099399231,
+       "beams_peak": 7,
+       "bits_per_s": 2690191368.2244134,
+       "buffer_peak_GB": 0.007,
+       "face_input_peak_tbps": 21.952,
+       "link_trsa_peak_tbps": 0.112,
+       "open_windows_mean": 0.0009814766405310707,
+       "ops_per_s": {
+        "banks": 10980372.931528218,
+        "beamforming": 421014949127.12067,
+        "cfar": 894698.145927356,
+        "compression": 59796161.607682206,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 421086620359.8058,
+       "transport": "subarray_beams"
+      },
+      "S": {
+       "beams_max": 64,
+       "beams_mean": 1.2325326918946518,
+       "beams_peak": 171.31669988760558,
+       "bits_per_s": 487444201158.50757,
+       "buffer_peak_GB": 0.3426333997752112,
+       "face_input_peak_tbps": 78.4,
+       "link_trsa_peak_tbps": 0.4,
+       "open_windows_mean": 0.00909120897208403,
+       "ops_per_s": {
+        "banks": 11554213455.661028,
+        "beamforming": 17692389353980.95,
+        "cfar": 7221383409.788142,
+        "compression": 78939969902.53407,
+        "nulling": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 17790104920748.934,
+       "transport": "raw"
+      }
+     },
+     "bits_per_s": 490134392526.732,
+     "bus_draw_MW_actual": 0.0737644599067065,
+     "capacity_ops_per_s": 3.999997549328038e+18,
+     "face_heat_kW_actual": 67.51840893247123,
+     "jammers_nulled": 0,
+     "load": 4.552800674632425e-06,
+     "non_tx_kW_actual": 66.88020661863504,
+     "ops_total_per_s": 18211191541108.74,
+     "power_kW": {
+      "ceiling": 50.0,
+      "ops": 0.00018211191541108736,
+      "static": 10.0,
+      "total": 10.000206618635039,
+      "transport": 2.45067196263366e-05
+     }
+    }
+   },
+   "flags": [
+    "face F1 S: 171 simultaneous RX beams needed, the beamformer forms 64",
+    "face F3 S: 171 simultaneous RX beams needed, the beamformer forms 64",
+    "face F4 S: 171 simultaneous RX beams needed, the beamformer forms 64"
+   ],
+   "reselect_ops": {
+    "A1_TRIM": 5000.0,
+    "A2_VEILLE": 18000.0,
+    "A3_HIBAND": 15000.0,
+    "A4_SEARCH": 7000.0,
+    "A5_SHORT": 16000.0,
+    "B1_TRIM": 7000.0,
+    "B2_AUTOPROT": 5000.0,
+    "B3_EDGE": 1000.0,
+    "B4_FINE": 4000.0,
+    "B5_LONG": 4000.0
+   },
+   "sectors": {
+    "A1_TRIM": {
+     "processing_s": 4.2198452002503163e-07,
+     "reselect_ops": 5000.0
+    },
+    "A2_VEILLE": {
+     "processing_s": 1.730236862250469e-08,
+     "reselect_ops": 18000.0
+    },
+    "A3_HIBAND": {
+     "processing_s": 1.1393027709341132e-07,
+     "reselect_ops": 15000.0
+    },
+    "A4_SEARCH": {
+     "processing_s": 4.2198643068286007e-07,
+     "reselect_ops": 7000.0
+    },
+    "A5_SHORT": {
+     "processing_s": 3.0759766440008334e-08,
+     "reselect_ops": 16000.0
+    },
+    "B1_TRIM": {
+     "processing_s": 4.2198452002503163e-07,
+     "reselect_ops": 7000.0
+    },
+    "B2_AUTOPROT": {
+     "processing_s": 6.330735969894483e-07,
+     "reselect_ops": 5000.0
+    },
+    "B3_EDGE": {
+     "processing_s": 1.1393027709341132e-07,
+     "reselect_ops": 1000.0
+    },
+    "B4_FINE": {
+     "processing_s": 8.441870083467485e-07,
+     "reselect_ops": 4000.0
+    },
+    "B5_LONG": {
+     "processing_s": 4.2198487003619876e-07,
+     "reselect_ops": 4000.0
+    }
+   }
+  },
   "faces_total": {
    "0": {
     "avg_power_kW": 12.0013,
@@ -583,7 +882,7 @@
      "go_cfar_advised": false,
      "id": "A1_TRIM",
      "latency_ok": true,
-     "latency_q95_s": 0.041027706604188766,
+     "latency_q95_s": 0.04002812858870879,
      "latency_required_s": 66.66666666666667,
      "priority": "P4_1",
      "scan": {
@@ -606,7 +905,7 @@
      "go_cfar_advised": false,
      "id": "B1_TRIM",
      "latency_ok": true,
-     "latency_q95_s": 0.041027704771297344,
+     "latency_q95_s": 0.04002812675581737,
      "latency_required_s": 66.66666666666667,
      "priority": "P4_1",
      "scan": {
@@ -629,7 +928,7 @@
      "go_cfar_advised": false,
      "id": "A2_VEILLE",
      "latency_ok": true,
-     "latency_q95_s": 0.04102858561069962,
+     "latency_q95_s": 0.04002860291306824,
      "latency_required_s": 100.0,
      "priority": "P4_1",
      "scan": {
@@ -664,7 +963,7 @@
      "go_cfar_advised": false,
      "id": "B2_AUTOPROT",
      "latency_ok": true,
-     "latency_q95_s": 0.0014002773634768687,
+     "latency_q95_s": 0.0004009104370738581,
      "latency_required_s": 0.3333333333333333,
      "priority": "P4_1",
      "scan": {
@@ -687,7 +986,7 @@
      "go_cfar_advised": false,
      "id": "A3_HIBAND",
      "latency_ok": true,
-     "latency_q95_s": 0.061041661384721876,
+     "latency_q95_s": 0.06004177531499897,
      "latency_required_s": 100.0,
      "priority": "P4_1",
      "scan": {
@@ -710,7 +1009,7 @@
      "go_cfar_advised": false,
      "id": "B3_EDGE",
      "latency_ok": true,
-     "latency_q95_s": 0.041027796258235875,
+     "latency_q95_s": 0.04002791018851297,
      "latency_required_s": 66.66666666666667,
      "priority": "P4_1",
      "scan": {
@@ -733,7 +1032,7 @@
      "go_cfar_advised": false,
      "id": "A4_SEARCH",
      "latency_ok": true,
-     "latency_q95_s": 0.04102770313267667,
+     "latency_q95_s": 0.04002812511910735,
      "latency_required_s": 66.66666666666667,
      "priority": "P4_1",
      "scan": {
@@ -756,7 +1055,7 @@
      "go_cfar_advised": false,
      "id": "B4_FINE",
      "latency_ok": true,
-     "latency_q95_s": 0.031020774861170372,
+     "latency_q95_s": 0.030021619048178717,
      "latency_required_s": 50.0,
      "priority": "P4_1",
      "scan": {
@@ -779,7 +1078,7 @@
      "go_cfar_advised": false,
      "id": "A5_SHORT",
      "latency_ok": true,
-     "latency_q95_s": 0.007700219956846904,
+     "latency_q95_s": 0.006700250716613344,
      "latency_required_s": 25.0,
      "priority": "P4_1",
      "scan": {
@@ -814,7 +1113,7 @@
      "go_cfar_advised": false,
      "id": "B5_LONG",
      "latency_ok": true,
-     "latency_q95_s": 0.06104161680796079,
+     "latency_q95_s": 0.06004203879283082,
      "latency_required_s": 100.0,
      "priority": "P4_1",
      "scan": {
@@ -5504,6 +5803,17 @@
      "forced": false,
      "id": "A1_TRIM",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 1,
+      "n_pulses": 1,
+      "pri_ms": 0.5,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 25.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 1
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
      "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
@@ -5590,6 +5900,17 @@
      "forced": false,
      "id": "B1_TRIM",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 1,
+      "n_pulses": 1,
+      "pri_ms": 0.5,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 25.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 1
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
      "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
@@ -5677,6 +5998,17 @@
      "forced": false,
      "id": "A2_VEILLE",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 1,
+      "n_pulses": 1,
+      "pri_ms": 0.5,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 25.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 1
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
      "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
@@ -5765,6 +6097,17 @@
      "forced": false,
      "id": "B2_AUTOPROT",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 1,
+      "n_pulses": 1,
+      "pri_ms": 0.5,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 200.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 1
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 13.8,
      "ku_min_unsaturated_range_attenuated_km": 0.3210653404202825,
@@ -5857,6 +6200,17 @@
      "forced": false,
      "id": "A3_HIBAND",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 4,
+      "n_pulses": 4,
+      "pri_ms": 0.5,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 25.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 1
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
      "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
@@ -5947,6 +6301,17 @@
      "forced": false,
      "id": "B3_EDGE",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 4,
+      "n_pulses": 4,
+      "pri_ms": 0.5,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 25.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 1
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
      "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
@@ -6033,6 +6398,17 @@
      "forced": false,
      "id": "A4_SEARCH",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 1,
+      "n_pulses": 1,
+      "pri_ms": 0.5,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 25.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 1
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
      "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
@@ -6121,6 +6497,17 @@
      "forced": false,
      "id": "B4_FINE",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 1,
+      "n_pulses": 1,
+      "pri_ms": 0.5,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 100.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 1
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
      "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
@@ -6210,6 +6597,17 @@
      "forced": false,
      "id": "A5_SHORT",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 8,
+      "n_pulses": 8,
+      "pri_ms": 0.5,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 25.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 1
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
      "ku_min_unsaturated_range_attenuated_km": 0.10299071050104981,
@@ -6296,6 +6694,17 @@
      "forced": false,
      "id": "B5_LONG",
      "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 1,
+      "n_pulses": 1,
+      "pri_ms": 0.5,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 25.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 1
+     },
      "ku_freq_candidates": 3,
      "ku_freq_ghz": 14.2,
      "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
@@ -6376,7 +6785,10 @@
    "sector A3_HIBAND: S waveform WF-A3_HIBAND-1: its harmonics (14.050-14.550 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
    "sector A3_HIBAND: S waveform WF-A3_HIBAND-2: its harmonics (14.050-14.550 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
    "sector A3_HIBAND: S waveform WF-A3_HIBAND-3: its harmonics (14.050-14.550 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
-   "sector B4_FINE: S waveform WF-B4_FINE: its harmonics (13.350-14.350 GHz) cover 100 % of the Ku channel 14.2 GHz / 100 MHz on the same face"
+   "sector B4_FINE: S waveform WF-B4_FINE: its harmonics (13.350-14.350 GHz) cover 100 % of the Ku channel 14.2 GHz / 100 MHz on the same face",
+   "face F1 S: 171 simultaneous RX beams needed, the beamformer forms 64",
+   "face F3 S: 171 simultaneous RX beams needed, the beamformer forms 64",
+   "face F4 S: 171 simultaneous RX beams needed, the beamformer forms 64"
   ]
  },
  "validation": []

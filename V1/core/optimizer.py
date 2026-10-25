@@ -2043,6 +2043,9 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
     from . import tracking   # imported here: core.tracking imports this module
     out["tracking"] = tracking.budget(mission, out)
     warn.extend(out["tracking"].pop("warnings"))
+    from . import compute                    # step 4.4: data, beams, processing load, power, latency
+    out["compute"] = compute.budget(mission, out)
+    warn.extend(out["compute"]["flags"])
     from . import scheduler                  # step 4.3: the tasks of each face in time
     out["scheduler"] = scheduler.schedule(mission, out)
     warn.extend(out["scheduler"]["flags"])
@@ -2185,6 +2188,21 @@ def print_report(res: dict) -> None:
                   f"{sp['suggested_allocation_MW']} MW")
         for rule in trk.get("scheduler_rules", []):
             print(" SCHEDULER RULE (step 4.3):", rule)
+    cmp_ = res.get("compute")
+    if cmp_:                                                   # step 4.4
+        print("-" * 100)
+        print(" COMPUTE AND DATA (per face)")
+        for k, v in cmp_["faces"].items():
+            bd = v["bands"]
+            print(f" face {k}: {v['ops_total_per_s']:.3g} op/s of {v['capacity_ops_per_s']:.3g} ({100 * v['load']:.3g} %) | "
+                  f"power {v['power_kW']['total']:.2f} of {v['power_kW']['ceiling']:g} kW | beams S "
+                  f"{bd['S']['beams_peak']:.0f}/{bd['S']['beams_max']} Ku {bd['Ku']['beams_peak']:.0f}/{bd['Ku']['beams_max']}"
+                  f" | TRSA link S {bd['S']['link_trsa_peak_tbps']:.3g} Ku {bd['Ku']['link_trsa_peak_tbps']:.3g} Tbit/s | "
+                  f"buffers {bd['S']['buffer_peak_GB'] + bd['Ku']['buffer_peak_GB']:.3g} GB | jammers nulled "
+                  f"{v['jammers_nulled']}")
+        for sid, s_ in cmp_["sectors"].items():
+            print(f"   {sid}: processing latency {1e3 * s_['processing_s']:.3g} ms | in-flight reselection "
+                  f"{s_['reselect_ops']:.3g} op")
     for wmsg in res["warnings"]:
         print(" WARNING:", wmsg)
 

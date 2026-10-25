@@ -656,6 +656,12 @@ def ku_burn_through(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: floa
     return {"reaches_requirement": False, "range_km": round(float(rr[j]), 1), "wf": _wf_label(sp.det[j], f_ghz)}
 
 
+def _wf_params(w: rm.Waveform, sec: dict, f_ghz: float) -> dict:
+    """Numbers of a Ku look the compute budget needs (step 4.4): pulses, PRI, pulse, bandwidth, processing banks."""
+    return {"n_pulses": w.n, "pri_ms": w.pri_s * 1e3, "tau_us": w.tau_s * 1e6, "sig_bw_mhz": w.sig_bw_mhz,
+            **mo._processing_dict(w, sec, f_ghz)}
+
+
 def _wf_label(w: rm.Waveform, f_ghz: float = KU_REF_GHZ) -> str:
     ag = f" agile {w.agility_mhz:g} MHz" if w.agility_mhz else ""
     return (f"{f_ghz:g} GHz {w.integration[:4]} tau {w.tau_s * 1e6:.0f} us x N {w.n} @ PRI {w.pri_s * 1e3:g} ms "
@@ -1076,6 +1082,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                  "energy_per_update_J": float(e_face.sum() / n_tr) if n_tr > 0 else 0.0,
                  "avg_power_kW": float((e_face.sum() / T + e_face_s.sum()) / 1e3),
                  "wf": _wf_label(wf_main, f_ku) if wf_main is not None else "-",
+                 "wf_params": _wf_params(wf_main, sec, f_ku) if wf_main is not None else None,   # step 4.4
                  "e": (e_face / T + e_face_s) / p_avg_max_w, "tk": t_face / T + t_init,
                  "q_w": q_face / T + q_init, "unreachable_tracks": unreachable,
                  # step 3.3 outputs
@@ -1155,7 +1162,10 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
             "ku_min_unsaturated_range_attenuated_km": r_sat_att, "discrimination": disc,
             "false_tracks_per_s": false_tracks, "scheduler_rules": rules,
             "ku_obs_max": max(ku_obs, default=(0.0, 0.0)),
-            "ku_freq_ghz": f_ku, "ku_burn_through": bt}
+            "ku_freq_ghz": f_ku, "ku_burn_through": bt,
+            # step 4.4: the longest Ku confirmation look of the sector (its processing load)
+            "ku_wf": next((_wf_params(lk["wf"], sec, f_ku) for lk in sorted(
+                (c["ku"] for c in cg if c["ku"] is not None), key=lambda x: -x["time_s"])), None)}
 
 
 # ----------------------------------------------------------------------------- mission budget
@@ -1386,7 +1396,7 @@ def budget(mission: dict, res: dict) -> dict:
             "discrimination": sb.get("discrimination"), "false_tracks_per_s": sb.get("false_tracks_per_s"),
             "ku_min_unsaturated_range_attenuated_km": sb.get("ku_min_unsaturated_range_attenuated_km"),
             "false_alarms_per_rr_face": [float(x) for x in sb["false_alarms_per_rr"]], "p_share": sb["p_share"],
-            "flags": sb["flags"]})
+            "ku_confirm_wf": sb.get("ku_wf"), "flags": sb["flags"]})
         for fl in sb["flags"]:
             warn.append(f"sector {sid}: {fl}")
 

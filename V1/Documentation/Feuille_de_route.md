@@ -43,7 +43,8 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 4.2 | ✔ fait le 25 octobre 2026 (V6.17.0) : fluide et plaque froide dérivés (capacité ≈ 15,9 MW par face, jamais limitante), jonction mesurée sans effet (contrôle désactivé, `duty_max` gardé), rejet du vaisseau 6 MW (D) commun aux faces |
 | 4.3 | codée le 25 octobre 2026 (V6.18.0) : `core/scheduler.py` (priorités P0 étalonnage, P1 autoprotection, P2 confirmation / initialisation, P3 mises à jour, P4_n veille ; bilan statistique + chronologie synthétique ; créneaux communs et éclipse ; harmonique ; latence) ; GO-CFAR seulement conseillé, gain du multiplexage en temps non chiffré ; N3 et commit sur demande |
 | 4.3 bis | codée le 25 octobre 2026 (V6.19.0) : ordre des pointages dans un volume (`core/scanorder.py` : grille réelle en (u, v), ordre de Morton à bits renversés, 3 décalages de grille, durées par tranche, multifaisceau, uniformité, revisite par direction) ; N3 passé (21,6 min, snapshots regelés) ; commit sur demande |
-| 4.4 et suivantes | à faire |
+| 4.4 | codée le 25 octobre 2026 (V6.20.0) : `core/compute.py` (débits, faisceaux simultanés, charge par fonction, tampons, puissance du calcul plafonnée par `dbf_kw`, latence de traitement à la place de `processing_s`, coût d'une resélection en vol) ; bilans de dimensionnement gardés au plafond (boucle en 5.2, accepté) ; N3 passé (20,7 min, snapshots regelés) ; alerte : formes d'onde partitionnées au-delà des 64 faisceaux du formateur sur deux missions de test (capacité à faire entrer dans l'optimiseur) |
+| 4.5 et suivantes | à faire (4.5, 5.7 et phase 6 ajoutées le 25 octobre 2026) |
 
 ---
 
@@ -335,7 +336,16 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Entrées de l'étape 2.2** : hypothèses de vitesse par forme d'onde (`velocity_hypotheses`, jusqu'à plusieurs centaines), grilles de détection ×4 en distance et en Doppler, transformées par bloc cohérent. **Capacité du formateur de faisceaux** (faisceaux simultanés par face, débit) à fixer ici comme ressource et à comparer au besoin calculé par l'ordonnanceur (4.3) : question de l'utilisateur à l'étape 2.2.
   - **Entrées de l'étape 1.5** : deux CAN I/Q par TRM (deux voies de polarisation) à 250 Méch/s et 13 bits, soit 9 800 CAN en S et 245 000 en Ku par face, et une formation de faisceau doublée ; leur consommation est à budgéter.
   - Leur consommation électrique alimente le bilan de puissance de l'étape 4.1, à la place de `overhead_frac`.
-  - **Renvoi de l'étape 3.1 (P5)** : aujourd'hui, l'optimiseur de veille (ciel, aveuglement, formes d'onde) ne tourne qu'en préparation de mission (Pmiss) ; son coût n'est pas celui du calculateur radar. Décider ce que le calculateur recalcule en vol (attitude qui change, spectre mesuré en temps réel) et avec quel budget de calcul (avec 4.3 et 5.2).
+  - **Renvoi de l'étape 3.1 (P5)** : aujourd'hui, l'optimiseur de veille (ciel, aveuglement, formes d'onde) ne tourne qu'en préparation de mission (Pmiss) ; son coût n'est pas celui du calculateur radar. Décider ce que le calculateur recalcule en vol (attitude qui change, spectre mesuré en temps réel) et avec quel budget de calcul (avec 4.3 et 5.2). La part liée à l'attitude est traitée en 4.5.
+
+- **4.5 Re-pointage en vol** (D) (ajoutée le 25 octobre 2026, à la demande de l'utilisateur, après le point sur le maintien des pointages quand la géométrie change). Constat : `core/frames.py` (étape 3.0) tourne chaque volume dans le repère du vaisseau **une seule fois**, pour un instantané de navigation ; aucune partie du modèle ne maintient les pointages quand l'attitude change ou que le vaisseau avance sur son orbite. Cette étape définit la boucle de re-pointage du calculateur radar :
+  - cadence des messages de navigation et réapplication de la rotation aux volumes (`inertial`, `rtn`, `limb`, `two_dir`, `track`) et au ciel inertiel ;
+  - veille horizon (`limb`) : suivi du limbe quand l'altitude et l'attitude changent ;
+  - rotation admissible pendant une trame (déformation de la couverture : les pointages du début et de la fin de trame ne sont pas pris dans la même attitude), recalcul de la grille de pointages (étape 4.3 bis) et de l'ordre de balayage ;
+  - migration d'un secteur d'une face à l'autre (réaffectation, perte de balayage, budget de chaque face) ;
+  - poursuite : compensation de la rotation entre la prédiction du filtre et l'émission, cadence de mise à jour de l'attitude, effet de l'erreur de connaissance d'attitude sur la perte de pointage (étape 3.3) ;
+  - coût de calcul de ce recalcul en vol, sur le budget de l'étape 4.4 ;
+  - **renvois regroupés ici** : profil d'attitude dans le temps et réaffectation des secteurs aux faces en vol (étapes 3.0, 4.3, 5.2) ; part « attitude » du renvoi P5 de l'étape 3.1. Restent ailleurs : enveloppe d'attitudes au pire cas en préparation de mission (5.3), parallaxe et erreurs de navigation (simulateur global).
 
 ## Phase 5 : mission et validation
 
@@ -370,14 +380,33 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 
 - **5.6 Vérification, validation et documentation.** Cas de référence figés, traçabilité des paramètres, manuel de l'opérateur, note de modèle.
 
+- **5.7 Fin de développement de la Pmiss** (ajoutée le 25 octobre 2026). Les éléments reportés après le MVP nominal (décision de l'étape 3.4, complétée en 4.2) :
+  - **modes dégradés** : face perdue, fraction de TRM perdus, puissance réduite, ouverture Ku perdue, TRSA ou chaîne de CAN perdue ;
+  - **pannes de TRM au fil de la mission** ;
+  - **couplages thermiques** : pompes dérivées du débit, dérive d'étalonnage reliée à la température, contrôle de dilatation du jeu de 0,5 mm entre TRSA ;
+  - les points ouverts encore « à placer » en fin de feuille de route, à trancher un par un (faits, reportés en phase 6 ou abandonnés) ;
+  - **renvoi de l'étape 4.4** : coût d'une resélection de forme d'onde en vol (`compute.reselect_ops_per_entry`, 10³ opérations, D) à revoir.
+
+  **Critère de fin de la Pmiss** (décision de l'utilisateur, 25 octobre 2026) : phase 5 entière, 5.7 comprise. La Pmiss est finie **avant** de commencer la phase 6, pour que tout son code serve à construire le simulateur global.
+
+## Phase 6 : simulateur global de scénario
+
+Commence quand la Pmiss est finie (critère de l'étape 5.7). Cadrage à faire le moment venu ; ce qui est déjà acquis :
+  - **interface fixée depuis l'étape 3.0** : le simulateur fournit les messages de navigation (attitude, orbite, corps central) et la position des objets dans le repère du vaisseau ; le radar ne calcule jamais où sont les objets ; parallaxe et erreurs de navigation sont de son ressort ;
+  - le radar en vol exécute ce que définissent les étapes 4.3 (ordonnanceur), 4.3 bis (ordre de balayage), 4.4 (calcul en vol) et 4.5 (re-pointage en vol) ;
+  - le moteur à événements et les modèles simplifiés recalés sur la Pmiss partent de l'étape 5.4 (note de l'utilisateur de l'étape 3.2 : temps réel ou quasi réel, précision moindre que la Pmiss) ;
+  - y trouvent leur place : profil d'attitude dans le temps, aspect réel des cibles par observation (variabilité de la SER), pannes au fil de la mission vues dans le temps.
+
 ## Jalons
 
 | Jalon | Contenu |
 |---|---|
 | A | phases 0 à 2 |
 | B | phase 3 |
-| C | étapes 4.1 à 4.3 |
-| D | phase 5 |
+| C | étapes 4.1 à 4.5 |
+| D | étapes 5.1 à 5.6 (Pmiss en situation nominale, MVP) |
+| Pmiss finie | étape 5.7 (fin de développement) : critère de passage à la phase 6 |
+| 6 | phase 6 : simulateur global de scénario |
 
 ## Points ouverts à placer dans les étapes
 

@@ -528,3 +528,16 @@ uniformity at 25 % of the frame 0.92 to 1.0 on the large volumes, down to 0.36 o
 Bench fix: the 'model' case stored the internal look-space object of ku_look (its repr holds a memory address, so the
 snapshot only matched through the case cache); it is now dropped from the case output.
 N3 21.6 min: 203 passed; only the snapshot tests failed before the refreeze.
+
+## 2026-10-25 -- step 4.4: compute and data (radar_model V6.20.0)
+
+Causes: new outputs -- report key "compute" (per face and band: operations per function, transported bits,
+simultaneous RX beams, buffers, capacity, power of the processing and the corrected draw / heat, processing latency
+per sector, cost of an in-flight reselection); Ku looks of the tracking budget carry their numbers (ku_confirm_wf,
+wf_params); the confirmation latency now holds the computed processing latency instead of the provisional 1 ms
+(scheduler.processing_s removed), so every latency_q95_s moves; two missions get new warnings: S partition waveforms
+(4 sub-beams over 13.7 positions) need 155 to 171 simultaneous RX beams against the 64 of the beamformer
+(mission_synthetic_mix F3-F4, mission_redundancy_demo F1, F3, F4). 92 values differ; no key figure, waveform set or
+confirmation mode changes.
+N3 20.7 min: 206 passed; only the snapshot tests and test_compute_budget_invariants (reads the snapshots) failed
+before the refreeze.

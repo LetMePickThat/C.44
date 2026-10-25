@@ -5,14 +5,19 @@ Real-time 3D view of the search pointings of a mission around the low-poly ship 
 
     python tools/scan_viewer_3d.py                          scenario tools/scenarios/scan3d_shell_lp.json
     python tools/scan_viewer_3d.py mission_veille500        a test mission (tests/missions), or any mission path
-    python tools/scan_viewer_3d.py --view full --speed 10   start in the 1:1 view of the whole scene
+    python tools/scan_viewer_3d.py --view full              start in the 1:1 view of the whole scene (real time)
     python tools/scan_viewer_3d.py --snapshot out.png       render one instant off screen and exit (check)
 
-The whole scene is at true scale, in km: the ship model, each beam drawn from its face's array centre out to the
-sector's range (a 500 km search -> a 500 km line), and the sky bodies of the mission with a known radius (Moon,
+The whole scene is at true scale, in km: the ship model, each beam drawn as its real transmit beam out to the sector's
+range (a 500 km search -> 500 km long): a frustum from the array plate (envelope disc) whose section is the -3 dB
+transmit beamwidth at the sector's frequency, built in the face's (u, v) so that its widening with the scan angle is
+exact (a circle of radius HPBW / 2 in (u, v) around the pointing), and the sky bodies of the mission with a known radius (Moon,
 Earth) as spheres at the distance their angular radius implies (radius / sin(angular radius)), in their direction.
 Two cameras: 'ship' (close to the hull) and 'full' (1:1, the whole scene); a scale bar follows the zoom.
-The pointings are those of core/scanorder.py: the hexagonal lattice of each volume's plan in the face's (u, v),
+Each watch volume is outlined in its colour at its range: its boundary on the sphere of radius range_km (traced on a
+0.5 deg raster of its mask, so within 0.25 deg), a faint surface, and the radial edges from the ship to its corners.
+The play lasts --duration (default: the longest revisit), each volume looping on its own revisit (a 20 s volume
+loops 6 times in 120 s). The pointings are those of core/scanorder.py: the hexagonal lattice of each volume's plan in the face's (u, v),
 shifted frame to frame, in bit-reversed Morton order; pointing i of a frame is drawn at i x RR / N (the release times
 of the scheduler's synthetic timeline); recent beams fade out. The mission result is cached in tools/.viewer_cache
 (keyed by the code, the parameter file and the mission), else computed (a few minutes). Test values only.
@@ -26,6 +31,7 @@ import math
 import os
 import sys
 import time
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -48,7 +54,8 @@ BODY_RADIUS_KM = {"moon": geo.MOON_RADIUS_KM, "earth": 6371.0}
 CACHE_DIR = os.path.join(ROOT, "tools", ".viewer_cache")
 DEFAULT_MISSION = os.path.join(ROOT, "tools", "scenarios", "scan3d_shell_lp.json")
 SHIP_CAMERA = [(0.23, -0.16, 0.04), (0.0, 0.0, -0.025), (0.0, 0.0, 1.0)]
-CLIP = {"ship": (1e-3, 3e4), "full": (1.0, 1e5)}              # near / far planes (km) of each view
+CONE_SIDES = 12                                             # facets of a beam frustum
+BEAM_OPACITY = 0.25
 
 
 def mission_path(arg: str) -> str:
@@ -99,32 +106,36 @@ def aperture_centre(k: int) -> np.ndarray:
     return (env.array_centre_m(k) + 0.05 * np.asarray(env.face_frame(k)[0])) * KM
 
 
-def pointing_events(path: str, n_frames: int):
+def pointing_events(path: str, duration: float = None):
     """(times s, origins (N, 3) km, unit directions (N, 3), lengths km (N,), sector index (N,), sector ids, revisits,
-    mission) of every pointing over n_frames frames of each volume and face."""
+    mission, duration, face (N,), (u, v) (N, 2), half beamwidth in (u, v) (N,)) of every pointing of each volume and
+    face over duration s (default: the longest revisit), each volume looping on its own revisit."""
     mission, _ = frames.resolve(mo.load_mission(path))
     res = mission_result(path)
     g = mission.get("global", {})
     sph = mo._sphere(g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0))
     sky = g.get("sky")
     secs = {s["id"]: s for s in mission["sectors"]}
-    t_all, o_all, d_all, l_all, s_all, ids, rrs = [], [], [], [], [], [], []
-    for r in res["sectors"]:
-        if r.get("status") != "OK":
-            continue
+    ok = [r for r in res["sectors"] if r.get("status") == "OK"]
+    if duration is None:
+        duration = max(float(r["rr_target_s"]) for r in ok)
+    t_all, o_all, d_all, l_all, s_all, ids, rrs, f_all, uv_all, hw_all = [], [], [], [], [], [], [], [], [], []
+    for r in ok:
         sec = secs[r["id"]]
         si = len(ids)
         ids.append(r["id"])
         f = float(r["frequency"]["freq_ghz"])
         rr = float(r["rr_target_s"])
         rrs.append(rr)
+        n_frames = max(1, math.ceil(duration / rr - 1e-9))
         reach = float(sec["range_km"])
         spacing = float(r.get("beam_spacing_hpbw", rm.BEAM_SPACING_HPBW))
         m = sph.mask(sec)
         _, keep = mo.sector_sky(sec, sph, m, f, "S", sky)
         lim = rm.band_for_frequency(f).scan_limit_deg(f)
         sel0 = m & sph.scan_zone & (sph.theta <= lim) & (np.asarray(keep) > 0.5)
-        d = spacing * rm._pattern(f).tx.hpbw * rm.lambda_m(f) / rm.ARRAY_ENVELOPE_M
+        hpbw_uv = rm._pattern(f).tx.hpbw * rm.lambda_m(f) / rm.ARRAY_ENVELOPE_M     # -3 dB TX beamwidth in (u, v)
+        d = spacing * hpbw_uv
         for k in range(4):
             if str(k) not in r.get("faces", {}):
                 continue
@@ -143,10 +154,98 @@ def pointing_events(path: str, n_frames: int):
                 d_all.append(u[:, None] * eu + v[:, None] * ev + w[:, None] * n_)
                 l_all.append(np.full(len(order), reach))
                 s_all.append(np.full(len(order), si))
+                f_all.append(np.full(len(order), k))
+                uv_all.append(np.c_[u, v])
+                hw_all.append(np.full(len(order), hpbw_uv / 2.0))
     ts = np.concatenate(t_all)
     idx = np.argsort(ts, kind="stable")
+    idx = idx[ts[idx] < duration]
     return (ts[idx], np.concatenate(o_all)[idx], np.concatenate(d_all)[idx], np.concatenate(l_all)[idx],
-            np.concatenate(s_all)[idx], ids, rrs, mission)
+            np.concatenate(s_all)[idx], ids, rrs, mission, duration, np.concatenate(f_all)[idx],
+            np.concatenate(uv_all)[idx], np.concatenate(hw_all)[idx])
+
+
+_FRAMES = [tuple(np.asarray(x) for x in env.face_frame(k)) for k in range(4)]
+
+
+def beam_cones(face: np.ndarray, uv: np.ndarray, hw: np.ndarray, lengths: np.ndarray, scalars: np.ndarray,
+               sides: int = CONE_SIDES) -> pv.PolyData:
+    """Frustums of the transmit beams: from the envelope disc of the array plate (radius ARRAY_ENVELOPE_M / 2, in the
+    face plane) along the directions of the circle of radius hw around (u, v) in the face's direction cosines (the
+    -3 dB contour: its widening with the scan angle is exact), out to the length."""
+    n_b = len(face)
+    if n_b == 0:
+        return pv.PolyData(np.zeros((3, 3)), faces=np.array([3, 0, 1, 2]))
+    a = 2.0 * np.pi * np.arange(sides) / sides
+    ca, sa = np.cos(a), np.sin(a)
+    nn = np.array([f[0] for f in _FRAMES])[face]
+    eu = np.array([f[1] for f in _FRAMES])[face]
+    ev = np.array([f[2] for f in _FRAMES])[face]
+    centre = np.array([aperture_centre(k) for k in range(4)])[face]
+    u = uv[:, 0, None] + hw[:, None] * ca
+    v = uv[:, 1, None] + hw[:, None] * sa
+    w = np.sqrt(np.clip(1.0 - u * u - v * v, 0.0, 1.0))
+    d = u[..., None] * eu[:, None, :] + v[..., None] * ev[:, None, :] + w[..., None] * nn[:, None, :]
+    d /= np.linalg.norm(d, axis=2, keepdims=True)
+    rad = rm.ARRAY_ENVELOPE_M / 2.0 * KM
+    start = centre[:, None, :] + rad * (ca[None, :, None] * eu[:, None, :] + sa[None, :, None] * ev[:, None, :])
+    end = start + lengths[:, None, None] * d
+    pts = np.concatenate([start, end], axis=1).reshape(-1, 3)            # per beam: sides start, then sides end
+    base = (np.arange(n_b) * 2 * sides)[:, None]
+    j = np.arange(sides)[None, :]
+    j1 = (j + 1) % sides
+    quads = np.stack([np.full((n_b, sides), 4), base + j, base + j1, base + sides + j1, base + sides + j], axis=2)
+    poly = pv.PolyData(pts, faces=quads.ravel())
+    poly["c"] = np.repeat(scalars, 2 * sides)
+    return poly
+
+
+def _ship_dirs(sec: dict, phi_deg: np.ndarray, eps_deg: np.ndarray) -> np.ndarray:
+    """Directions (N, 3) given in the sector's frame, in the ship frame (frame_m turns ship -> sector)."""
+    p, e = np.radians(phi_deg), np.radians(eps_deg)
+    d = np.stack([np.cos(e) * np.cos(p), np.cos(e) * np.sin(p), np.sin(e)], axis=-1)
+    m = sec.get("frame_m")
+    return d if m is None else d @ np.array(m).reshape(3, 3)
+
+
+def volume_outline(sec: dict, res_deg: float = 0.5):
+    """(boundary lines, faint surface, radial edges) of a watch volume at its range (km): the sector's mask
+    (core.optimizer.Sphere._mask, so every frame of step 3.0 is honoured) on a raster of directions on the sphere of
+    radius range_km."""
+    r = float(sec["range_km"])
+    phi = np.arange(0.0, 360.0 + res_deg / 2, res_deg)
+    eps = np.arange(-90.0, 90.0 + res_deg / 2, res_deg)
+    pp, ee = np.meshgrid(phi, eps, indexing="ij")
+    inside = mo.Sphere._mask(SimpleNamespace(phi=pp, eps=ee), sec).astype(float)
+    p, e = np.radians(pp), np.radians(ee)
+    grid = pv.StructuredGrid((r * np.cos(e) * np.cos(p))[..., None], (r * np.cos(e) * np.sin(p))[..., None],
+                             (r * np.sin(e))[..., None])
+    grid["m"] = inside.ravel(order="F")
+    lines = grid.contour([0.5], scalars="m") if 0.0 < inside.mean() < 1.0 else None
+    surface = grid.threshold(0.5, scalars="m").extract_surface(algorithm="dataset_surface")
+    off = sec.get("frame_eps_offset_deg", 0.0)
+    if sec.get("shape") == "cap":
+        rad = math.radians(sec["radius_deg"])
+        c = direction(sec["phi0_deg"], sec["eps0_deg"])
+        u = np.cross([0.0, 0.0, 1.0], c)
+        u = u / np.linalg.norm(u) if np.linalg.norm(u) > 1e-9 else np.array([1.0, 0.0, 0.0])
+        v = np.cross(c, u)
+        corners = np.array([math.cos(rad) * c + math.sin(rad) * (math.cos(t) * u + math.sin(t) * v)
+                            for t in np.radians(np.arange(0.0, 360.0, 90.0))])
+        m = sec.get("frame_m")
+        corners = corners if m is None else corners @ np.array(m).reshape(3, 3)
+    elif sec["phi_max_deg"] - sec["phi_min_deg"] < 360.0:
+        cp = np.array([sec["phi_min_deg"], sec["phi_min_deg"], sec["phi_max_deg"], sec["phi_max_deg"]])
+        ce = np.clip(np.array([sec["eps_min_deg"], sec["eps_max_deg"], sec["eps_min_deg"], sec["eps_max_deg"]]) + off,
+                     -90.0, 90.0)
+        corners = _ship_dirs(sec, cp, ce)
+    else:
+        corners = np.zeros((0, 3))
+    radials = None
+    if len(corners):
+        pts = np.vstack([np.zeros((len(corners), 3)), corners * r])
+        radials = pv.PolyData(pts, lines=np.ravel([[2, i, i + len(corners)] for i in range(len(corners))]))
+    return lines, surface, radials
 
 
 def ship_mesh() -> pv.PolyData:
@@ -176,18 +275,6 @@ def body_spheres(mission: dict):
         out.append((b["id"], pv.Sphere(radius=rad, center=c, theta_resolution=128, phi_resolution=128,
                                        texture_coordinates=True), c, kind))
     return out
-
-
-def beams_poly(origins: np.ndarray, dirs: np.ndarray, lengths: np.ndarray, scalars: np.ndarray) -> pv.PolyData:
-    if len(origins) == 0:
-        return pv.PolyData(np.zeros((2, 3)), lines=np.array([2, 0, 1]))
-    pts = np.empty((2 * len(origins), 3))
-    pts[0::2] = origins
-    pts[1::2] = origins + dirs * lengths[:, None]
-    lines = np.c_[np.full(len(origins), 2), np.arange(0, 2 * len(origins), 2), np.arange(1, 2 * len(origins), 2)]
-    poly = pv.PolyData(pts, lines=lines.ravel())
-    poly["c"] = np.repeat(scalars, 2)
-    return poly
 
 
 class ScaleBar:
@@ -245,21 +332,22 @@ def main(argv) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     ap.add_argument("mission", nargs="?", default=DEFAULT_MISSION,
                     help="mission path, or a name in tests/missions or tools/scenarios (default: scan3d_shell_lp)")
-    ap.add_argument("--speed", type=float, default=None, help="simulated seconds per second (default: a frame of the "
-                                                                "longest revisit in ~20 s)")
-    ap.add_argument("--frames", type=int, default=3, help="frames played (lattice shifts cycle every 3)")
+    ap.add_argument("--speed", type=float, default=1.0, help="simulated seconds per second (default 1: real time)")
+    ap.add_argument("--duration", type=float, default=None, help="simulated seconds played (default: the longest "
+                                                                    "revisit; each volume loops on its own)")
     ap.add_argument("--fade", type=float, default=0.02, help="a beam stays drawn this fraction of its sector's "
                                                                "revisit (default 0.02)")
     ap.add_argument("--view", choices=("ship", "full"), default="ship", help="starting camera (v toggles)")
-    ap.add_argument("--snapshot", help="render one instant (40 %% of the first frame) to this PNG and exit")
+    ap.add_argument("--snapshot", help="render one instant (40 %% of the play) to this PNG and exit")
     a = ap.parse_args(argv)
     path = mission_path(a.mission)
     print(f"computing the pointings of {os.path.basename(path)} ...")
-    ts, org, dirs, lens, sidx, ids, rrs, mission = pointing_events(path, a.frames)
+    ts, org, dirs, lens, sidx, ids, rrs, mission, duration, face, uv, hw = pointing_events(path, a.duration)
     rr_max = max(rrs)
-    speed = a.speed or rr_max / 20.0
+    loops = [max(1, math.ceil(duration / rr - 1e-9)) for rr in rrs]
+    speed = a.speed
     fade = a.fade * np.asarray(rrs)[sidx]                     # per beam (s)
-    print(f"{len(ts)} pointings over {a.frames} frames; sectors {', '.join(f'{i} (RR {r:g} s)' for i, r in zip(ids, rrs))}; "
+    print(f"{len(ts)} pointings over {duration:g} s; sectors {', '.join(f'{i} (RR {r:g} s)' for i, r in zip(ids, rrs))}; "
           f"speed x{speed:g}")
 
     pl = pv.Plotter(off_screen=bool(a.snapshot), window_size=(1400, 900))
@@ -274,10 +362,19 @@ def main(argv) -> int:
         else:
             pl.add_mesh(sphere, color="#3b6fb6", culling="back", smooth_shading=True)
     cmap = PALETTE[:max(1, len(ids))]
-    beams = beams_poly(org[:1], dirs[:1], lens[:1], sidx[:1].astype(float))
-    pl.add_mesh(beams, scalars="c", cmap=cmap, clim=(0, max(1, len(ids) - 1)), line_width=2, show_scalar_bar=False,
-                name="beams")
+    beams = beam_cones(face[:1], uv[:1], hw[:1], lens[:1], sidx[:1].astype(float))
+    pl.add_mesh(beams, scalars="c", cmap=cmap, clim=(0, max(1, len(ids) - 1)), opacity=BEAM_OPACITY,
+                show_scalar_bar=False, lighting=False, name="beams")
     secs = {s["id"]: s for s in mission["sectors"]}
+    for i, sid in enumerate(ids):
+        lines, surface, radials = volume_outline(secs[sid])
+        col = cmap[i % len(cmap)]
+        if lines is not None and lines.n_points:
+            pl.add_mesh(lines, color=col, line_width=2, opacity=0.9)
+        if surface.n_points:
+            pl.add_mesh(surface, color=col, opacity=0.06, show_edges=False, lighting=False)
+        if radials is not None:
+            pl.add_mesh(radials, color=col, line_width=1, opacity=0.7)
     for i, sid in enumerate(ids):
         pl.add_text(f"{sid}  {secs[sid]['range_km']:g} km  RR {rrs[i]:g} s", position=(10, 860 - 22 * i), font_size=9,
                     color=cmap[i % len(cmap)])
@@ -287,11 +384,29 @@ def main(argv) -> int:
     hud = pl.add_text(" ", position=(10, 10), font_size=10, color="white", name="hud")
     scale = ScaleBar(pl)
 
-    # the scene spans 1e-3 to 1e4 km: fixed clipping planes per view (the automatic ones would cut the hull away)
+    # the scene spans 1e-3 to 1e4 km: the clipping planes are set at every image, the near one just in front of the
+    # ship, so that the depth buffer resolves the hull (a near plane at 1 m with a far one at 3e4 km let beams of the
+    # hidden plates show through it), the far one behind the farthest object
     scene = np.vstack([np.zeros((1, 3)), org + dirs * lens[:, None]] + [np.array([c]) for _, _, c, _ in bodies])
     lo, hi = scene.min(axis=0), scene.max(axis=0)
+    corners = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1]) for z in (lo[2], hi[2])])
+    ship_r = float(np.linalg.norm(env.MODEL_VERTICES, axis=1).max()) * KM
+    for _, _, c, kind in bodies:
+        corners = np.vstack([corners, c + BODY_RADIUS_KM[kind] * np.eye(3), c - BODY_RADIUS_KM[kind] * np.eye(3)])
     state = {"paused": False, "t": 0.0, "last": None, "ticks": 0, "view": a.view}
     pl.iren.interactor.GetInteractorStyle().SetAutoAdjustCameraClippingRange(False)
+
+    def set_clipping() -> None:
+        cam = np.asarray(pl.camera.position)
+        look = np.asarray(pl.camera.focal_point) - cam
+        look /= np.linalg.norm(look)
+        depth = (corners - cam) @ look
+        far = 1.05 * float(depth.max()) + 1.0
+        if pl.camera.parallel_projection:
+            near = max(1e-6, float(depth.min()) - 0.05 * float(np.ptp(depth)))
+        else:
+            near = max(1e-4, 0.5 * (float(np.linalg.norm(cam)) - ship_r))
+        pl.camera.clipping_range = (near, max(far, 2.0 * near))
 
     def set_view(view: str) -> None:
         state["view"] = view
@@ -302,20 +417,21 @@ def main(argv) -> int:
             pl.camera.parallel_projection = True
             pl.camera_position = [(0.6, -1.0, 0.45), (0.0, 0.0, 0.0), (0.0, 0.0, 1.0)]
             pl.renderer.ResetCamera(lo[0], hi[0], lo[1], hi[1], lo[2], hi[2])
-        pl.camera.clipping_range = CLIP[view]
+        set_clipping()
         scale.update()
 
     def draw(t_sim: float) -> None:
         sel = (ts <= t_sim) & (ts > t_sim - fade)
-        beams.copy_from(beams_poly(org[sel], dirs[sel], lens[sel], sidx[sel].astype(float)))
-        hud.SetInput(f"t = {t_sim:7.2f} s  |  frame {int(t_sim // rr_max) + 1}/{a.frames} of the longest revisit  |  "
-                     f"{int(sel.sum())} beams drawn ({100 * a.fade:g} % of their revisit)  |  x{speed:g}  |  view {state['view']} (v)")
-        pl.camera.clipping_range = CLIP[state["view"]]
+        beams.copy_from(beam_cones(face[sel], uv[sel], hw[sel], lens[sel], sidx[sel].astype(float)))
+        lp = "  ".join(f"{sid} {min(n, int(t_sim // rr) + 1)}/{n}" for sid, rr, n in zip(ids, rrs, loops))
+        hud.SetInput(f"t = {t_sim:6.1f} / {duration:g} s  |  loop {lp}  |  "
+                     f"{int(sel.sum())} beams ({100 * a.fade:g} % of their revisit)  |  x{speed:g}  |  view {state['view']} (v)")
+        set_clipping()
         scale.update()
 
     set_view(a.view)
     if a.snapshot:
-        draw(0.4 * rr_max)
+        draw(0.4 * duration)
         pl.screenshot(a.snapshot)
         print(f"wrote {a.snapshot}")
         return 0
@@ -323,7 +439,7 @@ def main(argv) -> int:
     # animation driven by a timer of the VTK event loop: closing the window ends the loop cleanly (a hand-made render
     # loop kept drawing into the destroyed OpenGL context). On Windows a VTK timer needs the window to exist: open it
     # first (non-blocking show), then create the timer and run the event loop.
-    t_end = float(ts[-1])
+    t_end = duration
 
     def tick(_step) -> None:
         now = time.perf_counter()

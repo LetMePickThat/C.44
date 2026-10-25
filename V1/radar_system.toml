@@ -96,7 +96,7 @@ pae_duty_ref       = { value = 0.10, unit = "-", status = "D", source = "duty at
 psu_eff            = { value = 0.95, unit = "-", status = "V", source = "power supply efficiency (CHAIN_EFF factor)", date = "2026-10-20" }
 distribution_eff   = { value = 0.995, unit = "-", status = "V", source = "distribution efficiency (CHAIN_EFF factor)", date = "2026-10-20" }
 adc_w              = { value = 0.1, unit = "W", status = "V", source = "one ADC (250 Msps, 13 bits), two per TRM (polarisations), always on (step 4.1, B1; optimistic end, today 0.3-1 W); replaces overhead_frac 3 %", date = "2026-10-25" }
-dbf_kw             = { value = 50.0, unit = "kW", status = "V", source = "digital beamforming and processing per face, always on (step 4.1, B3; provisional, step 4.4)", date = "2026-10-25" }
+dbf_kw             = { value = 50.0, unit = "kW", status = "V", source = "CEILING of the digital beamforming and processing power per face (step 4.4, C4; was the always-on consumption of step 4.1, B3): it sets the processing capacity (core/compute.py) and stays the always-on figure of the power and heat budgets that size the plan (conservative); the consumption computed by step 4.4 is reported beside them", date = "2026-10-25" }
 control_kw         = { value = 2.0, unit = "kW", status = "V", source = "control and housekeeping per face (step 4.1, B4)", date = "2026-10-25" }
 pump_frac          = { value = 0.02, unit = "-", status = "V", source = "cooling pumps: this fraction of the face's mean dissipated heat (step 4.1, B5; step 4.2)", date = "2026-10-25" }
 face_feeder_max_mw = { value = 8.0, unit = "MW", status = "V", source = "mean power one face's feeder / converter / distribution can carry (step 4.1, A): a face may draw up to the whole ship budget when the others are idle", date = "2026-10-25" }
@@ -190,9 +190,31 @@ ship_heat_rejection_mw  = { value = 6.0, unit = "MW", status = "D", source = "sh
 [scheduler]
 latency_frac       = { value = 0.1, unit = "-", status = "V", source = "confirmation latency required when the sector gives no latency_max_s: this x the time to impact at the detection range (E3)", date = "2026-10-25" }
 update_jitter_frac = { value = 0.1, unit = "-", status = "V", source = "a track update starting later than this x its period counts as a miss (A4)", date = "2026-10-25" }
-processing_s       = { value = 0.001, unit = "s", status = "D", source = "processing delay of a detection before its confirmation (E1); provisional until step 4.4", date = "2026-10-25" }
 calibration_max_delay_frac = { value = 0.1, unit = "-", status = "V", source = "a calibration may slip by at most this x its interval (A5)", date = "2026-10-25" }
 eclipse_flag_db    = { value = 0.5, unit = "dB", status = "V", source = "eclipse of the echoes by the common transmit slots flagged above this (C2)", date = "2026-10-25" }
+
+# Compute and data (step 4.4, core/compute.py): data rates from the ADCs to the face processor, simultaneous RX beams,
+# processing load per function, buffers, processing latency (replaces scheduler.processing_s) and the power of the
+# processing (ceiling power.dbf_kw). Technology values for 2050-2060, optimistic end; every value may change as the
+# architecture is refined (user, 25 October 2026): nothing below is written in the code.
+[compute]
+transport_S        = { value = "raw", unit = "", status = "V", source = "A1: S sends the TRSA channels to the face processor (50 channels per TRSA, fewer than the beams a dwell forms); 'raw' | 'subarray_beams'", date = "2026-10-25" }
+transport_Ku       = { value = "subarray_beams", unit = "", status = "V", source = "A1: Ku forms partial beams in each TRSA (1250 channels for a few beams) and sends them; 'raw' | 'subarray_beams'", date = "2026-10-25" }
+iq_bits            = { value = 16, unit = "bit", status = "V", source = "A2: word length of I and of Q after the digital down-conversion in the TRSA (sample rate brought to adc_oversampling x the signal bandwidth)", date = "2026-10-25" }
+beams_max_S        = { value = 64, unit = "-", status = "V", source = "A3: simultaneous digital RX beams the face beamformer forms in S (a resource against the need)", date = "2026-10-25" }
+beams_max_Ku       = { value = 16, unit = "-", status = "V", source = "A3: simultaneous digital RX beams the face beamformer forms in Ku", date = "2026-10-25" }
+nulling_dof        = { value = "trsa", unit = "", status = "V", source = "A4: degrees of freedom of the adaptive jammer nulling: 'trsa' (the TRSA outputs of the face) | 'element' (every channel)", date = "2026-10-25" }
+ops_per_cmac       = { value = 8.0, unit = "op", status = "V", source = "B1: real operations per complex multiply-accumulate", date = "2026-10-25" }
+fft_ops_factor     = { value = 10.0, unit = "op", status = "V", source = "B2: an FFT-based step costs this x N log2 N real operations (pulse compression by fast convolution, Doppler transform)", date = "2026-10-25" }
+cfar_ops_per_cell  = { value = 10.0, unit = "op", status = "V", source = "B4: operations per tested cell and hypothesis (cell-averaging CFAR with a running sum)", date = "2026-10-25" }
+nulling_snapshots_per_dof = { value = 2.0, unit = "-", status = "V", source = "B5: training snapshots of the covariance estimate, per degree of freedom", date = "2026-10-25" }
+track_update_ops   = { value = 1.0e4, unit = "op", status = "V", source = "B6: operations per track update (Singer filter of step 3.3)", date = "2026-10-25" }
+e_op_pj            = { value = 0.01, unit = "pJ", status = "V", source = "C1: energy per operation of the processing circuits, memory included (C3); today 0.5-1 pJ, 2050 range 0.01-0.1, optimistic end", date = "2026-10-25" }
+e_bit_pj           = { value = 0.05, unit = "pJ", status = "V", source = "C2: energy per transported bit (TRSA -> face -> central); today 1-5 pJ, 2050 range 0.05-0.5, optimistic end", date = "2026-10-25" }
+static_frac        = { value = 0.2, unit = "-", status = "V", source = "C4: share of the processing power ceiling (power.dbf_kw) always consumed (leakage, clocks); the rest follows the load", date = "2026-10-25" }
+link_trsa_tbps     = { value = 4.0, unit = "Tbit/s", status = "V", source = "C5: capacity of one TRSA -> face link", date = "2026-10-25" }
+face_input_tbps    = { value = 400.0, unit = "Tbit/s", status = "V", source = "C5: input capacity of the face processor", date = "2026-10-25" }
+reselect_ops_per_entry = { value = 1.0e3, unit = "op", status = "D", source = "E1: operations to re-evaluate one precomputed (waveform, scan bin) entry when the measured spectrum changes in flight; proposed value kept by the user, to revisit at the end of the model development (step 5.7)", date = "2026-10-25" }
 
 # --- bands --------------------------------------------------------------------------------------------------------
 [band.S]
