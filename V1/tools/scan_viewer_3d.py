@@ -25,7 +25,8 @@ its volume's revisit (--fade, a visual trace, NOT a physical duration); 'physica
 transmission of its dwell plus the echo window 2 R / c, and at least one image; 'slow' is the physical timing in slow
 motion (--slow). The mission result is cached in tools/.viewer_cache
 (keyed by the code, the parameter file and the mission), else computed (a few minutes). Test values only.
-Keys: space = pause, v = ship / 1:1 view, m = timing (trace / physical / slow), q = quit.
+Keys: space = pause, Home = restart from the beginning, v = ship / 1:1 view, m = timing (trace / physical / slow),
+q = quit.
 """
 import argparse
 import glob
@@ -57,7 +58,7 @@ PALETTE = ["#4fc3f7", "#ffb74d", "#81c784", "#e57373", "#ba68c8", "#fff176", "#4
 KM = 1e-3                                                   # scene unit: km (the model is in metres)
 BODY_RADIUS_KM = {"moon": geo.MOON_RADIUS_KM, "earth": 6371.0}
 CACHE_DIR = os.path.join(ROOT, "tools", ".viewer_cache")
-DEFAULT_MISSION = os.path.join(ROOT, "tools", "scenarios", "scan3d_shell_lp.json")
+DEFAULT_MISSION = os.path.join(ROOT, "tools", "scenarios", "scan3d_multi.json")
 SHIP_CAMERA = [(0.23, -0.16, 0.04), (0.0, 0.0, -0.025), (0.0, 0.0, 1.0)]
 TIMINGS = ("trace", "physical", "slow")
 CONE_SIDES = 12                                             # facets of a beam frustum
@@ -230,8 +231,27 @@ def pointing_events(path: str, duration: float = None) -> dict:
     w_ = np.sqrt(np.clip(1.0 - ev["u"] ** 2 - ev["v"] ** 2, 0.0, 1.0))
     ev["dir"] = ev["u"][:, None] * eu + ev["v"][:, None] * evv + w_[:, None] * nn
     ev["org"] = np.array([aperture_centre(k) for k in range(4)])[ev["face"]]
-    ev.update(ids=ids, rrs=rrs, mission=mission, duration=duration)
+    ev.update(ids=ids, rrs=rrs, mission=mission, duration=duration,
+              wf_lines={r["id"]: waveform_lines(r) for r in ok})
     return ev
+
+
+def waveform_lines(r: dict) -> list:
+    """The waveforms the optimiser plays in a volume, one line each: integration, nominal pulse and the pulses
+    actually sent over its scan bins (shortened, no excess energy), pulses x PRI, bandwidth, TX mode, scan span."""
+    by = {}
+    for b in r.get("wf_by_bin", []):
+        by.setdefault(b["wf"]["name"], []).append(b)
+    out = []
+    for name, bs in by.items():
+        w = bs[0]["wf"]
+        sent = [w["tau_us"] * float(b.get("pulse_scale", 1.0)) for b in bs]
+        lo, hi = min(b["theta_lo_deg"] for b in bs), max(b["theta_hi_deg"] for b in bs)
+        tx = w.get("tx_mode", "single") + (f" x{w['b_tx']}" if int(w.get("b_tx", 1)) > 1 else "")
+        span = f"{min(sent):.3g}-{max(sent):.3g}" if max(sent) > 1.001 * min(sent) else f"{max(sent):.3g}"
+        out.append(f"{name}: {w['integration'][:4].lower()} {w['tau_us']:g} us (sent {span} us) x {w['n_pulses']} "
+                   f"@ {w['pri_ms']:g} ms, {w['sig_bw_mhz']:g} MHz, {tx}, scan {lo:.0f}-{hi:.0f} deg")
+    return out
 
 
 def _base_outline(kind: int, sides: int) -> np.ndarray:
@@ -530,12 +550,26 @@ def main(argv) -> int:
             pl.add_mesh(surface, color=col, opacity=0.06, show_edges=False, lighting=False)
         if radials is not None:
             pl.add_mesh(radials, color=col, line_width=1, opacity=0.7)
+    # left column: each volume, then the waveforms the optimiser plays in it; then the sky bodies (dark backing so
+    # that the lines stay readable over the volumes)
+    def label(txt, y_, size, col):
+        a_ = pl.add_text(txt, position=(10, y_), font_size=size, color=col)
+        tp = a_.GetTextProperty()
+        tp.SetBackgroundColor(0.05, 0.05, 0.07)
+        tp.SetBackgroundOpacity(0.7)
+    y = 865
     for i, sid in enumerate(ids):
-        pl.add_text(f"{sid}  {secs[sid]['range_km']:g} km  RR {rrs[i]:g} s", position=(10, 860 - 22 * i), font_size=9,
-                    color=cmap[i % len(cmap)])
-    for j, (bid, _, c, _) in enumerate(bodies):
-        pl.add_text(f"{bid}  {np.linalg.norm(c):,.0f} km to its centre", position=(10, 860 - 22 * (len(ids) + j)),
-                    font_size=9, color="#cfd8dc")
+        label(f"{sid}  {secs[sid]['range_km']:g} km  RR {rrs[i]:g} s", y, 9, cmap[i % len(cmap)])
+        y -= 19
+        for line in ev["wf_lines"].get(sid, []):
+            label("   " + line, y, 7, cmap[i % len(cmap)])
+            y -= 15
+        y -= 4
+    for bid, _, c, kind in bodies:
+        dist = float(np.linalg.norm(c))
+        label(f"{bid}  {dist:,.0f} km to its centre, {dist - BODY_RADIUS_KM[kind]:,.0f} km to its surface", y, 9,
+              "#cfd8dc")
+        y -= 19
     hud = pl.add_text(" ", position=(10, 10), font_size=10, color="white", name="hud")
     scale = ScaleBar(pl)
 
@@ -614,12 +648,23 @@ def main(argv) -> int:
         draw(state["t"])
 
     pl.add_key_event("space", lambda: state.update(paused=not state["paused"]))
+    # replay from the beginning ('r' is VTK's camera reset)
+    pl.add_key_event("Home", lambda: (state.update(t=0.0, t_prev=0.0, last=None), print("restart", flush=True)))
     pl.add_key_event("v", lambda: set_view("full" if state["view"] == "ship" else "ship"))
     pl.add_key_event("m", lambda: state.update(timing=TIMINGS[(TIMINGS.index(state["timing"]) + 1) % len(TIMINGS)]))
     draw(0.0)
     pl.show(interactive_update=True)
     set_view(state["view"])
     pl.add_timer_event(max_steps=10 ** 9, duration=33, callback=tick)
+
+    # while the mouse moves the view (button held), Windows delivers mouse messages instead of the timer's: the play
+    # would freeze; the interaction events advance it too (at most one image every 30 ms, rendered by the interaction)
+    def on_interaction(_obj, _event) -> None:
+        if state["last"] is None or time.perf_counter() - state["last"] >= 0.03:
+            tick(0)
+
+    for ev_name in ("InteractionEvent", "MouseMoveEvent", "MouseWheelForwardEvent", "MouseWheelBackwardEvent"):
+        pl.iren.interactor.AddObserver(ev_name, on_interaction)
     pl.iren.interactor.Start()
     print(f"played {state['t']:.1f} s of mission time ({state['ticks']} images)")
     return 0
