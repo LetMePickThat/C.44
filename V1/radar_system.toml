@@ -536,6 +536,9 @@ length_m       = { value = 10.0, unit = "m", status = "V", source = "reference t
 rotation_dps   = { value = 0.1, unit = "deg/s", status = "V", source = "reference target, stabilised (step 2.4, F): T0 S 3.1 s / Ku 0.6 s", date = "2026-10-22" }
 accel_max_mps2 = { value = 0.0, unit = "m/s2", status = "V", source = "reference target, no manoeuvre (step 2.4, F)", date = "2026-10-22" }
 maneuver_tau_s = { value = 0.0, unit = "s", status = "V", source = "Singer manoeuvre time constant (step 3.3, A5): reference target, no manoeuvre; 0 = no manoeuvre", date = "2026-10-25" }
+aspect_rcs_db  = { value = [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], unit = "dB", status = "D", source = "step 5.1 (B): RCS vs presentation, rows elevation -90..90 by 30 deg, columns azimuth 0..330 by 30 deg, dB vs the frontal RCS; flat: no aspect dependence known for the class", date = "2026-10-25" }
+rcs_spread_db  = { value = 0, unit = "dB", status = "D", source = "step 5.1 (B3): RCS spread from one object of the class to another, 1 sigma (3-5 dB proposed; 0 for the Standard Target benchmark)", date = "2026-10-25" }
+depol_spread_db = { value = 0, unit = "dB", status = "D", source = "step 5.1 (B3): depolarisation spread from one object to another, 1 sigma", date = "2026-10-25" }
 [targets.ST.band.S]
 rcs_m2      = { value = 1000.0, unit = "m2", status = "V", source = "Standard Target (same in both bands: continuity of the WF-LRS benchmark)", date = "2026-10-20" }
 fluctuation = { value = "SW1/2", unit = "", status = "V", source = "Standard Target, many scatterers (step 2.4, F)", date = "2026-10-22" }
@@ -551,6 +554,9 @@ length_m       = { value = 3.0, unit = "m", status = "V", source = "class mean b
 rotation_dps   = { value = 1.0, unit = "deg/s", status = "V", source = "class mean between stabilised (0.1 deg/s) and tumbling (10 deg/s) targets: T0 S 1.0 s / Ku 0.20 s (step 2.4)", date = "2026-10-22" }
 accel_max_mps2 = { value = 9.80665, unit = "m/s2", status = "V", source = "1 g, class mean between ballistic (0) and KKV (10 g) (step 2.4)", date = "2026-10-22" }
 maneuver_tau_s = { value = 20.0, unit = "s", status = "V", source = "Singer manoeuvre time constant (step 3.3, A5): class mean between ballistic and KKV; 0 = no manoeuvre", date = "2026-10-25" }
+aspect_rcs_db  = { value = [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], unit = "dB", status = "D", source = "step 5.1 (B): RCS vs presentation, rows elevation -90..90 by 30 deg, columns azimuth 0..330 by 30 deg, dB vs the frontal RCS; flat: no aspect dependence known for the class", date = "2026-10-25" }
+rcs_spread_db  = { value = 5, unit = "dB", status = "D", source = "step 5.1 (B3): RCS spread from one object of the class to another, 1 sigma (3-5 dB proposed; 0 for the Standard Target benchmark)", date = "2026-10-25" }
+depol_spread_db = { value = 2, unit = "dB", status = "D", source = "step 5.1 (B3): depolarisation spread from one object to another, 1 sigma", date = "2026-10-25" }
 [targets.GENERIC.band.S]
 rcs_m2      = { value = 1.0, unit = "m2", status = "V", source = "required by the schema; always overridden by the sector's rcs_m2 (step 2.4)", date = "2026-10-22" }
 fluctuation = { value = "SW1/2", unit = "", status = "V", source = "many scatterers; used only when the sector gives no swerling (step 2.4)", date = "2026-10-22" }
@@ -569,6 +575,11 @@ maneuver_tau_s = { value = 5.0, unit = "s", status = "V", source = "Singer manoe
 optics_diameter_m = { value = 0.3, unit = "m", status = "V", source = "IR seeker primary mirror facing the target (GBI-EKV-like concept), class mean of 0.2-0.4 m (step 2.4, K1)", date = "2026-10-22" }
 optics_f_ratio    = { value = 1.0, unit = "-", status = "V", source = "primary f/D, class mean of 0.8-1.5 (step 2.4, K2)", date = "2026-10-22" }
 optics_retro_eff  = { value = 0.1, unit = "-", status = "V", source = "fraction retro-reflected by the focal assembly (cat's eye), log mean of 0.01-1 (step 2.4, K3); no RF countermeasure in the class mean (K4: a sector override)", date = "2026-10-22" }
+aspect_rcs_db  = { value = [[15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15], [10, 10.72, 12.59, 15, 12.59, 10.72, 10, 10.72, 12.59, 15, 12.59, 10.72], [5, 6.9, 10.72, 15, 10.72, 6.9, 5, 6.9, 10.72, 15, 10.72, 6.9], [0, 5, 10, 15, 10, 5, 0, 5, 10, 15, 10, 5], [5, 6.9, 10.72, 15, 10.72, 6.9, 5, 6.9, 10.72, 15, 10.72, 6.9], [10, 10.72, 12.59, 15, 12.59, 10.72, 10, 10.72, 12.59, 15, 12.59, 10.72], [15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15]], unit = "dB", status = "D", source = "step 5.1 (B): RCS vs presentation, rows elevation -90..90 by 30 deg, columns azimuth 0..330 by 30 deg, dB vs the frontal RCS; off-nose angle 0/15/30/60/90 deg -> 0/+2/+5/+10/+15 dB (step 3.3 open point), rear mirrored", date = "2026-10-25" }
+rcs_spread_db  = { value = 3, unit = "dB", status = "D", source = "step 5.1 (B3): RCS spread from one object of the class to another, 1 sigma (3-5 dB proposed; 0 for the Standard Target benchmark)", date = "2026-10-25" }
+depol_spread_db = { value = 2, unit = "dB", status = "D", source = "step 5.1 (B3): depolarisation spread from one object to another, 1 sigma", date = "2026-10-25" }
+aspect_policy  = { value = "frontal", unit = "", status = "V", source = "step 5.1: a KKV that threatens the ship aims at it, nose and seeker toward the radar (user)", date = "2026-10-25" }
+optics_cone_deg = { value = 5.0, unit = "deg", status = "V", source = "step 5.1 (B4): the seeker optics return only within this half-angle of the nose", date = "2026-10-25" }
 [targets.KKV.band.S]
 rcs_m2      = { value = 0.135, unit = "m2", status = "V", source = "body, RCS 0.12-0.15 m2 (mid); the seeker optics are added (frontal total ~1.3 m2)", date = "2026-10-20" }
 fluctuation = { value = "SW3/4", unit = "", status = "V", source = "one dominant scatterer (the seeker mirror) in both bands (step 2.4, K)", date = "2026-10-22" }
@@ -584,6 +595,9 @@ length_m       = { value = 100.0, unit = "m", status = "V", source = "class mean
 rotation_dps   = { value = 0.1, unit = "deg/s", status = "V", source = "class mean (step 2.4, F): T0 S 0.3 s / Ku 0.06 s", date = "2026-10-22" }
 accel_max_mps2 = { value = 9.80665, unit = "m/s2", status = "V", source = "1 g, class mean (step 2.4, F)", date = "2026-10-22" }
 maneuver_tau_s = { value = 60.0, unit = "s", status = "V", source = "Singer manoeuvre time constant (step 3.3, A5): slow turns, class mean; 0 = no manoeuvre", date = "2026-10-25" }
+aspect_rcs_db  = { value = [[10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10], [6.67, 7.15, 8.39, 10, 8.39, 7.15, 6.67, 7.15, 8.39, 10, 8.39, 7.15], [3.33, 4.6, 7.15, 10, 7.15, 4.6, 3.33, 4.6, 7.15, 10, 7.15, 4.6], [0, 3.33, 6.67, 10, 6.67, 3.33, 0, 3.33, 6.67, 10, 6.67, 3.33], [3.33, 4.6, 7.15, 10, 7.15, 4.6, 3.33, 4.6, 7.15, 10, 7.15, 4.6], [6.67, 7.15, 8.39, 10, 8.39, 7.15, 6.67, 7.15, 8.39, 10, 8.39, 7.15], [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]], unit = "dB", status = "D", source = "step 5.1 (B): RCS vs presentation, rows elevation -90..90 by 30 deg, columns azimuth 0..330 by 30 deg, dB vs the frontal RCS; 0 dB nose-on to +10 dB broadside (step 3.3 open point), linear in the off-nose angle, rear mirrored", date = "2026-10-25" }
+rcs_spread_db  = { value = 3, unit = "dB", status = "D", source = "step 5.1 (B3): RCS spread from one object of the class to another, 1 sigma (3-5 dB proposed; 0 for the Standard Target benchmark)", date = "2026-10-25" }
+depol_spread_db = { value = 2, unit = "dB", status = "D", source = "step 5.1 (B3): depolarisation spread from one object to another, 1 sigma", date = "2026-10-25" }
 [targets.SHIP.band.S]
 rcs_m2      = { value = 300.0, unit = "m2", status = "V", source = "FRONTAL RCS, class mean (user, step 2.4; the lateral RCS is 3000 m2)", date = "2026-10-22" }
 fluctuation = { value = "SW1/2", unit = "", status = "V", source = "many scatterers (step 2.4, F)", date = "2026-10-22" }
@@ -599,6 +613,9 @@ length_m       = { value = 0.5, unit = "m", status = "V", source = "class mean (
 rotation_dps   = { value = 10.0, unit = "deg/s", status = "V", source = "tumbling, class mean (step 2.4, F): T0 S 0.6 s / Ku 0.12 s", date = "2026-10-22" }
 accel_max_mps2 = { value = 0.0, unit = "m/s2", status = "V", source = "unpowered (step 2.4, F)", date = "2026-10-22" }
 maneuver_tau_s = { value = 0.0, unit = "s", status = "V", source = "Singer manoeuvre time constant (step 3.3, A5): unpowered; 0 = no manoeuvre", date = "2026-10-25" }
+aspect_rcs_db  = { value = [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], unit = "dB", status = "D", source = "step 5.1 (B): RCS vs presentation, rows elevation -90..90 by 30 deg, columns azimuth 0..330 by 30 deg, dB vs the frontal RCS; flat: no aspect dependence known for the class", date = "2026-10-25" }
+rcs_spread_db  = { value = 5, unit = "dB", status = "D", source = "step 5.1 (B3): RCS spread from one object of the class to another, 1 sigma (3-5 dB proposed; 0 for the Standard Target benchmark)", date = "2026-10-25" }
+depol_spread_db = { value = 2, unit = "dB", status = "D", source = "step 5.1 (B3): depolarisation spread from one object to another, 1 sigma", date = "2026-10-25" }
 [targets.DEBRIS.band.S]
 rcs_m2      = { value = 0.01, unit = "m2", status = "V", source = "class mean (step 2.4, F)", date = "2026-10-22" }
 fluctuation = { value = "SW1/2", unit = "", status = "V", source = "irregular, many scatterers (step 2.4, F)", date = "2026-10-22" }
@@ -614,6 +631,9 @@ length_m       = { value = 1.5, unit = "m", status = "V", source = "class mean (
 rotation_dps   = { value = 0.5, unit = "deg/s", status = "V", source = "class mean (step 2.4, F): T0 S 4.1 s / Ku 0.8 s", date = "2026-10-22" }
 accel_max_mps2 = { value = 0.0, unit = "m/s2", status = "V", source = "unpowered (step 2.4, F)", date = "2026-10-22" }
 maneuver_tau_s = { value = 5.0, unit = "s", status = "V", source = "Singer manoeuvre time constant (step 3.3, A5): flies with the KKV it covers (no effect: accel_max 0); 0 = no manoeuvre", date = "2026-10-25" }
+aspect_rcs_db  = { value = [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], unit = "dB", status = "D", source = "step 5.1 (B): RCS vs presentation, rows elevation -90..90 by 30 deg, columns azimuth 0..330 by 30 deg, dB vs the frontal RCS; flat: no aspect dependence known for the class", date = "2026-10-25" }
+rcs_spread_db  = { value = 3, unit = "dB", status = "D", source = "step 5.1 (B3): RCS spread from one object of the class to another, 1 sigma (3-5 dB proposed; 0 for the Standard Target benchmark)", date = "2026-10-25" }
+depol_spread_db = { value = 2, unit = "dB", status = "D", source = "step 5.1 (B3): depolarisation spread from one object to another, 1 sigma", date = "2026-10-25" }
 [targets.DECOY.band.S]
 rcs_m2      = { value = 0.135, unit = "m2", status = "V", source = "imitates the KKV body, without its optical return (step 2.4, K5: a decoy imitating the optics is a sector override)", date = "2026-10-22" }
 fluctuation = { value = "SW0", unit = "", status = "V", source = "balloon, steady (step 2.4, F)", date = "2026-10-22" }
@@ -824,7 +844,9 @@ surface_class_step_frac = 0.05  # requirement brought back to the surface (P4 Q9
                                 # the sector range (at most 1 / step classes)
 
 [tool.targets]                # target library (step 2.4)
-default_type = "GENERIC"         # class completing a sector that names no target_type (its own rcs_m2 / swerling kept)
+default_type = "GENERIC"
+aspect_policy = "worst"          # step 5.1 (user): RCS of detection = the worst presentation of the class table (a class
+                                 # may set its own: "frontal" = at its aspect_offset_deg, "mean" = solid-angle mean)         # class completing a sector that names no target_type (its own rcs_m2 / swerling kept)
 
 [tool.frames]                 # frames of the volumes and navigation message (core/frames.py, step 3.0)
 q_norm_tol          = 1e-3      # attitude quaternion: |q| within 1 +/- this is normalised, beyond it is refused (B3)

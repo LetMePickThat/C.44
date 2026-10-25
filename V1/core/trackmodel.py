@@ -300,7 +300,10 @@ def indices(a: "rm.Target", b: "rm.Target", f_ghz: float, snr_lin: float, n: int
     if switched:
         var *= 0.5                                          # the full matrix: both TX polarisations measured
     sys_ = 0.0 if switched else (math.sin(FARADAY_UNCERT_FRAC * faraday_rad) ** 2) / rho
-    out["depolarisation"] = abs(math.log(ra / rb)) / math.sqrt(var / n + sys_ ** 2)
+    # step 5.1 (B3): the spread from one object to another is systematic (more looks do not reduce it)
+    k_db = (math.log(10.0) / 10.0) ** 2
+    obj_d = k_db * 0.5 * (a.depol_spread_db ** 2 + b.depol_spread_db ** 2)
+    out["depolarisation"] = abs(math.log(ra / rb)) / math.sqrt(var / n + sys_ ** 2 + obj_d)
     # fluctuation statistic: 1 / k of the look powers
     ia, ib = _inv_k(a, f_ghz), _inv_k(b, f_ghz)
     sa = (ia + 1.0 / snr) * math.sqrt(2.0 / n)
@@ -308,7 +311,11 @@ def indices(a: "rm.Target", b: "rm.Target", f_ghz: float, snr_lin: float, n: int
     out["fluctuation"] = abs(ia - ib) / math.sqrt(0.5 * (sa * sa + sb * sb)) if (sa + sb) > 0 else 0.0
     # RCS level (body + seeker optics)
     la, lb = math.log(a.rcs_at(f_ghz)), math.log(b.rcs_at(f_ghz))
-    s_l = math.sqrt((0.5 * (ia + ib) + 1.0 / snr) / n)
+    # step 5.1 (B): every presentation is possible (aspect spread of the table, none for a class seen frontally) and
+    # objects of a class differ (rcs_spread_db): both systematic
+    obj_r = k_db * 0.5 * (a.rcs_spread_db ** 2 + b.rcs_spread_db ** 2 + a.aspect_spread_db() ** 2
+                          + b.aspect_spread_db() ** 2)
+    s_l = math.sqrt((0.5 * (ia + ib) + 1.0 / snr) / n + obj_r)
     out["rcs"] = abs(la - lb) / s_l if s_l > 0 else 0.0
     # manoeuvre seen by the filter (RMS Singer acceleration of each class against the filtered acceleration error)
     ma = math.sqrt(a.accel_max_mps2 ** 2 / 3.0 * (1.0 + 4.0 * P_MAX - P0))

@@ -429,14 +429,16 @@
      "error_hpbw": 0.005885028372556691,
      "error_rms_deg": 0.0017326227915083884,
      "hpbw_deg": 0.2944119691228724,
-     "loss_db": 0.0008340592079425268
+     "loss_db": 0.0008340592079425268,
+     "loss_db_sized": 0.0008340592079425268
     },
     "S": {
      "accel_tenable_dps2": 647.5981157474987,
      "error_hpbw": 0.0011890760037895844,
      "error_rms_deg": 0.0017326227915083884,
      "hpbw_deg": 1.4571169428922297,
-     "loss_db": 3.4050146840066366e-05
+     "loss_db": 3.4050146840066366e-05,
+     "loss_db_sized": 3.4050146840066366e-05
     }
    },
    "flags": [],
@@ -801,6 +803,7 @@
      "jammer_type": null,
      "objects_per_rr": 5.0
     },
+    "fa_per_rr": 10.0,
     "faces": {
      "0": {
       "avg_power_kW": 202.09856324720627,
@@ -833,6 +836,7 @@
     },
     "id": "E_EARTH",
     "mismatch_db_per_pass_max": 0.9898184530682587,
+    "pd_cumulative": 0.9,
     "positions_total": 215.8,
     "range_km": {
      "at_best_scan": 24894,
@@ -1523,6 +1527,7 @@
      "jammer_type": "SPJ_KKV",
      "objects_per_rr": 0.0
     },
+    "fa_per_rr": 10.0,
     "faces": {
      "1": {
       "avg_power_kW": 7.83211694120386,
@@ -1551,6 +1556,7 @@
     },
     "id": "E_KKV_SPJ",
     "mismatch_db_per_pass_max": 0.1297354438199937,
+    "pd_cumulative": 0.9,
     "positions_total": 649.5,
     "range_km": {
      "at_best_scan": 526,
@@ -2195,6 +2201,7 @@
      "jammer_type": null,
      "objects_per_rr": 0.0
     },
+    "fa_per_rr": 10.0,
     "faces": {
      "0": {
       "avg_power_kW": 7.7022415589320365,
@@ -2244,6 +2251,7 @@
     },
     "id": "E_JAMMED",
     "mismatch_db_per_pass_max": 0.1297354438199937,
+    "pd_cumulative": 0.9,
     "positions_total": 1865.0,
     "range_km": {
      "at_best_scan": 3281,
@@ -3086,6 +3094,8 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
+     "burn_through_energy": 0.0,
+     "burn_through_ku_time": 0.0,
      "bus_draw_MW": 0.3365460696031087,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
@@ -3133,6 +3143,8 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
+     "burn_through_energy": 0.0,
+     "burn_through_ku_time": 0.0,
      "bus_draw_MW": 0.12142888596112318,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
@@ -3180,6 +3192,8 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
+     "burn_through_energy": 0.0,
+     "burn_through_ku_time": 0.0,
      "bus_draw_MW": 0.20157523780830006,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
@@ -3227,6 +3241,8 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
+     "burn_through_energy": 0.0,
+     "burn_through_ku_time": 0.0,
      "bus_draw_MW": 0.23834146424589192,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
@@ -3309,6 +3325,7 @@
      },
      "at": [],
      "confirm_mode": "KU1+7",
+     "confirm_p_min": 0.98,
      "confirmation": {
       "admissible": true,
       "cluster_tx": "sequential",
@@ -3415,6 +3432,7 @@
      },
      "at": [],
      "confirm_mode": "KU1+7",
+     "confirm_p_min": 0.98,
      "confirmation": {
       "admissible": true,
       "cluster_tx": "superposition x7",
@@ -3444,12 +3462,13 @@
      "flags": [
       "S waveform WF-E_KKV_SPJ-1: its harmonics (13.750-14.250 GHz) cover 75 % of the Ku channel 14.2 GHz / 200 MHz on the same face",
       "S waveform WF-E_KKV_SPJ-2: its harmonics (13.750-14.250 GHz) cover 75 % of the Ku channel 14.2 GHz / 200 MHz on the same face",
-      "Ku burn-through look in the jamming axis: 7253 km (reaches the requirement, 14.2 GHz NONC tau 1500 us x N 4 @ PRI 5 ms B 200 MHz agile 290 MHz); triggered by the scheduler (step 4.3)"
+      "Ku burn-through look in the jamming axis: 7253 km (reaches the requirement, 14.2 GHz NONC tau 1500 us x N 4 @ PRI 5 ms B 200 MHz agile 290 MHz); not budgeted: burn-through forbidden by the mission"
      ],
      "forced": false,
      "id": "E_KKV_SPJ",
      "ku_burn_through": {
       "energy_J": 7.569615915146265,
+      "heat_J": 6.324365570301193,
       "range_km": 7252.6,
       "reaches_requirement": true,
       "time_s": 1.3553745250014384e-07,
@@ -3521,6 +3540,7 @@
      },
      "at": [],
      "confirm_mode": "KU1+7",
+     "confirm_p_min": 0.98,
      "confirmation": {
       "admissible": true,
       "cluster_tx": "superposition x7",
@@ -3637,14 +3657,14 @@
      "DECOY": 1.0
     },
     "GENERIC": {
-     "DEBRIS": 1.0,
-     "DECOY": 1.0,
-     "KKV": 1.0,
-     "SHIP": 1.0
+     "DEBRIS": 0.9959,
+     "DECOY": 0.9988,
+     "KKV": 0.9974,
+     "SHIP": 0.998
     },
     "KKV": {
      "DEBRIS": 1.0,
-     "DECOY": 1.0,
+     "DECOY": 0.9999,
      "SHIP": 1.0
     },
     "SHIP": {
@@ -3674,7 +3694,7 @@
    "sector E_EARTH: clutter edge in the Ku sector (limb of EARTH): GO-CFAR advised there (choice per position at 4.3 / 5.2)",
    "sector E_KKV_SPJ: S waveform WF-E_KKV_SPJ-1: its harmonics (13.750-14.250 GHz) cover 75 % of the Ku channel 14.2 GHz / 200 MHz on the same face",
    "sector E_KKV_SPJ: S waveform WF-E_KKV_SPJ-2: its harmonics (13.750-14.250 GHz) cover 75 % of the Ku channel 14.2 GHz / 200 MHz on the same face",
-   "sector E_KKV_SPJ: Ku burn-through look in the jamming axis: 7253 km (reaches the requirement, 14.2 GHz NONC tau 1500 us x N 4 @ PRI 5 ms B 200 MHz agile 290 MHz); triggered by the scheduler (step 4.3)",
+   "sector E_KKV_SPJ: Ku burn-through look in the jamming axis: 7253 km (reaches the requirement, 14.2 GHz NONC tau 1500 us x N 4 @ PRI 5 ms B 200 MHz agile 290 MHz); not budgeted: burn-through forbidden by the mission",
    "sector E_JAMMED: 0.01 % of the Ku positions blinded by the sky (jammer J_ESC, jammer J_SHIP: T_sys rise above 10 dB), not scanned",
    "sector E_JAMMED: 1.00 % of the Ku positions above the budget T_sys (231.0 K): sky noise up to +3.2 dB, range reduced there",
    "sector E_JAMMED: MOON clutter rejected in Doppler (its closing-speed band misses the target span): needs coherent processing",

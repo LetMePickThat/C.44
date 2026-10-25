@@ -646,7 +646,7 @@ def ku_burn_through(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: floa
                    excl=excl)
     if look is not None:
         return {"reaches_requirement": True, "range_km": round(look["reach_km"], 1), "wf": _wf_label(look["wf"], f_ghz),
-                "energy_J": look["energy_J"], "time_s": look["time_s"]}
+                "energy_J": look["energy_J"], "time_s": look["time_s"], "heat_J": look["energy_J"] - look["energy_rf_J"]}
     sll = rm.RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
     sp = _space(f_ghz, dataclasses.replace(tgt, name="ku"), sll, None, spj, None, tuple(excl), False)
     hb = _ku_scan(f_ghz, float(theta))
@@ -666,6 +666,7 @@ def _with_mission_settings(sec: dict, g: dict) -> dict:
         out["confirm_p_min"] = float(g["confirm_p_min"])
     if g.get("ship_accel_max_dps2") is not None:
         out["_nav_axis_sigma_deg"] = repoint.axis_sigma_deg(float(g["ship_accel_max_dps2"]))
+    out["_burn_through_allowed"] = bool(g.get("burn_through_allowed", False))
     return out
 
 
@@ -1167,21 +1168,31 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                          f"{f_ku:g} GHz / {bw_ku:g} MHz: on the same face, no Ku reception during this S transmission")
 
     # --- Ku burn-through search in the jamming axis (step 3.2 E2), for a sector the jammer puts out of search reach
-    bt = None
+    bt, bt_load = None, None
     if spj is not None and (r.get("sky") or {}).get("spj_out_of_reach"):
         th = max((gr["theta"] for gr in groups if gr["theta"] <= ku_lim), default=None)
         if th is not None:
             bt = ku_burn_through(th, tgt, r_det, p_avg_max_w, sll, t_ku, f_ku, spj, excl)
+            allowed = bool(sec.get("_burn_through_allowed"))
             flags.append(f"Ku burn-through look in the jamming axis: {bt['range_km']:.0f} km "
                          f"({'reaches' if bt['reaches_requirement'] else 'does not reach'} the requirement, "
-                         f"{bt['wf']}); triggered by the scheduler (step 4.3)")
+                         f"{bt['wf']}); " + ("budgeted, one look per revisit at P3' (burn-through allowed)" if allowed
+                                             and bt["reaches_requirement"] else
+                                             "not budgeted: burn-through forbidden by the mission" if not allowed else
+                                             "not budgeted: no Ku look reaches the requirement"))
+            # step 5.1 (C): allowed by the mission -> one look per revisit, shared by the sector's faces as its positions
+            if allowed and bt["reaches_requirement"]:
+                share = p_face / max(p_all, 1e-12)
+                bt_load = {"e": share * bt["energy_J"] / rr / p_avg_max_w, "ts": np.zeros(4),
+                           "tk": share * bt["time_s"] / rr, "q_w": share * bt["heat_J"] / rr}
+                bt["budgeted"] = True
     return {"faces": [k for k in range(4) if p_face[k] > 0], "false_alarms_per_rr": fa, "modes": modes, "at": at,
             "p_share": (p_face / max(p_all, 1e-12)).tolist(),      # step 4.3: share of the sector per face
             "flags": flags, "ku_sky": ku_sky, "ku_min_unsaturated_range_km": r_sat_ku,
             "ku_min_unsaturated_range_attenuated_km": r_sat_att, "discrimination": disc,
             "false_tracks_per_s": false_tracks, "scheduler_rules": rules,
             "ku_obs_max": max(ku_obs, default=(0.0, 0.0)),
-            "ku_freq_ghz": f_ku, "ku_burn_through": bt,
+            "ku_freq_ghz": f_ku, "ku_burn_through": bt, "bt_load": bt_load,
             # step 4.4: the longest Ku confirmation look of the sector (its processing load)
             "ku_wf": next((_wf_params(lk["wf"], sec, f_ku) for lk in sorted(
                 (c["ku"] for c in cg if c["ku"] is not None), key=lambda x: -x["time_s"])), None)}
@@ -1203,6 +1214,9 @@ def _face_loads(base: Dict[str, np.ndarray], sbs: Dict[str, Dict[float, dict]], 
         for b in sb["at"]:
             tot["e"] += b["e"]
             tot["tk"] += b["tk"]
+        if sb.get("bt_load"):                          # step 5.1 (C): burn-through allowed by the mission
+            tot["e"] += sb["bt_load"]["e"]
+            tot["tk"] += sb["bt_load"]["tk"]
     return tot
 
 
@@ -1219,6 +1233,9 @@ def _own_load(sb: dict, mode: Optional[str]) -> float:
     for b in sb["at"]:
         tot["e"] += b["e"]
         tot["tk"] += b["tk"]
+    if sb.get("bt_load"):
+        tot["e"] += sb["bt_load"]["e"]
+        tot["tk"] += sb["bt_load"]["tk"]
     return _max_load(tot)
 
 
@@ -1411,7 +1428,12 @@ def budget(mission: dict, res: dict) -> dict:
                     "faces": {str(k): {"energy_fraction": float(b["e"][k]), "ku_time_fraction": float(b["tk"][k])}
                               for k in sb["faces"]}} for b in sb["at"]],
             "ku_sky": sb["ku_sky"], "ku_min_unsaturated_range_km": sb["ku_min_unsaturated_range_km"],
-            "ku_burn_through": sb["ku_burn_through"], "scheduler_rules": sb["scheduler_rules"],
+            "ku_burn_through": (None if sb["ku_burn_through"] is None else {
+                **sb["ku_burn_through"],
+                **({"faces": {str(k): {"energy_fraction": float(sb["bt_load"]["e"][k]),
+                                       "ku_time_fraction": float(sb["bt_load"]["tk"][k])}
+                              for k in range(4) if sb["bt_load"]["tk"][k] > 0}} if sb.get("bt_load") else {})}),
+            "scheduler_rules": sb["scheduler_rules"],
             "discrimination": sb.get("discrimination"), "false_tracks_per_s": sb.get("false_tracks_per_s"),
             "ku_min_unsaturated_range_attenuated_km": sb.get("ku_min_unsaturated_range_attenuated_km"),
             "false_alarms_per_rr_face": [float(x) for x in sb["false_alarms_per_rr"]], "p_share": sb["p_share"],
@@ -1436,9 +1458,12 @@ def budget(mission: dict, res: dict) -> dict:
         conf_ts = sum(chosen[s]["modes"][mode_of[s]]["ts"][k] for s in sbs if mode_of[s] is not None)
         conf_tk = sum(chosen[s]["modes"][mode_of[s]]["tk"][k] for s in sbs if mode_of[s] is not None)
         at_tk = sum(b["tk"][k] for s in sbs for b in chosen[s]["at"])
+        bt_e = sum(chosen[s]["bt_load"]["e"][k] for s in sbs if chosen[s].get("bt_load"))       # step 5.1 (C)
+        bt_tk = sum(chosen[s]["bt_load"]["tk"][k] for s in sbs if chosen[s].get("bt_load"))
         heat = float(res["faces_total"][str(k)].get("dissipation_kW", 0.0) * 1e3
                      + sum(chosen[s]["modes"][mode_of[s]]["q_w"][k] for s in sbs if mode_of[s] is not None)
-                     + sum(b["q_w"][k] for s in sbs for b in chosen[s]["at"]))
+                     + sum(b["q_w"][k] for s in sbs for b in chosen[s]["at"])
+                     + sum(chosen[s]["bt_load"]["q_w"][k] for s in sbs if chosen[s].get("bt_load")))
         load = {key: float(tot[key][k]) for key in _RES}
         # step 4.1 (A): the face draws from the ship total in common, up to its feeder and the operator's cap
         tx_w = load["e"] * p_avg_max
@@ -1457,6 +1482,7 @@ def budget(mission: dict, res: dict) -> dict:
                          "total_energy": load["e"], "search_s_time": float(base["ts"][k] - cal_s),
                          "confirm_s_time": float(conf_ts), "total_s_time": load["ts"],
                          "confirm_ku_time": float(conf_tk), "at_ku_time": float(at_tk), "total_ku_time": load["tk"],
+                         "burn_through_energy": float(bt_e), "burn_through_ku_time": float(bt_tk),
                          "calibration_s_time": cal_s, "calibration_ku_time": cal_ku,
                          "load": load[worst], "binding": _RES_NAME[worst],
                          "status": "OK" if load[worst] <= 1.0 else "OVER-SUBSCRIBED",

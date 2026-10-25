@@ -563,3 +563,13 @@ N3 23.8 min: 207 passed; besides the snapshot tests, the model self-test run as 
 module, fixed) and test_inertial_frame_with_identity_attitude_is_the_ship_frame (an ICRF volume now re-points in
 flight whatever the attitude: the re-pointing work and its totals are allowed to differ, test adapted) failed; both
 pass after the fixes.
+
+## 2026-10-25 -- step 5.1: enriched mission model (radar_model V6.22.0)
+
+Causes: new outputs -- per sector pd_cumulative, fa_per_rr and confirm_p_min; per face burn_through_energy and
+burn_through_ku_time (0 unless the mission allows the burn-through); repointing loss_db_sized; the target terms of the
+model case (presentation tables, spreads, policy). The class separability moves with the object-to-object and aspect
+spreads now in the discrimination indices (systematic terms). 291 values differ; no waveform set, frequency,
+confirmation mode, status or range changes (detection at the worst presentation is the frontal value of the present
+tables; the KKV is frontal).
+N3 22.2 min: 211 passed; only the snapshot tests failed before the refreeze.

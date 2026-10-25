@@ -37,13 +37,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small C.44 radar -- design and modelling reference}
-\rhead{\small Model V6.21.0}
+\rhead{\small Model V6.22.0}
 \cfoot{\thepage}
 
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{25 October 2026 -- radar model V6.21.0 (roadmap step 4.5 coded)}
+\date{25 October 2026 -- radar model V6.22.0 (roadmap step 5.1 coded)}
 
 \begin{document}
 \maketitle
@@ -1063,6 +1063,27 @@ whole envelope of attitudes is checked later (validation engine).
 about $10^7$ operations per second per face, negligible.
 
 %=====================================================================================================================
+\section{Mission settings and target presentation}\label{sec:mission51}
+%=====================================================================================================================
+Roadmap step 5.1 turns operational settings into mission keys, each defaulting to the parameter file: the probability
+of confirming a true target (per mission, or per volume), the cumulative search $P_d$ and the false alarms tolerated
+(per revisit or per second) of a volume, the $P_d$ of a track update and the discrimination probability of a range
+bracket, and the largest angular rate and acceleration of the ship (the band loss of the navigation stays sized by the
+file; a harsher mission is flagged with the loss it misses). A mission switch allows the Ku burn-through in a
+self-protection jammer's axis: it is then budgeted (one look per revisit) and scheduled after the track updates (P3$'$);
+it is forbidden by default.
+
+\paragraph{RCS and presentation.} Each class of the library has a table of its RCS against the presentation, every
+\SI{30}{\degree} in azimuth (12 values) and elevation (7 values), in dB relative to the frontal RCS, interpolated on a
+\SI{2}{\degree} grid that contains the nose. Detection uses the \emph{worst} presentation (least total RCS, the seeker
+optics counted only within their \SI{\pm5}{\degree} cone), except for the KKV, taken \emph{frontally}: it aims at the
+ship, nose and seeker toward the radar. With the present tables no detection range changes (the solid-angle mean
+would have nearly doubled the KKV's). The table's spread over every presentation (none for a class seen frontally) and
+the spread from one object of a class to another (3 to \SI{5}{dB} in RCS, \SI{2}{dB} in depolarisation) enter the
+discrimination indices as systematic terms that more looks do not reduce: the separability, about 1 before, becomes
+realistic.
+
+%=====================================================================================================================
 \section{Other functions}
 %=====================================================================================================================
 \paragraph{Array errors and calibration.}\label{sec:cal} Every TRM is calibrated in flight through its coupler (transmit and receive
@@ -1131,7 +1152,7 @@ The test bench has two families: frozen outputs of every test mission compared a
 (non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
 exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
 frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
-before any refreeze. At model V6.21.0 the bench has 219 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
+before any refreeze. At model V6.22.0 the bench has 221 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
 
 %=====================================================================================================================
 \section{Roadmap and open points}\label{sec:roadmap}
@@ -1149,9 +1170,9 @@ sky noise, converters, isolation --- done\\
 calibration --- done (degraded modes and TRM failures deferred to the end of the development)\\
 4, resources & 4.1 power: shared ship budget, always-on consumption, TRM supply, face storage --- done; 4.2 thermal:
 coolant, cold plate, junction, ship heat rejection --- done; 4.3 scheduler: priorities, queues, synthetic timeline,
-common slots, latency --- done; 4.3 bis scan order inside a volume --- done; 4.4 compute and data --- done; 4.5 re-pointing in flight --- coded\\
-5, mission and validation & richer mission model; global optimiser; validation engine; Monte-Carlo simulation;
-operator interface; verification and documentation\\
+common slots, latency --- done; 4.3 bis scan order inside a volume --- done; 4.4 compute and data --- done; 4.5 re-pointing in flight --- done\\
+5, mission and validation & 5.1 richer mission model --- coded; global optimiser; validation engine; Monte-Carlo
+simulation; operator interface; verification and documentation; end of development\\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -1160,16 +1181,16 @@ Main provisional dispositions, each assigned to a later step:
 \begin{itemize}
   \item \textbf{Scheduler}: the eclipse of the common slots fed back into the search plan (5.2); time multiplex and
         superposition with an imperfect interleaving; GO-CFAR near limbs counted (advised only today); search-lattice
-        shift every frame (a rule); S/Ku alignment on external references; Ku burn-through authorised in flight.
+        shift every frame (a rule); S/Ku alignment on external references; Ku burn-through authorised in flight (allowed by a mission switch since step 5.1).
   \item \textbf{Thermal}: ship heat rejection reserved for the radar (provisional \SI{6}{MW}).
   \item \textbf{Computing}: the consumption of the processing fed back into the budgets that size the plan (5.2);
         memory capacity of the coherent buffers (output only today, up to \SI{167}{GB} on a face); cost of an
         in-flight waveform re-selection (provisional value).
   \item \textbf{Re-pointing in flight}: the maximum rate and acceleration per mission (system settings today); the
         whole attitude envelope (5.3); the ship turning in the 3D view (phase 6).
-  \item \textbf{Mission and validation (5.x)}: per-class RCS spread and RCS versus aspect (discrimination is optimistic
-        today), track-update and discrimination probabilities as mission settings, joint optimisation of the power
-        split among faces, recalibration of the fast estimate on the track model.
+  \item \textbf{Mission and validation (5.x)}: the presentation tables and the spreads are provisional values (D);
+        joint optimisation of the power split among faces, recalibration of the fast estimate on the track model;
+        the interface of the mission preparation is interim (a full HMI comes with the global simulation).
   \item \textbf{Antenna}: element pattern and mutual coupling at tile edges not modelled (isotropic elements);
         couplings between faces are optimistic orders of magnitude needing an electromagnetic simulation.
   \item \textbf{End of development}: degraded modes (face, TRMs, power or Ku aperture lost) and TRM failures over a
@@ -1277,6 +1298,8 @@ Thermal inertia & Heat the coolant and the structure store per kelvin: it absorb
 Digital down-conversion & Bringing the samples of a channel to the signal bandwidth, near the converter, to cut the data
 rate.\\
 Subarray beamforming & Partial beams formed inside a TRSA and summed by the face processor.\\
+Presentation & Direction from which the radar sees the target, in the target's own axes (azimuth and elevation
+from its nose).\\
 Navigation message & Attitude, rate and orbit of the ship sent to the radar computer (here 100 per second).\\
 Little's law & Mean number of items in progress = arrival rate $\times$ time each item stays; here, open listening
 windows.\\
@@ -1492,6 +1515,8 @@ Processing latency & Data stream and processing after a dwell & \SI{0.01}{\micro
 latency\\
 Navigation pointing & Attitude and rate knowledge, unmeasured acceleration between messages & \num{3e-5}\,dB in S,
 \num{8e-4}\,dB in Ku ($\le 0.006$ beamwidth)\\
+Target presentation & RCS against azimuth and elevation of the presentation, worst (KKV frontal) & no detection range
+change today; discrimination RCS index $\div 3$ (KKV / decoy, 5 looks)\\
 Cooling of a face & Micro-channel cold plate, dielectric coolant & capacity \SI{15.9}{MW} per face: not limiting
 (dissipation $\le$ \SI{2}{MW})\\
 Junction temperature & Heating of the PA transistors by the pulses & $\le$\SI{63}{\celsius} against \SI{225}{\celsius}:

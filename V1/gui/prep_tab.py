@@ -28,7 +28,9 @@ from core import mission as md
 from core import optimizer as mo
 from core import radar_model as rm
 from core import redundancy as red
+from core import repoint
 from core import tracking as trk
+from core import trackmodel as tm
 from gui.scene_view import SceneView, SectorDraw
 from gui.widgets import DecimalSpinBox
 
@@ -45,7 +47,14 @@ AT_COLUMNS = (
                                        "(sigma = zone / 4), per axis"),
     ("range_acc_m", "sR\n(m)", "Range accuracy, 1 sigma (m)"),
     ("vr_acc_mps", "sV\n(m/s)", "Radial-velocity accuracy, 1 sigma (m/s)"),
+    ("pd_update", "Pd\nupd", "Pd of a track update (step 5.1; default tracking.pd_update)"),
+    ("p_discrimination", "P\ndiscr", "Probability of telling the target from the class it must be told from "
+                                      "(step 5.1; default tracking.p_discrimination)"),
 )
+AT_DEFAULTS = {**md.BRACKET_DEFAULTS, "pd_update": tm.PD_UPDATE, "p_discrimination": tm.P_DISCRIMINATION}
+# step 5.1: mission settings (stored in the mission only when they differ from the parameter file)
+MISSION_DEFAULTS = {"confirm_p_min": trk.CONFIRM_P_MIN, "ship_rate_max_dps": repoint.RATE_MAX_DPS,
+                    "ship_accel_max_dps2": repoint.ACCEL_MAX_DPS2}
 CONFIRM_TIPS = {
     "auto": "Chosen per sector by the calculation: lowest load of the most loaded face, P confirm >= 0.98",
     "KU1+7": "One Ku look on the S estimate, then a 7-beam Ku cluster if it fails",
@@ -133,6 +142,7 @@ class PrepTab(QWidget):
         self.lbl_locked.setVisible(False)
         v.addWidget(self.lbl_locked)
         v.addWidget(self._build_global_group())
+        v.addWidget(self._build_mission_settings_group())
         v.addWidget(self._build_nav_group())
         v.addWidget(self._build_sector_list_group())
         v.addWidget(self._build_sector_form_group())
@@ -178,6 +188,56 @@ class PrepTab(QWidget):
         for sb in (self.sb_eps_min, self.sb_eps_max, self.sb_elec):
             sb.valueChanged.connect(self._on_global_changed)
         return box
+
+    def _build_mission_settings_group(self) -> QGroupBox:
+        """Step 5.1: mission settings (interim interface: a full HMI replaces it in the global-simulation phase)."""
+        box = QGroupBox("Mission settings")
+        self._edit_widgets.append(box)
+        form = QFormLayout(box)
+        self.sb_p_min = self._spin(0.5, 0.9999, 0.01, MISSION_DEFAULTS["confirm_p_min"])
+        self.sb_p_min.setDecimals(4)
+        self.sb_p_min.setToolTip("Probability of confirming a true target (a volume may set its own)")
+        self.sb_rate = self._spin(0.1, 360.0, 1.0, MISSION_DEFAULTS["ship_rate_max_dps"])
+        self.sb_accel = self._spin(0.1, 1000.0, 1.0, MISSION_DEFAULTS["ship_accel_max_dps2"])
+        self.sb_rate.setToolTip("Largest angular rate of the ship (re-pointing in flight: migration between faces)")
+        self.sb_accel.setToolTip("Largest angular acceleration of the ship (navigation pointing error); the band loss "
+                                 "stays sized by the parameter file, a harsher mission is flagged")
+        self.chk_bt = QCheckBox("Ku burn-through allowed (P3')")
+        self.chk_bt.setToolTip("Forbidden by default: the Ku look in a self-protection jammer's axis is only reported. "
+                               "Allowed: budgeted (one look per revisit) and scheduled after the track updates")
+        form.addRow("Confirmation P min", self.sb_p_min)
+        form.addRow("Ship rate max (deg/s)", self.sb_rate)
+        form.addRow("Ship acceleration max (deg/s2)", self.sb_accel)
+        form.addRow("", self.chk_bt)
+        for sb in (self.sb_p_min, self.sb_rate, self.sb_accel):
+            sb.valueChanged.connect(self._on_mission_settings_changed)
+        self.chk_bt.toggled.connect(self._on_mission_settings_changed)
+        return box
+
+    def _load_mission_settings(self) -> None:
+        g = self.mission["global"]
+        for sb in (self.sb_p_min, self.sb_rate, self.sb_accel, self.chk_bt):
+            sb.blockSignals(True)
+        self.sb_p_min.setValue(g.get("confirm_p_min", MISSION_DEFAULTS["confirm_p_min"]))
+        self.sb_rate.setValue(g.get("ship_rate_max_dps", MISSION_DEFAULTS["ship_rate_max_dps"]))
+        self.sb_accel.setValue(g.get("ship_accel_max_dps2", MISSION_DEFAULTS["ship_accel_max_dps2"]))
+        self.chk_bt.setChecked(bool(g.get("burn_through_allowed", False)))
+        for sb in (self.sb_p_min, self.sb_rate, self.sb_accel, self.chk_bt):
+            sb.blockSignals(False)
+
+    def _on_mission_settings_changed(self, *_args) -> None:
+        g = self.mission["global"]
+        for key, sb in (("confirm_p_min", self.sb_p_min), ("ship_rate_max_dps", self.sb_rate),
+                        ("ship_accel_max_dps2", self.sb_accel)):
+            if abs(sb.value() - MISSION_DEFAULTS[key]) > 1e-12:
+                g[key] = sb.value()
+            else:
+                g.pop(key, None)
+        if self.chk_bt.isChecked():
+            g["burn_through_allowed"] = True
+        else:
+            g.pop("burn_through_allowed", None)
+        self._schedule_refresh()
 
     def _build_nav_group(self) -> QGroupBox:
         """Navigation message of the mission (step 3.0, core/frames.py): attitude, optional orbit."""
@@ -443,6 +503,17 @@ class PrepTab(QWidget):
         v.addWidget(self.grp_cap)
 
         common = QFormLayout()
+        # step 5.1: target class of the library (its values shown; an edited RCS / Swerling becomes an override)
+        self.cb_class = QComboBox()
+        self.cb_class.addItem("(none: RCS and Swerling below)", None)
+        for name in rm.TARGET_TYPES:
+            self.cb_class.addItem(name, name)
+        self.cb_class.currentIndexChanged.connect(self._on_class_changed)
+        self.lbl_class = QLabel("")
+        self.lbl_class.setWordWrap(True)
+        self.lbl_class.setStyleSheet("color: gray; font-size: 11px;")
+        common.addRow("Target class", self.cb_class)
+        common.addRow("", self.lbl_class)
         self.sb_rcs = self._spin(0.01, 1_000_000, 1, md.SECTOR_DEFAULTS_BOX["rcs_m2"])
         self.sb_swerling = QSpinBox()
         self.sb_swerling.setRange(0, 4)
@@ -480,6 +551,28 @@ class PrepTab(QWidget):
         common.addRow("Priority", self.chk_self_prot)
         common.addRow("Search priority (P4_n)", self.sb_search_prio)
         common.addRow("RX sidelobes (dB)", self.cb_rx_sll)
+        # step 5.1: detection settings of the volume (stored only when they differ from the parameter file)
+        self.sb_pd = self._spin(0.5, 0.9999, 0.01, rm.DETECT_PD)
+        self.sb_pd.setDecimals(4)
+        self.sb_pd.setToolTip("Cumulative Pd of the search reached at the required range")
+        self.sb_fa = self._spin(0.0001, 1e6, 1.0, mo.FA_PER_RR_DEFAULT)
+        self.sb_fa.setDecimals(4)
+        self.cb_fa_unit = QComboBox()
+        self.cb_fa_unit.addItems(["per revisit", "per second"])
+        fa_row = QHBoxLayout()
+        fa_row.addWidget(self.sb_fa)
+        fa_row.addWidget(self.cb_fa_unit)
+        self.sb_sec_pmin = self._spin(0.0, 0.9999, 0.01, 0.0)
+        self.sb_sec_pmin.setDecimals(4)
+        self.sb_sec_pmin.setSpecialValueText("(mission)")
+        self.sb_sec_pmin.setToolTip("Probability of confirming a true target in this volume; (mission) = the "
+                                    "mission's value")
+        common.addRow("Pd (cumulative)", self.sb_pd)
+        common.addRow("False alarms tolerated", fa_row)
+        common.addRow("Confirmation P min", self.sb_sec_pmin)
+        for w in (self.sb_pd, self.sb_fa, self.sb_sec_pmin):
+            w.valueChanged.connect(self._on_field_changed)
+        self.cb_fa_unit.currentIndexChanged.connect(self._on_field_changed)
         v.addLayout(common)
         v.addWidget(self._build_tracking_group())
 
@@ -771,6 +864,15 @@ class PrepTab(QWidget):
             self._set_rx_sll(sec.get("rx_sll_db", md.SECTOR_DEFAULTS_BOX["rx_sll_db"]))
             self.cb_confirm.setCurrentText(sec.get("confirm_mode", "auto"))
             self.sb_new_targets.setValue(sec.get("new_targets_per_rr", md.SECTOR_DEFAULTS_BOX["new_targets_per_rr"]))
+            # step 5.1
+            i = self.cb_class.findData(sec.get("target_type"))
+            self.cb_class.setCurrentIndex(i if i >= 0 else 0)
+            self._show_class(sec)
+            self.sb_pd.setValue(sec.get("pd", rm.DETECT_PD))
+            per_s = sec.get("fa_rate_per_s") is not None
+            self.cb_fa_unit.setCurrentIndex(1 if per_s else 0)
+            self.sb_fa.setValue(sec["fa_rate_per_s"] if per_s else sec.get("fa_per_rr", mo.FA_PER_RR_DEFAULT))
+            self.sb_sec_pmin.setValue(sec.get("confirm_p_min", 0.0))
         finally:
             self._updating_form = False
 
@@ -781,7 +883,7 @@ class PrepTab(QWidget):
         self.table_at.setRowCount(len(brackets))
         for r, b in enumerate(brackets):
             for c, (f, _h, _t) in enumerate(AT_COLUMNS):
-                item = QTableWidgetItem(f"{b.get(f, md.BRACKET_DEFAULTS[f]):g}")
+                item = QTableWidgetItem(f"{b.get(f, AT_DEFAULTS[f]):g}")
                 item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 self.table_at.setItem(r, c, item)
         self.table_at.blockSignals(False)
@@ -797,8 +899,10 @@ class PrepTab(QWidget):
             b[field] = float(item.text().replace(",", "."))
         except ValueError:
             pass   # not a number: the cell goes back to the stored value
+        if field in ("pd_update", "p_discrimination") and b.get(field) == AT_DEFAULTS[field]:
+            b.pop(field)          # step 5.1: an optional bracket setting at the file's value is not stored
         self.table_at.blockSignals(True)
-        item.setText(f"{b[field]:g}")
+        item.setText(f"{b.get(field, AT_DEFAULTS[field]):g}")
         self.table_at.blockSignals(False)
         self._schedule_refresh()
 
@@ -852,6 +956,33 @@ class PrepTab(QWidget):
             return
         self._sync_form_to_model()
 
+    def _on_class_changed(self, *_args) -> None:
+        """Step 5.1: a new class drops the RCS / Swerling overrides and shows the class values."""
+        if self._updating_form or self._cur_index < 0:
+            return
+        sec = self.mission["sectors"][self._cur_index]
+        name = self.cb_class.currentData()
+        if name is None:
+            sec.pop("target_type", None)
+        else:
+            sec["target_type"] = name
+            sec.pop("rcs_m2", None)
+            sec.pop("swerling", None)
+        self._load_form(sec)
+        self._sync_form_to_model()
+
+    def _show_class(self, sec: dict) -> None:
+        """The class values of a sector, and its overrides, under the class choice."""
+        name = sec.get("target_type")
+        if name is None or name not in rm.TARGETS:
+            self.lbl_class.setText("")
+            return
+        t = rm.target_for_sector(sec)
+        over = [k for k in rm.SECTOR_TARGET_KEYS if k != "target_type" and k in sec]
+        self.lbl_class.setText(f"{name} ({t.policy()} presentation): RCS S {t.rcs_at(2.8):.3g} m2 / Ku "
+                               f"{t.rcs_at(14.0):.3g} m2, {t.fluctuation(2.8)}, accel {t.accel_max_mps2:g} m/s2"
+                               + (f" | overrides: {', '.join(over)}" if over else ""))
+
     def _on_field_changed(self, *_args) -> None:
         if self._updating_form or self._cur_index < 0:
             return
@@ -902,6 +1033,22 @@ class PrepTab(QWidget):
         sec["rx_sll_db"] = float(self.cb_rx_sll.currentData())
         sec["confirm_mode"] = self.cb_confirm.currentText()
         sec["new_targets_per_rr"] = self.sb_new_targets.value()
+        # step 5.1: detection settings, kept in the mission only when they differ from the parameter file
+        if abs(self.sb_pd.value() - rm.DETECT_PD) > 1e-12:
+            sec["pd"] = self.sb_pd.value()
+        else:
+            sec.pop("pd", None)
+        sec.pop("fa_per_rr", None)
+        sec.pop("fa_rate_per_s", None)
+        if self.cb_fa_unit.currentIndex() == 1:
+            sec["fa_rate_per_s"] = self.sb_fa.value()
+        elif abs(self.sb_fa.value() - mo.FA_PER_RR_DEFAULT) > 1e-12:
+            sec["fa_per_rr"] = self.sb_fa.value()
+        if self.sb_sec_pmin.value() > 0.0:
+            sec["confirm_p_min"] = self.sb_sec_pmin.value()
+        else:
+            sec.pop("confirm_p_min", None)
+        self._show_class(sec)
         self._decorate_item(self.list_sectors.item(self._cur_index), sec)
         self._schedule_refresh()
 
@@ -1207,6 +1354,7 @@ class PrepTab(QWidget):
         self.sb_eps_min.setValue(self.mission["global"].get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"]))
         self.sb_eps_max.setValue(self.mission["global"].get("eps_max_deg", md.GLOBAL_DEFAULTS["eps_max_deg"]))
         self.sb_elec.setValue(self._cap_value())
+        self._load_mission_settings()
         self._load_nav_form()
         self._cur_index = 0
         self._reload_sector_list()

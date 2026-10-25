@@ -36,7 +36,9 @@ latency required; default scheduler.latency_frac x the time to impact).
 Mission settings (step 5.1), each defaulting to radar_system.toml: global "confirm_p_min" (probability of confirming a
 true target), "ship_rate_max_dps" / "ship_accel_max_dps2" (re-pointing in flight; the band loss stays sized by the
 file); per sector "confirm_p_min", "pd" (cumulative Pd of the search at range_km), "fa_rate_per_s" (false alarms
-tolerated per second, instead of fa_per_rr); per AT bracket "pd_update" and "p_discrimination".
+tolerated per second, instead of fa_per_rr); per AT bracket "pd_update" and "p_discrimination"; global
+"burn_through_allowed" (default false: the Ku burn-through look in a self-protection jammer's axis is only reported;
+true: budgeted, one look per revisit, and scheduled at P3').
 
 Validation messages are operator-facing.
 """
@@ -142,6 +144,8 @@ def validate_global(g: dict) -> List[str]:
     elif max(caps) > FACE_FEEDER_MAX_MW:
         errs.append(f"face_elec_mw cap ({max(caps)} MW) exceeds the face feeder ({FACE_FEEDER_MAX_MW:g} MW)")
     errs.extend(_probabilities(g, ("confirm_p_min",), "mission"))                               # step 5.1
+    if g.get("burn_through_allowed") is not None and not isinstance(g["burn_through_allowed"], bool):
+        errs.append("mission: burn_through_allowed must be true or false")
     for k in ("ship_rate_max_dps", "ship_accel_max_dps2"):
         if g.get(k) is not None and (not isinstance(g[k], (int, float)) or isinstance(g[k], bool) or g[k] <= 0):
             errs.append(f"mission: {k} must be > 0")

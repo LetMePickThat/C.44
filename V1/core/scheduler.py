@@ -9,8 +9,8 @@ on their outputs; the result goes under the report key "scheduler".
     P0  calibration (without it the radar does not work)
     P1  search of the volumes flagged self_protection (a checkbox per volume)
     P2  confirmation and track initiation (never lose a detection), the S touch of mode S2
-    P3  track updates (a few misses are manageable); P3' Ku burn-through, only when the operator authorises it in
-        flight (never in mission preparation: not scheduled here)
+    P3  track updates (a few misses are manageable); P3' Ku burn-through, forbidden unless the mission allows it
+        (global key burn_through_allowed, step 5.1): then one look per revisit, queued after P3 and before P4
     P4  search, sub-priority per volume search_priority (P4_1 first)
   (a) Statistical budget: per band, a non-preemptive priority queue (Cobham): mean wait of class k
       W_k = W0 / ((1 - s_{k-1})(1 - s_k)), W0 = sum(rho_i S_i) / 2, s_k the load of the classes up to k; the 95 %
@@ -119,6 +119,11 @@ def _classes(k: int, mission: dict, res: dict, scans: Optional[Dict[str, Dict[in
                 period = float(at["rr_s"])
                 out["Ku"].append(Klass((3, 0), f"track updates {r['id']}/{i}", upd, upd * period / n_tr, "update",
                                        r["id"], period, n_tr))
+        # step 5.1 (C): Ku burn-through in the jamming axis, allowed by the mission: P3' (after P3, before P4)
+        bt = t.get("ku_burn_through") or {}
+        tk = float(bt.get("faces", {}).get(str(k), {}).get("ku_time_fraction", 0.0))
+        if tk > 0.0 and bt.get("time_s"):
+            out["Ku"].append(Klass((3, 1), f"burn-through {r['id']}", tk, float(bt["time_s"]), "burn_through", r["id"]))
     return out
 
 

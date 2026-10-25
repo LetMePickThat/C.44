@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.21.0
+# Radar Performance Model - V6.22.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,16 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.21.0 -> V6.22.0 (roadmap step 5.1: enriched mission model, validated by the user on 25 October 2026)
+#   - Mission settings (each defaulting to the file): global confirm_p_min, ship_rate_max_dps, ship_accel_max_dps2,
+#     burn_through_allowed; per sector confirm_p_min, pd (cumulative search Pd, carried by the search criterion),
+#     fa_rate_per_s; per AT bracket pd_update, p_discrimination.
+#   - Target library: RCS vs presentation table per class (7 elevations x 12 azimuths, dB vs frontal), aspect policy
+#     of detection (tool.targets.aspect_policy = worst; the KKV frontal: it aims at the ship), object-to-object RCS and
+#     depolarisation spreads and the seeker optics cone, systematic terms of the discrimination indices.
+#   - Ku burn-through in a self-protection jammer's axis budgeted (one look per revisit) and scheduled at P3' when the
+#     mission allows it. Interim interface: target class, mission and volume settings.
 #
 # Changes V6.20.0 -> V6.21.0 (roadmap step 4.5: re-pointing in flight, validated by the user on 25 October 2026)
 #   - core/repoint.py: each pointing turned into its face's (u, v) at its transmission with the latest navigation
@@ -553,7 +563,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.21.0"
+MODEL_VERSION = "6.22.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -1138,7 +1148,17 @@ _TARGET_BAND_KEYS = ("rcs_m2", "fluctuation", "depol_db")
 _TARGET_OPTICS = {"optics_diameter_m": 0.0, "optics_f_ratio": 1.0, "optics_retro_eff": 0.0,   # absent = no optics
                   "maneuver_tau_s": 0.0,            # step 3.3 (A5): Singer time constant, 0 = no manoeuvre
                   "aspect_offset_deg": 0.0,         # step 3.3 (F6): aspect of a closing target off its nose
-                  "aspect_deg": (), "aspect_rcs_db": ()}   # F6: optional RCS(aspect) table, dB vs the frontal RCS
+                  # step 5.1 (B): RCS vs presentation, rows elevation ASPECT_EL_DEG x columns azimuth ASPECT_AZ_DEG, dB vs
+                  # the frontal RCS (absent = flat); spreads from one object to another (1 sigma); half-angle of the cone
+                  # where the seeker optics return; the class's own aspect policy ("" = tool.targets.aspect_policy)
+                  "aspect_rcs_db": (), "rcs_spread_db": 0.0, "depol_spread_db": 0.0, "optics_cone_deg": 180.0,
+                  "aspect_policy": ""}
+ASPECT_AZ_DEG = tuple(range(0, 360, 30))
+ASPECT_EL_DEG = tuple(range(-90, 91, 30))
+ASPECT_POLICIES = ("worst", "frontal", "mean")
+ASPECT_POLICY: str = P.get("tool.targets.aspect_policy")
+if ASPECT_POLICY not in ASPECT_POLICIES:
+    raise ValueError(f"{P.path}: tool.targets.aspect_policy '{ASPECT_POLICY}' must be one of {', '.join(ASPECT_POLICIES)}")
 DEFAULT_TARGET_TYPE: str = P.get("tool.targets.default_type")
 TARGET_TYPES: Tuple[str, ...] = tuple(dict.fromkeys(p.path.split(".")[1] for p in P if p.path.startswith("targets.")))
 
@@ -1167,11 +1187,15 @@ def _target_class_values(name: str) -> Dict[str, object]:
     if v["length_m"] <= 0 or v["rotation_dps"] < 0 or v["accel_max_mps2"] < 0 or v["v_close_mps"] <= 0:
         raise ValueError(f"{P.path}: target class '{name}': length_m and v_close_mps must be > 0, rotation_dps and "
                          f"accel_max_mps2 >= 0")
-    if v["maneuver_tau_s"] < 0 or len(v["aspect_deg"]) != len(v["aspect_rcs_db"]) or list(v["aspect_deg"]) != sorted(
-            v["aspect_deg"]):
-        raise ValueError(f"{P.path}: target class '{name}': maneuver_tau_s >= 0; aspect_deg (increasing) and "
-                         f"aspect_rcs_db of the same length")
-    v["aspect_deg"], v["aspect_rcs_db"] = tuple(map(float, v["aspect_deg"])), tuple(map(float, v["aspect_rcs_db"]))
+    tab = v["aspect_rcs_db"]
+    if tab and (len(tab) != len(ASPECT_EL_DEG) or any(len(r) != len(ASPECT_AZ_DEG) for r in tab)):
+        raise ValueError(f"{P.path}: target class '{name}': aspect_rcs_db must be {len(ASPECT_EL_DEG)} rows (elevation "
+                         f"{ASPECT_EL_DEG[0]}..{ASPECT_EL_DEG[-1]} deg) of {len(ASPECT_AZ_DEG)} values (azimuth 0..330 deg)")
+    if (v["maneuver_tau_s"] < 0 or v["rcs_spread_db"] < 0 or v["depol_spread_db"] < 0
+            or not 0.0 < v["optics_cone_deg"] <= 180.0 or v["aspect_policy"] not in ("",) + ASPECT_POLICIES):
+        raise ValueError(f"{P.path}: target class '{name}': maneuver_tau_s and spreads >= 0, optics_cone_deg in ]0, 180], "
+                         f"aspect_policy one of {', '.join(ASPECT_POLICIES)}")
+    v["aspect_rcs_db"] = tuple(tuple(float(x) for x in r) for r in tab)
     if v["optics_diameter_m"] < 0 or v["optics_f_ratio"] <= 0 or not 0.0 <= v["optics_retro_eff"] <= 1.0:
         raise ValueError(f"{P.path}: target class '{name}': optics_diameter_m >= 0, optics_f_ratio > 0, "
                          f"optics_retro_eff in [0, 1]")
@@ -1182,6 +1206,51 @@ if DEFAULT_TARGET_TYPE not in TARGET_TYPES:
     raise ValueError(f"{P.path}: tool.targets.default_type '{DEFAULT_TARGET_TYPE}' is not a class of [targets.*] "
                      f"({', '.join(TARGET_TYPES)})")
 _DEF = _target_class_values(DEFAULT_TARGET_TYPE)
+
+
+# step 5.1 (B): presentations on a 2 deg raster of nodes (the nose az 0, el 0 among them, so that the frontal value is
+# reached exactly), solid-angle weights cos(el), off-nose angle of each
+_FINE_AZ, _FINE_EL = np.meshgrid(np.arange(0.0, 360.0, 2.0), np.arange(-90.0, 90.1, 2.0))
+_FINE_W = np.cos(np.radians(_FINE_EL)) / np.cos(np.radians(_FINE_EL)).sum()
+_FINE_NOSE = np.degrees(np.arccos(np.clip(np.cos(np.radians(_FINE_EL)) * np.cos(np.radians(_FINE_AZ)), -1.0, 1.0)))
+
+
+def _table_db(table: Tuple[Tuple[float, ...], ...], az: np.ndarray, el: np.ndarray) -> np.ndarray:
+    """The class table (dB) at (az, el), bilinear (azimuth wraps at 360 deg); 0 dB without a table."""
+    if not table:
+        return np.zeros(np.shape(az))
+    t = np.asarray(table)
+    a = np.mod(np.asarray(az, float), 360.0) / 30.0
+    e = (np.clip(np.asarray(el, float), -90.0, 90.0) + 90.0) / 30.0
+    i0, j0 = np.minimum(np.floor(e).astype(int), len(ASPECT_EL_DEG) - 2), np.floor(a).astype(int) % len(ASPECT_AZ_DEG)
+    fe, fa = e - i0, a - np.floor(a)
+    j1 = (j0 + 1) % len(ASPECT_AZ_DEG)
+    return ((1 - fe) * ((1 - fa) * t[i0, j0] + fa * t[i0, j1]) + fe * ((1 - fa) * t[i0 + 1, j0] + fa * t[i0 + 1, j1]))
+
+
+@functools.lru_cache(maxsize=64)
+def _aspect_stats(table: Tuple[Tuple[float, ...], ...]) -> Tuple[np.ndarray, float]:
+    """(table on the raster in dB, solid-angle weighted spread in dB)."""
+    g = _table_db(table, _FINE_AZ, _FINE_EL)
+    mu = float((_FINE_W * g).sum())
+    return g, math.sqrt(float((_FINE_W * (g - mu) ** 2).sum()))
+
+
+@functools.lru_cache(maxsize=512)
+def _presentation(table: Tuple[Tuple[float, ...], ...], cone_deg: float, offset_deg: float, policy: str,
+                  optics_ratio: float) -> Tuple[float, float]:
+    """(body factor, optics factor) of the presentation of detection (step 5.1): 'frontal' at offset_deg off the nose
+    (step 3.3 F6), 'worst' the presentation of least total RCS (body x table + optics within its cone), 'mean' the
+    solid-angle means."""
+    if policy == "frontal":
+        return (db_to_lin(float(_table_db(table, np.array(offset_deg), np.array(0.0)))),
+                1.0 if offset_deg <= cone_deg else 0.0)
+    g = 10.0 ** (_aspect_stats(table)[0] / 10.0)
+    vis = (_FINE_NOSE <= cone_deg).astype(float)
+    if policy == "mean":
+        return float((_FINE_W * g).sum()), float((_FINE_W * vis).sum())
+    k = int(np.argmin(g + optics_ratio * vis))
+    return float(g.flat[k]), float(vis.flat[k])
 
 
 @dataclass(frozen=True)
@@ -1208,26 +1277,26 @@ class Target:
     target_type: str = DEFAULT_TARGET_TYPE
     maneuver_tau_s: float = _DEF["maneuver_tau_s"]           # step 3.3 (A5)
     aspect_offset_deg: float = _DEF["aspect_offset_deg"]     # step 3.3 (F6)
-    aspect_deg: Tuple[float, ...] = _DEF["aspect_deg"]
-    aspect_rcs_db: Tuple[float, ...] = _DEF["aspect_rcs_db"]
+    aspect_rcs_db: Tuple[Tuple[float, ...], ...] = _DEF["aspect_rcs_db"]   # step 5.1 (B)
+    rcs_spread_db: float = _DEF["rcs_spread_db"]
+    depol_spread_db: float = _DEF["depol_spread_db"]
+    optics_cone_deg: float = _DEF["optics_cone_deg"]
+    aspect_policy: str = _DEF["aspect_policy"]
 
     def _ku(self, f_ghz: float) -> bool:
         band = band_for_frequency(f_ghz)
         return band is not None and band.name == "Ku"
 
-    def aspect_factor(self) -> float:
-        """RCS factor of the aspect seen (step 3.3, F6): the class table RCS(aspect) in dB relative to the frontal RCS,
-        at the class aspect offset of a closing target (interpolated, flat beyond the table); 1 without a table."""
-        if not self.aspect_deg:
-            return 1.0
-        return db_to_lin(float(np.interp(abs(self.aspect_offset_deg), self.aspect_deg, self.aspect_rcs_db)))
+    def policy(self) -> str:
+        """Presentation of detection (step 5.1): the class's own policy, else tool.targets.aspect_policy."""
+        return self.aspect_policy or ASPECT_POLICY
 
-    def body_rcs_m2(self, f_ghz: float) -> float:
-        return ((self.rcs_m2 if self.rcs_ku_m2 is None else self.rcs_ku_m2) if self._ku(f_ghz) else self.rcs_m2)             * self.aspect_factor()
+    def _frontal_body_m2(self, f_ghz: float) -> float:
+        return (self.rcs_m2 if self.rcs_ku_m2 is None else self.rcs_ku_m2) if self._ku(f_ghz) else self.rcs_m2
 
-    def optics_rcs_m2(self, f_ghz: float) -> float:
-        """Frontal return of a focusing optic facing the radar (step 2.4, K): the larger of the direct reflection on the
-        concave primary pi (2 f)^2 (geometrical optics) and the cat's-eye retro-reflection eta_r 4 pi A^2 / lambda^2."""
+    def _frontal_optics_m2(self, f_ghz: float) -> float:
+        """Return of a focusing optic facing the radar (step 2.4, K): the larger of the direct reflection on the concave
+        primary pi (2 f)^2 (geometrical optics) and the cat's-eye retro-reflection eta_r 4 pi A^2 / lambda^2."""
         if self.optics_diameter_m <= 0.0:
             return 0.0
         d = self.optics_diameter_m
@@ -1235,9 +1304,32 @@ class Target:
         return max(math.pi * (2.0 * self.optics_f_ratio * d) ** 2,
                    self.optics_retro_eff * 4.0 * math.pi * a * a / lambda_m(f_ghz) ** 2)
 
+    def _factors(self, f_ghz: float) -> Tuple[float, float]:
+        b0 = self._frontal_body_m2(f_ghz)
+        ratio = round(self._frontal_optics_m2(f_ghz) / b0, 9) if b0 > 0 else 0.0
+        return _presentation(self.aspect_rcs_db, float(self.optics_cone_deg), round(abs(self.aspect_offset_deg), 6),
+                             self.policy(), ratio)
+
+    def aspect_factor(self, f_ghz: float = 2.8) -> float:
+        """Factor of the body RCS at the presentation of detection (step 3.3 F6, step 5.1 B)."""
+        return self._factors(f_ghz)[0]
+
+    def body_rcs_m2(self, f_ghz: float) -> float:
+        return self._frontal_body_m2(f_ghz) * self._factors(f_ghz)[0]
+
+    def optics_rcs_m2(self, f_ghz: float) -> float:
+        """The seeker optics' return at the presentation of detection: full within optics_cone_deg of the nose, none
+        outside (step 5.1, B4)."""
+        return self._frontal_optics_m2(f_ghz) * self._factors(f_ghz)[1]
+
     def rcs_at(self, f_ghz: float) -> float:
-        """Copolar frontal RCS at f: body + seeker optics."""
+        """Copolar RCS at f of the presentation of detection: body + seeker optics."""
         return self.body_rcs_m2(f_ghz) + self.optics_rcs_m2(f_ghz)
+
+    def aspect_spread_db(self) -> float:
+        """Spread (1 sigma, dB) of the body RCS over every presentation, solid-angle weighted (step 5.1, B): 0 for a
+        class seen frontally (it aims at the ship) or without a table."""
+        return 0.0 if self.policy() == "frontal" else _aspect_stats(self.aspect_rcs_db)[1]
 
     def t0_s(self, f_ghz: float) -> float:
         """Coherence time T0 = t0_k x lambda / (2 L omega) (step 2.4, B1); infinite for a non-rotating target."""
@@ -1266,7 +1358,9 @@ def _target_of_class(name: str) -> Target:
                   length_m=v["length_m"], rotation_dps=v["rotation_dps"], accel_max_mps2=v["accel_max_mps2"],
                   optics_diameter_m=v["optics_diameter_m"], optics_f_ratio=v["optics_f_ratio"],
                   optics_retro_eff=v["optics_retro_eff"], target_type=name, maneuver_tau_s=v["maneuver_tau_s"],
-                  aspect_offset_deg=v["aspect_offset_deg"], aspect_deg=v["aspect_deg"], aspect_rcs_db=v["aspect_rcs_db"])
+                  aspect_offset_deg=v["aspect_offset_deg"], aspect_rcs_db=v["aspect_rcs_db"],
+                  rcs_spread_db=v["rcs_spread_db"], depol_spread_db=v["depol_spread_db"],
+                  optics_cone_deg=v["optics_cone_deg"], aspect_policy=v["aspect_policy"])
 
 
 TARGETS: Dict[str, Target] = {name: _target_of_class(name) for name in TARGET_TYPES}

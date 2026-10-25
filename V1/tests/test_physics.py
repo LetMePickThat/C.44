@@ -2249,10 +2249,13 @@ def test_discrimination_indices():
 def test_aspect_table_and_track_frame():
     """F6: an RCS(aspect) table scales the RCS at the class offset; F8: a 'track' sector becomes a cap of k sigma
     around its designation."""
-    t = dataclasses.replace(rm.TARGETS["KKV"], aspect_deg=(0.0, 90.0), aspect_rcs_db=(0.0, -10.0),
-                            aspect_offset_deg=45.0)
-    assert t.aspect_factor() == pytest.approx(10 ** -0.5)
-    assert t.rcs_at(14.0) < rm.TARGETS["KKV"].rcs_at(14.0)
+    # step 5.1: the table is 7 elevations x 12 azimuths; frontal policy at the offset (az 45 deg, el 0: between the
+    # 30 and 60 deg columns of the el 0 row, linear in dB), the optics outside their cone are not seen
+    row = [0.0, -6.0, -12.0] + [-12.0] * 9
+    tab = tuple(tuple(row) if e == 0 else (0.0,) * 12 for e in rm.ASPECT_EL_DEG)
+    t = dataclasses.replace(rm.TARGETS["KKV"], aspect_rcs_db=tab, aspect_offset_deg=45.0, aspect_policy="frontal")
+    assert t.aspect_factor() == pytest.approx(10 ** -0.9)
+    assert t.optics_rcs_m2(14.0) == 0.0 and t.rcs_at(14.0) < rm.TARGETS["KKV"].rcs_at(14.0)
     m = md.empty_mission()
     m["sectors"] = [{**md.new_sector([], "cap"), "frame": "track", "track_ra_deg": 40.0, "track_dec_deg": 10.0,
                      "track_sigma_deg": 0.5}]
@@ -2549,3 +2552,47 @@ def test_repoint_migration_skips_ship_frame_and_flags_overload():
     assert f["neighbour_load_during_transit"] == pytest.approx(1.2)
     assert f["transit_s"] == pytest.approx(f["extent_deg"] / rpt.RATE_MAX_DPS)
     assert any("sector B" in x for x in out["flags"])
+
+
+# ----------------------------------------------------------------------------- enriched mission model (step 5.1)
+def test_aspect_policies_and_spreads():
+    """B: worst = least total RCS over every presentation, mean = solid-angle mean, frontal = at the offset; the
+    library keeps its detection RCS (worst is the frontal value of the tables, the KKV is frontal); the spreads lower
+    the RCS and depolarisation discrimination indices."""
+    for name, t in rm.TARGETS.items():
+        assert len(t.aspect_rcs_db) in (0, len(rm.ASPECT_EL_DEG))
+    k = rm.TARGETS["KKV"]
+    assert k.policy() == "frontal" and k.optics_cone_deg == 5.0
+    assert k.rcs_at(2.8) == pytest.approx(1.27, abs=0.01) and k.rcs_at(14.0) == pytest.approx(13.8, abs=0.1)
+    assert rm.TARGETS["SHIP"].rcs_at(2.8) == pytest.approx(300.0) and rm.TARGETS["SHIP"].policy() == "worst"
+    worst = dataclasses.replace(k, aspect_policy="worst")
+    assert worst.rcs_at(2.8) == pytest.approx(k._frontal_body_m2(2.8))           # the tail, outside the optics cone
+    mean = dataclasses.replace(rm.TARGETS["SHIP"], aspect_policy="mean")
+    assert 10 * math.log10(mean.rcs_at(2.8) / 300.0) == pytest.approx(7.1, abs=0.2)
+    assert rm.TARGETS["SHIP"].aspect_spread_db() > 2.0 and k.aspect_spread_db() == 0.0
+    d = rm.TARGETS["DECOY"]
+    no_spread = [dataclasses.replace(x, rcs_spread_db=0.0, depol_spread_db=0.0) for x in (k, d)]
+    a = tm.indices(k, d, 14.0, 100.0, 5, 0.0, False, 1.0)
+    b = tm.indices(*no_spread, 14.0, 100.0, 5, 0.0, False, 1.0)
+    assert a["rcs"] < b["rcs"]
+    # depolarisation: a pair of classes whose depolarisations differ
+    x, y = next((p, q) for p in rm.TARGETS.values() for q in rm.TARGETS.values()
+                if p.depol_lin(14.0) != q.depol_lin(14.0) and p.depol_spread_db > 0)
+    a = tm.indices(x, y, 14.0, 100.0, 5, 0.0, False, 1.0)
+    b = tm.indices(*[dataclasses.replace(z, depol_spread_db=0.0) for z in (x, y)], 14.0, 100.0, 5, 0.0, False, 1.0)
+    assert a["depolarisation"] < b["depolarisation"]
+
+
+def test_mission_settings_keys():
+    """A: mission and volume settings are checked and reach the criteria."""
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_example.json"))
+    s = m["sectors"][0]
+    m["global"].update(confirm_p_min=0.9, ship_rate_max_dps=20.0, ship_accel_max_dps2=10.0)
+    s.update(pd=0.95, fa_rate_per_s=0.5)
+    assert md.validate_mission(m) == []
+    assert mo.fa_per_rr(s) == pytest.approx(0.5 * s["rr_target_s"])
+    assert mo.search_criterion(s)[3] == 0.95 and len(mo.search_criterion(m["sectors"][1])) == 3
+    s["fa_per_rr"] = 3.0
+    m["global"]["confirm_p_min"] = 1.0
+    errs = md.validate_mission(m)
+    assert any("not both" in e for e in errs) and any("confirm_p_min" in e for e in errs)

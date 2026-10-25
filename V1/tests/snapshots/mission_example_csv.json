@@ -386,14 +386,16 @@
      "error_hpbw": 0.005885028372556691,
      "error_rms_deg": 0.0017326227915083884,
      "hpbw_deg": 0.2944119691228724,
-     "loss_db": 0.0008340592079425268
+     "loss_db": 0.0008340592079425268,
+     "loss_db_sized": 0.0008340592079425268
     },
     "S": {
      "accel_tenable_dps2": 647.5981157474987,
      "error_hpbw": 0.0011890760037895844,
      "error_rms_deg": 0.0017326227915083884,
      "hpbw_deg": 1.4571169428922297,
-     "loss_db": 3.4050146840066366e-05
+     "loss_db": 3.4050146840066366e-05,
+     "loss_db_sized": 3.4050146840066366e-05
     }
    },
    "flags": [],
@@ -683,6 +685,7 @@
      "jammer_type": null,
      "objects_per_rr": 0.0
     },
+    "fa_per_rr": 10.0,
     "faces": {
      "0": {
       "avg_power_kW": 3.3612977533294934,
@@ -708,6 +711,7 @@
     },
     "id": "S01",
     "mismatch_db_per_pass_max": 0.1297354438199937,
+    "pd_cumulative": 0.9,
     "positions_total": 477.7,
     "range_km": {
      "at_best_scan": 5137,
@@ -1436,6 +1440,7 @@
      "jammer_type": null,
      "objects_per_rr": 0.0
     },
+    "fa_per_rr": 10.0,
     "faces": {
      "1": {
       "avg_power_kW": 10.211556778098787,
@@ -1461,6 +1466,7 @@
     },
     "id": "S02",
     "mismatch_db_per_pass_max": 0.1297354438199937,
+    "pd_cumulative": 0.9,
     "positions_total": 140.8,
     "range_km": {
      "at_best_scan": 576,
@@ -1801,6 +1807,8 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
+     "burn_through_energy": 0.0,
+     "burn_through_ku_time": 0.0,
      "bus_draw_MW": 0.11669597137418745,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
@@ -1848,6 +1856,8 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
+     "burn_through_energy": 0.0,
+     "burn_through_ku_time": 0.0,
      "bus_draw_MW": 0.12394634506599037,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
@@ -1895,6 +1905,8 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
+     "burn_through_energy": 0.0,
+     "burn_through_ku_time": 0.0,
      "bus_draw_MW": 0.1130706162390902,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
@@ -1942,6 +1954,8 @@
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
+     "burn_through_energy": 0.0,
+     "burn_through_ku_time": 0.0,
      "bus_draw_MW": 0.1130706162390902,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
@@ -2018,6 +2032,7 @@
      },
      "at": [],
      "confirm_mode": "KU1+7",
+     "confirm_p_min": 0.98,
      "confirmation": {
       "admissible": true,
       "cluster_tx": "superposition x7",
@@ -2111,6 +2126,7 @@
      },
      "at": [],
      "confirm_mode": "KU1+7",
+     "confirm_p_min": 0.98,
      "confirmation": {
       "admissible": true,
       "cluster_tx": "superposition x7",
@@ -2190,14 +2206,14 @@
      "DECOY": 1.0
     },
     "GENERIC": {
-     "DEBRIS": 1.0,
-     "DECOY": 1.0,
-     "KKV": 1.0,
-     "SHIP": 1.0
+     "DEBRIS": 0.9959,
+     "DECOY": 0.9988,
+     "KKV": 0.9974,
+     "SHIP": 0.998
     },
     "KKV": {
      "DEBRIS": 1.0,
-     "DECOY": 1.0,
+     "DECOY": 0.9999,
      "SHIP": 1.0
     },
     "SHIP": {
