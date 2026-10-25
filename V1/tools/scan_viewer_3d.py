@@ -8,10 +8,11 @@ Real-time 3D view of the search pointings of a mission around the low-poly ship 
     python tools/scan_viewer_3d.py --view full              start in the 1:1 view of the whole scene (real time)
     python tools/scan_viewer_3d.py --snapshot out.png       render one instant off screen and exit (check)
 
-The whole scene is at true scale, in km: the ship model, each beam drawn as its real transmit beam out to the sector's
-range (a 500 km search -> 500 km long): a frustum from the array plate (envelope disc) whose section is the -3 dB
-transmit beamwidth at the sector's frequency, built in the face's (u, v) so that its widening with the scan angle is
-exact (a circle of radius HPBW / 2 in (u, v) around the pointing), and the sky bodies of the mission with a known radius (Moon,
+The whole scene is at true scale, in km: the ship model, each transmit beam drawn as its real beam out to the sector's
+range (a 500 km search -> 500 km long): from the emitting part of the plate (the envelope disc, or a half / quadrant
+of it for a partitioned aperture), collimated over its near field D_eff^2 / lambda, then opening along its -3 dB
+contour, built in the face's (u, v) so that its widening with the scan angle is exact; the dwells follow the TX
+multibeam mode of their waveform (single, superposition, time multiplex, partition: see pointing_events), and the sky bodies of the mission with a known radius (Moon,
 Earth) as spheres at the distance their angular radius implies (radius / sin(angular radius)), in their direction.
 Two cameras: 'ship' (close to the hull) and 'full' (1:1, the whole scene); a scale bar follows the zoom.
 Each watch volume is outlined in its colour at its range: its boundary on the sphere of radius range_km (traced on a
@@ -111,12 +112,27 @@ def aperture_centre(k: int) -> np.ndarray:
     return (env.array_centre_m(k) + 0.05 * np.asarray(env.face_frame(k)[0])) * KM
 
 
-def pointing_events(path: str, duration: float = None):
-    """(times s, origins (N, 3) km, unit directions (N, 3), lengths km (N,), sector index (N,), sector ids, revisits,
-    mission, duration, face (N,), (u, v) (N, 2), half beamwidth in (u, v) (N,), physical duration s (N,)) of every
-    pointing of each volume and face over duration s (default: the longest revisit), each volume looping on its own
-    revisit. The physical duration of a pointing is the transmission of its dwell (its scan bin's waveform, shortened
-    pulse, core/scanorder.py) plus the echo window 2 R / c."""
+_FRAMES = [tuple(np.asarray(x) for x in env.face_frame(k)) for k in range(4)]
+
+
+BASE_KINDS = ("full", "half_y+", "half_y-", "half_x+", "half_x-", "quad++", "quad-+", "quad--", "quad+-")
+PARTITION_BASES = {("h", 2): (1, 2), ("v", 2): (3, 4), (None, 2): (1, 2), ("h", 4): (5, 6, 7, 8),
+                   ("v", 4): (5, 6, 7, 8), (None, 4): (5, 6, 7, 8)}
+SUBAPERTURE_OF_BASE = {1: "half_h", 2: "half_h", 3: "half_v", 4: "half_v", 5: "quarter", 6: "quarter", 7: "quarter",
+                       8: "quarter"}
+
+
+def pointing_events(path: str, duration: float = None) -> dict:
+    """Every transmit beam of each volume and face over duration s (default: the longest revisit), each volume looping
+    on its own revisit. The pointings of a frame (core/scanorder.py) are grouped into dwells as the scan order serves
+    them (the next positions_per_dwell pointings of the order), the dwells spread over the revisit; per dwell, by the TX
+    mode of its scan bin's waveform (step 3.1, block C):
+      single         one beam of the full aperture;
+      superposition  the dwell's beams together, each of the full aperture;
+      tdm            the dwell's beams one after the other within the dwell, each of the full aperture;
+      partition      b_tx beams together, each from its sub-aperture (halves cut 'h' / 'v', or quadrants), toward the
+                     mean of its share of the dwell's pointings, with the sub-aperture's -3 dB widths along u and v.
+    A beam lasts (physical timing) its share of the dwell's transmission plus the echo window 2 R / c."""
     mission, _ = frames.resolve(mo.load_mission(path))
     res = mission_result(path)
     g = mission.get("global", {})
@@ -126,7 +142,8 @@ def pointing_events(path: str, duration: float = None):
     ok = [r for r in res["sectors"] if r.get("status") == "OK"]
     if duration is None:
         duration = max(float(r["rr_target_s"]) for r in ok)
-    t_all, o_all, d_all, l_all, s_all, ids, rrs, f_all, uv_all, hw_all, on_all = [], [], [], [], [], [], [], [], [], [], []
+    cols = {k: [] for k in ("t", "face", "u", "v", "hu", "hv", "base", "len", "sidx", "on", "lnf", "sub")}
+    ids, rrs = [], []
     for r in ok:
         sec = secs[r["id"]]
         si = len(ids)
@@ -136,81 +153,200 @@ def pointing_events(path: str, duration: float = None):
         rrs.append(rr)
         n_frames = max(1, math.ceil(duration / rr - 1e-9))
         reach = float(sec["range_km"])
-        bins = so._bin_time(r)                     # (theta lo, theta hi, transmit time per position, positions per dwell)
+        lam_m = rm.lambda_m(f)
+        lam_d = lam_m / rm.ARRAY_ENVELOPE_M
+        hw_full = rm._pattern(f).tx.hpbw * lam_d / 2.0                  # -3 dB TX half-width in (u, v)
+        band = rm.band_for_frequency(f).name
         echo_s = 2.0 * reach * 1e3 / C_LIGHT
+        lnf_full = rm.ARRAY_ENVELOPE_M ** 2 / lam_m * KM                 # near field of the full aperture (km)
+        # scan bins: (theta lo, its waveform, transmit time of a dwell)
+        bins = []
+        for b in r.get("wf_by_bin", []):
+            w = b["wf"]
+            cpd = max(1.0, float(w.get("positions_per_dwell", 1.0)))
+            t_dwell = w["n_pulses"] * w["tau_us"] * 1e-6 * float(b.get("pulse_scale", 1.0))
+            bins.append((float(b["theta_lo_deg"]), w, cpd, t_dwell))
+        bins.sort(key=lambda x: x[0])
         spacing = float(r.get("beam_spacing_hpbw", rm.BEAM_SPACING_HPBW))
         m = sph.mask(sec)
         _, keep = mo.sector_sky(sec, sph, m, f, "S", sky)
         lim = rm.band_for_frequency(f).scan_limit_deg(f)
         sel0 = m & sph.scan_zone & (sph.theta <= lim) & (np.asarray(keep) > 0.5)
-        hpbw_uv = rm._pattern(f).tx.hpbw * rm.lambda_m(f) / rm.ARRAY_ENVELOPE_M     # -3 dB TX beamwidth in (u, v)
-        d = spacing * hpbw_uv
+        d = spacing * rm._pattern(f).tx.hpbw * lam_d
         for k in range(4):
             if str(k) not in r.get("faces", {}):
                 continue
             uu, vv = so.face_uv(sph, k)
-            n_, eu, ev = (np.array(x) for x in env.face_frame(k))
-            origin = aperture_centre(k)
             for fr in range(n_frames):
                 pts = so.lattice(sel0 & (sph.owner == k), uu, vv, d, fr)
                 if len(pts) == 0:
                     continue
                 order = so.order_bitrev_morton(pts, d)
                 u, v = pts[order, 0], pts[order, 1]
-                w = np.sqrt(np.clip(1.0 - u * u - v * v, 0.0, 1.0))
-                t_all.append(fr * rr + np.arange(len(order)) * rr / len(order))
-                o_all.append(np.repeat(origin[None, :], len(order), axis=0))
-                d_all.append(u[:, None] * eu + v[:, None] * ev + w[:, None] * n_)
-                l_all.append(np.full(len(order), reach))
-                s_all.append(np.full(len(order), si))
-                f_all.append(np.full(len(order), k))
-                uv_all.append(np.c_[u, v])
-                hw_all.append(np.full(len(order), hpbw_uv / 2.0))
                 theta = np.degrees(np.arcsin(np.clip(np.hypot(u, v), 0.0, 1.0)))
-                tx = np.zeros(len(order))
-                for lo_, hi_, t_pos, cpd in sorted(bins):
-                    tx[theta >= lo_ - 1e-9] = t_pos * cpd          # the dwell of the bin the pointing falls in
-                on_all.append(tx + echo_s)
-    ts = np.concatenate(t_all)
-    idx = np.argsort(ts, kind="stable")
-    idx = idx[ts[idx] < duration]
-    return (ts[idx], np.concatenate(o_all)[idx], np.concatenate(d_all)[idx], np.concatenate(l_all)[idx],
-            np.concatenate(s_all)[idx], ids, rrs, mission, duration, np.concatenate(f_all)[idx],
-            np.concatenate(uv_all)[idx], np.concatenate(hw_all)[idx], np.concatenate(on_all)[idx])
+                bin_of = np.zeros(len(order), dtype=int)
+                for j, (lo, _, _, _) in enumerate(bins):
+                    bin_of[theta >= lo - 1e-9] = j
+                dwells, i = [], 0
+                while i < len(order):
+                    j = bin_of[i]
+                    c = max(1, int(round(bins[j][2])))
+                    dwells.append((j, np.arange(i, min(i + c, len(order)))))
+                    i += c
+                for jd, (j, grp) in enumerate(dwells):
+                    t0 = fr * rr + jd * rr / len(dwells)
+                    _, w, _, t_dwell = bins[j]
+                    mode, b_tx = w.get("tx_mode", "single"), int(w.get("b_tx", 1))
+
+                    def add(t, uc, vc, hu, hv, base, on, lnf, sub=0):
+                        for key, val in (("t", t), ("face", k), ("u", uc), ("v", vc), ("hu", hu), ("hv", hv),
+                                         ("base", base), ("len", reach), ("sidx", si), ("on", on), ("lnf", lnf),
+                                         ("sub", sub)):
+                            cols[key].append(val)
+
+                    if mode == "partition" and b_tx in (2, 4):
+                        kinds = PARTITION_BASES[(w.get("tx_cut"), b_tx)]
+                        for q, part in enumerate(np.array_split(grp, b_tx)):
+                            if len(part) == 0:
+                                continue
+                            sa = rm.subaperture(band, SUBAPERTURE_OF_BASE[kinds[q]])
+                            add(t0, float(u[part].mean()), float(v[part].mean()), sa.hpbw_u * lam_d / 2.0,
+                                sa.hpbw_v * lam_d / 2.0, kinds[q], t_dwell + echo_s,
+                                lnf_full * sa.n_elements / sa.n_total, q)
+                    elif mode == "tdm":
+                        for q, p_ in enumerate(grp):
+                            add(t0 + q * t_dwell / len(grp), float(u[p_]), float(v[p_]), hw_full, hw_full, 0,
+                                t_dwell / len(grp) + echo_s, lnf_full)
+                    else:                       # single, superposition: every beam of the dwell at once, full face
+                        for p_ in grp:
+                            add(t0, float(u[p_]), float(v[p_]), hw_full, hw_full, 0, t_dwell + echo_s, lnf_full)
+    ev = {k: np.asarray(v_) for k, v_ in cols.items()}
+    idx = np.argsort(ev["t"], kind="stable")
+    idx = idx[ev["t"][idx] < duration]
+    ev = {k: v_[idx] for k, v_ in ev.items()}
+    nn = np.array([f_[0] for f_ in _FRAMES])[ev["face"]]
+    eu = np.array([f_[1] for f_ in _FRAMES])[ev["face"]]
+    evv = np.array([f_[2] for f_ in _FRAMES])[ev["face"]]
+    w_ = np.sqrt(np.clip(1.0 - ev["u"] ** 2 - ev["v"] ** 2, 0.0, 1.0))
+    ev["dir"] = ev["u"][:, None] * eu + ev["v"][:, None] * evv + w_[:, None] * nn
+    ev["org"] = np.array([aperture_centre(k) for k in range(4)])[ev["face"]]
+    ev.update(ids=ids, rrs=rrs, mission=mission, duration=duration)
+    return ev
 
 
-_FRAMES = [tuple(np.asarray(x) for x in env.face_frame(k)) for k in range(4)]
+def _base_outline(kind: int, sides: int) -> np.ndarray:
+    """Outline (sides, 2) of the emitting part of the plate in the face plane (x along e_u, y along e_v, km),
+    counter-clockwise from about angle 0: the envelope disc, a half or a quadrant of it."""
+    rad = rm.ARRAY_ENVELOPE_M / 2.0 * KM
+    name = BASE_KINDS[kind]
+    if name == "full":
+        a = 2.0 * np.pi * np.arange(sides) / sides
+        return np.c_[rad * np.cos(a), rad * np.sin(a)]
+    if name.startswith("half"):
+        arc = np.linspace(0.0, np.pi, 65)
+        poly = np.r_[np.c_[np.cos(arc), np.sin(arc)], [[0.0, 0.0]]] * rad
+    else:
+        arc = np.linspace(0.0, np.pi / 2.0, 33)
+        poly = np.r_[np.c_[np.cos(arc), np.sin(arc)], [[0.0, 0.0]]] * rad
+    sx, sy = 1.0, 1.0
+    if name in ("half_y-",):
+        sy = -1.0
+    if name in ("half_x+", "half_x-"):
+        poly = poly[:, ::-1] * np.array([1.0, -1.0])      # the half y>0 turned to x>0
+        poly = poly[::-1]
+        sx = -1.0 if name == "half_x-" else 1.0
+    if name.startswith("quad"):
+        sx = 1.0 if name[4] == "+" else -1.0
+        sy = 1.0 if name[5] == "+" else -1.0
+    poly = poly * np.array([sx, sy])
+    if sx * sy < 0:
+        poly = poly[::-1]                                 # keep the outline counter-clockwise
+    closed = np.r_[poly, poly[:1]]
+    seg = np.hypot(*np.diff(closed, axis=0).T)
+    s = np.r_[0.0, np.cumsum(seg)]
+    t = np.linspace(0.0, s[-1], sides, endpoint=False)
+    out = np.c_[np.interp(t, s, closed[:, 0]), np.interp(t, s, closed[:, 1])]
+    c = out.mean(axis=0)
+    start = int(np.argmin(np.abs(np.arctan2(out[:, 1] - c[1], out[:, 0] - c[0]))))
+    return np.roll(out, -start, axis=0)
 
 
-def beam_cones(face: np.ndarray, uv: np.ndarray, hw: np.ndarray, lengths: np.ndarray, scalars: np.ndarray,
-               sides: int = CONE_SIDES) -> pv.PolyData:
-    """Frustums of the transmit beams: from the envelope disc of the array plate (radius ARRAY_ENVELOPE_M / 2, in the
-    face plane) along the directions of the circle of radius hw around (u, v) in the face's direction cosines (the
-    -3 dB contour: its widening with the scan angle is exact), out to the length."""
-    n_b = len(face)
+_OUTLINES: dict = {}
+SUB_SHADES = (1.0, 0.72, 0.5, 0.86)          # sub-beam q of a partition: a shade of its volume's colour
+
+
+def beam_rgb(ev: dict, idx: np.ndarray) -> np.ndarray:
+    """Colour (n, 3) uint8 of beams idx: their volume's colour, shaded per sub-aperture of a partition, so that a
+    sub-aperture and the beam it transmits share a colour and the sub-beams of a dwell are told apart."""
+    pal = np.array([[int(c[i:i + 2], 16) for i in (1, 3, 5)] for c in PALETTE], dtype=float)
+    rgb = pal[ev["sidx"][idx] % len(pal)] * np.array(SUB_SHADES)[ev["sub"][idx] % len(SUB_SHADES)][:, None]
+    return np.clip(rgb, 0, 255).astype(np.uint8)
+
+
+def base_patches(ev: dict, sel: np.ndarray, sides: int = CONE_SIDES) -> pv.PolyData:
+    """The emitting part of each drawn beam's plate (full disc, half or quadrant), filled in the beam's colour, just in
+    front of the yellow envelope disc: shows which (sub-)aperture transmits."""
+    idx = np.flatnonzero(sel)
+    if len(idx) == 0:
+        empty = pv.PolyData(np.zeros((3, 3)), faces=np.array([3, 0, 1, 2]))
+        empty["rgb"] = np.zeros((3, 3), dtype=np.uint8)
+        return empty
+    face, base = ev["face"][idx], ev["base"][idx]
+    nn = np.array([f_[0] for f_ in _FRAMES])[face]
+    eu = np.array([f_[1] for f_ in _FRAMES])[face]
+    evv = np.array([f_[2] for f_ in _FRAMES])[face]
+    centre = np.array([aperture_centre(k) for k in range(4)])[face] + 0.02 * KM * nn
+    for kb in np.unique(base):
+        if (kb, sides) not in _OUTLINES:
+            _OUTLINES[(kb, sides)] = _base_outline(int(kb), sides)
+    xy = np.array([_OUTLINES[(kb, sides)] for kb in base])
+    pts = (centre[:, None, :] + xy[..., 0:1] * eu[:, None, :] + xy[..., 1:2] * evv[:, None, :]).reshape(-1, 3)
+    faces = np.c_[np.full(len(idx), sides), (np.arange(len(idx)) * sides)[:, None] + np.arange(sides)[None, :]]
+    poly = pv.PolyData(pts, faces=faces.ravel())
+    poly["rgb"] = np.repeat(beam_rgb(ev, idx), sides, axis=0)
+    return poly
+
+
+def beam_cones(ev: dict, sel: np.ndarray, sides: int = CONE_SIDES) -> pv.PolyData:
+    """Transmit beams as solids: from the emitting part of the plate (full disc, half or quadrant), collimated over the
+    near field D_eff^2 / lambda, then opening along the -3 dB contour (half-widths hu, hv along u and v around the
+    pointing in the face's direction cosines: exact widening with the scan), out to the volume's range."""
+    idx = np.flatnonzero(sel)
+    n_b = len(idx)
     if n_b == 0:
-        return pv.PolyData(np.zeros((3, 3)), faces=np.array([3, 0, 1, 2]))
+        empty = pv.PolyData(np.zeros((3, 3)), faces=np.array([3, 0, 1, 2]))
+        empty["rgb"] = np.zeros((3, 3), dtype=np.uint8)
+        return empty
+    face, base = ev["face"][idx], ev["base"][idx]
     a = 2.0 * np.pi * np.arange(sides) / sides
     ca, sa = np.cos(a), np.sin(a)
-    nn = np.array([f[0] for f in _FRAMES])[face]
-    eu = np.array([f[1] for f in _FRAMES])[face]
-    ev = np.array([f[2] for f in _FRAMES])[face]
+    nn = np.array([f_[0] for f_ in _FRAMES])[face]
+    eu = np.array([f_[1] for f_ in _FRAMES])[face]
+    evv = np.array([f_[2] for f_ in _FRAMES])[face]
     centre = np.array([aperture_centre(k) for k in range(4)])[face]
-    u = uv[:, 0, None] + hw[:, None] * ca
-    v = uv[:, 1, None] + hw[:, None] * sa
+    u = ev["u"][idx, None] + ev["hu"][idx, None] * ca
+    v = ev["v"][idx, None] + ev["hv"][idx, None] * sa
     w = np.sqrt(np.clip(1.0 - u * u - v * v, 0.0, 1.0))
-    d = u[..., None] * eu[:, None, :] + v[..., None] * ev[:, None, :] + w[..., None] * nn[:, None, :]
+    d = u[..., None] * eu[:, None, :] + v[..., None] * evv[:, None, :] + w[..., None] * nn[:, None, :]
     d /= np.linalg.norm(d, axis=2, keepdims=True)
-    rad = rm.ARRAY_ENVELOPE_M / 2.0 * KM
-    start = centre[:, None, :] + rad * (ca[None, :, None] * eu[:, None, :] + sa[None, :, None] * ev[:, None, :])
-    end = start + lengths[:, None, None] * d
-    pts = np.concatenate([start, end], axis=1).reshape(-1, 3)            # per beam: sides start, then sides end
-    base = (np.arange(n_b) * 2 * sides)[:, None]
+    for kb in np.unique(base):
+        if (kb, sides) not in _OUTLINES:
+            _OUTLINES[(kb, sides)] = _base_outline(int(kb), sides)
+    xy = np.array([_OUTLINES[(kb, sides)] for kb in base])                 # (n_b, sides, 2)
+    start = centre[:, None, :] + xy[..., 0:1] * eu[:, None, :] + xy[..., 1:2] * evv[:, None, :]
+    lens = ev["len"][idx]
+    lnf = np.minimum(ev["lnf"][idx], lens)
+    mid = start + lnf[:, None, None] * ev["dir"][idx][:, None, :]
+    end = mid + (lens - lnf)[:, None, None] * d
+    pts = np.concatenate([start, mid, end], axis=1).reshape(-1, 3)       # per beam: start, mid, end rings
+    b0 = (np.arange(n_b) * 3 * sides)[:, None]
     j = np.arange(sides)[None, :]
     j1 = (j + 1) % sides
-    quads = np.stack([np.full((n_b, sides), 4), base + j, base + j1, base + sides + j1, base + sides + j], axis=2)
-    poly = pv.PolyData(pts, faces=quads.ravel())
-    poly["c"] = np.repeat(scalars, 2 * sides)
+    q1 = np.stack([np.full((n_b, sides), 4), b0 + j, b0 + j1, b0 + sides + j1, b0 + sides + j], axis=2)
+    q2 = np.stack([np.full((n_b, sides), 4), b0 + sides + j, b0 + sides + j1, b0 + 2 * sides + j1,
+                   b0 + 2 * sides + j], axis=2)
+    poly = pv.PolyData(pts, faces=np.concatenate([q1, q2], axis=1).ravel())
+    poly["rgb"] = np.repeat(beam_rgb(ev, idx), 3 * sides, axis=0)
     return poly
 
 
@@ -358,12 +494,14 @@ def main(argv) -> int:
     a = ap.parse_args(argv)
     path = mission_path(a.mission)
     print(f"computing the pointings of {os.path.basename(path)} ...")
-    ts, org, dirs, lens, sidx, ids, rrs, mission, duration, face, uv, hw, on_s = pointing_events(path, a.duration)
+    ev = pointing_events(path, a.duration)
+    ts, org, dirs, lens, sidx, on_s = ev["t"], ev["org"], ev["dir"], ev["len"], ev["sidx"], ev["on"]
+    ids, rrs, mission, duration = ev["ids"], ev["rrs"], ev["mission"], ev["duration"]
     rr_max = max(rrs)
     loops = [max(1, math.ceil(duration / rr - 1e-9)) for rr in rrs]
     speed = {"trace": a.speed, "physical": a.speed, "slow": a.slow}
     fade = a.fade * np.asarray(rrs)[sidx]                     # per beam (s)
-    print(f"{len(ts)} pointings over {duration:g} s; sectors {', '.join(f'{i} (RR {r:g} s)' for i, r in zip(ids, rrs))}; "
+    print(f"{len(ts)} transmit beams over {duration:g} s; sectors {', '.join(f'{i} (RR {r:g} s)' for i, r in zip(ids, rrs))}; "
           f"physical durations {1e3 * on_s.min():.3g} to {1e3 * on_s.max():.3g} ms")
 
     pl = pv.Plotter(off_screen=bool(a.snapshot), window_size=(1400, 900))
@@ -378,9 +516,10 @@ def main(argv) -> int:
         else:
             pl.add_mesh(sphere, color="#3b6fb6", culling="back", smooth_shading=True)
     cmap = PALETTE[:max(1, len(ids))]
-    beams = beam_cones(face[:1], uv[:1], hw[:1], lens[:1], sidx[:1].astype(float))
-    pl.add_mesh(beams, scalars="c", cmap=cmap, clim=(0, max(1, len(ids) - 1)), opacity=BEAM_OPACITY,
-                show_scalar_bar=False, lighting=False, name="beams")
+    beams = beam_cones(ev, np.arange(len(ts)) == 0)
+    bases = base_patches(ev, np.arange(len(ts)) == 0)
+    pl.add_mesh(bases, scalars="rgb", rgb=True, lighting=False, name="bases")
+    pl.add_mesh(beams, scalars="rgb", rgb=True, opacity=BEAM_OPACITY, lighting=False, name="beams")
     secs = {s["id"]: s for s in mission["sectors"]}
     for i, sid in enumerate(ids):
         lines, surface, radials = volume_outline(secs[sid])
@@ -445,10 +584,11 @@ def main(argv) -> int:
             sel = (ts <= t_sim) & (ts + on_s > min(state["t_prev"], t_sim - 1e-12))
             what = "physical: dwell + echo window" + (f", slow motion" if tm == "slow" else "")
         state["t_prev"] = t_sim
-        beams.copy_from(beam_cones(face[sel], uv[sel], hw[sel], lens[sel], sidx[sel].astype(float)))
+        beams.copy_from(beam_cones(ev, sel))
+        bases.copy_from(base_patches(ev, sel))
         lp = "  ".join(f"{sid} {min(n, int(t_sim // rr) + 1)}/{n}" for sid, rr, n in zip(ids, rrs, loops))
-        hud.SetInput(f"t = {t_sim:8.3f} / {duration:g} s  |  loop {lp}  |  {int(sel.sum())} beams  |  {what} (m)  |  "
-                     f"x{speed[tm]:g}  |  view {state['view']} (v)")
+        hud.SetInput(f"{int(sel.sum())} beams  |  {what} (m)  |  x{speed[tm]:g}  |  view {state['view']} (v)"
+                     + chr(10) + f"t = {t_sim:8.3f} / {duration:g} s  |  loop {lp}")
         set_clipping()
         scale.update()
 
