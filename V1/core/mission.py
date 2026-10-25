@@ -33,6 +33,10 @@ self-protection jammer is deceptive, verification looks counted).
 Scheduler (step 4.3, core/scheduler.py), per sector: "self_protection" (true: the volume is searched at priority P1),
 "search_priority" (P4 sub-priority of a search volume, 1 = most important, default 1), "latency_max_s" (confirmation
 latency required; default scheduler.latency_frac x the time to impact).
+Mission settings (step 5.1), each defaulting to radar_system.toml: global "confirm_p_min" (probability of confirming a
+true target), "ship_rate_max_dps" / "ship_accel_max_dps2" (re-pointing in flight; the band loss stays sized by the
+file); per sector "confirm_p_min", "pd" (cumulative Pd of the search at range_km), "fa_rate_per_s" (false alarms
+tolerated per second, instead of fa_per_rr); per AT bracket "pd_update" and "p_discrimination".
 
 Validation messages are operator-facing.
 """
@@ -137,10 +141,21 @@ def validate_global(g: dict) -> List[str]:
         errs.append(f"face_elec_mw ({elec}) must be >= 0 (0 = no cap; caps in a list > 0)")
     elif max(caps) > FACE_FEEDER_MAX_MW:
         errs.append(f"face_elec_mw cap ({max(caps)} MW) exceeds the face feeder ({FACE_FEEDER_MAX_MW:g} MW)")
+    errs.extend(_probabilities(g, ("confirm_p_min",), "mission"))                               # step 5.1
+    for k in ("ship_rate_max_dps", "ship_accel_max_dps2"):
+        if g.get(k) is not None and (not isinstance(g[k], (int, float)) or isinstance(g[k], bool) or g[k] <= 0):
+            errs.append(f"mission: {k} must be > 0")
     errs.extend(sky.validate(g.get("sky")))
     errs.extend(frames.validate_nav(g.get("nav")) + frames.validate_sky_frame(g.get("sky")))   # step 3.0
     errs.extend(validate_spectrum(g.get("spectrum_exclusions_ghz")))                           # step 3.1
     return errs
+
+
+def _probabilities(d: dict, keys, tag: str) -> List[str]:
+    """Step 5.1: probabilities set by the operator must lie in ]0, 1[."""
+    return [f"{tag}: {k} ({d[k]}) must be a probability in ]0, 1[" for k in keys
+            if d.get(k) is not None and (not isinstance(d[k], (int, float)) or isinstance(d[k], bool)
+                                         or not 0.0 < d[k] < 1.0)]
 
 
 def validate_spectrum(ex) -> List[str]:
@@ -287,6 +302,12 @@ def validate_environment(sec: dict, tag: str) -> List[str]:
     for k in ("maneuver_tau_s", "aspect_offset_deg"):
         if sec.get(k) is not None and (not isinstance(sec[k], (int, float)) or sec[k] < 0):
             errs.append(f"{tag}: {k} must be a number >= 0")
+    errs.extend(_probabilities(sec, ("confirm_p_min", "pd"), tag))                              # step 5.1
+    if sec.get("fa_rate_per_s") is not None:
+        if sec.get("fa_per_rr") is not None:
+            errs.append(f"{tag}: give fa_per_rr or fa_rate_per_s, not both")
+        elif not isinstance(sec["fa_rate_per_s"], (int, float)) or sec["fa_rate_per_s"] <= 0:
+            errs.append(f"{tag}: fa_rate_per_s must be > 0")
     if sec.get("objects_per_rr") is not None and sec["objects_per_rr"] < 0:
         errs.append(f"{tag}: objects_per_rr must be >= 0")
     if (sec.get("tec_tecu") is None) != (sec.get("b_parallel_nt") is None):
@@ -329,6 +350,7 @@ def validate_tracking(sec: dict, tag: str) -> List[str]:
                          ("range_acc_m", "range accuracy"), ("vr_acc_mps", "velocity accuracy")):
             if b[f] <= 0:
                 errs.append(f"{bt}: {label} ({f}) must be > 0")
+        errs.extend(_probabilities(b, ("pd_update", "p_discrimination"), bt))                  # step 5.1
     spans.sort()
     for (a0, a1, ia), (b0, b1, ib) in zip(spans, spans[1:]):
         if b0 < a1:
@@ -379,7 +401,7 @@ _CSV_FIELDS = [
     "v_close_min_mps", "v_close_max_mps", "res_max_m", "range_min_km", "fa_per_rr", "allow_ambiguous", "rx_sll_db",
     "confirm_mode", "new_targets_per_rr", "tracking", "frame", "limb_alt_km", *frames.TWO_DIR_KEYS,
     *frames.TRACK_KEYS, "maneuver_tau_s", "aspect_offset_deg", "discriminate_against", "jammer_deceptive",
-    "self_protection", "search_priority", "latency_max_s",
+    "self_protection", "search_priority", "latency_max_s", "confirm_p_min", "pd", "fa_rate_per_s",
 ]
 
 

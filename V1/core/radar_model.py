@@ -2645,6 +2645,8 @@ def solve_look(b: SolveBase, t_sys_k: Optional[float] = None, pfa: Optional[floa
                                               tx_subaperture(wf), wf.doppler_window_db if b.ppb > 1 else None,
                                               grid_spacing_hpbw, pointing)
     k.pos_l, k.pos_w, k.pos_parts = pos_l, pos_w, pos_parts
+    if pd is None and cum is not None and len(cum) > 3:
+        pd = cum[3]                                 # step 5.1: the sector's own cumulative Pd (search_criterion)
     pd_l = DETECT_PD if pd is None else float(pd)
     q = k.q = cum[0] * cum[1] / (cum[2] * 1e3) if (cum is not None and b.search) else 0.0
     if b.track_snr is None:

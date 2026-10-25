@@ -384,7 +384,8 @@ def _environment(sec: dict, band_name: str, f_ghz: float, sll: float, dirs: np.n
     else:
         bw = min(P.get("tool.confirmation.ku_sig_bw_mhz"))
     dr_m = C / (2.0 * bw * 1e6)
-    snr = rm.db_to_lin(detection.snr_req_db(1, tgt.swerling_case(f_ghz), rm.DETECT_PFA, rm.DETECT_PD))
+    snr = rm.db_to_lin(detection.snr_req_db(1, tgt.swerling_case(f_ghz), rm.DETECT_PFA,
+                                            float(sec.get("pd", rm.DETECT_PD))))
     x = np.zeros(len(dirs))
     info = {"surfaces": {}, "limbs": [], "main_lobe_surface": False, "adc_margin_db_min": None}
     hp = math.radians(rm.hpbw_deg(f_ghz))
@@ -840,13 +841,18 @@ def parts_at(w, f, theta, tgt, rx_sll: Optional[float] = None, v_span: Optional[
 
 
 def fa_per_rr(sec: dict) -> float:
-    """False alarms tolerated per revisit for a sector (step 2.3, fa_mode 'fa_rate'; mission setting at 5.1)."""
+    """False alarms tolerated per revisit for a sector (step 2.3, fa_mode 'fa_rate'): its fa_per_rr, or (step 5.1) its
+    rate per second fa_rate_per_s x its revisit, else the file's default."""
+    if sec.get("fa_rate_per_s") is not None:
+        return float(sec["fa_rate_per_s"]) * float(sec["rr_target_s"])
     return float(sec.get("fa_per_rr", FA_PER_RR_DEFAULT))
 
 
-def search_criterion(sec: dict) -> Tuple[float, float, float]:
-    """(v_close_max, revisit, requirement range) of the cumulative search criterion of a sector (step 2.3)."""
-    return float(sec["v_close_max_mps"]), float(sec["rr_target_s"]), float(sec["range_km"])
+def search_criterion(sec: dict) -> tuple:
+    """(v_close_max, revisit, requirement range) of the cumulative search criterion of a sector (step 2.3), plus its
+    own cumulative Pd when the sector sets "pd" (step 5.1; read by radar_model.solve_look)."""
+    c = (float(sec["v_close_max_mps"]), float(sec["rr_target_s"]), float(sec["range_km"]))
+    return c + (float(sec["pd"]),) if sec.get("pd") is not None else c
 
 
 def cells_per_position(sec: dict, w, f: float) -> float:
@@ -1438,11 +1444,12 @@ def _freq_ranges(sec: dict, sph: Sphere, m: np.ndarray, f: float, sky: Optional[
     nb = P.shape[1]
     spj = env.spj_density_w_hz(sec, f)                                  # step 3.1, P4 Q11-Q13
     se = sector_env_s(sec, sph, m, f, sky)
-    v, rr, r_req = search_criterion(sec)
+    crit = search_criterion(sec)
+    v, rr, r_req = crit[:3]
     classes = se["classes"] if se is not None else np.array([r_req])
     fc = [cands[c] for c in fit]
     parts = [_range_parts(fc, f, tgt, nb, rx_sll_db(sec), velocity_span_mps(sec), [pfas[c] for c in fit],
-                          (v, rr, float(rk)), spj, grid_spacing(sec))
+                          (v, rr, float(rk)) + crit[3:], spj, grid_spacing(sec))
              for rk in classes]                                         # the cumulative criterion at each class range
     surfaces = not (se is None or (len(classes) == 1
                                    and not any(float(y.max(initial=0.0)) > 0.0 for y in se["y"].values())))
@@ -1713,6 +1720,7 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
                                                * w.tau_s * w.n)),
         "faces": {str(k): v for k, v in faces.items()},
         "rr_target_s": rr,
+        "pd_cumulative": float(sec.get("pd", rm.DETECT_PD)), "fa_per_rr": fa_per_rr(sec),     # step 5.1
         "rr_alone_s": rr * load,                               # RR if this sector had the face to itself (energy and time)
         "time_to_impact_at_detection_s": (r_want * 1e3 / v_max - rr) if v_max > 0 else None,
     }

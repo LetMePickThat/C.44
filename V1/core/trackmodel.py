@@ -173,7 +173,11 @@ class TrackState:
     """The steady track of one bracket at one range: the accuracy pack of the update look and what points it."""
 
     def __init__(self, tgt: "rm.Target", t_s: float, r_km: float, zone_deg: float, range_acc_m: Optional[float],
-                 vr_acc_mps: float, f_ku: float, theta_deg: float):
+                 vr_acc_mps: float, f_ku: float, theta_deg: float, pd_update: Optional[float] = None,
+                 nav_axis_deg: Optional[float] = None):
+        # step 5.1: Pd of an update (bracket key pd_update) and the navigation's pointing error (mission acceleration)
+        self.pd_update = PD_UPDATE if pd_update is None else float(pd_update)
+        nav_deg = repoint.axis_sigma_deg() if nav_axis_deg is None else float(nav_axis_deg)
         self.t_s, self.r_m = float(t_s), float(r_km) * 1e3
         self.sigma_m, self.tau_s = manoeuvre(tgt)
         zone_sigma = math.radians(zone_deg / rm_zone_sigmas())
@@ -195,8 +199,7 @@ class TrackState:
         hp = math.radians(rm.hpbw_deg(f_ku, theta_deg))
         self.hpbw_rad = hp
         # step 4.5: the navigation's per-axis pointing error adds to the filter's (C3)
-        self.pointing_hpbw = math.hypot(math.sqrt(self.p_cross[0, 0]) / self.r_m,
-                                        math.radians(repoint.axis_sigma_deg())) / hp
+        self.pointing_hpbw = math.hypot(math.sqrt(self.p_cross[0, 0]) / self.r_m, math.radians(nav_deg)) / hp
         self.v_span_mps = 2.0 * VEL_BANK_SIGMAS * math.sqrt(self.p_range[1, 1])
         # never wider than the class's own acceleration (E1), never below the floor
         self.a_bank_mps2 = min(ACCEL_BANK_SIGMAS * math.sqrt(max(self.p_cross[2, 2], self.p_range[2, 2])),
@@ -319,14 +322,15 @@ def p_correct(d: Dict[str, float]) -> float:
 
 
 def discrimination(a: "rm.Target", b: "rm.Target", f_ghz: float, snr_lin: float, faraday_rad: float,
-                   sigma_a_filt: float) -> Dict[str, object]:
+                   sigma_a_filt: float, p_target: Optional[float] = None) -> Dict[str, object]:
     """Looks needed to reach P_DISCRIMINATION between a and b, without and with the TX polarisation switching (F5);
     the switching is kept when it needs fewer looks."""
     res = {}
+    p_t = P_DISCRIMINATION if p_target is None else float(p_target)      # step 5.1: bracket key p_discrimination
     for sw in (False, True):
         n_need = None
         for n in range(1, DISC_N_MAX + 1):
-            if p_correct(indices(a, b, f_ghz, snr_lin, n, faraday_rad, sw, sigma_a_filt)) >= P_DISCRIMINATION:
+            if p_correct(indices(a, b, f_ghz, snr_lin, n, faraday_rad, sw, sigma_a_filt)) >= p_t:
                 n_need = n
                 break
         res[sw] = (n_need, p_correct(indices(a, b, f_ghz, snr_lin, DISC_N_MAX, faraday_rad, sw, sigma_a_filt)))

@@ -51,6 +51,7 @@ from . import environment as env
 from . import isolation as iso
 from . import optimizer as mo
 from . import radar_model as rm
+from . import repoint
 from . import sky as skym
 from . import trackmodel as tm
 from .params import P
@@ -288,8 +289,9 @@ class ConfirmStats:
     face, and the detection always happens at the design SNR)."""
 
     def __init__(self, fl_s, fl_ku, f_s_ghz: float, f_ku_ghz: float, spacing_hpbw: Optional[float],
-                 cl: ClusterTx):
+                 cl: ClusterTx, p_min: float = CONFIRM_P_MIN):
         self.fl_s, self.fl_ku, self.cl = fl_s, fl_ku, cl
+        self.p_min = float(p_min)                                     # step 5.1: mission / sector confirm_p_min
         self.q = rm.hpbw_deg(f_s_ghz) / rm.hpbw_deg(f_ku_ghz)                 # S TX beamwidth in Ku TX beamwidths
         self.snr_s = _snr_ref(fl_s)
         self.x_det = detected_snr_quantiles(self.snr_s, fl_s)                  # (M,)
@@ -354,26 +356,26 @@ class ConfirmStats:
         """Smallest Ku margin (dB, within MARGIN_TOL_DB) reaching CONFIRM_P_MIN after a touch at each mt_db, by a
         bisection run for every touch margin at once; NaN where even MARGIN_MAX_DB does not."""
         n = len(mt_db)
-        top = self.s2_vec(mt_db, np.full(n, MARGIN_MAX_DB))[0] >= CONFIRM_P_MIN
-        zero = self.s2_vec(mt_db, np.zeros(n))[0] >= CONFIRM_P_MIN
+        top = self.s2_vec(mt_db, np.full(n, MARGIN_MAX_DB))[0] >= self.p_min
+        zero = self.s2_vec(mt_db, np.zeros(n))[0] >= self.p_min
         lo, hi = np.zeros(n), np.full(n, MARGIN_MAX_DB)
         while (hi - lo).max() > MARGIN_TOL_DB:
             mid = 0.5 * (lo + hi)
-            ok = self.s2_vec(mt_db, mid)[0] >= CONFIRM_P_MIN
+            ok = self.s2_vec(mt_db, mid)[0] >= self.p_min
             lo, hi = np.where(ok, lo, mid), np.where(ok, mid, hi)
         return np.where(~top, np.nan, np.where(zero, 0.0, hi))
 
     def min_margin(self, f) -> Optional[float]:
         """Smallest margin (dB, within MARGIN_TOL_DB) at which f(margin) = success reaches CONFIRM_P_MIN; None if even
         MARGIN_MAX_DB does not (success increases with the margin)."""
-        if f(MARGIN_MAX_DB) < CONFIRM_P_MIN:
+        if f(MARGIN_MAX_DB) < self.p_min:
             return None
-        if f(0.0) >= CONFIRM_P_MIN:
+        if f(0.0) >= self.p_min:
             return 0.0
         lo, hi = 0.0, MARGIN_MAX_DB
         while hi - lo > MARGIN_TOL_DB:
             mid = 0.5 * (lo + hi)
-            lo, hi = (mid, hi) if f(mid) < CONFIRM_P_MIN else (lo, mid)
+            lo, hi = (mid, hi) if f(mid) < self.p_min else (lo, mid)
         return hi
 
 
@@ -656,6 +658,17 @@ def ku_burn_through(theta: float, tgt: rm.Target, r_km: float, p_avg_max_w: floa
     return {"reaches_requirement": False, "range_km": round(float(rr[j]), 1), "wf": _wf_label(sp.det[j], f_ghz)}
 
 
+def _with_mission_settings(sec: dict, g: dict) -> dict:
+    """The sector with the mission-level settings it does not override (step 5.1): confirm_p_min, and the per-axis
+    navigation pointing error of the mission's angular acceleration (internal key)."""
+    out = dict(sec)
+    if "confirm_p_min" not in out and g.get("confirm_p_min") is not None:
+        out["confirm_p_min"] = float(g["confirm_p_min"])
+    if g.get("ship_accel_max_dps2") is not None:
+        out["_nav_axis_sigma_deg"] = repoint.axis_sigma_deg(float(g["ship_accel_max_dps2"]))
+    return out
+
+
 def _wf_params(w: rm.Waveform, sec: dict, f_ghz: float) -> dict:
     """Numbers of a Ku look the compute budget needs (step 4.4): pulses, PRI, pulse, bandwidth, processing banks."""
     return {"n_pulses": w.n, "pri_ms": w.pri_s * 1e3, "tau_us": w.tau_s * 1e6, "sig_bw_mhz": w.sig_bw_mhz,
@@ -785,7 +798,7 @@ def _track_update(gr: dict, tgt: rm.Target, st: "tm.TrackState", r_km: float, ct
     pt1 = ("gauss", float(f"{sig:.3g}"))
     clut = clutter(gr, r_km) if clutter is not None else None
     kw = dict(rx_sll_db=sll, t_sys_k=t_ku, r_min_km=r_min_sec, v_span_mps=v_span, f_ghz=f_ku, spj=spj, clutter=clut,
-              excl=excl, pd=tm.PD_UPDATE)
+              excl=excl, pd=st.pd_update)
     single = ku_look(gr["theta"], tgt_t, r_km, p_avg_max_w, pack, pointing=pt1, **kw)
     cluster = ku_look(gr["theta"], tgt_t, r_km, p_avg_max_w, pack, pointing=("cluster", rm.BEAM_SPACING_HPBW), **kw)
     opts = []
@@ -797,15 +810,16 @@ def _track_update(gr: dict, tgt: rm.Target, st: "tm.TrackState", r_km: float, ct
         return None
     _, mode, look, mult = min(opts, key=lambda o: o[0])
     if mode == "single" and pointing_hpbw is None:
-        pds = [_coast_pd(look, st.coast_pointing(k), tgt_t, f_ku, sll, v_span, spj) for k in range(tm.N_MISS_LOST)]
+        pds = [_coast_pd(look, st.coast_pointing(k), tgt_t, f_ku, sll, v_span, spj, st.pd_update)
+               for k in range(tm.N_MISS_LOST)]
     else:
-        pds = [tm.PD_UPDATE] * tm.N_MISS_LOST
+        pds = [st.pd_update] * tm.N_MISS_LOST
     p_loss, _ = tm.loss_per_update(pds)
     return {"look": look, "mode": mode, "mult": mult, "p_loss": p_loss, "pds": pds}
 
 
 def _coast_pd(look: dict, sigma_hpbw: float, tgt_t: rm.Target, f_ku: float, sll: float, v_span: float,
-              spj: Optional[float]) -> float:
+              spj: Optional[float], pd_update: float = tm.PD_UPDATE) -> float:
     """Pd of the chosen look when it points with the error sigma_hpbw of a coasted track (B6): the detection law of
     the look with that pointing, at the SNR the look delivers (its design SNR, plus the margin when the accuracy and
     not the detection sized it)."""
@@ -814,7 +828,7 @@ def _coast_pd(look: dict, sigma_hpbw: float, tgt_t: rm.Target, f_ku: float, sll:
     p0 = sp.det_parts[j]
     margin = 40.0 * math.log10(p0[0] / sp.rn[j]) if sp.rn[j] > 0 and p0[0] > sp.rn[j] else 0.0
     pk = mo.parts_at(d, f_ku, 0.0, tgt_t, sll, v_span, None, None, spj, None, ("gauss", float(f"{sigma_hpbw:.3g}")),
-                     tm.PD_UPDATE)
+                     pd_update)
     if pk is None:
         return 0.0
     law = np.array([pk[4]])
@@ -835,7 +849,7 @@ def _initiation_cost(gr: dict, tgt: rm.Target, st: "tm.TrackState", r_km: float,
 
 
 def _longest_period(tgt: rm.Target, gr: Optional[dict], ranges: List[float], t_s: float, zone: float,
-                    racc: Optional[float], vacc: float, ctx) -> Optional[float]:
+                    racc: Optional[float], vacc: float, ctx, st_kw: Optional[dict] = None) -> Optional[float]:
     """Longest update period, below the operator's, at which every failing range of the bracket holds its
     requirements with a reachable look (A8, D2); None if even a very short period does not."""
     if gr is None:
@@ -844,7 +858,7 @@ def _longest_period(tgt: rm.Target, gr: Optional[dict], ranges: List[float], t_s
 
     def ok(t):
         for rk in ranges:
-            st = tm.TrackState(tgt, t, rk, zone, racc, vacc, f_ku, 0.0)
+            st = tm.TrackState(tgt, t, rk, zone, racc, vacc, f_ku, 0.0, **(st_kw or {}))
             if not st.feasible or _track_update(gr, tgt, st, rk, ctx, pointing_hpbw=st.pointing_hpbw) is None:
                 return False
         return True
@@ -952,11 +966,12 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         return max(float((e / p_avg_max_w).max()), float(ts.max()), float(tk.max()))
 
     modes: Dict[str, dict] = {}
+    p_min = float(sec.get("confirm_p_min", CONFIRM_P_MIN))          # step 5.1: sector, else mission, else the file
     for mode in CONFIRM_MODES:
         why = ["part of the sector is out of Ku reach"] if ku_missing > 0 else []
         best = None
         for cl in cluster_variants():
-            st = ConfirmStats(fl_s, fl_ku, f_s, f_ku, spacing, cl)
+            st = ConfirmStats(fl_s, fl_ku, f_s, f_ku, spacing, cl, p_min)
             if mode == "S2":
                 mts = np.arange(0.0, MARGIN_MAX_DB + TOUCH_STEP_DB / 2.0, TOUCH_STEP_DB)
                 mks = st.s2_min_margins(mts)
@@ -989,7 +1004,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                                    "ku_looks_fa": l_fa, "cluster_tx": cl.name,
                                    "round_trips": 2 if mode == "KU1+7" else 1}, e, ts, tk, q)
         if best is None:
-            why.append(f"confirmation probability < {CONFIRM_P_MIN} even with {MARGIN_MAX_DB:g} dB margin")
+            why.append(f"confirmation probability < {p_min:g} even with {MARGIN_MAX_DB:g} dB margin")
             modes[mode] = {"admissible": False, "why_not": "; ".join(why)}
             continue
         _, info, e, ts, tk, q = best
@@ -1013,7 +1028,9 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         r_lo = max(float(b["r_min_km"]), r_min_sec, 1e-3)
         r_hi = max(float(b["r_max_km"]), r_lo)
         ranges = [r_lo + (i + 0.5) * (r_hi - r_lo) / tm.N_RANGES for i in range(tm.N_RANGES)]        # D1
-        states = [tm.TrackState(tgt, T, rk, zone, racc, vacc, f_ku, 0.0) for rk in ranges]
+        # step 5.1: the bracket's own Pd of an update, the mission's navigation pointing error
+        st_kw = {"pd_update": b.get("pd_update"), "nav_axis_deg": sec.get("_nav_axis_sigma_deg")}
+        states = [tm.TrackState(tgt, T, rk, zone, racc, vacc, f_ku, 0.0, **st_kw) for rk in ranges]
         e_face, t_face, q_face = np.zeros(4), np.zeros(4), np.zeros(4)
         drivers: Dict[str, float] = {}
         wf_main, pos_main, unreachable = None, -1.0, 0.0
@@ -1053,7 +1070,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         # initiation (C) in the bracket where tracks start, and re-initiation of the lost tracks (B8), at the bracket's
         # start range (start bracket) or mid-range; each also costs a confirmation look of the main group
         r_init = min(r_det, r_hi) if bi == start else 0.5 * (r_lo + r_hi)
-        st0 = tm.TrackState(tgt, T, r_init, zone, racc, vacc, f_ku, 0.0)
+        st0 = tm.TrackState(tgt, T, r_init, zone, racc, vacc, f_ku, 0.0, **st_kw)
         new_rate = (n_new / rr) if bi == start else 0.0
         init = _initiation_cost(main_gr, tgt, st0, r_init, hand_theta, zone, racc, vacc, tm_ctx) \
             if (main_gr is not None and st0.feasible) else None
@@ -1072,7 +1089,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         # A8: the operator's period, or the longest one that holds every requirement at the worst point (D2)
         rr_alert = None
         if infeasible:
-            rr_alert = _longest_period(tgt, main_gr, sorted(set(infeasible)), T, zone, racc, vacc, tm_ctx)
+            rr_alert = _longest_period(tgt, main_gr, sorted(set(infeasible)), T, zone, racc, vacc, tm_ctx, st_kw)
             flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: update period {T:g} s not tenable "
                          + (f"(longest tenable {rr_alert:.3g} s)" if rr_alert else "(no period tenable)")
                          + ": accept it, or relax the accuracies, the number of tracks or the range")
@@ -1114,22 +1131,24 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         b = sec["tracking"][start]
         T = float(b["rr_s"])
         st_d = tm.TrackState(tgt, T, min(r_det, float(b["r_max_km"])), float(b["angle_zone_deg"]),
-                             b.get("range_acc_m"), float(b["vr_acc_mps"]), f_ku, 0.0)
+                             b.get("range_acc_m"), float(b["vr_acc_mps"]), f_ku, 0.0, pd_update=b.get("pd_update"),
+                             nav_axis_deg=sec.get("_nav_axis_sigma_deg"))
+        p_disc = float(b.get("p_discrimination", tm.P_DISCRIMINATION))       # step 5.1: bracket key
         far = (math.radians(env.faraday_round_trip_deg(sec["tec_tecu"], sec["b_parallel_nt"], f_ku))
                if sec.get("tec_tecu") is not None and sec.get("b_parallel_nt") is not None else 0.0)
         disc = tm.discrimination(tgt, rm.TARGETS[other], f_ku, rm.db_to_lin(rm.lin_to_db(conf_snr)), far,
-                                 math.sqrt(st_d.pf_cross[2, 2]))
+                                 math.sqrt(st_d.pf_cross[2, 2]), p_disc)
         disc["against"] = other
         r0 = min(r_det, float(b["r_max_km"]))
         if disc["looks"] is not None:
             disc["time_s"] = disc["looks"] * T
             disc["range_km"] = r0 - tgt.v_close_mps * disc["time_s"] / 1e3
             if disc["range_km"] < r_min_sec:
-                flags.append(f"{tgt.target_type} / {other} discrimination at P {tm.P_DISCRIMINATION:g} reached at "
+                flags.append(f"{tgt.target_type} / {other} discrimination at P {p_disc:g} reached at "
                              f"{disc['range_km']:.0f} km, below the shortest range of interest {r_min_sec:.0f} km")
         else:
             disc["time_s"] = disc["range_km"] = None
-            flags.append(f"{tgt.target_type} / {other} discrimination does not reach P {tm.P_DISCRIMINATION:g} within "
+            flags.append(f"{tgt.target_type} / {other} discrimination does not reach P {p_disc:g} within "
                          f"{tm.DISC_N_MAX} track looks (P {disc['p_at_max_looks']:.3f})")
 
     # --- false tracks (C5): false alarms passing the Ku confirmation gate
@@ -1270,7 +1289,7 @@ def budget(mission: dict, res: dict) -> dict:
     g = res["global"]
     p_avg_max = g["face_elec_avail_kW"] * 1e3
     sph = mo._sphere(g["eps_min_deg"], g["eps_max_deg"])
-    secs = {s["id"]: s for s in mission["sectors"]}
+    secs = {s["id"]: _with_mission_settings(s, mission.get("global", {})) for s in mission["sectors"]}
     base = {"e": np.zeros(4), "ts": np.zeros(4), "tk": np.zeros(4)}
     for k, v in res["faces_total"].items():
         base["e"][int(k)] = v["energy_fraction"]
@@ -1396,7 +1415,8 @@ def budget(mission: dict, res: dict) -> dict:
             "discrimination": sb.get("discrimination"), "false_tracks_per_s": sb.get("false_tracks_per_s"),
             "ku_min_unsaturated_range_attenuated_km": sb.get("ku_min_unsaturated_range_attenuated_km"),
             "false_alarms_per_rr_face": [float(x) for x in sb["false_alarms_per_rr"]], "p_share": sb["p_share"],
-            "ku_confirm_wf": sb.get("ku_wf"), "flags": sb["flags"]})
+            "ku_confirm_wf": sb.get("ku_wf"), "confirm_p_min": float(secs[sid].get("confirm_p_min", CONFIRM_P_MIN)),
+            "flags": sb["flags"]})
         for fl in sb["flags"]:
             warn.append(f"sector {sid}: {fl}")
 

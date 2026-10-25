@@ -75,19 +75,28 @@ def accel_tenable_dps2(hpbw_deg: float) -> float:
 
 
 def budget(mission: dict, res: dict) -> dict:
-    """Navigation pointing per band, migration of the sectors between faces at the maximum rate (step 4.5)."""
+    """Navigation pointing per band, migration of the sectors between faces at the maximum rate (step 4.5). Step 5.1:
+    the mission may set ship_rate_max_dps / ship_accel_max_dps2; the band loss stays sized by the file's values (it is
+    in every range), the tolerance, the migration and the track pointing use the mission's, and a mission harsher than
+    the file is flagged with the loss it misses."""
     from . import optimizer as mo
     from . import radar_model as rm
+    g = mission.get("global", {})
+    rate = float(g.get("ship_rate_max_dps", RATE_MAX_DPS))
+    accel = float(g.get("ship_accel_max_dps2", ACCEL_MAX_DPS2))
     flags: List[str] = []
     bands = {}
     for name, b in rm.BANDS.items():
         hp = rm.hpbw_deg(b.usable_hi_ghz)
-        r = math.sqrt(r2_deg2())
-        bands[name] = {"hpbw_deg": hp, "error_rms_deg": r, "error_hpbw": r / hp, "loss_db": loss_db(hp),
-                       "accel_tenable_dps2": accel_tenable_dps2(hp)}
+        r = math.sqrt(r2_deg2(accel))
+        bands[name] = {"hpbw_deg": hp, "error_rms_deg": r, "error_hpbw": r / hp, "loss_db": loss_db(hp, accel),
+                       "loss_db_sized": loss_db(hp), "accel_tenable_dps2": accel_tenable_dps2(hp)}
         if r > TOL_HPBW * hp:
             flags.append(f"{name}: navigation pointing error {r / hp:.3f} HPBW above the {TOL_HPBW:g} HPBW tolerance "
-                         f"at {ACCEL_MAX_DPS2:g} deg/s2 (tenable up to {accel_tenable_dps2(hp):.3g} deg/s2)")
+                         f"at {accel:g} deg/s2 (tenable up to {accel_tenable_dps2(hp):.3g} deg/s2)")
+        if accel > ACCEL_MAX_DPS2:
+            flags.append(f"{name}: mission angular acceleration {accel:g} deg/s2 above the {ACCEL_MAX_DPS2:g} deg/s2 the "
+                         f"band loss is sized for: ranges optimistic by {loss_db(hp, accel) - loss_db(hp):.2g} dB")
     # migration (D): sector extent on each face, transit time, load of the neighbouring face
     g = mission.get("global", {})
     sph = mo._sphere(g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0))
@@ -106,11 +115,11 @@ def budget(mission: dict, res: dict) -> dict:
             extent = math.degrees(math.sqrt(omega))
             load_k = max(float(f.get("energy_fraction", 0.0)), float(f.get("time_fraction", 0.0)))
             worst = max(face_load.get(j, 0.0) + load_k for j in ((k + 1) % 4, (k - 1) % 4))
-            out[kk] = {"extent_deg": extent, "transit_s": extent / RATE_MAX_DPS if RATE_MAX_DPS > 0 else math.inf,
+            out[kk] = {"extent_deg": extent, "transit_s": extent / rate if rate > 0 else math.inf,
                        "neighbour_load_during_transit": worst}
             if worst > 1.0:
-                flags.append(f"sector {r['id']}: turning at {RATE_MAX_DPS:g} deg/s moves its load of face F{k + 1} "
+                flags.append(f"sector {r['id']}: turning at {rate:g} deg/s moves its load of face F{k + 1} "
                              f"onto a neighbour face, which would carry {worst:.2f} of its resources")
         sectors[r["id"]] = {"frame": r.get("frame", "ship"), "faces": out}
-    return {"rate_max_dps": RATE_MAX_DPS, "accel_max_dps2": ACCEL_MAX_DPS2, "nav_age_s": age_s(), "bands": bands,
-            "track_axis_sigma_deg": axis_sigma_deg(), "sectors": sectors, "flags": flags}
+    return {"rate_max_dps": rate, "accel_max_dps2": accel, "nav_age_s": age_s(), "bands": bands,
+            "track_axis_sigma_deg": axis_sigma_deg(accel), "sectors": sectors, "flags": flags}
