@@ -100,6 +100,9 @@ FA_PER_RR_DEFAULT = P.get("tool.mission_defaults.sector.fa_per_rr")   # false al
 THETA_BIN_DEG = P.get(_T + "theta_bin_deg")
 C = rm.C_MPS
 SOLVE_CACHE_SIZE = P.get(_T + "solve_cache_size")    # memoised solve() ranges per process (~50 MB when full)
+SPACING_AFTER_FREQ = P.get(_T + "spacing_after_frequency")   # A5 (25 October 2026)
+FREQ_QUIET_CENTRES = P.get(_T + "freq_quiet_centres")        # A6 (25 October 2026); 0 = full two-pass search
+SOLVE_BASE_CACHE_SIZE = P.get(_T + "solve_base_cache_size")   # memoised solve_base() parts (~2 KB each)
 PARALLEL_MIN_SECTORS = P.get(_T + "parallel_min_sectors")   # below this, a sequential run (~0.2 s/sector) beats start-up
 # 0 = automatic: ~physical cores; each worker holds a ~65 MB sphere raster
 MAX_WORKERS = P.get(_T + "max_workers") or max(1, (os.cpu_count() or 2) // 2)
@@ -193,6 +196,20 @@ def coarse_centres(bw_min_mhz: float, excl) -> List[float]:
         if inside:
             out.add(min(inside, key=lambda f: (abs(f - (a + b) / 2.0), f)))
     return sorted(out)
+
+
+def quiet_spectrum(sec: dict, sky: Optional[dict]) -> bool:
+    """No S spectrum exclusion, no stand-off jammer in the sky, no self-protection jammer on the sector (A6)."""
+    return not exclusions_s(sec) and not env.jammers(sky) and sec.get("jammer_type") is None
+
+
+def quiet_centres(valid: List[float], n: int, band) -> List[float]:
+    """n of the valid centres spread over the core band of `band` (the one nearest the middle of each of n equal
+    parts), for a quiet spectrum (A6 / A8, 25 October 2026)."""
+    if not valid:
+        return []
+    w = (band.core_hi_ghz - band.core_lo_ghz) / n
+    return sorted({min(valid, key=lambda f: (abs(f - (band.core_lo_ghz + (k + 0.5) * w)), f)) for k in range(n)})
 
 
 def fine_centres(f_best: float, bw_min_mhz: float, excl, done) -> List[float]:
@@ -756,13 +773,26 @@ def _parts_cached(w, f: float, theta: float, tgt, rx_sll_db: float, v_span_mps: 
     position losses (dB, the axis of its Pd curve), total loss, look-law id), keyed on everything the range depends on
     (Waveform and Target are frozen dataclasses; the target name is set to a constant by range_at). The model's
     module constants are assumed fixed for the life of the process."""
+    b = _base_cached(w, f, theta, tgt, rx_sll_db, v_span_mps)
+    if b is None:
+        return None
     try:
-        r = rm.solve(w, f, theta, tgt, rm.FACE_ELEC_POWER_MW, rx_sll_db, v_span_mps=v_span_mps, pfa=pfa,
-                     cum=cum, spj_density_w_hz=spj, grid_spacing_hpbw=spacing)
+        k = rm.solve_look(b, None, pfa, cum, spj, spacing)
     except ValueError:
         return None
-    return (r.range_noise_km, r.burn_through_km, r.snr_req_db + r.losses["positions"], r.l_tot_db,
-            _law_id(r.look_law))
+    return (k.r_noise_km, k.r_bt_km, k.snr_db + k.losses["positions"], k.l_tot,
+            _law_id((b.n_blocks, b.fl, k.pfa, tuple(k.pos_l), tuple(k.pos_w))))
+
+
+@functools.lru_cache(maxsize=SOLVE_BASE_CACHE_SIZE)
+def _base_cached(w, f: float, theta: float, tgt, rx_sll_db: float, v_span_mps: Optional[float]):
+    """rm.solve_base of a candidate (None: not playable), shared by the lattice spacings, Pfas and requirement
+    classes of one frequency (step 3.2, Q6 E1): with solve_look, the same operations in the same order as solve()
+    (bit-identical, tested), without its diagnostics."""
+    try:
+        return rm.solve_base(w, f, theta, tgt, rx_sll_db, v_span_mps)
+    except ValueError:
+        return None
 
 
 def _range_cached(w, f: float, theta: float, tgt, rx_sll_db: float, v_span_mps: Optional[float] = None,
@@ -1486,11 +1516,11 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
     bw_min = min(w.sig_bw_mhz for w in cands)
     evaluated: Dict[float, Optional[tuple]] = {}
 
-    def evaluate_all(fs) -> None:
-        """Positions, ranges and plan at each new centre and every lattice spacing of rm.BEAM_SPACING_OPTIONS (step
-        3.1, P5 E7: exact search; None: no position or no plan there); the ranges are computed in parallel processes
-        when allowed (step 3.1, X3: identical results)."""
-        jobs = [(f, sp) for f in fs for sp in rm.BEAM_SPACING_OPTIONS if (f, sp) not in evaluated]
+    def evaluate_all(fs, spacings) -> None:
+        """Positions, ranges and plan at each new centre and each lattice spacing given (step 3.1, P5 E7; None: no
+        position or no plan there); the ranges are computed in parallel processes when allowed (step 3.1, X3:
+        identical results)."""
+        jobs = [(f, sp) for f in fs for sp in spacings if (f, sp) not in evaluated]
         if not jobs:
             return
         by_f: Dict[float, List[float]] = {}
@@ -1531,14 +1561,25 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
                                           round(abs(x[9] - rm.BEAM_SPACING_HPBW), 9), round(abs(x[0] - core), 9),
                                           x[0], x[9]), default=None)
 
+    # 25 October 2026 (A5): the frequency is searched at the default lattice spacing, then every spacing is tried at
+    # the frequency kept (SPACING_AFTER_FREQ; else every spacing at every centre). A6: a sector in a quiet spectrum
+    # (no exclusion, no jammer) evaluates FREQ_QUIET_CENTRES centres spread over the core band, the optimum being flat
+    # in frequency there; an encumbered one keeps the two-pass search.
+    sp0 = (rm.BEAM_SPACING_HPBW,) if SPACING_AFTER_FREQ else tuple(rm.BEAM_SPACING_OPTIONS)
     forced = sec.get("freq_ghz_candidates")
     if forced is not None:
-        evaluate_all([float(f) for f in forced])
+        evaluate_all([float(f) for f in forced], sp0)
+    elif FREQ_QUIET_CENTRES > 0 and quiet_spectrum(sec, sky):
+        evaluate_all(quiet_centres(valid_centres(bw_min, excl), FREQ_QUIET_CENTRES, rm.BAND_S), sp0)
     else:
-        evaluate_all(coarse_centres(bw_min, excl))
+        evaluate_all(coarse_centres(bw_min, excl), sp0)
         b = best_of()
         if b is not None:
-            evaluate_all(fine_centres(b[0], bw_min, excl, {fc for fc, _ in evaluated}))
+            evaluate_all(fine_centres(b[0], bw_min, excl, {fc for fc, _ in evaluated}), sp0)
+    if SPACING_AFTER_FREQ:
+        b = best_of()
+        if b is not None:
+            evaluate_all([b[0]], rm.BEAM_SPACING_OPTIONS)
     if not evaluated:
         return {"id": sec["id"], "status": "NO_WAVEFORM",
                 "note": f"no S centre where a signal of the search space ({bw_min:g} MHz at least) fits inside the band "
@@ -1823,6 +1864,21 @@ def _executor() -> ProcessPoolExecutor:
     if _EXECUTOR is None:
         _EXECUTOR = ProcessPoolExecutor(max_workers=MAX_WORKERS, initializer=_mark_pool_worker)   # spawned on demand
     return _EXECUTOR
+
+
+def release_memory() -> None:
+    """Stop the worker processes and empty this process's calculation caches (T3, 25 October 2026): a long process
+    running mission after mission (the test bench) otherwise keeps every worker's caches alive; the next run starts
+    cold. Results are unchanged."""
+    global _EXECUTOR
+    if _EXECUTOR is not None:
+        _EXECUTOR.shutdown(wait=True)
+        _EXECUTOR = None
+    from . import tracking
+    for fn in (_parts_cached, _base_cached, detection._required_snr_db, detection._mean_curve_cached,
+               rm.position_losses, rm._pol_glrt_loss_db):
+        fn.cache_clear()
+    tracking._SPACES.clear()
 
 
 def _run_sequential(sectors, eps_min, eps_max, p_avg_max, progress_cb, cancel_cb, sky=None) -> Tuple[List[dict], bool]:

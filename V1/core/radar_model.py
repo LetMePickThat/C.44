@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.12.0
+# Radar Performance Model - V6.13.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,28 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.12.1 -> V6.13.0 (25 October 2026: approximations chosen by the user, the absolute-precision rule removed;
+# every one is a [tool.*] setting whose exact value stays available)
+#   - A1 tool.detection.pos_law_step_db 0.02: position-loss laws rounded (distinct laws / 6, required SNR within 0.003 dB
+#     measured). The Pfa was already on a 1/20-decade grid (detection.quantise_pfa).
+#   - A2 tool.detection.cum_snr_tol_db 1e-3 (was 1e-4): bisection of the cumulative criterion.
+#   - A4 polarisation GLRT loss cached per (samples, fluctuation, Pfa): exact.
+#   - A5 tool.optimizer.spacing_after_frequency: frequency searched at the default spacing, every spacing at the
+#     frequency kept. A6 tool.optimizer.freq_quiet_centres 3: no S exclusion and no jammer -> 3 centres over the core
+#     band. A8 tool.confirmation.ku_freq_quiet_centres 3: the same for the Ku frequencies.
+#   - A9 tool.confirmation: margin_db_tol 0.05 (0.01), n_snr_quantiles 16 (32), gh_nodes 8 (12).
+#   - T3 bounded caches (tool.detection.snr_cache_size / mean_curve_cache_size / position_cache_size) and
+#     optimizer.release_memory(); T1 tests/testbench.py keeps each case output with the code fingerprint.
+#
+# Changes V6.12.0 -> V6.12.1 (roadmap step 3.2, pass Q6: exact speed-ups E1-E4 chosen by the user; no model change)
+#   - E1: solve() = solve_base (waveform, frequency, scan, target, RX option, velocity span) + solve_look (Pfa,
+#     criterion, jammer, lattice, T_sys) + diagnostics; the optimiser caches solve_base (tool.optimizer.
+#     solve_base_cache_size) and skips the diagnostics: same operations in the same order (bit-identical, tested).
+#   - E2: tracking.ConfirmStats.s2_vec keeps the TX gains of the centre look and the cluster beams per touch grid
+#     (independent of the Ku margin of the bisection; bit-identical).
+#   - E3: tracking.pd_single interpolates by index on the regular SNR grid instead of np.interp (rounding only, ~1e-16).
+#   - E4: the Ku budget of every (sector, Ku frequency) runs in parallel processes when allowed (identical results).
 #
 # Changes V6.11.7 -> V6.12.0 (roadmap step 3.2: Ku confirmation rebuilt, blocks A-E, all validated by the user)
 #   - Ku frequency per sector (A): centres usable_lo + k x 10 MHz, signal inside the band and outside the mission's
@@ -447,7 +469,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.12.0"
+MODEL_VERSION = "6.13.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -1704,7 +1726,9 @@ def _beam_loss_db(beam: "antenna.Beam", r_lam_d: np.ndarray) -> np.ndarray:
     return -10.0 * np.log10(np.maximum(g, 1e-12))
 
 
-@functools.lru_cache(maxsize=None)   # exact; ~1e4 laws per mission, emptied when bounded (step 3.1 A3)
+POS_LAW_STEP_DB = P.get("tool.detection.pos_law_step_db")   # 0 = exact laws (A1, 25 October 2026)
+
+@functools.lru_cache(maxsize=P.get("tool.detection.position_cache_size"))   # exact (step 3.1 A3); bounded at T3
 def position_losses(band_name: str, rx_sll_db: float, psl_db: float, search: bool, doppler: bool,
                     bank: Tuple[float, float, float, float, int, bool],
                     tx_sub: Optional[str] = None, doppler_window_db: Optional[float] = None,
@@ -1724,6 +1748,11 @@ def position_losses(band_name: str, rx_sll_db: float, psl_db: float, search: boo
         law = detection.combine((np.array(law[0]), np.array(law[1])), detection.quantiles(v, OFFSET_QUANTILES),
                                 2 * OFFSET_QUANTILES)
         means["velocity_filter"] = float(np.mean(v))
+    if POS_LAW_STEP_DB > 0.0:
+        # losses on a POS_LAW_STEP_DB grid (25 October 2026, A1): the velocity-filter part made ~14 000 distinct laws
+        # per sector and frequency, ~3 000 once rounded to 0.02 dB; required SNR within 0.003 dB (measured)
+        losses = tuple(float(x) for x in np.round(np.asarray(law[0]) / POS_LAW_STEP_DB) * POS_LAW_STEP_DB)
+        return losses, tuple(law[1]), means
     return tuple(law[0]), tuple(law[1]), means
 
 
@@ -1948,9 +1977,13 @@ def pol_recombination_loss_db(band: BandConfig, role: str, n_nc: int, swerling: 
         return band.pol_loss_single_db
     if role == "TRACK":
         return band.pol_track_est_loss_db
-    p = DETECT_PFA if pfa is None else pfa
-    return (detection.snr_req_db(n_nc + 1, swerling, p, DETECT_PD)
-            - detection.snr_req_db(n_nc, swerling, p, DETECT_PD))
+    return _pol_glrt_loss_db(n_nc, swerling, DETECT_PFA if pfa is None else float(pfa))
+
+
+@functools.lru_cache(maxsize=1 << 14)   # few keys since the Pfa grid (25 October 2026, A1/A4); exact
+def _pol_glrt_loss_db(n_nc: int, swerling: "detection.Fluctuation", pfa: float) -> float:
+    return (detection.snr_req_db(n_nc + 1, swerling, pfa, DETECT_PD)
+            - detection.snr_req_db(n_nc, swerling, pfa, DETECT_PD))
 
 
 # -----------------------------------------------------------------------------
@@ -2167,6 +2200,153 @@ class Result:
     look_law: Optional[tuple] = None    # (coherent blocks, fluctuation, Pfa, position losses, weights): Pd of one look
 
 
+class SolveBase:
+    """The part of solve() common to every Pfa, detection criterion, self-protection jammer, search lattice and system
+    temperature (step 3.2, Q6 E1): computed once per (waveform, frequency, scan, target, RX option, velocity span) and
+    shared by the optimiser's lattice spacings and requirement classes. The losses that depend on the look (polarisation,
+    positions, CFAR) hold their place in the dict so that the total is summed in the same order as before (bit-identical)."""
+    __slots__ = ("wf", "f_ghz", "theta_deg", "target", "rx_sll_db", "band", "sw", "psl", "mod", "wgt", "n_blocks",
+                 "t_block", "ppb", "t_span", "fl", "span", "n_hyp", "bank_half", "a_max", "n_acc", "search", "sll_key",
+                 "track_snr", "losses", "x_buf", "r_listen_km", "num", "p_g_tx_w", "sigma_energy")
+
+
+def solve_base(wf: Waveform, f_ghz: float, theta_deg: float, target: Target, rx_sll_db: Optional[float] = None,
+               v_span_mps: Optional[float] = None) -> SolveBase:
+    """First part of solve() (same arguments); raises ValueError when the waveform cannot play there."""
+    band = band_for_frequency(f_ghz)
+    if band is None or band.name != wf.band:
+        raise ValueError(f"{wf.name}: {f_ghz} GHz is not in its {wf.band} band")
+    if abs(theta_deg) > band.scan_limit_deg(f_ghz):
+        raise ValueError(f"{wf.name}: scan {theta_deg} deg exceeds the {band.scan_limit_deg(f_ghz):.0f} deg "
+                         f"limit at {f_ghz} GHz")
+    if not band.fits(f_ghz, wf.occupied_mhz):
+        raise ValueError(f"{wf.name}: {wf.occupied_mhz:g} MHz at {f_ghz} GHz leaves the usable {band.name} band "
+                         f"{band.usable_lo_ghz}-{band.usable_hi_ghz} GHz")
+    if band.true_time_delay == "none" and abs(theta_deg) > 0:
+        b_fill = C_MPS / (ARRAY_ENVELOPE_M * math.sin(math.radians(abs(theta_deg)))) / 1e6
+        if wf.sig_bw_mhz > b_fill:
+            raise ValueError(f"{wf.name}: {wf.sig_bw_mhz:g} MHz exceeds the aperture-fill bandwidth {b_fill:.0f} MHz "
+                             f"at {theta_deg} deg (no true-time delay)")
+    b = SolveBase()
+    b.wf, b.f_ghz, b.theta_deg, b.target, b.rx_sll_db, b.band = wf, f_ghz, theta_deg, target, rx_sll_db, band
+    sw = b.sw = wf.swerling if wf.swerling is not None else target.swerling     # None = derived from the class (2.4)
+    psl = b.psl = range_psl_db(rx_sll_db)
+    mod = b.mod = wf.modulation or modulation_for(f_ghz, wf.sig_bw_mhz, target.v_close_mps)
+    wgt = b.wgt = range_weighting(psl)
+
+    n_blocks, t_block = coherent_blocks(wf.n, wf.pri_s, wf.tau_s, wf.integration, sw, target, f_ghz)
+    ppb = wf.n // n_blocks                                     # pulses per coherent block (Doppler cells)
+    t_span = wf.dwell_s
+    fl = look_fluctuation(target, f_ghz, sw, n_blocks, t_span, wf.agility_mhz)   # Gamma shape (2.4 B3 + E2, 3.1 B7)
+    b.n_blocks, b.t_block, b.ppb, b.t_span, b.fl = n_blocks, t_block, ppb, t_span, fl
+    # velocity bank (COMPENSATED migration): over the span, one hypothesis on a TRACK look (step 2.2)
+    span = (target.v_close_mps if v_span_mps is None else float(v_span_mps)) if wf.role != "TRACK" else 0.0
+    n_hyp, bank_half = 1, 0.0
+    if MIGRATION_MODE.upper() == "COMPENSATED":
+        n_hyp, _, bank_half = velocity_bank(round(span, 6), wf.tau_s, wf.sig_bw_mhz, t_span, wf.n, n_blocks == 1)
+    b.span, b.n_hyp, b.bank_half = span, n_hyp, bank_half
+    # acceleration (step 2.4, C1-C2): bank over +/- a_max; a TRACK look knows it from the track (optimistic until 3.3)
+    a_max = b.a_max = target.accel_max_mps2 if wf.role != "TRACK" else 0.0
+    b.n_acc, acc_loss = acceleration_bank(a_max, f_ghz, t_block if ppb > 1 else 0.0, t_span, wf.sig_bw_mhz,
+                                          n_blocks == 1)
+    b.search = wf.role in ("SEARCH", "TWS")
+    b.sll_key = RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
+    b.track_snr = None
+    if wf.role not in DETECT_ROLES:
+        b.track_snr = tracking_snr_req(wf.tracking_pack, f_ghz, theta_deg, wf.dwell_s, wf.sig_bw_mhz,
+                                       RANGE_CRLB_KR / wgt["rms_ratio"])
+    losses: Dict[str, float] = dict(band.losses_db)
+    losses["edge"] = band.edge_loss_db(f_ghz, wf.occupied_mhz)       # averaged over the hopped spectrum (3.1, B8)
+    losses["compression"] = compression_loss_db(mod, f_ghz, wf.sig_bw_mhz, target.v_close_mps, psl)
+    if wf.staggered and wf.n > 1:
+        losses["eclipsing"] = eclipsing_loss_db(band, wf.tau_s, wf.pri_s)
+    losses["polarisation"] = 0.0                                     # per Pfa: solve_look
+    # the dual-pol receiver also collects the cross-polar return of the target: x (1 + rho) (step 2.4, E1)
+    rho = target.depol_lin(f_ghz) if band.pol_rx_dual else 0.0
+    losses["target_depolarisation"] = -10.0 * math.log10(1.0 + rho)
+    x_buf = 0.0
+    if band.e_buf_trm_j > 0:
+        x_buf = pulse_elec_energy_trm_j(wf) / band.e_buf_trm_j
+        if x_buf > band.buffer_max_fraction * (1.0 + 1e-12):     # tolerance: tau_max_s() sits exactly on the limit
+            raise ValueError(f"{wf.name}: pulse needs {x_buf:.2f} of the TRM buffer (max {band.buffer_max_fraction:g}): "
+                             f"droop too large")
+        losses["buffer_droop"] = -10.0 * math.log10(1.0 - x_buf / 2.0)
+    b.x_buf = x_buf
+    losses["multibeam_tx"] = multibeam_tx_loss_db(wf)
+    losses["scan_mismatch"] = 2.0 * active_mismatch(f_ghz, theta_deg)["loss_db_per_pass"]   # TX and RX
+    # random position of the target (step 2.3): search grid, range / Doppler straddle, velocity-filter offset
+    losses["positions"] = 0.0                                        # per lattice, Pfa and criterion: solve_look
+    losses["cfar"] = 0.0                                             # per Pfa: solve_look
+    r_listen_km = b.r_listen_km = C_MPS * wf.pri_s / 2.0 / 1000.0    # oscillator round trip at the listening range
+    if ppb > 1:
+        losses["coherence"] = coherence_loss_db(f_ghz, t_block, r_listen_km, wf.sig_bw_mhz, target)
+        if wf.doppler_window_db is not None:
+            losses["doppler_weighting"] = range_weighting(wf.doppler_window_db)["loss_db"]   # step 3.1, P4 Q5
+    losses["acceleration"] = acc_loss
+    # migration: compensation residual (the velocity-filter offset is in 'positions'), or the uncompensated law
+    dr = C_MPS / (2.0 * wf.sig_bw_mhz * 1e6)
+    n_cells = 1.0 + target.v_close_mps * t_span / dr
+    if MIGRATION_MODE.upper() == "COMPENSATED":
+        losses["migration"] = MIGRATION_RESIDUAL_DB if n_cells > 1.5 else 0.0
+    else:
+        losses["migration"], _ = migration_loss_db(target.v_close_mps, t_span, wf.sig_bw_mhz, wf.n)
+    b.losses = losses
+
+    g_tx = gain_lin(band.eta_illum_tx, f_ghz, theta_deg) * tx_gain_ratio(wf)
+    g_rx = gain_lin(rx_beam(band.name, rx_sll_db).eta, f_ghz, theta_deg)
+    p_beam = tx_beam_power_w(wf)
+    b.num = p_beam * g_tx * g_rx * lambda_m(f_ghz) ** 2 * target.rcs_at(f_ghz) * wf.tau_s * wf.n
+    b.p_g_tx_w, b.sigma_energy = p_beam * g_tx, target.rcs_at(f_ghz) * wf.tau_s * wf.n
+    return b
+
+
+class SolveLook:
+    """The look-dependent part of solve() on top of a SolveBase (step 3.2, Q6 E1)."""
+    __slots__ = ("pfa", "q", "pos_l", "pos_w", "pos_parts", "snr_db", "positions_db", "driver", "losses", "l_tot",
+                 "t_sys", "r_noise_km", "r_bt_km", "r_km")
+
+
+def solve_look(b: SolveBase, t_sys_k: Optional[float] = None, pfa: Optional[float] = None,
+               cum: Optional[Tuple[float, float, float]] = None, spj_density_w_hz: Optional[float] = None,
+               grid_spacing_hpbw: Optional[float] = None) -> SolveLook:
+    """Second part of solve() (same arguments): required SNR, position, polarisation and CFAR losses, ranges."""
+    wf, band = b.wf, b.band
+    k = SolveLook()
+    pfa_l = k.pfa = DETECT_PFA if pfa is None else float(pfa)
+    pos_l, pos_w, pos_parts = position_losses(band.name, b.sll_key, b.psl, b.search, b.ppb > 1,
+                                              (round(b.bank_half, 9), wf.tau_s, wf.sig_bw_mhz, b.t_span, wf.n,
+                                               b.n_blocks == 1),
+                                              tx_subaperture(wf), wf.doppler_window_db if b.ppb > 1 else None,
+                                              grid_spacing_hpbw)
+    k.pos_l, k.pos_w, k.pos_parts = pos_l, pos_w, pos_parts
+    q = k.q = cum[0] * cum[1] / (cum[2] * 1e3) if (cum is not None and b.search) else 0.0
+    if b.track_snr is None:
+        # exact law (step 2.3), n = coherent blocks integrated noncoherently, Pd averaged over the position
+        snr_db = detection.required_snr_db(b.n_blocks, b.fl, pfa_l, DETECT_PD, q=q, floor=CUM_PD_FLOOR)
+        positions_db = detection.required_snr_db(b.n_blocks, b.fl, pfa_l, DETECT_PD, pos_l, pos_w, q,
+                                                 CUM_PD_FLOOR) - snr_db
+        driver = ("Detect-CUM-" if q > 0 else "Detect-") + wf.integration[:4]
+    else:
+        snr_lin, dom = b.track_snr
+        snr_db, driver = lin_to_db(snr_lin), "Track-" + dom
+        positions_db = sum(pos_parts.values())               # accuracy-driven: mean position losses
+    k.snr_db, k.positions_db, k.driver = snr_db, positions_db, driver
+    losses = dict(b.losses)
+    losses["polarisation"] = pol_recombination_loss_db(band, wf.role, b.n_blocks, b.fl, pfa_l)
+    losses["positions"] = positions_db
+    losses["cfar"] = cfar_loss_db(CFAR_REF_CELLS, pfa_l)
+    k.losses = losses
+    l_tot = k.l_tot = sum(losses.values())
+    t_sys = k.t_sys = band.t_sys_k if t_sys_k is None else float(t_sys_k)
+    den = (4.0 * math.pi) ** 3 * K_BOLTZ * t_sys * db_to_lin(l_tot) * db_to_lin(snr_db)
+    k.r_noise_km = (b.num / den) ** 0.25 / 1000.0
+    k.r_bt_km = math.inf
+    if spj_density_w_hz:
+        k.r_bt_km = burn_through_range_km(b.p_g_tx_w, b.sigma_energy, snr_db, l_tot, spj_density_w_hz)
+    k.r_km = jammed_range_km(k.r_noise_km, k.r_bt_km)
+    return k
+
+
 def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
           elec_mw: float = FACE_ELEC_POWER_MW, rx_sll_db: Optional[float] = None,
           t_sys_k: Optional[float] = None, v_span_mps: Optional[float] = None, pfa: Optional[float] = None,
@@ -2182,108 +2362,18 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
     Detection criterion (step 2.3): pfa = false-alarm probability per cell (None = DETECT_PFA); cum = (v_close m/s,
     revisit s, requirement range km) for a SEARCH look = DETECT_PD reached CUMULATIVELY over the looks spaced v x RR
     (q = v RR / R), None = one look. The Pd of a look is averaged over the random position of the target (loss
-    'positions' = the SNR this average costs); the returned range is where the criterion is met (exact at R)."""
-    band = band_for_frequency(f_ghz)
-    if band is None or band.name != wf.band:
-        raise ValueError(f"{wf.name}: {f_ghz} GHz is not in its {wf.band} band")
-    if abs(theta_deg) > band.scan_limit_deg(f_ghz):
-        raise ValueError(f"{wf.name}: scan {theta_deg} deg exceeds the {band.scan_limit_deg(f_ghz):.0f} deg "
-                         f"limit at {f_ghz} GHz")
-    if not band.fits(f_ghz, wf.occupied_mhz):
-        raise ValueError(f"{wf.name}: {wf.occupied_mhz:g} MHz at {f_ghz} GHz leaves the usable {band.name} band "
-                         f"{band.usable_lo_ghz}-{band.usable_hi_ghz} GHz")
-    if band.true_time_delay == "none" and abs(theta_deg) > 0:
-        b_fill = C_MPS / (ARRAY_ENVELOPE_M * math.sin(math.radians(abs(theta_deg)))) / 1e6
-        if wf.sig_bw_mhz > b_fill:
-            raise ValueError(f"{wf.name}: {wf.sig_bw_mhz:g} MHz exceeds the aperture-fill bandwidth {b_fill:.0f} MHz "
-                             f"at {theta_deg} deg (no true-time delay)")
-    sw = wf.swerling if wf.swerling is not None else target.swerling     # None = derived from the class (step 2.4)
-    psl = range_psl_db(rx_sll_db)
-    mod = wf.modulation or modulation_for(f_ghz, wf.sig_bw_mhz, target.v_close_mps)
-    wgt = range_weighting(psl)
-
-    n_blocks, t_block = coherent_blocks(wf.n, wf.pri_s, wf.tau_s, wf.integration, sw, target, f_ghz)
-    ppb = wf.n // n_blocks                                     # pulses per coherent block (Doppler cells)
-    t_span = wf.dwell_s
-    fl = look_fluctuation(target, f_ghz, sw, n_blocks, t_span, wf.agility_mhz)   # Gamma shape (2.4 B3 + E2, 3.1 B7)
-    pfa_l = DETECT_PFA if pfa is None else float(pfa)
-    # velocity bank (COMPENSATED migration): over the span, one hypothesis on a TRACK look (step 2.2)
-    span = (target.v_close_mps if v_span_mps is None else float(v_span_mps)) if wf.role != "TRACK" else 0.0
-    n_hyp, bank_half = 1, 0.0
-    if MIGRATION_MODE.upper() == "COMPENSATED":
-        n_hyp, _, bank_half = velocity_bank(round(span, 6), wf.tau_s, wf.sig_bw_mhz, t_span, wf.n, n_blocks == 1)
-    # acceleration (step 2.4, C1-C2): bank over +/- a_max; a TRACK look knows it from the track (optimistic until 3.3)
-    a_max = target.accel_max_mps2 if wf.role != "TRACK" else 0.0
-    n_acc, acc_loss = acceleration_bank(a_max, f_ghz, t_block if ppb > 1 else 0.0, t_span, wf.sig_bw_mhz, n_blocks == 1)
-    search = wf.role in ("SEARCH", "TWS")
-    sll_key = RX_SLL_DEFAULT_DB if rx_sll_db is None else float(rx_sll_db)
-    pos_l, pos_w, pos_parts = position_losses(band.name, sll_key, psl, search, ppb > 1,
-                                              (round(bank_half, 9), wf.tau_s, wf.sig_bw_mhz, t_span, wf.n, n_blocks == 1),
-                                              tx_subaperture(wf), wf.doppler_window_db if ppb > 1 else None,
-                                              grid_spacing_hpbw)
-    q = cum[0] * cum[1] / (cum[2] * 1e3) if (cum is not None and search) else 0.0
-    if wf.role in DETECT_ROLES:
-        # exact law (step 2.3), n = coherent blocks integrated noncoherently, Pd averaged over the position
-        snr_db = detection.required_snr_db(n_blocks, fl, pfa_l, DETECT_PD, q=q, floor=CUM_PD_FLOOR)
-        positions_db = detection.required_snr_db(n_blocks, fl, pfa_l, DETECT_PD, pos_l, pos_w, q, CUM_PD_FLOOR) - snr_db
-        driver = ("Detect-CUM-" if q > 0 else "Detect-") + wf.integration[:4]
-    else:
-        snr_lin, dom = tracking_snr_req(wf.tracking_pack, f_ghz, theta_deg, wf.dwell_s, wf.sig_bw_mhz,
-                                        RANGE_CRLB_KR / wgt["rms_ratio"])
-        snr_db, driver = lin_to_db(snr_lin), "Track-" + dom
-        positions_db = sum(pos_parts.values())               # accuracy-driven: mean position losses
-    losses: Dict[str, float] = dict(band.losses_db)
-    losses["edge"] = band.edge_loss_db(f_ghz, wf.occupied_mhz)       # averaged over the hopped spectrum (3.1, B8)
-    losses["compression"] = compression_loss_db(mod, f_ghz, wf.sig_bw_mhz, target.v_close_mps, psl)
-    if wf.staggered and wf.n > 1:
-        losses["eclipsing"] = eclipsing_loss_db(band, wf.tau_s, wf.pri_s)
-    losses["polarisation"] = pol_recombination_loss_db(band, wf.role, n_blocks, fl, pfa_l)
-    # the dual-pol receiver also collects the cross-polar return of the target: x (1 + rho) (step 2.4, E1)
-    rho = target.depol_lin(f_ghz) if band.pol_rx_dual else 0.0
-    losses["target_depolarisation"] = -10.0 * math.log10(1.0 + rho)
-    x_buf = 0.0
-    if band.e_buf_trm_j > 0:
-        x_buf = pulse_elec_energy_trm_j(wf) / band.e_buf_trm_j
-        if x_buf > band.buffer_max_fraction * (1.0 + 1e-12):     # tolerance: tau_max_s() sits exactly on the limit
-            raise ValueError(f"{wf.name}: pulse needs {x_buf:.2f} of the TRM buffer (max {band.buffer_max_fraction:g}): "
-                             f"droop too large")
-        losses["buffer_droop"] = -10.0 * math.log10(1.0 - x_buf / 2.0)
-    losses["multibeam_tx"] = multibeam_tx_loss_db(wf)
-    losses["scan_mismatch"] = 2.0 * active_mismatch(f_ghz, theta_deg)["loss_db_per_pass"]   # TX and RX
-    # random position of the target (step 2.3): search grid, range / Doppler straddle, velocity-filter offset
-    losses["positions"] = positions_db
-    losses["cfar"] = cfar_loss_db(CFAR_REF_CELLS, pfa_l)
-    r_listen_km = C_MPS * wf.pri_s / 2.0 / 1000.0          # oscillator round trip at the listening range (upper bound)
-    if ppb > 1:
-        losses["coherence"] = coherence_loss_db(f_ghz, t_block, r_listen_km, wf.sig_bw_mhz, target)
-        if wf.doppler_window_db is not None:
-            losses["doppler_weighting"] = range_weighting(wf.doppler_window_db)["loss_db"]   # step 3.1, P4 Q5
-    losses["acceleration"] = acc_loss
-    # migration: compensation residual (the velocity-filter offset is in 'positions'), or the uncompensated law
-    dr = C_MPS / (2.0 * wf.sig_bw_mhz * 1e6)
-    n_cells = 1.0 + target.v_close_mps * t_span / dr
-    if MIGRATION_MODE.upper() == "COMPENSATED":
-        losses["migration"] = MIGRATION_RESIDUAL_DB if n_cells > 1.5 else 0.0
-    else:
-        losses["migration"], _ = migration_loss_db(target.v_close_mps, t_span, wf.sig_bw_mhz, wf.n)
-    l_tot = sum(losses.values())
-
-    g_tx = gain_lin(band.eta_illum_tx, f_ghz, theta_deg) * tx_gain_ratio(wf)
-    g_rx = gain_lin(rx_beam(band.name, rx_sll_db).eta, f_ghz, theta_deg)
-    p_beam = tx_beam_power_w(wf)
-    t_sys = band.t_sys_k if t_sys_k is None else float(t_sys_k)
-    num = p_beam * g_tx * g_rx * lambda_m(f_ghz) ** 2 * target.rcs_at(f_ghz) * wf.tau_s * wf.n
-    den = (4.0 * math.pi) ** 3 * K_BOLTZ * t_sys * db_to_lin(l_tot) * db_to_lin(snr_db)
-    r_noise_km = (num / den) ** 0.25 / 1000.0
-    r_bt_km = math.inf
-    if spj_density_w_hz:
-        r_bt_km = burn_through_range_km(p_beam * g_tx, target.rcs_at(f_ghz) * wf.tau_s * wf.n, snr_db, l_tot,
-                                        spj_density_w_hz)
-    r_km = jammed_range_km(r_noise_km, r_bt_km)
+    'positions' = the SNR this average costs); the returned range is where the criterion is met (exact at R).
+    Computed as solve_base + solve_look (the optimiser's path, without the diagnostics) + the diagnostics."""
+    b = solve_base(wf, f_ghz, theta_deg, target, rx_sll_db, v_span_mps)
+    k = solve_look(b, t_sys_k, pfa, cum, spj_density_w_hz, grid_spacing_hpbw)
+    band, sw, psl, wgt, n_blocks, ppb, fl = b.band, b.sw, b.psl, b.wgt, b.n_blocks, b.ppb, b.fl
+    snr_db, positions_db, pfa_l, q, r_km = k.snr_db, k.positions_db, k.pfa, k.q, k.r_km
 
     eta = pae_wf(wf)
     p_avg_used = band.p_pk_total_w * wf.trm_duty / eta
     p_avg_max = face_elec_avail_w(elec_mw)
+    dr = C_MPS / (2.0 * wf.sig_bw_mhz * 1e6)
+    n_cells = 1.0 + target.v_close_mps * b.t_span / dr
 
     frame = None
     if wf.role == "SEARCH":
@@ -2299,22 +2389,22 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
 
     f_d = doppler_max_hz(f_ghz, target.v_close_mps)
     n_c = cells_in_pulse(target.v_close_mps, wf.tau_s, wf.sig_bw_mhz)
-    pulse = {"modulation": mod, "range_psl_db": psl, "range_resolution_m": range_resolution_m(wf.sig_bw_mhz, psl),
+    pulse = {"modulation": b.mod, "range_psl_db": psl, "range_resolution_m": range_resolution_m(wf.sig_bw_mhz, psl),
              "k_r": RANGE_CRLB_KR / wgt["rms_ratio"], "doppler_hz": f_d,
              "coupling_bias_m": C_MPS * f_d * wf.tau_s / (2.0 * wf.sig_bw_mhz * 1e6),
              "cells_in_pulse": n_c, "zero_velocity_filter_loss_db": velocity_mismatch_loss_db(n_c),
              "velocity_hypotheses_1db": velocity_hypotheses(target.v_close_mps, wf.tau_s, wf.sig_bw_mhz),
-             "am_pm_drift_deg": am_pm_drift_deg(x_buf), "blind_range_km": blind_range_km(band, wf.tx_block_s),
+             "am_pm_drift_deg": am_pm_drift_deg(b.x_buf), "blind_range_km": blind_range_km(band, wf.tx_block_s),
              "doppler_ambiguity": f_d * wf.pri_s if wf.n > 1 else 0.0,
              # processing (step 2.2)
-             "coherent_blocks": n_blocks, "pulses_per_block": ppb, "block_s": t_block,
-             "velocity_hypotheses": n_hyp, "velocity_span_mps": span,
-             "doppler_floor_dbc": doppler_floor_dbc(f_ghz, t_block, r_listen_km) if ppb > 1 else {},
+             "coherent_blocks": n_blocks, "pulses_per_block": ppb, "block_s": b.t_block,
+             "velocity_hypotheses": b.n_hyp, "velocity_span_mps": b.span,
+             "doppler_floor_dbc": doppler_floor_dbc(f_ghz, b.t_block, b.r_listen_km) if ppb > 1 else {},
              # detection criterion (step 2.3)
              "pfa": pfa_l, "criterion": "cumulative" if q > 0 else "single look", "look_spacing_q": q,
-             "position_losses_mean_db": pos_parts,
+             "position_losses_mean_db": k.pos_parts,
              "pd_per_look_at_range": float(np.interp(snr_db + positions_db, detection.SNR_GRID_DB,
-                                                     detection.mean_curve(n_blocks, fl, pfa_l, pos_l, pos_w)))
+                                                     detection.mean_curve(n_blocks, fl, pfa_l, k.pos_l, k.pos_w)))
              if wf.role in DETECT_ROLES else None,
              # target model (step 2.4)
              "target": {"type": target.target_type, "rcs_m2": target.rcs_at(f_ghz),
@@ -2322,11 +2412,11 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
                         "swerling": sw, "fluctuation": target.fluctuation(f_ghz) if sw is None else f"SW{sw}",
                         "gamma_shape": fl.k, "depol_db": lin_to_db(target.depol_lin(f_ghz)),
                         "diversity": diversity_factor(target, f_ghz)},
-             "acceleration_max_mps2": a_max, "acceleration_hypotheses": n_acc,
+             "acceleration_max_mps2": b.a_max, "acceleration_hypotheses": b.n_acc,
              "masking_db": masking_levels_db(psl, ppb > 1)}
-    return Result(wf, target, snr_db, driver, r_km, losses, l_tot, p_avg_used, p_avg_max,
-                  C_MPS * wf.pri_s / 2.0 / 1000.0, n_cells, frame, eta, trm_dissipation_w(wf), t_sys, pulse,
-                  r_noise_km, r_bt_km, (n_blocks, fl, pfa_l, tuple(pos_l), tuple(pos_w)))
+    return Result(wf, target, snr_db, k.driver, r_km, k.losses, k.l_tot, p_avg_used, p_avg_max,
+                  C_MPS * wf.pri_s / 2.0 / 1000.0, n_cells, frame, eta, trm_dissipation_w(wf), k.t_sys, pulse,
+                  k.r_noise_km, k.r_bt_km, (n_blocks, fl, pfa_l, tuple(k.pos_l), tuple(k.pos_w)))
 
 
 def burn_through_range_km(p_g_tx_w: float, sigma_energy: float, snr_req_db: float, l_tot_db: float,

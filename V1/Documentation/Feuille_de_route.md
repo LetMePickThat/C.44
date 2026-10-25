@@ -17,7 +17,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 
 (D) signale une étape qui demande une décision ou des données de l'utilisateur. Le détail des choix déjà faits est dans `Choix_architecturaux.md`.
 
-## État d'avancement (23 octobre 2026)
+## État d'avancement (25 octobre 2026)
 
 | Étape | État |
 |---|---|
@@ -36,8 +36,9 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 2.5 | ✔ fait (commit baeadcf) |
 | 3.0 | ✔ fait (commit 22114fd ; ajoutée le 22 octobre 2026) |
 | 3.1 | ✔ fait : P1 à P6, bande S élargie, accélérations (`90555d8`, `b4be91e`, `cd97216`, `f6a526c`, `b0dbc09`, `f8fa433`, `d19829e`, puis le commit de P6) |
-| 3.2 | en cours : blocs A à E validés, passes Q1 à Q5 codées et testées (V6.12.0, commit intermédiaire). **Reprise : Q6, étape (a)** : profilage fait (24 octobre 2026), accélérations exactes E1 à E4 proposées, **choix de l'utilisateur attendu** (détail : `Choix_architecturaux.md` §11, étape 3.2, « Profilage ») ; ensuite table de coût, rapport d'impact, valeurs figées, documentation, au N3 choisi par l'utilisateur |
-| 3.3 et suivantes | à faire |
+| 3.2 | ✔ fait le 25 octobre 2026 : Q1 à Q5 (`8720343`, V6.12.0), Q6 : accélérations exactes E1 à E4 (V6.12.1), règle de précision absolue supprimée et approximations A1, A2, A4, A5, A6, A8, A9, banc T1 / T3 et barre de progression du N3 (V6.13.0), valeurs figées regelées (`JOURNAL.md`) |
+| 3.3 | cadrage ouvert le 25 octobre 2026 : blocs A à F validés (tout le bloc F en 3.3), période fixée par l'opérateur avec valeur calculée en alerte ; bloc A validé (Kalman en régime établi, Singer, 3 axes), bloc B validé (perte de pointage, grappe ou observation simple, perte de piste par chaîne de Markov), bloc C validé (initialisation), questions du bloc D en cours |
+| 3.4 et suivantes | à faire |
 
 ---
 
@@ -275,7 +276,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Renvoi de l'étape 3.0** (option 1 validée par l'utilisateur) : le bilan de bruit du ciel d'un secteur (`sector_sky`) est évalué au centre de blocs de la trame (φ, ε) du vaisseau (pas d'environ 0,5 lobe) ; avec un corps chaud ponctuel, il varie de 1 à 4 % selon l'attitude ou la position du corps (artefact de calcul). Correction : **raffinement local** (T_sys calculé à chaque pointage là où la hausse dépasse un seuil, blocs ailleurs) ; ensuite, le test de rotation inclura le Soleil avec une tolérance serrée.
   - **Renvoi de l'étape 2.3** : pas de la grille de veille propre à chaque secteur (1,4 en commun ; l'optimum va de 1,3 à 1,6 selon la Pd par observation).
 
-- **3.2 Confirmation Ku reconstruite** (tracking.py).
+- **3.2 Confirmation Ku reconstruite** (tracking.py). ✔ (25 octobre 2026 ; les points ci-dessous sont traités, détail au §11 de `Choix_architecturaux.md`, sauf la connaissance du spectre en temps réel, renvoyée à 4.3 et 5.2)
   - **Renvoi de l'étape 1.3** : impulsions Ku au-delà de 400 µs (τ_max Ku = 2,08 ms).
   - **Renvoi de l'étape 3.1 (multifaisceau Ku)** : la grappe KU7 / KU1+7 est aujourd'hui comptée comme 7 observations successives à pleine puissance. Étudier les modes de multifaisceau d'émission de la 3.1 (phase seule, partition, multiplexage en temps ; code indépendant de la bande, table de pertes partagée à confirmer ou spécialiser pour la Ku). Pas de gain d'énergie attendu (même énergie pour un même SNR par case) ; gains en **latence** (une seule observation pour la grappe), pour les observations à énergie en trop (impulsion minimale), et pour plusieurs pistes proches en angle (chronologie, 4.3).
   - Passage de S à Ku, biais S/Ku, étalonnage.
@@ -345,6 +346,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Renvoi de l'étape 2.4** : les classes de cibles étant des moyennes, **sensibilité du verdict aux valeurs de la menace** (de combien la SER et les autres valeurs peuvent baisser avant que le secteur ne tienne plus).
 
 - **5.4 Simulation Monte-Carlo à événements discrets.** C'est l'arbitre final du bilan statistique.
+  - **Note de l'utilisateur (25 octobre 2026, étape 3.2)** : hors préparation de mission, le simulateur global de scénario demandera probablement des **approches simplifiées (moins précises)** que la Pmiss, pour garder un calcul en temps réel ou quasi réel. La règle « jamais de précision perdue pour le temps de calcul » vaut pour la Pmiss ; les modèles simplifiés du simulateur seront à définir (avec 4.3 et 4.4 pour ce que le calculateur recalcule en vol) et à recaler sur le modèle complet.
   - **Renvoi de l'étape 2.5** : réflexions sur la structure du vaisseau (Soleil, Terre, autres faces).
   - **Renvoi de l'étape 2.4** : effet réel du masquage par les cibles voisines (lobes Doppler et en distance, bruit de phase) et du CFAR (CA ou OS) sur une scène dense.
 

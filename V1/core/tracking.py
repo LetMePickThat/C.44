@@ -60,6 +60,7 @@ BAND = rm.BAND_KU
 KU_REF_GHZ = round((BAND.core_lo_ghz + BAND.core_hi_ghz) / 2.0, 9)   # functions without a sector (fast estimate)
 KU_FREQ_STEP_GHZ = P.get(_T + "ku_freq_step_mhz") / 1e3              # Ku centre grid (step 3.2, A2)
 KU_FREQ_COARSE_GHZ = P.get(_T + "ku_freq_coarse_mhz") / 1e3          # Ku centres evaluated (A5)
+KU_FREQ_QUIET_CENTRES = P.get(_T + "ku_freq_quiet_centres")          # quiet Ku spectrum (A8, 25 Oct 2026)
 K_ML_S = rm.angle_k_tx("S")                          # S angle accuracy x sqrt(SNR), in S TX beamwidths (CRLB x margin)
 BIAS_MRAD = P.get("confirmation.bias_mrad")          # residual S/Ku alignment bias per axis (absolute angle, constant in u, v)
 CONFIRM_P_MIN = P.get("confirmation.p_min")          # minimum probability of confirming a true target
@@ -112,14 +113,18 @@ def ku_valid_centres(excl) -> List[float]:
     return [f for f in ku_centre_grid() if mo.signal_fits(f, min(KU_BW), excl, BAND)]
 
 
-def ku_centres(sec: dict) -> List[float]:
-    """Ku centres evaluated for a sector (A5): forced (ku_freq_ghz_candidates, kept where a signal fits), else the
-    valid centres on the coarse step plus the valid centre nearest the middle of every free fragment."""
+def ku_centres(sec: dict, sky: Optional[dict] = None) -> List[float]:
+    """Ku centres evaluated for a sector (A5): forced (ku_freq_ghz_candidates, kept where a signal fits); in a quiet
+    Ku spectrum (no Ku exclusion, no jammer in the mission sky or on the sector) KU_FREQ_QUIET_CENTRES centres spread
+    over the core band (25 October 2026, A8); else the valid centres on the coarse step plus the valid centre nearest
+    the middle of every free fragment."""
     excl = exclusions_ku(sec)
     forced = sec.get("ku_freq_ghz_candidates")
     if forced:
         return sorted({round(float(f), 9) for f in forced if mo.signal_fits(float(f), min(KU_BW), excl, BAND)})
     valid = ku_valid_centres(excl)
+    if KU_FREQ_QUIET_CENTRES > 0 and not excl and not env.jammers(sky) and sec.get("jammer_type") is None:
+        return mo.quiet_centres(valid, KU_FREQ_QUIET_CENTRES, BAND)       # A8 (25 October 2026): quiet Ku spectrum
     k = int(round(KU_FREQ_COARSE_GHZ / KU_FREQ_STEP_GHZ))
     out = {f for f in valid if int(round((f - BAND.usable_lo_ghz) / KU_FREQ_STEP_GHZ)) % k == 0}
     for a, b in mo.free_fragments(excl, BAND):
@@ -152,7 +157,20 @@ def pd_single(snr, fluct):
     """Probability of detection of one look (single sample) at mean SNR snr (linear, array), Pfa = DETECT_PFA, for the
     target's fluctuation (a Swerling case or a Gamma shape, exact laws of core/detection.py)."""
     snr = np.maximum(np.asarray(snr, dtype=float), 1e-30)
-    return detection.pd_at(1, fluct, rm.DETECT_PFA, 10.0 * np.log10(snr))
+    return _interp_grid(detection.pd_curve(1, fluct, rm.DETECT_PFA), 10.0 * np.log10(snr))
+
+
+_G0, _GS = float(detection.SNR_GRID_DB[0]), float(detection.SNR_GRID_DB[1] - detection.SNR_GRID_DB[0])
+
+
+def _interp_grid(curve: np.ndarray, x_db: np.ndarray) -> np.ndarray:
+    """np.interp(x_db, detection.SNR_GRID_DB, curve) by index on the regular grid (step 3.2, Q6 E3): linear between
+    grid points, flat beyond the ends; rounding differences only (~1e-16)."""
+    n = len(curve)
+    x = np.clip((x_db - _G0) / _GS, 0.0, n - 1.0)
+    i = np.minimum(x.astype(np.intp), n - 2)
+    fr = x - i
+    return curve.take(i) * (1.0 - fr) + curve.take(i + 1) * fr
 
 
 def _snr_ref(fluct) -> float:
@@ -305,15 +323,19 @@ class ConfirmStats:
             pt = pd_single(_tx_gain(ex, ey)[..., None] * t_snr, self.fl_s)                   # (M, 12, 12, n)
             pt = np.tensordot(w, pt, axes=([0, 1], [1, 2]))                                  # (M, n)
             sig2 = K_ML_S * self.q / np.sqrt(self.x_det[:, None] + t_snr[None, :])           # (M, n)
-            tp = self._memo[("touch", key)] = (pt, sig2)
-        pt, sig2 = tp
+            # TX gains of the centre look and of the cluster beams on the combined estimate: they depend on the
+            # touch margins only, not on the Ku margin of the bisection (step 3.2, Q6 E2)
+            ex = self.bias_ku + sig2[..., None, None] * GH_NODES[:, None]                     # (M, n, 12, 1)
+            ey = self.bias_ku + sig2[..., None, None] * GH_NODES[None, :]                     # (M, n, 1, 12)
+            g1 = _tx_gain(ex, ey)                                                             # (M, n, 12, 12)
+            g7 = [_tx_gain(ex - cx, ey - cy, ku, kv) * self.cl.eirp for cx, cy, ku, kv in self.cl.beams]
+            tp = self._memo[("touch", key)] = (pt, g1, g7)
+        pt, g1, g7 = tp
         snr = (self.snr_ku * 10.0 ** (mk_db / 10.0))[None, :, None, None]                    # paired with mt
-        ex = self.bias_ku + sig2[..., None, None] * GH_NODES[:, None]                         # (M, n, 12, 1)
-        ey = self.bias_ku + sig2[..., None, None] * GH_NODES[None, :]                         # (M, n, 1, 12)
-        p1 = pd_single(_tx_gain(ex, ey) * snr, self.fl_ku)                                    # (M, n, 12, 12)
+        p1 = pd_single(g1 * snr, self.fl_ku)                                                  # (M, n, 12, 12)
         miss = 1.0
-        for cx, cy, ku, kv in self.cl.beams:
-            miss = miss * (1.0 - pd_single(_tx_gain(ex - cx, ey - cy, ku, kv) * self.cl.eirp * snr, self.fl_ku))
+        for g in g7:
+            miss = miss * (1.0 - pd_single(g * snr, self.fl_ku))
         p7 = 1.0 - miss
         w = GH_WEIGHTS[:, None] * GH_WEIGHTS[None, :]
         s17 = np.tensordot(p1 + (1.0 - p1) * p7, w, axes=([2, 3], [0, 1]))                    # (M, n)
@@ -944,6 +966,16 @@ def _own_load(sb: dict, mode: Optional[str]) -> float:
     return _max_load(tot)
 
 
+def _ku_freq_task(sec: dict, r: dict, Pm: np.ndarray, p_avg_max: float, eps_min: float, eps_max: float,
+                  sky: Optional[dict], f: float) -> dict:
+    """sector_budget of one sector at one Ku frequency, with its Ku sky and surfaces (worker entry point of budget)."""
+    sph = mo._sphere(eps_min, eps_max)
+    m = sph.mask(sec)
+    ku_sky, keep = mo.sector_sky(sec, sph, m, f, "Ku", sky)
+    clut = _SectorClutter(sec, sph, m, sky, f, keep) if env.surfaces(sky) else None
+    return sector_budget(sec, r, Pm, p_avg_max, ku_sky, f, clut)
+
+
 def budget(mission: dict, res: dict) -> dict:
     """Mission confirmation + AT budget on top of an optimizer.run() result: per sector the Ku frequency and the
     confirmation mode (with the reason) and the AT cost per bracket, per face the search / confirmation / AT shares and
@@ -959,6 +991,7 @@ def budget(mission: dict, res: dict) -> dict:
     sky = mission.get("global", {}).get("sky")
     sbs: Dict[str, Dict[float, dict]] = {}
     n_cands: Dict[str, int] = {}
+    jobs = []                                         # (sector, its result, its S positions per face, Ku frequency)
     for r in res["sectors"]:
         if r["status"] != "OK":
             continue
@@ -967,13 +1000,21 @@ def budget(mission: dict, res: dict) -> dict:
         sec_s = dict(sec, _grid_spacing=r.get("beam_spacing_hpbw", rm.BEAM_SPACING_HPBW))   # its lattice (P5)
         P, _, _, _ = mo.search_positions(sec_s, sph, m, r["wf"]["freq_ghz"], sky)    # blinded positions left out
         Pm = np.array([P[k] for k in range(4)])
-        fs = ku_centres(sec) or [KU_REF_GHZ]
+        fs = ku_centres(sec, sky) or [KU_REF_GHZ]
         n_cands[r["id"]] = len(fs)
         sbs[r["id"]] = {}
-        for f in fs:
-            ku_sky, keep = mo.sector_sky(sec, sph, m, f, "Ku", sky)
-            clut = _SectorClutter(sec, sph, m, sky, f, keep) if env.surfaces(sky) else None
-            sbs[r["id"]][f] = sector_budget(sec, r, Pm, p_avg_max, ku_sky, f, clut)
+        jobs.extend((sec, r, Pm, f) for f in fs)
+    # every (sector, Ku frequency) budget in parallel processes when allowed (step 3.2, Q6 E4: identical results)
+    args = [[j[k] for j in jobs] for k in range(4)]
+    n = len(jobs)
+    eps = (g["eps_min_deg"], g["eps_max_deg"])
+    if mo._freq_parallel_ok(n):
+        out = list(mo._executor().map(_ku_freq_task, *args[:3], [p_avg_max] * n, [eps[0]] * n, [eps[1]] * n,
+                                      [sky] * n, args[3]))
+    else:
+        out = [_ku_freq_task(*j[:3], p_avg_max, eps[0], eps[1], sky, j[3]) for j in jobs]
+    for (sec, _, _, f), sb in zip(jobs, out):
+        sbs[sec["id"]][f] = sb
 
     # (Ku frequency, confirmation mode): forced mode, or automatic (greedy on the mission's most loaded face, two
     # passes); ties: own load, then the frequency nearest the core-band centre (step 3.2 A4)

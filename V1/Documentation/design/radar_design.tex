@@ -37,13 +37,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small C.44 radar -- design and modelling reference}
-\rhead{\small Model V6.11.7}
+\rhead{\small Model V6.13.0}
 \cfoot{\thepage}
 
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{23 October 2026 -- radar model V6.11.7 (roadmap step 3.1, pass P6)}
+\date{25 October 2026 -- radar model V6.13.0 (roadmap step 3.2 closed)}
 
 \begin{document}
 \maketitle
@@ -780,20 +780,41 @@ cumulative criterion assumes independent looks), spectrum exclusions removing mo
 %=====================================================================================================================
 \section{Confirmation and active tracking in Ku}\label{sec:ku}
 %=====================================================================================================================
-Every S detection, true target or false alarm, is confirmed in Ku (\code{core/tracking.py}). Three modes:
+Every S detection, true target or false alarm, is confirmed in Ku (\code{core/tracking.py}, roadmap step 3.2). Three modes:
 \begin{itemize}
-  \item \textbf{KU1+7}: one Ku look, then a cluster of 7 beams on failure;
-  \item \textbf{KU7}: the cluster of 7 beams at once;
-  \item \textbf{S2}: a pointed S ``touch'', then KU1+7.
+  \item \textbf{KU1+7}: one Ku look on the S estimate, then a cluster of 7 beams on failure (two round trips);
+  \item \textbf{KU7}: the cluster of 7 beams at once (one round trip);
+  \item \textbf{S2}: a pointed S ``touch'' (an S waveform of role CONFIRM, which also rejects the S false alarms),
+  then KU1+7 on the improved angle estimate.
 \end{itemize}
-Each mode gets the smallest margin (\SI{0.5}{dB} steps) that confirms a true target with probability at least 0.98;
-the mode that minimises the load of the most loaded face is chosen, or the operator imposes one. The S2 touch recovers
-the transmit and receive grid losses (it is pointed and its receive beams are formed on the target). Ku looks are
-chosen in their own search space (pulses, pulse counts, PRIs, two bandwidths) at the provisional Ku frequency of
-\SI{14.0}{GHz}, with the Ku sky budget of the sector. Active tracking is described per range bracket (number of
-tracks, update period, range and velocity accuracies, angular zone); one Ku look per update at the upper limit of the
-bracket, driven by the most demanding of detection and the Cram\'er--Rao accuracy terms (angle, Doppler, range). S and
-Ku share the electrical energy of a face; their transmit times are counted separately.
+The cluster is sent as 7 successive looks, as a phase-only superposition of the 7 beams (power / 7, loss interpolated
+in the multibeam table, \SI{0.76}{dB}), or by a partition of the face into 2 or 4 Ku sub-apertures; the cheapest is
+kept. The echoes that cross the threshold have a random SNR, drawn by quantiles of the target's Gamma law; the angle
+error per axis is $K\,\mathrm{HPBW}/\sqrt{\mathrm{SNR}}$ (Cram\'er--Rao bound $\times 1.13$) plus a residual S/Ku
+alignment bias, averaged by Gauss--Hermite nodes. Each mode gets the smallest power margin that confirms a true target
+with probability at least 0.98, solved by bisection; the mode that minimises the load of the most loaded face is
+chosen, or the operator imposes one.
+
+The Ku frequency is chosen per sector on a \SI{10}{MHz} grid derived from the Ku band, the signal inside the band and
+outside the mission's Ku exclusions; the S fifth harmonic on the Ku channel of the same face is flagged as a scheduler
+time rule. Ku looks are chosen in their own space (pulses \SI{5}{\micro s} to \SI{2.08}{ms}, PRIs \SIrange{0.5}{5}{ms},
+bandwidths \SIrange{25}{200}{MHz}, both integrations, an agile variant of noncoherent trains), shortened at saturated
+PAs to just reach the range, with the sector's Ku sky budget, its self-protection jammer and the sidelobe clutter of
+its surfaces; a Ku burn-through look is pointed in the jamming axis when the jammer puts the sector out of search reach.
+
+Active tracking is described per range bracket (number of tracks, update period, range and velocity accuracies,
+angular zone); one Ku look per update at the upper limit of the bracket, driven by the most demanding of detection
+and the Cram\'er--Rao accuracy terms (angle, Doppler, range). Step 3.3 (in progress) replaces it by a steady-state
+Kalman track model (Singer manoeuvres, pointing loss, track initiation and loss). S and Ku share the electrical energy
+of a face; their transmit times are counted separately.
+
+\paragraph{Calculation settings.} Since 25 October 2026 approximations are allowed when they do not denature the model,
+each a \code{[tool.*]} entry whose exact value stays available: position-loss laws rounded to \SI{0.02}{dB} (required
+SNR within \SI{0.003}{dB}), cumulative inversion to \SI{1e-3}{dB}, lattice spacing searched at the frequency kept,
+three S and three Ku centres over the core band when the spectrum is quiet (no exclusion, no jammer), S2 margins to
+\SI{0.05}{dB} with 16 SNR quantiles and 8 Gauss--Hermite nodes. On two test missions they change the search energy by
+at most \SI{+0.25}{\percent} (one sector \SI{+9}{\percent}, one \SI{-5}{\percent}: the frequency matters for some
+sectors) for a 7 to 8 times faster run.
 
 %=====================================================================================================================
 \section{Other functions}
@@ -849,7 +870,7 @@ The test bench has two families: frozen outputs of every test mission compared a
 (non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
 exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
 frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
-before any refreeze. At model V6.11.7 the bench has 176 tests (164 physical, 12 frozen outputs), run at three levels: fast tests, tests touched by a change, and the full bench with a new freeze.
+before any refreeze. At model V6.13.0 the bench has 188 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
 
 %=====================================================================================================================
 \section{Roadmap and open points}\label{sec:roadmap}

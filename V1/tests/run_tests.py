@@ -11,8 +11,8 @@ Levels:
   N2  N1 + the tests pytest-testmon finds affected by the changed Python code + the tests depending on the modules
       that read a changed [tool.*] entry of radar_system.toml; never the snapshot tests (tests/test_snapshots.py),
       kept for N3 (user, option b: they run nearly all the code, so testmon would select them for any change).
-  N3  the whole suite (tests/), then the other steps of a full pass are printed (cost table, impact report,
-      snapshots, journal).
+  N3  the full pass, with a global progress bar (25 October 2026): self-test, cost table, every test case computed
+      once, impact report (tests/.impact_last.md), the whole suite; the refreeze (update_snapshots) stays a decision.
 Automatic: N3 when there is no reference yet, or when a model entry (outside [tool.*]) of radar_system.toml changed
 since the last successful run; else N2 when code, tests or [tool.*] changed; else N1. The parameter file of the last
 successful run is kept in tests/.params_last_run.toml (local, not in the repository).
@@ -158,6 +158,139 @@ def choose(level: str):
     return "N2", "; ".join(why), sorted(ids)
 
 
+# ----------------------------------------------------------------------------- full pass N3 (25 October 2026)
+N3_DURATIONS = os.path.join(TESTS, ".n3_durations.json")   # last duration of every N3 item (local)
+N3_PROGRESS = os.path.join(TESTS, ".n3_progress.txt")       # the bar, readable while the pass runs (local)
+IMPACT_OUT = os.path.join(TESTS, ".impact_last.md")         # impact report of the last N3 (local)
+N3_DEFAULT_S = {"self-test": 20.0, "cost table": 150.0, "impact report": 10.0, "test suite": 600.0}
+N3_DEFAULT_CASE_S = 300.0      # a case never timed yet: prudent
+
+
+def _bar(frac: float, width: int = 30) -> str:
+    n = int(round(max(0.0, min(1.0, frac)) * width))
+    return "#" * n + "-" * (width - n)
+
+
+class N3Progress:
+    """Global progress bar of a full pass, weighted by the last known duration of each item (step or test case).
+    Inside an item the bar advances with its elapsed time, held below its end until it finishes; inside the test
+    suite it follows tests/.progress.txt (the weighted progress of conftest.py). Shown on one line in a terminal,
+    a line every 30 s otherwise, and always written to tests/.n3_progress.txt."""
+
+    def __init__(self, items):
+        try:
+            with open(N3_DURATIONS, encoding="utf-8") as fh:
+                self.known = json.load(fh)
+        except (OSError, ValueError):
+            self.known = {}
+        self.items = list(items)
+        self.expected = {i: self.known.get(i, N3_DEFAULT_S.get(i, N3_DEFAULT_CASE_S)) for i in self.items}
+        self.done, self.t0, self.cur, self.cur_t0 = {}, time.time(), None, None
+        self.tty = sys.stdout.isatty()
+        self.last_line = 0.0
+
+    def start(self, item):
+        self.cur, self.cur_t0 = item, time.time()
+        self.show(force=True)
+
+    def finish(self, item):
+        self.done[item] = time.time() - self.cur_t0
+        self.known[item] = self.done[item]
+        self.cur = None
+        try:
+            with open(N3_DURATIONS, "w", encoding="utf-8") as fh:
+                json.dump(self.known, fh, indent=1)
+        except OSError:
+            pass
+        self.show(force=True)
+
+    def _inner(self) -> float:
+        """Share of the current item done."""
+        if self.cur is None:
+            return 0.0
+        if self.cur == "test suite":
+            try:
+                with open(os.path.join(TESTS, ".progress.txt"), encoding="utf-8") as fh:
+                    m = re.search(r"computation done: ([0-9.]+) %", fh.read())
+                if m and os.path.getmtime(os.path.join(TESTS, ".progress.txt")) >= self.cur_t0:
+                    return float(m.group(1)) / 100.0
+            except OSError:
+                pass
+        return min(0.95, (time.time() - self.cur_t0) / max(self.expected[self.cur], 1.0))
+
+    def show(self, force: bool = False):
+        tot = sum(self.expected.values()) or 1.0
+        done_w = sum(self.expected[i] for i in self.done)
+        cur_w = self.expected[self.cur] * self._inner() if self.cur else 0.0
+        frac = (done_w + cur_w) / tot
+        el = time.time() - self.t0
+        left = el * (1.0 - frac) / frac if frac > 0.02 else tot - el
+        k = len(self.done) + (1 if self.cur else 0)
+        cur = (f"{self.cur} {(time.time() - self.cur_t0) / 60:.1f} / ~{self.expected[self.cur] / 60:.1f} min"
+               if self.cur else "-")
+        line = (f"[N3] [{_bar(frac)}] {100 * frac:5.1f} % | item {k}/{len(self.items)}: {cur} | "
+                f"elapsed {el / 60:.1f} min, left ~{max(left, 0.0) / 60:.1f} min")
+        try:
+            with open(N3_PROGRESS + ".tmp", "w", encoding="utf-8") as fh:
+                fh.write(line + "\n" + "done: " + ", ".join(f"{i} {d / 60:.1f} min" for i, d in self.done.items())
+                         + "\n")
+            os.replace(N3_PROGRESS + ".tmp", N3_PROGRESS)
+        except OSError:
+            pass
+        now = time.time()
+        if self.tty:
+            print("\r" + line[:200].ljust(200), end="", flush=True)
+        elif force or now - self.last_line >= 30.0:
+            print(line, flush=True)
+            self.last_line = now
+
+
+def _run_with_bar(prog: N3Progress, item: str, cmd, **kw) -> int:
+    """One N3 item as a subprocess (its memory is freed when it ends), the bar refreshed every 2 s."""
+    prog.start(item)
+    log = open(os.path.join(TESTS, f".n3_{re.sub(r'[^a-z0-9]+', '_', item.lower())}.log"), "w", encoding="utf-8")
+    p = subprocess.Popen(cmd, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, **kw)
+    while p.poll() is None:
+        time.sleep(2.0)
+        prog.show()
+    log.close()
+    prog.finish(item)
+    return p.returncode
+
+
+def full_pass() -> int:
+    """N3: self-test, cost table, every test case computed once (kept by tests/testbench.py with the code
+    fingerprint, T1), impact report against the frozen snapshots (tests/.impact_last.md), then the whole test suite
+    (its snapshot tests read the cases already computed). Each item runs in its own process. The refreeze stays a
+    decision: python tests/update_snapshots.py after reading the report (instant, from the computed cases)."""
+    sys.path.insert(0, TESTS)
+    import testbench as tb
+    cases = tb.case_names()
+    items = ["self-test", "cost table"] + [f"case {c}" for c in cases] + ["impact report", "test suite"]
+    prog = N3Progress(items)
+    py = sys.executable
+    res = {"self-test": _run_with_bar(prog, "self-test", [py, os.path.join("core", "radar_model.py"), "--selftest"]),
+           "cost table": _run_with_bar(prog, "cost table", [py, os.path.join("tools", "gen_cost_table.py")])}
+    for c in cases:
+        res[f"case {c}"] = _run_with_bar(prog, f"case {c}", [py, "-c", "import sys; sys.path.insert(0, 'tests'); "
+                                                                  f"import testbench as tb; tb.compute_case({c!r})"])
+    res["impact report"] = _run_with_bar(prog, "impact report", [py, os.path.join("tests", "impact_report.py"),
+                                                                 "-o", IMPACT_OUT])
+    res["test suite"] = _run_with_bar(prog, "test suite", [py, "-m", "pytest", "--testmon-noselect", "-rf"])
+    if prog.tty:
+        print()
+    el = time.time() - prog.t0
+    bad = [k for k, v in res.items() if v != 0]
+    print(f"\n[N3] {'PASSED' if not bad else 'FAILED: ' + ', '.join(bad)} in {el / 60:.1f} min "
+          f"(logs: tests/.n3_*.log; impact report: tests/.impact_last.md)")
+    print(f"commit line: Tests: N3 full pass ({el / 60:.1f} min){'' if not bad else ' -- FAILURES'}")
+    if not bad:
+        shutil.copyfile(PARAMS, LAST)
+    print("then, if the changes are intended: python tests/update_snapshots.py (from the computed cases) and the "
+          "JOURNAL.md entry")
+    return 0 if not bad else 1
+
+
 def main(argv) -> int:
     dry = "--dry" in argv
     args = [a for a in argv if a != "--dry"]
@@ -167,9 +300,11 @@ def main(argv) -> int:
         return 2
     lvl, why, ids = choose(level)
     n = "all" if ids is None else str(len(ids))
-    print(f"[{lvl}] {why} -> {n} tests")
+    print(f"[{lvl}] {why} -> {n} tests" + (" + cost table, every case, impact report (full pass)" if lvl == "N3" else ""))
     if dry:
         return 0
+    if lvl == "N3":
+        return full_pass()
     t0 = time.time()
     st = subprocess.run([sys.executable, os.path.join("core", "radar_model.py"), "--selftest"], cwd=ROOT).returncode
     cmd = [sys.executable, "-m", "pytest", "--testmon-noselect", "-rf"]
@@ -188,9 +323,6 @@ def main(argv) -> int:
     print(f"commit line: Tests: {lvl} ({n} tests, {el / 60:.1f} min){'' if ok else ' -- FAILURES'}")
     if ok:
         shutil.copyfile(PARAMS, LAST)
-    if lvl == "N3":
-        print("full pass: also python tools/gen_cost_table.py, python tests/impact_report.py, "
-              "python tests/update_snapshots.py and the JOURNAL.md entry")
     return 0 if ok else 1
 
 

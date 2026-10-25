@@ -425,3 +425,27 @@ Test values only, not radar performance. Main moves:
 Case times (P6 script, one computation for the report and the freeze, frequencies in parallel): model 4 s,
 mission_example 245 s, _csv 51 s, veille500 155 s, redundancy_demo 589 s, synthetic_mix 259 s, sky_demo 278 s,
 target_library 251 s, environment 285 s, frames 835 s (49 min in all).
+
+## 2026-10-25 -- step 3.2 closed (passes Q1-Q6): Ku confirmation rebuilt + speed-ups (radar_model V6.13.0)
+
+Causes, cumulated since the P6 refreeze of 2026-10-23: step 3.2 Q1-Q5 (V6.12.0: Ku frequency per sector, Ku look
+space, cluster modes, S2 touch as an S CONFIRM waveform, Gamma statistics, jammer and clutter per Ku look); Q6 exact
+speed-ups E1-E4 (V6.12.1, solve() split, bit-identical on 129 024 calls of mission_example against V6.12.0); the
+approximations chosen by the user once the absolute-precision rule was removed (V6.13.0): A1 position-loss laws
+rounded to 0.02 dB, A2 cumulative inversion to 1e-3 dB, A4 cached pol loss (exact), A5 lattice spacing searched at the
+frequency kept, A6 / A8 three S / Ku centres in a quiet spectrum, A9 S2 margins 0.05 dB / 16 quantiles / 8 GH nodes.
+cost_table.json regenerated. 13 178 output values differ. Test values only, not radar performance. Main moves:
+- Ku time per face -75 to -100 % in most missions (the 3.2 look space: shortened, cheaper Ku looks).
+- Confirmation mode S2 -> KU1+7 in S01 (mission_example and _csv), A2_VEILLE, A5_SHORT, MOON, T_KKV_RETRO;
+  T_DEBRIS KU7 -> KU1+7; EARTH KU1+7 -> none admissible. Checked on mission_example: the three modes load the
+  mission equally to 1e-4 (0.0119); with the S2 tolerance back at 0.01 dB S01 stays KU1+7: ties, not a bias.
+- mission_veille500 VEILLE_KV: S energy and time of every face +9.1 %, 2.765 -> 2.77 GHz, positions short of range
+  0.3 -> 0.6 % (same short_tol tier), waveforms NONC x8/x16 -> COHE x12/x24. Probably A6 (2.765 GHz no longer
+  evaluated in a quiet spectrum, not verified against V6.12): the frequency is not flat for this sector. To revisit.
+- mission_sky_demo EARTH: 2.76 -> 2.695 GHz, energy -5.1 % (the two-pass search had missed it), range at worst scan
+  1018 -> 1334 km; mission_redundancy_demo A1_TRIM range at worst scan +17.5 %.
+- Model case: WF-LRS ranges +0.01 % (A1 / A2 order); fast estimate 0.01-0.1 %.
+Case times (first N3 with the progress bar, each case once in its own process, at most 8 workers): model 0.2 min,
+mission_example 0.9, _csv 0.6, veille500 0.7, redundancy_demo 1.8, synthetic_mix 1.0, sky_demo 1.3, target_library
+1.2, environment 3.6, frames 2.7; cost table 1.9; test suite 2.7 (178 passed); whole N3 18.7 min (was 49 min of
+cases + over an hour of tests).

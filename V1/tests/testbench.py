@@ -234,14 +234,60 @@ def compute_all() -> Dict[str, dict]:
     out = {"model": model_case()}
     for n, case in zip(MISSIONS, case_names()[1:]):
         out[case] = mission_case(n, grid, table)
+        mo.release_memory()                            # T3: one mission's caches at a time
     return out
 
 
+CASE_CACHE_DIR = os.path.join(TESTS_DIR, ".case_cache")   # local, outside the repository (.git/info/exclude)
+
+
+def code_fingerprint() -> str:
+    """Hash of everything a case output depends on: the code, the parameter file, the test missions, the cost table
+    and the library versions (T1, 25 October 2026)."""
+    import glob
+    import hashlib
+    h = hashlib.sha256()
+    files = (sorted(glob.glob(os.path.join(ROOT, "core", "*.py"))) + [os.path.join(TESTS_DIR, "testbench.py"),
+             os.path.join(ROOT, "radar_system.toml"), os.path.join(ROOT, "core", "cost_table.json")]
+             + sorted(glob.glob(os.path.join(MISSIONS_DIR, "*"))))
+    for f in files:
+        h.update(os.path.relpath(f, ROOT).encode())
+        with open(f, "rb") as fh:
+            h.update(fh.read().replace(bytes([13, 10]), bytes([10])))   # same hash with CRLF or LF checkouts
+    h.update(f"{sys.version}|{np.__version__}|{os.environ.get('RADAR_PARAMS', '')}".encode())
+    return h.hexdigest()[:20]
+
+
 def compute_case(case: str) -> dict:
+    """Outputs of one case. T1 (25 October 2026): kept in tests/.case_cache/ with the code fingerprint, so that the
+    impact report, the refreeze and the snapshot tests of one full pass compute each case ONCE (RADAR_CASE_CACHE=0
+    forces the calculation). T3: after a mission case, the worker processes and caches are released."""
+    use = os.environ.get("RADAR_CASE_CACHE", "1") != "0"
+    path = os.path.join(CASE_CACHE_DIR, f"{case}.json")
+    fp = code_fingerprint() if use else ""
+    if use and os.path.exists(path):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                got = json.load(fh)
+            if got.get("fingerprint") == fp:
+                return got["data"]
+        except (OSError, ValueError):
+            pass
     if case == "model":
-        return model_case()
-    n = MISSIONS[case_names().index(case) - 1]
-    return mission_case(n, geo.SphereGrid(res_deg=GRID_RES_DEG), ce.load_table())
+        data = model_case()
+    else:
+        n = MISSIONS[case_names().index(case) - 1]
+        data = mission_case(n, geo.SphereGrid(res_deg=GRID_RES_DEG), ce.load_table())
+        mo.release_memory()
+    if use:
+        os.makedirs(CASE_CACHE_DIR, exist_ok=True)
+        tmp = f"{path}.{os.getpid()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump({"fingerprint": fp, "data": data}, fh)
+        os.replace(tmp, path)
+        with open(path, encoding="utf-8") as fh:      # the same JSON round trip as a cache hit
+            data = json.load(fh)["data"]
+    return data
 
 
 # ----------------------------------------------------------------------------- snapshots

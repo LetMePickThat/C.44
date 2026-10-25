@@ -552,6 +552,10 @@ freq_step_mhz        = 5.0      # S centre-frequency grid, DERIVED from the band
                                 # band and outside the mission's spectrum_exclusions_ghz (step 3.1, A1-A2)
 freq_coarse_mhz      = 20.0     # first pass over the valid centres on this step, + the centre-most one of every free fragment (A5-A6)
 freq_fine_span_mhz   = 20.0     # second pass at freq_step_mhz within +/- this of the best coarse centre (A5)
+freq_quiet_centres   = 3        # A6 (25 Oct 2026): a sector with no S exclusion and no jammer evaluates this many centres
+                                # spread over the core band (optimum flat in frequency); 0 = the two-pass search always
+spacing_after_frequency = true  # A5 (25 Oct 2026): frequency searched at search_grid.beam_spacing_hpbw, then every spacing
+                                # of beam_spacing_options_hpbw at the frequency kept; false = every spacing at every centre
 excluded_flag_frac   = 0.5      # flag a sector when the exclusions remove more than this fraction of the valid centres (A10)
 tie_rel_tol          = 1e-9     # costs equal within this relative tolerance are ties, broken by the secondary criterion (E6)
 tau_s                = [5e-6, 10e-6, 20e-6, 50e-6, 100e-6, 200e-6, 400e-6, 600e-6, 800e-6, 1.0e-3, 1.2e-3, 1.5e-3]
@@ -571,6 +575,7 @@ short_penalty        = 1e6      # DP penalty per fraction of positions short of 
 track_margin_warn    = 0.10     # warn when a face keeps less than this power fraction for tracking
 sphere_res_deg       = 0.2      # (phi, eps) raster of the exact calculation
 solve_cache_size     = 262144   # memoised solve() ranges per process (~50 MB when full)
+solve_base_cache_size = 16384   # memoised solve_base() parts per process, ~2 KB each (step 3.2, Q6 E1; exact)
 mask_cache_size      = 64       # sector masks kept per raster
 parallel_min_sectors = 6        # below this, sequential run
 max_workers          = 0        # 0 = automatic (half the logical CPUs)
@@ -585,11 +590,13 @@ ku_integrations = ["COHERENT", "NONCOHERENT"]  # both offered, the optimiser cho
 ku_cluster_tx   = ["sequential", "superposition", "partition"]   # ways of sending the 7-beam cluster (step 3.2 C1)
 ku_freq_step_mhz   = 10.0       # Ku centre grid: usable_lo + k x step, signal inside the band and the exclusions (A2)
 ku_freq_coarse_mhz = 50.0       # Ku centres evaluated: valid ones on this step + the centre-most of each free fragment (A5)
+ku_freq_quiet_centres = 3       # A8 (25 Oct 2026): no Ku exclusion and no jammer -> this many Ku centres over the core
+                                # band (Ku frequency choice flat there); 0 = the coarse grid always
 margin_db_max   = 12.0          # power margins of the confirmation looks: 0 .. max dB,
-margin_db_tol   = 0.01          # solved by bisection to this tolerance (step 3.2 B6; was a 0.5 dB grid)
+margin_db_tol   = 0.05          # solved by bisection to this tolerance (step 3.2 B6; 0.01 until A9, 25 Oct 2026)
 s2_touch_step_db = 0.5          # S2: grid of the S touch margin (the former grid), its Ku margin by bisection (B6)
-n_snr_quantiles = 32            # quantiles of the detected-echo SNR
-gh_nodes        = 12            # Gauss-Hermite nodes of the pointing-error average
+n_snr_quantiles = 16            # quantiles of the detected-echo SNR (32 until A9, 25 Oct 2026)
+gh_nodes        = 8             # Gauss-Hermite nodes of the pointing-error average (12 until A9, 25 Oct 2026)
 
 [tool.redundancy]             # core/redundancy.py
 cover_full     = 0.995          # fraction of B's scanned solid angle above which B is fully redundant
@@ -633,6 +640,12 @@ chunk           = 2048           # directions evaluated per numpy block
 
 [tool.detection]              # detection criterion (core/detection.py, step 2.3)
 offset_quantiles = 16           # quantiles of each random position loss (grid, straddle, velocity filter)
+pos_law_step_db = 0.02          # position-loss laws rounded to this step (A1, 25 Oct 2026: distinct laws / 6, required SNR
+                                # within 0.003 dB measured); 0 = exact
+cum_snr_tol_db = 1e-3           # tolerance of the bisection inverting the cumulative criterion (A2, 25 Oct 2026; was 1e-4)
+snr_cache_size = 131072         # inverted laws kept per process (~2-3 KB each); was unbounded (T3, 25 Oct 2026)
+mean_curve_cache_size = 8192    # position-averaged Pd curves kept per process (16 KB each; was 32768 = 0.5 GB, T3)
+position_cache_size = 32768     # position-loss laws kept per process (was unbounded, T3)
 masking_offsets_cells = [1, 2, 3]   # range / Doppler offsets (resolution cells) of the masking outputs (step 2.4, D1-D2)
 
 [tool.environment]            # structure, clutter and jamming evaluation (core/environment.py, step 2.5)

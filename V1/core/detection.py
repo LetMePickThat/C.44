@@ -32,11 +32,21 @@ from typing import Sequence, Tuple, Union
 
 import numpy as np
 
+try:
+    from .params import P
+except ImportError:            # run as a script through core/radar_model.py
+    from params import P
+
 SNR_GRID_DB = np.arange(-40.0, 60.0 + 1e-9, 0.05)        # total SNR grid of the tabulated laws
 _LAGUERRE = np.polynomial.laguerre.laggauss(64)
 _N_GAMMA_Q = 96                                           # quantiles of the Swerling 4 mixture
 _N_PHASES = 16                                            # phases of the looks (cumulative criterion)
 _STEADY_SHAPE = 1e4                                       # Gamma shapes above this are taken as a steady target
+# Tool settings ([tool.detection], 25 October 2026): tolerance of the cumulative-criterion inversion (A2) and cache
+# bounds (T3: the caches of long-lived worker processes filled the RAM over the test missions)
+CUM_TOL_DB = P.get("tool.detection.cum_snr_tol_db")
+MEAN_CURVE_CACHE = P.get("tool.detection.mean_curve_cache_size")
+SNR_CACHE = P.get("tool.detection.snr_cache_size")
 
 
 @dataclass(frozen=True)
@@ -169,7 +179,7 @@ def snr_req_db(n: int, swerling: Fluctuation, pfa: float, pd: float) -> float:
     return _invert(pd_curve(n, swerling, pfa), pd)
 
 
-@functools.lru_cache(maxsize=1 << 15)   # ~0.5 GB when full; as fast as unbounded on mission_example (step 3.1 A4)
+@functools.lru_cache(maxsize=MEAN_CURVE_CACHE)   # 16 KB per curve (step 3.1 A4; bounded by the file, T3)
 def _mean_curve_cached(n: int, swerling: Fluctuation, pfa: float, losses_db: Tuple[float, ...],
                        weights: Tuple[float, ...]) -> np.ndarray:
     base = pd_curve(n, swerling, pfa)
@@ -231,7 +241,7 @@ def required_snr_db(n: int, swerling: Fluctuation, pfa: float, p_target: float, 
                             tuple(float(x) for x in weights), float(q), float(floor))
 
 
-@functools.lru_cache(maxsize=None)
+@functools.lru_cache(maxsize=SNR_CACHE)   # was unbounded (step 3.1 A1); bounded at T3 (A1 of 25 October: far fewer laws)
 def _required_snr_db(n, swerling, pfa, p_target, losses_db, weights, q, floor) -> float:
     curve = mean_curve(n, swerling, pfa, losses_db, weights)
     if q <= 0.0:
@@ -254,7 +264,7 @@ def _required_snr_db(n, swerling, pfa, p_target, losses_db, weights, q, floor) -
     for _ in range(40):
         mid = 0.5 * (lo + hi)
         lo, hi = (mid, hi) if p_cum(mid) < p_target else (lo, mid)
-        if hi - lo < 1e-4:
+        if hi - lo < CUM_TOL_DB:
             break
     return hi
 

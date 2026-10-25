@@ -3,6 +3,7 @@
 Uses the test missions of tests/missions/ (test values only, not radar performance).
 """
 import contextlib
+import dataclasses
 import importlib.util
 import io
 import json
@@ -1271,8 +1272,10 @@ def test_frequency_grid_is_derived_from_the_band_and_the_exclusions():
 
 def test_two_pass_frequency_search_matches_the_exhaustive_one(monkeypatch):
     """The two-pass frequency search finds the exhaustive optimum (one lattice spacing: the frequency search is
-    tested, not the spacing choice, which test_optimiser_keeps_the_cheapest_spacing covers)."""
+    tested, not the spacing choice, which test_optimiser_keeps_the_cheapest_spacing covers; the quiet-spectrum
+    shortcut A6 is switched off here and tested on its own)."""
     monkeypatch.setattr(rm, "BEAM_SPACING_OPTIONS", (rm.BEAM_SPACING_HPBW,))
+    monkeypatch.setattr(mo, "FREQ_QUIET_CENTRES", 0)
     m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_example.json"))
     sec = m["sectors"][0]
     sph = mo._sphere(-90.0, 90.0)
@@ -1283,6 +1286,26 @@ def test_two_pass_frequency_search_matches_the_exhaustive_one(monkeypatch):
     full = mo._best_plan(dict(sec, freq_ghz_candidates=allf), sph, sph.mask(sec), p_avg)
     assert two[3].objective == pytest.approx(full[3].objective, rel=1e-2)
     assert two[3].short_frac == full[3].short_frac
+
+
+def test_quiet_spectrum_evaluates_few_centres_and_stays_near_the_full_search(monkeypatch):
+    """A6 (25 October 2026): with no exclusion and no jammer, FREQ_QUIET_CENTRES centres spread over the core band;
+    the plan stays within 3 % of the full two-pass search (one lattice spacing). An exclusion restores the search."""
+    monkeypatch.setattr(rm, "BEAM_SPACING_OPTIONS", (rm.BEAM_SPACING_HPBW,))
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_example.json"))
+    sec = m["sectors"][0]
+    assert mo.quiet_spectrum(sec, None) and not mo.quiet_spectrum(dict(sec, spectrum_exclusions_ghz=[[2.7, 2.72]]), None)
+    fs = mo.quiet_centres(mo.valid_centres(10.0, ()), 3, rm.BAND_S)
+    assert len(fs) == 3 and all(rm.BAND_S.core_lo_ghz <= f <= rm.BAND_S.core_hi_ghz for f in fs)
+    sph = mo._sphere(-90.0, 90.0)
+    p_avg = rm.face_elec_avail_w(m["global"].get("face_elec_mw", rm.FACE_ELEC_POWER_MW))
+    quiet = mo._best_plan(sec, sph, sph.mask(sec), p_avg)
+    assert quiet[0] in fs
+    monkeypatch.setattr(mo, "FREQ_QUIET_CENTRES", 0)
+    full = mo._best_plan(sec, sph, sph.mask(sec), p_avg)
+    assert quiet[3].short_frac == full[3].short_frac
+    assert full[3].objective <= quiet[3].objective * (1 + 1e-9) and quiet[3].objective == pytest.approx(
+        full[3].objective, rel=3e-2)
 
 
 def test_ties_are_broken_deterministically():
@@ -1856,6 +1879,9 @@ def test_ku_centres_follow_the_band_and_the_exclusions():
     assert grid[0] == rm.BAND_KU.usable_lo_ghz and all(abs((b - a) - 0.010) < 1e-9 for a, b in zip(grid, grid[1:]))
     free = trk.ku_centres({})
     assert free and all(mo.signal_fits(f, min(trk.KU_BW), (), rm.BAND_KU) for f in free)
+    # A8 (25 October 2026): a quiet Ku spectrum evaluates ku_freq_quiet_centres centres in the core band
+    assert len(free) == trk.KU_FREQ_QUIET_CENTRES and all(rm.BAND_KU.core_lo_ghz <= f <= rm.BAND_KU.core_hi_ghz
+                                                          for f in free)
     cut = trk.ku_centres({"ku_spectrum_exclusions_ghz": [[13.8, 14.2]]})
     assert all(not (13.8 - min(trk.KU_BW) / 2e3 < f < 14.2 + min(trk.KU_BW) / 2e3) for f in cut)
     assert any(f < 13.8 for f in cut) and any(f > 14.2 for f in cut)
@@ -1933,6 +1959,68 @@ def test_harmonic_cover_of_the_ku_channel():
     cov = trk._harmonic_cover(r, 14.0, 50.0)
     assert cov and cov[0][1] == pytest.approx(1.0)
     assert not trk._harmonic_cover(r, 13.55, 50.0)
+
+
+# ----------------------------------------------------------------------------- exact speed-ups (step 3.2, Q6)
+def test_optimiser_solve_path_is_bit_identical_to_solve():
+    """E1: solve_base (cached) + solve_look, without the diagnostics, gives the optimiser exactly what solve() gives,
+    over pulse trains, integrations, TX modes, Doppler windows, Pfas, criteria, jammers, lattices and the Ku looks."""
+    tgt = dataclasses.replace(rm.TARGETS["KKV"], name="cache")
+    wfs = [(mo.make_wf("a", 100e-6, 1, 1e-3, 50.0, 1, "NONCOHERENT"), 2.8),
+           (mo.make_wf("b", 200e-6, 8, 4e-3, 100.0, 1, "COHERENT", window=-30.0), 2.75),
+           (mo.make_wf("c", 50e-6, 6, 2e-3, 25.0, 1, "NONCOHERENT", agility=60.0), 2.8),
+           (mo.make_wf("d", 100e-6, 8, 0.5e-3, 50.0, 1, "COHERENT", staggered=True), 2.8),
+           (tb.KU_TRACK, 14.0), (rm.Waveform("k", "CONFIRM", "Ku", 50e-6, 4, 1e-3, 50.0, 1, "COHERENT"), 14.1)]
+    wfs += [(mo.make_wf("m", 100e-6, 4, 2e-3, 50.0, b, "COHERENT", mode=mode, cut=cut), 2.8)
+            for mode, b, cut in mo.tx_variants() if mode == "partition"]
+    looks = [(None, None, None, None, None, None), (-30.0, 1e-7, (5000.0, 10.0, 800.0), None, 1.6, 3000.0),
+             (-35.0, 3e-8, (3000.0, 5.0, 400.0), 1e-9, 1.3, 0.0)]
+    for w, f in wfs:
+        for sll, pfa, cum, spj, sp, v_span in looks:
+            sll = rm.RX_SLL_DEFAULT_DB if sll is None else sll
+            p = mo._parts_cached(w, f, 0.0, tgt, sll, v_span, pfa, cum, spj, sp)
+            if p is None:
+                with pytest.raises(ValueError):
+                    rm.solve(w, f, 0.0, tgt, rm.FACE_ELEC_POWER_MW, sll, v_span_mps=v_span)
+                continue
+            r = rm.solve(w, f, 0.0, tgt, rm.FACE_ELEC_POWER_MW, sll, v_span_mps=v_span, pfa=pfa, cum=cum,
+                         spj_density_w_hz=spj, grid_spacing_hpbw=sp)
+            assert p[:4] == (r.range_noise_km, r.burn_through_km, r.snr_req_db + r.losses["positions"], r.l_tot_db)
+            assert mo._LAW_LIST[p[4]] == r.look_law
+            assert list(r.losses) == list(mo._base_cached(w, f, 0.0, tgt, sll, v_span).losses)
+
+
+def test_s2_gains_kept_per_touch_grid_are_exact():
+    """E2: s2_vec with the beam gains kept per touch grid equals the direct computation (bit-identical), on a cache
+    miss and on a hit."""
+    tgt = rm.TARGETS["KKV"]
+    fl = rm.look_fluctuation(tgt, 14.0, tgt.swerling, 1, 0.0)
+    for cl in trk.cluster_variants()[:2]:
+        st = trk.ConfirmStats(fl, fl, 2.8, 14.0, 1.6, cl)
+        mt = np.array([0.0, 1.5, 4.0])
+        for mk in (np.array([0.5, 2.0, 3.0]), np.array([6.0, 0.0, 1.0])):     # second pass: a hit
+            got = st.s2_vec(mt, mk)
+            pt, _, _ = st._memo[("touch", tuple(np.round(mt, 6)))]
+            sig2 = trk.K_ML_S * st.q / np.sqrt(st.x_det[:, None] + (st.touch_snr0 * 10.0 ** (mt / 10.0))[None, :])
+            snr = (st.snr_ku * 10.0 ** (mk / 10.0))[None, :, None, None]
+            ex = st.bias_ku + sig2[..., None, None] * trk.GH_NODES[:, None]
+            ey = st.bias_ku + sig2[..., None, None] * trk.GH_NODES[None, :]
+            p1 = trk.pd_single(trk._tx_gain(ex, ey) * snr, fl)
+            miss = 1.0
+            for cx, cy, ku, kv in cl.beams:
+                miss = miss * (1.0 - trk.pd_single(trk._tx_gain(ex - cx, ey - cy, ku, kv) * cl.eirp * snr, fl))
+            w = trk.GH_WEIGHTS[:, None] * trk.GH_WEIGHTS[None, :]
+            s17 = np.tensordot(p1 + (1.0 - p1) * (1.0 - miss), w, axes=([2, 3], [0, 1]))
+            l17 = np.tensordot(1.0 + (1.0 - p1) * cl.looks, w, axes=([2, 3], [0, 1]))
+            assert np.array_equal(got[0], (pt * s17).mean(axis=0)) and np.array_equal(got[1], (pt * l17).mean(axis=0))
+
+
+def test_single_look_pd_by_index_matches_interp():
+    """E3: pd_single interpolates by index on the regular grid: np.interp to rounding, flat beyond the grid ends."""
+    for fl in (1, 3, rm.look_fluctuation(rm.TARGETS["KKV"], 14.0, None, 1, 0.0)):
+        x = np.concatenate([np.linspace(-45.0, 65.0, 20001), rm.detection.SNR_GRID_DB])
+        ref = rm.detection.pd_at(1, fl, rm.DETECT_PFA, x)
+        assert np.max(np.abs(trk.pd_single(10.0 ** (x / 10.0), fl) - ref)) < 1e-12
 
 
 # ----------------------------------------------------------------------------- parameter file
