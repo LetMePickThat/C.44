@@ -46,7 +46,8 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 4.4 | codée le 25 octobre 2026 (V6.20.0) : `core/compute.py` (débits, faisceaux simultanés, charge par fonction, tampons, puissance du calcul plafonnée par `dbf_kw`, latence de traitement à la place de `processing_s`, coût d'une resélection en vol) ; bilans de dimensionnement gardés au plafond (boucle en 5.2, accepté) ; N3 passé (20,7 min, snapshots regelés) ; formateur porté à 512 faisceaux en S et 32 en Ku, mémoire 4 To et débit mémoire 50 To/s par face (décisions de l'utilisateur, N3 20,5 min) ; capacité de faisceaux dans l'optimiseur avec la boucle de 5.2 |
 | 4.5 | codée le 25 octobre 2026 (V6.21.0) : `core/repoint.py` (pointage converti à l'émission, erreur de navigation 30 °/s / 15 °/s², perte `nav_pointing` ≈ 10⁻³ dB au plus, erreur de poursuite, migration entre faces, coût de calcul) ; N3 passé (23,8 min, snapshots regelés) |
 | 5.1 | codée le 25 octobre 2026 (V6.22.0) : réglages de mission et de volume, tables de SER 12 × 7 (détection au pire aspect, KKV de face), dispersions dans la discrimination, percée brouilleur autorisable, interface provisoire ; N3 passé (22,2 min, snapshots regelés) |
-| 5.2 et suivantes | à faire (5.7 et phase 6 ajoutées le 25 octobre 2026) |
+| 5.2 | en cours (25 octobre 2026) : cadrage validé ; P1 répartition des 8 MW par niveaux de priorité (`core/allocation.py`), P2 couplages (fausses alarmes, éclipse, faisceaux), P3 boucle de point fixe et choix global, codées et commitées en intermédiaire ; **reprise : P4 tables pour le vol, puis P5 (charge du verdict sur la répartition, LaTeX, N3, snapshots, journal)** ; détail au §11 de `Choix_architecturaux.md` |
+| 5.3 et suivantes | à faire (5.7 et phase 6 ajoutées le 25 octobre 2026) |
 
 ---
 

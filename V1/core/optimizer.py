@@ -840,6 +840,10 @@ def parts_at(w, f, theta, tgt, rx_sll: Optional[float] = None, v_span: Optional[
                          None if spacing is None else float(spacing), pointing, pd)
 
 
+GOPT_MAX_ITER = int(P.get("tool.global_opt.max_iterations"))
+GOPT_ALTERNATIVES = int(P.get("tool.global_opt.alternatives"))
+
+
 def fa_per_rr(sec: dict) -> float:
     """False alarms tolerated per revisit for a sector (step 2.3, fa_mode 'fa_rate'): its fa_per_rr, or (step 5.1) its
     rate per second fa_rate_per_s x its revisit, else the file's default."""
@@ -927,15 +931,23 @@ class PositionCosts:
         self.floor = np.minimum(1.0, rm.PULSE_TB_MIN / (np.array([w.sig_bw_mhz for w in cands]) * 1e6) / self.tau)
         self.train = self.n > 1
         self._b = b
+        self.extra_e = np.zeros(len(cands))         # step 5.2: J per position added (confirming its false alarms)
         # everything the cost function depends on: candidates with equal keys have the same cost at the same s
-        self.keys = np.stack([self.tau, self.n, self.pri, self.trains, self.share, self.floor], axis=1)
+        self.keys = np.stack([self.tau, self.n, self.pri, self.trains, self.share, self.floor, self.extra_e], axis=1)
 
     def subset(self, idx: np.ndarray) -> "PositionCosts":
         """The costs of the candidates idx only, in that order."""
         out = object.__new__(PositionCosts)
-        for k in ("tau", "n", "pri", "trains", "share", "floor", "train", "keys"):
+        for k in ("tau", "n", "pri", "trains", "share", "floor", "train", "keys", "extra_e"):
             setattr(out, k, getattr(self, k)[idx])
         out._b = self._b
+        return out
+
+    def with_extra(self, extra_e: np.ndarray) -> "PositionCosts":
+        """A copy with an extra electrical energy per position for each candidate (step 5.2, point 1)."""
+        out = self.subset(np.arange(len(self.tau)))
+        out.extra_e = np.asarray(extra_e, dtype=float)
+        out.keys = np.concatenate([out.keys[:, :-1], out.extra_e[:, None]], axis=1)
         return out
 
     def __call__(self, s, idx=None):
@@ -951,7 +963,7 @@ class PositionCosts:
         b = self._b
         eta = b.pae_sat * block / (block + b.pae_t_edge_s) * np.minimum(1.0, 1.0 - b.pae_duty_slope * (d - rm.PAE_DUTY_REF))
         t = n * tau * s_eff * share
-        return b.p_pk_total_w * t / eta, t, s_eff, eta
+        return b.p_pk_total_w * t / eta + self.extra_e[sl].reshape(shp), t, s_eff, eta
 
 
 def prune_dominated(r: np.ndarray, keys: np.ndarray) -> np.ndarray:
@@ -1435,12 +1447,17 @@ def _freq_ranges(sec: dict, sph: Sphere, m: np.ndarray, f: float, sky: Optional[
     if rm.band_for_frequency(f) is not rm.BAND_S:
         return None                                    # outside the (possibly redefined) S band
     pos, unscanned, sky_s, factor = search_positions(sec, sph, m, f, sky)
+    # step 5.2 (3): echoes eclipsed by the common transmit slots (the previous iteration's scheduler), as a loss
+    factor = factor * 10.0 ** (-float(sec.get("_eclipse_db", 0.0)) / 40.0)
     P = np.array([pos[k] for k in range(4)])
     if P.sum() <= 0:
         return None
     pfas = candidate_pfas(sec, cands, f, float(P.sum()))
+    from . import compute                                   # step 5.2 (5): beams a dwell forms <= the beamformer's
+    rx_full = rm.rx_beams_per_position(f, rx_sll_db(sec), grid_spacing(sec))
     fit = [c for c, w in enumerate(cands) if signal_fits(f, w.occupied_mhz, excl)
-           and not (w.staggered and sky_s.get("main_lobe_surface"))]   # A2, B8; step 2.5 C2 (folded clutter)
+           and not (w.staggered and sky_s.get("main_lobe_surface"))           # A2, B8; step 2.5 C2 (folded clutter)
+           and rx_full * rm.cells_per_dwell(w) <= compute.BEAMS_MAX["S"]]
     nb = P.shape[1]
     spj = env.spj_density_w_hz(sec, f)                                  # step 3.1, P4 Q11-Q13
     se = sector_env_s(sec, sph, m, f, sky)
@@ -1548,8 +1565,14 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
 
     def _freq_plan(f: float, sp: float, x: tuple) -> tuple:
         P, unscanned, r, sky_s, pfas, factor, col_bin, r_cols = x
-        keep = prune_dominated(r, costs.keys)                   # step 3.1, E9 (exact)
-        plan = _plan_waveforms(P, r[keep], costs.subset(keep), r_cols, rr, p_avg_max_w, max_wf, short_tol, col_bin)
+        c_f = costs
+        e_fa = float(sec.get("_fa_energy_J", 0.0))     # step 5.2 (1): Ku energy to confirm one false alarm
+        if e_fa > 0.0:
+            sec_sp = dict(sec, _grid_spacing=sp)
+            c_f = costs.with_extra(np.array([cells_per_position(sec_sp, w, f) * pfas[j] * e_fa
+                                             for j, w in enumerate(cands)]))
+        keep = prune_dominated(r, c_f.keys)                     # step 3.1, E9 (exact)
+        plan = _plan_waveforms(P, r[keep], c_f.subset(keep), r_cols, rr, p_avg_max_w, max_wf, short_tol, col_bin)
         if plan is not None:
             plan.choice = np.where(plan.choice >= 0, keep[np.maximum(plan.choice, 0)], -1)
         return (f, P, unscanned, plan, sky_s, pfas, factor, col_bin, r_cols, sp)
@@ -1576,7 +1599,9 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
     # in frequency there; an encumbered one keeps the two-pass search.
     sp0 = (rm.BEAM_SPACING_HPBW,) if SPACING_AFTER_FREQ else tuple(rm.BEAM_SPACING_OPTIONS)
     forced = sec.get("freq_ghz_candidates")
-    if forced is not None:
+    if sec.get("_force_plan") is not None:             # step 5.2: the plan the mission-level choice kept
+        evaluate_all([float(sec["_force_plan"][0])], (float(sec["_force_plan"][1]),))
+    elif forced is not None:
         evaluate_all([float(f) for f in forced], sp0)
     elif FREQ_QUIET_CENTRES > 0 and quiet_spectrum(sec, sky):
         evaluate_all(quiet_centres(valid_centres(bw_min, excl), FREQ_QUIET_CENTRES, rm.BAND_S), sp0)
@@ -1585,7 +1610,7 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
         b = best_of()
         if b is not None:
             evaluate_all(fine_centres(b[0], bw_min, excl, {fc for fc, _ in evaluated}), sp0)
-    if SPACING_AFTER_FREQ:
+    if SPACING_AFTER_FREQ and sec.get("_force_plan") is None:
         b = best_of()
         if b is not None:
             evaluate_all([b[0]], rm.BEAM_SPACING_OPTIONS)
@@ -1598,7 +1623,15 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
     best = best_of()
     if best is None:
         return {"id": sec["id"], "status": "NO_WAVEFORM", "note": "no playable waveform in the search space"}
+    # step 5.2: the next best plans of the same coverage and range class, for the mission-level choice
+    alts = sorted((x for x in evaluated.values() if x is not None and x[3] is not None and x is not best
+                   and round(x[2] - best[2], 3) == 0 and round(x[3].short_frac / short_tol)
+                   == round(best[3].short_frac / short_tol)), key=lambda x: (snap(x[3].objective), x[0], x[9]))
+    alternatives = [{"freq_ghz": float(x[0]), "spacing": float(x[9]), "fe": [float(v) for v in x[3].fe],
+                     "ft": [float(v) for v in x[3].ft], "objective": float(x[3].objective)}
+                    for x in alts[:GOPT_ALTERNATIVES]]
     f, P, unscanned, plan, sky_s, pfas, _, col_bin, r_cols, sp = best
+    plan.alternatives = alternatives
     if len(col_bin) != int(col_bin.max()) + 1:
         P = _plan_to_bins(P, plan, col_bin, r_cols)          # step 3.1, P4: requirement classes back to 1-deg bins
     plan.freq_info = {"evaluated": len({fc for fc, _ in evaluated}), "valid_centres": len(valid_centres(bw_min, excl)),
@@ -1724,6 +1757,7 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
         "rr_alone_s": rr * load,                               # RR if this sector had the face to itself (energy and time)
         "time_to_impact_at_detection_s": (r_want * 1e3 / v_max - rr) if v_max > 0 else None,
     }
+    out["_alternatives"] = getattr(plan, "alternatives", [])        # step 5.2
     out["flags"] = []
     res = out["range_resolution_m"]
     if res["achieved"] > res["requested"] + 1e-9:
@@ -1962,41 +1996,12 @@ def overlaps(d_omega: np.ndarray, masks: Dict[str, np.ndarray], min_sr: float = 
     return out
 
 
-def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] = None) -> dict:
-    """progress_cb(done, total, sector_id) is called after each sector (optional, e.g. for a UI
-    progress bar). cancel_cb() is polled between sectors (every 0.2 s in parallel mode); if it returns True,
-    run() stops early and returns the partial result with "cancelled": True (sectors not computed are absent).
-    workers: None = automatic (parallel from PARALLEL_MIN_SECTORS sectors), 1 = sequential, > 1 = parallel.
-    Step 3.0: the volumes and the sky are first turned into the ship frame with the mission navigation (core/frames.py)."""
-    framed = frames.uses_frames(mission)
-    mission, frame_alerts = frames.resolve(mission)
-    mission = with_spectrum(mission)                 # step 3.1: the S exclusions seen by every sector
+def _assemble(mission: dict, sectors: List[dict], results: List[dict], cancelled: bool, masks: Dict[str, np.ndarray],
+              eps_min: float, eps_max: float, elec: float, cap, p_avg_max: float, sky: Optional[dict], framed: bool,
+              frame_alerts: List[str]) -> dict:
+    """Mission totals, warnings and every budget (Ku, compute, power allocation, re-pointing, scheduler) of the search
+    results (step 5.2: called again after each pass of the global optimiser)."""
     g = mission.get("global", {})
-    eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
-    # step 4.1 (A): the faces share the ship total; the optimiser weighs energy against time with the REFERENCE
-    # allocation (ship total / 4, power.face_elec_mw); the mission's face_elec_mw is an optional cap per face
-    cap = g.get("face_elec_mw") or None                # 0 / absent = no cap
-    elec = rm.FACE_ELEC_POWER_MW
-    p_avg_max = rm.face_elec_avail_w(elec)
-    sky = g.get("sky")
-    skym.parse(sky)                  # refuses an invalid sky before any work
-    sectors = mission["sectors"]
-    parallel = (len(sectors) >= PARALLEL_MIN_SECTORS) if workers is None else workers > 1
-    masks: Dict[str, np.ndarray] = {}
-    to_mask = iter(sectors)
-
-    def build_next_mask() -> bool:   # overlap-check masks, built while the workers run
-        sec = next(to_mask, None)
-        if sec is None:
-            return False
-        masks[sec["id"]] = _sphere(eps_min, eps_max).mask(sec)
-        return True
-
-    if parallel and len(sectors) > 1:
-        results, cancelled = _run_parallel(sectors, eps_min, eps_max, p_avg_max, progress_cb, cancel_cb,
-                                           idle=build_next_mask, sky=sky)
-    else:
-        results, cancelled = _run_sequential(sectors, eps_min, eps_max, p_avg_max, progress_cb, cancel_cb, sky)
     sph = _sphere(eps_min, eps_max)
     done_ids = {r["id"] for r in results}
     for sec in sectors:   # masks not built yet (sequential run, or workers faster than the main process)
@@ -2054,12 +2059,159 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
     from . import compute                    # step 4.4: data, beams, processing load, power, latency
     out["compute"] = compute.budget(mission, out)
     warn.extend(out["compute"]["flags"])
+    from . import allocation                 # step 5.2 (P1): the ship's power shared by the faces, by priority
+    out["power_allocation"] = allocation.allocate(mission, out)
+    warn.extend(out["power_allocation"]["flags"])
     from . import repoint                    # step 4.5: navigation pointing error, migration between faces
     out["repointing"] = repoint.budget(mission, out)
     warn.extend(out["repointing"]["flags"])
     from . import scheduler                  # step 4.3: the tasks of each face in time
     out["scheduler"] = scheduler.schedule(mission, out)
     warn.extend(out["scheduler"]["flags"])
+    return out
+
+def _couplings(mission: dict, out: dict) -> Dict[str, dict]:
+    """Per sector, the coupling keys of the next pass (step 5.2): the eclipse of the common S slots when above
+    scheduler.eclipse_flag_db (below, reported only, as before), and the Ku energy of confirming one false alarm when
+    the false alarms depend on the waveform (fa_mode 'pfa_cell'; with 'fa_rate' their number per revisit is fixed)."""
+    from . import scheduler
+    ecl = float((out.get("scheduler") or {}).get("eclipse_db", {}).get("S", 0.0))
+    keys: Dict[str, dict] = {}
+    trk = {t["id"]: t for t in out.get("tracking", {}).get("sectors", [])}
+    p_ref = float(out["global"]["face_elec_avail_kW"]) * 1e3
+    for r in out["sectors"]:
+        if r.get("status") != "OK":
+            continue
+        k: Dict[str, float] = {}
+        if ecl > scheduler.ECLIPSE_FLAG_DB:
+            k["_eclipse_db"] = round(ecl, 3)
+        t = trk.get(r["id"])
+        if rm.FA_MODE != "fa_rate" and t is not None:
+            e_rr = sum(float(f.get("energy_fraction", 0.0)) for f in (t.get("confirmation") or {}).get("faces", {}).values())
+            n = float(t.get("false_alarms_per_rr", 0.0)) + 1.0
+            if e_rr > 0:
+                k["_fa_energy_J"] = round(e_rr * p_ref * float(r["rr_target_s"]) / n, 3)
+        keys[r["id"]] = k
+    return keys
+
+
+def _mission_choice(out: dict) -> Dict[str, Tuple[float, float]]:
+    """Step 5.2 (B): per sector, the plan (frequency, spacing) among its own and its alternatives that lowers the most
+    loaded face of the mission (energy and S time, the confirmation and tracking loads of the faces included), then
+    the sum of the face loads, then its own cost; one sector at a time, the most loaded first. Returns the sectors
+    whose choice changes."""
+    e = np.zeros(4)
+    t = np.zeros(4)
+    for f, v in out.get("tracking", {}).get("faces", {}).items():
+        e[int(f)] += v.get("confirm_energy", 0.0) + v.get("at_energy", 0.0) + v.get("burn_through_energy", 0.0)
+        t[int(f)] += v.get("confirm_s_time", 0.0)
+    plans = {}
+    for r in out["sectors"]:
+        if r.get("status") != "OK":
+            continue
+        fe = np.array([r["faces"].get(str(k), {}).get("energy_fraction", 0.0) for k in range(4)])
+        ft = np.array([r["faces"].get(str(k), {}).get("time_fraction", 0.0) for k in range(4)])
+        plans[r["id"]] = (fe, ft, r)
+        e += fe
+        t += ft
+
+    def score(ee, tt):
+        return (round(float(max(ee.max(), tt.max())), 9), round(float(ee.sum() + tt.sum()), 9))
+
+    changes = {}
+    for sid in sorted(plans, key=lambda x: -float(max(plans[x][0].max(), plans[x][1].max()))):
+        fe, ft, r = plans[sid]
+        base_e, base_t = e - fe, t - ft
+        best = (score(e, t), float(max(fe.max(), ft.max())), None)
+        for a in r.get("_alternatives", []):
+            ae, at = np.array(a["fe"]), np.array(a["ft"])
+            cand = (score(base_e + ae, base_t + at), float(a["objective"]), (a["freq_ghz"], a["spacing"]))
+            if cand[:2] < best[:2]:
+                best = cand
+        if best[2] is not None:
+            a = next(x for x in r["_alternatives"] if (x["freq_ghz"], x["spacing"]) == best[2])
+            e, t = base_e + np.array(a["fe"]), base_t + np.array(a["ft"])
+            plans[sid] = (np.array(a["fe"]), np.array(a["ft"]), r)
+            changes[sid] = best[2]
+    return changes
+
+
+def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] = None) -> dict:
+    """progress_cb(done, total, sector_id) is called after each sector (optional, e.g. for a UI
+    progress bar). cancel_cb() is polled between sectors (every 0.2 s in parallel mode); if it returns True,
+    run() stops early and returns the partial result with "cancelled": True (sectors not computed are absent).
+    workers: None = automatic (parallel from PARALLEL_MIN_SECTORS sectors), 1 = sequential, > 1 = parallel.
+    Step 3.0: the volumes and the sky are first turned into the ship frame with the mission navigation (core/frames.py)."""
+    framed = frames.uses_frames(mission)
+    mission, frame_alerts = frames.resolve(mission)
+    mission = with_spectrum(mission)                 # step 3.1: the S exclusions seen by every sector
+    g = mission.get("global", {})
+    eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
+    # step 4.1 (A): the faces share the ship total; the optimiser weighs energy against time with the REFERENCE
+    # allocation (ship total / 4, power.face_elec_mw); the mission's face_elec_mw is an optional cap per face
+    cap = g.get("face_elec_mw") or None                # 0 / absent = no cap
+    elec = rm.FACE_ELEC_POWER_MW
+    p_avg_max = rm.face_elec_avail_w(elec)
+    sky = g.get("sky")
+    skym.parse(sky)                  # refuses an invalid sky before any work
+    sectors = mission["sectors"]
+    parallel = (len(sectors) >= PARALLEL_MIN_SECTORS) if workers is None else workers > 1
+    masks: Dict[str, np.ndarray] = {}
+    to_mask = iter(sectors)
+
+    def build_next_mask() -> bool:   # overlap-check masks, built while the workers run
+        sec = next(to_mask, None)
+        if sec is None:
+            return False
+        masks[sec["id"]] = _sphere(eps_min, eps_max).mask(sec)
+        return True
+
+    if parallel and len(sectors) > 1:
+        results, cancelled = _run_parallel(sectors, eps_min, eps_max, p_avg_max, progress_cb, cancel_cb,
+                                           idle=build_next_mask, sky=sky)
+    else:
+        results, cancelled = _run_sequential(sectors, eps_min, eps_max, p_avg_max, progress_cb, cancel_cb, sky)
+    sph = _sphere(eps_min, eps_max)
+    done_ids = {r["id"] for r in results}
+    for sec in sectors:   # masks not built yet (sequential run, or workers faster than the main process)
+        if sec["id"] in done_ids and sec["id"] not in masks:
+            masks[sec["id"]] = sph.mask(sec)
+    masks = {sec["id"]: masks[sec["id"]] for sec in sectors if sec["id"] in done_ids}   # mission order
+    args = (masks, eps_min, eps_max, elec, cap, p_avg_max, sky, framed, frame_alerts)
+    out = _assemble(mission, sectors, results, cancelled, *args)
+    # step 5.2: global optimiser, a fixed point over the search plans and the budgets (at most GOPT_MAX_ITER passes):
+    # the couplings (eclipse, false-alarm confirmation) and the mission-level choice re-plan only the sectors they move
+    history, applied = [], {sec["id"]: {} for sec in sectors}
+    for it in range(1, GOPT_MAX_ITER):
+        if cancelled:
+            break
+        keys = _couplings(mission, out)
+        choice = _mission_choice(out)
+        redo = {}
+        for sec in sectors:
+            sid = sec["id"]
+            k = dict(keys.get(sid, {}))
+            if sid in choice:
+                k["_force_plan"] = choice[sid]
+            if k != applied.get(sid, {}) and (k or applied.get(sid)):
+                redo[sid] = k
+        if not redo:
+            break
+        history.append({"pass": it + 1, "re-planned": sorted(redo), "mission_choice": sorted(choice),
+                        "couplings": {sid: {x: v for x, v in k.items() if x != "_force_plan"} for sid, k in redo.items()}})
+        todo = [dict(sec, **redo[sec["id"]]) for sec in sectors if sec["id"] in redo]
+        if parallel and len(todo) > 1:
+            again, cancelled = _run_parallel(todo, eps_min, eps_max, p_avg_max, None, cancel_cb, sky=sky)
+        else:
+            again, cancelled = _run_sequential(todo, eps_min, eps_max, p_avg_max, None, cancel_cb, sky)
+        new = {r["id"]: r for r in again}
+        results = [new.get(r["id"], r) for r in results]
+        applied.update(redo)
+        out = _assemble(mission, sectors, results, cancelled, *args)
+    out["global_opt"] = {"passes": 1 + len(history), "max_passes": GOPT_MAX_ITER, "history": history,
+                         "converged": len(history) < GOPT_MAX_ITER - 1}
+    for r in out["sectors"]:
+        r.pop("_alternatives", None)
     return out
 
 
@@ -2215,6 +2367,15 @@ def print_report(res: dict) -> None:
         for sid, s_ in cmp_["sectors"].items():
             print(f"   {sid}: processing latency {1e3 * s_['processing_s']:.3g} ms | in-flight reselection "
                   f"{s_['reselect_ops']:.3g} op")
+    pa = res.get("power_allocation")
+    if pa:                                                     # step 5.2 (P1)
+        print("-" * 100)
+        print(f" SHIP POWER ALLOCATION: need {pa['need_MW']:.3f} of {pa['ship_MW']:g} MW -> {pa['status']}")
+        for k, v in pa["faces"].items():
+            print(f"   face {k}: need {v['need_MW']:.3f} MW (always-on {v['always_on_MW']:.3f}) | allocated "
+                  f"{v['alloc_MW']:.3f} MW | energy load {v['load']:.3f}")
+        for p_ in pa["partial"]:
+            print(f"   short: {p_['label']} ({p_['tier']}) served {100 * p_['served_fraction']:.0f} %")
     rp = res.get("repointing")
     if rp:                                                     # step 4.5
         print("-" * 100)

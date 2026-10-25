@@ -741,6 +741,10 @@ mask_cache_size      = 64       # sector masks kept per raster
 parallel_min_sectors = 6        # below this, sequential run
 max_workers          = 0        # 0 = automatic (half the logical CPUs)
 
+[tool.global_opt]             # step 5.2: global optimiser (fixed point over the search plans and the budgets)
+max_iterations = 3              # passes at most (the first is the independent plan of every sector; user, step 5.2)
+alternatives   = 6              # plans kept per sector for the mission-level choice (same coverage and range)
+
 [tool.scheduler]              # step 4.3
 horizon_max_s = 60.0            # B1: synthetic timeline over the longest revisit of a face, at most this
 seed          = 1               # B3: random arrivals drawn once (reproducible)

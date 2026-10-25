@@ -2596,3 +2596,62 @@ def test_mission_settings_keys():
     m["global"]["confirm_p_min"] = 1.0
     errs = md.validate_mission(m)
     assert any("not both" in e for e in errs) and any("confirm_p_min" in e for e in errs)
+
+
+# ----------------------------------------------------------------------------- global optimiser (step 5.2)
+from core import allocation as alloc_  # noqa: E402
+
+
+def test_power_allocation_pro_rata_and_priority_tiers(monkeypatch):
+    """P1: enough power -> each face gets a share pro rata of its need (under its cap); shortfall -> the tiers in order
+    over all the faces (a P1 volume before a P3 track on another face), the last one in part with a tenable revisit."""
+    mission = {"sectors": [{"id": "SP", "self_protection": True}, {"id": "S4", "search_priority": 1},
+                           {"id": "T", "target_type": "KKV"}]}
+    k = 1.0 / rm.CHAIN_EFF
+    res = {"global": {"face_elec_avail_kW": 1000.0, "face_elec_cap_mw": None},
+           "compute": {"faces": {str(f): {"non_tx_kW_actual": 0.0} for f in range(4)}},
+           "sectors": [{"id": "SP", "status": "OK", "rr_target_s": 20.0, "faces": {"1": {"energy_fraction": 1.0}}},
+                       {"id": "S4", "status": "OK", "rr_target_s": 60.0, "faces": {"2": {"energy_fraction": 2.0}}}],
+           "tracking": {"faces": {str(f): {"pumps_kW": 0.0} for f in range(4)},
+                        "sectors": [{"id": "T", "at": [{"n_targets": 4.0, "faces": {"2": {"energy_fraction": 1.0}}}]}]}}
+    a = alloc_.allocate(mission, res)
+    need = [0.0, 1.0 * k, 3.0 * k, 0.0]
+    assert a["status"] == "OK" and a["faces"]["1"]["alloc_MW"] / a["faces"]["2"]["alloc_MW"] == pytest.approx(1 / 3)
+    assert sum(v["alloc_MW"] for v in a["faces"].values()) == pytest.approx(alloc_.SHIP_W / 1e6)
+    monkeypatch.setattr(alloc_, "SHIP_W", 2.5e6 * k)          # P1 (1) and the KKV tracks (1) served, search in part
+    b = alloc_.allocate(mission, res)
+    part = {p["label"]: p for p in b["partial"]}
+    assert b["status"] == "SHORT" and set(part) == {"search S4"}
+    assert part["search S4"]["served_fraction"] == pytest.approx(0.25)
+    assert part["search S4"]["rr_tenable_s"] == pytest.approx(240.0)
+    assert sum(need) > 2.5 * k
+
+
+def test_mission_choice_relieves_the_most_loaded_face():
+    """B: a sector moves to an alternative plan when it lowers the most loaded face of the mission, even at a higher
+    cost of its own; no alternative better for the mission -> no change."""
+    def sec(sid, fe, ft, alts):
+        return {"id": sid, "status": "OK", "faces": {str(k): {"energy_fraction": fe[k], "time_fraction": ft[k]}
+                                                     for k in range(4)}, "_alternatives": alts}
+    alt = {"freq_ghz": 2.8, "spacing": 1.6, "fe": [0.1, 0.5, 0.0, 0.0], "ft": [0.0] * 4, "objective": 0.5}
+    out = {"tracking": {"faces": {}},
+           "sectors": [sec("A", [0.4, 0.1, 0, 0], [0] * 4, [alt]), sec("B", [0.5, 0, 0, 0], [0] * 4, [])]}
+    assert mo._mission_choice(out) == {"A": (2.8, 1.6)}              # face 0: 0.9 -> 0.6, face 1: 0.1 -> 0.5
+    out["sectors"][1]["faces"]["0"]["energy_fraction"] = 0.0         # nothing saturates: keep the cheaper own plan
+    assert mo._mission_choice(out) == {}
+
+
+def test_couplings_feed_back_only_what_moves_a_choice(monkeypatch):
+    """Couplings: the eclipse beyond scheduler.eclipse_flag_db only; the false-alarm cost only when the false alarms
+    depend on the waveform (fa_mode pfa_cell)."""
+    from core import scheduler as sch
+    out = {"global": {"face_elec_avail_kW": 1000.0}, "scheduler": {"eclipse_db": {"S": sch.ECLIPSE_FLAG_DB / 2}},
+           "sectors": [{"id": "A", "status": "OK", "rr_target_s": 10.0}],
+           "tracking": {"sectors": [{"id": "A", "false_alarms_per_rr": 9.0,
+                                     "confirmation": {"faces": {"0": {"energy_fraction": 0.001}}}}]}}
+    assert mo._couplings({}, out) == {"A": {}}
+    out["scheduler"]["eclipse_db"]["S"] = 2 * sch.ECLIPSE_FLAG_DB
+    monkeypatch.setattr(rm, "FA_MODE", "pfa_cell")
+    k = mo._couplings({}, out)["A"]
+    assert k["_eclipse_db"] == pytest.approx(2 * sch.ECLIPSE_FLAG_DB)
+    assert k["_fa_energy_J"] == pytest.approx(0.001 * 1e6 * 10.0 / 10.0)
