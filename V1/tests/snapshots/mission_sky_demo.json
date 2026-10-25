@@ -73,7 +73,7 @@
     "0": {
      "bands": {
       "Ku": {
-       "beams_max": 16,
+       "beams_max": 32,
        "beams_mean": 0.03662554767677905,
        "beams_peak": 7,
        "bits_per_s": 28714429378.594772,
@@ -93,7 +93,7 @@
        "transport": "subarray_beams"
       },
       "S": {
-       "beams_max": 64,
+       "beams_max": 512,
        "beams_mean": 0.018102244550615557,
        "beams_peak": 7.992160949499142,
        "bits_per_s": 88788000000.0,
@@ -119,6 +119,12 @@
      "face_heat_kW_actual": 69.85990632827492,
      "jammers_nulled": 0,
      "load": 1.169497736576229e-06,
+     "memory": {
+      "bandwidth_TB_per_s": 50.0,
+      "buffers_peak_TB": 0.00014799216094949912,
+      "capacity_TB": 4.0,
+      "traffic_TB_per_s": 0.014760633709102357
+     },
      "non_tx_kW_actual": 66.88005265502406,
      "ops_total_per_s": 4677990259210.79,
      "power_kW": {
@@ -132,7 +138,7 @@
     "1": {
      "bands": {
       "Ku": {
-       "beams_max": 16,
+       "beams_max": 32,
        "beams_mean": 0.20133754257739556,
        "beams_peak": 7,
        "bits_per_s": 157852906505.38135,
@@ -152,7 +158,7 @@
        "transport": "subarray_beams"
       },
       "S": {
-       "beams_max": 64,
+       "beams_max": 512,
        "beams_mean": 0.03408656644961384,
        "beams_peak": 12.487751483592406,
        "bits_per_s": 138964000000.0,
@@ -178,6 +184,12 @@
      "face_heat_kW_actual": 70.3845079285822,
      "jammers_nulled": 0,
      "load": 6.26775307472365e-06,
+     "memory": {
+      "bandwidth_TB_per_s": 50.0,
+      "buffers_peak_TB": 0.0001524877514835924,
+      "capacity_TB": 4.0,
+      "traffic_TB_per_s": 0.037371629439063456
+     },
      "non_tx_kW_actual": 66.8802655508753,
      "ops_total_per_s": 25071002997019.21,
      "power_kW": {
@@ -191,7 +203,7 @@
     "2": {
      "bands": {
       "Ku": {
-       "beams_max": 16,
+       "beams_max": 32,
        "beams_mean": 0,
        "beams_peak": 0.0,
        "bits_per_s": 0.0,
@@ -211,7 +223,7 @@
        "transport": "subarray_beams"
       },
       "S": {
-       "beams_max": 64,
+       "beams_max": 512,
        "beams_mean": 4.134644629373758,
        "beams_peak": 9.83118955249738,
        "bits_per_s": 24448933480888.594,
@@ -237,6 +249,12 @@
      "face_heat_kW_actual": 102.35966801368485,
      "jammers_nulled": 0,
      "load": 2.523994663296062e-05,
+     "memory": {
+      "bandwidth_TB_per_s": 50.0,
+      "buffers_peak_TB": 0.005194171363408256,
+      "capacity_TB": 4.0,
+      "traffic_TB_per_s": 3.0683800575297995
+     },
      "non_tx_kW_actual": 66.88223201368487,
      "ops_total_per_s": 100956701082961.03,
      "power_kW": {
@@ -250,7 +268,7 @@
     "3": {
      "bands": {
       "Ku": {
-       "beams_max": 16,
+       "beams_max": 32,
        "beams_mean": 0,
        "beams_peak": 0.0,
        "bits_per_s": 0.0,
@@ -270,7 +288,7 @@
        "transport": "subarray_beams"
       },
       "S": {
-       "beams_max": 64,
+       "beams_max": 512,
        "beams_mean": 0.47636969141972385,
        "beams_peak": 9.83118955249738,
        "bits_per_s": 2816863827931.034,
@@ -296,6 +314,12 @@
      "face_heat_kW_actual": 76.96418115962692,
      "jammers_nulled": 0,
      "load": 2.90792112693624e-06,
+     "memory": {
+      "bandwidth_TB_per_s": 50.0,
+      "buffers_peak_TB": 0.005194171363408256,
+      "capacity_TB": 4.0,
+      "traffic_TB_per_s": 0.3535208928911733
+     },
      "non_tx_kW_actual": 66.88025715962691,
      "ops_total_per_s": 11631643551655.775,
      "power_kW": {

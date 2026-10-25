@@ -541,3 +541,12 @@ wf_params); the confirmation latency now holds the computed processing latency i
 confirmation mode changes.
 N3 20.7 min: 206 passed; only the snapshot tests and test_compute_budget_invariants (reads the snapshots) failed
 before the refreeze.
+
+## 2026-10-25 -- step 4.4: beamformer and memory capacities (radar_model V6.20.0, user decisions)
+
+Causes: beamformer raised to 512 simultaneous RX beams in S and 32 in Ku (the beam warnings of mission_synthetic_mix
+and mission_redundancy_demo disappear); new resources memory 4 TB and memory bandwidth 50 TB/s per face (output key
+"memory" per face; traffic = writes of the received and compressed samples + one read per dwell, the banks working
+on chip). 112 values differ, all under run/compute and the warnings; no compute alert left on the test missions.
+N3 20.5 min: 207 passed; only the snapshot tests and test_compute_memory_counts (reads the snapshots) failed before
+the refreeze.

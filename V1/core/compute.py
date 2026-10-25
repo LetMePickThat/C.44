@@ -26,6 +26,9 @@ overlap: open windows ~ sum of rate x T (Little), so the simultaneous beams are 
 dwell (an upper bound) and the mean beams sum rate x T x beams. RX beams of a dwell = RX beams per search position x
 positions per dwell (a partition's sub-aperture beam already counts the positions it covers). Transport = the bits the
 TRSAs send during T; buffers = beams x 2 pol x N x n_p complex words.
+Memory: the coherent buffers of the open looks (S + Ku) against compute.memory_tb; the memory traffic against compute.memory_bw_tbps: writes of
+the received samples and of the compressed samples, ONE read of the compressed samples per dwell (the banks work in the
+processor's on-chip memory, user decision after step 4.4; their re-reads are in e_op), words of 2 x iq_bits.
 Power (C): the processing power ceiling power.dbf_kw sets the capacity: (ceiling x (1 - static_frac) - transport power)
 / e_op; the consumption is static_frac x ceiling + e_op x ops + e_bit x bits. The power and heat budgets that size the
 plan keep the ceiling (conservative); the consumption and the corrected draw / heat are reported beside them.
@@ -62,6 +65,8 @@ E_BIT_J = float(P.get(_C + "e_bit_pj")) * 1e-12
 STATIC_FRAC = float(P.get(_C + "static_frac"))
 LINK_TRSA_BPS = float(P.get(_C + "link_trsa_tbps")) * 1e12
 FACE_INPUT_BPS = float(P.get(_C + "face_input_tbps")) * 1e12
+MEMORY_B = float(P.get(_C + "memory_tb")) * 1e12
+MEMORY_BW_BPS = float(P.get(_C + "memory_bw_tbps")) * 1e12 * 8      # bit/s
 RESELECT_OPS = float(P.get(_C + "reselect_ops_per_entry"))
 CEILING_W = float(P.get("power.dbf_kw")) * 1e3
 ADC_OVERSAMPLING = {b: float(P.get(f"band.{b}.rx.adc_oversampling")) for b in ("S", "Ku")}
@@ -114,7 +119,9 @@ def look_cost(band: str, wf: dict, beams: float, nulled: int = 0) -> Dict[str, f
         d = dof(band)
         ops["nulling"] = OPS_CMAC * (d * d * NULL_SNAP * d + d ** 3 / 3.0 + d * beams * fs * t)
     words = (2 * rm.N_TRSA * beams) if sub else ch          # complex words per sample instant the TRSAs send
-    return {"ops": ops, "bits": words * fs * t * 2 * IQ_BITS, "buffer_B": beams * 2 * n * n_p * 2 * IQ_BITS / 8,
+    word = 2 * IQ_BITS
+    mem_bits = (words * fs * t + 2 * beams * 2 * n * n_p) * word      # writes + one read per dwell (banks on chip)
+    return {"ops": ops, "bits": words * fs * t * word, "buffer_B": beams * 2 * n * n_p * word / 8, "mem_bits": mem_bits,
             "listen_s": t, "fs": fs, "words": words}
 
 
@@ -200,7 +207,7 @@ def budget(mission: dict, res: dict) -> dict:
     faces, flags, lat_sector = {}, [], {}
     for k in range(4):
         fk = {"jammers_nulled": nulled[k]}
-        ops_tot, bits_tot = 0.0, 0.0
+        ops_tot, bits_tot, buf_tot, mem_tot = 0.0, 0.0, 0.0, 0.0
         per_band = {}
         for b in ("S", "Ku"):
             ops = dict.fromkeys(FUNCTIONS, 0.0)
@@ -218,6 +225,7 @@ def budget(mission: dict, res: dict) -> dict:
                     for fn, v in c["ops"].items():
                         ops[fn] += rate * v
                     bits += rate * c["bits"]
+                    mem_tot += rate * c["mem_bits"]
                 ops["tracks"] += s["updates"] * TRACK_OPS
             tot = sum(ops.values())
             per_band[b] = {"ops_per_s": ops, "ops_total_per_s": tot, "bits_per_s": bits,
@@ -226,6 +234,7 @@ def budget(mission: dict, res: dict) -> dict:
                            "face_input_peak_tbps": link_peak * rm.N_TRSA / 1e12, "transport": TRANSPORT[b]}
             ops_tot += tot
             bits_tot += bits
+            buf_tot += buf_peak
             if beams_peak > BEAMS_MAX[b]:
                 flags.append(f"face F{k + 1} {b}: {beams_peak:.0f} simultaneous RX beams needed, the beamformer "
                              f"forms {BEAMS_MAX[b]}")
@@ -235,6 +244,10 @@ def budget(mission: dict, res: dict) -> dict:
             if link_peak * rm.N_TRSA > FACE_INPUT_BPS:
                 flags.append(f"face F{k + 1} {b}: face processor input {link_peak * rm.N_TRSA / 1e12:.1f} Tbit/s "
                              f"needed, capacity {FACE_INPUT_BPS / 1e12:g}")
+        if buf_tot > MEMORY_B:
+            flags.append(f"face F{k + 1}: coherent buffers {buf_tot / 1e12:.2f} TB, memory {MEMORY_B / 1e12:g} TB")
+        if mem_tot > MEMORY_BW_BPS:
+            flags.append(f"face F{k + 1}: memory traffic {mem_tot / 8e12:.1f} TB/s, bandwidth {MEMORY_BW_BPS / 8e12:g} TB/s")
         p_static = STATIC_FRAC * CEILING_W
         p_link = E_BIT_J * bits_tot
         capacity = max(0.0, (CEILING_W - p_static - p_link) / E_OP_J)
@@ -251,7 +264,9 @@ def budget(mission: dict, res: dict) -> dict:
                 lat_sector[s["sector"]] = max(lat_sector.get(s["sector"], 0.0), lat)
         tf = trk_faces.get(str(k), {})
         delta = CEILING_W - p_compute
-        fk.update({"bands": per_band, "ops_total_per_s": ops_tot, "capacity_ops_per_s": capacity,
+        fk.update({"memory": {"buffers_peak_TB": buf_tot / 1e12, "capacity_TB": MEMORY_B / 1e12,
+                              "traffic_TB_per_s": mem_tot / 8e12, "bandwidth_TB_per_s": MEMORY_BW_BPS / 8e12},
+                   "bands": per_band, "ops_total_per_s": ops_tot, "capacity_ops_per_s": capacity,
                    "load": load, "bits_per_s": bits_tot,
                    "power_kW": {"ceiling": CEILING_W / 1e3, "static": p_static / 1e3, "ops": E_OP_J * ops_tot / 1e3,
                                 "transport": p_link / 1e3, "total": p_compute / 1e3},

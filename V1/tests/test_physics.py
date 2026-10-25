@@ -2496,3 +2496,14 @@ def test_compute_partition_dwell_beams():
     res["sectors"][0]["wf_by_bin"][0]["wf"]["tx_mode"] = "superposition"
     (rate, _, beams), = cmp._streams({"global": {}}, res, [0, 0, 0, 0])[0]["S"][0]["looks"]
     assert beams == pytest.approx(54.0)
+
+
+def test_compute_memory_counts(runs):
+    """Memory: per face, buffers = the sum of the bands' peaks, against the file's capacity and bandwidth."""
+    for n, res in runs.items():
+        for k, f in res["compute"]["faces"].items():
+            m = f["memory"]
+            assert m["buffers_peak_TB"] == pytest.approx(sum(b["buffer_peak_GB"] for b in f["bands"].values()) / 1e3)
+            assert m["capacity_TB"] == pytest.approx(cmp.MEMORY_B / 1e12)
+            assert m["bandwidth_TB_per_s"] == pytest.approx(cmp.MEMORY_BW_BPS / 8e12)
+            assert m["traffic_TB_per_s"] >= 0.0

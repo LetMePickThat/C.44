@@ -201,8 +201,8 @@ eclipse_flag_db    = { value = 0.5, unit = "dB", status = "V", source = "eclipse
 transport_S        = { value = "raw", unit = "", status = "V", source = "A1: S sends the TRSA channels to the face processor (50 channels per TRSA, fewer than the beams a dwell forms); 'raw' | 'subarray_beams'", date = "2026-10-25" }
 transport_Ku       = { value = "subarray_beams", unit = "", status = "V", source = "A1: Ku forms partial beams in each TRSA (1250 channels for a few beams) and sends them; 'raw' | 'subarray_beams'", date = "2026-10-25" }
 iq_bits            = { value = 16, unit = "bit", status = "V", source = "A2: word length of I and of Q after the digital down-conversion in the TRSA (sample rate brought to adc_oversampling x the signal bandwidth)", date = "2026-10-25" }
-beams_max_S        = { value = 64, unit = "-", status = "V", source = "A3: simultaneous digital RX beams the face beamformer forms in S (a resource against the need)", date = "2026-10-25" }
-beams_max_Ku       = { value = 16, unit = "-", status = "V", source = "A3: simultaneous digital RX beams the face beamformer forms in Ku", date = "2026-10-25" }
+beams_max_S        = { value = 512, unit = "-", status = "V", source = "A3: simultaneous digital RX beams the face beamformer forms in S (a resource against the need); raised from 64 by the user after step 4.4 (S partition waveforms need up to 171): about 1e16 op/s, negligible against the capacity", date = "2026-10-25" }
+beams_max_Ku       = { value = 32, unit = "-", status = "V", source = "A3: simultaneous digital RX beams the face beamformer forms in Ku; raised from 16 by the user after step 4.4", date = "2026-10-25" }
 nulling_dof        = { value = "trsa", unit = "", status = "V", source = "A4: degrees of freedom of the adaptive jammer nulling: 'trsa' (the TRSA outputs of the face) | 'element' (every channel)", date = "2026-10-25" }
 ops_per_cmac       = { value = 8.0, unit = "op", status = "V", source = "B1: real operations per complex multiply-accumulate", date = "2026-10-25" }
 fft_ops_factor     = { value = 10.0, unit = "op", status = "V", source = "B2: an FFT-based step costs this x N log2 N real operations (pulse compression by fast convolution, Doppler transform)", date = "2026-10-25" }
@@ -214,6 +214,8 @@ e_bit_pj           = { value = 0.05, unit = "pJ", status = "V", source = "C2: en
 static_frac        = { value = 0.2, unit = "-", status = "V", source = "C4: share of the processing power ceiling (power.dbf_kw) always consumed (leakage, clocks); the rest follows the load", date = "2026-10-25" }
 link_trsa_tbps     = { value = 4.0, unit = "Tbit/s", status = "V", source = "C5: capacity of one TRSA -> face link", date = "2026-10-25" }
 face_input_tbps    = { value = 400.0, unit = "Tbit/s", status = "V", source = "C5: input capacity of the face processor", date = "2026-10-25" }
+memory_tb          = { value = 4.0, unit = "TB", status = "V", source = "memory of the face processor for the coherent buffers (user, after step 4.4): optimistic end of 0.5-4 TB for 2050-2060 (a high-end module holds 0.2-0.3 TB today, density about x1.15 per year)", date = "2026-10-25" }
+memory_bw_tbps     = { value = 50.0, unit = "TB/s", status = "V", source = "memory bandwidth of the face processor (user, after step 4.4, for now): writes of the received and compressed samples + one read per dwell (the banks work on chip, user decision)", date = "2026-10-25" }
 reselect_ops_per_entry = { value = 1.0e3, unit = "op", status = "D", source = "E1: operations to re-evaluate one precomputed (waveform, scan bin) entry when the measured spectrum changes in flight; proposed value kept by the user, to revisit at the end of the model development (step 5.7)", date = "2026-10-25" }
 
 # --- bands --------------------------------------------------------------------------------------------------------

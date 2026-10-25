@@ -117,7 +117,7 @@
     "0": {
      "bands": {
       "Ku": {
-       "beams_max": 16,
+       "beams_max": 32,
        "beams_mean": 0.010725802965832375,
        "beams_peak": 7,
        "bits_per_s": 25518564845.507942,
@@ -137,7 +137,7 @@
        "transport": "subarray_beams"
       },
       "S": {
-       "beams_max": 64,
+       "beams_max": 512,
        "beams_mean": 6.178445316649528,
        "beams_peak": 15.984321898998283,
        "bits_per_s": 45891770586666.664,
@@ -163,6 +163,12 @@
      "face_heat_kW_actual": 127.13311581966781,
      "jammers_nulled": 0,
      "load": 2.35831139871731e-05,
+     "memory": {
+      "bandwidth_TB_per_s": 50.0,
+      "buffers_peak_TB": 0.0011569984386056867,
+      "capacity_TB": 4.0,
+      "traffic_TB_per_s": 5.752050583762175
+     },
      "non_tx_kW_actual": 66.88323913487343,
      "ops_total_per_s": 94327041585372.17,
      "power_kW": {
@@ -176,7 +182,7 @@
     "1": {
      "bands": {
       "Ku": {
-       "beams_max": 16,
+       "beams_max": 32,
        "beams_mean": 0.007681247814460337,
        "beams_peak": 7,
        "bits_per_s": 20276689624.560577,
@@ -196,7 +202,7 @@
        "transport": "subarray_beams"
       },
       "S": {
-       "beams_max": 64,
+       "beams_max": 512,
        "beams_mean": 5.259441254853546,
        "beams_peak": 7.992160949499142,
        "bits_per_s": 39071689705123.42,
@@ -222,6 +228,12 @@
      "face_heat_kW_actual": 115.12917611099515,
      "jammers_nulled": 0,
      "load": 2.002085852876533e-05,
+     "memory": {
+      "bandwidth_TB_per_s": 50.0,
+      "buffers_peak_TB": 0.0008584992193028433,
+      "capacity_TB": 4.0,
+      "traffic_TB_per_s": 4.897040544977726
+     },
      "non_tx_kW_actual": 66.88275539352814,
      "ops_total_per_s": 80079520841417.31,
      "power_kW": {
@@ -235,7 +247,7 @@
     "2": {
      "bands": {
       "Ku": {
-       "beams_max": 16,
+       "beams_max": 32,
        "beams_mean": 0.0005511816034942912,
        "beams_peak": 7,
        "bits_per_s": 216063188.56976214,
@@ -255,7 +267,7 @@
        "transport": "subarray_beams"
       },
       "S": {
-       "beams_max": 64,
+       "beams_max": 512,
        "beams_mean": 0.046108628867463926,
        "beams_peak": 154.613321648564,
        "bits_per_s": 4956681867.106503,
@@ -281,6 +293,12 @@
      "face_heat_kW_actual": 66.92593263319992,
      "jammers_nulled": 0,
      "load": 3.222263811334302e-08,
+     "memory": {
+      "bandwidth_TB_per_s": 50.0,
+      "buffers_peak_TB": 0.0001009226643297128,
+      "capacity_TB": 4.0,
+      "traffic_TB_per_s": 0.0006661753276908118
+     },
      "non_tx_kW_actual": 66.88000154754276,
      "ops_total_per_s": 128890551619.97462,
      "power_kW": {
@@ -294,7 +312,7 @@
     "3": {
      "bands": {
       "Ku": {
-       "beams_max": 16,
+       "beams_max": 32,
        "beams_mean": 0.002865585476432304,
        "beams_peak": 7,
        "bits_per_s": 5171719108.370982,
@@ -314,7 +332,7 @@
        "transport": "subarray_beams"
       },
       "S": {
-       "beams_max": 64,
+       "beams_max": 512,
        "beams_mean": 0.9259941100340919,
        "beams_peak": 154.613321648564,
        "bits_per_s": 6817117835572.857,
@@ -340,6 +358,12 @@
      "face_heat_kW_actual": 78.88095279644449,
      "jammers_nulled": 0,
      "load": 3.561321556194878e-06,
+     "memory": {
+      "bandwidth_TB_per_s": 50.0,
+      "buffers_peak_TB": 0.0008584992193028433,
+      "capacity_TB": 4.0,
+      "traffic_TB_per_s": 0.8546321865703728
+     },
      "non_tx_kW_actual": 66.88048356612515,
      "ops_total_per_s": 14245164742945.242,
      "power_kW": {
@@ -351,10 +375,7 @@
      }
     }
    },
-   "flags": [
-    "face F3 S: 155 simultaneous RX beams needed, the beamformer forms 64",
-    "face F4 S: 155 simultaneous RX beams needed, the beamformer forms 64"
-   ],
+   "flags": [],
    "reselect_ops": {
     "FWD": 18000.0,
     "KV": 56000.0,
@@ -3821,9 +3842,7 @@
    "sector KV: S waveform WF-KV-4: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 200 MHz on the same face",
    "face F1: the transmissions of a revisit, packed together, would exhaust the face storage: the scheduler must spread them (at most 0.32 s of contiguous transmission at peak power) (step 4.1)",
    "face F2: the transmissions of a revisit, packed together, would exhaust the face storage: the scheduler must spread them (at most 0.32 s of contiguous transmission at peak power) (step 4.1)",
-   "face F4: the transmissions of a revisit, packed together, would exhaust the face storage: the scheduler must spread them (at most 0.32 s of contiguous transmission at peak power) (step 4.1)",
-   "face F3 S: 155 simultaneous RX beams needed, the beamformer forms 64",
-   "face F4 S: 155 simultaneous RX beams needed, the beamformer forms 64"
+   "face F4: the transmissions of a revisit, packed together, would exhaust the face storage: the scheduler must spread them (at most 0.32 s of contiguous transmission at peak power) (step 4.1)"
   ]
  },
  "validation": []

@@ -2198,7 +2198,8 @@ def print_report(res: dict) -> None:
                   f"power {v['power_kW']['total']:.2f} of {v['power_kW']['ceiling']:g} kW | beams S "
                   f"{bd['S']['beams_peak']:.0f}/{bd['S']['beams_max']} Ku {bd['Ku']['beams_peak']:.0f}/{bd['Ku']['beams_max']}"
                   f" | TRSA link S {bd['S']['link_trsa_peak_tbps']:.3g} Ku {bd['Ku']['link_trsa_peak_tbps']:.3g} Tbit/s | "
-                  f"buffers {bd['S']['buffer_peak_GB'] + bd['Ku']['buffer_peak_GB']:.3g} GB | jammers nulled "
+                  f"buffers {v['memory']['buffers_peak_TB']:.3g} of {v['memory']['capacity_TB']:g} TB, memory "
+                  f"{v['memory']['traffic_TB_per_s']:.3g} of {v['memory']['bandwidth_TB_per_s']:g} TB/s | jammers nulled "
                   f"{v['jammers_nulled']}")
         for sid, s_ in cmp_["sectors"].items():
             print(f"   {sid}: processing latency {1e3 * s_['processing_s']:.3g} ms | in-flight reselection "

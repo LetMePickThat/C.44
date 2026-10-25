@@ -1007,7 +1007,10 @@ track updates, from the plan and the Ku budget. The listening windows of a face 
 number is $\sum \text{rate}\times T$, so the simultaneous beams are that number rounded up times the beams of the
 largest dwell (an upper bound). On two test missions, S waveforms that partition the aperture into four
 transmit sub-beams over 13.7 positions need 155 to 171 simultaneous receive beams against the 64 of the
-beamformer: flagged; the optimiser does not know this capacity yet.
+beamformer of the first setting; the beamformer now forms 512 beams in S and 32 in Ku (a negligible computing
+cost). The coherent buffers are checked against \SI{4}{TB} of memory per face and the memory traffic (writes of the
+received and compressed samples, one read per dwell: the banks work in the processor's on-chip memory) against
+\SI{50}{TB/s}.
 
 \paragraph{Power and capacity.} The power of the processing has a ceiling (\SI{50}{kW} per face). A fixed share
 (\SI{20}{\percent}: leakage, clocks) is always consumed; the rest follows the load at \SI{0.01}{pJ} per operation and
@@ -1095,7 +1098,7 @@ The test bench has two families: frozen outputs of every test mission compared a
 (non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
 exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
 frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
-before any refreeze. At model V6.20.0 the bench has 216 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
+before any refreeze. At model V6.20.0 the bench has 217 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
 
 %=====================================================================================================================
 \section{Roadmap and open points}\label{sec:roadmap}
