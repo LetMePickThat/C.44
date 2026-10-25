@@ -2355,3 +2355,50 @@ def test_junction_temperature_model():
         rm.junction_check(b, hot)
     assert params.P.get("tool.thermal.junction_check") is False
 
+
+# ----------------------------------------------------------------------------- scheduler (step 4.3)
+from core import scheduler as sch  # noqa: E402
+
+
+def test_priorities_and_latency_requirement():
+    """Priorities of the search volumes (P1 when self-protection, else P4_n) and the latency requirement."""
+    assert sch.priority_of({"self_protection": True, "search_priority": 3}) == (1, 0)
+    assert sch.priority_of({"search_priority": 3}) == (4, 3) and sch.priority_of({}) == (4, 1)
+    sec = {"range_km": 1000.0, "v_close_max_mps": 10000.0}
+    assert sch.latency_requirement_s(sec) == pytest.approx(sch.LATENCY_FRAC * 100.0)
+    assert sch.latency_requirement_s(dict(sec, latency_max_s=0.5)) == 0.5
+
+
+def test_priority_queue_and_shedding():
+    """Cobham waits grow with the priority rank; shedding stretches P4 (lowest sub-priority first), then P3, and
+    declares the mission infeasible when P0-P2 alone exceed the time."""
+    cl = [sch.Klass((0, 0), "cal", 0.01, 0.01, "cal"), sch.Klass((2, 0), "conf", 0.2, 0.002, "confirm"),
+          sch.Klass((3, 0), "upd", 0.3, 0.002, "update"), sch.Klass((4, 1), "s1", 0.3, 0.001, "search"),
+          sch.Klass((4, 2), "s2", 0.4, 0.001, "search")]
+    w = sch._cobham(cl)
+    assert w["cal"] < w["conf"] < w["upd"] < w["s1"] < w["s2"]
+    st, ok = sch._shed(cl, 1.0)
+    assert ok and st["s2"] > 1.0 and st["s1"] == 1.0 and st["upd"] == 1.0
+    _, ok2 = sch._shed([sch.Klass((2, 0), "c", 1.2, 0.01, "confirm")], 1.0)
+    assert not ok2
+    assert sch._q95(0.0, 0.01) == 0.0 and sch._q95(0.1, 0.5) > 0.1
+
+
+def test_synthetic_timeline_serves_priorities():
+    """The greedy timeline serves the calibration at once and keeps the updates on time when the face is light."""
+    import random
+    cl = [sch.Klass((0, 0), "cal", 1e-4, 0.01, "cal", period_s=300.0),
+          sch.Klass((3, 0), "upd", 0.01, 0.001, "update", "A", 1.0, 10.0),
+          sch.Klass((4, 1), "s", 0.2, 0.002, "search", "A", 10.0, 1000.0)]
+    tl = sch._timeline(cl, 10.0, random.Random(1), math.inf, 0.0)
+    assert tl["calibration_delay_s"] <= 0.002 + 1e-12 and tl["late_update_frac"] == 0.0 and tl["recharge_pauses"] == 0
+    tl2 = sch._timeline(cl, 10.0, random.Random(1), 0.005, 1.0)
+    assert tl2["recharge_pauses"] > 0
+
+
+def test_scheduler_mission_keys():
+    m = md.empty_mission()
+    m["sectors"] = [{**md.new_sector([]), "self_protection": "yes", "search_priority": 0, "latency_max_s": -1}]
+    errs = md.validate_mission(m)
+    assert any("self_protection" in e for e in errs) and any("search_priority" in e for e in errs)         and any("latency_max_s" in e for e in errs)
+

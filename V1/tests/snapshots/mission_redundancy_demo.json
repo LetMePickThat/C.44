@@ -286,6 +286,371 @@
    "sky_bodies": [],
    "sky_galactic": "worst case (no galactic frame given)"
   },
+  "scheduler": {
+   "eclipse_db": {
+    "Ku": 0.0009121888676880644,
+    "S": 0.00440037897183096
+   },
+   "faces": {
+    "0": {
+     "Ku": {
+      "capacity": 0.9989872884364196,
+      "feasible": true,
+      "load": 0.00021001719217457322,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 4.335052550790652e-05
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.16785101778868e-06,
+       "confirmation A3_HIBAND": 4.16872652202778e-06,
+       "confirmation A5_SHORT": 4.16872652202778e-06,
+       "confirmation B3_EDGE": 4.16872652202778e-06,
+       "confirmation B5_LONG": 4.16872652202778e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 9.518478208248805,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation A3_HIBAND": 0.0,
+        "confirmation A5_SHORT": 0.0,
+        "confirmation B3_EDGE": 0.0,
+        "confirmation B5_LONG": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0010127115635804131,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P2": 1.948420397339169e-06,
+       "P4_1": 0.0009774298098497406
+      },
+      "mean_wait_s": {
+       "calibration S": 2.1747045251264753e-07,
+       "confirmation A3_HIBAND": 2.17478125522314e-07,
+       "confirmation B3_EDGE": 2.17478125522314e-07,
+       "confirmation B5_LONG": 2.17478125522314e-07,
+       "search A3_HIBAND": 2.1769133478348976e-07,
+       "search A5_SHORT": 2.1769133478348976e-07,
+       "search B3_EDGE": 2.1769133478348976e-07,
+       "search B5_LONG": 2.1769133478348976e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 9.91495283125084,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "confirmation A3_HIBAND": 5.19328810355546e-06,
+        "confirmation B3_EDGE": 0.0,
+        "confirmation B5_LONG": 0.0,
+        "search A3_HIBAND": 0.0,
+        "search A5_SHORT": 0.0,
+        "search B3_EDGE": 0.0,
+        "search B5_LONG": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "1": {
+     "Ku": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0001666666666666667,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167361226871146e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 0.05,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 3.3333333333333335e-05,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05
+      },
+      "mean_wait_s": {
+       "calibration S": 1.666722224074136e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 0.01,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "2": {
+     "Ku": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.00016670242086757838,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 3.5754200911701174e-08
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167361228756625e-06,
+       "confirmation A1_TRIM": 4.168056053791104e-06,
+       "confirmation A2_VEILLE": 4.168056053791104e-06,
+       "confirmation B1_TRIM": 4.168056053791104e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.205067535729036,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation A1_TRIM": 0.0,
+        "confirmation B1_TRIM": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 3.858146729412704e-05,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P2": 1.5456319137579957e-07,
+       "P4_1": 5.093570769417904e-06
+      },
+      "mean_wait_s": {
+       "calibration S": 1.6667706802709953e-07,
+       "confirmation A1_TRIM": 1.6668264987843112e-07,
+       "confirmation B1_TRIM": 1.6668264987843112e-07,
+       "search A1_TRIM": 1.6668352468505794e-07,
+       "search A2_VEILLE": 1.6668352468505794e-07,
+       "search B1_TRIM": 1.6668352468505794e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.99250517204902,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "confirmation A1_TRIM": 0.0,
+        "confirmation B1_TRIM": 0.0,
+        "search A1_TRIM": 0.009045296078529611,
+        "search A2_VEILLE": 0.0,
+        "search B1_TRIM": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "3": {
+     "Ku": {
+      "capacity": 0.9989872884364196,
+      "feasible": true,
+      "load": 0.0001764814330719774,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 9.814766405310708e-06
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167502242531876e-06,
+       "confirmation A2_VEILLE": 4.168237859122639e-06,
+       "confirmation A4_SEARCH": 4.168237859122639e-06,
+       "confirmation A5_SHORT": 4.168237859122639e-06,
+       "confirmation B2_AUTOPROT": 4.168237859122639e-06,
+       "confirmation B4_FINE": 4.168237859122639e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.99265914629662,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation A4_SEARCH": 0.0,
+        "confirmation A5_SHORT": 0.0,
+        "confirmation B2_AUTOPROT": 0.041260616188154825,
+        "confirmation B4_FINE": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0002525482072631061,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P2": 9.628857084466258e-08,
+       "P4_1": 0.00021911858535892808
+      },
+      "mean_wait_s": {
+       "calibration S": 1.8063142353405596e-07,
+       "confirmation A4_SEARCH": 1.8063746217611825e-07,
+       "confirmation B2_AUTOPROT": 1.8063746217611825e-07,
+       "confirmation B4_FINE": 1.8063746217611825e-07,
+       "search A2_VEILLE": 1.8067707059765203e-07,
+       "search A4_SEARCH": 1.8067707059765203e-07,
+       "search A5_SHORT": 1.8067707059765203e-07,
+       "search B2_AUTOPROT": 1.8067707059765203e-07,
+       "search B4_FINE": 1.8067707059765203e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.99487572843325,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "confirmation A4_SEARCH": 0.0,
+        "confirmation B2_AUTOPROT": 0.00010146133426758297,
+        "confirmation B4_FINE": 0.0,
+        "search A2_VEILLE": 0.0,
+        "search A4_SEARCH": 0.0,
+        "search A5_SHORT": 0.0,
+        "search B2_AUTOPROT": 0.003951087687318651,
+        "search B4_FINE": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    }
+   },
+   "flags": [],
+   "frame_interleaved_checked": true,
+   "harmonic_faces": [
+    0,
+    3
+   ],
+   "sectors": [
+    {
+     "confirm_mode": "S2",
+     "go_cfar_advised": false,
+     "id": "A1_TRIM",
+     "latency_ok": true,
+     "latency_q95_s": 0.041027706604188766,
+     "latency_required_s": 66.66666666666667,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "S2",
+     "go_cfar_advised": false,
+     "id": "B1_TRIM",
+     "latency_ok": true,
+     "latency_q95_s": 0.041027704771297344,
+     "latency_required_s": 66.66666666666667,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "A2_VEILLE",
+     "latency_ok": true,
+     "latency_q95_s": 0.04102858561069962,
+     "latency_required_s": 100.0,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "S2",
+     "go_cfar_advised": false,
+     "id": "B2_AUTOPROT",
+     "latency_ok": true,
+     "latency_q95_s": 0.0014002773634768687,
+     "latency_required_s": 0.3333333333333333,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "S2",
+     "go_cfar_advised": false,
+     "id": "A3_HIBAND",
+     "latency_ok": true,
+     "latency_q95_s": 0.061041661384721876,
+     "latency_required_s": 100.0,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "S2",
+     "go_cfar_advised": false,
+     "id": "B3_EDGE",
+     "latency_ok": true,
+     "latency_q95_s": 0.041027796258235875,
+     "latency_required_s": 66.66666666666667,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "S2",
+     "go_cfar_advised": false,
+     "id": "A4_SEARCH",
+     "latency_ok": true,
+     "latency_q95_s": 0.04102770313267667,
+     "latency_required_s": 66.66666666666667,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "S2",
+     "go_cfar_advised": false,
+     "id": "B4_FINE",
+     "latency_ok": true,
+     "latency_q95_s": 0.031020774861170372,
+     "latency_required_s": 50.0,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "A5_SHORT",
+     "latency_ok": true,
+     "latency_q95_s": 0.007700219956846904,
+     "latency_required_s": 25.0,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "S2",
+     "go_cfar_advised": false,
+     "id": "B5_LONG",
+     "latency_ok": true,
+     "latency_q95_s": 0.06104161680796079,
+     "latency_required_s": 100.0,
+     "priority": "P4_1"
+    }
+   ],
+   "slots": {
+    "Ku": 0.00021001719217457322,
+    "S": 0.0010127115635804131
+   }
+  },
   "sectors": [
    {
     "beam_spacing_hpbw": 2.0,
@@ -4941,6 +5306,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.0,
+     "false_alarms_per_rr_face": [
+      0.0,
+      0.0,
+      10.01457844261312,
+      0.0
+     ],
      "false_tracks_per_s": 1.001457844261312e-06,
      "flags": [],
      "forced": false,
@@ -4969,6 +5340,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.0024650638329197627
      },
+     "p_share": [
+      0.0,
+      0.0,
+      1.0,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
@@ -5015,6 +5392,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.5,
+     "false_alarms_per_rr_face": [
+      0.0,
+      0.0,
+      10.485144500362358,
+      0.0
+     ],
      "false_tracks_per_s": 1.048514450036236e-06,
      "flags": [],
      "forced": false,
@@ -5043,6 +5426,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.0024650638329197627
      },
+     "p_share": [
+      0.0,
+      0.0,
+      1.0,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
@@ -5090,6 +5479,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.5,
+     "false_alarms_per_rr_face": [
+      0.0,
+      0.0,
+      1.135029001696494,
+      9.41384927819227
+     ],
      "false_tracks_per_s": 3.5162927599629217e-08,
      "flags": [],
      "forced": false,
@@ -5118,6 +5513,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.0024649815136590625
      },
+     "p_share": [
+      0.0,
+      0.0,
+      0.10759712754107753,
+      0.8924028724589225
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
@@ -5164,6 +5565,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.1,
+     "false_alarms_per_rr_face": [
+      0.0,
+      0.0,
+      0.0,
+      10.076921306080829
+     ],
      "false_tracks_per_s": 5.038460653040414e-05,
      "flags": [
       "S waveform WF-B2_AUTOPROT: its harmonics (13.100-13.850 GHz) cover 75 % of the Ku channel 13.8 GHz / 200 MHz on the same face"
@@ -5194,6 +5601,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.002647078814995564
      },
+     "p_share": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-B2_AUTOPROT puts its harmonics on 13.100-13.850 GHz, over 75 % of the Ku channel 13.8 GHz / 200 MHz: on the same face, no Ku reception during this S transmission"
@@ -5242,6 +5655,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 9.9,
+     "false_alarms_per_rr_face": [
+      9.933150549247875,
+      0.0,
+      0.0,
+      0.0
+     ],
      "false_tracks_per_s": 9.933150549247877e-07,
      "flags": [
       "S waveform WF-A3_HIBAND-1: its harmonics (14.050-14.550 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
@@ -5274,6 +5693,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.0024881766677499586
      },
+     "p_share": [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-A3_HIBAND-1 puts its harmonics on 14.050-14.550 GHz, over 100 % of the Ku channel 14.2 GHz / 25 MHz: on the same face, no Ku reception during this S transmission",
@@ -5324,6 +5749,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.3,
+     "false_alarms_per_rr_face": [
+      10.254360493361292,
+      0.0,
+      0.0,
+      0.0
+     ],
      "false_tracks_per_s": 1.0254360493361293e-06,
      "flags": [],
      "forced": false,
@@ -5352,6 +5783,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.0024881766677499586
      },
+     "p_share": [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
@@ -5398,6 +5835,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.4,
+     "false_alarms_per_rr_face": [
+      0.0,
+      0.0,
+      0.0,
+      10.424441243338253
+     ],
      "false_tracks_per_s": 1.0424441243338251e-06,
      "flags": [],
      "forced": false,
@@ -5426,6 +5869,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.0024648501191149646
      },
+     "p_share": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
@@ -5472,6 +5921,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 9.9,
+     "false_alarms_per_rr_face": [
+      0.0,
+      0.0,
+      0.0,
+      9.939809823406218
+     ],
      "false_tracks_per_s": 9.93980982340622e-07,
      "flags": [
       "S waveform WF-B4_FINE: its harmonics (13.350-14.350 GHz) cover 100 % of the Ku channel 14.2 GHz / 100 MHz on the same face"
@@ -5502,6 +5957,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.002464627585460265
      },
+     "p_share": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-B4_FINE puts its harmonics on 13.350-14.350 GHz, over 100 % of the Ku channel 14.2 GHz / 100 MHz: on the same face, no Ku reception during this S transmission"
@@ -5551,6 +6012,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.1,
+     "false_alarms_per_rr_face": [
+      8.594259993201584,
+      0.0,
+      0.0,
+      1.5322398612614776
+     ],
      "false_tracks_per_s": 2.0252999708926122e-06,
      "flags": [],
      "forced": false,
@@ -5579,6 +6046,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.002464717318515458
      },
+     "p_share": [
+      0.8486900821327545,
+      0.0,
+      0.0,
+      0.15130991786724535
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
@@ -5625,6 +6098,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.2,
+     "false_alarms_per_rr_face": [
+      10.186183521908724,
+      0.0,
+      0.0,
+      0.0
+     ],
      "false_tracks_per_s": 1.0186183521908725e-06,
      "flags": [],
      "forced": false,
@@ -5653,6 +6132,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.0024646083533724334
      },
+     "p_share": [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     }

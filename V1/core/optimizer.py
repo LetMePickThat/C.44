@@ -2043,6 +2043,9 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
     from . import tracking   # imported here: core.tracking imports this module
     out["tracking"] = tracking.budget(mission, out)
     warn.extend(out["tracking"].pop("warnings"))
+    from . import scheduler                  # step 4.3: the tasks of each face in time
+    out["scheduler"] = scheduler.schedule(mission, out)
+    warn.extend(out["scheduler"]["flags"])
     return out
 
 
@@ -2059,8 +2062,10 @@ def load_mission(path: str) -> dict:
                     if k in ("id", "shape", "confirm_mode", "target_type", "fluctuation", "jammer_type", "frame",
                              "discriminate_against"):
                         s[k] = v
-                    elif k in ("allow_ambiguous", "jammer_deceptive"):
+                    elif k in ("allow_ambiguous", "jammer_deceptive", "self_protection"):
                         s[k] = v.lower() == "true"
+                    elif k == "search_priority":
+                        s[k] = int(float(v))
                     elif k == "tracking":
                         s[k] = json.loads(v)      # AT range brackets, a JSON list in one column
                     else:
@@ -2167,6 +2172,13 @@ def print_report(res: dict) -> None:
                     print(f"        bus {v['bus_draw_MW']:.3f} MW of {v['cap_MW']:g} (always-on {v['non_tx_kW']:.0f} kW) | "
                           f"storage obs {v['store_obs_deficit_MJ']:.3f} / burst {v['store_burst_deficit_MJ']:.3f} of "
                           f"{v['store_usable_MJ']:g} MJ")
+        sch = res.get("scheduler")
+        if sch:                                                # step 4.3
+            print(f" SCHEDULER: common slots S {100 * sch['slots']['S']:.2f} % / Ku {100 * sch['slots']['Ku']:.3f} %, "
+                  f"eclipse S {sch['eclipse_db']['S']:.2f} dB")
+            for s_ in sch["sectors"]:
+                print(f"   {s_['id']} ({s_['priority']}): confirmation latency {s_['latency_q95_s']:.3g} s (95 %) "
+                      f"for {s_['latency_required_s']:.3g} s required -> {'OK' if s_['latency_ok'] else 'LATE'}")
         if trk.get("ship_power"):
             sp = trk["ship_power"]
             print(f" SHIP POWER: {sp['draw_MW']:.2f} of {sp['budget_MW']:g} MW ({sp['status']}), suggested split "

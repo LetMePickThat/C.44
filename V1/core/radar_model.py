@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.17.0
+# Radar Performance Model - V6.18.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,15 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.17.0 -> V6.18.0 (roadmap step 4.3: scheduler, validated by the user on 25 October 2026)
+#   - core/scheduler.py: task classes per face and band (P0 calibration, P1 self-protection volumes, P2 confirmation
+#     and initiation, P3 track updates, P4_n search volumes by search_priority; P3' burn-through only in flight);
+#     statistical budget (non-preemptive priority queues: mean and 95 % waits, shedding P4 then P3, P0-P2 never shed);
+#     synthetic timeline per face (greedy, no preemption, fixed seed, recharge pauses of the storage and cold plate);
+#     common transmit slots per band and the eclipse they cause (reported); S-harmonic rule on the Ku time;
+#     confirmation latency against latency_max_s or latency_frac x the time to impact.
+#   - Sector keys self_protection, search_priority, latency_max_s (interface: checkbox and spin box).
 #
 # Changes V6.16.0 -> V6.17.0 (roadmap step 4.2: thermal, validated by the user on 25 October 2026)
 #   - [thermal]: coolant (SmartCoolant derivative, 2050: cp 2.5 kJ/kg K, h 3000 W/m2 K, 0.8 kg/L), micro-channel area
@@ -519,7 +528,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.17.0"
+MODEL_VERSION = "6.18.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -551,6 +560,8 @@ FACE_STORE_J: float = P.get("power.face_store_mj") * 1e6            # step 4.1 (
 FACE_STORE_MAX_W: float = P.get("power.face_store_max_mw") * 1e6
 STORE_DOD: float = P.get("power.store_dod")
 PUMP_FRAC: float = P.get("power.pump_frac")
+ADC_W: float = P.get("power.adc_w")                              # step 4.1 (B), read at import
+DBF_CONTROL_W: float = 1e3 * (P.get("power.dbf_kw") + P.get("power.control_kw"))
 
 # --- Range migration ---
 MIGRATION_MODE: str = P.get("migration.mode")              # "COMPENSATED" (residual loss) | "UNCOMPENSATED"
@@ -982,6 +993,9 @@ TH_DT_MAX = P.get(_TH + "plate_fluid_dt_max_k")
 TH_RISE = P.get(_TH + "coolant_rise_k")
 TH_INLET_C = P.get(_TH + "coolant_inlet_c")
 TJ_MAX_C = P.get(_TH + "tj_max_c")
+TH_FLUID_L = P.get(_TH + "fluid_volume_l")                 # read at import: the face inertia (C3)
+TH_STRUCT_J_K = P.get(_TH + "structure_heat_capacity_kj_k") * 1e3
+TH_PLATE_RISE = P.get(_TH + "plate_rise_max_k")
 SHIP_HEAT_REJECTION_W = P.get(_TH + "ship_heat_rejection_mw") * 1e6
 JUNCTION_CHECK = P.get("tool.thermal.junction_check")
 for _k, _v in (("coolant_cp_kj_kgk", TH_CP), ("coolant_h_w_m2k", TH_H), ("coolant_density_kg_l", TH_RHO),
@@ -999,9 +1013,9 @@ def face_cooling() -> Dict[str, float]:
     admissible plate rise."""
     flux = TH_H * TH_AREA_FACTOR * TH_DT_MAX
     cap = flux * PHYS_AREA_M2
-    inertia = P.get(_TH + "fluid_volume_l") * TH_RHO * TH_CP + P.get(_TH + "structure_heat_capacity_kj_k") * 1e3
+    inertia = TH_FLUID_L * TH_RHO * TH_CP + TH_STRUCT_J_K
     return {"flux_max_w_cm2": flux / 1e4, "capacity_w": cap, "flow_l_s": cap / (TH_CP * TH_RISE) / TH_RHO,
-            "inertia_j_k": inertia, "buffer_j": inertia * P.get(_TH + "plate_rise_max_k")}
+            "inertia_j_k": inertia, "buffer_j": inertia * TH_PLATE_RISE}
 
 
 def r_conv_trm(band_name: str) -> float:
@@ -1058,9 +1072,8 @@ def tau_max_s(band: BandConfig) -> float:
 def non_tx_power_w() -> float:
     """Always-on consumption of one face behind the PSU (W, step 4.1 B1-B4): two ADCs and two receive chains per TRM in
     both bands, digital beamforming and processing, control. The pumps (a share of the heat) are added by the budget."""
-    adc = P.get("power.adc_w")
-    return (sum(2 * N_TRM[b] * (adc + P.get(f"band.{b}.rx.rx_chain_w")) for b in ("S", "Ku"))
-            + 1e3 * (P.get("power.dbf_kw") + P.get("power.control_kw")))
+    return (sum(2 * N_TRM[b] * (ADC_W + P.get(f"band.{b}.rx.rx_chain_w")) for b in ("S", "Ku"))
+            + DBF_CONTROL_W)
 
 
 def face_bus_draw_w(tx_elec_w: float, heat_w: float) -> float:

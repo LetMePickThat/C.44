@@ -163,6 +163,297 @@
    "sky_bodies": [],
    "sky_galactic": "worst case (no galactic frame given)"
   },
+  "scheduler": {
+   "eclipse_db": {
+    "Ku": 0.000740772459825439,
+    "S": 0.1884789287924843
+   },
+   "faces": {
+    "0": {
+     "Ku": {
+      "capacity": 0.9575293772680437,
+      "feasible": true,
+      "load": 0.00017055461623694071,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 3.887949570274015e-06
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.1674245621720824e-06,
+       "confirmation CONE_D1": 4.1681354569153595e-06,
+       "confirmation VEILLE_KV": 4.1681354569153595e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.66744354581919,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation CONE_D1": 0.0,
+        "confirmation VEILLE_KV": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.04247062273195638,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.04243728939862305
+      },
+      "mean_wait_s": {
+       "calibration S": 9.82014988074433e-06,
+       "search CONE_D1": 1.0255716549149123e-05,
+       "search VEILLE_KV": 1.0255716549149123e-05
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.99881723145485,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search CONE_D1": 0.0,
+        "search VEILLE_KV": 0.0009024826952524663
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "1": {
+     "Ku": {
+      "capacity": 0.9575293772680437,
+      "feasible": true,
+      "load": 0.00017055461145088223,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 3.8879447842155355e-06
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167424561999437e-06,
+       "confirmation CONE_D2": 4.168135456722732e-06,
+       "confirmation VEILLE_KV": 4.168135456722732e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.178803216867706,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation CONE_D2": 0.0,
+        "confirmation VEILLE_KV": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.04247062273029414,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.0424372893969608
+      },
+      "mean_wait_s": {
+       "calibration S": 9.820149880217948e-06,
+       "search CONE_D2": 1.025571654858159e-05,
+       "search VEILLE_KV": 1.025571654858159e-05
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.98999288496056,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search CONE_D2": 2.8095543898487563e-05,
+        "search VEILLE_KV": 0.009726829189549535
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "2": {
+     "Ku": {
+      "capacity": 0.9575293772680437,
+      "feasible": true,
+      "load": 0.00017055461403274265,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 3.8879473660759794e-06
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167424562092571e-06,
+       "confirmation CONE_D3": 4.1681354568266455e-06,
+       "confirmation VEILLE_KV": 4.1681354568266455e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 58.89882655731446,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation CONE_D3": 0.0,
+        "confirmation VEILLE_KV": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.04247062273155893,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.042437289398225594
+      },
+      "mean_wait_s": {
+       "calibration S": 9.820149880618466e-06,
+       "search CONE_D3": 1.025571654901342e-05,
+       "search VEILLE_KV": 1.025571654901342e-05
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.99101751296713,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search CONE_D3": 0.0,
+        "search VEILLE_KV": 0.008702201182975777
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "3": {
+     "Ku": {
+      "capacity": 0.9575293772680437,
+      "feasible": true,
+      "load": 0.00017055461408187978,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 3.88794741521308e-06
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.1674245620943434e-06,
+       "confirmation CONE_D4": 4.168135456828624e-06,
+       "confirmation VEILLE_KV": 4.168135456828624e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.430850205376885,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation CONE_D4": 0.0,
+        "confirmation VEILLE_KV": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.04247062272601614,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.04243728939268281
+      },
+      "mean_wait_s": {
+       "calibration S": 9.820149878863241e-06,
+       "search CONE_D4": 1.0255716547120976e-05,
+       "search VEILLE_KV": 1.0255716547120976e-05
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.99009036181679,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search CONE_D4": 0.00041406433950896826,
+        "search VEILLE_KV": 0.00962935233331893
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    }
+   },
+   "flags": [],
+   "frame_interleaved_checked": true,
+   "harmonic_faces": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "sectors": [
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "CONE_D1",
+     "latency_ok": true,
+     "latency_q95_s": 0.10777657700275318,
+     "latency_required_s": 160.0,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "CONE_D2",
+     "latency_ok": true,
+     "latency_q95_s": 0.10777657695312903,
+     "latency_required_s": 160.0,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "CONE_D3",
+     "latency_ok": true,
+     "latency_q95_s": 0.107776576979899,
+     "latency_required_s": 160.0,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "CONE_D4",
+     "latency_ok": true,
+     "latency_q95_s": 0.10777657698040848,
+     "latency_required_s": 160.0,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "VEILLE_KV",
+     "latency_ok": true,
+     "latency_q95_s": 0.007674194894673616,
+     "latency_required_s": 2.0,
+     "priority": "P4_1"
+    }
+   ],
+   "slots": {
+    "Ku": 0.00017055461623694071,
+    "S": 0.04247062273195638
+   }
+  },
   "sectors": [
    {
     "beam_spacing_hpbw": 1.7,
@@ -2825,6 +3116,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.6,
+     "false_alarms_per_rr_face": [
+      10.57353909856482,
+      0.0,
+      0.0,
+      0.0
+     ],
      "false_tracks_per_s": 8.81128258213735e-08,
      "flags": [
       "S waveform WF-CONE_D1-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
@@ -2856,6 +3153,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.002516200917841209
      },
+     "p_share": [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-CONE_D1-1 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 25 MHz: on the same face, no Ku reception during this S transmission",
@@ -2901,6 +3204,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.6,
+     "false_alarms_per_rr_face": [
+      0.0,
+      10.57353909856482,
+      0.0,
+      0.0
+     ],
      "false_tracks_per_s": 8.81128258213735e-08,
      "flags": [
       "S waveform WF-CONE_D2-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
@@ -2932,6 +3241,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.0025102254322871965
      },
+     "p_share": [
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-CONE_D2-1 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 25 MHz: on the same face, no Ku reception during this S transmission",
@@ -2977,6 +3292,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.6,
+     "false_alarms_per_rr_face": [
+      0.0,
+      0.0,
+      10.57353909856482,
+      0.0
+     ],
      "false_tracks_per_s": 8.81128258213735e-08,
      "flags": [
       "S waveform WF-CONE_D3-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
@@ -3008,6 +3329,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.002513448935454115
      },
+     "p_share": [
+      0.0,
+      0.0,
+      1.0,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-CONE_D3-1 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 25 MHz: on the same face, no Ku reception during this S transmission",
@@ -3053,6 +3380,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.6,
+     "false_alarms_per_rr_face": [
+      0.0,
+      0.0,
+      0.0,
+      10.57353909856482
+     ],
      "false_tracks_per_s": 8.81128258213735e-08,
      "flags": [
       "S waveform WF-CONE_D4-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
@@ -3084,6 +3417,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.002513510284061455
      },
+     "p_share": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-CONE_D4-1 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 25 MHz: on the same face, no Ku reception during this S transmission",
@@ -3144,6 +3483,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.2,
+     "false_alarms_per_rr_face": [
+      2.561340077439277,
+      2.561340077439276,
+      2.561340077439276,
+      2.561340077439276
+     ],
      "false_tracks_per_s": 5.122680154878553e-07,
      "flags": [
       "S waveform WF-VEILLE_KV-1: its harmonics (13.238-14.463 GHz) cover 100 % of the Ku channel 14 GHz / 200 MHz on the same face",
@@ -3177,6 +3522,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.002571970439026827
      },
+     "p_share": [
+      0.2500000000000001,
+      0.25,
+      0.25,
+      0.25
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-VEILLE_KV-1 puts its harmonics on 13.238-14.463 GHz, over 100 % of the Ku channel 14 GHz / 200 MHz: on the same face, no Ku reception during this S transmission",

@@ -91,6 +91,237 @@
    "sky_bodies": [],
    "sky_galactic": "worst case (no galactic frame given)"
   },
+  "scheduler": {
+   "eclipse_db": {
+    "Ku": 0.00073800696037528,
+    "S": 0.003742155913138363
+   },
+   "faces": {
+    "0": {
+     "Ku": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.00016789730177206965,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 1.2306351054029733e-06
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167362600923742e-06,
+       "confirmation S01": 4.168062407355554e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 18.157763634709468,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation S01": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0003029455730962888,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.00026961223976295544
+      },
+      "mean_wait_s": {
+       "calibration S": 1.6819395535562575e-07,
+       "search S01": 1.682449244106719e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.97632965695409,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search S01": 0.0043745344729997394
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "1": {
+     "Ku": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.00016991794485915333,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 3.25127819248665e-06
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167363528540686e-06,
+       "confirmation S02": 4.168071758727954e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 4.9922553421327,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation S02": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0008612921169564103,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.000827958783623077
+      },
+      "mean_wait_s": {
+       "calibration S": 1.7884442763939563e-07,
+       "search S02": 1.789985977205586e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 4.9716950998627345,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search S02": 0.009925211173611127
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "2": {
+     "Ku": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0001666666666666667,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167361226871146e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 0.05,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 3.3333333333333335e-05,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05
+      },
+      "mean_wait_s": {
+       "calibration S": 1.666722224074136e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 0.01,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "3": {
+     "Ku": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0001666666666666667,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167361226871146e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 0.05,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 3.3333333333333335e-05,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05
+      },
+      "mean_wait_s": {
+       "calibration S": 1.666722224074136e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 0.01,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    }
+   },
+   "flags": [],
+   "frame_interleaved_checked": true,
+   "harmonic_faces": [],
+   "sectors": [
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "S01",
+     "latency_ok": true,
+     "latency_q95_s": 0.06771505174627221,
+     "latency_required_s": 100.0,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "S02",
+     "latency_ok": true,
+     "latency_q95_s": 0.007672697523169391,
+     "latency_required_s": 2.0,
+     "priority": "P4_1"
+    }
+   ],
+   "slots": {
+    "Ku": 0.00016991794485915333,
+    "S": 0.0008612921169564103
+   }
+  },
   "sectors": [
    {
     "beam_spacing_hpbw": 2.0,
@@ -1455,6 +1686,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.0,
+     "false_alarms_per_rr_face": [
+      10.023706226016879,
+      0.0,
+      0.0,
+      0.0
+     ],
      "false_tracks_per_s": 5.01185311300844e-07,
      "flags": [],
      "forced": false,
@@ -1483,6 +1720,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.0024657922343830204
      },
+     "p_share": [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
@@ -1525,6 +1768,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.5,
+     "false_alarms_per_rr_face": [
+      0.0,
+      10.483590282974147,
+      0.0,
+      0.0
+     ],
      "false_tracks_per_s": 2.0967180565948294e-06,
      "flags": [],
      "forced": false,
@@ -1553,6 +1802,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.0024647305132408414
      },
+     "p_share": [
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     }

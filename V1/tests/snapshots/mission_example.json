@@ -169,6 +169,265 @@
    "sky_bodies": [],
    "sky_galactic": "worst case (no galactic frame given)"
   },
+  "scheduler": {
+   "eclipse_db": {
+    "Ku": 0.0007387612836601055,
+    "S": 0.007045037598981105
+   },
+   "faces": {
+    "0": {
+     "Ku": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.00016807096159913637,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 1.4042949324696716e-06
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167363229380456e-06,
+       "confirmation S01": 4.168063759864583e-06,
+       "confirmation S03": 4.168063759864583e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 52.58581417739309,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation S01": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0010625182890615429,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.0010291849557282095
+      },
+      "mean_wait_s": {
+       "calibration S": 2.0012366997489923e-07,
+       "search S01": 2.0033653120326985e-07,
+       "search S03": 2.0033653120326985e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.972129862718134,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search S01": 0.0043745344729997394,
+        "search S03": 2.1412571413748083e-06
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "1": {
+     "Ku": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.00017009160468622005,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 3.424938019553348e-06
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.1673641569974e-06,
+       "confirmation S02": 4.16807311124134e-06,
+       "confirmation S03": 4.16807311124134e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.56467602735287,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation S02": 0.0,
+        "confirmation S03": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0016208648329216642,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.0015875314995883309
+      },
+      "mean_wait_s": {
+       "calibration S": 2.1077414225866906e-07,
+       "search S02": 2.1111633329896874e-07,
+       "search S03": 2.1111633329896874e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.98301555108857,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search S02": 0.005707032677350625,
+        "search S03": 2.368069359803826e-05
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "2": {
+     "Ku": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.00016684032649373338,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 1.7365982706669822e-07
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.1673618553278605e-06,
+       "confirmation S03": 4.1680572553611905e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 27.354710830728227,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation S03": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0007929060492985873,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.0007595727159652539
+      },
+      "mean_wait_s": {
+       "calibration S": 1.9860193702668705e-07,
+       "search S03": 1.9875953466407795e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.920169165142745,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search S03": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "3": {
+     "Ku": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.00016684032649373338,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 1.7365982706669822e-07
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.1673618553278605e-06,
+       "confirmation S03": 4.1680572553611905e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.280979981197476,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation S03": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0007929060492985873,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.0007595727159652539
+      },
+      "mean_wait_s": {
+       "calibration S": 1.9860193702668705e-07,
+       "search S03": 1.9875953466407795e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.92625453169025,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search S03": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    }
+   },
+   "flags": [],
+   "frame_interleaved_checked": true,
+   "harmonic_faces": [],
+   "sectors": [
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "S01",
+     "latency_ok": true,
+     "latency_q95_s": 0.06771505174627221,
+     "latency_required_s": 100.0,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "S02",
+     "latency_ok": true,
+     "latency_q95_s": 0.007672697523169391,
+     "latency_required_s": 2.0,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "S03",
+     "latency_ok": true,
+     "latency_q95_s": 0.10774774704751579,
+     "latency_required_s": 160.0,
+     "priority": "P4_1"
+    }
+   ],
+   "slots": {
+    "Ku": 0.00017009160468622005,
+    "S": 0.0016208648329216642
+   }
+  },
   "sectors": [
    {
     "beam_spacing_hpbw": 2.0,
@@ -2540,6 +2799,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.0,
+     "false_alarms_per_rr_face": [
+      10.023706226016879,
+      0.0,
+      0.0,
+      0.0
+     ],
      "false_tracks_per_s": 5.01185311300844e-07,
      "flags": [],
      "forced": false,
@@ -2568,6 +2833,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.0024657922343830204
      },
+     "p_share": [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
@@ -2610,6 +2881,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.5,
+     "false_alarms_per_rr_face": [
+      0.0,
+      10.483590282974147,
+      0.0,
+      0.0
+     ],
      "false_tracks_per_s": 2.0967180565948294e-06,
      "flags": [],
      "forced": false,
@@ -2638,6 +2915,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.0024647305132408414
      },
+     "p_share": [
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
@@ -2695,6 +2978,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.5,
+     "false_alarms_per_rr_face": [
+      2.6296983410256463,
+      2.6296983410256454,
+      2.6296983410256454,
+      2.6296983410256454
+     ],
      "false_tracks_per_s": 8.765661136752151e-08,
      "flags": [],
      "forced": false,
@@ -2723,6 +3012,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.002516200917841209
      },
+     "p_share": [
+      0.25000000000000017,
+      0.25,
+      0.24999999999999994,
+      0.25
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     }

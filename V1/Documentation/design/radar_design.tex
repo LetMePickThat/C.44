@@ -37,13 +37,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small C.44 radar -- design and modelling reference}
-\rhead{\small Model V6.17.0}
+\rhead{\small Model V6.18.0}
 \cfoot{\thepage}
 
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{25 October 2026 -- radar model V6.17.0 (roadmap step 4.2 coded)}
+\date{25 October 2026 -- radar model V6.18.0 (roadmap step 4.3 coded)}
 
 \begin{document}
 \maketitle
@@ -912,6 +912,54 @@ at most \SI{+0.25}{\percent} (one sector \SI{+9}{\percent}, one \SI{-5}{\percent
 sectors) for a 7 to 8 times faster run.
 
 %=====================================================================================================================
+\section{Scheduler}\label{sec:sched}
+%=====================================================================================================================
+The budget of the previous sections counts each face's resources \emph{on average}. The scheduler
+(\code{core/scheduler.py}, roadmap step 4.3) checks that the tasks also fit \emph{in time}, and how long a detection
+waits before its confirmation. S and Ku have separate transmit timelines on each face.
+
+\paragraph{Priorities.} Set by the designer:
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+P0 & calibration (without it the radar does not work)\\
+P1 & search of the volumes flagged \emph{self-protection} (a checkbox per volume)\\
+P2 & confirmation of a detection and track initiation (never lose a detection)\\
+P3 & track updates (a few misses are manageable); P3$'$ Ku burn-through, only if the operator authorises it in flight\\
+P4$_n$ & search, with a sub-priority per volume chosen by the operator ($n = 1$ served first)\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Statistical budget.} On each face and band the tasks form a queue served without preemption (an observation
+started is not interrupted). The mean wait of class $k$ follows Cobham's formula,
+\[
+  W_k = \frac{W_0}{(1-\sigma_{k-1})(1-\sigma_k)},\qquad W_0 = \tfrac12\textstyle\sum_i \rho_i S_i,
+\]
+with $\rho_i$ the share of time of class $i$, $S_i$ its service time and $\sigma_k$ the load of the classes up to $k$;
+the 95\,\% quantile uses an exponential tail beyond the probability that the transmitter is busy. When the load exceeds
+the time, the search is shed first (its revisit stretches, lowest sub-priority first), then the track updates (their
+period stretches); calibration, self-protection, confirmation and initiation are never shed: if they do not fit, the
+mission is not feasible.
+
+\paragraph{Synthetic timeline.} One deterministic timeline per face and band, over the longest revisit of the face
+(at most \SI{60}{s}): search positions spread over their revisit, track updates at their period, confirmations and
+initiations drawn as Poisson arrivals with a fixed seed, one calibration; at each free instant the ready task of
+highest priority, then of nearest deadline, is served. After the longest contiguous transmission the face storage
+(about \SI{0.3}{s}) or the cold plate allows, a recharge pause is inserted. The timeline reports the start delays, the
+share of updates later than \SI{10}{\percent} of their period (counted as misses), the calibration delay and the pauses.
+
+\paragraph{Rules between faces and bands.} All faces transmit a band in common slots (otherwise the transmission of one
+face would blind the receivers of the others); the slots are sized by the busiest face, and every face is deaf in
+them: the search echoes lose $-10\log_{10}(1-\rho_{\mathrm{slots}})$, reported (flag above \SI{0.5}{dB}) but not yet
+fed back into the plan. On a face where an S waveform's fifth harmonic covers the Ku channel, the Ku looks avoid the S
+slots.
+
+\paragraph{Latency.} The latency of a confirmation is the 95\,\% wait of the P2 class, plus its service, its round
+trips and a processing delay (\SI{1}{ms}, provisional). It is compared with the sector's requirement, or by default
+with \SI{10}{\percent} of the time to impact at the detection range.
+
+%=====================================================================================================================
 \section{Other functions}
 %=====================================================================================================================
 \paragraph{Array errors and calibration.}\label{sec:cal} Every TRM is calibrated in flight through its coupler (transmit and receive
@@ -957,6 +1005,7 @@ jammers, Faraday\\
 \code{core/optimizer.py} & S search optimiser, mission run, sector summaries\\
 \code{core/tracking.py} & Ku confirmation and active tracking budget\\
 \code{core/trackmodel.py} & track model: Singer Kalman filter, loss chain, initiation, discrimination\\
+\code{core/scheduler.py} & priorities, waits, synthetic timeline, common slots, latency\\
 \code{core/redundancy.py} & redundancy between sectors\\
 \code{core/cost\_estimate.py} & fast estimate for the interface\\
 \code{core/mission.py} & mission model, validation, JSON / CSV\\
@@ -976,7 +1025,7 @@ The test bench has two families: frozen outputs of every test mission compared a
 (non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
 exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
 frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
-before any refreeze. At model V6.17.0 the bench has 207 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
+before any refreeze. At model V6.18.0 the bench has 211 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
 
 %=====================================================================================================================
 \section{Roadmap and open points}\label{sec:roadmap}
@@ -993,7 +1042,8 @@ sky noise, converters, isolation --- done\\
 3, radar functions & 3.0 frames and navigation; 3.1 S search; 3.2 Ku confirmation; 3.3 tracking; 3.4 array errors and
 calibration --- done (degraded modes and TRM failures deferred to the end of the development)\\
 4, resources & 4.1 power: shared ship budget, always-on consumption, TRM supply, face storage --- done; 4.2 thermal:
-coolant, cold plate, junction, ship heat rejection --- coded;
+coolant, cold plate, junction, ship heat rejection --- done; 4.3 scheduler: priorities, queues, synthetic timeline,
+common slots, latency --- coded;
 scheduler and latency; computing and data\\
 5, mission and validation & richer mission model; global optimiser; validation engine; Monte-Carlo simulation;
 operator interface; verification and documentation\\
@@ -1003,11 +1053,9 @@ operator interface; verification and documentation\\
 
 Main provisional dispositions, each assigned to a later step:
 \begin{itemize}
-  \item \textbf{Scheduler (4.3)}: common cadence of the faces per band and the S-harmonic rule; search-lattice shift
-        every frame; eclipsing by other looks and faces; latency rebuilt from scratch; time multiplex and superposition
-        re-evaluated once a timeline cost exists; the Ku burn-through search pointed along a jamming axis; choice of
-        the CFAR per pointing; longest contiguous transmission allowed by the face storage; S/Ku alignment on external
-        references.
+  \item \textbf{Scheduler}: the eclipse of the common slots fed back into the search plan (5.2); time multiplex and
+        superposition with an imperfect interleaving; GO-CFAR near limbs counted (advised only today); search-lattice
+        shift every frame (a rule); S/Ku alignment on external references; Ku burn-through authorised in flight.
   \item \textbf{Thermal}: ship heat rejection reserved for the radar (provisional \SI{6}{MW}).
   \item \textbf{Computing (4.4)}: simultaneous receive beams, converter data rates, beamforming power, computing load
         of velocity and acceleration banks and of adaptive nulling.
@@ -1318,6 +1366,10 @@ Always-on power & Converters, receive chains, beamforming, control & \SI{106.9}{
 TRM supply & Mean power and buffer recharge over a train & removes waveforms (0 in S, 3\,\% of Ku looks)\\
 Face storage & Peak power of a look above the bus mean & scheduler rule $\approx$\SI{0.3}{s} of contiguous
 transmission\\
+Common transmit slots & All faces transmit a band together; receivers deaf in the slots & eclipse
+$-10\log_{10}(1-\rho)$: \SI{0.1}{dB} on a test mission (\SI{2.4}{\percent} of the time)\\
+Priority queues & Waiting of a task behind higher priorities, without preemption & confirmation latency
+\SIrange{8}{80}{ms} (95\,\%) on a test mission\\
 Cooling of a face & Micro-channel cold plate, dielectric coolant & capacity \SI{15.9}{MW} per face: not limiting
 (dissipation $\le$ \SI{2}{MW})\\
 Junction temperature & Heating of the PA transistors by the pulses & $\le$\SI{63}{\celsius} against \SI{225}{\celsius}:

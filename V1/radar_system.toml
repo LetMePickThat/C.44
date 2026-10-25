@@ -183,6 +183,17 @@ plate_rise_max_k        = { value = 10.0, unit = "K", status = "V", source = "ad
 tj_max_c                = { value = 225.0, unit = "C", status = "V", source = "largest GaN junction temperature (B5, optimistic end of 200-225 C)", date = "2026-10-25" }
 ship_heat_rejection_mw  = { value = 6.0, unit = "MW", status = "D", source = "ship heat rejection reserved for the radar, shared by the faces (D1); provisional, a ship datum to confirm", date = "2026-10-25" }
 
+# --- scheduler (step 4.3, validated by the user on 2026-10-25) -------------------------------------------------------
+# Priorities: P0 calibration, P1 self-protection volumes (sector key self_protection), P2 confirmation and initiation,
+# P3 track updates (P3' Ku burn-through, only when the operator authorises it in flight), P4 search (sector key
+# search_priority: P4_1 first). Statistical budget (non-preemptive priority queues) + a synthetic timeline per face.
+[scheduler]
+latency_frac       = { value = 0.1, unit = "-", status = "V", source = "confirmation latency required when the sector gives no latency_max_s: this x the time to impact at the detection range (E3)", date = "2026-10-25" }
+update_jitter_frac = { value = 0.1, unit = "-", status = "V", source = "a track update starting later than this x its period counts as a miss (A4)", date = "2026-10-25" }
+processing_s       = { value = 0.001, unit = "s", status = "D", source = "processing delay of a detection before its confirmation (E1); provisional until step 4.4", date = "2026-10-25" }
+calibration_max_delay_frac = { value = 0.1, unit = "-", status = "V", source = "a calibration may slip by at most this x its interval (A5)", date = "2026-10-25" }
+eclipse_flag_db    = { value = 0.5, unit = "dB", status = "V", source = "eclipse of the echoes by the common transmit slots flagged above this (C2)", date = "2026-10-25" }
+
 # --- bands --------------------------------------------------------------------------------------------------------
 [band.S]
 usable_lo_ghz       = { value = 2.6, unit = "GHz", status = "D", source = "S band, widened at step 3.1 (W1, user): 2.70 -> 2.60 GHz; no grating-lobe limit downward (mismatch unchanged down to 2.55 GHz), limited by the TRM PA / LNA / element / WAIM bandwidth", date = "2026-10-22" }
@@ -672,6 +683,10 @@ solve_base_cache_size = 16384   # memoised solve_base() parts per process, ~2 KB
 mask_cache_size      = 64       # sector masks kept per raster
 parallel_min_sectors = 6        # below this, sequential run
 max_workers          = 0        # 0 = automatic (half the logical CPUs)
+
+[tool.scheduler]              # step 4.3
+horizon_max_s = 60.0            # B1: synthetic timeline over the longest revisit of a face, at most this
+seed          = 1               # B3: random arrivals drawn once (reproducible)
 
 [tool.thermal]                # step 4.2
 junction_check = false          # B6: waveforms whose junction exceeds tj_max_c removed (true) or only reported (false);

@@ -1012,8 +1012,10 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         drivers: Dict[str, float] = {}
         wf_main, pos_main, unreachable = None, -1.0, 0.0
         n_cluster, n_upd, p_loss, infeasible = 0.0, 0.0, [], []
+        tracks_face = np.zeros(4)                       # step 4.3: tracks per face
         for gr in groups:
             share = gr["pos"] / p_all * b["n_targets"]                       # tracks per face in this group
+            tracks_face += share
             if gr["theta"] > ku_lim:
                 unreachable += float(share.sum())
                 continue
@@ -1088,7 +1090,8 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                  "initiations_per_s": init_rate, "init_looks": init["looks"] if init else None,
                  "init_energy_J": init["energy_J"] if init else None,
                  "attenuation_db": rm.attenuation_needed_db(f_ku, 0.0, tgt.rcs_at(f_ku), r_lo),
-                 "deception_verification": deceptive}
+                 "deception_verification": deceptive, "tracks_face": tracks_face.tolist(),
+                 "init_tk": (t_init if isinstance(t_init, np.ndarray) else np.zeros(4)).tolist()}
         if unreachable > 0:
             flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: {unreachable:.1f} track(s) out of Ku reach "
                          f"(scan limit, range, jammer, clutter or accuracy)")
@@ -1147,6 +1150,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                          f"({'reaches' if bt['reaches_requirement'] else 'does not reach'} the requirement, "
                          f"{bt['wf']}); triggered by the scheduler (step 4.3)")
     return {"faces": [k for k in range(4) if p_face[k] > 0], "false_alarms_per_rr": fa, "modes": modes, "at": at,
+            "p_share": (p_face / max(p_all, 1e-12)).tolist(),      # step 4.3: share of the sector per face
             "flags": flags, "ku_sky": ku_sky, "ku_min_unsaturated_range_km": r_sat_ku,
             "ku_min_unsaturated_range_attenuated_km": r_sat_att, "discrimination": disc,
             "false_tracks_per_s": false_tracks, "scheduler_rules": rules,
@@ -1381,6 +1385,7 @@ def budget(mission: dict, res: dict) -> dict:
             "ku_burn_through": sb["ku_burn_through"], "scheduler_rules": sb["scheduler_rules"],
             "discrimination": sb.get("discrimination"), "false_tracks_per_s": sb.get("false_tracks_per_s"),
             "ku_min_unsaturated_range_attenuated_km": sb.get("ku_min_unsaturated_range_attenuated_km"),
+            "false_alarms_per_rr_face": [float(x) for x in sb["false_alarms_per_rr"]], "p_share": sb["p_share"],
             "flags": sb["flags"]})
         for fl in sb["flags"]:
             warn.append(f"sector {sid}: {fl}")

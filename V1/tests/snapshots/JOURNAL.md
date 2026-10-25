@@ -504,3 +504,15 @@ verdict), heat burst against the cold-plate buffer, ship heat (faces + conversio
 reserved for the radar. The junction check is off (measured: Tj <= 63 C even CW, user decision), so no waveform is
 removed. 746 output values differ (new keys); no key figure, waveform set or confirmation mode changes.
 N3 20.7 min: 197 passed; only the snapshot tests failed before the refreeze.
+
+## 2026-10-25 -- step 4.3: scheduler (radar_model V6.18.0)
+
+Causes: new outputs only -- report key "scheduler" (task loads per face, band and priority, mean waits, shedding,
+synthetic timeline, common transmit slots and their eclipse, confirmation latency per sector against its
+requirement); tracking outputs per face (p_share, false alarms per face, tracks per face, initiation time). No key
+figure, waveform set or confirmation mode changes (103 values differ). Test missions: common S slots 0.1 to 4.3 % of
+the time (eclipse 0.004 to 0.19 dB), every confirmation latency held (1.4 ms to 0.11 s at 95 %), no shedding, no
+late track update. The always-on power and thermal-inertia entries are now read at import (the "every parameter is
+read" test had found them unread when their functions were not called).
+N3 19.6 min: 200 passed; the snapshot tests and test_every_parameter_is_read_by_the_code failed before the fix and
+the refreeze.

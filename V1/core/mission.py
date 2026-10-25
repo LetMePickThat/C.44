@@ -30,6 +30,9 @@ track_ra_deg / track_dec_deg / track_sigma_deg, step 3.3); absent = ship frame.
 Track model (step 3.3, core/trackmodel.py), per sector: "maneuver_tau_s" and "aspect_offset_deg" override the class,
 "discriminate_against" (a class the target must be told from; default DECOY for a KKV), "jammer_deceptive" (true: the
 self-protection jammer is deceptive, verification looks counted).
+Scheduler (step 4.3, core/scheduler.py), per sector: "self_protection" (true: the volume is searched at priority P1),
+"search_priority" (P4 sub-priority of a search volume, 1 = most important, default 1), "latency_max_s" (confirmation
+latency required; default scheduler.latency_frac x the time to impact).
 
 Validation messages are operator-facing.
 """
@@ -273,6 +276,14 @@ def validate_environment(sec: dict, tag: str) -> List[str]:
     da = sec.get("discriminate_against")
     if da is not None and da not in mo.rm.TARGETS:
         errs.append(f"{tag}: unknown discriminate_against '{da}' (classes: {', '.join(mo.rm.TARGETS)})")
+    if sec.get("self_protection") is not None and not isinstance(sec["self_protection"], bool):
+        errs.append(f"{tag}: self_protection must be true or false")
+    sp = sec.get("search_priority")
+    if sp is not None and (not isinstance(sp, int) or isinstance(sp, bool) or sp < 1):
+        errs.append(f"{tag}: search_priority must be an integer >= 1 (1 = the most important search volume)")
+    lm = sec.get("latency_max_s")
+    if lm is not None and (not isinstance(lm, (int, float)) or lm <= 0):
+        errs.append(f"{tag}: latency_max_s must be > 0")
     for k in ("maneuver_tau_s", "aspect_offset_deg"):
         if sec.get(k) is not None and (not isinstance(sec[k], (int, float)) or sec[k] < 0):
             errs.append(f"{tag}: {k} must be a number >= 0")
@@ -368,6 +379,7 @@ _CSV_FIELDS = [
     "v_close_min_mps", "v_close_max_mps", "res_max_m", "range_min_km", "fa_per_rr", "allow_ambiguous", "rx_sll_db",
     "confirm_mode", "new_targets_per_rr", "tracking", "frame", "limb_alt_km", *frames.TWO_DIR_KEYS,
     *frames.TRACK_KEYS, "maneuver_tau_s", "aspect_offset_deg", "discriminate_against", "jammer_deceptive",
+    "self_protection", "search_priority", "latency_max_s",
 ]
 
 

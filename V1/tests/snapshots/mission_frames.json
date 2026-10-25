@@ -278,6 +278,320 @@
    ],
    "sky_galactic": "frame"
   },
+  "scheduler": {
+   "eclipse_db": {
+    "Ku": 0.0024289541447017346,
+    "S": 0.14209994579261465
+   },
+   "faces": {
+    "0": {
+     "Ku": {
+      "capacity": 0.9678097776681281,
+      "feasible": true,
+      "load": 0.00021861973417347977,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 5.1953067506813096e-05
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.170490452681392e-06,
+       "confirmation HORIZON": 4.17140240356599e-06,
+       "confirmation ORBIT": 4.17140240356599e-06,
+       "confirmation PROT": 4.17140240356599e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.581129456338243,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation HORIZON": 0.04180126619300615,
+        "confirmation ORBIT": 0.0,
+        "confirmation PROT": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.002567089333788023,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.0025337560004546895
+      },
+      "mean_wait_s": {
+       "calibration S": 1.4061335674930425e-06,
+       "search HORIZON": 1.4097525281713918e-06,
+       "search ORBIT": 1.4097525281713918e-06,
+       "search PROT": 1.4097525281713918e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.960954173592334,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search HORIZON": 0.0,
+        "search ORBIT": 0.0,
+        "search PROT": 0.0007239044451224554
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "1": {
+     "Ku": {
+      "capacity": 0.9678097776681281,
+      "feasible": true,
+      "load": 0.00020976394657102059,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 4.30972799043539e-05
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.1695656816928545e-06,
+       "confirmation AXIS": 4.170440489748924e-06,
+       "confirmation HORIZON": 4.170440489748924e-06,
+       "confirmation ORBIT": 4.170440489748924e-06,
+       "confirmation PROT": 4.170440489748924e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.861404118635992,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation AXIS": 0.0,
+        "confirmation HORIZON": 0.0,
+        "confirmation ORBIT": 0.0,
+        "confirmation PROT": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0019481481938383965,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.0019148148605050632
+      },
+      "mean_wait_s": {
+       "calibration S": 9.81960802089708e-07,
+       "search AXIS": 9.83877541344837e-07,
+       "search HORIZON": 9.83877541344837e-07,
+       "search ORBIT": 9.83877541344837e-07,
+       "search PROT": 9.83877541344837e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.953789916700458,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search AXIS": 0.0,
+        "search HORIZON": 0.0,
+        "search ORBIT": 0.0,
+        "search PROT": 0.007888161337000101
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "2": {
+     "Ku": {
+      "capacity": 0.9678097776681281,
+      "feasible": true,
+      "load": 0.00020904495205345043,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 4.2378285386783724e-05
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.169632459875845e-06,
+       "confirmation AXIS": 4.170504282743669e-06,
+       "confirmation ORBIT": 4.170504282743669e-06,
+       "confirmation PROT": 4.170504282743669e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.298362456117406,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation AXIS": 0.0,
+        "confirmation ORBIT": 0.0,
+        "confirmation PROT": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0021860580361539746,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.0021527247028206415
+      },
+      "mean_wait_s": {
+       "calibration S": 1.0850158528416002e-06,
+       "search AXIS": 1.0873929569536058e-06,
+       "search ORBIT": 1.0873929569536058e-06,
+       "search PROT": 1.0873929569536058e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.980819051455573,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search AXIS": 0.0,
+        "search ORBIT": 0.0,
+        "search PROT": 0.0007474780658505153
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "3": {
+     "Ku": {
+      "capacity": 0.9678097776681281,
+      "feasible": true,
+      "load": 0.0005591309884934739,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 0.0003924643218268073
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.291170430638972e-06,
+       "confirmation DEEP": 4.293571099291886e-06,
+       "confirmation HORIZON": 4.293571099291886e-06,
+       "confirmation ORBIT": 4.293571099291886e-06,
+       "confirmation PROT": 4.293571099291886e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.631840901116632,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation DEEP": 0.0,
+        "confirmation HORIZON": 0.0,
+        "confirmation PROT": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.032190222331871896,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.032156888998538566
+      },
+      "mean_wait_s": {
+       "calibration S": 0.00011482823521902941,
+       "search DEEP": 0.00011864752544213826,
+       "search HORIZON": 0.00011864752544213826,
+       "search ORBIT": 0.00011864752544213826,
+       "search PROT": 0.00011864752544213826
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.98548288283748,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search DEEP": 0.0,
+        "search HORIZON": 0.0,
+        "search ORBIT": 0.0,
+        "search PROT": 0.006307961611520696
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    }
+   },
+   "flags": [],
+   "frame_interleaved_checked": true,
+   "harmonic_faces": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "sectors": [
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": true,
+     "id": "PROT",
+     "latency_ok": true,
+     "latency_q95_s": 0.005002902120247999,
+     "latency_required_s": 4.285714285714286,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": true,
+     "id": "DEEP",
+     "latency_ok": true,
+     "latency_q95_s": 0.04169435219643831,
+     "latency_required_s": 42.857142857142854,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "ORBIT",
+     "latency_ok": true,
+     "latency_q95_s": 0.027855548424422796,
+     "latency_required_s": 28.571428571428573,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "HORIZON",
+     "latency_ok": true,
+     "latency_q95_s": 0.027788110174498556,
+     "latency_required_s": 28.571428571428573,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "AXIS",
+     "latency_ok": true,
+     "latency_q95_s": 0.02774495216113628,
+     "latency_required_s": 28.571428571428573,
+     "priority": "P4_1"
+    }
+   ],
+   "slots": {
+    "Ku": 0.0005591309884934739,
+    "S": 0.032190222331871896
+   }
+  },
   "sectors": [
    {
     "beam_spacing_hpbw": 1.5,
@@ -3022,6 +3336,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.3,
+     "false_alarms_per_rr_face": [
+      2.5830701426760956,
+      2.5830701426760947,
+      2.5830701426760947,
+      2.5830701426760947
+     ],
      "false_tracks_per_s": 5.16614028535219e-07,
      "flags": [
       "clutter edge in the Ku sector (limb of EARTH): GO-CFAR advised there (choice per position at 4.3 / 5.2)"
@@ -3062,6 +3382,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 3.581640991972283
      },
+     "p_share": [
+      0.25000000000000006,
+      0.25000000000000006,
+      0.25,
+      0.25
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
@@ -3104,6 +3430,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.0,
+     "false_alarms_per_rr_face": [
+      0.0,
+      0.0,
+      0.0,
+      9.988312511096632
+     ],
      "false_tracks_per_s": 4.994156255548315e-07,
      "flags": [
       "2.68 % of the Ku positions look at EARTH closer than the required range (down to 1562 km): nothing can come from behind its surface",
@@ -3145,6 +3477,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 3.54227205833143
      },
+     "p_share": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
@@ -3202,6 +3540,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 9.7,
+     "false_alarms_per_rr_face": [
+      3.3294319446753793,
+      1.5196551245718397,
+      3.32943194467538,
+      1.5196551245718397
+     ],
      "false_tracks_per_s": 4.84908706924722e-07,
      "flags": [
       "S waveform WF-ORBIT-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 50 MHz on the same face",
@@ -3242,6 +3586,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.01847888558987408
      },
+     "p_share": [
+      0.34075834565328017,
+      0.15924165434671986,
+      0.3407583456532802,
+      0.15924165434671986
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-ORBIT-1 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
@@ -3298,6 +3648,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.0,
+     "false_alarms_per_rr_face": [
+      4.678232917140723,
+      2.669548016736094,
+      0.0,
+      2.6695480167360937
+     ],
      "false_tracks_per_s": 5.008664475306455e-07,
      "flags": [
       "S waveform WF-HORIZON-1: its harmonics (13.475-14.225 GHz) cover 100 % of the Ku channel 14 GHz / 200 MHz on the same face",
@@ -3338,6 +3694,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.02769601856405892
      },
+     "p_share": [
+      0.46469341709406725,
+      0.2676532914529664,
+      0.0,
+      0.26765329145296635
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-HORIZON-1 puts its harmonics on 13.475-14.225 GHz, over 100 % of the Ku channel 14 GHz / 200 MHz: on the same face, no Ku reception during this S transmission",
@@ -3389,6 +3751,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.3,
+     "false_alarms_per_rr_face": [
+      0.0,
+      5.1521293864072435,
+      5.1521293864072435,
+      0.0
+     ],
      "false_tracks_per_s": 5.152129386407244e-07,
      "flags": [],
      "forced": false,
@@ -3425,6 +3793,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.002296759494688661
      },
+     "p_share": [
+      0.0,
+      0.4999999999999999,
+      0.5,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     }

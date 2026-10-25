@@ -210,6 +210,321 @@
    "sky_bodies": [],
    "sky_galactic": "worst case (no galactic frame given)"
   },
+  "scheduler": {
+   "eclipse_db": {
+    "Ku": 0.0007679742727315077,
+    "S": 0.087686732918058
+   },
+   "faces": {
+    "0": {
+     "Ku": {
+      "capacity": 0.9800118491638964,
+      "feasible": true,
+      "load": 0.0001686209980814256,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 1.9543314147589143e-06
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167458748292682e-06,
+       "confirmation T_KKV": 4.168161587859792e-06,
+       "confirmation T_SHIP": 4.168161587859792e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 56.404843385718436,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation T_KKV": 0.0,
+        "confirmation T_SHIP": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0017827261844364575,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.0017493928511031242
+      },
+      "mean_wait_s": {
+       "calibration S": 3.064107022434907e-07,
+       "search T_KKV": 3.069579241724332e-07,
+       "search T_SHIP": 3.069579241724332e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.99259865262504,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search T_KKV": 0.00785737132654439,
+        "search T_SHIP": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "1": {
+     "Ku": {
+      "capacity": 0.9800118491638964,
+      "feasible": true,
+      "load": 0.0001714270084025016,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 4.760341735834918e-06
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.1675167878727534e-06,
+       "confirmation T_DEBRIS": 4.168231335300893e-06,
+       "confirmation T_KKV": 4.168231335300893e-06,
+       "confirmation T_SHIP": 4.168231335300893e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.452641296926636,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation T_DEBRIS": 0.0,
+        "confirmation T_KKV": 0.0,
+        "confirmation T_SHIP": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.016678793597660366,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.016645460264327033
+      },
+      "mean_wait_s": {
+       "calibration S": 5.302809454979937e-06,
+       "search T_DEBRIS": 5.392754087325376e-06,
+       "search T_KKV": 5.392754087325376e-06,
+       "search T_SHIP": 5.392754087325376e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.99851783168081,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search T_DEBRIS": 0.0,
+        "search T_KKV": 0.0005940082940529834,
+        "search T_SHIP": 2.2282115708094352e-05
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "2": {
+     "Ku": {
+      "capacity": 0.9800118491638964,
+      "feasible": true,
+      "load": 0.00017568560523268019,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 8.870759222098625e-06,
+       "P3": 1.4817934391486816e-07
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167598865142458e-06,
+       "confirmation T_DEBRIS": 4.168330563159769e-06,
+       "confirmation T_DECOY": 4.168330563159769e-06,
+       "confirmation T_KKV_RETRO": 4.168330563159769e-06,
+       "confirmation T_SHIP": 4.168330563159769e-06,
+       "initiation T_DECOY/0": 4.168330563159769e-06,
+       "track updates T_DECOY/0": 4.168368163682911e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.4009847456085,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation T_DEBRIS": 0.0,
+        "confirmation T_DECOY": 0.0,
+        "confirmation T_KKV_RETRO": 0.0,
+        "track updates T_DECOY/0": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.018799692956198,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.018766359622864666
+      },
+      "mean_wait_s": {
+       "calibration S": 1.5226074416516958e-05,
+       "search T_DEBRIS": 1.5517804374104468e-05,
+       "search T_DECOY": 1.5517804374104468e-05,
+       "search T_KKV_RETRO": 1.5517804374104468e-05,
+       "search T_SHIP": 1.5517804374104468e-05
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.99965254137605,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search T_DEBRIS": 0.0017135601118738464,
+        "search T_DECOY": 0.00047721751483464914,
+        "search T_KKV_RETRO": 0.0016632092572210766,
+        "search T_SHIP": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "3": {
+     "Ku": {
+      "capacity": 0.9800118491638964,
+      "feasible": true,
+      "load": 0.00017681697725479374,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 9.951083315639493e-06,
+       "P3": 1.992272724875606e-07
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167593607470714e-06,
+       "confirmation T_DECOY": 4.168329808502677e-06,
+       "confirmation T_KKV": 4.168329808502677e-06,
+       "confirmation T_SHIP": 4.168329808502677e-06,
+       "initiation T_DECOY/0": 4.168329808502677e-06,
+       "track updates T_DECOY/0": 4.168372125827288e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.911120611037994,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation T_DECOY": 0.0,
+        "confirmation T_KKV": 0.0,
+        "confirmation T_SHIP": 0.0,
+        "initiation T_DECOY/0": 0.0,
+        "track updates T_DECOY/0": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.019988150836103627,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.019954817502770294
+      },
+      "mean_wait_s": {
+       "calibration S": 1.705248830625876e-05,
+       "search T_DECOY": 1.7400287885097718e-05,
+       "search T_KKV": 1.7400287885097718e-05,
+       "search T_SHIP": 1.7400287885097718e-05
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 59.956944084329166,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search T_DECOY": 0.0,
+        "search T_KKV": 0.0015825956706727595,
+        "search T_SHIP": 0.0012900982867165567
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    }
+   },
+   "flags": [],
+   "frame_interleaved_checked": true,
+   "harmonic_faces": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "sectors": [
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "T_KKV",
+     "latency_ok": true,
+     "latency_q95_s": 0.007671323937807366,
+     "latency_required_s": 2.0,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "T_KKV_RETRO",
+     "latency_ok": true,
+     "latency_q95_s": 0.01167406758347004,
+     "latency_required_s": 3.2,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "T_SHIP",
+     "latency_ok": true,
+     "latency_q95_s": 0.10788095204948711,
+     "latency_required_s": 160.0,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "T_DEBRIS",
+     "latency_ok": true,
+     "latency_q95_s": 0.00500582500575504,
+     "latency_required_s": 2.0,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "T_DECOY",
+     "latency_ok": true,
+     "latency_q95_s": 0.014381958962050106,
+     "latency_required_s": 4.0,
+     "priority": "P4_1"
+    }
+   ],
+   "slots": {
+    "Ku": 0.00017681697725479374,
+    "S": 0.019988150836103627
+   }
+  },
   "sectors": [
    {
     "beam_spacing_hpbw": 1.4,
@@ -4044,6 +4359,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.6,
+     "false_alarms_per_rr_face": [
+      8.136255386245665,
+      1.2090948869864342,
+      0.0,
+      1.2090948869864344
+     ],
      "false_tracks_per_s": 5.277222580109268e-07,
      "flags": [
       "S waveform WF-T_KKV-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 200 MHz on the same face",
@@ -4076,6 +4397,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.002465808235030435
      },
+     "p_share": [
+      0.770884235290034,
+      0.11455788235498293,
+      0.0,
+      0.11455788235498296
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-T_KKV-1 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 200 MHz: on the same face, no Ku reception during this S transmission",
@@ -4122,6 +4449,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 9.9,
+     "false_alarms_per_rr_face": [
+      0.0,
+      0.0,
+      9.941576510942085,
+      0.0
+     ],
      "false_tracks_per_s": 3.313858836980695e-07,
      "flags": [
       "S waveform WF-T_KKV_RETRO-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 200 MHz on the same face",
@@ -4153,6 +4486,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.0024649039208438396
      },
+     "p_share": [
+      0.0,
+      0.0,
+      1.0,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-T_KKV_RETRO-1 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 200 MHz: on the same face, no Ku reception during this S transmission",
@@ -4213,6 +4552,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.5,
+     "false_alarms_per_rr_face": [
+      2.113735697265182,
+      5.68069684978622,
+      2.1137356972651826,
+      0.5979171736557924
+     ],
      "false_tracks_per_s": 8.755071181643649e-08,
      "flags": [
       "S waveform WF-T_SHIP-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 25 MHz on the same face",
@@ -4246,6 +4591,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.002516200917841209
      },
+     "p_share": [
+      0.20140647828380534,
+      0.5390527724231642,
+      0.20140647828380537,
+      0.05813427100922517
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-T_SHIP-1 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 25 MHz: on the same face, no Ku reception during this S transmission",
@@ -4298,6 +4649,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.3,
+     "false_alarms_per_rr_face": [
+      0.0,
+      8.778977196705085,
+      1.5106301392504489,
+      0.0
+     ],
      "false_tracks_per_s": 3.4298691119851784e-07,
      "flags": [
       "S waveform WF-T_DEBRIS-1: its harmonics (13.975-14.475 GHz) cover 75 % of the Ku channel 14 GHz / 100 MHz on the same face",
@@ -4331,6 +4688,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.0025536715744945743
      },
+     "p_share": [
+      0.0,
+      0.8504725976216531,
+      0.1495274023783469,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-T_DEBRIS-1 puts its harmonics on 13.975-14.475 GHz, over 75 % of the Ku channel 14 GHz / 100 MHz: on the same face, no Ku reception during this S transmission",
@@ -4381,6 +4744,12 @@
        "filtered_vr_sigma_mps": 0.35533868988492484,
        "init_energy_J": 843.2645461393508,
        "init_looks": 32,
+       "init_tk": [
+        0.0,
+        0.0,
+        7.890546414272069e-07,
+        1.1488018652902644e-06
+       ],
        "initiations_per_s": 0.034322928659902496,
        "n_targets": 2.0,
        "p_loss_per_update": 0.0009895953265691613,
@@ -4394,6 +4763,12 @@
        "rr_tenable": true,
        "sigma_theta_deg": 0.4236282277053422,
        "track_losses_per_s": 0.0009895953265691613,
+       "tracks_face": [
+        0.0,
+        0.0,
+        0.8143581722299801,
+        1.18564182777002
+       ],
        "unreachable_tracks": 0.0,
        "velocity_bank_mps": 2.2063012616094295,
        "vr_acc_mps": 5.0,
@@ -4425,6 +4800,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.2,
+     "false_alarms_per_rr_face": [
+      0.0,
+      0.0,
+      4.1367062440459,
+      6.036452440846505
+     ],
      "false_tracks_per_s": 3.391052894964135e-07,
      "flags": [
       "S waveform WF-T_DECOY-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 200 MHz on the same face",
@@ -4458,6 +4839,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 0.0024649815136590625
      },
+     "p_share": [
+      0.0,
+      0.0,
+      0.40717908611499,
+      0.59282091388501
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-T_DECOY-1 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 200 MHz: on the same face, no Ku reception during this S transmission",

@@ -16,7 +16,7 @@ import numpy as np
 from PyQt5.QtCore import QThread, Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
-    QAbstractItemView, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView,
+    QAbstractItemView, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView,
     QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSpinBox,
     QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
@@ -468,6 +468,17 @@ class PrepTab(QWidget):
         common.addRow("Target RR (s)", self.sb_rr)
         common.addRow("Closing speed min (m/s)", self.sb_vmin)
         common.addRow("Closing speed max (m/s)", self.sb_vmax)
+        # step 4.3: scheduler priority of the volume
+        self.chk_self_prot = QCheckBox("self-protection (P1)")
+        self.chk_self_prot.setToolTip("A self-protection volume is searched at priority P1, before confirmations; "
+                                      "otherwise it is a search volume of priority P4_<search priority>")
+        self.chk_self_prot.toggled.connect(self._on_field_changed)
+        self.sb_search_prio = QSpinBox()
+        self.sb_search_prio.setRange(1, 99)
+        self.sb_search_prio.setToolTip("Sub-priority of a search volume (P4_1 is served first)")
+        self.sb_search_prio.valueChanged.connect(self._on_field_changed)
+        common.addRow("Priority", self.chk_self_prot)
+        common.addRow("Search priority (P4_n)", self.sb_search_prio)
         common.addRow("RX sidelobes (dB)", self.cb_rx_sll)
         v.addLayout(common)
         v.addWidget(self._build_tracking_group())
@@ -753,6 +764,8 @@ class PrepTab(QWidget):
             self._target_shown = (self.sb_rcs.value(), self.sb_swerling.value())
             self.sb_range.setValue(sec.get("range_km", md.SECTOR_DEFAULTS_BOX["range_km"]))
             self.sb_rr.setValue(sec.get("rr_target_s", md.SECTOR_DEFAULTS_BOX["rr_target_s"]))
+            self.chk_self_prot.setChecked(bool(sec.get("self_protection", False)))
+            self.sb_search_prio.setValue(int(sec.get("search_priority", 1)))
             self.sb_vmin.setValue(sec.get("v_close_min_mps", md.SECTOR_DEFAULTS_BOX["v_close_min_mps"]))
             self.sb_vmax.setValue(sec.get("v_close_max_mps", md.SECTOR_DEFAULTS_BOX["v_close_max_mps"]))
             self._set_rx_sll(sec.get("rx_sll_db", md.SECTOR_DEFAULTS_BOX["rx_sll_db"]))
@@ -882,6 +895,8 @@ class PrepTab(QWidget):
             sec["swerling"] = self.sb_swerling.value()
         sec["range_km"] = self.sb_range.value()
         sec["rr_target_s"] = self.sb_rr.value()
+        sec["self_protection"] = self.chk_self_prot.isChecked()          # step 4.3
+        sec["search_priority"] = self.sb_search_prio.value()
         sec["v_close_min_mps"] = self.sb_vmin.value()
         sec["v_close_max_mps"] = self.sb_vmax.value()
         sec["rx_sll_db"] = float(self.cb_rx_sll.currentData())

@@ -130,6 +130,264 @@
    ],
    "sky_galactic": "frame"
   },
+  "scheduler": {
+   "eclipse_db": {
+    "Ku": 0.0008503982960504745,
+    "S": 0.062091651094601026
+   },
+   "faces": {
+    "0": {
+     "Ku": {
+      "capacity": 0.9858045876181565,
+      "feasible": true,
+      "load": 0.0001718988877633494,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 5.23222109668272e-06
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.1674096816495235e-06,
+       "confirmation SUN": 4.168126177903562e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 17.33767747721045,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation SUN": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.001210426250205898,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.0011770929168725647
+      },
+      "mean_wait_s": {
+       "calibration S": 4.725428452364665e-07,
+       "search SUN": 4.7311551667723236e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.92739131877674,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search SUN": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "1": {
+     "Ku": {
+      "capacity": 0.9858045876181565,
+      "feasible": true,
+      "load": 0.00019579227414977298,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 2.9023205873154868e-05,
+       "P3": 1.024016099514281e-07
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167657999348977e-06,
+       "confirmation MOON": 4.1684737274413856e-06,
+       "confirmation SUN": 4.1684737274413856e-06,
+       "initiation MOON/0": 4.1684737274413856e-06,
+       "track updates MOON/0": 4.168595160546639e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.35842298094863,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation MOON": 0.0,
+        "confirmation SUN": 0.0,
+        "initiation MOON/0": 0.0,
+        "track updates MOON/0": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0013585475707036266,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.0013252142373702932
+      },
+      "mean_wait_s": {
+       "calibration S": 4.811134143541314e-07,
+       "search MOON": 4.817679189901184e-07,
+       "search SUN": 4.817679189901184e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.774790483025352,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search MOON": 0.0,
+        "search SUN": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "2": {
+     "Ku": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0001666666666666667,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167361226871146e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 0.05,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.014195412381843523,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.01416207904851019
+      },
+      "mean_wait_s": {
+       "calibration S": 2.9793137315741827e-05,
+       "search EARTH": 3.0222153244109225e-05
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.715109744942918,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search EARTH": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    },
+    "3": {
+     "Ku": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0001666666666666667,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167361226871146e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 0.05,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.004059450151974144,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.004026116818640811
+      },
+      "mean_wait_s": {
+       "calibration S": 2.0948924755623145e-05,
+       "search EARTH": 2.1034312498692632e-05
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.78260996542031,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search EARTH": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0
+      }
+     }
+    }
+   },
+   "flags": [],
+   "frame_interleaved_checked": true,
+   "harmonic_faces": [
+    0,
+    1
+   ],
+   "sectors": [
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "SUN",
+     "latency_ok": true,
+     "latency_q95_s": 0.021032364311040597,
+     "latency_required_s": 21.428571428571427,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": null,
+     "go_cfar_advised": true,
+     "id": "EARTH",
+     "latency_ok": true,
+     "latency_q95_s": 0.0,
+     "latency_required_s": 21.428571428571427,
+     "priority": "P4_1"
+    },
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": true,
+     "id": "MOON",
+     "latency_ok": true,
+     "latency_q95_s": 0.04104876541276741,
+     "latency_required_s": 42.857142857142854,
+     "priority": "P4_1"
+    }
+   ],
+   "slots": {
+    "Ku": 0.00019579227414977298,
+    "S": 0.014195412381843523
+   }
+  },
   "sectors": [
    {
     "beam_spacing_hpbw": 1.6,
@@ -1963,6 +2221,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.3,
+     "false_alarms_per_rr_face": [
+      5.150774179931741,
+      5.150774179931741,
+      0.0,
+      0.0
+     ],
      "false_tracks_per_s": 5.150774179931741e-07,
      "flags": [
       "0.07 % of the Ku positions blinded by the sky (SUN: T_sys rise above 10 dB), not scanned",
@@ -2006,6 +2270,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 9.990337631976713
      },
+     "p_share": [
+      0.49999999999999994,
+      0.5000000000000001,
+      0.0,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-SUN-1 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
@@ -2035,6 +2305,12 @@
      "confirmation": {},
      "discrimination": null,
      "false_alarms_per_rr": 10.1,
+     "false_alarms_per_rr_face": [
+      0.0,
+      0.0,
+      9.064238984527536,
+      1.0225016018417632
+     ],
      "false_tracks_per_s": 5.04337029318465e-07,
      "flags": [
       "5.96 % of the Ku positions look at EARTH closer than the required range (down to 1369 km): nothing can come from behind its surface",
@@ -2077,6 +2353,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 2.1882986782634326
      },
+     "p_share": [
+      0.0,
+      0.0,
+      0.8987843248067576,
+      0.10121567519324237
+     ],
      "reason": "no admissible confirmation mode",
      "scheduler_rules": []
     },
@@ -2118,6 +2400,12 @@
        "filtered_vr_sigma_mps": 4.275564290018719,
        "init_energy_J": 75.9016755442994,
        "init_looks": 1,
+       "init_tk": [
+        0.0,
+        2.609593342013291e-07,
+        0.0,
+        0.0
+       ],
        "initiations_per_s": 0.10154397674901798,
        "n_targets": 2.0,
        "p_loss_per_update": 0.0015439767490179738,
@@ -2131,6 +2419,12 @@
        "rr_tenable": true,
        "sigma_theta_deg": 0.0759694450849501,
        "track_losses_per_s": 0.0015439767490179738,
+       "tracks_face": [
+        0.0,
+        2.0,
+        0.0,
+        0.0
+       ],
        "unreachable_tracks": 0.0,
        "velocity_bank_mps": 51.959558919205925,
        "vr_acc_mps": 5.0,
@@ -2157,6 +2451,12 @@
      },
      "discrimination": null,
      "false_alarms_per_rr": 10.2,
+     "false_alarms_per_rr_face": [
+      0.0,
+      10.165435008230645,
+      0.0,
+      0.0
+     ],
      "false_tracks_per_s": 1.0165435008230646e-06,
      "flags": [
       "1.00 % of the Ku positions above the budget T_sys (231.4 K): sky noise up to +2.6 dB, range reduced there",
@@ -2206,6 +2506,12 @@
       "t_sys_cold_k": 230.7919548038089,
       "worst_rise_db": 2.61273013156408
      },
+     "p_share": [
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
      "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     }
