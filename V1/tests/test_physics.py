@@ -2265,3 +2265,35 @@ def test_start_bracket():
     bs = [{"r_min_km": 0.0, "r_max_km": 300.0}, {"r_min_km": 300.0, "r_max_km": 800.0}]
     assert trk._start_bracket(bs, 500.0) == 1 and trk._start_bracket(bs, 2000.0) == 1
     assert trk._start_bracket([], 500.0) is None
+
+
+# ----------------------------------------------------------------------------- array errors and calibration (step 3.4)
+def test_array_error_loss_replaces_the_lumped_calibration():
+    """B4: the 'calibration' loss of each band is the Ruze loss of the residual errors, TX and RX; no error, no loss."""
+    zero = {k: 0.0 for k in ("trm_phase_deg", "trm_amp_db", "trsa_phase_deg", "trsa_amp_db", "drift_phase_deg_min",
+                             "drift_amp_db_min")}
+    zero.update(cal_interval_s=300.0, cal_duration_s=0.01)
+    assert rm.array_error_loss_db(zero) == 0.0
+    ph = dict(zero, trm_phase_deg=10.0)
+    assert rm.array_error_loss_db(ph) == pytest.approx(10 * math.log10(math.e) * math.radians(10.0) ** 2)
+    for b in ("S", "Ku"):
+        band = rm.BANDS[b]
+        assert band.losses_db["calibration"] == pytest.approx(2.0 * rm.array_error_loss_db(band.errors))
+        assert 0.0 < band.losses_db["calibration"] < 0.1
+    longer = dict(rm.BAND_S.errors, cal_interval_s=3000.0)
+    assert rm.array_error_loss_db(longer) > rm.array_error_loss_db(rm.BAND_S.errors)
+
+
+def test_array_error_figures_and_checks(monkeypatch):
+    """B5-B6: sidelobe floor well under the RX options, boresight under the angle floor; the checks fire otherwise."""
+    for b in ("S", "Ku"):
+        a = rm.array_errors(b)
+        assert a["sidelobe_floor_db"] < min(rm.RX_SLL_OPTIONS_DB) - 10.0
+        assert a["boresight_mrad"] < params.P.get("tracking.angle_floor_mrad")
+        assert a["cal_time_frac"] == pytest.approx(rm.BANDS[b].errors["cal_duration_s"] / rm.BANDS[b].errors["cal_interval_s"])
+    assert rm.calibration_checks() == []
+    bad = {"loss_db": 0.0, "sidelobe_floor_db": -30.0, "boresight_mrad": 2.0, "cal_time_frac": 0.0}
+    monkeypatch.setattr(rm, "array_errors", lambda b: bad)
+    msgs = rm.calibration_checks()
+    assert any("sidelobe floor" in m for m in msgs) and any("angle_floor" in m for m in msgs) \
+        and any("bias_mrad" in m for m in msgs)

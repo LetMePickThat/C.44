@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.14.0
+# Radar Performance Model - V6.15.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,15 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.14.0 -> V6.15.0 (roadmap step 3.4: array errors and in-flight calibration, validated by the user on
+# 25 October 2026; degraded modes and TRM failures deferred to the end of development, MVP nominal)
+#   - [band.*.errors]: random errors per TRM (1 deg, 0.1 dB), correlated per TRSA (0.5 deg, 0.05 dB), thermal drift per
+#     TRSA (0.1 deg/min, 0.01 dB/min), calibration every 300 s lasting 10 ms (S) / 50 ms (Ku) per face.
+#   - The lumped 'calibration' loss (0.5 dB S, 0.8 dB Ku) is REPLACED by the Ruze loss of the residual errors at the end
+#     of a calibration interval, TX and RX (about 0.006 dB); mean sidelobe floor (about -59 dB) and boresight error
+#     derived; the angle floor and the S/Ku bias are checked against them (calibration_checks).
+#   - The calibration time is taken from the S and Ku transmit time of every face in the mission budget.
 #
 # Changes V6.13.0 -> V6.14.0 (roadmap step 3.3: active tracking, blocks A-F validated by the user on 25 October 2026)
 #   - core/trackmodel.py: steady-state Kalman per axis (Singer: sigma_m^2 = a_max^2 / 3 (1 + 4 p_max - p0) + floor,
@@ -487,7 +496,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.14.0"
+MODEL_VERSION = "6.15.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -712,6 +721,7 @@ class BandConfig:
     preselect_rej_db: float = 0.0     # rejection of the other band before the LNA
     post_rej_db: float = 0.0          # rejection of the other band before the ADC
     limiter_recovery_s: float = 0.0   # receiver deaf for tau + this after each pulse (eclipsing, step 2.1)
+    errors: Optional[Dict[str, float]] = None   # residual array errors and calibration cadence (step 3.4)
 
     @property
     def noise_ant_dbm(self) -> float:
@@ -809,6 +819,28 @@ def tx_chain_loss_db(tx: Dict[str, float], rx: Dict[str, float]) -> float:
 TTD_MODES = ("digital_per_trm", "none")
 
 
+def _error_variances(er: Dict[str, float]) -> Tuple[float, float]:
+    """(random per TRM, correlated per TRSA) error variances, rad^2, at the END of a calibration interval (step 3.4):
+    phase sigma^2 + relative amplitude sigma^2, the drift (per TRSA) adding to the TRSA residual in quadrature."""
+    amp = lambda db: (10.0 ** (db / 20.0) - 1.0)                       # noqa: E731
+    t_min = er["cal_interval_s"] / 60.0
+    rnd = math.radians(er["trm_phase_deg"]) ** 2 + amp(er["trm_amp_db"]) ** 2
+    cor = (math.radians(er["trsa_phase_deg"]) ** 2 + math.radians(er["drift_phase_deg_min"] * t_min) ** 2
+           + amp(er["trsa_amp_db"]) ** 2 + amp(er["drift_amp_db_min"] * t_min) ** 2)
+    return rnd, cor
+
+
+def array_error_loss_db(er: Dict[str, float]) -> float:
+    """Gain loss of ONE pass (TX or RX) of the residual array errors (Ruze: phase exp(-sigma^2), amplitude
+    1 / (1 + sigma^2), random and correlated alike), step 3.4 B4."""
+    amp = lambda db: (10.0 ** (db / 20.0) - 1.0)                       # noqa: E731
+    t_min = er["cal_interval_s"] / 60.0
+    ph = (math.radians(er["trm_phase_deg"]) ** 2 + math.radians(er["trsa_phase_deg"]) ** 2
+          + math.radians(er["drift_phase_deg_min"] * t_min) ** 2)
+    am = amp(er["trm_amp_db"]) ** 2 + amp(er["trsa_amp_db"]) ** 2 + amp(er["drift_amp_db_min"] * t_min) ** 2
+    return -10.0 * math.log10(math.exp(-ph) / (1.0 + am))
+
+
 def _band(name: str) -> BandConfig:
     """Band [band.<name>] of radar_system.toml, with load-time consistency checks so that the band (usable, core,
     break frequency) can be changed in the file alone (step 1.4)."""
@@ -833,6 +865,7 @@ def _band(name: str) -> BandConfig:
     if errs:
         raise ValueError(f"{P.path}: [band.{name}] " + "; ".join(errs))
     bi = P.get(b + "bi_max_mhz")
+    er = P.section(b + "errors")
     l_pre = pre_lna_loss_db(rx)
     gain = -l_pre + rx["lna_gain_db"] + rx["post_lna_gain_db"]
     return BandConfig(
@@ -844,7 +877,10 @@ def _band(name: str) -> BandConfig:
         pae_t_edge_s=P.get(b + "pae_t_edge_s"), pae_duty_slope=P.get(b + "pae_duty_slope"),
         eta_illum_tx=P.get(b + "eta_illum_tx"),
         t_sys_k=t_sys_cascade(rx, bi),
-        losses_db={**P.section(b + "losses_db"), "TX_chain": tx_chain_loss_db(P.section(b + "tx"), rx)},
+        # step 3.4: 'calibration' = gain loss of the residual array errors, TX and RX (was a lumped 0.5 / 0.8 dB)
+        losses_db={**P.section(b + "losses_db"), "calibration": 2.0 * array_error_loss_db(er),
+                   "TX_chain": tx_chain_loss_db(P.section(b + "tx"), rx)},
+        errors=er,
         allowed_roles=tuple(P.get(b + "allowed_roles")),
         pol_rx_dual=P.get(b + "pol_rx_dual"), pol_loss_single_db=P.get(b + "pol_loss_single_db"),
         pol_track_est_loss_db=P.get(b + "pol_track_est_loss_db"),
@@ -1849,6 +1885,43 @@ def _fixed_position_law(band_name: str, rx_sll_db: float, psl_db: float, search:
     return (tuple(law[0]), tuple(law[1])), tuple((k, float(np.mean(v))) for k, v in parts.items())
 
 
+@functools.lru_cache(maxsize=4)
+def array_errors(band_name: str) -> Dict[str, float]:
+    """Figures of the residual array errors of a band (step 3.4, B4-B6): gain loss TX + RX, mean sidelobe floor
+    relative to the peak (random: sigma^2 / (eta N); per TRSA: sigma_c^2 / (eta N_TRSA)), boresight error per axis
+    from the TRSA-correlated phase (sigma_c lambda / (2 pi x_rms sqrt(N_TRSA))), calibration share of the face time."""
+    band = BANDS[band_name]
+    er = band.errors
+    rnd, cor = _error_variances(er)
+    f = 0.5 * (band.core_lo_ghz + band.core_hi_ghz)
+    eta = rx_beam(band_name).eta
+    floor = rnd / (eta * band.n_trm) + cor / (eta * N_TRSA)
+    t_min = er["cal_interval_s"] / 60.0
+    ph_c = math.sqrt(math.radians(er["trsa_phase_deg"]) ** 2 + math.radians(er["drift_phase_deg_min"] * t_min) ** 2)
+    bore = ph_c * lambda_m(f) / (2.0 * math.pi * _pattern(f).x_rms_m * math.sqrt(N_TRSA))
+    return {"loss_db": band.losses_db["calibration"], "sidelobe_floor_db": lin_to_db(floor),
+            "boresight_mrad": bore * 1e3, "cal_time_frac": er["cal_duration_s"] / er["cal_interval_s"]}
+
+
+def calibration_checks() -> List[str]:
+    """Consistency of the inputs with the array errors (step 3.4, B5-B6): the mean sidelobe floor must stay 10 dB
+    under the strictest RX option, the angle floor and the S/Ku bias must not be finer than the boresight errors."""
+    out = []
+    for name in BANDS:
+        a = array_errors(name)
+        if a["sidelobe_floor_db"] > min(RX_SLL_OPTIONS_DB) - 10.0:
+            out.append(f"{name}: mean sidelobe floor of the array errors {a['sidelobe_floor_db']:.1f} dB is within 10 dB "
+                       f"of the {min(RX_SLL_OPTIONS_DB):g} dB RX option")
+        if P.get("tracking.angle_floor_mrad") < a["boresight_mrad"]:
+            out.append(f"{name}: tracking.angle_floor_mrad {P.get('tracking.angle_floor_mrad'):g} is finer than the "
+                       f"boresight error of the array errors {a['boresight_mrad']:.3f} mrad")
+    bs = math.hypot(array_errors("S")["boresight_mrad"], array_errors("Ku")["boresight_mrad"])
+    if P.get("confirmation.bias_mrad") < bs:
+        out.append(f"confirmation.bias_mrad {P.get('confirmation.bias_mrad'):g} is finer than the combined S / Ku "
+                   f"boresight error {bs:.3f} mrad")
+    return out
+
+
 def search_pfa(fa_per_rr: float, positions: float, cells_per_position: float) -> float:
     """Pfa per independent cell of a search waveform (step 2.3, C1-C4): FA_MODE 'fa_rate' = fa_per_rr false alarms per
     sector and revisit over positions x cells, bounded to [PFA_MIN, PFA_MAX]; 'pfa_cell' = DETECT_PFA."""
@@ -2732,7 +2805,12 @@ def selftest() -> int:
     # finite precision, calibration, Ku_blockage, TX_chain, pol, compression (NLFM: f_d 93 kHz << 2 % of 75 MHz); the
     # pre-LNA path is in T_sys; CA-CFAR; compensation residual. Step 2.3: exact law, Pd averaged over the position of
     # the target (search grid, range straddle, velocity filter over 0-5 km/s; checked on their own in the tests)
-    l_db = (0.3 + 0.5 + 0.2 + 0.6 + pol_glrt + 0.1) + cfar_loss_db() + MIGRATION_RESIDUAL_DB - 10 * math.log10(1 + rho)
+    # array errors (step 3.4): Ruze over the residual errors at the end of a calibration interval, TX and RX
+    er, t_min = BAND_S.errors, BAND_S.errors["cal_interval_s"] / 60.0
+    ph2 = sum(math.radians(x) ** 2 for x in (er["trm_phase_deg"], er["trsa_phase_deg"], er["drift_phase_deg_min"] * t_min))
+    am2 = sum((10 ** (x / 20) - 1) ** 2 for x in (er["trm_amp_db"], er["trsa_amp_db"], er["drift_amp_db_min"] * t_min))
+    cal_db = 2 * 10 * math.log10((1 + am2) / math.exp(-ph2))
+    l_db = (0.3 + cal_db + 0.2 + 0.6 + pol_glrt + 0.1) + cfar_loss_db() + MIGRATION_RESIDUAL_DB - 10 * math.log10(1 + rho)
     l_db += -20 * math.log10(1 - ((1 - math.cos(math.radians(45))) / (1 + math.cos(math.radians(45)))) ** 2)   # WAIM
     l_db += -10 * math.log10(1 - (2000 * 200.2e-6 / 0.8 / 25.0) / 2) + MB_SUP_LOSS_DB[4]   # 4-beam superposition
     half = velocity_bank(5000.0, 200e-6, 75.0, WF_LRS.dwell_s, 24, False)[2]

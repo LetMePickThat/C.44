@@ -1207,6 +1207,10 @@ def budget(mission: dict, res: dict) -> dict:
     for k, v in res["faces_total"].items():
         base["e"][int(k)] = v["energy_fraction"]
         base["ts"][int(k)] = v["time_fraction"]
+    # step 3.4 (E1): every face spends cal_duration / cal_interval of its S and Ku transmit time on calibration
+    cal_s, cal_ku = rm.array_errors("S")["cal_time_frac"], rm.array_errors("Ku")["cal_time_frac"]
+    base["ts"] += cal_s
+    base["tk"] += cal_ku
     sky = mission.get("global", {}).get("sky")
     sbs: Dict[str, Dict[float, dict]] = {}
     n_cands: Dict[str, int] = {}
@@ -1343,9 +1347,10 @@ def budget(mission: dict, res: dict) -> dict:
         load = {key: float(tot[key][k]) for key in _RES}
         worst = max(load, key=load.get)
         faces[str(k)] = {"search_energy": float(base["e"][k]), "confirm_energy": float(conf_e), "at_energy": float(at_e),
-                         "total_energy": load["e"], "search_s_time": float(base["ts"][k]),
+                         "total_energy": load["e"], "search_s_time": float(base["ts"][k] - cal_s),
                          "confirm_s_time": float(conf_ts), "total_s_time": load["ts"],
                          "confirm_ku_time": float(conf_tk), "at_ku_time": float(at_tk), "total_ku_time": load["tk"],
+                         "calibration_s_time": cal_s, "calibration_ku_time": cal_ku,
                          "load": load[worst], "binding": _RES_NAME[worst],
                          "status": "OK" if load[worst] <= 1.0 else "OVER-SUBSCRIBED",
                          "p_left_kW": max(0.0, 1.0 - load["e"]) * p_avg_max / 1e3,
@@ -1357,10 +1362,13 @@ def budget(mission: dict, res: dict) -> dict:
     rules = ([f"search lattice shifted every frame (grid_dithering, step 2.3): the cumulative detection criterion "
               f"draws the target position in its cell anew at each revisit"] if rm.GRID_DITHERING else [])
     rules += iso.scheduler_rules() + [f"sector {s['id']}: {t}" for s in out_secs for t in s["scheduler_rules"]]
+    warn.extend(rm.calibration_checks())                    # step 3.4 (B5-B6)
     return {"pfa": rm.DETECT_PFA, "confirm_p_min": CONFIRM_P_MIN,
             "sectors": out_secs, "faces": faces, "advice": advice, "scheduler_rules": rules, "warnings": warn,
             # step 3.3 (F3): P(correct) between the library classes after a few looks at the design SNR (indicator)
-            "separability": tm.separability(KU_REF_GHZ, _snr_ref(1))}
+            "separability": tm.separability(KU_REF_GHZ, _snr_ref(1)),
+            # step 3.4: residual array errors (gain loss, sidelobe floor, boresight, calibration share of the time)
+            "array_errors": {b: rm.array_errors(b) for b in ("S", "Ku")}}
 
 
 def _relax_advice(k: int, key: str, load: float, res: dict, sbs: Dict[str, dict], choice: Dict[str, Optional[str]],

@@ -412,7 +412,7 @@ Retirés : `eta_illum_rx` (0,88), désormais **dérivé** de la pondération du 
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
 | `finite_precision` | Précision finie du traitement numérique. | 0,3 dB | V | **Étape 2.1, Q5.** Seule part de l'ancien `DSP` = 2,0 dB qui reste une entrée. La part pondération et désadaptation (≈ 1,0 dB) est désormais **calculée** par observation (perte `compression`, §5.18). |
-| `calibration` | Résidu d'étalonnage. | 0,5 dB | V | Confirmé. |
+| `calibration` | Perte de gain des erreurs résiduelles du réseau, émission + réception. | **dérivée**, ≈ 0,006 dB | V | **Étape 3.4** : remplace le résidu forfaitaire de 0,5 dB (décision de l'utilisateur) ; Ruze sur les erreurs de `[band.S.errors]` en fin d'intervalle d'étalonnage. |
 | `Ku_blockage` | Masquage de l'ouverture S par le réseau Ku. | 0,2 dB | V | TRSA bi-bande. |
 
 Une perte s'ajoute : **TX_chain**, dérivée de `[band.S.tx]`, soit 0,6 dB. Le chemin de l'élément au LNA n'est plus une perte de signal : son atténuation **et** son bruit sont dans T_sys. Avant la revue 0.3, ils étaient comptés deux fois.
@@ -494,7 +494,7 @@ Mêmes postes qu'en S, avec des valeurs crédibles en Ku (revue 0.3). Ils rempla
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
 | `finite_precision` | Précision finie. | 0,3 dB | D | Comme en S (étape 2.1). |
-| `calibration` | Résidu d'étalonnage. | 0,8 dB | D | Plus élevé qu'en S : à tolérances mécaniques égales, l'erreur de phase est 5 fois plus grande en Ku, et il y a 25 fois plus d'éléments. |
+| `calibration` | Perte de gain des erreurs résiduelles du réseau, émission + réception. | **dérivée**, ≈ 0,006 dB | V | **Étape 3.4** : remplace le résidu forfaitaire de 0,8 dB (D) ; mêmes erreurs qu'en S (`[band.Ku.errors]`). |
 | `S_blockage` | Diffusion par les éléments S intercalés dans la TRSA. | 0,3 dB | D | Symétrique de `Ku_blockage` en S. |
 
 TX_chain Ku dérivée = 0,2 + 0,45 + 0,1 + 0,2 = **0,95 dB**.
@@ -1711,3 +1711,61 @@ Nouveaux réglages prévus : `tracking.pd_update`, `tracking.n_miss_lost`, `trac
 - **N3 (25 octobre 2026, 21 min)** : 190 tests passent ; 416 valeurs figées changent (aucune sortie de la veille S ; temps Ku ×3 à ×3,8 sur mission_synthetic_mix, +7 à +9 % sur mission_target_library ; toutes les périodes des missions de test sont tenues ; 32 observations d'initialisation pour le leurre de mission_target_library) ; valeurs regelées (`JOURNAL.md`).
 
 **Cadrage complet (blocs A à F).** Passes de code proposées : R1 paramètres et modèle de piste (A, alerte de période) ; R2 pointage, bancs de vitesse et d'accélération, grappe ou observation simple, chaîne de perte (B, E1) ; R3 initialisation, moyenne sur la tranche, planchers, couplage, atténuateur (C, D, E2-E6) ; R4 discrimination, Faraday, commutation de polarisation, classification (F1-F5) ; R5 SER selon l'aspect, brouillage trompeur, repère `track` (F6-F8) ; R6 rapport d'impact, valeurs figées, documentation (N3 au choix de l'utilisateur).
+
+### Étape 3.4 : fonctions annexes (cadrage ouvert le 25 octobre 2026)
+
+**Raison d'être** : le modèle suppose un radar parfait en permanence (tous les TRM, aucun temps d'étalonnage, résidu d'étalonnage forfaitaire 0,5 dB en S et 0,8 dB en Ku). L'étape rend compte du temps d'étalonnage et des erreurs des TRM. **Entrées** : composition des faces, méthode / cadence / durée d'étalonnage, erreurs résiduelles des TRM (aléatoires et corrélées par TRSA), dérive entre deux étalonnages. **Sorties** : part de temps des faces prise par l'étalonnage, pertes de gain et plancher de lobes secondaires dérivés, contrôles de cohérence du plancher d'angle et du biais S/Ku. **Hors périmètre** : chronologie (4.3), alimentation (4.1), thermique (4.2), priorités (5.1, 5.2).
+
+| Question de cadrage | Décision de l'utilisateur |
+|---|---|
+| Périmètre, blocs A (étalonnage), B (erreurs des TRM), C (santé des TRM), D (modes dégradés), E (intégration) | validés |
+| Modes dégradés (D) et pannes au fil de la mission (C, sauf le coût du BIT) | **reportés en fin de développement** : le MVP est un modèle fonctionnel en situation **nominale** |
+| Résidu d'étalonnage, plancher d'angle, biais S/Ku | **option (c), hybride** : perte de gain et plancher de lobes secondaires **dérivés** des erreurs résiduelles (aléatoires et corrélées par TRSA, en fin d'intervalle d'étalonnage) ; plancher d'angle et biais S/Ku gardés en entrée, avec contrôle de cohérence et alerte. **Le résidu `calibration` (0,5 dB S, 0,8 dB Ku) est remplacé par la valeur dérivée** (décision de l'utilisateur sur une valeur V). |
+
+**Variables (validées le 25 octobre 2026, toutes les propositions)** :
+
+| | Variable | Valeur |
+|---|---|---|
+| A1 | Méthode | étalonnage interne par les coupleurs de chaque TRM (boucle émission et réception), tous les TRM d'une face à la fois (codes orthogonaux) ; couplage mutuel en contrôle ; alignement S/Ku sur objets extérieurs renvoyé à 4.3 |
+| A2 | Intervalle `cal_interval_s` | 300 s (S et Ku) |
+| A3 | Durée `cal_duration_s` par face | S 10 ms, Ku 50 ms (part du temps 3·10⁻⁵ et 1,7·10⁻⁴) |
+| A4 | Énergie | négligée |
+| A5 | Dérive corrélée par TRSA | 0,1 °/min, 0,01 dB/min |
+| B1 | Erreur aléatoire par TRM | 1°, 0,1 dB (bout optimiste ; aujourd'hui 2 à 3°, 0,2 à 0,3 dB) |
+| B2 | Erreur corrélée par TRSA | 0,5°, 0,05 dB |
+| B3 | Quantification de phase | nulle (formation numérique, retard vrai par TRM) |
+| B4 | Perte dérivée | Ruze (phase e^(−σ²), amplitude 1/(1+σ²)) sur la variance totale en fin d'intervalle, émission et réception : **≈ 0,006 dB** en S comme en Ku, au lieu de 0,5 et 0,8 dB |
+| B5 | Plancher de lobes moyens | σ²/(η N) + σ_c²/(η N_TRSA) : **≈ −59 dB** ; alerte s'il dépasse l'option de réception la plus basse − 10 dB |
+| B6 | Cohérence | dépointage des erreurs corrélées ≈ 0,015 mrad (S), 0,003 mrad (Ku), sous le plancher d'angle de 0,05 mrad ; biais S/Ku 1,1 mrad au-dessus du dépointage combiné ; alerte sinon |
+| BIT | Contrôles intégrés | compris dans l'étalonnage (la boucle par coupleur sert de surveillance), pas de coût à part |
+| E1-E3 | Intégration | temps d'étalonnage pris sur le temps d'émission S et Ku de chaque face dans le budget de mission (sorties `calibration_s_time`, `calibration_ku_time`) ; section `[band.*.errors]` qui remplace l'entrée `calibration` ; sortie `array_errors` ; pas de réglage par mission |
+
+**Codage (V6.15.0, 25 octobre 2026)** : `radar_model.array_error_loss_db`, `array_errors`, `calibration_checks` ; perte `calibration` dérivée au chargement ; temps d'étalonnage et alertes dans `tracking.budget` ; 2 tests. **N3 (25 octobre 2026, 20,5 min)** : 190 tests passent ; portées WF-LRS +2,89 %, énergie et temps S des faces −7 à −14 % ; le temps d'étalonnage Ku (1,7·10⁻⁴) domine désormais les petits temps Ku des missions de test ; quatre secteurs de mission_redundancy_demo abandonnent leur impulsion la plus longue. Le test calculé à la main du self-test gardait 0,5 dB : corrigé (Ruze calculé depuis le fichier). Valeurs figées regelées (`JOURNAL.md`).
+
+### Étape 4.1 : puissance électrique (cadrage ouvert le 25 octobre 2026)
+
+**Raison d'être** : aujourd'hui seule la moyenne de l'énergie sur la revisite est vérifiée (`face_elec_mw` × chaîne 0,917) ; ni la puissance instantanée d'une face pendant une observation (≈ 8,2 MW à d = 0,65 contre 2 MW alloués), ni la recharge des réserves des TRM pendant un train, ni la somme des allocations des faces face aux 8 MW du vaisseau (défaut constaté : seule une face est comparée aux 8 MW). **Entrées** : allocation par face (mission), consommation hors émission par élément, capacité continue d'un TRM, stockage par face. **Sorties** : par face, consommation hors émission, puissance d'observation, stockage nécessaire contre disponible, formes d'onde retirées ; somme des allocations ; alertes. **Hors périmètre** : thermique (4.2), chronologie fine (4.3), calculateur (4.4), optimisation de la répartition (5.2).
+
+| Question de cadrage | Décision de l'utilisateur |
+|---|---|
+| Périmètre, blocs A (répartition des 8 MW), B (consommation hors émission), C (alimentation des TRM), D (puissance instantanée et stockage de face), E (transitoires du bus, sortie seulement) | validés |
+| Forme d'onde au-delà de l'alimentation d'un TRM | **retirée** de l'espace de recherche |
+| Contrôle du stockage avant l'ordonnanceur | **les deux** : par observation et sur la rafale la plus défavorable de la revisite |
+
+**Variables (validées le 25 octobre 2026)** :
+
+| | Variable | Décision |
+|---|---|---|
+| A (révisé à la question de l'utilisateur) | Répartition | **réserve commune** : somme des puissances moyennes appelées par les 4 faces (émission + hors émission, à travers la chaîne) ≤ `ship_elec_total_mw` 8 MW ; une face peut dépasser 2 MW si les autres consomment moins ; plafond physique par face `face_feeder_max_mw` = **8 MW** ; `face_elec_mw` de la mission devient un **plafond facultatif réservé par l'opérateur** (nombre ou liste de 4) ; verdict d'énergie au niveau du vaisseau ; l'optimiseur de veille garde une référence de 8 / 4 = 2 MW par face pour arbitrer énergie et temps (arbitrage conjoint en 5.2) ; sorties : puissance appelée par face, marge de la réserve, répartition suggérée |
+| B1 | CAN (250 Méch/s, 13 bits) | 0,1 W (aujourd'hui 0,3 à 1 W) : S 1,0 kW, Ku 24,5 kW par face |
+| B2 | Voie de réception par polarisation | S 0,5 W, Ku 0,1 W : S 4,9 kW, Ku 24,5 kW |
+| B3 | Formation de faisceaux et traitement | 50 kW par face (provisoire, 4.4) |
+| B4 | Contrôle et servitudes | 2 kW par face |
+| B5 | Pompes du refroidissement | 2 % de la chaleur dissipée moyenne (4.2) |
+| B6 | Réception | allumée en permanence ; total ≈ 107 kW par face + pompes ; `overhead_frac` supprimé |
+| C1 | Alimentation continue d'un TRM | S 1 700 W, Ku 80 W |
+| C2 | Recharge de la réserve pendant un train | à la capacité continue entre deux impulsions ; forme d'onde **retirée** si l'énergie nette tirée sur le train plus une impulsion dépasse `buffer_max_fraction` de la réserve |
+| D1-D3 | Stockage de face (S + Ku) | 5 MJ, décharge 15 MW, profondeur utilisable 80 % |
+| D4 | Contrôle par observation | énergie de l'observation − puissance de recharge × durée ≤ stockage utilisable ; puissance appelée ≤ 15 MW |
+| D5 | Rafale | émissions d'une revisite supposées contiguës : déficit ≤ stockage utilisable, recharge au plafond physique de la face |
+| E1 | Transitoires | sortie seulement : puissance appelée au début d'une observation et sa pente sur le front des impulsions |

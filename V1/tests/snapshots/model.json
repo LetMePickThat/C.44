@@ -2950,9 +2950,9 @@
    "f_ghz": 14.0,
    "index": 633,
    "pae": 0.03095238095238093,
-   "reach_km": 2452.595479854252,
-   "scale": 0.00022386248728410667,
-   "space": "<core.tracking._LookSpace object at 0x0000020385935BE0>",
+   "reach_km": 2567.338404717238,
+   "scale": 0.00018644577616143095,
+   "space": "<core.tracking._LookSpace object at 0x0000026621225940>",
    "time_s": 5e-09,
    "wf": "14 GHz COHE tau 5 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
@@ -2964,38 +2964,38 @@
    "f_ghz": 14.0,
    "index": 636,
    "pae": 0.03095238095238093,
-   "reach_km": 3008.9272022618666,
-   "scale": 9.88185089313689e-05,
-   "space": "<core.tracking._LookSpace object at 0x00000203A8472490>",
+   "reach_km": 3149.6977087409236,
+   "scale": 8.230183547206753e-05,
+   "space": "<core.tracking._LookSpace object at 0x0000026621C86350>",
    "time_s": 5e-09,
    "wf": "14 GHz COHE tau 50 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
   "0.0 deg | 800.0 km | detect": {
-   "cost": 1.2070656439740731e-06,
+   "cost": 1.134145733990615e-06,
    "driver": "DET",
-   "energy_J": 2.2134988719349953,
-   "energy_rf_J": 0.5200242667577473,
+   "energy_J": 2.07977943480598,
+   "energy_rf_J": 0.43310663262388704,
    "f_ghz": 14.0,
    "index": 633,
-   "pae": 0.23493315192121725,
-   "reach_km": 2452.595479854252,
-   "scale": 0.011320256147107419,
-   "space": "<core.tracking._LookSpace object at 0x0000020385935BE0>",
-   "time_s": 5.66012807355371e-08,
+   "pae": 0.20824642525821063,
+   "reach_km": 2567.338404717238,
+   "scale": 0.009428171594533593,
+   "space": "<core.tracking._LookSpace object at 0x0000026621225940>",
+   "time_s": 4.7140857972667973e-08,
    "wf": "14 GHz COHE tau 5 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
   "0.0 deg | 800.0 km | track": {
-   "cost": 1.2563211158840487e-06,
+   "cost": 1.1751685726174278e-06,
    "driver": "DOP",
-   "energy_J": 2.30382281749143,
-   "energy_rf_J": 0.5787348313694294,
+   "energy_J": 2.1550065009372497,
+   "energy_rf_J": 0.4820042256092125,
    "f_ghz": 14.0,
    "index": 637,
-   "pae": 0.25120631108237657,
-   "reach_km": 5049.744672575644,
-   "scale": 0.0006299154627150251,
-   "space": "<core.tracking._LookSpace object at 0x00000203A8472490>",
-   "time_s": 6.299154627150252e-08,
+   "pae": 0.22366717937954272,
+   "reach_km": 5285.993364339947,
+   "scale": 0.0005246304496426804,
+   "space": "<core.tracking._LookSpace object at 0x0000026621C86350>",
+   "time_s": 5.246304496426804e-08,
    "wf": "14 GHz COHE tau 100 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
   "60.0 deg | 300.0 km | detect": {
@@ -3006,9 +3006,9 @@
    "f_ghz": 14.0,
    "index": 633,
    "pae": 0.03095238095238093,
-   "reach_km": 1734.2468899628097,
-   "scale": 0.0008954499601851527,
-   "space": "<core.tracking._LookSpace object at 0x0000020385935BE0>",
+   "reach_km": 1815.3823899763279,
+   "scale": 0.0007457831138477496,
+   "space": "<core.tracking._LookSpace object at 0x0000026621225940>",
    "time_s": 5e-09,
    "wf": "14 GHz COHE tau 5 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
@@ -3020,38 +3020,38 @@
    "f_ghz": 14.0,
    "index": 637,
    "pae": 0.03095238095238093,
-   "reach_km": 3570.7086902243664,
-   "scale": 4.982729795847514e-05,
-   "space": "<core.tracking._LookSpace object at 0x00000203A8472490>",
+   "reach_km": 3737.761741702049,
+   "scale": 4.149908881386016e-05,
+   "space": "<core.tracking._LookSpace object at 0x0000026621C86350>",
    "time_s": 5e-09,
    "wf": "14 GHz COHE tau 100 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
   "60.0 deg | 800.0 km | detect": {
-   "cost": 2.5158952177279154e-06,
+   "cost": 2.224215574195124e-06,
    "driver": "DET",
-   "energy_J": 4.613610911841184,
-   "energy_rf_J": 2.08009709269677,
+   "energy_J": 4.078733156725405,
+   "energy_rf_J": 1.7324265518715136,
    "f_ghz": 14.0,
    "index": 633,
-   "pae": 0.4508609703861334,
-   "reach_km": 1734.2468899628097,
-   "scale": 0.045281025147140566,
-   "space": "<core.tracking._LookSpace object at 0x0000020385935BE0>",
-   "time_s": 2.2640512573570285e-07,
+   "pae": 0.4247462349957666,
+   "reach_km": 1815.3823899763279,
+   "scale": 0.03771268684346152,
+   "space": "<core.tracking._LookSpace object at 0x0000026621225940>",
+   "time_s": 1.885634342173076e-07,
    "wf": "14 GHz COHE tau 5 us x N 1 @ PRI 0.5 ms B 200 MHz"
   },
   "60.0 deg | 800.0 km | track": {
-   "cost": 2.7129171077988184e-06,
+   "cost": 2.3883069307270575e-06,
    "driver": "DOP",
-   "energy_J": 4.974906698524856,
-   "energy_rf_J": 2.314939354041156,
+   "energy_J": 4.379641424963316,
+   "energy_rf_J": 1.9280169262261557,
    "f_ghz": 14.0,
    "index": 637,
-   "pae": 0.4653231697244844,
-   "reach_km": 3570.7086902243664,
-   "scale": 0.0025196618819495575,
-   "space": "<core.tracking._LookSpace object at 0x00000203A8472490>",
-   "time_s": 2.5196618819495574e-07,
+   "pae": 0.4402225522931491,
+   "reach_km": 3737.761741702049,
+   "scale": 0.0020985218244638426,
+   "space": "<core.tracking._LookSpace object at 0x0000026621C86350>",
+   "time_s": 2.0985218244638426e-07,
    "wf": "14 GHz COHE tau 100 us x N 1 @ PRI 0.5 ms B 200 MHz"
   }
  },
@@ -3079,7 +3079,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.117075515108469,
+   "l_tot_db": 5.6227877579250265,
    "look_law": [
     24,
     {
@@ -3160,7 +3160,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -3228,8 +3228,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 614.9528256582572,
-   "range_noise_km": 614.9528256582572,
+   "range_km": 632.701691208329,
+   "range_noise_km": 632.701691208329,
    "snr_req_db": 19.986150353766654,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -3247,7 +3247,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.722049268143412,
+   "l_tot_db": 8.227761510959969,
    "look_law": [
     24,
     {
@@ -3328,7 +3328,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -3396,8 +3396,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1190.8674765000842,
-   "range_noise_km": 1190.8674765000842,
+   "range_km": 1225.2384816348733,
+   "range_noise_km": 1225.2384816348733,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -3415,7 +3415,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.242230484507781,
+   "l_tot_db": 6.747942727324339,
    "look_law": [
     24,
     {
@@ -3496,7 +3496,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -3564,8 +3564,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1627.031120745282,
-   "range_noise_km": 1627.031120745282,
+   "range_km": 1673.9907498468785,
+   "range_noise_km": 1673.9907498468785,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -3583,7 +3583,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.066705766485661,
+   "l_tot_db": 7.572418009302219,
    "look_law": [
     24,
     {
@@ -3664,7 +3664,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -3732,8 +3732,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1759.4240244202063,
-   "range_noise_km": 1759.4240244202063,
+   "range_km": 1810.2047984114035,
+   "range_noise_km": 1810.2047984114035,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -3751,7 +3751,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.014865445037552,
+   "l_tot_db": 6.520577687854109,
    "look_law": [
     24,
     {
@@ -3832,7 +3832,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -3900,8 +3900,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7887.994789152741,
-   "range_noise_km": 7887.994789152741,
+   "range_km": 8115.659340205866,
+   "range_noise_km": 8115.659340205866,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -3919,7 +3919,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.115798642065212,
+   "l_tot_db": 6.621510884881769,
    "look_law": [
     24,
     {
@@ -4000,7 +4000,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -4068,8 +4068,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8543.813246303218,
-   "range_noise_km": 8543.813246303218,
+   "range_km": 8790.406133214885,
+   "range_noise_km": 8790.406133214885,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -4087,7 +4087,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.946644039010887,
+   "l_tot_db": 5.452356281827445,
    "look_law": [
     24,
     {
@@ -4168,7 +4168,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -4236,8 +4236,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 577.9202393295384,
-   "range_noise_km": 577.9202393295384,
+   "range_km": 594.6002645258541,
+   "range_noise_km": 594.6002645258541,
    "snr_req_db": 19.986150353766654,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -4255,7 +4255,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.551617792045828,
+   "l_tot_db": 8.057330034862387,
    "look_law": [
     24,
     {
@@ -4336,7 +4336,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -4404,8 +4404,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1119.1531908028903,
-   "range_noise_km": 1119.1531908028903,
+   "range_km": 1151.4543669007996,
+   "range_noise_km": 1151.4543669007996,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -4423,7 +4423,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.071799008410199,
+   "l_tot_db": 6.577511251226756,
    "look_law": [
     24,
     {
@@ -4504,7 +4504,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -4572,8 +4572,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1529.05097019631,
-   "range_noise_km": 1529.05097019631,
+   "range_km": 1573.1826807225132,
+   "range_noise_km": 1573.1826807225132,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -4591,7 +4591,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.89627429038808,
+   "l_tot_db": 7.401986533204638,
    "look_law": [
     24,
     {
@@ -4672,7 +4672,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -4740,8 +4740,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1653.4711458340823,
-   "range_noise_km": 1653.4711458340823,
+   "range_km": 1701.193891114451,
+   "range_noise_km": 1701.193891114451,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -4759,7 +4759,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.84443396893997,
+   "l_tot_db": 6.3501462117565275,
    "look_law": [
     24,
     {
@@ -4840,7 +4840,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -4908,8 +4908,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7412.978111772488,
-   "range_noise_km": 7412.978111772488,
+   "range_km": 7626.932656481892,
+   "range_noise_km": 7626.932656481892,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -4927,7 +4927,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.94536716596763,
+   "l_tot_db": 6.451079408784188,
    "look_law": [
     24,
     {
@@ -5008,7 +5008,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -5076,8 +5076,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8029.303045815083,
-   "range_noise_km": 8029.303045815083,
+   "range_km": 8261.046058083391,
+   "range_noise_km": 8261.046058083391,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -5095,7 +5095,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.117075515134984,
+   "l_tot_db": 5.622787757951542,
    "look_law": [
     24,
     {
@@ -5176,7 +5176,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -5244,8 +5244,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 434.83731313211877,
-   "range_noise_km": 434.83731313211877,
+   "range_km": 447.3876563209236,
+   "range_noise_km": 447.3876563209236,
    "snr_req_db": 19.986150353766654,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -5263,7 +5263,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.722049268169926,
+   "l_tot_db": 8.227761510986484,
    "look_law": [
     24,
     {
@@ -5344,7 +5344,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -5412,8 +5412,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 842.0704681264359,
-   "range_noise_km": 842.0704681264359,
+   "range_km": 866.3744389334059,
+   "range_noise_km": 866.3744389334059,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -5431,7 +5431,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.242230484534296,
+   "l_tot_db": 6.747942727350853,
    "look_law": [
     24,
     {
@@ -5512,7 +5512,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -5580,8 +5580,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1150.4847386787815,
-   "range_noise_km": 1150.4847386787815,
+   "range_km": 1183.6902108584748,
+   "range_noise_km": 1183.6902108584748,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -5599,7 +5599,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.066705766512177,
+   "l_tot_db": 7.572418009328735,
    "look_law": [
     24,
     {
@@ -5680,7 +5680,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -5748,8 +5748,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1244.1006586481549,
-   "range_noise_km": 1244.1006586481549,
+   "range_km": 1280.0080882911773,
+   "range_noise_km": 1280.0080882911773,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -5767,7 +5767,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.014865445064068,
+   "l_tot_db": 6.520577687880625,
    "look_law": [
     24,
     {
@@ -5848,7 +5848,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -5916,8 +5916,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 5577.654605365542,
-   "range_noise_km": 5577.654605365542,
+   "range_km": 5738.637753250751,
+   "range_noise_km": 5738.637753250751,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -5935,7 +5935,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.115798642091727,
+   "l_tot_db": 6.621510884908285,
    "look_law": [
     24,
     {
@@ -6016,7 +6016,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -6084,8 +6084,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 6041.388283643236,
-   "range_noise_km": 6041.388283643236,
+   "range_km": 6215.755786170576,
+   "range_noise_km": 6215.755786170576,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -6103,7 +6103,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.97873567548629,
+   "l_tot_db": 6.484447918302847,
    "look_law": [
     24,
     {
@@ -6184,7 +6184,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -6252,8 +6252,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 342.2363533667811,
-   "range_noise_km": 342.2363533667811,
+   "range_km": 352.1140330339194,
+   "range_noise_km": 352.1140330339194,
    "snr_req_db": 19.986150353766654,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -6271,7 +6271,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.583709428521232,
+   "l_tot_db": 9.089421671337789,
    "look_law": [
     24,
     {
@@ -6352,7 +6352,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -6420,8 +6420,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 662.7470035026372,
-   "range_noise_km": 662.7470035026372,
+   "range_km": 681.8753121599555,
+   "range_noise_km": 681.8753121599555,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -6439,7 +6439,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.103890644885603,
+   "l_tot_db": 7.6096028877021595,
    "look_law": [
     24,
     {
@@ -6520,7 +6520,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -6588,8 +6588,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 905.4827855813029,
-   "range_noise_km": 905.4827855813029,
+   "range_km": 931.6169727069316,
+   "range_noise_km": 931.6169727069316,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -6607,7 +6607,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.928365926863483,
+   "l_tot_db": 8.43407816968004,
    "look_law": [
     24,
     {
@@ -6688,7 +6688,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -6756,8 +6756,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 979.1626886158898,
-   "range_noise_km": 979.1626886158898,
+   "range_km": 1007.4234367363448,
+   "range_noise_km": 1007.4234367363448,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -6775,7 +6775,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.876525605415373,
+   "l_tot_db": 7.382237848231931,
    "look_law": [
     24,
     {
@@ -6856,7 +6856,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -6924,8 +6924,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4389.86286326296,
-   "range_noise_km": 4389.86286326296,
+   "range_km": 4516.563778345195,
+   "range_noise_km": 4516.563778345195,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -6943,7 +6943,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.977458802443033,
+   "l_tot_db": 7.48317104525959,
    "look_law": [
     24,
     {
@@ -7024,7 +7024,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -7092,8 +7092,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4754.841944390944,
-   "range_noise_km": 4754.841944390944,
+   "range_km": 4892.076943339848,
+   "range_noise_km": 4892.076943339848,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -7111,7 +7111,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.717505336802014,
+   "l_tot_db": 7.223217579618571,
    "look_law": [
     24,
     {
@@ -7192,7 +7192,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -7260,8 +7260,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 294.44222670192113,
-   "range_noise_km": 294.44222670192113,
+   "range_km": 302.9404647389643,
+   "range_noise_km": 302.9404647389643,
    "snr_req_db": 19.986150353766654,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -7279,7 +7279,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 10.322479089836955,
+   "l_tot_db": 9.828191332653512,
    "look_law": [
     24,
     {
@@ -7360,7 +7360,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -7428,8 +7428,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 570.1927966787517,
-   "range_noise_km": 570.1927966787517,
+   "range_km": 586.6497912051816,
+   "range_noise_km": 586.6497912051816,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -7447,7 +7447,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.842660306201326,
+   "l_tot_db": 8.348372549017883,
    "look_law": [
     24,
     {
@@ -7528,7 +7528,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -7596,8 +7596,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 779.029945252729,
-   "range_noise_km": 779.029945252729,
+   "range_km": 801.5144305349453,
+   "range_noise_km": 801.5144305349453,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -7615,7 +7615,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.667135588179207,
+   "l_tot_db": 9.172847830995764,
    "look_law": [
     24,
     {
@@ -7696,7 +7696,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -7764,8 +7764,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 842.4202733089511,
-   "range_noise_km": 842.4202733089511,
+   "range_km": 866.7343402483301,
+   "range_noise_km": 866.7343402483301,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -7783,7 +7783,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.615295266731097,
+   "l_tot_db": 8.121007509547654,
    "look_law": [
     24,
     {
@@ -7864,7 +7864,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -7932,8 +7932,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 3776.807997337312,
-   "range_noise_km": 3776.807997337312,
+   "range_km": 3885.8148260829494,
+   "range_noise_km": 3885.8148260829494,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -7951,7 +7951,7 @@
     "t_frame_s": 240.31630871191115,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.716228463758757,
+   "l_tot_db": 8.221940706575314,
    "look_law": [
     24,
     {
@@ -8032,7 +8032,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -8100,8 +8100,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4090.816875382399,
-   "range_noise_km": 4090.816875382399,
+   "range_km": 4208.8866779455575,
+   "range_noise_km": 4208.8866779455575,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -8119,7 +8119,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.126449613002241,
+   "l_tot_db": 5.632161855818799,
    "look_law": [
     24,
     {
@@ -8200,7 +8200,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -8268,8 +8268,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 622.2243380964492,
-   "range_noise_km": 622.2243380964492,
+   "range_km": 640.183075186623,
+   "range_noise_km": 640.183075186623,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -8287,7 +8287,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.722049268143412,
+   "l_tot_db": 8.227761510959969,
    "look_law": [
     24,
     {
@@ -8368,7 +8368,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -8436,8 +8436,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1201.843445636222,
-   "range_noise_km": 1201.843445636222,
+   "range_km": 1236.5312409252324,
+   "range_noise_km": 1236.5312409252324,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -8455,7 +8455,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.242230484507781,
+   "l_tot_db": 6.747942727324339,
    "look_law": [
     24,
     {
@@ -8536,7 +8536,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -8604,8 +8604,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1642.0271162840304,
-   "range_noise_km": 1642.0271162840304,
+   "range_km": 1689.419562176609,
+   "range_noise_km": 1689.419562176609,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -8623,7 +8623,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.066705766485661,
+   "l_tot_db": 7.572418009302219,
    "look_law": [
     24,
     {
@@ -8704,7 +8704,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -8772,8 +8772,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1775.6402568478238,
-   "range_noise_km": 1775.6402568478238,
+   "range_km": 1826.8890662997549,
+   "range_noise_km": 1826.8890662997549,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -8791,7 +8791,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.014865445037552,
+   "l_tot_db": 6.520577687854109,
    "look_law": [
     24,
     {
@@ -8872,7 +8872,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -8940,8 +8940,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7960.696738832487,
-   "range_noise_km": 7960.696738832487,
+   "range_km": 8190.459625036302,
+   "range_noise_km": 8190.459625036302,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -8959,7 +8959,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.115798642065212,
+   "l_tot_db": 6.621510884881769,
    "look_law": [
     24,
     {
@@ -9040,7 +9040,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -9108,8 +9108,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8622.55973350426,
-   "range_noise_km": 8622.55973350426,
+   "range_km": 8871.425413962937,
+   "range_noise_km": 8871.425413962937,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -9127,7 +9127,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.956018136904659,
+   "l_tot_db": 5.461730379721217,
    "look_law": [
     24,
     {
@@ -9208,7 +9208,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -9276,8 +9276,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 584.7538597850087,
-   "range_noise_km": 584.7538597850087,
+   "range_km": 601.6311180138819,
+   "range_noise_km": 601.6311180138819,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -9295,7 +9295,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.551617792045828,
+   "l_tot_db": 8.057330034862387,
    "look_law": [
     24,
     {
@@ -9376,7 +9376,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -9444,8 +9444,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1129.4681848079026,
-   "range_noise_km": 1129.4681848079026,
+   "range_km": 1162.067073891436,
+   "range_noise_km": 1162.067073891436,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -9463,7 +9463,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.071799008410199,
+   "l_tot_db": 6.577511251226756,
    "look_law": [
     24,
     {
@@ -9544,7 +9544,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -9612,8 +9612,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1543.143903782657,
-   "range_noise_km": 1543.143903782657,
+   "range_km": 1587.6823667831861,
+   "range_noise_km": 1587.6823667831861,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -9631,7 +9631,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.89627429038808,
+   "l_tot_db": 7.401986533204638,
    "look_law": [
     24,
     {
@@ -9712,7 +9712,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -9780,8 +9780,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1668.7108333915146,
-   "range_noise_km": 1668.7108333915146,
+   "range_km": 1716.8734289403856,
+   "range_noise_km": 1716.8734289403856,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -9799,7 +9799,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.84443396893997,
+   "l_tot_db": 6.3501462117565275,
    "look_law": [
     24,
     {
@@ -9880,7 +9880,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -9948,8 +9948,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7481.301935008309,
-   "range_noise_km": 7481.301935008309,
+   "range_km": 7697.2284526917065,
+   "range_noise_km": 7697.2284526917065,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -9967,7 +9967,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.94536716596763,
+   "l_tot_db": 6.451079408784188,
    "look_law": [
     24,
     {
@@ -10048,7 +10048,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -10116,8 +10116,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8103.307403272702,
-   "range_noise_km": 8103.307403272702,
+   "range_km": 8337.186340990622,
+   "range_noise_km": 8337.186340990622,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -10135,7 +10135,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.1264496142796325,
+   "l_tot_db": 5.63216185709619,
    "look_law": [
     24,
     {
@@ -10216,7 +10216,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -10284,8 +10284,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 439.97904885495745,
-   "range_noise_km": 439.97904885495745,
+   "range_km": 452.677793632032,
+   "range_noise_km": 452.677793632032,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -10303,7 +10303,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.722049269420802,
+   "l_tot_db": 8.22776151223736,
    "look_law": [
     24,
     {
@@ -10384,7 +10384,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -10452,8 +10452,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 849.8316502714881,
-   "range_noise_km": 849.8316502714881,
+   "range_km": 874.3596255429545,
+   "range_noise_km": 874.3596255429545,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -10471,7 +10471,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.242230485785172,
+   "l_tot_db": 6.74794272860173,
    "look_law": [
     24,
     {
@@ -10552,7 +10552,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -10620,8 +10620,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1161.0885087312517,
-   "range_noise_km": 1161.0885087312517,
+   "range_km": 1194.6000285964465,
+   "range_noise_km": 1194.6000285964465,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -10639,7 +10639,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.066705767763054,
+   "l_tot_db": 7.572418010579611,
    "look_law": [
     24,
     {
@@ -10720,7 +10720,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -10788,8 +10788,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1255.567266472594,
-   "range_noise_km": 1255.567266472594,
+   "range_km": 1291.8056471611271,
+   "range_noise_km": 1291.8056471611271,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -10807,7 +10807,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.014865446314944,
+   "l_tot_db": 6.520577689131501,
    "look_law": [
     24,
     {
@@ -10888,7 +10888,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -10956,8 +10956,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 5629.062646584167,
-   "range_noise_km": 5629.062646584167,
+   "range_km": 5791.52954147193,
+   "range_noise_km": 5791.52954147193,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -10975,7 +10975,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.115798643342603,
+   "l_tot_db": 6.621510886159161,
    "look_law": [
     24,
     {
@@ -11056,7 +11056,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -11124,8 +11124,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 6097.070458298598,
-   "range_noise_km": 6097.070458298598,
+   "range_km": 6273.045068542595,
+   "range_noise_km": 6273.045068542595,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -11143,7 +11143,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.98811175281463,
+   "l_tot_db": 6.493823995631188,
    "look_law": [
     24,
     {
@@ -11224,7 +11224,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -11292,8 +11292,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 346.2830892009027,
-   "range_noise_km": 346.2830892009027,
+   "range_km": 356.27756639663124,
+   "range_noise_km": 356.27756639663124,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -11311,7 +11311,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.5837114079558,
+   "l_tot_db": 9.089423650772357,
    "look_law": [
     24,
     {
@@ -11392,7 +11392,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -11460,8 +11460,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 668.8553237309366,
-   "range_noise_km": 668.8553237309366,
+   "range_km": 688.1599316911368,
+   "range_noise_km": 688.1599316911368,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -11479,7 +11479,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.103892624320169,
+   "l_tot_db": 7.609604867136727,
    "look_law": [
     24,
     {
@@ -11560,7 +11560,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -11628,8 +11628,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 913.8283213382535,
-   "range_noise_km": 913.8283213382535,
+   "range_km": 940.2033786345897,
+   "range_noise_km": 940.2033786345897,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -11647,7 +11647,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.928367906298051,
+   "l_tot_db": 8.434080149114608,
    "look_law": [
     24,
     {
@@ -11728,7 +11728,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -11796,8 +11796,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 988.1873077028994,
-   "range_noise_km": 988.1873077028994,
+   "range_km": 1016.7085258043558,
+   "range_noise_km": 1016.7085258043558,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -11815,7 +11815,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.876527584849941,
+   "l_tot_db": 7.382239827666498,
    "look_law": [
     24,
     {
@@ -11896,7 +11896,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -11964,8 +11964,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4430.322779317521,
-   "range_noise_km": 4430.322779317521,
+   "range_km": 4558.191454885206,
+   "range_noise_km": 4558.191454885206,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -11983,7 +11983,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.977460781877601,
+   "l_tot_db": 7.483173024694159,
    "look_law": [
     24,
     {
@@ -12064,7 +12064,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -12132,8 +12132,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4798.665752084966,
-   "range_noise_km": 4798.665752084966,
+   "range_km": 4937.165600690949,
+   "range_noise_km": 4937.165600690949,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -12151,7 +12151,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.726896545663684,
+   "l_tot_db": 7.232608788480241,
    "look_law": [
     24,
     {
@@ -12232,7 +12232,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -12300,8 +12300,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 297.9235666780104,
-   "range_noise_km": 297.9235666780104,
+   "range_km": 306.52228369911785,
+   "range_noise_km": 306.52228369911785,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -12319,7 +12319,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 10.322496200804853,
+   "l_tot_db": 9.82820844362141,
    "look_law": [
     24,
     {
@@ -12400,7 +12400,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -12468,8 +12468,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 575.4475741143884,
-   "range_noise_km": 575.4475741143884,
+   "range_km": 592.0562328568512,
+   "range_noise_km": 592.0562328568512,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -12487,7 +12487,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.842677417169224,
+   "l_tot_db": 8.34838965998578,
    "look_law": [
     24,
     {
@@ -12568,7 +12568,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -12636,8 +12636,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 786.2093221263829,
-   "range_noise_km": 786.2093221263829,
+   "range_km": 808.9010197174902,
+   "range_noise_km": 808.9010197174902,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -12655,7 +12655,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.667152699147104,
+   "l_tot_db": 9.172864941963661,
    "look_law": [
     24,
     {
@@ -12736,7 +12736,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -12804,8 +12804,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 850.1838421742392,
-   "range_noise_km": 850.1838421742392,
+   "range_km": 874.7219824640111,
+   "range_noise_km": 874.7219824640111,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -12823,7 +12823,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.615312377698995,
+   "l_tot_db": 8.121024620515552,
    "look_law": [
     24,
     {
@@ -12904,7 +12904,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -12972,8 +12972,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 3811.6142691084406,
-   "range_noise_km": 3811.6142691084406,
+   "range_km": 3921.6256819655564,
+   "range_noise_km": 3921.6256819655564,
    "snr_req_db": 19.534580425505272,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -12991,7 +12991,7 @@
     "t_frame_s": 249.29932573852224,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.716245574726655,
+   "l_tot_db": 8.221957817543212,
    "look_law": [
     24,
     {
@@ -13072,7 +13072,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -13140,8 +13140,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4128.516987231045,
-   "range_noise_km": 4128.516987231045,
+   "range_km": 4247.674896374912,
+   "range_noise_km": 4247.674896374912,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -13159,7 +13159,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.126449613002241,
+   "l_tot_db": 5.632161855818799,
    "look_law": [
     24,
     {
@@ -13240,7 +13240,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -13308,8 +13308,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 627.8554423590831,
-   "range_noise_km": 627.8554423590831,
+   "range_km": 645.9767052695895,
+   "range_noise_km": 645.9767052695895,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -13327,7 +13327,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.722049268143412,
+   "l_tot_db": 8.227761510959969,
    "look_law": [
     24,
     {
@@ -13408,7 +13408,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -13476,8 +13476,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1212.7200786050403,
-   "range_noise_km": 1212.7200786050403,
+   "range_km": 1247.7217969921264,
+   "range_noise_km": 1247.7217969921264,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -13495,7 +13495,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.242230484507781,
+   "l_tot_db": 6.747942727324339,
    "look_law": [
     24,
     {
@@ -13576,7 +13576,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -13644,8 +13644,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1656.887393080909,
-   "range_noise_km": 1656.887393080909,
+   "range_km": 1704.7087386287128,
+   "range_noise_km": 1704.7087386287128,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -13663,7 +13663,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.066705766485661,
+   "l_tot_db": 7.572418009302219,
    "look_law": [
     24,
     {
@@ -13744,7 +13744,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -13812,8 +13812,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1791.7097269843173,
-   "range_noise_km": 1791.7097269843173,
+   "range_km": 1843.422336020563,
+   "range_noise_km": 1843.422336020563,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -13831,7 +13831,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.024216216918683,
+   "l_tot_db": 6.52992845973524,
    "look_law": [
     24,
     {
@@ -13912,7 +13912,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -13980,8 +13980,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8049.457138552077,
-   "range_noise_km": 8049.457138552077,
+   "range_km": 8281.781841427124,
+   "range_noise_km": 8281.781841427124,
    "snr_req_db": 19.48911591038871,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -13999,7 +13999,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.115798642065212,
+   "l_tot_db": 6.621510884881769,
    "look_law": [
     24,
     {
@@ -14080,7 +14080,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -14148,8 +14148,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8700.593538833531,
-   "range_noise_km": 8700.593538833531,
+   "range_km": 8951.711443302509,
+   "range_noise_km": 8951.711443302509,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -14167,7 +14167,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 5.956018136904659,
+   "l_tot_db": 5.461730379721217,
    "look_law": [
     24,
     {
@@ -14248,7 +14248,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -14316,8 +14316,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 590.0458577844773,
-   "range_noise_km": 590.0458577844773,
+   "range_km": 607.0758544951734,
+   "range_noise_km": 607.0758544951734,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -14335,7 +14335,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.551617792045828,
+   "l_tot_db": 8.057330034862387,
    "look_law": [
     24,
     {
@@ -14416,7 +14416,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -14484,8 +14484,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1139.6898246901335,
-   "range_noise_km": 1139.6898246901335,
+   "range_km": 1172.5837323578594,
+   "range_noise_km": 1172.5837323578594,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -14503,7 +14503,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.071799008410199,
+   "l_tot_db": 6.577511251226756,
    "look_law": [
     24,
     {
@@ -14584,7 +14584,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -14652,8 +14652,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1557.1092916378348,
-   "range_noise_km": 1557.1092916378348,
+   "range_km": 1602.0508258676582,
+   "range_noise_km": 1602.0508258676582,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -14671,7 +14671,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.89627429038808,
+   "l_tot_db": 7.401986533204638,
    "look_law": [
     24,
     {
@@ -14752,7 +14752,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -14820,8 +14820,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1683.812596713344,
-   "range_noise_km": 1683.812596713344,
+   "range_km": 1732.411061739652,
+   "range_noise_km": 1732.411061739652,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -14839,7 +14839,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.853784740821101,
+   "l_tot_db": 6.3594969836376585,
    "look_law": [
     24,
     {
@@ -14920,7 +14920,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -14988,8 +14988,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7564.717165101808,
-   "range_noise_km": 7564.717165101808,
+   "range_km": 7783.051226326734,
+   "range_noise_km": 7783.051226326734,
    "snr_req_db": 19.48911591038871,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -15007,7 +15007,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.94536716596763,
+   "l_tot_db": 6.451079408784188,
    "look_law": [
     24,
     {
@@ -15088,7 +15088,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -15156,8 +15156,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8176.641996708244,
-   "range_noise_km": 8176.641996708244,
+   "range_km": 8412.637529040821,
+   "range_noise_km": 8412.637529040821,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -15175,7 +15175,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.94536716596763,
+   "l_tot_db": 6.451079408784188,
    "look_law": [
     24,
     {
@@ -15256,7 +15256,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -15324,8 +15324,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8176.641996708244,
-   "range_noise_km": 8176.641996708244,
+   "range_km": 8412.637529040821,
+   "range_noise_km": 8412.637529040821,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -15343,7 +15343,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.942623771792684,
+   "l_tot_db": 6.448336014609242,
    "look_law": [
     24,
     {
@@ -15424,7 +15424,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -15492,8 +15492,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7932.26038226445,
-   "range_noise_km": 7932.26038226445,
+   "range_km": 8161.202533855133,
+   "range_noise_km": 8161.202533855133,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -15511,7 +15511,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.940901949285495,
+   "l_tot_db": 6.446614192102053,
    "look_law": [
     24,
     {
@@ -15592,7 +15592,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -15660,8 +15660,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7719.806683940064,
-   "range_noise_km": 7719.806683940064,
+   "range_km": 7942.616963345042,
+   "range_noise_km": 7942.616963345042,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -15679,7 +15679,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.126449666588723,
+   "l_tot_db": 5.63216190940528,
    "look_law": [
     24,
     {
@@ -15760,7 +15760,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -15828,8 +15828,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 443.96083952750746,
-   "range_noise_km": 443.96083952750746,
+   "range_km": 456.77450737566477,
+   "range_noise_km": 456.77450737566477,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -15847,7 +15847,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.722049321729893,
+   "l_tot_db": 8.22776156454645,
    "look_law": [
     24,
     {
@@ -15928,7 +15928,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -15996,8 +15996,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 857.5225886175191,
-   "range_noise_km": 857.5225886175191,
+   "range_km": 882.2725409658639,
+   "range_noise_km": 882.2725409658639,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -16015,7 +16015,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.242230538094262,
+   "l_tot_db": 6.74794278091082,
    "look_law": [
     24,
     {
@@ -16096,7 +16096,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -16164,8 +16164,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1171.596307696005,
-   "range_noise_km": 1171.596307696005,
+   "range_km": 1205.411105314014,
+   "range_noise_km": 1205.411105314014,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -16183,7 +16183,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.066705820072142,
+   "l_tot_db": 7.5724180628887,
    "look_law": [
     24,
     {
@@ -16264,7 +16264,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -16332,8 +16332,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1266.9300939604273,
-   "range_noise_km": 1266.9300939604273,
+   "range_km": 1303.4964303700096,
+   "range_noise_km": 1303.4964303700096,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -16351,7 +16351,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.024216270505164,
+   "l_tot_db": 6.529928513321722,
    "look_law": [
     24,
     {
@@ -16432,7 +16432,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -16500,8 +16500,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 5691.825709983143,
-   "range_noise_km": 5691.825709983143,
+   "range_km": 5856.104082316492,
+   "range_noise_km": 5856.104082316492,
    "snr_req_db": 19.48911591038871,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -16519,7 +16519,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.115798695651693,
+   "l_tot_db": 6.6215109384682505,
    "look_law": [
     24,
     {
@@ -16600,7 +16600,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -16668,8 +16668,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 6152.248672679296,
-   "range_noise_km": 6152.248672679296,
+   "range_km": 6329.815845258927,
+   "range_noise_km": 6329.815845258927,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -16687,7 +16687,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.988194529097407,
+   "l_tot_db": 6.493906771913964,
    "look_law": [
     24,
     {
@@ -16768,7 +16768,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -16836,8 +16836,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 349.415271727327,
-   "range_noise_km": 349.415271727327,
+   "range_km": 359.5001504696788,
+   "range_noise_km": 359.5001504696788,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -16855,7 +16855,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.583794184238576,
+   "l_tot_db": 9.089506427055134,
    "look_law": [
     24,
     {
@@ -16936,7 +16936,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -17004,8 +17004,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 674.9052205437736,
-   "range_noise_km": 674.9052205437736,
+   "range_km": 694.3844415810142,
+   "range_noise_km": 694.3844415810142,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -17023,7 +17023,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.103975400602947,
+   "l_tot_db": 7.6096876434195035,
    "look_law": [
     24,
     {
@@ -17104,7 +17104,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -17172,8 +17172,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 922.094035690209,
-   "range_noise_km": 922.094035690209,
+   "range_km": 948.7076593392587,
+   "range_noise_km": 948.7076593392587,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -17191,7 +17191,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.928450682580827,
+   "l_tot_db": 8.434162925397384,
    "look_law": [
     24,
     {
@@ -17272,7 +17272,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -17340,8 +17340,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 997.1256102494197,
-   "range_noise_km": 997.1256102494197,
+   "range_km": 1025.9048070502574,
+   "range_noise_km": 1025.9048070502574,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -17359,7 +17359,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.885961133013848,
+   "l_tot_db": 7.391673375830406,
    "look_law": [
     24,
     {
@@ -17440,7 +17440,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -17508,8 +17508,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4479.69877071809,
-   "range_noise_km": 4479.69877071809,
+   "range_km": 4608.992543945634,
+   "range_noise_km": 4608.992543945634,
    "snr_req_db": 19.48911591038871,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -17527,7 +17527,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.977543558160377,
+   "l_tot_db": 7.483255800976935,
    "look_law": [
     24,
     {
@@ -17608,7 +17608,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -17676,8 +17676,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4842.070404196383,
-   "range_noise_km": 4842.070404196383,
+   "range_km": 4981.823004724836,
+   "range_noise_km": 4981.823004724836,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -17695,7 +17695,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.727612121297671,
+   "l_tot_db": 7.233324364114229,
    "look_law": [
     24,
     {
@@ -17776,7 +17776,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -17844,8 +17844,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 300.60737968137806,
-   "range_noise_km": 300.60737968137806,
+   "range_km": 309.2835573371405,
+   "range_noise_km": 309.2835573371405,
    "snr_req_db": 19.9319471296975,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -17863,7 +17863,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 10.323211776438841,
+   "l_tot_db": 9.828924019255398,
    "look_law": [
     24,
     {
@@ -17944,7 +17944,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -18012,8 +18012,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 580.6314328449525,
-   "range_noise_km": 580.6314328449525,
+   "range_km": 597.389708936585,
+   "range_noise_km": 597.389708936585,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -18031,7 +18031,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.84339299280321,
+   "l_tot_db": 8.349105235619769,
    "look_law": [
     24,
     {
@@ -18112,7 +18112,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -18180,8 +18180,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 793.2918058171484,
-   "range_noise_km": 793.2918058171484,
+   "range_km": 816.1879191708038,
+   "range_noise_km": 816.1879191708038,
    "snr_req_db": 21.958833044050078,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -18199,7 +18199,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.667868274781092,
+   "l_tot_db": 9.17358051759765,
    "look_law": [
     24,
     {
@@ -18280,7 +18280,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -18348,8 +18348,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 857.8426335760836,
-   "range_noise_km": 857.8426335760836,
+   "range_km": 882.6018231125548,
+   "range_noise_km": 882.6018231125548,
    "snr_req_db": 20.799617097353764,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -18367,7 +18367,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.625378725214112,
+   "l_tot_db": 8.131090968030671,
    "look_law": [
     24,
     {
@@ -18448,7 +18448,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -18516,8 +18516,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 3853.9543580062077,
-   "range_noise_km": 3853.9543580062077,
+   "range_km": 3965.187797194237,
+   "range_noise_km": 3965.187797194237,
    "snr_req_db": 19.48911591038871,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -18535,7 +18535,7 @@
     "t_frame_s": 258.44716876562177,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.716961150360643,
+   "l_tot_db": 8.2226733931772,
    "look_law": [
     24,
     {
@@ -18616,7 +18616,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.0,
@@ -18684,8 +18684,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4165.708296728661,
-   "range_noise_km": 4165.708296728661,
+   "range_km": 4285.939627319445,
+   "range_noise_km": 4285.939627319445,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -18703,7 +18703,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.310789984088308,
+   "l_tot_db": 5.816502226904866,
    "look_law": [
     24,
     {
@@ -18784,7 +18784,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -18852,8 +18852,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 631.9709386177269,
-   "range_noise_km": 631.9709386177269,
+   "range_km": 650.2109836310528,
+   "range_noise_km": 650.2109836310528,
    "snr_req_db": 19.878798109780288,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -18871,7 +18871,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.89702290846365,
+   "l_tot_db": 8.40273515128021,
    "look_law": [
     24,
     {
@@ -18952,7 +18952,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -19020,8 +19020,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1217.5966801549553,
-   "range_noise_km": 1217.5966801549553,
+   "range_km": 1252.7391477859499,
+   "range_noise_km": 1252.7391477859499,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -19039,7 +19039,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.426003079311435,
+   "l_tot_db": 6.931715322127993,
    "look_law": [
     24,
     {
@@ -19120,7 +19120,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -19188,8 +19188,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1671.7995129736303,
-   "range_noise_km": 1671.7995129736303,
+   "range_km": 1720.051254480277,
+   "range_noise_km": 1720.051254480277,
    "snr_req_db": 21.864101542409625,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -19207,7 +19207,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.250679951789776,
+   "l_tot_db": 7.756392194606334,
    "look_law": [
     24,
     {
@@ -19288,7 +19288,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -19356,8 +19356,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1805.2824667962384,
-   "range_noise_km": 1805.2824667962384,
+   "range_km": 1857.3868143919588,
+   "range_noise_km": 1857.3868143919588,
    "snr_req_db": 20.72923152833155,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -19375,7 +19375,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.208613269789581,
+   "l_tot_db": 6.714325512606138,
    "look_law": [
     24,
     {
@@ -19456,7 +19456,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -19524,8 +19524,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8098.211760549804,
-   "range_noise_km": 8098.211760549804,
+   "range_km": 8331.943627022898,
+   "range_noise_km": 8331.943627022898,
    "snr_req_db": 19.44450651543535,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -19543,7 +19543,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.290772282385453,
+   "l_tot_db": 6.79648452520201,
    "look_law": [
     24,
     {
@@ -19624,7 +19624,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -19692,8 +19692,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8735.580448578985,
-   "range_noise_km": 8735.580448578985,
+   "range_km": 8987.708150761178,
+   "range_noise_km": 8987.708150761178,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -19711,7 +19711,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.140358507990727,
+   "l_tot_db": 5.646070750807285,
    "look_law": [
     24,
     {
@@ -19792,7 +19792,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -19860,8 +19860,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 593.9135180073722,
-   "range_noise_km": 593.9135180073722,
+   "range_km": 611.0551437380927,
+   "range_noise_km": 611.0551437380927,
    "snr_req_db": 19.878798109780288,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -19879,7 +19879,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.72659143236607,
+   "l_tot_db": 8.232303675182628,
    "look_law": [
     24,
     {
@@ -19960,7 +19960,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -20028,8 +20028,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1144.2727562862685,
-   "range_noise_km": 1144.2727562862685,
+   "range_km": 1177.2989372493287,
+   "range_noise_km": 1177.2989372493287,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -20047,7 +20047,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.255571603213854,
+   "l_tot_db": 6.761283846030411,
    "look_law": [
     24,
     {
@@ -20128,7 +20128,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -20196,8 +20196,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1571.123400586903,
-   "range_noise_km": 1571.123400586903,
+   "range_km": 1616.4694122419257,
+   "range_noise_km": 1616.4694122419257,
    "snr_req_db": 21.864101542409625,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -20215,7 +20215,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.080248475692194,
+   "l_tot_db": 7.585960718508752,
    "look_law": [
     24,
     {
@@ -20296,7 +20296,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -20364,8 +20364,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1696.5679833270517,
-   "range_noise_km": 1696.5679833270517,
+   "range_km": 1745.5345963357738,
+   "range_noise_km": 1745.5345963357738,
    "snr_req_db": 20.72923152833155,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -20383,7 +20383,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.038181793691998,
+   "l_tot_db": 6.543894036508556,
    "look_law": [
     24,
     {
@@ -20464,7 +20464,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -20532,8 +20532,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 7610.5357736807455,
-   "range_noise_km": 7610.5357736807455,
+   "range_km": 7830.192258820854,
+   "range_noise_km": 7830.192258820854,
    "snr_req_db": 19.44450651543535,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -20551,7 +20551,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.120340806287871,
+   "l_tot_db": 6.626053049104429,
    "look_law": [
     24,
     {
@@ -20632,7 +20632,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -20700,8 +20700,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 8209.521987513801,
-   "range_noise_km": 8209.521987513801,
+   "range_km": 8446.466507332485,
+   "range_noise_km": 8446.466507332485,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -20719,7 +20719,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 6.31080613615957,
+   "l_tot_db": 5.816518378976128,
    "look_law": [
     24,
     {
@@ -20800,7 +20800,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -20868,8 +20868,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 446.87052071439797,
-   "range_noise_km": 446.87052071439797,
+   "range_km": 459.7681682403856,
+   "range_noise_km": 459.7681682403856,
    "snr_req_db": 19.878798109780288,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -20887,7 +20887,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.897039060534913,
+   "l_tot_db": 8.40275130335147,
    "look_law": [
     24,
     {
@@ -20968,7 +20968,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -21036,8 +21036,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 860.9700687678182,
-   "range_noise_km": 860.9700687678182,
+   "range_km": 885.8195228325893,
+   "range_noise_km": 885.8195228325893,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -21055,7 +21055,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.426019231382697,
+   "l_tot_db": 6.931731474199254,
    "look_law": [
     24,
     {
@@ -21136,7 +21136,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -21204,8 +21204,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1182.1396732682724,
-   "range_noise_km": 1182.1396732682724,
+   "range_km": 1216.2587751681376,
+   "range_noise_km": 1216.2587751681376,
    "snr_req_db": 21.864101542409625,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -21223,7 +21223,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.250696103861037,
+   "l_tot_db": 7.756408346677595,
    "look_law": [
     24,
     {
@@ -21304,7 +21304,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -21372,8 +21372,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1276.526287329471,
-   "range_noise_km": 1276.526287329471,
+   "range_km": 1313.3695905872296,
+   "range_noise_km": 1313.3695905872296,
    "snr_req_db": 20.72923152833155,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -21391,7 +21391,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.2086294218608415,
+   "l_tot_db": 6.7143416646773995,
    "look_law": [
     24,
     {
@@ -21472,7 +21472,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -21540,8 +21540,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 5726.295127126662,
-   "range_noise_km": 5726.295127126662,
+   "range_km": 5891.56836122004,
+   "range_noise_km": 5891.56836122004,
    "snr_req_db": 19.44450651543535,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -21559,7 +21559,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.290788434456714,
+   "l_tot_db": 6.796500677273272,
    "look_law": [
     24,
     {
@@ -21640,7 +21640,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -21708,8 +21708,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 6176.9824295042445,
-   "range_noise_km": 6176.9824295042445,
+   "range_km": 6355.2634716786115,
+   "range_noise_km": 6355.2634716786115,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -21727,7 +21727,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 7.198047403643311,
+   "l_tot_db": 6.703759646459868,
    "look_law": [
     24,
     {
@@ -21808,7 +21808,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -21876,8 +21876,8 @@
     "zero_velocity_filter_loss_db": 2.2212284284664037
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 351.189493275328,
-   "range_noise_km": 351.189493275328,
+   "range_km": 361.325579880133,
+   "range_noise_km": 361.325579880133,
    "snr_req_db": 19.878798109780288,
    "t_sys_k": 144.46431510192332,
    "target": "DEBRIS",
@@ -21895,7 +21895,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.784280328018653,
+   "l_tot_db": 9.289992570835212,
    "look_law": [
     24,
     {
@@ -21976,7 +21976,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -22044,8 +22044,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 676.6247227326949,
-   "range_noise_km": 676.6247227326949,
+   "range_km": 696.1535723136072,
+   "range_noise_km": 696.1535723136072,
    "snr_req_db": 17.203648961284163,
    "t_sys_k": 144.46431510192332,
    "target": "DECOY",
@@ -22063,7 +22063,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.313260498866438,
+   "l_tot_db": 7.818972741682995,
    "look_law": [
     24,
     {
@@ -22144,7 +22144,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -22212,8 +22212,8 @@
     "zero_velocity_filter_loss_db": 0.9688061466439204
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 929.0275674753641,
-   "range_noise_km": 929.0275674753641,
+   "range_km": 955.8413078135437,
+   "range_noise_km": 955.8413078135437,
    "snr_req_db": 21.864101542409625,
    "t_sys_k": 144.46431510192332,
    "target": "GENERIC",
@@ -22231,7 +22231,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 9.137937371344778,
+   "l_tot_db": 8.643649614161335,
    "look_law": [
     24,
     {
@@ -22312,7 +22312,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.3494494848767656,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -22380,8 +22380,8 @@
     "zero_velocity_filter_loss_db": 6.435938417687554
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 1003.2047298246151,
-   "range_noise_km": 1003.2047298246151,
+   "range_km": 1032.1593831344742,
+   "range_noise_km": 1032.1593831344742,
    "snr_req_db": 20.72923152833155,
    "t_sys_k": 144.46431510192332,
    "target": "KKV",
@@ -22399,7 +22399,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.095870689344583,
+   "l_tot_db": 7.60158293216114,
    "look_law": [
     24,
     {
@@ -22480,7 +22480,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.022739717462046283,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -22548,8 +22548,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4500.217827807584,
-   "range_noise_km": 4500.217827807584,
+   "range_km": 4630.103825300635,
+   "range_noise_km": 4630.103825300635,
    "snr_req_db": 19.44450651543535,
    "t_sys_k": 144.46431510192332,
    "target": "SHIP",
@@ -22567,7 +22567,7 @@
     "t_frame_s": 273.42655568999663,
     "t_pos_s": 0.6212
    },
-   "l_tot_db": 8.178029701940455,
+   "l_tot_db": 7.6837419447570126,
    "look_law": [
     24,
     {
@@ -22648,7 +22648,7 @@
     "TX_chain": 0.6,
     "acceleration": 0.0,
     "buffer_droop": 0.04369192237554356,
-    "calibration": 0.5,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "compression": 0.1,
     "edge": 0.17497364032024085,
@@ -22716,8 +22716,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 4047.1981829999995,
-   "range_km": 4854.4068781270735,
-   "range_noise_km": 4854.4068781270735,
+   "range_km": 4994.515535913943,
+   "range_noise_km": 4994.515535913943,
    "snr_req_db": 23.275029409706683,
    "t_sys_k": 144.46431510192332,
    "target": "ST",
@@ -22763,7 +22763,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 4.035651645754306,
+   "l_tot_db": 3.241363888570863,
    "look_law": [
     1,
     {
@@ -22844,7 +22844,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.016379919007126313,
     "buffer_droop": 0.02095087551886922,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.0013763400579692752,
     "compression": 0.1,
@@ -22921,8 +22921,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 8089.210496030038,
-   "range_noise_km": 8089.210496030038,
+   "range_km": 8467.658421817623,
+   "range_noise_km": 8467.658421817623,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -22932,7 +22932,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 3.7958659204885965,
+   "l_tot_db": 3.0015781633051537,
    "look_law": [
     1,
     {
@@ -23013,7 +23013,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.016379919007126313,
     "buffer_droop": 0.02095087551886922,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.0013763400579692752,
     "compression": 0.1,
@@ -23090,8 +23090,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 6575.587000319438,
-   "range_noise_km": 6575.587000319438,
+   "range_km": 6883.221133752855,
+   "range_noise_km": 6883.221133752855,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -23101,7 +23101,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 4.897311965256879,
+   "l_tot_db": 4.103024208073436,
    "look_law": [
     1,
     {
@@ -23182,7 +23182,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.016379919007126313,
     "buffer_droop": 0.02095087551886922,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.0013763400579692752,
     "compression": 0.1,
@@ -23259,8 +23259,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 4501.844305627205,
-   "range_noise_km": 4501.844305627205,
+   "range_km": 4712.459870708545,
+   "range_noise_km": 4712.459870708545,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -23270,7 +23270,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 3.786711665105914,
+   "l_tot_db": 2.9924239079224715,
    "look_law": [
     1,
     {
@@ -23351,7 +23351,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.017357786573266688,
     "buffer_droop": 0.02095087551886922,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.001458491843436299,
     "compression": 0.1,
@@ -23428,8 +23428,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 8446.086244200174,
-   "range_noise_km": 8446.086244200174,
+   "range_km": 8841.23034654605,
+   "range_noise_km": 8841.23034654605,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -23439,7 +23439,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 3.5469259398426365,
+   "l_tot_db": 2.7526381826591937,
    "look_law": [
     1,
     {
@@ -23520,7 +23520,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.017357786573266688,
     "buffer_droop": 0.02095087551886922,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.001458491843436299,
     "compression": 0.1,
@@ -23597,8 +23597,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 6865.685463147267,
-   "range_noise_km": 6865.685463147267,
+   "range_km": 7186.891645618751,
+   "range_noise_km": 7186.891645618751,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -23608,7 +23608,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 4.64845658120108,
+   "l_tot_db": 3.854168824017637,
    "look_law": [
     1,
     {
@@ -23689,7 +23689,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.017357786573266688,
     "buffer_droop": 0.02095087551886922,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.001458491843436299,
     "compression": 0.1,
@@ -23766,8 +23766,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 4700.431533986445,
-   "range_noise_km": 4700.431533986445,
+   "range_km": 4920.337860471182,
+   "range_noise_km": 4920.337860471182,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -23777,7 +23777,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 4.037802613277411,
+   "l_tot_db": 3.2435148560939684,
    "look_law": [
     1,
     {
@@ -23858,7 +23858,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.018364201748124597,
     "buffer_droop": 0.02095087551886922,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.0015430248400762803,
     "compression": 0.1,
@@ -23935,8 +23935,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 8561.593574070122,
-   "range_noise_km": 8561.593574070122,
+   "range_km": 8962.141604206476,
+   "range_noise_km": 8962.141604206476,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -23946,7 +23946,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 3.798016888746395,
+   "l_tot_db": 3.003729131562953,
    "look_law": [
     1,
     {
@@ -24027,7 +24027,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.018364201748124597,
     "buffer_droop": 0.02095087551886922,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.0015430248400762803,
     "compression": 0.1,
@@ -24104,8 +24104,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 6959.579483426997,
-   "range_noise_km": 6959.579483426997,
+   "range_km": 7285.178430462607,
+   "range_noise_km": 7285.178430462607,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -24115,7 +24115,7 @@
    "burn_through_km": Infinity,
    "driver": "Detect-COHE",
    "frame": null,
-   "l_tot_db": 4.9250600328324134,
+   "l_tot_db": 4.1307722756489715,
    "look_law": [
     1,
     {
@@ -24196,7 +24196,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.018364201748124597,
     "buffer_droop": 0.02095087551886922,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.0015430248400762803,
     "compression": 0.1,
@@ -24273,8 +24273,8 @@
     "zero_velocity_filter_loss_db": 10.436747553908013
    },
    "r_unamb_km": 149.896229,
-   "range_km": 4757.721479224125,
-   "range_noise_km": 4757.721479224125,
+   "range_km": 4980.308074809822,
+   "range_noise_km": 4980.308074809822,
    "snr_req_db": 18.432253404810687,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -24284,7 +24284,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 4.180997544844094,
+   "l_tot_db": 3.386709787660651,
    "look_law": [
     2,
     {
@@ -24365,7 +24365,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.3396527185719918,
     "buffer_droop": 0.008380777686529452,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.024515957068325888,
     "compression": 0.673935326023821,
@@ -24441,8 +24441,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 20904.327941145442,
-   "range_noise_km": 20904.327941145442,
+   "range_km": 21882.32196827486,
+   "range_noise_km": 21882.32196827486,
    "snr_req_db": 9.855504319078609,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -24452,7 +24452,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.9412118195783847,
+   "l_tot_db": 3.146924062394942,
    "look_law": [
     2,
     {
@@ -24533,7 +24533,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.3396527185719918,
     "buffer_droop": 0.008380777686529452,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.024515957068325888,
     "compression": 0.673935326023821,
@@ -24609,8 +24609,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 13623.802831767267,
-   "range_noise_km": 13623.802831767267,
+   "range_km": 14261.18270036529,
+   "range_noise_km": 14261.18270036529,
    "snr_req_db": 13.694154384029913,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -24620,7 +24620,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 5.042657864346667,
+   "l_tot_db": 4.2483701071632245,
    "look_law": [
     2,
     {
@@ -24701,7 +24701,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.3396527185719918,
     "buffer_droop": 0.008380777686529452,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.024515957068325888,
     "compression": 0.673935326023821,
@@ -24777,8 +24777,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 6803.719281659956,
-   "range_noise_km": 6803.719281659956,
+   "range_km": 7122.026420663063,
+   "range_noise_km": 7122.026420663063,
    "snr_req_db": 19.17447062616826,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -24788,7 +24788,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.940431599593887,
+   "l_tot_db": 3.1461438424104444,
    "look_law": [
     2,
     {
@@ -24869,7 +24869,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.3396527090050639,
     "buffer_droop": 0.008380777686529452,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.025979279765310732,
     "compression": 0.681906067643555,
@@ -24945,8 +24945,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 22134.555126147996,
-   "range_noise_km": 22134.555126147996,
+   "range_km": 23170.104451985517,
+   "range_noise_km": 23170.104451985517,
    "snr_req_db": 9.6037217729182,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -24956,7 +24956,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.770000123496305,
+   "l_tot_db": 2.9757123663128624,
    "look_law": [
     2,
     {
@@ -25037,7 +25037,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.3396527090050639,
     "buffer_droop": 0.008380777686529452,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.025979279765310732,
     "compression": 0.681906067643555,
@@ -25113,8 +25113,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 19358.077146168638,
-   "range_noise_km": 19358.077146168638,
+   "range_km": 20263.73093609029,
+   "range_noise_km": 20263.73093609029,
    "snr_req_db": 10.8531091390012,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25124,7 +25124,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 4.0352502233826595,
+   "l_tot_db": 3.2409624661992167,
    "look_law": [
     2,
     {
@@ -25205,7 +25205,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.3396527090050639,
     "buffer_droop": 0.008380777686529452,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.025979279765310732,
     "compression": 0.9537537349971164,
@@ -25281,8 +25281,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 18491.704654722183,
-   "range_noise_km": 18491.704654722183,
+   "range_km": 19356.825827460954,
+   "range_noise_km": 19356.825827460954,
    "snr_req_db": 10.8531091390012,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25292,7 +25292,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 4.277272341034383,
+   "l_tot_db": 3.4829845838509406,
    "look_law": [
     2,
     {
@@ -25373,7 +25373,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.3396527090050639,
     "buffer_droop": 0.008380777686529452,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.025979279765310732,
     "compression": 1.200703182588141,
@@ -25449,8 +25449,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 17744.884621378005,
-   "range_noise_km": 17744.884621378005,
+   "range_km": 18575.066353154714,
+   "range_noise_km": 18575.066353154714,
    "snr_req_db": 10.8531091390012,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25460,7 +25460,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.7006458743306094,
+   "l_tot_db": 2.906358117147167,
    "look_law": [
     2,
     {
@@ -25541,7 +25541,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.3396527090050639,
     "buffer_droop": 0.008380777686529452,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.025979279765310732,
     "compression": 0.681906067643555,
@@ -25617,8 +25617,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 14425.568506985348,
-   "range_noise_km": 14425.568506985348,
+   "range_km": 15100.458409090703,
+   "range_noise_km": 15100.458409090703,
    "snr_req_db": 13.442371837869501,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25628,7 +25628,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 4.802176515689053,
+   "l_tot_db": 4.00788875850561,
    "look_law": [
     2,
     {
@@ -25709,7 +25709,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.3396527090050639,
     "buffer_droop": 0.008380777686529452,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.025979279765310732,
     "compression": 0.681906067643555,
@@ -25785,8 +25785,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 7204.085515406496,
-   "range_noise_km": 7204.085515406496,
+   "range_km": 7541.123502221157,
+   "range_noise_km": 7541.123502221157,
    "snr_req_db": 18.922688080007855,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25796,7 +25796,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 4.19991539147429,
+   "l_tot_db": 3.4056276342908474,
    "look_law": [
     2,
     {
@@ -25877,7 +25877,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.3396527002242663,
     "buffer_droop": 0.008380777686529452,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.027485017612932823,
     "compression": 0.6898841304571357,
@@ -25953,8 +25953,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 22744.54748428827,
-   "range_noise_km": 22744.54748428827,
+   "range_km": 23808.634866194152,
+   "range_noise_km": 23808.634866194152,
    "snr_req_db": 9.359032644577969,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -25964,7 +25964,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 3.960129666943274,
+   "l_tot_db": 3.165841909759832,
    "look_law": [
     2,
     {
@@ -26045,7 +26045,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.3396527002242663,
     "buffer_droop": 0.008380777686529452,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.027485017612932823,
     "compression": 0.6898841304571357,
@@ -26121,8 +26121,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 14823.113724727933,
-   "range_noise_km": 14823.113724727933,
+   "range_km": 15516.602495429339,
+   "range_noise_km": 15516.602495429339,
    "snr_req_db": 13.197682709529271,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -26132,7 +26132,7 @@
    "burn_through_km": Infinity,
    "driver": "Track-ANG",
    "frame": null,
-   "l_tot_db": 5.087172811029292,
+   "l_tot_db": 4.2928850538458505,
    "look_law": [
     2,
     {
@@ -26213,7 +26213,7 @@
     "TX_chain": 0.95,
     "acceleration": 0.3396527002242663,
     "buffer_droop": 0.008380777686529452,
-    "calibration": 0.8,
+    "calibration": 0.00571224281655752,
     "cfar": 0.03912038775132617,
     "coherence": 0.027485017612932823,
     "compression": 0.6898841304571357,
@@ -26289,8 +26289,8 @@
     "zero_velocity_filter_loss_db": 0.2393942005911015
    },
    "r_unamb_km": 74.9481145,
-   "range_km": 7391.754763918029,
-   "range_noise_km": 7391.754763918029,
+   "range_km": 7737.572722259969,
+   "range_noise_km": 7737.572722259969,
    "snr_req_db": 18.67799895166762,
    "t_sys_k": 230.7919548038089,
    "target": "KKV",
@@ -26616,6 +26616,16 @@
     "duty_max": 0.65,
     "e_buf_trm_j": 1.2,
     "edge_derating_db": 0.5,
+    "errors": {
+     "cal_duration_s": 0.05,
+     "cal_interval_s": 300.0,
+     "drift_amp_db_min": 0.01,
+     "drift_phase_deg_min": 0.1,
+     "trm_amp_db": 0.1,
+     "trm_phase_deg": 1.0,
+     "trsa_amp_db": 0.05,
+     "trsa_phase_deg": 0.5
+    },
     "eta_illum_tx": 1.0,
     "gain_to_adc_db": 43.8,
     "limiter_recovery_s": 2.5e-08,
@@ -26623,7 +26633,7 @@
     "losses_db": {
      "S_blockage": 0.3,
      "TX_chain": 0.95,
-     "calibration": 0.8,
+     "calibration": 0.00571224281655752,
      "finite_precision": 0.3
     },
     "n_trm": 122500,
@@ -26663,6 +26673,16 @@
     "duty_max": 0.65,
     "e_buf_trm_j": 25.0,
     "edge_derating_db": 1.0,
+    "errors": {
+     "cal_duration_s": 0.01,
+     "cal_interval_s": 300.0,
+     "drift_amp_db_min": 0.01,
+     "drift_phase_deg_min": 0.1,
+     "trm_amp_db": 0.1,
+     "trm_phase_deg": 1.0,
+     "trsa_amp_db": 0.05,
+     "trsa_phase_deg": 0.5
+    },
     "eta_illum_tx": 1.0,
     "gain_to_adc_db": 46.65,
     "limiter_recovery_s": 5e-08,
@@ -26670,7 +26690,7 @@
     "losses_db": {
      "Ku_blockage": 0.2,
      "TX_chain": 0.6,
-     "calibration": 0.5,
+     "calibration": 0.00571224281655752,
      "finite_precision": 0.3
     },
     "n_trm": 4900,

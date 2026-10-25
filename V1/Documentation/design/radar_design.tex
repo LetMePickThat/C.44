@@ -37,13 +37,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small C.44 radar -- design and modelling reference}
-\rhead{\small Model V6.14.0}
+\rhead{\small Model V6.15.0}
 \cfoot{\thepage}
 
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{25 October 2026 -- radar model V6.14.0 (roadmap step 3.3 coded)}
+\date{25 October 2026 -- radar model V6.15.0 (roadmap step 3.4 coded)}
 
 \begin{document}
 \maketitle
@@ -832,6 +832,15 @@ sectors) for a 7 to 8 times faster run.
 %=====================================================================================================================
 \section{Other functions}
 %=====================================================================================================================
+\paragraph{Array errors and calibration.} Every TRM is calibrated in flight through its coupler (transmit and receive
+loopback, all TRMs of a face at once with orthogonal codes), \SI{10}{ms} in S and \SI{50}{ms} in Ku every \SI{300}{s},
+taken from the face's transmit time. The residual errors at the end of an interval (random per TRM \SI{1}{\degree} /
+\SI{0.1}{dB}, correlated per TRSA \SI{0.5}{\degree} / \SI{0.05}{dB} plus a thermal drift of \SI{0.1}{\degree/min} /
+\SI{0.01}{dB/min}) give the gain loss by Ruze's formula on transmit and receive (about \SI{0.006}{dB}, replacing a lumped
+\SI{0.5}{dB} / \SI{0.8}{dB}), a mean sidelobe floor near \SI{-59}{dB} and a boresight error of a few hundredths of a
+milliradian; the angle-measurement floor and the S/Ku alignment bias stay inputs, checked against them. Degraded
+modes and TRM failures are left to the end of the development (nominal operation first).
+
 \paragraph{Redundancy.} A sector $A$ covers the need of a sector $B$ if, with $A$'s waveforms and revisit, $B$'s target,
 range and receive weighting (the digital receiver can apply both on the same look), the cumulative criterion of $B$ is
 met, with an unambiguous PRI and sufficient resolution.

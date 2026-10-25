@@ -38,7 +38,9 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | 3.1 | ✔ fait : P1 à P6, bande S élargie, accélérations (`90555d8`, `b4be91e`, `cd97216`, `f6a526c`, `b0dbc09`, `f8fa433`, `d19829e`, puis le commit de P6) |
 | 3.2 | ✔ fait le 25 octobre 2026 : Q1 à Q5 (`8720343`, V6.12.0), Q6 : accélérations exactes E1 à E4 (V6.12.1), règle de précision absolue supprimée et approximations A1, A2, A4, A5, A6, A8, A9, banc T1 / T3 et barre de progression du N3 (V6.13.0), valeurs figées regelées (`JOURNAL.md`) |
 | 3.3 | codée le 25 octobre 2026 (V6.14.0, passes R1 à R6) : modèle de piste (`core/trackmodel.py`), budget de poursuite reconstruit, discrimination, atténuateur, aspect, repère `track` ; N3 du 25 octobre (21 min, 190 tests passent, valeurs figées regelées, `JOURNAL.md`) ; trois valeurs D à confirmer (`faraday_uncert_frac`, `deception_verify_rate`, `track_frame_k`) ; commit sur demande |
-| 3.4 et suivantes | à faire |
+| 3.4 | codée le 25 octobre 2026 (V6.15.0) : erreurs du réseau et étalonnage en vol (perte `calibration` dérivée ≈ 0,006 dB au lieu de 0,5 / 0,8 dB, plancher de lobes, contrôles de cohérence, temps d'étalonnage dans le budget des faces) ; modes dégradés et pannes reportés en fin de développement ; N3 et commit sur demande |
+| 4.1 | cadrage ouvert le 25 octobre 2026 : blocs A à E validés, forme d'onde au-delà de l'alimentation des TRM retirée, stockage contrôlé par observation et par rafale ; variables validées (réserve commune des 8 MW, plafond physique 8 MW par face, `face_elec_mw` plafond facultatif) ; codage à faire |
+| 4.2 et suivantes | à faire |
 
 ---
 
@@ -298,6 +300,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
   - **Renvoi de l'étape 1.5** : atténuateur commutable par observation (ou STC) pour la poursuite rapprochée ; aujourd'hui le gain est fixe et une alerte signale les tranches de poursuite sous la portée non saturée Ku.
 
 - **3.4 Fonctions annexes** (D) : étalonnage en vol, santé des TRM, mode dégradé.
+  - **Décision du 25 octobre 2026** : le MVP est un modèle fonctionnel en situation nominale ; les **modes dégradés** (face perdue, fraction de TRM perdus, puissance réduite, ouverture Ku perdue, TRSA ou chaîne de CAN perdue) et les **pannes de TRM au fil de la mission** sont reportés en fin de développement (après la phase 5).
 
 ## Phase 4 : ressources du système
 
@@ -390,3 +393,4 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 | Couplage mutuel au bord des tuiles et diagramme réel de l'élément rayonnant non modélisés (l'intégrale du bruit du ciel prend un élément en cos θ, rien vers l'arrière, depuis l'étape 1.5). | à placer |
 | Couplages entre faces (90 et 120 dB) et dans une TRSA (−30 dB) de l'étape 1.5 : ordres de grandeur au bout optimiste, une simulation électromagnétique serait nécessaire. | à placer (avec 4.3) |
 | Erreurs aléatoires d'amplitude et de phase des TRM non modélisées (environ 0,2 % de la puissance hors du lobe pour 0,2 dB et 2° : négligeable pour le bruit du ciel). | à placer |
+| **Variabilité de la SER par classe** (question de l'utilisateur, 25 octobre 2026, après l'étape 3.3 ; reportée à sa demande, l'architecture du radar passe avant) : tables SER(aspect) par classe (propositions : KKV 0 / +2 / +5 / +10 / +15 dB à 0 / 15 / 30 / 60 / 90° ; DECOY plate (ballon) ; SHIP 0 à +10 dB ; DEBRIS, GENERIC, ST plates), plage d'aspect pendant le scénario (KKV et DECOY ±10°, SHIP ±30°, DEBRIS ±90°, GENERIC ±20°), dispersion d'un objet à l'autre (SER 3 à 5 dB, dépolarisation 2 dB, 1 σ), retour optique du KKV limité à un cône de ±5° ; effets : coût sur la SER moyenne de la plage, variance d'aspect (décroît avec les observations) et dispersion (systématique) dans les indices de discrimination, ce qui corrige la séparabilité aujourd'hui ≈ 1. Aspect réel par observation fourni plus tard par le simulateur global (5.4). Clés prévues : `aspect_span_deg`, `rcs_spread_db`, `depol_spread_db`, `optics_cone_deg`. | à placer (avec 5.1 pour la bibliothèque, 5.4 pour l'aspect dans le temps) |

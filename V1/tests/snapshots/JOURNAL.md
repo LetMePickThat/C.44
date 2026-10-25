@@ -468,3 +468,21 @@ values differ. Test values only, not radar performance. Main moves:
 - Separability of every class pair ~1 (class means without RCS spread: optimistic, renvoi 5.1).
 Case times: model 0.2 min, mission_example 1.0, _csv 0.6, veille500 0.7, redundancy_demo 1.9, synthetic_mix 1.4,
 sky_demo 1.4, target_library 1.3, environment 3.7, frames ~2.7; cost table 1.9; test suite 3.9 (190 passed); N3 21.0 min.
+
+## 2026-10-25 -- step 3.4: array errors and in-flight calibration (radar_model V6.15.0)
+
+Causes: the lumped 'calibration' loss (0.5 dB S, 0.8 dB Ku) is replaced by the Ruze loss of the residual array errors
+at the end of a calibration interval, TX and RX (about 0.006 dB in both bands: random 1 deg / 0.1 dB per TRM,
+0.5 deg / 0.05 dB per TRSA, drift 0.1 deg/min / 0.01 dB/min over 300 s); every face spends 3.3e-5 of its S time and
+1.7e-4 of its Ku time on calibration (10 ms / 50 ms every 300 s); new outputs array_errors, calibration_*_time.
+cost_table.json regenerated. 5225 output values differ. Test values only, not radar performance. Main moves:
+- Model case: WF-LRS ranges +2.89 % (0.5 dB). S search energy and time of the faces -7 to -14 % in the missions;
+  ranges at worst scan about +2.9 % where the waveform is unchanged.
+- Ku time of the faces: the calibration (1.7e-4) now dominates the small confirmation / tracking Ku times of the test
+  missions (x40 to x4000); idle faces show the calibration load only (binding resource: Ku time on air).
+- mission_redundancy_demo: A1_TRIM, B1_TRIM, A2_VEILLE, B3_EDGE drop their longest pulse (the budget no longer needs
+  it): range at worst scan -13 to -18 % (still above the requirement), energy down.
+- mission_veille500 VEILLE_KV: positions short of range 0.6 -> 0.3 %, energy -10.7 %.
+The self-test hand derivation now computes the Ruze loss from the file instead of the former 0.5 dB.
+N3: 20.5 min, 190 passed; the snapshot tests and the self-test (hand derivation) failed before the fix and the
+intended refreeze.
