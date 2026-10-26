@@ -586,3 +586,15 @@ the neighbour load of the re-pointing transit follow. Margin reuse is off by def
 311 values differ; no waveform set, frequency, confirmation mode, range, face status or binding resource changes.
 N3 23.0 min: 220 passed; only the snapshot tests and test_tracking_loads_add_up (reads the snapshots) failed before
 the refreeze.
+
+## 2026-10-26 -- step 5.2, pass P7: reallocation and saturation (radar_model V6.24.0)
+
+Causes: new outputs -- per sector tracking alternatives[mode].faces (per-face loads of every confirmation mode, for
+the Ku lever "confirmations to S2"); saturation on the missions with AT brackets (mission_synthetic_mix,
+mission_target_library, mission_sky_demo: extra tracks of the manageable saturation per bracket alone and cumulative,
+track floor t_max, entry of the critical saturation, first task shed); one new warning on mission_sky_demo (the
+cumulative critical overflow cut back by bisection, F2 energy above 80 % at the linear estimate). realloc_mode NONE by
+default: no margin reuse output; no load-ceiling alert on the test missions. 121 values differ, all additions; no
+waveform set, frequency, confirmation mode, range, face status, load or binding resource changes.
+N3 34.6 min (the saturation table adds assemblies on the missions with tracks): 232 passed; only the 9 snapshot tests
+failed before the refreeze.
