@@ -40,13 +40,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small Radar C.44 -- référence de conception et de modélisation}
-\rhead{\small Modèle V6.23.0}
+\rhead{\small Modèle V6.24.0}
 \cfoot{\thepage}
 
 \title{\textbf{Radar AESA spatial à quatre faces}\\[4pt]
 \large Référence de conception et de modélisation de l'outil de préparation de mission}
 \author{Projet C.44}
-\date{26 octobre 2026 -- modèle radar V6.23.0 (étape 5.2 de la feuille de route faite)}
+\date{26 octobre 2026 -- modèle radar V6.24.0 (étape 5.2 de la feuille de route faite, passe P7 comprise)}
 
 \begin{document}
 \maketitle
@@ -959,7 +959,7 @@ P2 & confirmation d'une détection et initialisation de piste (ne jamais perdre 
 P3 & mises à jour de piste (quelques manques restent gérables) ; P3$'$ percée Ku, seulement si l'opérateur l'autorise\\
 P4$_n$ & veille, avec une sous-priorité par volume choisie par l'opérateur ($n = 1$ servi d'abord)\\
 P5 & réemploi de la marge : la part de veille ajoutée par une revisite raccourcie sous la valeur demandée
-(section~\ref{sec:load})\\
+(\code{PRIO\_SEARCH}), ou de poursuite ajoutée par une cadence accélérée (\code{PRIO\_TRACK}) (section~\ref{sec:load})\\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -1150,7 +1150,8 @@ de (besoin du vaisseau / \SI{8}{MW}) et (besoin de la face / son plafond).
         alternatives (autre fréquence ou grille, même couverture et même portée) quand elle baisse la face la plus
         chargée de la mission, puis la somme des charges ; seuls les secteurs concernés sont replanifiés ; la boucle
         s'arrête quand rien ne change.
-  \item \textbf{Réemploi de la marge} quand la mission fixe \code{auto\_alloc\_max} (ci-dessous).
+  \item \textbf{Réemploi de la marge} selon le mode de réallocation de la mission (ci-dessous), puis \textbf{table de
+        saturation} de la poursuite.
   \item \textbf{Verdict} par ressource et par face, sur les revisites demandées.
 \end{enumerate}
 
@@ -1171,14 +1172,18 @@ par classe de cible (KKV, SHIP, DECOY, DEBRIS, autres), P3$'$ percée, P4$_n$ ve
 \end{itemize}
 
 \subsection{Réemploi de la marge}
-La revisite demandée pour un volume est un minimum. Quand les ressources ont de la marge, les revisites sont
-raccourcies jusqu'à ce que la ressource dimensionnante atteigne $X$ = \code{auto\_alloc\_max} (une valeur par mission,
-0 = désactivé par défaut) :
+Deux réglages de mission décident de la marge : le \textbf{mode de réallocation} \code{realloc\_mode} (\code{NONE} par
+défaut : la marge reste libre ; \code{PRIO\_SEARCH} : elle raccourcit les revisites de veille ; \code{PRIO\_TRACK} : elle
+accélère seulement la cadence de poursuite, les volumes restant à leur revisite demandée) et le \textbf{plafond de
+charge} \code{load\_ceiling} $X$ (\SI{80}{\percent} par défaut), toujours actif : au-delà commence une réserve de
+sécurité jamais consommée (entrelacement imparfait), et une face qui l'entame est signalée. En \code{PRIO\_SEARCH}, la
+revisite demandée pour un volume est un minimum ; les revisites sont raccourcies jusqu'à ce que la ressource
+dimensionnante atteigne $X$ :
 \begin{itemize}
   \item un facteur $g \ge 1$ pour tous les volumes de veille, autoprotection comprise, monté ensemble ; les volumes
         d'une face qui atteint $X$ s'arrêtent, les autres continuent ; un volume sur plusieurs faces est borné par la
-        plus chargée ; un volume s'arrête aussi à sa \code{rr\_min\_s}, fixée par l'opérateur (pas de valeur par
-        défaut) ;
+        plus chargée ; un volume s'arrête aussi à sa \code{rr\_min\_s}, \SI{1}{s} par défaut (\SI{0.1}{s} pour une
+        tranche de poursuite en \code{PRIO\_TRACK}) ;
   \item le plan est gardé (formes d'onde, grille, durées d'impulsion) ; la revisite devient $RR/g$ ; les fausses
         alarmes restent au même nombre par seconde ($\Pfa$ par case divisée par $g$), donc la charge de confirmation ne
         bouge pas ; le gain est donné en portée de détection cumulée à la revisite réelle ;
@@ -1186,11 +1191,41 @@ raccourcies jusqu'à ce que la ressource dimensionnante atteigne $X$ = \code{aut
         la revisite demandée ;
   \item une sonde à $g = 2$ donne la pente de chaque ressource ; après le remplissage, les budgets sont réassemblés aux
         revisites réelles et une ressource non linéaire est corrigée par la sécante de ses deux derniers points (au plus
-        2 corrections, tolérance 0,5 point).
+        2 corrections, tolérance 0,5 point) ; si une ressource reste au-dessus du plafond (les faisceaux simultanés,
+        comptés en entiers), les facteurs sont ramenés ensemble par bissection.
 \end{itemize}
 Exemple (mission de test, $X = \SI{80}{\percent}$, plafonds opérateur de \SI{2}{MW} par face) : des revisites de 20,
 5 et \SI{120}{s} deviennent 0,09, 0,068 et \SI{1.6}{s}, bornées par l'énergie des faces 1 et 2, portées cumulées
-$+56$ à $+89\,\%$ ; avec \code{rr\_min\_s} = \SI{5}{s} sur le premier volume, $g = 4$ et $+19\,\%$.
+$+56$ à $+89\,\%$ ; avec \code{rr\_min\_s} = \SI{5}{s} sur le premier volume, $g = 4$ et $+19\,\%$ (essai fait avant
+le plancher par défaut de \SI{1}{s}).
+
+\subsection{Saturation de la poursuite}
+La spécification de l'opérateur ($n$ pistes à la période $x$ par tranche, volumes à leur revisite $y$) est le point de
+dimensionnement. Au-delà de $n$ :
+\begin{center}
+{\small\begin{tabularx}{\linewidth}{@{}lL@{}}
+\toprule
+État & Comportement\\
+\midrule
+Saturation gérable & $n+a$ pistes à $x$, veille à $y$ : la place jusqu'au plafond (marge réemployée comprise) divisée
+par le coût d'une piste, le plus petit sur toutes les ressources ; permise aussi en \code{NONE}\\
+Saturation non gérable & \code{PRIO\_SEARCH} et \code{NONE} : veille tenue à $y$, pistes allongées dans l'ordre strict
+des classes (DEBRIS d'abord, KKV en dernier) ; \code{PRIO\_TRACK} : pistes tenues à $x$, veille dégradée dans l'ordre
+P4$_n$, puis pistes allongées ; P0 et P1 intouchables ; quand le temps Ku limite, d'abord percée retirée et
+confirmations basculées en S2\\
+Saturation critique & planchers atteints (perte de piste par mise à jour de \SI{1}{\percent} ou latence, revisite maximale
+d'un volume) : abandon de tâches entières selon le mode (volumes P4$_n$ puis pistes en \code{PRIO\_TRACK}, l'inverse
+sinon), puis P2\\
+P2 inatteignable & alerte majeure, le radar continue en P0 et P1 seulement, plus aucune création de piste\\
+\bottomrule
+\end{tabularx}}
+\end{center}
+En préparation de mission, le nombre de pistes est une entrée : l'outil publie, par tranche, les \textbf{seuils} de
+ces états (pistes en plus gérables, seule et en cumul, entrée en saturation critique, premier abandon). Le coût d'une
+piste vient d'une sonde (une piste de plus ou \SI{10}{\percent} de $n$) ; la valeur d'une tranche seule est une
+extrapolation linéaire, le cumul (même fraction de débordement pour toutes les tranches) est vérifié par un assemblage.
+Une piste allongée coûte son coût à $x$ multiplié par $x/T$ (approximation optimiste : la prédiction plus large n'est pas
+recalculée).
 
 \subsection{Surcharge : ordre de ce qui cède}
 \begin{center}
@@ -1296,7 +1331,7 @@ brouilleurs, Faraday\\
 numérique\\
 \code{core/repoint.py} & re-pointage en vol : erreur de pointage de la navigation, sa perte, migration entre faces\\
 \code{core/allocation.py} & répartition de la puissance entre les faces par niveau de priorité\\
-\code{core/margin.py} & réemploi de la marge : revisites raccourcies jusqu'à \code{auto\_alloc\_max}\\
+\code{core/margin.py} & réemploi de la marge selon le mode de réallocation, table de saturation de la poursuite\\
 \code{core/redundancy.py} & redondance entre secteurs\\
 \code{core/cost\_estimate.py} & estimation rapide pour l'interface\\
 \code{core/mission.py} & modèle de mission, validation, JSON / CSV\\
@@ -1317,7 +1352,7 @@ Le banc de tests a deux familles : les sorties figées de chaque mission de test
 $10^{-9}$ (non-régression), et des lois physiques et invariants qui doivent tenir quelles que soient les valeurs
 ($R\propto\sigma^{1/4}$, exactitude de chaque raccourci, cohérence des caches, lois de détection contre les formes
 closes, \dots). Chaque regel des sorties figées est consigné avec sa cause. Un rapport d'impact donne les chiffres clés
-et les formes d'onde qui changent avant tout regel. Au modèle V6.23.0, le banc compte 230 tests (dont 11 comparent les
+et les formes d'onde qui changent avant tout regel. Au modèle V6.24.0, le banc compte 241 tests (dont 12 comparent les
 sorties figées des cas de test), exécutés à trois niveaux : tests rapides, tests touchés par un changement, et passe
 complète (table de coût, chaque cas de test calculé une fois et gardé avec une empreinte du code, rapport d'impact, banc
 entier ; environ 19 minutes, avec une barre de progression globale).
@@ -1342,7 +1377,8 @@ face --- fait ; 4.2 thermique : fluide, plaque froide, jonction, rejet de chaleu
 ordonnanceur : priorités, files, chronologie synthétique, créneaux communs, latence --- fait ; 4.3 bis ordre des
 pointages dans un volume --- fait ; 4.4 calcul et données --- fait ; 4.5 re-pointage en vol --- fait\\
 5, mission et validation & 5.1 modèle de mission enrichi --- fait ; 5.2 optimiseur global (répartition de la
-puissance, couplages, boucle globale, réemploi de la marge, tables pour le vol) --- fait ; moteur de
+puissance, couplages, boucle globale, réemploi de la marge, tables pour le vol, réallocation et saturation) ---
+fait ; moteur de
 validation ; simulation Monte-Carlo ; interface opérateur ; vérification et documentation ; fin de développement\\
 \bottomrule
 \end{tabularx}
@@ -1487,7 +1523,9 @@ Message de navigation & Attitude, vitesse et orbite du vaisseau envoyées au cal
 Loi de Little & Nombre moyen d'éléments en cours = cadence d'arrivée $\times$ durée de séjour de chacun ; ici, les
 fenêtres d'écoute ouvertes.\\
 Ressource dimensionnante & Ressource la plus chargée d'une face (énergie, temps, chaleur, calcul, faisceaux, mémoire) ;
-le réemploi de la marge la porte jusqu'à \code{auto\_alloc\_max}.\\
+le réemploi de la marge la porte jusqu'au plafond \code{load\_ceiling}.\\
+Saturation gérable, critique & Pistes au-delà de la spécification tenues sans dégrader la veille ; au-delà, dégradation
+puis abandon de tâches selon le mode de réallocation.\\
 \bottomrule
 \end{longtable}}
 
@@ -1730,7 +1768,7 @@ Température de jonction & Échauffement des transistors des PA par les impulsio
 \SI{225}{\celsius} : non limitant\\
 Rejet de chaleur du vaisseau & Chaleur du radar face au rejet réservé & par exemple \SI{1.0}{MW} sur \SI{6}{MW}
 (mission de test)\\
-Réemploi de la marge & Revisites raccourcies jusqu'à \code{auto\_alloc\_max} de la ressource dimensionnante, plan gardé
+Réemploi de la marge & Revisites (\code{PRIO\_SEARCH}) ou cadence de poursuite (\code{PRIO\_TRACK}) jusqu'au plafond de la ressource dimensionnante, plan gardé
 & portée cumulée $+19$ à $+89\,\%$ sur une mission de test ($X = \SI{80}{\percent}$)\\
 Réglages de calcul & Approximations de l'optimiseur (lois arrondies, peu de fréquences dans un spectre calme, \dots) &
 $\le$\SI{0.003}{dB} sur $\SNR_{\mathrm{req}}$ ; énergie de veille $-5$ à $+9\,\%$ par secteur\\

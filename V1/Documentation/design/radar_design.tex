@@ -37,13 +37,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small C.44 radar -- design and modelling reference}
-\rhead{\small Model V6.23.0}
+\rhead{\small Model V6.24.0}
 \cfoot{\thepage}
 
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{26 October 2026 -- radar model V6.23.0 (roadmap step 5.2 done)}
+\date{26 October 2026 -- radar model V6.24.0 (roadmap step 5.2 done, pass P7 included)}
 
 \begin{document}
 \maketitle
@@ -906,7 +906,8 @@ P1 & search of the volumes flagged \emph{self-protection} (a checkbox per volume
 P2 & confirmation of a detection and track initiation (never lose a detection)\\
 P3 & track updates (a few misses are manageable); P3$'$ Ku burn-through, only if the operator authorises it in flight\\
 P4$_n$ & search, with a sub-priority per volume chosen by the operator ($n = 1$ served first)\\
-P5 & margin reuse: the part of a search added by a revisit shortened below the one asked (Section~\ref{sec:load})\\
+P5 & margin reuse: the part of a search added by a revisit shortened below the one asked (\code{PRIO\_SEARCH}), or of
+tracking added by a faster cadence (\code{PRIO\_TRACK}) (Section~\ref{sec:load})\\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -1087,7 +1088,8 @@ need over \SI{8}{MW} and the face's need over its cap.
         beams than the beamformer removed); each sector may switch to one of its alternatives (another frequency or
         lattice, same coverage and range) when it lowers the most loaded face of the mission, then the sum of the
         loads; only the sectors concerned are planned again; the loop stops when nothing changes.
-  \item \textbf{Margin reuse} when the mission sets \code{auto\_alloc\_max} (below).
+  \item \textbf{Margin reuse} according to the mission's reallocation mode (below), then the track
+        \textbf{saturation table}.
   \item \textbf{Verdict} per resource and face, on the revisits asked.
 \end{enumerate}
 
@@ -1108,23 +1110,56 @@ processing) and calibration, P1 self-protection search, P2 confirmation and init
 \end{itemize}
 
 \subsection{Margin reuse}
-The revisit asked for a volume is a minimum. When the resources have room, the revisits are shortened until the
-dimensioning resource reaches $X$ = \code{auto\_alloc\_max} (one value per mission, 0 = off by default):
+Two mission settings decide the margin: the \textbf{reallocation mode} \code{realloc\_mode} (\code{NONE} by default:
+the margin stays free; \code{PRIO\_SEARCH}: it shortens the search revisits; \code{PRIO\_TRACK}: it speeds up the track
+cadence only, the volumes staying at their revisit asked) and the \textbf{load ceiling} \code{load\_ceiling} $X$
+(\SI{80}{\percent} by default), always on: above it lies a safety reserve never used (imperfect interleaving), and a
+face that eats into it is flagged. In \code{PRIO\_SEARCH} the revisit asked for a volume is a minimum; the revisits are
+shortened until the dimensioning resource reaches $X$:
 \begin{itemize}
   \item one factor $g \ge 1$ for every search volume, self-protection included, raised together; the volumes of a face
         that reaches $X$ stop, the others go on; a volume over several faces is bounded by the most loaded one; a
-        volume also stops at its \code{rr\_min\_s}, set by the operator (no default);
+        volume also stops at its \code{rr\_min\_s}, \SI{1}{s} by default (\SI{0.1}{s} for a track bracket in
+        \code{PRIO\_TRACK});
   \item the plan is kept (waveforms, lattice, pulse lengths); the revisit becomes $RR/g$; the false alarms are kept at
         the same rate per second ($\Pfa$ per cell divided by $g$), so the confirmation load does not move; the gain is
         reported as the cumulative detection range at the real revisit;
   \item the search load added is tier P5, the first given back on an overload; the verdict stays on the revisit asked;
   \item a probe at $g = 2$ gives the slope of every resource; after the filling, the budgets are assembled again at the
         real revisits and a non-linear resource is corrected by the secant through its last two points (at most 2
-        corrections, tolerance 0.5 point).
+        corrections, tolerance 0.5 point); when a resource stays above the ceiling (the simultaneous beams, counted
+        as integers), the factors are cut back together by bisection.
 \end{itemize}
 Example (test mission, $X = \SI{80}{\percent}$, operator caps of \SI{2}{MW} per face): revisits of 20, 5 and
 \SI{120}{s} become 0.09, 0.068 and \SI{1.6}{s}, bounded by the energy of faces 1 and 2, cumulative ranges
-$+56$ to $+89\,\%$; with \code{rr\_min\_s} = \SI{5}{s} on the first volume, $g = 4$ and $+19\,\%$.
+$+56$ to $+89\,\%$; with \code{rr\_min\_s} = \SI{5}{s} on the first volume, $g = 4$ and $+19\,\%$ (trial made before
+the default floor of \SI{1}{s}).
+
+\subsection{Track saturation}
+The operator's specification ($n$ tracks at the period $x$ per bracket, volumes at their revisit $y$) is the sizing
+point. Beyond $n$:
+\begin{center}
+{\small\begin{tabularx}{\linewidth}{@{}lL@{}}
+\toprule
+State & Behaviour\\
+\midrule
+Manageable saturation & $n+a$ tracks at $x$, search at $y$: the room up to the ceiling (margin reused included) over
+the cost of one track, the smallest over every resource; allowed in \code{NONE} too\\
+Unmanageable saturation & \code{PRIO\_SEARCH} and \code{NONE}: search held at $y$, tracks stretched in strict class order
+(DEBRIS first, KKV last); \code{PRIO\_TRACK}: tracks held at $x$, search degraded in P4$_n$ order, then tracks
+stretched; P0 and P1 untouchable; when the Ku time binds, first the burn-through dropped and the confirmations moved to
+S2\\
+Critical saturation & floors reached (track loss per update of \SI{1}{\percent} or latency, longest revisit of a volume):
+whole tasks shed by mode (P4$_n$ volumes then tracks in \code{PRIO\_TRACK}, the reverse otherwise), then P2\\
+P2 out of reach & major alert, the radar goes on with P0 and P1 only, no more track creation\\
+\bottomrule
+\end{tabularx}}
+\end{center}
+In mission preparation the number of tracks is an input: the tool publishes, per bracket, the \textbf{thresholds} of
+these states (extra manageable tracks, alone and cumulative, entry of the critical saturation, first task shed). The
+cost of one track comes from a probe (one more track or \SI{10}{\percent} of $n$); the value of a bracket alone is a
+linear extrapolation, the cumulative one (same overflow fraction for every bracket) is checked by one assembly. A
+stretched track costs its cost at $x$ times $x/T$ (optimistic: the wider prediction is not recomputed).
 
 \subsection{Overload: order of what gives way}
 \begin{center}
@@ -1223,7 +1258,7 @@ jammers, Faraday\\
 \code{core/compute.py} & data rates, receive beams, processing load, buffers, power and latency of the digital chain\\
 \code{core/repoint.py} & re-pointing in flight: navigation pointing error, its loss, migration between faces\\
 \code{core/allocation.py} & power allocation among the faces by priority tier\\
-\code{core/margin.py} & margin reuse: revisits shortened up to \code{auto\_alloc\_max}\\
+\code{core/margin.py} & margin reuse by reallocation mode, track saturation table\\
 \code{core/redundancy.py} & redundancy between sectors\\
 \code{core/cost\_estimate.py} & fast estimate for the interface\\
 \code{core/mission.py} & mission model, validation, JSON / CSV\\
@@ -1243,7 +1278,7 @@ The test bench has two families: frozen outputs of every test mission compared a
 (non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
 exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
 frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
-before any refreeze. At model V6.23.0 the bench has 230 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
+before any refreeze. At model V6.24.0 the bench has 241 tests (12 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
 
 %=====================================================================================================================
 \section{Roadmap and open points}\label{sec:roadmap}
@@ -1263,7 +1298,7 @@ calibration --- done (degraded modes and TRM failures deferred to the end of the
 coolant, cold plate, junction, ship heat rejection --- done; 4.3 scheduler: priorities, queues, synthetic timeline,
 common slots, latency --- done; 4.3 bis scan order inside a volume --- done; 4.4 compute and data --- done; 4.5 re-pointing in flight --- done\\
 5, mission and validation & 5.1 richer mission model --- done; 5.2 global optimiser (power allocation, couplings,
-global loop, margin reuse, flight tables) --- done; validation engine; Monte-Carlo simulation; operator
+global loop, margin reuse, flight tables, reallocation and saturation) --- done; validation engine; Monte-Carlo simulation; operator
 interface; verification and documentation; end of development\\
 \bottomrule
 \end{tabularx}
@@ -1396,7 +1431,9 @@ Navigation message & Attitude, rate and orbit of the ship sent to the radar comp
 Little's law & Mean number of items in progress = arrival rate $\times$ time each item stays; here, open listening
 windows.\\
 Dimensioning resource & Most loaded resource of a face (energy, time, heat, computing, beams, memory); the margin reuse
-brings it up to \code{auto\_alloc\_max}.\\
+brings it up to the ceiling \code{load\_ceiling}.\\
+Manageable, critical saturation & Tracks beyond the specification held without degrading the search; beyond,
+degradation then shedding of tasks by reallocation mode.\\
 \bottomrule
 \end{longtable}}
 
@@ -1616,7 +1653,7 @@ Junction temperature & Heating of the PA transistors by the pulses & $\le$\SI{63
 not limiting\\
 Ship heat rejection & Heat of the radar against the rejection reserved & e.g. \SI{1.0}{MW} of \SI{6}{MW} (test
 mission)\\
-Margin reuse & Revisits shortened up to \code{auto\_alloc\_max} of the dimensioning resource, plan kept & cumulative
+Margin reuse & Revisits (\code{PRIO\_SEARCH}) or track cadence (\code{PRIO\_TRACK}) up to the ceiling of the dimensioning resource, plan kept & cumulative
 range $+19$ to $+89\,\%$ on a test mission ($X = \SI{80}{\percent}$)\\
 Calculation settings & Approximations of the optimiser (rounded laws, few frequencies in a quiet spectrum, \dots) &
 $\le$\SI{0.003}{dB} on $\SNR_{\mathrm{req}}$; search energy $-5$ to $+9\,\%$ per sector\\

@@ -51,12 +51,15 @@ AT_COLUMNS = (
     ("pd_update", "Pd\nupd", "Pd of a track update (step 5.1; default tracking.pd_update)"),
     ("p_discrimination", "P\ndiscr", "Probability of telling the target from the class it must be told from "
                                       "(step 5.1; default tracking.p_discrimination)"),
+    ("rr_min_s", "RR\nmin (s)", "Shortest update period when the margin speeds up the tracks (Reallocation "
+                                "PRIO_TRACK, step 5.2 P7); 0 = the default floor tool.global_opt.rr_min_track_s"),
 )
-AT_DEFAULTS = {**md.BRACKET_DEFAULTS, "pd_update": tm.PD_UPDATE, "p_discrimination": tm.P_DISCRIMINATION}
+AT_DEFAULTS = {**md.BRACKET_DEFAULTS, "pd_update": tm.PD_UPDATE, "p_discrimination": tm.P_DISCRIMINATION,
+               "rr_min_s": 0.0}
 # step 5.1: mission settings (stored in the mission only when they differ from the parameter file)
 MISSION_DEFAULTS = {"confirm_p_min": trk.CONFIRM_P_MIN, "ship_rate_max_dps": repoint.RATE_MAX_DPS,
                     "ship_accel_max_dps2": repoint.ACCEL_MAX_DPS2,
-                    "auto_alloc_max": margin.AUTO_MAX_DEFAULT}          # step 5.2 (P4)
+                    "load_ceiling": margin.CEILING_DEFAULT}             # step 5.2 (P7)
 CONFIRM_TIPS = {
     "auto": "Chosen per sector by the calculation: lowest load of the most loaded face, P confirm >= 0.98",
     "KU1+7": "One Ku look on the S estimate, then a 7-beam Ku cluster if it fails",
@@ -204,45 +207,55 @@ class PrepTab(QWidget):
         self.sb_rate.setToolTip("Largest angular rate of the ship (re-pointing in flight: migration between faces)")
         self.sb_accel.setToolTip("Largest angular acceleration of the ship (navigation pointing error); the band loss "
                                  "stays sized by the parameter file, a harsher mission is flagged")
-        self.sb_auto = self._spin(0.0, 1.0, 0.05, MISSION_DEFAULTS["auto_alloc_max"])
-        self.sb_auto.setDecimals(2)
-        self.sb_auto.setSpecialValueText("off")
-        self.sb_auto.setToolTip("Allocation auto max: utilisation of the dimensioning resource up to which the free "
-                                "margin shortens the revisits (same factor for every volume, down to their RR min); "
-                                "0 = off. The verdict stays on the revisits asked")
+        self.cb_realloc = QComboBox()                                   # step 5.2 (P7)
+        self.cb_realloc.addItems(margin.MODES)
+        self.cb_realloc.setToolTip("Who gets the free margin, and who keeps its specification in saturation: NONE "
+                                   "(margin left free), PRIO_SEARCH (shorter search revisits, down to their RR min), "
+                                   "PRIO_TRACK (faster track cadence). The verdict stays on the revisits asked")
+        self.sb_ceiling = self._spin(0.05, 1.0, 0.05, MISSION_DEFAULTS["load_ceiling"])
+        self.sb_ceiling.setDecimals(2)
+        self.sb_ceiling.setToolTip("Load ceiling: utilisation of the binding resource never exceeded by the "
+                                   "reallocation; above it a safety reserve (alert when a face uses it)")
         self.chk_bt = QCheckBox("Ku burn-through allowed (P3')")
         self.chk_bt.setToolTip("Forbidden by default: the Ku look in a self-protection jammer's axis is only reported. "
                                "Allowed: budgeted (one look per revisit) and scheduled after the track updates")
         form.addRow("Confirmation P min", self.sb_p_min)
         form.addRow("Ship rate max (deg/s)", self.sb_rate)
         form.addRow("Ship acceleration max (deg/s2)", self.sb_accel)
-        form.addRow("Allocation auto max", self.sb_auto)
+        form.addRow("Reallocation", self.cb_realloc)
+        form.addRow("Load ceiling", self.sb_ceiling)
         form.addRow("", self.chk_bt)
-        for sb in (self.sb_p_min, self.sb_rate, self.sb_accel, self.sb_auto):
+        for sb in (self.sb_p_min, self.sb_rate, self.sb_accel, self.sb_ceiling):
             sb.valueChanged.connect(self._on_mission_settings_changed)
+        self.cb_realloc.currentTextChanged.connect(self._on_mission_settings_changed)
         self.chk_bt.toggled.connect(self._on_mission_settings_changed)
         return box
 
     def _load_mission_settings(self) -> None:
         g = self.mission["global"]
-        for sb in (self.sb_p_min, self.sb_rate, self.sb_accel, self.sb_auto, self.chk_bt):
+        for sb in (self.sb_p_min, self.sb_rate, self.sb_accel, self.sb_ceiling, self.cb_realloc, self.chk_bt):
             sb.blockSignals(True)
         self.sb_p_min.setValue(g.get("confirm_p_min", MISSION_DEFAULTS["confirm_p_min"]))
         self.sb_rate.setValue(g.get("ship_rate_max_dps", MISSION_DEFAULTS["ship_rate_max_dps"]))
         self.sb_accel.setValue(g.get("ship_accel_max_dps2", MISSION_DEFAULTS["ship_accel_max_dps2"]))
-        self.sb_auto.setValue(g.get("auto_alloc_max", MISSION_DEFAULTS["auto_alloc_max"]))
+        self.sb_ceiling.setValue(g.get("load_ceiling", MISSION_DEFAULTS["load_ceiling"]))
+        self.cb_realloc.setCurrentText(g.get("realloc_mode", margin.MODE_DEFAULT))
         self.chk_bt.setChecked(bool(g.get("burn_through_allowed", False)))
-        for sb in (self.sb_p_min, self.sb_rate, self.sb_accel, self.sb_auto, self.chk_bt):
+        for sb in (self.sb_p_min, self.sb_rate, self.sb_accel, self.sb_ceiling, self.cb_realloc, self.chk_bt):
             sb.blockSignals(False)
 
     def _on_mission_settings_changed(self, *_args) -> None:
         g = self.mission["global"]
         for key, sb in (("confirm_p_min", self.sb_p_min), ("ship_rate_max_dps", self.sb_rate),
-                        ("ship_accel_max_dps2", self.sb_accel), ("auto_alloc_max", self.sb_auto)):
+                        ("ship_accel_max_dps2", self.sb_accel), ("load_ceiling", self.sb_ceiling)):
             if abs(sb.value() - MISSION_DEFAULTS[key]) > 1e-12:
                 g[key] = sb.value()
             else:
                 g.pop(key, None)
+        if self.cb_realloc.currentText() != margin.MODE_DEFAULT:
+            g["realloc_mode"] = self.cb_realloc.currentText()
+        else:
+            g.pop("realloc_mode", None)
         if self.chk_bt.isChecked():
             g["burn_through_allowed"] = True
         else:
@@ -583,8 +596,8 @@ class PrepTab(QWidget):
         self.sb_rr_min = self._spin(0.0, 600, 0.1, 0.0)                 # step 5.2 (P4)
         self.sb_rr_min.setDecimals(3)
         self.sb_rr_min.setSpecialValueText("(none)")
-        self.sb_rr_min.setToolTip("Shortest revisit wanted when the mission's free margin is reused (allocation "
-                                  "auto max); (none) = only the resources bound it")
+        self.sb_rr_min.setToolTip("Shortest revisit wanted when the mission's free margin is reused (Reallocation "
+                                  "PRIO_SEARCH); (none) = the default floor tool.global_opt.rr_min_search_s")
         common.addRow("RR min (s)", self.sb_rr_min)
         for w in (self.sb_pd, self.sb_fa, self.sb_sec_pmin, self.sb_rr_min):
             w.valueChanged.connect(self._on_field_changed)
@@ -916,8 +929,10 @@ class PrepTab(QWidget):
             b[field] = float(item.text().replace(",", "."))
         except ValueError:
             pass   # not a number: the cell goes back to the stored value
-        if field in ("pd_update", "p_discrimination") and b.get(field) == AT_DEFAULTS[field]:
+        if field in ("pd_update", "p_discrimination", "rr_min_s") and b.get(field) == AT_DEFAULTS[field]:
             b.pop(field)          # step 5.1: an optional bracket setting at the file's value is not stored
+        elif field == "rr_min_s" and b.get(field, 0.0) < 0:
+            b.pop(field)
         self.table_at.blockSignals(True)
         item.setText(f"{b.get(field, AT_DEFAULTS[field]):g}")
         self.table_at.blockSignals(False)

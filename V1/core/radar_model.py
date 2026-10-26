@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.23.0
+# Radar Performance Model - V6.24.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,20 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.23.0 -> V6.24.0 (roadmap step 5.2, pass P7: reallocation and saturation, user rule of 26 October 2026)
+#   - Mission keys realloc_mode (NONE default, PRIO_SEARCH, PRIO_TRACK) and load_ceiling (default 0.80, D; above it a
+#     safety reserve, alert when a face uses it) replace auto_alloc_max (refused with a message).
+#   - core/margin.py: one filling for the search (PRIO_SEARCH) and the track cadence (PRIO_TRACK, volumes at their
+#     revisit asked), default floors rr_min_search_s 1 s / rr_min_track_s 0.1 s (rr_min_s per volume or AT bracket
+#     overrides), factors cut back by bisection when a resource is far from linear (Ku beams); the sped-up part of a
+#     track bracket is tier P5 of the power allocation.
+#   - Saturation table (out["saturation"]): per AT bracket the extra tracks of the manageable saturation (alone: linear
+#     estimate from one probe; cumulative: same overflow fraction for every bracket, checked by one assembly), the track
+#     floor t_max (loss per update at tracking.p_loss_max 1 %, D, or latency_max_s), the search floor (rr_max_s or the
+#     revisit where the range falls to range_min_km, PRIO_TRACK), the entry of the critical saturation per mode (Ku
+#     levers: burn-through dropped, confirmations to S2), the first task shed. Ku confirmation alternatives carry their
+#     per-face loads.
 #
 # Changes V6.22.0 -> V6.23.0 (roadmap step 5.2: global optimiser, validated by the user on 25-26 October 2026)
 #   - core/allocation.py: the ship's 8 MW shared by the faces pro rata of their needs, by priority tier on a shortfall
@@ -573,7 +587,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.23.0"
+MODEL_VERSION = "6.24.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -3195,6 +3209,15 @@ def selftest() -> int:
     check("Synthetic Ku TRACK waveform not playable at 80 deg", playable(14.0, 80.0, [ku_trk]) == [])
     rk = solve(ku_trk, 14.0, 0.0, TARGETS["KKV"])
     check("Synthetic Ku TRACK solve returns a finite positive range", 0 < rk.range_km < 1e6, f"({rk.range_km:.0f} km)")
+    try:                                                                       # step 5.2 (P7)
+        from . import margin
+    except ImportError:            # run as a script: import the package (core.margin uses relative imports)
+        import os
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from core import margin
+    check("Reallocation defaults: mode in NONE / PRIO_SEARCH / PRIO_TRACK, 0 < load ceiling <= 1, floors > 0",
+          margin.MODE_DEFAULT in margin.MODES and 0.0 < margin.CEILING_DEFAULT <= 1.0
+          and margin.RR_MIN_SEARCH_S > 0 and margin.RR_MIN_TRACK_S > 0 and 0.0 < margin.P_LOSS_MAX < 1.0)
 
     print(f"\n{'ALL TESTS PASSED' if fails == 0 else str(fails) + ' TEST(S) FAILED'}")
     return 1 if fails else 0

@@ -2682,8 +2682,8 @@ def test_margin_fill_one_factor_until_a_face_or_rr_min():
 
 def test_margin_reuse_corrects_a_non_linear_resource(monkeypatch):
     """R4: a resource that grows faster than the revisit (here as g^2) is corrected by its secant and the filling
-    redone: the real utilisation ends within the tolerance of X; X = 0 -> no reuse."""
-    mission = {"global": {"auto_alloc_max": 0.6},
+    redone: the real utilisation ends within the tolerance of X; realloc_mode NONE or PRIO_TRACK -> no search reuse."""
+    mission = {"global": {"realloc_mode": "PRIO_SEARCH", "load_ceiling": 0.6},
                "sectors": [{"id": "A", "rr_target_s": 10.0, "fa_per_rr": 5.0}]}
     res = {"sectors": [{"id": "A", "status": "OK", "rr_target_s": 10.0, "fa_per_rr": 5.0,
                         "wf": {"pfa": 1e-6}, "wf_set": [{"pfa": 1e-6}], "wf_by_bin": [{"wf": {"pfa": 1e-6}}],
@@ -2710,8 +2710,9 @@ def test_margin_reuse_corrects_a_non_linear_resource(monkeypatch):
         assert sec["fa_rate_per_s"] == pytest.approx(0.5) and r["wf"]["pfa"] == pytest.approx(1e-6 / g)
     assert r["faces"]["0"]["energy_fraction"] == pytest.approx(0.1 * g) and r["_reuse_g"] == g
     assert res["sectors"][0]["rr_target_s"] == 10.0                  # the nominal result is untouched
-    mission["global"]["auto_alloc_max"] = 0.0
-    assert margin_.reuse(mission, res, assemble) is None
+    for mode in ("NONE", "PRIO_TRACK"):
+        mission["global"]["realloc_mode"] = mode
+        assert margin_.reuse(mission, res, assemble) is None
 
 
 def test_margin_reuse_is_the_last_power_tier():
@@ -2730,10 +2731,267 @@ def test_margin_reuse_is_the_last_power_tier():
 
 def test_margin_reuse_mission_keys_validated():
     m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_example.json"))
-    m["global"]["auto_alloc_max"] = 1.5
+    m["global"].update({"auto_alloc_max": 0.8, "realloc_mode": "PRIO_ALL", "load_ceiling": 1.5})
     m["sectors"][0]["rr_min_s"] = m["sectors"][0]["rr_target_s"] * 2
     errs = md.validate_mission(m)
-    assert any("auto_alloc_max" in e for e in errs) and any("rr_min_s" in e for e in errs)
+    assert any("auto_alloc_max was replaced" in e for e in errs) and any("rr_min_s" in e for e in errs)
+    assert any("realloc_mode" in e and "PRIO_ALL" in e for e in errs) and any("load_ceiling" in e for e in errs)
+    m["global"].pop("auto_alloc_max")
+    m["global"].update({"realloc_mode": "PRIO_TRACK", "load_ceiling": 1.0})
+    m["sectors"][0].pop("rr_min_s")
+    assert not [e for e in md.validate_mission(m) if "realloc" in e or "ceiling" in e or "auto_alloc" in e]
+
+
+def test_load_ceiling_alert_between_ceiling_and_one(monkeypatch):
+    """Step 5.2 P7 (V4 c): a face whose binding resource lies above the load ceiling and within 1 is flagged (safety
+    reserve in use); above 1 it is the verdict's fault, not this alert."""
+    faces = {k: {"S time": 0.5} for k in range(4)}
+    faces[1]["S time"], faces[2]["S time"] = 0.9, 1.2
+    monkeypatch.setattr(margin_, "utilisation", lambda out: (0.1, faces))
+    flags = margin_.ceiling_flags({"global": {}}, {})
+    assert margin_.load_ceiling({"global": {}}) == margin_.CEILING_DEFAULT
+    assert len(flags) == 1 and flags[0].startswith("face F2: S time at 90 %")
+    assert margin_.ceiling_flags({"global": {"load_ceiling": 0.95}}, {}) == []
+
+
+def _track_case(rr_min=None):
+    """A mission with one sector and two track brackets on face F1, and an assembly whose Ku time goes as the update
+    rate of the brackets (0.05 per bracket at its period asked)."""
+    b0 = {"r_min_km": 0, "r_max_km": 100, "n_targets": 4, "rr_s": 2.0}
+    b1 = {"r_min_km": 100, "r_max_km": 200, "n_targets": 2, "rr_s": 4.0}
+    if rr_min is not None:
+        b1["rr_min_s"] = rr_min
+    mission = {"global": {"realloc_mode": "PRIO_TRACK", "load_ceiling": 0.6},
+               "sectors": [{"id": "A", "rr_target_s": 10.0, "tracking": [b0, b1]}]}
+    at = [{"faces": {"0": {"energy_fraction": 0.01, "ku_time_fraction": 0.05}}, "tracks_face": [4, 0, 0, 0]},
+          {"faces": {"0": {"energy_fraction": 0.01, "ku_time_fraction": 0.05}}, "tracks_face": [2, 0, 0, 0]}]
+    rr0 = {0: 2.0, 1: 4.0}
+
+    def assemble(mis, results):
+        return {"sectors": results, "warnings": [], "_mis": mis,
+                "tracking": {"sectors": [{"id": "A", "at": at}]}}
+    out = assemble(mission, [{"id": "A", "status": "OK"}])
+
+    def util(o):
+        brs = o["_mis"]["sectors"][0]["tracking"]
+        faces = {k: {"Ku time": 0.0} for k in range(4)}
+        faces[0]["Ku time"] = 0.1 + sum(0.05 * rr0[i] / float(b["rr_s"]) for i, b in enumerate(brs))
+        return 0.0, faces
+    return mission, out, assemble, util
+
+
+def test_prio_track_speeds_up_the_track_cadence_only(monkeypatch):
+    """Step 5.2 P7: PRIO_TRACK -> one factor h on every track bracket up to the load ceiling (0.1 + 0.1 h = 0.6,
+    h = 5), the search untouched; a bracket stops at its rr_min_s; NONE / PRIO_SEARCH -> no track reuse."""
+    mission, out, assemble, util = _track_case()
+    monkeypatch.setattr(margin_, "utilisation", util)
+    mr = margin_.reuse_tracks(mission, out, assemble)
+    br = mr["brackets"]
+    assert br["A/0"]["h"] == pytest.approx(5.0, rel=1e-6) and br["A/1"]["h"] == pytest.approx(5.0, rel=1e-6)
+    assert br["A/0"]["rr_real_s"] == pytest.approx(0.4) and br["A/0"]["limited_by"] == "F1 Ku time"
+    assert br["A/0"]["rr_min_s"] == margin_.RR_MIN_TRACK_S
+    mission, out, assemble, util = _track_case(rr_min=2.0)          # bracket 1 stops at h = 2, bracket 0 goes on
+    mr = margin_.reuse_tracks(mission, out, assemble)
+    br = mr["brackets"]
+    assert br["A/1"]["h"] == pytest.approx(2.0) and br["A/1"]["limited_by"] == "rr_min_s"
+    assert 0.1 + 0.05 * br["A/0"]["h"] + 0.05 * 2.0 == pytest.approx(0.6, abs=margin_.TOL)
+    for mode in ("NONE", "PRIO_SEARCH"):
+        mission["global"]["realloc_mode"] = mode
+        assert margin_.reuse_tracks(mission, out, assemble) is None
+
+
+def test_reuse_default_floors(monkeypatch):
+    """Step 5.2 P7 (user): without rr_min_s the reuse stops at rr_min_track_s (0.1 s) for the tracks and
+    rr_min_search_s (1 s) for the search; a period already at or below the floor is not sped up."""
+    assert margin_.RR_MIN_TRACK_S == 0.1 and margin_.RR_MIN_SEARCH_S == 1.0
+    mission, out, assemble, util = _track_case()
+    mission["global"]["load_ceiling"] = 1.0
+    monkeypatch.setattr(margin_, "utilisation", lambda o: (0.0, {k: {"Ku time": 0.0} for k in range(4)}))
+    br = margin_.reuse_tracks(mission, out, assemble)["brackets"]
+    assert br["A/0"]["rr_real_s"] == pytest.approx(0.1) and br["A/1"]["rr_real_s"] == pytest.approx(0.1)
+    assert {b["limited_by"] for b in br.values()} == {"rr_min_s"}
+    mission["sectors"][0]["tracking"][0]["rr_s"] = 0.05
+    assert margin_.reuse_tracks(mission, out, assemble)["brackets"]["A/0"]["h"] == 1.0
+
+
+def test_reuse_bisection_on_a_step_resource(monkeypatch):
+    """Step 5.2 P7: a resource that jumps (a step, as the simultaneous Ku beams) defeats the secant: the factors are cut
+    back together by bisection and the result stays within the load ceiling."""
+    mission, out, assemble, util = _track_case()
+
+    def step_util(o):
+        brs = o["_mis"]["sectors"][0]["tracking"]
+        h = 2.0 / float(brs[0]["rr_s"])
+        faces = {k: {"Ku beams": 0.0} for k in range(4)}
+        faces[0]["Ku beams"] = 0.2 if h < 3.0 else 0.9               # flat, then a jump above the ceiling
+        return 0.0, faces
+    monkeypatch.setattr(margin_, "utilisation", step_util)
+    mr = margin_.reuse_tracks(mission, out, assemble)
+    h = mr["brackets"]["A/0"]["h"]
+    assert 1.0 <= h < 3.0 and "bisection" in mr["brackets"]["A/0"]["limited_by"]
+    assert any("cut back by bisection" in f for f in mr["flags"])
+
+
+def test_track_reuse_is_the_last_power_tier():
+    """Step 5.2 P7: the energy of a sped-up track bracket beyond its updates at the period asked is tier P5."""
+    res = {"global": {"face_elec_avail_kW": 1000.0, "face_elec_cap_mw": None},
+           "compute": {"faces": {str(f): {"non_tx_kW_actual": 0.0} for f in range(4)}},
+           "sectors": [],
+           "tracking": {"faces": {str(f): {"pumps_kW": 0.0} for f in range(4)},
+                        "sectors": [{"id": "A", "at": [{"n_targets": 4,
+                                                        "faces": {"0": {"energy_fraction": 0.5}}}]}]}}
+    mission = {"sectors": [{"id": "A", "target_type": "KKV",
+                            "tracking": [{"rr_s": 0.5, "_reuse_h": 4.0, "_e_nominal": [0.2, 0, 0, 0]}]}]}
+    its = {it["label"]: it for it in alloc_.items(mission, res)}
+    k = 1e6 / rm.CHAIN_EFF
+    assert its["tracks A/0"]["w"][0] == pytest.approx(0.2 * k) and its["tracks A/0"]["tier"] == (3, 0)
+    assert its["margin reuse A/0"]["w"][0] == pytest.approx(0.3 * k) and its["margin reuse A/0"]["tier"] == (5, 0)
+
+
+def test_saturation_table_extra_tracks_alone(monkeypatch):
+    """Step 5.2 P7: manageable saturation of a bracket = room up to the load ceiling / cost of one more track, the
+    smallest over the resources; the cost comes from one probe of max(1, 10 % n) more tracks per bracket."""
+    mission, out, assemble, _util = _track_case()
+    mission["global"]["load_ceiling"] = 0.8
+    cost = {0: {"Ku time": 0.01, "energy": 0.002}, 1: {"Ku time": 0.002, "energy": 0.02}}   # per track, face F1
+
+    def util(o, beams="beams_peak"):
+        brs = o["_mis"]["sectors"][0]["tracking"]
+        faces = {k: {"Ku time": 0.0, "energy": 0.0} for k in range(4)}
+        for i, b in enumerate(brs):
+            for name, c in cost[i].items():
+                faces[0][name] += c * float(b["n_targets"])
+        return 0.0, faces
+
+    def assemble2(mis, results):
+        o = assemble(mis, results)
+        brs = mis["sectors"][0]["tracking"]
+        o["tracking"]["sectors"][0]["at"] = [
+            {"faces": {"0": {"energy_fraction": cost[i]["energy"] * float(b["n_targets"]),
+                             "ku_time_fraction": cost[i]["Ku time"] * float(b["n_targets"])}},
+             "tracks_face": [float(b["n_targets"]), 0, 0, 0]} for i, b in enumerate(brs)]
+        return o
+    monkeypatch.setattr(margin_, "utilisation", util)
+    monkeypatch.setattr(margin_, "critique", lambda *a, **k: None)     # tested on its own
+    sat = margin_.saturation(mission, assemble2(mission, out["sectors"]), assemble2)
+    assert sat["probe"] == {"A/0": 1.0, "A/1": 1.0}
+    u_t, u_e = 0.01 * 4 + 0.002 * 2, 0.002 * 4 + 0.02 * 2                # nominal Ku time 0.044, energy 0.048
+    b0, b1 = sat["brackets"]["A/0"], sat["brackets"]["A/1"]
+    assert b0["binding_alone"] == "F1 Ku time" and b0["extra_alone"] == math.floor((0.8 - u_t) / 0.01 + 1e-9)
+    assert b1["binding_alone"] == "F1 energy" and b1["extra_alone"] == math.floor((0.8 - u_e) / 0.02 + 1e-9)
+    assert b0["cost_per_track"]["F1 Ku time"] == pytest.approx(0.01)
+    cum = sat["cumulative"]                       # same fraction p of n: Ku time 0.044 (1 + p) <= 0.8, energy 0.048 ...
+    p = min((0.8 - u_t) / u_t, (0.8 - u_e) / u_e)
+    assert cum["p"] == pytest.approx(p) and cum["verified"] and not cum["bisected"]
+    a0, a1 = cum["extra"]["A/0"], cum["extra"]["A/1"]
+    assert a0 >= math.floor(p * 4) and a1 >= math.floor(p * 2)
+    assert 0.01 * (4 + a0) + 0.002 * (2 + a1) <= 0.8 + 1e-9 and 0.002 * (4 + a0) + 0.02 * (2 + a1) <= 0.8 + 1e-9
+
+    def step(o, beams="beams_peak"):                  # a step above the ceiling beyond 20 tracks in bracket 0
+        ship, faces = util(o, beams)
+        if float(o["_mis"]["sectors"][0]["tracking"][0]["n_targets"]) > 20:
+            faces[0]["memory"] = 0.95
+        else:
+            faces[0]["memory"] = 0.1
+        return ship, faces
+    monkeypatch.setattr(margin_, "utilisation", step)
+    cum = margin_.saturation(mission, assemble2(mission, out["sectors"]), assemble2)["cumulative"]
+    assert cum["bisected"] and 4 + cum["extra"]["A/0"] <= 20 and "(bisection)" in cum["binding"]
+    monkeypatch.setattr(margin_, "utilisation", util)
+    mission["global"]["load_ceiling"] = 0.04                            # below the nominal load: nothing manageable
+    sat = margin_.saturation(mission, assemble2(mission, out["sectors"]), assemble2)
+    assert sat["brackets"]["A/0"]["extra_alone"] == 0 and any("no manageable saturation" in f for f in sat["flags"])
+    assert margin_.saturation({"global": {}, "sectors": []}, {"tracking": {"sectors": []}}, assemble2) is None
+
+
+def test_track_floor_from_the_loss_chain(monkeypatch):
+    """Step 5.2 P7 (D1): t_max = the period where the loss per update crosses p_loss_max (log-log), the factors above
+    sat_stretch_stage only for a bracket still within it, capped by latency_max_s."""
+    calls = []
+
+    def budget(mission, out):
+        brs = mission["sectors"][0]["tracking"]
+        calls.append([b["rr_s"] for b in brs])
+        loss = lambda T: 1e-3 * (T / 2.0) ** 2              # 1 % at T = 2 sqrt(10) = 6.32 s
+        return {"sectors": [{"id": "A", "at": [{"p_loss_per_update": loss(b["rr_s"]), "rr_tenable": True}
+                                               for b in brs]}]}
+    monkeypatch.setattr(trk, "budget", budget)
+    sec = {"id": "A", "tracking": [{"r_min_km": 0, "r_max_km": 100, "n_targets": 4, "rr_s": 2.0},
+                                   {"r_min_km": 100, "r_max_km": 200, "n_targets": 2, "rr_s": 0.5}]}
+    mission = {"global": {}, "sectors": [sec]}
+    items = {"A/0": (sec, sec["tracking"][0], {}), "A/1": (sec, sec["tracking"][1], {})}
+    rep = {"flags": []}
+    fl = margin_.track_floors(mission, {}, items, rep)
+    assert fl["A/0"]["t_max_s"] == pytest.approx(2.0 * math.sqrt(10.0), rel=1e-9)
+    assert fl["A/1"]["t_max_s"] == pytest.approx(2.0 * math.sqrt(10.0), rel=1e-9)   # found in the second stage
+    assert len(calls) == 2 and calls[1] == [0.5 * 8.0, 0.5 * 16.0]                   # only bracket A/1 (x8, x16)
+    sec["latency_max_s"] = 3.0
+    f0 = margin_.track_floors(mission, {}, items, rep)["A/0"]
+    assert f0["t_max_s"] == 3.0 and f0["limited_by"] == "latency_max_s"
+
+
+def test_critique_threshold_per_mode(monkeypatch):
+    """Step 5.2 P7 (D3, D4): PRIO_SEARCH / NONE stretch every track (n too) to t_max with the search kept: N x cost x
+    rr / t_max <= room + n x cost; PRIO_TRACK adds the room the P4_n search gives back at its rr_max first; the first
+    task shed follows the mode."""
+    sec = {"id": "A", "rr_target_s": 10.0, "search_priority": 2,
+           "tracking": [{"r_min_km": 0, "r_max_km": 100, "n_targets": 10, "rr_s": 1.0}]}
+    mission = {"global": {"realloc_mode": "NONE"}, "sectors": [sec, {"id": "B", "rr_target_s": 5.0}]}
+    items = {"A/0": (sec, sec["tracking"][0], {})}
+    cost = {"F1 energy": {"A/0": 0.01}}
+    room = {"F1 energy": 0.5}                                           # 50 more tracks at 1 s
+    monkeypatch.setattr(margin_, "track_floors", lambda *a: {"A/0": {"t_max_s": 4.0}})
+    monkeypatch.setattr(margin_, "utilisation",
+                        lambda o, beams="beams_peak": (0.0, {k: {"energy": o.get("_u", 0.3) if k == 0 else 0.0}
+                                                             for k in range(4)}))
+    assemble = lambda mis, res: {"sectors": res, "_u": 0.3}
+    out = {"sectors": [{"id": "A", "status": "OK", "rr_target_s": 10.0, "faces": {}},
+                       {"id": "B", "status": "OK", "rr_target_s": 5.0, "faces": {}}]}
+    rep = {"flags": []}
+    c = margin_.critique(mission, out, items, cost, room, 0.8, assemble, None, rep)
+    # N x 0.01 x 1/4 <= 0.5 + 0.1 -> N = 240, extra 230
+    assert c["brackets"]["A/0"]["extra_critique"] == 230 and c["mode"] == "NONE"
+    assert c["cumulative"]["p"] == pytest.approx(23.0) and c["cumulative"]["verified"]
+    assert c["first_shed"].startswith("tracks of bracket A/0")
+    mission["global"]["realloc_mode"] = "PRIO_TRACK"
+    monkeypatch.setattr(margin_, "search_floors", lambda *a: {"A": {"rr_max_s": 40.0}, "B": {"rr_max_s": 20.0}})
+    assemble2 = lambda mis, res: {"sectors": res, "_u": 0.3 if all(r.get("_reuse_g", 1.0) == 1.0 for r in res) else 0.1}
+    c = margin_.critique(mission, out, items, cost, room, 0.8, assemble2, None, rep)
+    # the search gives back 0.2: N x 0.0025 <= 0.5 + 0.2 + 0.1 -> N = 320
+    assert c["brackets"]["A/0"]["extra_critique"] == 310
+    assert c["first_shed"] == "search volume A (P4_2), whole volume"
+
+
+def test_ku_levers_give_back_burn_through_and_confirmations():
+    """Step 5.2 P7 (Q16): P3' Ku time dropped, Ku confirmations moved to S2 (Ku freed, S2 S time taken)."""
+    out = {"tracking": {"sectors": [{
+        "id": "A", "confirm_mode": "KU1+7",
+        "confirmation": {"faces": {"0": {"ku_time_fraction": 0.05, "s_time_fraction": 0.0}}},
+        "alternatives": {"S2": {"admissible": True, "faces": {"0": {"ku_time_fraction": 0.01, "s_time_fraction": 0.03}}}},
+        "ku_burn_through": {"faces": {"0": {"ku_time_fraction": 0.02}}}}]}}
+    lev = margin_._ku_levers(out)
+    assert lev["F1 Ku time"] == pytest.approx(0.02 + 0.05 - 0.01) and lev["F1 S time"] == pytest.approx(-0.03)
+
+
+def test_search_rr_max_validated():
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_example.json"))
+    m["sectors"][0]["rr_max_s"] = m["sectors"][0]["rr_target_s"] / 2
+    assert any("rr_max_s" in e and "below rr_target_s" in e for e in md.validate_mission(m))
+    m["sectors"][0]["rr_max_s"] = m["sectors"][0]["rr_target_s"] * 4
+    assert not [e for e in md.validate_mission(m) if "rr_max_s" in e]
+    assert margin_._interp_cross([1.0, 2.0, 4.0], [0.0, 0.5, 2.0], 1.0) == pytest.approx(2.0 * 2 ** 0.5)
+    assert margin_._interp_cross([1.0, 2.0], [0.1, 0.2], 1.0) is None
+
+
+def test_track_rr_min_validated():
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_synthetic_mix.json"))
+    sec = next(s for s in m["sectors"] if s.get("tracking"))
+    sec["tracking"][0]["rr_min_s"] = sec["tracking"][0]["rr_s"] * 2
+    assert any("rr_min_s" in e and "update period" in e for e in md.validate_mission(m))
+    sec["tracking"][0]["rr_min_s"] = -1
+    assert any("rr_min_s must be > 0" in e for e in md.validate_mission(m))
+    sec["tracking"][0]["rr_min_s"] = sec["tracking"][0]["rr_s"] / 2
+    assert not [e for e in md.validate_mission(m) if "rr_min_s" in e]
 
 
 # ----------------------------------------------------------------------------- flight tables (step 5.2, P5)

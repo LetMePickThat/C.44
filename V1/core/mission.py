@@ -39,8 +39,12 @@ file); per sector "confirm_p_min", "pd" (cumulative Pd of the search at range_km
 tolerated per second, instead of fa_per_rr); per AT bracket "pd_update" and "p_discrimination"; global
 "burn_through_allowed" (default false: the Ku burn-through look in a self-protection jammer's axis is only reported;
 true: budgeted, one look per revisit, and scheduled at P3').
-Margin reuse (step 5.2, P4, core/margin.py): global "auto_alloc_max" (utilisation in [0, 1] up to which the free
-resources shorten the revisits; 0 = off, the default), per sector "rr_min_s" (shortest revisit wanted, optional).
+Margin reuse (step 5.2, P4, core/margin.py), per sector "rr_min_s" (shortest revisit wanted, optional; default
+tool.global_opt.rr_min_search_s 1 s, AT brackets rr_min_track_s 0.1 s, step 5.2 P7). Step 5.2 P7:
+global "realloc_mode" (NONE, the default: the margin stays free; PRIO_SEARCH: it shortens the search revisits;
+PRIO_TRACK: it speeds up the track cadence, down to the optional "rr_min_s" of each AT bracket) and "load_ceiling"
+(utilisation in ]0, 1] of the binding resource, default 0.80; above it a safety reserve, never used); they replace
+"auto_alloc_max", refused with a message.
 
 Validation messages are operator-facing.
 """
@@ -146,9 +150,16 @@ def validate_global(g: dict) -> List[str]:
     elif max(caps) > FACE_FEEDER_MAX_MW:
         errs.append(f"face_elec_mw cap ({max(caps)} MW) exceeds the face feeder ({FACE_FEEDER_MAX_MW:g} MW)")
     errs.extend(_probabilities(g, ("confirm_p_min",), "mission"))                               # step 5.1
-    am = g.get("auto_alloc_max")                                                                # step 5.2 (P4)
-    if am is not None and (not isinstance(am, (int, float)) or isinstance(am, bool) or not 0.0 <= am <= 1.0):
-        errs.append(f"mission: auto_alloc_max ({am}) must lie in [0, 1] (0 = no margin reuse)")
+    from .margin import MODES                                                                   # step 5.2 (P7)
+    if "auto_alloc_max" in g:
+        errs.append("mission: auto_alloc_max was replaced by realloc_mode (NONE, PRIO_SEARCH, PRIO_TRACK) and "
+                    "load_ceiling (step 5.2 P7): margin reuse on the search = realloc_mode PRIO_SEARCH with "
+                    "load_ceiling = the old value")
+    if g.get("realloc_mode") is not None and g["realloc_mode"] not in MODES:
+        errs.append(f"mission: realloc_mode ({g['realloc_mode']}) must be one of {', '.join(MODES)}")
+    lc = g.get("load_ceiling")
+    if lc is not None and (not isinstance(lc, (int, float)) or isinstance(lc, bool) or not 0.0 < lc <= 1.0):
+        errs.append(f"mission: load_ceiling ({lc}) must lie in ]0, 1]")
     if g.get("burn_through_allowed") is not None and not isinstance(g["burn_through_allowed"], bool):
         errs.append("mission: burn_through_allowed must be true or false")
     for k in ("ship_rate_max_dps", "ship_accel_max_dps2"):
@@ -312,6 +323,11 @@ def validate_environment(sec: dict, tag: str) -> List[str]:
         if sec.get(k) is not None and (not isinstance(sec[k], (int, float)) or sec[k] < 0):
             errs.append(f"{tag}: {k} must be a number >= 0")
     errs.extend(_probabilities(sec, ("confirm_p_min", "pd"), tag))                              # step 5.1
+    rmax = sec.get("rr_max_s")                                                                  # step 5.2 (P7)
+    if rmax is not None and (not isinstance(rmax, (int, float)) or isinstance(rmax, bool) or rmax <= 0):
+        errs.append(f"{tag}: rr_max_s must be > 0 (longest revisit before the saturation becomes critical)")
+    elif rmax is not None and rmax < sec["rr_target_s"]:
+        errs.append(f"{tag}: rr_max_s ({rmax:g} s) below rr_target_s ({sec['rr_target_s']:g} s)")
     rmin = sec.get("rr_min_s")                                                                  # step 5.2 (P4)
     if rmin is not None:
         if not isinstance(rmin, (int, float)) or isinstance(rmin, bool) or rmin <= 0:
@@ -366,6 +382,11 @@ def validate_tracking(sec: dict, tag: str) -> List[str]:
             if b[f] <= 0:
                 errs.append(f"{bt}: {label} ({f}) must be > 0")
         errs.extend(_probabilities(b, ("pd_update", "p_discrimination"), bt))                  # step 5.1
+        rmin = b.get("rr_min_s")                                                                # step 5.2 (P7)
+        if rmin is not None and (not isinstance(rmin, (int, float)) or isinstance(rmin, bool) or rmin <= 0):
+            errs.append(f"{bt}: rr_min_s must be > 0 (shortest update period of the margin reuse, PRIO_TRACK)")
+        elif rmin is not None and rmin > b["rr_s"]:
+            errs.append(f"{bt}: rr_min_s ({rmin:g} s) above the update period rr_s ({b['rr_s']:g} s)")
     spans.sort()
     for (a0, a1, ia), (b0, b1, ib) in zip(spans, spans[1:]):
         if b0 < a1:
@@ -417,6 +438,7 @@ _CSV_FIELDS = [
     "confirm_mode", "new_targets_per_rr", "tracking", "frame", "limb_alt_km", *frames.TWO_DIR_KEYS,
     *frames.TRACK_KEYS, "maneuver_tau_s", "aspect_offset_deg", "discriminate_against", "jammer_deceptive",
     "self_protection", "search_priority", "latency_max_s", "confirm_p_min", "pd", "fa_rate_per_s", "rr_min_s",
+    "rr_max_s",
 ]
 
 

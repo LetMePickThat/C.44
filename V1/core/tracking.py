@@ -1395,6 +1395,9 @@ def budget(mission: dict, res: dict) -> dict:
             alts[md_] = {"admissible": m_["admissible"], "why_not": m_["why_not"]}
             if "e" in m_:
                 alts[md_]["mission_max_load"] = round(_max_load(_face_loads(base, sbs, {**choice, sid: (f, md_)})), 4)
+                alts[md_]["faces"] = {str(k): {"energy_fraction": float(m_["e"][k]),             # step 5.2 (P7)
+                                               "s_time_fraction": float(m_["ts"][k]),
+                                               "ku_time_fraction": float(m_["tk"][k])} for k in sb["faces"]}
         want = secs[sid].get("confirm_mode")
         if mode is None:
             reason = "no admissible confirmation mode"

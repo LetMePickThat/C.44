@@ -658,6 +658,7 @@ p_max             = { value = 0.0, unit = "-", status = "V", source = "Singer: p
 p0                = { value = 0.0, unit = "-", status = "V", source = "Singer: probability of no acceleration (A4)", date = "2026-10-25" }
 process_noise_floor_mps2 = { value = 0.01, unit = "m/s2", status = "V", source = "minimum random acceleration of every target, ill-modelled relative dynamics (A6); time constant tool.tracking.floor_tau_s for a non-manoeuvring class", date = "2026-10-25" }
 pd_update         = { value = 0.9, unit = "-", status = "V", source = "Pd of one track update look (B5); mission setting later", date = "2026-10-25" }
+p_loss_max        = { value = 0.01, unit = "-", status = "D", source = "saturation floor of a track: longest update period where the loss probability per update stays at or below this (step 5.2 P7, C1, user 26 Oct 2026)", date = "2026-10-26" }
 n_miss_lost       = { value = 3, unit = "-", status = "V", source = "track lost after this many consecutive missed updates (B7, Markov chain)", date = "2026-10-25" }
 vel_bank_sigmas   = { value = 3.0, unit = "sigma", status = "V", source = "velocity bank of a track look over +/- this x the predicted radial-velocity sigma (B3)", date = "2026-10-25" }
 accel_bank_sigmas = { value = 3.0, unit = "sigma", status = "V", source = "acceleration bank of a track look over +/- this x the predicted acceleration sigma (E1)", date = "2026-10-25" }
@@ -746,8 +747,16 @@ max_workers          = 0        # 0 = automatic (half the logical CPUs)
 [tool.global_opt]             # step 5.2: global optimiser (fixed point over the search plans and the budgets)
 max_iterations = 3              # passes at most (the first is the independent plan of every sector; user, step 5.2)
 alternatives   = 6              # plans kept per sector for the mission-level choice (same coverage and range)
-auto_alloc_max = 0.0            # P4: utilisation up to which the free margin shortens the revisits (mission key, 0 = off; user, 26 Oct 2026)
+realloc_mode   = "NONE"         # P7: mission default of who gets the margin and who keeps its spec in saturation: NONE | PRIO_SEARCH | PRIO_TRACK (user, 26 Oct 2026)
+load_ceiling   = 0.80           # P7: mission default utilisation ceiling of the binding resource, above = safety reserve never used (D, recal at 5.4; replaces auto_alloc_max)
 reuse_corrections = 2           # P4: re-fillings after the check of the real revisits (non-linear resources)
+reuse_bisections  = 8           # P7: bisection steps cutting the factors back when the corrections fail (step-like resource, e.g. Ku beams)
+rr_min_search_s   = 1.0         # P7: default shortest search revisit of the margin reuse when the volume sets no rr_min_s (user, 26 Oct 2026)
+sat_stretch_track = [1.0, 2.0, 4.0, 8.0, 16.0]   # P7: track periods rr_s x these probed for the loss floor t_max
+sat_stretch_stage = 4.0         # P7: the factors up to this in a first tracking budget, the others only for the brackets not yet above p_loss_max (untenable periods are slow)
+sat_stretch_search = [2.0, 4.0, 8.0, 16.0]       # P7: search revisits y x these probed for the derived rr_max (range at range_min_km)
+sat_probe_frac    = 0.1         # P7: saturation table, probe of max(1, frac x n) more tracks per bracket (linear cost per track)
+rr_min_track_s    = 0.1         # P7: default shortest track update period of the margin reuse when the bracket sets no rr_min_s (user, 26 Oct 2026)
 
 [tool.scheduler]              # step 4.3
 horizon_max_s = 60.0            # B1: synthetic timeline over the longest revisit of a face, at most this

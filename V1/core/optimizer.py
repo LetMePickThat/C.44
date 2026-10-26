@@ -2333,13 +2333,27 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
         out = _assemble(mission, sectors, results, cancelled, *args)
     out["global_opt"] = {"passes": 1 + len(history), "max_passes": GOPT_MAX_ITER, "history": history,
                          "converged": len(history) < GOPT_MAX_ITER - 1}
-    # step 5.2 (P4): the margin the mission leaves is reused to shorten the revisits, up to auto_alloc_max
+    # step 5.2 (P4, P7): the margin the mission leaves is reused to shorten the revisits (realloc_mode PRIO_SEARCH),
+    # up to the load ceiling; a face above the ceiling eats its safety reserve (alert)
     from . import margin
-    if not cancelled and margin.auto_max(mission) > 0.0:
+    if not cancelled:
+        out["warnings"].extend(margin.ceiling_flags(mission, out))
+        keep = {sid: {x: v for x, v in k.items() if x != "_force_plan"} for sid, k in applied.items()}
+        sat = margin.saturation(
+            mission, out, lambda mis, res: _assemble(mis, mis["sectors"], res, cancelled, *args),
+            lambda sec, r: ranges_at_rr(dict(sec, **keep.get(sec["id"], {})), r, eps_min, eps_max, sky))
+        if sat is not None:                                                          # step 5.2 (P7)
+            out["saturation"] = sat
+            out["warnings"].extend(sat["flags"])
+    if not cancelled and margin.realloc_mode(mission) == "PRIO_SEARCH":
         keep = {sid: {x: v for x, v in k.items() if x != "_force_plan"} for sid, k in applied.items()}
         mr = margin.reuse(mission, out,
                           lambda mis, res: _assemble(mis, mis["sectors"], res, cancelled, *args),
                           lambda sec, r: ranges_at_rr(dict(sec, **keep.get(sec["id"], {})), r, eps_min, eps_max, sky))
+        out["margin_reuse"] = mr
+        out["warnings"].extend(mr["flags"])
+    if not cancelled and margin.realloc_mode(mission) == "PRIO_TRACK":                # step 5.2 (P7)
+        mr = margin.reuse_tracks(mission, out, lambda mis, res: _assemble(mis, mis["sectors"], res, cancelled, *args))
         out["margin_reuse"] = mr
         out["warnings"].extend(mr["flags"])
     for r in out["sectors"]:
@@ -2496,6 +2510,27 @@ def print_report(res: dict) -> None:
                   f"{sp['suggested_allocation_MW']} MW")
         for rule in trk.get("scheduler_rules", []):
             print(" SCHEDULER RULE (step 4.3):", rule)
+    mrt = (res.get("margin_reuse") or {}).get("brackets")
+    if mrt:                                                    # step 5.2 (P7): PRIO_TRACK
+        print(" MARGIN REUSE (PRIO_TRACK): " + " | ".join(
+            f"{s} period {b['rr_real_s']:.3g} s for {b['rr_s']:g} (x{b['h']:.3g}, {b['limited_by']})"
+            for s, b in mrt.items()))
+    sat = res.get("saturation")
+    if sat:                                                    # step 5.2 (P7)
+        cr = sat.get("critique") or {}
+        print("-" * 100)
+        print(f" TRACK SATURATION (load ceiling {100 * sat['load_ceiling']:.0f} %, mode {cr.get('mode', '-')}; "
+              f"manageable alone = linear estimate)")
+        for s, b in sat["brackets"].items():
+            c = (cr.get("brackets") or {}).get(s, {})
+            fl = (cr.get("track_floors") or {}).get(s, {})
+            print(f"   {s}: n {b['n_targets']:g} | manageable +{b['extra_alone']} ({b['binding_alone']}), cumulative "
+                  f"+{(sat.get('cumulative') or {}).get('extra', {}).get(s, 0)} | critical beyond +"
+                  f"{c.get('extra_critique', '-')} ({c.get('binding_critique', '-')}), cumulative "
+                  f"+{(cr.get('cumulative') or {}).get('extra', {}).get(s, '-')} | t_max "
+                  f"{fl.get('t_max_s', float('nan')):.3g} s ({fl.get('limited_by', '-')})")
+        if cr.get("first_shed"):
+            print(f"   critical: first shed = {cr['first_shed']}" + (" (Ku levers counted)" if cr.get("ku_levers") else ""))
     cmp_ = res.get("compute")
     if cmp_:                                                   # step 4.4
         print("-" * 100)

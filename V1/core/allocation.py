@@ -12,7 +12,8 @@ and the target class for the tracks):
   2  confirmations and initiations      3  track updates, by class: KKV > SHIP > DECOY > DEBRIS > other
   3' Ku burn-through (allowed)          4  search of the other volumes, P4_1, P4_2, ...
   5  margin reuse (pass P4): the part of a search drawn by its revisit shortened below the one asked (core/margin.py),
-     the first given back
+     or (pass P7, realloc_mode PRIO_TRACK) the part of a track bracket drawn by its faster cadence; the first given
+     back
 Enough power (sum of the needs within the ship total, each face within its feeder and the operator's cap): every face
 gets a share of the ship total proportional to its need (water-filling under the caps), so the energy load of a face
 is need / allocation. Shortfall: the tiers are served in order over all the faces (a P1 volume on one face before a P3
@@ -85,8 +86,15 @@ def items(mission: dict, res: dict) -> List[dict]:
             out.append({"label": f"confirmation {t['id']}", "sector": t["id"], "kind": "confirm", "tier": (2, 0),
                         "w": w})
         rank = CLASS_RANK.get(sec.get("target_type") or "", len(CLASS_RANK))
+        brs = sec.get("tracking", [])
         for i, a in enumerate(t.get("at", [])):
             w = [float(a.get("faces", {}).get(str(k), {}).get("energy_fraction", 0.0)) * k_w for k in range(4)]
+            b = brs[i] if i < len(brs) else {}
+            if b.get("_reuse_h", 1.0) > 1.0:                 # step 5.2 (P7): the cadence asked in its own tier
+                w0 = [min(v, float(e) * k_w) for v, e in zip(w, b["_e_nominal"])]
+                out.append({"label": f"margin reuse {t['id']}/{i}", "sector": t["id"], "kind": "reuse",
+                            "tier": (5, 0), "w": [v - v0 for v, v0 in zip(w, w0)]})
+                w = w0
             if any(w):
                 out.append({"label": f"tracks {t['id']}/{i}", "sector": t["id"], "kind": "track", "tier": (3, rank),
                             "w": w, "n_targets": float(a.get("n_targets", 0.0))})
