@@ -1007,8 +1007,13 @@ leaves. This processing latency (\SI{0.01}{\micro s} to \SI{5}{ms} on the test m
 latency of the scheduler.
 
 \paragraph{In flight.} The radar computer applies the mission plan, the scheduler and the tracking, and re-selects a
-precomputed waveform when the measured spectrum changes: \num{1000} operations per (waveform, scan bin) entry
-(provisional). The full re-optimisation stays in mission preparation.
+search plan from the sector's \emph{flight table} when the measured spectrum changes. The table keeps one plan per S
+centre frequency evaluated by the search (its best lattice spacing), the chosen plan first, at most 8 spread over the
+band; a plan with less coverage or more positions short of range is kept and flagged degraded. In flight the computer
+takes the best entry whose occupied band is free and whose load fits on the face (non-degraded first), else it flags
+and sheds by priority. An entry costs \SI{64}{B} per scan-bin group (a few kB per sector, in the face memory beside the
+coherent buffers) and \num{1000} operations to re-evaluate (provisional). The full re-optimisation stays in mission
+preparation; the Ku confirmation frequency has no flight table yet.
 
 %=====================================================================================================================
 \section{Re-pointing in flight}\label{sec:repoint}
@@ -1235,7 +1240,7 @@ The test bench has two families: frozen outputs of every test mission compared a
 (non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
 exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
 frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
-before any refreeze. At model V6.22.0 the bench has 228 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
+before any refreeze. At model V6.22.0 the bench has 230 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
 
 %=====================================================================================================================
 \section{Roadmap and open points}\label{sec:roadmap}
@@ -1255,7 +1260,7 @@ calibration --- done (degraded modes and TRM failures deferred to the end of the
 coolant, cold plate, junction, ship heat rejection --- done; 4.3 scheduler: priorities, queues, synthetic timeline,
 common slots, latency --- done; 4.3 bis scan order inside a volume --- done; 4.4 compute and data --- done; 4.5 re-pointing in flight --- done\\
 5, mission and validation & 5.1 richer mission model --- done; 5.2 global optimiser --- in progress (power allocation,
-couplings, global loop, margin reuse coded; flight tables to come); validation engine; Monte-Carlo simulation; operator
+couplings, global loop, margin reuse, flight tables coded); validation engine; Monte-Carlo simulation; operator
 interface; verification and documentation; end of development\\
 \bottomrule
 \end{tabularx}
@@ -1272,7 +1277,7 @@ Main provisional dispositions, each assigned to a later step:
   \item \textbf{Re-pointing in flight}: the maximum rate and acceleration per mission (system settings today); the
         whole attitude envelope (5.3); the ship turning in the 3D view (phase 6).
   \item \textbf{Mission and validation (5.x)}: the presentation tables and the spreads are provisional values (D);
-        flight tables (5.2); other uses of the margin (longer search range, lower-priority volumes); overlap zones
+        Ku flight tables; other uses of the margin (longer search range, lower-priority volumes); overlap zones
         between faces; recalibration of the fast estimate on the track model;
         the interface of the mission preparation is interim (a full HMI comes with the global simulation).
   \item \textbf{Antenna}: element pattern and mutual coupling at tile edges not modelled (isotropic elements);

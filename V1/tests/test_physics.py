@@ -2732,3 +2732,40 @@ def test_margin_reuse_mission_keys_validated():
     m["sectors"][0]["rr_min_s"] = m["sectors"][0]["rr_target_s"] * 2
     errs = md.validate_mission(m)
     assert any("auto_alloc_max" in e for e in errs) and any("rr_min_s" in e for e in errs)
+
+
+# ----------------------------------------------------------------------------- flight tables (step 5.2, P5)
+def test_flight_table_spreads_over_the_band_and_flags_degraded(monkeypatch):
+    """P5: the chosen plan first, then plans spread over the band (farthest frequency first), at most
+    flight_table_entries_max; a plan with more of the sector unscanned or more positions short is kept, degraded."""
+    from types import SimpleNamespace as NS
+    monkeypatch.setattr(mo, "FT_ENTRIES_MAX", 3)
+
+    def x(f, uns=0.0, short=0.0):
+        plan = NS(choice=np.array([0, 0, -1]), r_bin=np.array([500.0, 480.0, np.nan]), short_frac=short,
+                  fe=np.array([0.1, 0, 0, 0]), ft=np.array([0.01, 0, 0, 0]))
+        return (f, None, uns, plan, None, None, None, np.array([0, 1, 2]), None, 1.4)
+    best = x(2.70)
+    ev = {(f, 1.4): x(f, short=0.05 if f == 2.90 else 0.0) for f in (2.66, 2.70, 2.72, 2.80, 2.90)}
+    ev[(2.70, 1.4)] = best
+    cands = [NS(occupied_mhz=100.0)]
+    ft = mo._flight_table(ev, best, cands, 0.01, lambda x, m: (round(x[2] - m, 3), x[3].short_frac, x[0]))
+    fs = [e["freq_ghz"] for e in ft["entries"]]
+    assert fs == [2.70, 2.80, 2.90] and ft["centres_evaluated"] == 5          # 2.90 farthest, then 2.80
+    assert [e["chosen"] for e in ft["entries"]] == [True, False, False]
+    assert [e["degraded"] for e in ft["entries"]] == [False, False, True] and ft["degraded"] == 1
+    assert ft["entries"][0]["occupied_ghz"] == [2.65, 2.75] and ft["entries"][0]["range_worst_km"] == 480
+    assert ft["entry_groups"] == 3 and ft["bytes"] == pytest.approx(3 * mo.FT_BYTES)
+
+
+def test_flight_table_keeps_the_search_after_a_forced_plan():
+    """P5: a sector re-planned on one forced centre keeps the table of its search, the forced plan in place of the
+    entry nearest in frequency."""
+    def e(f, chosen=False, degraded=False):
+        return {"freq_ghz": f, "spacing": 1.4, "chosen": chosen, "degraded": degraded, "short_pct": 0.0,
+                "unscanned_pct": 0.0, "groups": 2}
+    old = mo._table_summary([e(2.66), e(2.72, chosen=True), e(2.84, degraded=True)], 12)
+    new = mo._table_summary([dict(e(2.83, chosen=True), spacing=1.6)], 1)
+    ft = mo._merge_flight_table(old, new)
+    assert [(x["freq_ghz"], x["chosen"]) for x in ft["entries"]] == [(2.66, False), (2.72, False), (2.83, True)]
+    assert ft["centres_evaluated"] == 12 and ft["degraded"] == 0 and ft["entry_groups"] == 6

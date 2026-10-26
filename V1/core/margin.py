@@ -66,7 +66,8 @@ def utilisation(out: dict) -> Tuple[float, Dict[int, Dict[str, float]]]:
                     "Ku time": _ratio(sch.get("Ku", {}).get("load"), sch.get("Ku", {}).get("capacity", 1.0)),
                     "heat": float(tr.get("heat_load", 0.0) or 0.0),
                     "compute": float(cp.get("load", 0.0) or 0.0),
-                    "memory": _ratio(mem.get("buffers_peak_TB"), mem.get("capacity_TB")),
+                    "memory": _ratio(float(mem.get("buffers_peak_TB") or 0.0) + float(mem.get("flight_tables_TB") or 0.0),
+                                     mem.get("capacity_TB")),
                     "memory bandwidth": _ratio(mem.get("traffic_TB_per_s"), mem.get("bandwidth_TB_per_s")),
                     **{f"{b} beams": _ratio(bands.get(b, {}).get("beams_peak"), bands.get(b, {}).get("beams_max"))
                        for b in ("S", "Ku")}}

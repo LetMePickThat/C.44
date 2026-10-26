@@ -842,6 +842,8 @@ def parts_at(w, f, theta, tgt, rx_sll: Optional[float] = None, v_span: Optional[
 
 GOPT_MAX_ITER = int(P.get("tool.global_opt.max_iterations"))
 GOPT_ALTERNATIVES = int(P.get("tool.global_opt.alternatives"))
+FT_ENTRIES_MAX = int(P.get("compute.flight_table_entries_max"))      # step 5.2 (P5)
+FT_BYTES = float(P.get("compute.flight_table_bytes_per_entry"))
 
 
 def fa_per_rr(sec: dict) -> float:
@@ -1586,12 +1588,13 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
         # [D] a frequency that leaves more of the sector unscanned (e.g. > 2.85 GHz, 70 deg scan limit) never wins;
         # then range, cost, and the secondary criterion of E6 (energy, time, distinct waveforms, the frequency
         # nearest the centre of the core band)
+        return min(ranked, key=lambda x: rank_key(x, min_uns), default=None)
+
+    def rank_key(x: tuple, min_uns: float) -> tuple:
         core = (rm.BAND_S.core_lo_ghz + rm.BAND_S.core_hi_ghz) / 2.0
-        return min(ranked, key=lambda x: (round(x[2] - min_uns, 3), round(x[3].short_frac / short_tol),
-                                          snap(x[3].objective), snap(float(x[3].fe.sum())),
-                                          snap(float(x[3].ft.sum())), len(set(x[3].choice[x[3].choice >= 0])),
-                                          round(abs(x[9] - rm.BEAM_SPACING_HPBW), 9), round(abs(x[0] - core), 9),
-                                          x[0], x[9]), default=None)
+        return (round(x[2] - min_uns, 3), round(x[3].short_frac / short_tol), snap(x[3].objective),
+                snap(float(x[3].fe.sum())), snap(float(x[3].ft.sum())), len(set(x[3].choice[x[3].choice >= 0])),
+                round(abs(x[9] - rm.BEAM_SPACING_HPBW), 9), round(abs(x[0] - core), 9), x[0], x[9])
 
     # 25 October 2026 (A5): the frequency is searched at the default lattice spacing, then every spacing is tried at
     # the frequency kept (SPACING_AFTER_FREQ; else every spacing at every centre). A6: a sector in a quiet spectrum
@@ -1632,6 +1635,7 @@ def _best_plan(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: O
                     for x in alts[:GOPT_ALTERNATIVES]]
     f, P, unscanned, plan, sky_s, pfas, _, col_bin, r_cols, sp = best
     plan.alternatives = alternatives
+    plan.flight_table = _flight_table(evaluated, best, cands, short_tol, rank_key)
     if len(col_bin) != int(col_bin.max()) + 1:
         P = _plan_to_bins(P, plan, col_bin, r_cols)          # step 3.1, P4: requirement classes back to 1-deg bins
     plan.freq_info = {"evaluated": len({fc for fc, _ in evaluated}), "valid_centres": len(valid_centres(bw_min, excl)),
@@ -1659,6 +1663,61 @@ def sector_plan(sec: dict, eps_min: float, eps_max: float, p_avg_max_w: float,
             "pfa": [pfas[c] if c >= 0 else None for c in plan.choice],
             "pulse_scale": [float(s) for s in plan.s_bin],
             "short": [bool(r < sec["range_km"]) for r in plan.r_bin]}   # NaN (no position) compares False
+
+
+def _flight_table(evaluated: dict, best: tuple, cands: List, short_tol: float, rank_key) -> dict:
+    """Step 5.2 (P5): the precomputed search plans the radar computer keeps for the flight, to re-select a plan when the
+    measured spectrum changes. One plan per S centre frequency evaluated (its best lattice spacing), the plan chosen
+    first, then at most compute.flight_table_entries_max entries spread over the band (farthest from the frequencies
+    already kept, ties by the ranking of the search); a plan with less coverage or more positions short of range than
+    the chosen one is kept and flagged degraded. Size and re-selection cost count one entry per scan-bin group."""
+    done = [x for x in evaluated.values() if x is not None and x[3] is not None]
+    min_uns = min(x[2] for x in done)
+    per_f: Dict[float, tuple] = {}
+    for x in done:
+        if x[0] not in per_f or rank_key(x, min_uns) < rank_key(per_f[x[0]], min_uns):
+            per_f[x[0]] = x
+    per_f[best[0]] = best
+    kept = [best]
+    left = sorted((x for fc, x in per_f.items() if fc != best[0]), key=lambda x: rank_key(x, min_uns))
+    while left and len(kept) < FT_ENTRIES_MAX:
+        nxt = max(left, key=lambda x: (min(abs(x[0] - k[0]) for k in kept), -left.index(x)))
+        kept.append(nxt)
+        left.remove(nxt)
+
+    def entry(x: tuple) -> dict:
+        plan, col_bin = x[3], np.asarray(x[7])
+        used = plan.choice >= 0
+        half = max(cands[c].occupied_mhz for c in set(int(c) for c in plan.choice[used])) / 2e3
+        groups = len({int(b) // BIN_DEG for b in col_bin[used]})
+        r_pop = plan.r_bin[used]
+        degraded = (round(x[2] - best[2], 3) > 0
+                    or round(plan.short_frac / short_tol) > round(best[3].short_frac / short_tol))
+        return {"freq_ghz": float(x[0]), "spacing": float(x[9]), "chosen": x is best,
+                "occupied_ghz": [round(float(x[0]) - half, 6), round(float(x[0]) + half, 6)],
+                "degraded": bool(degraded), "unscanned_pct": round(100 * float(x[2]), 1),
+                "short_pct": round(100 * float(plan.short_frac), 1),
+                "range_worst_km": round(float(np.nanmin(r_pop))) if np.isfinite(r_pop).any() else None,
+                "energy_max": float(plan.fe.max()), "time_max": float(plan.ft.max()), "groups": groups}
+    return _table_summary([entry(x) for x in kept], len(per_f))
+
+
+def _merge_flight_table(old: dict, forced: dict) -> dict:
+    """Step 5.2 (P5): the table of a sector re-planned on one forced centre by the global loop: the search's table, the
+    forced plan's entry in place of the entry nearest in frequency (degraded flags kept from the search)."""
+    new = next(e for e in forced["entries"] if e["chosen"])
+    rest = [dict(e, chosen=False) for e in old["entries"]]
+    rest.remove(min(rest, key=lambda e: (abs(e["freq_ghz"] - new["freq_ghz"]), e["freq_ghz"])))
+    return _table_summary(rest + [dict(new, degraded=False)], old["centres_evaluated"])
+
+
+def _table_summary(entries: List[dict], centres: int) -> dict:
+    n_groups = sum(e["groups"] for e in entries)
+    return {"entries": sorted(entries, key=lambda e: e["freq_ghz"]), "entry_groups": n_groups,
+            "bytes": FT_BYTES * n_groups, "degraded": sum(e["degraded"] for e in entries),
+            "centres_evaluated": centres,
+            "worst_fallback_short_pct": max(e["short_pct"] for e in entries),
+            "worst_fallback_unscanned_pct": max(e["unscanned_pct"] for e in entries)}
 
 
 def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, sky: Optional[dict] = None) -> dict:
@@ -1758,6 +1817,7 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
         "time_to_impact_at_detection_s": (r_want * 1e3 / v_max - rr) if v_max > 0 else None,
     }
     out["_alternatives"] = getattr(plan, "alternatives", [])        # step 5.2
+    out["flight_table"] = getattr(plan, "flight_table", None)       # step 5.2 (P5): plans kept for the flight
     out["_choice"] = [int(c) for c in plan.choice]                   # step 5.2 (P4): ranges at the real revisit
     out["flags"] = []
     res = out["range_resolution_m"]
@@ -2237,6 +2297,11 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
         else:
             again, cancelled = _run_sequential(todo, eps_min, eps_max, p_avg_max, None, cancel_cb, sky)
         new = {r["id"]: r for r in again}
+        for r in results:              # step 5.2 (P5): a forced plan evaluates one centre; its table stays the search's
+            n = new.get(r["id"])
+            if (n is not None and "_force_plan" in redo[r["id"]] and r.get("flight_table") and n.get("status") == "OK"
+                    and n.get("flight_table")):
+                n["flight_table"] = _merge_flight_table(r["flight_table"], n["flight_table"])
         results = [new.get(r["id"], r) for r in results]
         applied.update(redo)
         out = _assemble(mission, sectors, results, cancelled, *args)
@@ -2331,6 +2396,11 @@ def print_report(res: dict) -> None:
         tti = r["time_to_impact_at_detection_s"]
         print(f"     RR: target {r['rr_target_s']:.0f} s | alone {r['rr_alone_s']:.0f} s | in mission {r['rr_est_mission_s']:.0f} s"
               f" | time to impact after detection (vmax) {'n/a' if tti is None else f'{tti:.0f} s'}")
+        ft = r.get("flight_table")
+        if ft:                                                # step 5.2 (P5)
+            print(f"     Flight table: {len(ft['entries'])} plans of {ft['centres_evaluated']} centres "
+                  f"({ft['degraded']} degraded, worst fallback {ft['worst_fallback_short_pct']:g} % short), "
+                  f"{ft['bytes'] / 1e3:.1f} kB")
         mr = (res.get("margin_reuse") or {}).get("sectors", {}).get(r["id"])
         if mr and mr["g"] > 1.0:                             # step 5.2 (P4): the margin reused
             rr_txt = (f"     RR real {mr['rr_real_s']:.3g} s (x{mr['g']:.3g}, limited by {mr['limited_by']})")

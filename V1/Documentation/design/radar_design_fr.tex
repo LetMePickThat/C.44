@@ -1067,8 +1067,14 @@ laisse la charge moyenne. Cette latence de traitement (\SI{0.01}{\micro s} à \S
 dans la latence de confirmation de l'ordonnanceur.
 
 \paragraph{En vol.} Le calculateur radar applique le plan de mission, l'ordonnanceur et la poursuite, et resélectionne
-une forme d'onde précalculée quand le spectre mesuré change : \num{1000} opérations par entrée (forme d'onde, tranche)
-(provisoire). La réoptimisation complète reste en préparation de mission.
+un plan de veille dans la \emph{table pour le vol} du secteur quand le spectre mesuré change. La table garde un plan
+par fréquence centrale S évaluée par la recherche (son meilleur pas de grille), le plan retenu d'abord, au plus 8
+répartis sur la bande ; un plan de couverture moindre ou avec plus de positions en deçà de la portée est gardé et
+signalé dégradé. En vol, le calculateur prend la meilleure entrée dont la bande occupée est libre et dont la charge
+tient sur la face (non dégradée d'abord), sinon il alerte et déleste par priorité. Une entrée coûte \SI{64}{o} par
+groupe de tranches (quelques ko par secteur, dans la mémoire de la face à côté des tampons cohérents) et \num{1000}
+opérations à réévaluer (provisoire). La réoptimisation complète reste en préparation de mission ; la fréquence Ku de
+confirmation n'a pas encore de table pour le vol.
 
 %=====================================================================================================================
 \section{Re-pointage en vol}\label{sec:repoint}
@@ -1308,7 +1314,7 @@ Le banc de tests a deux familles : les sorties figées de chaque mission de test
 $10^{-9}$ (non-régression), et des lois physiques et invariants qui doivent tenir quelles que soient les valeurs
 ($R\propto\sigma^{1/4}$, exactitude de chaque raccourci, cohérence des caches, lois de détection contre les formes
 closes, \dots). Chaque regel des sorties figées est consigné avec sa cause. Un rapport d'impact donne les chiffres clés
-et les formes d'onde qui changent avant tout regel. Au modèle V6.22.0, le banc compte 228 tests (dont 11 comparent les
+et les formes d'onde qui changent avant tout regel. Au modèle V6.22.0, le banc compte 230 tests (dont 11 comparent les
 sorties figées des cas de test), exécutés à trois niveaux : tests rapides, tests touchés par un changement, et passe
 complète (table de coût, chaque cas de test calculé une fois et gardé avec une empreinte du code, rapport d'impact, banc
 entier ; environ 19 minutes, avec une barre de progression globale).
@@ -1333,7 +1339,7 @@ face --- fait ; 4.2 thermique : fluide, plaque froide, jonction, rejet de chaleu
 ordonnanceur : priorités, files, chronologie synthétique, créneaux communs, latence --- fait ; 4.3 bis ordre des
 pointages dans un volume --- fait ; 4.4 calcul et données --- fait ; 4.5 re-pointage en vol --- fait\\
 5, mission et validation & 5.1 modèle de mission enrichi --- fait ; 5.2 optimiseur global --- en cours (répartition de
-la puissance, couplages, boucle globale, réemploi de la marge codés ; tables pour le vol à venir) ; moteur de
+la puissance, couplages, boucle globale, réemploi de la marge, tables pour le vol codés) ; moteur de
 validation ; simulation Monte-Carlo ; interface opérateur ; vérification et documentation ; fin de développement\\
 \bottomrule
 \end{tabularx}
@@ -1352,7 +1358,7 @@ Principales dispositions provisoires, chacune affectée à une étape ultérieur
   \item \textbf{Re-pointage en vol} : vitesse et accélération maximales par mission (réglages du système aujourd'hui) ;
         enveloppe complète des attitudes (5.3) ; vaisseau en rotation dans la vue 3D (phase 6).
   \item \textbf{Mission et validation (5.x)} : les tables de présentation et les dispersions sont des valeurs
-        provisoires (D) ; tables pour le vol (5.2) ; autres usages de la marge (veille plus loin, volumes de moindre
+        provisoires (D) ; tables pour le vol Ku ; autres usages de la marge (veille plus loin, volumes de moindre
         priorité) ; zones de recouvrement entre faces ; recalage de l'estimation rapide sur le modèle de piste ;
         l'interface de préparation de mission est provisoire (une IHM complète vient avec la simulation globale).
   \item \textbf{Antenne} : diagramme élémentaire et couplage mutuel aux bords des tuiles (éléments isotropes) ; les

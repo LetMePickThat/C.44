@@ -71,6 +71,7 @@ FACE_INPUT_BPS = float(P.get(_C + "face_input_tbps")) * 1e12
 MEMORY_B = float(P.get(_C + "memory_tb")) * 1e12
 MEMORY_BW_BPS = float(P.get(_C + "memory_bw_tbps")) * 1e12 * 8      # bit/s
 RESELECT_OPS = float(P.get(_C + "reselect_ops_per_entry"))
+FT_BYTES = float(P.get(_C + "flight_table_bytes_per_entry"))     # step 5.2 (P5)
 CEILING_W = float(P.get("power.dbf_kw")) * 1e3
 ADC_OVERSAMPLING = {b: float(P.get(f"band.{b}.rx.adc_oversampling")) for b in ("S", "Ku")}
 RANGE_OSR = float(P.get("processing.range_grid_oversampling"))
@@ -254,8 +255,13 @@ def budget(mission: dict, res: dict) -> dict:
             if link_peak * rm.N_TRSA > FACE_INPUT_BPS:
                 flags.append(f"face F{k + 1} {b}: face processor input {link_peak * rm.N_TRSA / 1e12:.1f} Tbit/s "
                              f"needed, capacity {FACE_INPUT_BPS / 1e12:g}")
-        if buf_tot > MEMORY_B:
-            flags.append(f"face F{k + 1}: coherent buffers {buf_tot / 1e12:.2f} TB, memory {MEMORY_B / 1e12:g} TB")
+        # step 5.2 (P5): the flight tables of the sectors the face serves stay in its memory
+        ft_b = sum(FT_BYTES * float(r["flight_table"]["entry_groups"]) for r in res.get("sectors", [])
+                   if r.get("status") == "OK" and r.get("flight_table")
+                   and float(r.get("faces", {}).get(str(k), {}).get("positions", 0.0)) > 0)
+        if buf_tot + ft_b > MEMORY_B:
+            flags.append(f"face F{k + 1}: coherent buffers {buf_tot / 1e12:.2f} TB and flight tables "
+                         f"{ft_b / 1e12:.2g} TB, memory {MEMORY_B / 1e12:g} TB")
         if mem_tot > MEMORY_BW_BPS:
             flags.append(f"face F{k + 1}: memory traffic {mem_tot / 8e12:.1f} TB/s, bandwidth {MEMORY_BW_BPS / 8e12:g} TB/s")
         p_static = STATIC_FRAC * CEILING_W
@@ -274,7 +280,8 @@ def budget(mission: dict, res: dict) -> dict:
                 lat_sector[s["sector"]] = max(lat_sector.get(s["sector"], 0.0), lat)
         tf = trk_faces.get(str(k), {})
         delta = CEILING_W - p_compute
-        fk.update({"memory": {"buffers_peak_TB": buf_tot / 1e12, "capacity_TB": MEMORY_B / 1e12,
+        fk.update({"memory": {"buffers_peak_TB": buf_tot / 1e12, "flight_tables_TB": ft_b / 1e12,
+                              "capacity_TB": MEMORY_B / 1e12,
                               "traffic_TB_per_s": mem_tot / 8e12, "bandwidth_TB_per_s": MEMORY_BW_BPS / 8e12},
                    "bands": per_band, "ops_total_per_s": ops_tot, "capacity_ops_per_s": capacity,
                    "load": load, "bits_per_s": bits_tot,
@@ -285,7 +292,8 @@ def budget(mission: dict, res: dict) -> dict:
                    "bus_draw_MW_actual": tf["bus_draw_MW"] - delta / rm.CHAIN_EFF / 1e6 if "bus_draw_MW" in tf else None,
                    "face_heat_kW_actual": tf["face_heat_kW"] - delta / 1e3 if "face_heat_kW" in tf else None})
         faces[str(k)] = fk
-    reselect = {r["id"]: RESELECT_OPS * len(r.get("wf_set") or [r.get("wf")]) * len(r.get("wf_by_bin", []))
+    # one re-evaluation per (plan, scan-bin group) entry of the sector's flight table (step 5.2, P5)
+    reselect = {r["id"]: RESELECT_OPS * float((r.get("flight_table") or {}).get("entry_groups", len(r.get("wf_by_bin", []))))
                 for r in res.get("sectors", []) if r.get("status") == "OK"}
     return {"faces": faces, "sectors": {sid: {"processing_s": v, "reselect_ops": reselect.get(sid)}
                                         for sid, v in lat_sector.items()},
