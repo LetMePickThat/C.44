@@ -573,3 +573,16 @@ spreads now in the discrimination indices (systematic terms). 291 values differ;
 confirmation mode, status or range changes (detection at the worst presentation is the frontal value of the present
 tables; the KKV is frontal).
 N3 22.2 min: 211 passed; only the snapshot tests failed before the refreeze.
+
+## 2026-10-26 -- step 5.2: global optimiser (radar_model V6.23.0)
+
+Causes: new outputs -- power_allocation (the ship's 8 MW shared by the faces, by priority tier), global_opt (one pass
+on every test mission: no coupling above its threshold, no better alternative for the mission), flight_table per
+sector (up to 8 search plans spread over the band, degraded ones flagged); compute reselect_ops now counts the flight
+table entries (e.g. 48 000 -> 96 000 op); per face alloc_MW and the energy load of the verdict = need / allocation
+(the need uses the real processing power, about 10 kW instead of the 50 kW ceiling: loads about -0.02, e.g.
+0.168 -> 0.147; the mission without operator cap gets the same load on every face, total need / 8 MW), p_left_kW and
+the neighbour load of the re-pointing transit follow. Margin reuse is off by default (auto_alloc_max = 0): no output.
+311 values differ; no waveform set, frequency, confirmation mode, range, face status or binding resource changes.
+N3 23.0 min: 220 passed; only the snapshot tests and test_tracking_loads_add_up (reads the snapshots) failed before
+the refreeze.

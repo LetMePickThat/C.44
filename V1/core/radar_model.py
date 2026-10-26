@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.22.0
+# Radar Performance Model - V6.23.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,16 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.22.0 -> V6.23.0 (roadmap step 5.2: global optimiser, validated by the user on 25-26 October 2026)
+#   - core/allocation.py: the ship's 8 MW shared by the faces pro rata of their needs, by priority tier on a shortfall
+#     (P0 always-on ... P4_n search, P5 margin reuse); the energy load of a face in the verdict is need / allocation.
+#   - Global loop in optimizer.run (at most 3 passes): eclipse and false-alarm couplings fed back into the search
+#     plans, waveforms beyond the beamformer removed, mission-level choice among each sector's alternatives.
+#   - core/margin.py: the free margin shortens the revisits up to the mission's auto_alloc_max (0 = off), one factor
+#     for every volume, rr_min_s per volume, plan kept, false alarms frozen per second, range at the real revisit.
+#   - Flight tables: up to 8 precomputed search plans per sector spread over the band (degraded ones flagged),
+#     their memory and re-selection cost in the compute budget.
 #
 # Changes V6.21.0 -> V6.22.0 (roadmap step 5.1: enriched mission model, validated by the user on 25 October 2026)
 #   - Mission settings (each defaulting to the file): global confirm_p_min, ship_rate_max_dps, ship_accel_max_dps2,
@@ -563,7 +573,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.22.0"
+MODEL_VERSION = "6.23.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

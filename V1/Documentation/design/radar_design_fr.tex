@@ -40,13 +40,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small Radar C.44 -- référence de conception et de modélisation}
-\rhead{\small Modèle V6.22.0}
+\rhead{\small Modèle V6.23.0}
 \cfoot{\thepage}
 
 \title{\textbf{Radar AESA spatial à quatre faces}\\[4pt]
 \large Référence de conception et de modélisation de l'outil de préparation de mission}
 \author{Projet C.44}
-\date{26 octobre 2026 -- modèle radar V6.22.0 (étape 5.2 de la feuille de route en cours)}
+\date{26 octobre 2026 -- modèle radar V6.23.0 (étape 5.2 de la feuille de route faite)}
 
 \begin{document}
 \maketitle
@@ -1165,6 +1165,9 @@ par classe de cible (KKV, SHIP, DECOY, DEBRIS, autres), P3$'$ percée, P4$_n$ ve
         une piste P3 d'une autre) ; le dernier niveau servi l'est en partie : ses volumes de veille reçoivent une
         revisite tenable ($RR$ / part servie), ses pistes un nombre tenable. Un niveau P0 à P2 non servi en entier rend
         la mission non tenable.
+  \item \textbf{Verdict} : la charge d'énergie d'une face est son besoin divisé par son allocation, la même pour toutes
+        les faces quand la puissance suffit (besoin total sur \SI{8}{MW}), au-dessus de 1 pour les faces dont des
+        niveaux ne sont pas servis. L'alimentation et le plafond opérateur d'une face restent un contrôle à part.
 \end{itemize}
 
 \subsection{Réemploi de la marge}
@@ -1314,7 +1317,7 @@ Le banc de tests a deux familles : les sorties figées de chaque mission de test
 $10^{-9}$ (non-régression), et des lois physiques et invariants qui doivent tenir quelles que soient les valeurs
 ($R\propto\sigma^{1/4}$, exactitude de chaque raccourci, cohérence des caches, lois de détection contre les formes
 closes, \dots). Chaque regel des sorties figées est consigné avec sa cause. Un rapport d'impact donne les chiffres clés
-et les formes d'onde qui changent avant tout regel. Au modèle V6.22.0, le banc compte 230 tests (dont 11 comparent les
+et les formes d'onde qui changent avant tout regel. Au modèle V6.23.0, le banc compte 230 tests (dont 11 comparent les
 sorties figées des cas de test), exécutés à trois niveaux : tests rapides, tests touchés par un changement, et passe
 complète (table de coût, chaque cas de test calculé une fois et gardé avec une empreinte du code, rapport d'impact, banc
 entier ; environ 19 minutes, avec une barre de progression globale).
@@ -1338,8 +1341,8 @@ réseau et étalonnage --- fait (modes dégradés et pannes de TRM reportés en 
 face --- fait ; 4.2 thermique : fluide, plaque froide, jonction, rejet de chaleur du vaisseau --- fait ; 4.3
 ordonnanceur : priorités, files, chronologie synthétique, créneaux communs, latence --- fait ; 4.3 bis ordre des
 pointages dans un volume --- fait ; 4.4 calcul et données --- fait ; 4.5 re-pointage en vol --- fait\\
-5, mission et validation & 5.1 modèle de mission enrichi --- fait ; 5.2 optimiseur global --- en cours (répartition de
-la puissance, couplages, boucle globale, réemploi de la marge, tables pour le vol codés) ; moteur de
+5, mission et validation & 5.1 modèle de mission enrichi --- fait ; 5.2 optimiseur global (répartition de la
+puissance, couplages, boucle globale, réemploi de la marge, tables pour le vol) --- fait ; moteur de
 validation ; simulation Monte-Carlo ; interface opérateur ; vérification et documentation ; fin de développement\\
 \bottomrule
 \end{tabularx}

@@ -2123,6 +2123,7 @@ def _assemble(mission: dict, sectors: List[dict], results: List[dict], cancelled
     from . import allocation                 # step 5.2 (P1): the ship's power shared by the faces, by priority
     out["power_allocation"] = allocation.allocate(mission, out)
     warn.extend(out["power_allocation"]["flags"])
+    _energy_verdict(out)
     from . import repoint                    # step 4.5: navigation pointing error, migration between faces
     out["repointing"] = repoint.budget(mission, out)
     warn.extend(out["repointing"]["flags"])
@@ -2160,6 +2161,31 @@ def ranges_at_rr(sec: dict, r: dict, eps_min: float, eps_max: float, sky: Option
             v = rb[bins[-1]]
             out.append(round(float(v)) if np.isfinite(v) else None)
     return out
+
+
+def _energy_verdict(out: dict) -> None:
+    """Step 5.2 (P6, user, 26 October 2026): the energy load of a face in the verdict is its need over the share of the
+    ship's power the allocation gives it (need / alloc, the same for every face when the power suffices, above 1 for
+    the faces whose tiers are not served); the face's own feeder or operator cap stays a separate check (allocation
+    flags). The other resources of the verdict (time, heat) are unchanged."""
+    from . import tracking
+    pa = out.get("power_allocation", {}).get("faces", {})
+    trk = out.get("tracking", {})
+    for k, f in trk.get("faces", {}).items():
+        a = pa.get(k)
+        if a is None:
+            continue
+        loads = {"e": float(a["load"]), "ts": float(f["total_s_time"]), "tk": float(f["total_ku_time"]),
+                 "heat": float(f["heat_load"])}
+        worst = max(loads, key=loads.get)
+        f.update({"total_energy": loads["e"], "load": loads[worst], "binding": tracking._RES_NAME[worst],
+                  "status": "OK" if loads[worst] <= 1.0 else "OVER-SUBSCRIBED", "alloc_MW": float(a["alloc_MW"]),
+                  "p_left_kW": max(0.0, float(a["alloc_MW"]) - float(a["need_MW"])) * 1e3})
+        if worst == "e" and loads["e"] > 1.0:
+            trk.setdefault("advice", []).append(
+                f"face F{int(k) + 1}: needs {float(a['need_MW']):.2f} MW, the ship's power gives it "
+                f"{float(a['alloc_MW']):.2f} MW (allocation by priority tier, step 5.2): lower its load or its "
+                f"revisits, or free power on the other faces")
 
 
 def _couplings(mission: dict, out: dict) -> Dict[str, dict]:

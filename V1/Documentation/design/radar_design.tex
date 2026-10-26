@@ -37,13 +37,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small C.44 radar -- design and modelling reference}
-\rhead{\small Model V6.22.0}
+\rhead{\small Model V6.23.0}
 \cfoot{\thepage}
 
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{26 October 2026 -- radar model V6.22.0 (roadmap step 5.2 in progress)}
+\date{26 October 2026 -- radar model V6.23.0 (roadmap step 5.2 done)}
 
 \begin{document}
 \maketitle
@@ -1102,6 +1102,9 @@ processing) and calibration, P1 self-protection search, P2 confirmation and init
         on another); the last tier served is served in part: its search volumes get a tenable revisit
         ($RR$ / share served), its tracks a tenable number. A tier P0 to P2 not served in full makes the mission not
         tenable.
+  \item \textbf{Verdict}: the energy load of a face is its need over its allocation, the same for every face when the
+        power suffices (total need over \SI{8}{MW}), above 1 for the faces whose tiers are not served. The feeder and
+        the operator cap of a face remain a separate check.
 \end{itemize}
 
 \subsection{Margin reuse}
@@ -1240,7 +1243,7 @@ The test bench has two families: frozen outputs of every test mission compared a
 (non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
 exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
 frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
-before any refreeze. At model V6.22.0 the bench has 230 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
+before any refreeze. At model V6.23.0 the bench has 230 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
 
 %=====================================================================================================================
 \section{Roadmap and open points}\label{sec:roadmap}
@@ -1259,8 +1262,8 @@ calibration --- done (degraded modes and TRM failures deferred to the end of the
 4, resources & 4.1 power: shared ship budget, always-on consumption, TRM supply, face storage --- done; 4.2 thermal:
 coolant, cold plate, junction, ship heat rejection --- done; 4.3 scheduler: priorities, queues, synthetic timeline,
 common slots, latency --- done; 4.3 bis scan order inside a volume --- done; 4.4 compute and data --- done; 4.5 re-pointing in flight --- done\\
-5, mission and validation & 5.1 richer mission model --- done; 5.2 global optimiser --- in progress (power allocation,
-couplings, global loop, margin reuse, flight tables coded); validation engine; Monte-Carlo simulation; operator
+5, mission and validation & 5.1 richer mission model --- done; 5.2 global optimiser (power allocation, couplings,
+global loop, margin reuse, flight tables) --- done; validation engine; Monte-Carlo simulation; operator
 interface; verification and documentation; end of development\\
 \bottomrule
 \end{tabularx}
