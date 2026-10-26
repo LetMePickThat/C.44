@@ -744,6 +744,8 @@ max_workers          = 0        # 0 = automatic (half the logical CPUs)
 [tool.global_opt]             # step 5.2: global optimiser (fixed point over the search plans and the budgets)
 max_iterations = 3              # passes at most (the first is the independent plan of every sector; user, step 5.2)
 alternatives   = 6              # plans kept per sector for the mission-level choice (same coverage and range)
+auto_alloc_max = 0.0            # P4: utilisation up to which the free margin shortens the revisits (mission key, 0 = off; user, 26 Oct 2026)
+reuse_corrections = 2           # P4: re-fillings after the check of the real revisits (non-linear resources)
 
 [tool.scheduler]              # step 4.3
 horizon_max_s = 60.0            # B1: synthetic timeline over the longest revisit of a face, at most this

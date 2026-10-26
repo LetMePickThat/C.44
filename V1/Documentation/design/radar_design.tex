@@ -43,37 +43,23 @@
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{25 October 2026 -- radar model V6.22.0 (roadmap step 5.1 coded)}
+\date{26 October 2026 -- radar model V6.22.0 (roadmap step 5.2 in progress)}
 
 \begin{document}
 \maketitle
 
-\begin{abstract}
-\noindent This document describes, for a reader who knows radar but not this project, the radar that the
-mission-preparation tool models, the radio-frequency (RF) and signal-processing models it implements, and the
-design choices behind every value. The radar is a four-face, fully digital active electronically scanned array (AESA)
-carried by a spacecraft, using S band for search and Ku band for confirmation and tracking. The tool lets an operator
-describe a mission (watch volumes, threats, sky, navigation) and validates it against the resources of the whole
-system: RF budget, power, time on air, environment, and, in later steps, scheduling, thermal and computing loads.
-The document follows the code and the single parameter file of the repository; where the two differ, the parameter
-file is the reference.
-\end{abstract}
-
-\vspace{4pt}
-\noindent\fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\small\textbf{Read this first.}
-(1) The test missions of the repository and their frozen outputs are \emph{test values}: they exist only to detect
-regressions of the code. They are neither requirements nor demonstrated performances of the radar.
-(2) Technology values (TRMs, receivers, converters, oscillator) are \emph{credible but optimistic assumptions for the
-2050--2060 time frame}: when a range of values was considered, its optimistic end was kept. Threat and environment
-values are \emph{class means} or medians, not data on a specific system.
-(3) All values live in one file, \code{radar\_system.toml}; each entry carries its value, unit, status and the reason
-for the value. This document explains those reasons; it does not replace the file.}}
+\noindent\fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\small\textbf{Conventions.}
+(1) The test missions of the repository and their frozen outputs are regression cases.
+(2) Technology values (TRMs, receivers, converters, oscillator) are optimistic assumptions for 2050--2060: of a
+credible range, the optimistic end is kept. Threat and environment values are class means or medians.
+(3) All values are in \code{radar\_system.toml}; each entry carries its value, unit, status and reason. Where this
+document and the file differ, the file is the reference.}}
 
 \tableofcontents
 \newpage
 
 %=====================================================================================================================
-\section{Purpose and scope}
+\section{The tool}
 %=====================================================================================================================
 
 \subsection{What the tool does}
@@ -90,8 +76,7 @@ The tool is a \emph{mission-preparation} tool. The operator describes what the r
 For each volume, the tool chooses the S-band search frequency and waveforms, computes the achieved ranges and the
 energy and time each face spends, adds the Ku-band confirmation of every detection and the active tracking, and flags
 whatever the system cannot do (power or time over-subscription, unreachable range, blinded directions, scan limits,
-self-protection jamming, \dots). The aim is to validate the mission \emph{against the whole radar system}, not only
-against a link budget.
+self-protection jamming, \dots). The mission is validated against every resource of the radar system.
 
 \subsection{Place in a larger simulation}
 The tool is the \emph{radar computer} layer of a four-layer architecture (Figure~\ref{fig:layers}) that separates
@@ -142,7 +127,6 @@ The model was rebuilt step by step along a roadmap (Section~\ref{sec:roadmap}). 
   \item \textbf{Approximations by decision only.} Exact shortcuts (closed forms, caches, exact pruning) come first;
         since 25 October 2026 approximations are allowed when they do not denature the model, each one decided by
         the designer with its measured effect and kept as a setting whose exact value stays available.
-  \item \textbf{Test values are not performances.} The test missions only guard against regressions.
 \end{itemize}
 
 %=====================================================================================================================
@@ -235,8 +219,7 @@ lower; \SI{0.5}{mm} assumes TRSA and back-plate materials matched in thermal exp
 %=====================================================================================================================
 
 \subsection{Radiation pattern computed from the build-up}
-The pattern is not a textbook formula: it is computed from the element positions of the build-up
-(\code{core/antenna.py}). Elements are isotropic in the array factor; the element pattern enters only through the
+The pattern is computed from the element positions of the build-up (\code{core/antenna.py}). Elements are isotropic in the array factor; the element pattern enters only through the
 projected area $\cos\theta$ and the active mismatch (Section~\ref{sec:mismatch}). Near boresight, expressed in units
 of $\lambda/\Denv$, the pattern does not depend on frequency, so one computation per band serves the whole band (S and
 Ku sample the same octagon and agree to \SI{0.1}{\percent}). The rows are centred and palindromic, so the array factor
@@ -387,15 +370,15 @@ $p_{\mathrm{pump}} = 2\,\%$ the share of that heat spent by the cooling pumps; $
 $\eta_{\mathrm{dist}} = 0.995$ are the efficiencies of the power supply and of the distribution (product 0.945). Each
 face is also limited by what its own feeder (cables, converter) can carry, \SI{8}{MW}, and by an optional cap the
 operator may reserve for it in the mission (one value for all faces or one per face). The tool reports the power each
-face actually draws, the margin left in the shared budget, and a suggested split proportional to the needs. To weigh
-energy against time when it chooses waveforms, the search optimiser keeps a \emph{reference} allocation of
-$\SI{8}{MW}/4 = \SI{2}{MW}$ per face; the joint optimisation of the split belongs to the global optimiser (step 5.2).
+face actually draws, the margin left in the shared budget and the split among the faces (Section~\ref{sec:load}). To
+weigh energy against time when it chooses waveforms, the search optimiser keeps a \emph{reference} allocation of
+$\SI{8}{MW}/4 = \SI{2}{MW}$ per face.
 
 \paragraph{Always-on consumption.} A digital array receives all the time, whether it transmits or not. Per face:
 two converters per TRM (one per polarisation; \SI{0.1}{W} each at \SI{250}{MS/s} and 13 bits, an optimistic 2050 value
 against 0.3--1 W today) and two receive chains per TRM (LNA, amplifiers, local-oscillator distribution: \SI{0.5}{W}
-in S, \SI{0.1}{W} in Ku), in both bands; \SI{50}{kW} of digital beamforming and processing (provisional, until the
-computing step); \SI{2}{kW} of control. Total \SI{106.9}{kW} per face (\num{9800} S and \num{245000} Ku converters).
+in S, \SI{0.1}{W} in Ku), in both bands; \SI{50}{kW} of digital beamforming and processing (ceiling,
+Section~\ref{sec:compute}); \SI{2}{kW} of control. Total \SI{106.9}{kW} per face (\num{9800} S and \num{245000} Ku converters).
 With the reference \SI{2}{MW}, a face has $2\times0.945 - 0.107 = \SI{1.784}{MW}$ left for its transmissions.
 
 \paragraph{TRM level: supply over a train.} Each TRM draws its pulse from its local buffer and refills it from a
@@ -423,7 +406,7 @@ usable, \SI{15}{MW} discharge), recharged at the rate the feeder leaves after th
   \item \emph{peak power}: the peak of an observation must stay within the storage discharge plus the recharge.
 \end{itemize}
 The step of the bus load at the start of an observation and its slope over the pulse edge (\SI{0.2}{\micro s} in S)
-are reported for the design of the bus; they are not modelled electrically.
+are reported for the design of the bus.
 
 \subsection{Thermal budget}\label{sec:thermal}
 All the electrical power a face draws becomes heat, except the RF energy radiated away. Since roadmap step 4.2 the
@@ -479,7 +462,7 @@ giving \textbf{\SI{144.5}{K} in S and \SI{230.8}{K} in Ku} for the cold sky. The
 direction (Section~\ref{sec:sky}).
 
 \subsection{Converter and dynamic range}
-The ADC noise figure is derived from the converter, not entered:
+The ADC noise figure is derived from the converter:
 \[
   \mathrm{NF}_{\mathrm{ADC}} = P_{\mathrm{FS}} - (6.02\,\mathrm{ENOB} + 1.76) - 10\log_{10}(k T_0 f_s),
 \]
@@ -505,7 +488,7 @@ ADC clipping and in-channel desensitisation (\SI{6}{dB} below the noise). With t
 an adjacent face, \SI{120}{dB} to the opposite one, \SI{-30}{dB} inside a TRSA) a face cannot receive a band while
 another face transmits it: all faces share \textbf{a common transmit/receive cadence per band}. A further rule: no Ku
 reception on a face during an S transmission whose fifth harmonic $[5(f-B/2),\,5(f+B/2)]$ covers the Ku channel. These
-are rules for the scheduler (not yet enforced; no loss is put in the budget before the scheduling step).
+are rules of the scheduler (Section~\ref{sec:sched}).
 
 \subsection{Sky noise}\label{sec:sky}
 The antenna temperature depends on the look direction. With the receive gain written $G = G_0\,w\,g(\rho)$ (element
@@ -514,8 +497,8 @@ pattern $w=\cos\theta$, nothing behind the face) and $d\Omega = du\,dv/w$, the f
   \Delta T = T_b\,\frac{A\,\eta_{\mathrm{RX}}\,\eta_{\mathrm{ohm}}}{\Denv^2}\int_{\text{body}} g(\rho)\,d\rho^2,
 \]
 the integral running over the body as seen in the $(u,v)$ plane of the face (front half only), $\rho$ being the
-distance to the beam axis in $\lambda/\Denv$ and $g$ the azimuthal mean of the computed receive pattern. The main lobe
-is therefore exact, not a Gaussian approximation. Small bodies (Sun, Moon) are sampled finely on their disk; large
+distance to the beam axis in $\lambda/\Denv$ and $g$ the azimuthal mean of the computed receive pattern, main lobe
+included. Small bodies (Sun, Moon) are sampled finely on their disk; large
 ones (Earth) by a polar grid in the near window and rings beyond. Brightness temperatures are class values per band
 (quiet, mid-cycle and active Sun: \SIlist{4.5e4;1.0e5;1.5e5}{K} in S; Earth \SI{290}{K} worst case, ocean and land
 variants; Moon \SI{230}{K}); the galactic background follows a plane-and-bulge model scaled as $f^{-2.5}$, with a
@@ -541,8 +524,8 @@ the confirmation and tracking of the sector.
 
 \subsection{Modulation and pulse compression}
 Two families are modelled: linear FM (Doppler tolerant) and non-linear FM (low range sidelobes shaped by the frequency
-law, no weighting loss); phase codes are left out because they tolerate a Doppler shift poorly at closing speeds up to
-\SI{25}{km/s} ($f_d \approx \SI{470}{kHz}$ in S). For each look, with $f_{d,\max} = 2v/\lambda$:
+law, no weighting loss). Phase codes are excluded: poor Doppler tolerance at closing speeds up to \SI{25}{km/s}
+($f_d \approx \SI{470}{kHz}$ in S). For each look, with $f_{d,\max} = 2v/\lambda$:
 \begin{itemize}
   \item if $f_{d,\max}/B \le 2\,\%$: NLFM, mismatch loss \SI{0.1}{dB};
   \item otherwise: LFM with a Taylor ($\bar n = 5$) receive-only weighting at the sidelobe level of the volume; loss =
@@ -581,12 +564,9 @@ In S, one dwell may serve $B_{\mathrm{tx}}$ beams. The digital receiver already 
   \item \textbf{Aperture partition} ($B_{\mathrm{tx}} = 2, 4$): halves or quadrants (Section~\ref{sec:subap}), power
         $P/B_{\mathrm{tx}}$ and gain $G\,N_{\mathrm{sub}}/N$ per beam, a wider beam on its own lattice: fewer positions.
   \item \textbf{Time multiplex} ($B_{\mathrm{tx}} = 2, 4, 8$): full-power pulses sent back to back in the PRI; blind
-        range, buffer, duty and PAE computed on $B_{\mathrm{tx}}\tau$. Modelled, but not offered to the optimiser: in
-        the budget of transmit time with interleaved positions it spends the same energy and time per position as one
-        beam and is never better. Its value is in the timeline (latency, shared echo waiting), to be re-evaluated with
-        the scheduler.
+        range, buffer, duty and PAE computed on $B_{\mathrm{tx}}\tau$. Not offered to the optimiser: with interleaved
+        positions it spends the same energy and time per position as one beam.
 \end{itemize}
-Linear superposition (PA back-off) and frequency multiplexing were left out.
 
 \subsection{Search waveform space}
 The S search space is the product of: integration (coherent, noncoherent), transmit mode and beams, signal bandwidths
@@ -668,8 +648,7 @@ of a decade. Every false alarm is then confirmed in Ku like a detection. Ku look
 %=====================================================================================================================
 \section{Target models}\label{sec:targets}
 %=====================================================================================================================
-Targets are described by \emph{classes} whose values are \emph{class means}, not data on a particular weapon: the
-adversary's equipment is unknown and every value of a plausible range is possible. A sector names a class and may
+Targets are described by \emph{classes} whose values are \emph{class means} (the adversary's equipment is unknown). A sector names a class and may
 override any value. ST is the conventional reference target of the benchmark; GENERIC completes a sector that names no
 class.
 
@@ -920,15 +899,16 @@ waits before its confirmation. S and Ku have separate transmit timelines on each
 
 \paragraph{Priorities.} Set by the designer:
 \begin{center}
-\begin{tabular}{@{}ll@{}}
+\begin{tabularx}{\linewidth}{@{}lL@{}}
 \toprule
 P0 & calibration (without it the radar does not work)\\
 P1 & search of the volumes flagged \emph{self-protection} (a checkbox per volume)\\
 P2 & confirmation of a detection and track initiation (never lose a detection)\\
 P3 & track updates (a few misses are manageable); P3$'$ Ku burn-through, only if the operator authorises it in flight\\
 P4$_n$ & search, with a sub-priority per volume chosen by the operator ($n = 1$ served first)\\
+P5 & margin reuse: the part of a search added by a revisit shortened below the one asked (Section~\ref{sec:load})\\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{center}
 
 \paragraph{Statistical budget.} On each face and band the tasks form a queue served without preemption (an observation
@@ -963,8 +943,8 @@ and rate of the pointings (inputs of the computing step) and the spread of the r
 
 \paragraph{Rules between faces and bands.} All faces transmit a band in common slots (otherwise the transmission of one
 face would blind the receivers of the others); the slots are sized by the busiest face, and every face is deaf in
-them: the search echoes lose $-10\log_{10}(1-\rho_{\mathrm{slots}})$, reported (flag above \SI{0.5}{dB}) but not yet
-fed back into the plan. On a face where an S waveform's fifth harmonic covers the Ku channel, the Ku looks avoid the S
+them: the search echoes lose $-10\log_{10}(1-\rho_{\mathrm{slots}})$; above \SI{0.5}{dB} the loss is fed back into the
+search plan by the global optimiser (Section~\ref{sec:load}). On a face where an S waveform's fifth harmonic covers the Ku channel, the Ku looks avoid the S
 slots.
 
 \paragraph{Latency.} The latency of a confirmation is the 95\,\% wait of the P2 class, plus its service, its round
@@ -978,7 +958,7 @@ Every face is fully digital: each TRM has two converters (one per polarisation) 
 i.e. \SI{63.7}{Tbit/s} per face in S and \SI{1.59}{Pbit/s} in Ku before any reduction. The compute and data budget
 (\code{core/compute.py}, roadmap step 4.4) checks that the digital chain keeps up with what the plan asks: data rates,
 simultaneous receive beams, processing load, buffers, latency and the power of the processing. Every value below is a
-setting of the parameter file (section \code{[compute]}): the architecture will be refined and the code follows it.
+setting of the parameter file (section \code{[compute]}).
 
 \paragraph{Architecture.} Hierarchical. Each TRSA brings its channels down to the signal bandwidth (digital
 down-conversion: complex samples at $1.25\,B$, I and Q on 16 bits). In S a TRSA has only 50 channels, fewer than the
@@ -991,7 +971,7 @@ banks and the CFAR, and nulls the sidelobe jammers on the 196 TRSA outputs; the 
 samples per pulse, $c_r = 4\,B\,\mathrm{PRI}$ range cells of the detection grid, $h$ velocity $\times$ acceleration
 hypotheses, $M$ Doppler bins and $b$ receive beams, the operations of one look are
 \begin{center}
-\begin{tabular}{@{}ll@{}}
+\begin{tabularx}{\linewidth}{@{}lL@{}}
 \toprule
 beamforming & $8\times$ channels $\times\, b\, f_s T$ (a complex multiply-accumulate is 8 operations)\\
 pulse compression & $10\, n_p\log_2 n_p$ per pulse, beam and polarisation (fast convolution)\\
@@ -1000,15 +980,14 @@ CFAR & 10 per tested cell and hypothesis\\
 jammer nulling & $d^2$ per training snapshot ($2d$ snapshots), $d^3/3$ per inversion, $d$ per sample and beam\\
 tracking & $10^4$ per track update\\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{center}
 The looks are the S search dwells (rate = positions / positions per dwell / revisit), the Ku confirmations and the Ku
 track updates, from the plan and the Ku budget. The listening windows of a face overlap; by Little's law their mean
 number is $\sum \text{rate}\times T$, so the simultaneous beams are that number rounded up times the beams of the
 largest dwell (an upper bound). On two test missions, S waveforms that partition the aperture into four
-transmit sub-beams over 13.7 positions need 155 to 171 simultaneous receive beams against the 64 of the
-beamformer of the first setting; the beamformer now forms 512 beams in S and 32 in Ku (a negligible computing
-cost). The coherent buffers are checked against \SI{4}{TB} of memory per face and the memory traffic (writes of the
+transmit sub-beams over 13.7 positions need 155 to 171 simultaneous receive beams; the beamformer forms 512 beams in
+S and 32 in Ku (a negligible computing cost). The coherent buffers are checked against \SI{4}{TB} of memory per face and the memory traffic (writes of the
 received and compressed samples, one read per dwell: the banks work in the processor's on-chip memory) against
 \SI{50}{TB/s}.
 
@@ -1016,9 +995,10 @@ received and compressed samples, one read per dwell: the banks work in the proce
 (\SI{20}{\percent}: leakage, clocks) is always consumed; the rest follows the load at \SI{0.01}{pJ} per operation and
 \SI{0.05}{pJ} per transported bit (2050--2060, optimistic end). The capacity is what the ceiling allows, about
 $4\times10^{18}$ operations per second per face; the test missions need $10^{11}$ to $2\times10^{16}$ (the most: the
-velocity banks of a sector cluttered by a surface), so the processing consumes about \SI{10}{kW} per face, not
-\SI{50}{kW}. The power and heat budgets that size the plan keep the ceiling (prudent: the consumption depends on the
-Ku load, computed after them); the consumption and the corrected bus draw and face heat are reported beside them.
+velocity banks of a sector cluttered by a surface), and the processing consumes about \SI{10}{kW} per face. The
+power and heat budgets that size the plan keep the ceiling (prudent: the consumption depends on the Ku load, computed
+after them); the real consumption and the corrected bus draw and face heat are reported beside them, and the power
+allocation among the faces uses the real consumption.
 
 \paragraph{Latency.} The data reach the face processor while the echoes are received; after the end of a dwell remain
 the backlog of a link slower than the stream (none today: \SI{0.2}{Tbit/s} per TRSA link against \SI{4}{Tbit/s},
@@ -1063,6 +1043,108 @@ whole envelope of attitudes is checked later (validation engine).
 about $10^7$ operations per second per face, negligible.
 
 %=====================================================================================================================
+\section{Load control}\label{sec:load}
+%=====================================================================================================================
+This section gathers the rules that decide which task receives which resource, when, and what gives way when a
+resource runs short (roadmap steps 4.1 to 4.5 and 5.2). They size and check a plan in mission preparation; their
+dynamic execution in flight belongs to the global simulation.
+
+\subsection{Resources}
+Each face has its own resources, except the energy and the heat rejection, shared by the ship.
+\begin{center}
+{\small\begin{tabularx}{\linewidth}{@{}lllL@{}}
+\toprule
+Resource & Scope & Capacity & Load\\
+\midrule
+Electrical energy & ship; face & \SI{8}{MW}; feeder \SI{8}{MW}, operator cap & mean bus draw / capacity\\
+Face storage & face & \SI{5}{MJ} (\SI{80}{\percent} usable), \SI{15}{MW} & deficit per look and per worst burst\\
+S transmit time & face & 1 & sum of the time shares of the S tasks\\
+Ku transmit time & face & 1 & idem in Ku (separate array)\\
+Heat & face; ship & \SI{15.9}{MW}; \SI{6}{MW} & mean heat / capacity\\
+Computing & face & $4\times10^{18}$ op/s & operations per second / capacity\\
+Receive beams & face, band & 512 S, 32 Ku & peak beams of a dwell / capacity\\
+Memory, bandwidth & face & \SI{4}{TB}, \SI{50}{TB/s} & coherent buffers at peak; traffic\\
+\bottomrule
+\end{tabularx}}
+\end{center}
+The \emph{dimensioning resource} of a face is the one with the highest load; for energy, the larger of the ship's
+need over \SI{8}{MW} and the face's need over its cap.
+
+\subsection{Sequence of a mission calculation}
+\begin{enumerate}
+  \item \textbf{Search plan per sector} (Section~\ref{sec:opt}): frequency, lattice, waveform per scan bin, pulse
+        shortened to the requirement; objective $\min\max$(energy share, S time share) over the faces, the energy
+        referred to \SI{2}{MW} per face. A direction is served by the nearest face.
+  \item \textbf{Budgets}: totals per face, Ku confirmation (mode chosen to lower the most loaded face) and tracking,
+        compute and data, power allocation (below), re-pointing, scheduler.
+  \item \textbf{Global loop} (at most 3 passes): the couplings are fed back into the plans (eclipse of the common
+        slots above \SI{0.5}{dB}; Ku cost of the false alarms when they depend on the waveform; waveforms needing more
+        beams than the beamformer removed); each sector may switch to one of its alternatives (another frequency or
+        lattice, same coverage and range) when it lowers the most loaded face of the mission, then the sum of the
+        loads; only the sectors concerned are planned again; the loop stops when nothing changes.
+  \item \textbf{Margin reuse} when the mission sets \code{auto\_alloc\_max} (below).
+  \item \textbf{Verdict} per resource and face, on the revisits asked.
+\end{enumerate}
+
+\subsection{Power allocation among the faces}
+The need of each face (bus draw) is split by priority tier: P0 always-on (with the real consumption of the
+processing) and calibration, P1 self-protection search, P2 confirmation and initiation, P3 track updates by target class
+(KKV, SHIP, DECOY, DEBRIS, others), P3$'$ burn-through, P4$_n$ search, P5 margin reuse.
+\begin{itemize}
+  \item \textbf{Enough power}: each face receives a share of the \SI{8}{MW} proportional to its need; the excess of a
+        capped face goes to the others.
+  \item \textbf{Shortfall}: the tiers are served in order over all the faces (a P1 search on one face before a P3 track
+        on another); the last tier served is served in part: its search volumes get a tenable revisit
+        ($RR$ / share served), its tracks a tenable number. A tier P0 to P2 not served in full makes the mission not
+        tenable.
+\end{itemize}
+
+\subsection{Margin reuse}
+The revisit asked for a volume is a minimum. When the resources have room, the revisits are shortened until the
+dimensioning resource reaches $X$ = \code{auto\_alloc\_max} (one value per mission, 0 = off by default):
+\begin{itemize}
+  \item one factor $g \ge 1$ for every search volume, self-protection included, raised together; the volumes of a face
+        that reaches $X$ stop, the others go on; a volume over several faces is bounded by the most loaded one; a
+        volume also stops at its \code{rr\_min\_s}, set by the operator (no default);
+  \item the plan is kept (waveforms, lattice, pulse lengths); the revisit becomes $RR/g$; the false alarms are kept at
+        the same rate per second ($\Pfa$ per cell divided by $g$), so the confirmation load does not move; the gain is
+        reported as the cumulative detection range at the real revisit;
+  \item the search load added is tier P5, the first given back on an overload; the verdict stays on the revisit asked;
+  \item a probe at $g = 2$ gives the slope of every resource; after the filling, the budgets are assembled again at the
+        real revisits and a non-linear resource is corrected by the secant through its last two points (at most 2
+        corrections, tolerance 0.5 point).
+\end{itemize}
+Example (test mission, $X = \SI{80}{\percent}$, operator caps of \SI{2}{MW} per face): revisits of 20, 5 and
+\SI{120}{s} become 0.09, 0.068 and \SI{1.6}{s}, bounded by the energy of faces 1 and 2, cumulative ranges
+$+56$ to $+89\,\%$; with \code{rr\_min\_s} = \SI{5}{s} on the first volume, $g = 4$ and $+19\,\%$.
+
+\subsection{Overload: order of what gives way}
+\begin{center}
+{\small\begin{tabularx}{\linewidth}{@{}lL@{}}
+\toprule
+Resource short & Response\\
+\midrule
+S time (search plan) & revisits of the face stretched in proportion (flag)\\
+Energy & tiers served in order; tenable revisit or number of tracks of the last tier\\
+Time (scheduler) & P4$_n$ from the lowest sub-priority (revisit stretched), then P3 (update period stretched); P0,
+P1, P2 never shed (mission not feasible); in flight, P5 is given back first\\
+Beams & waveforms needing more beams than the beamformer removed from the plan\\
+Migration between faces & neighbouring face must carry the load of the volume (flag)\\
+\bottomrule
+\end{tabularx}}
+\end{center}
+With the bit-reversed Morton order of the pointings (Section~\ref{sec:sched}), a stretched or cut frame keeps a uniform
+coverage.
+
+\subsection{In flight}
+The radar computer re-points every pointing at its transmission (Section~\ref{sec:repoint}) and re-selects precomputed
+waveforms when the measured spectrum changes. Rules set for the global simulation: the allocation becomes dynamic
+(resources allocated and taken back between functions according to the real load; margin reuse applies, P5 given back
+first); on an overload, before any shedding, the resource that blocks the face at its limit is reallocated: energy
+from the faces with margin, transmit time by waveform re-selection (energy against time) or by the neighbouring face in
+the overlap zones, heat, computing, beams and memory through the overlap; shedding by priority comes last.
+
+%=====================================================================================================================
 \section{Mission settings and target presentation}\label{sec:mission51}
 %=====================================================================================================================
 Roadmap step 5.1 turns operational settings into mission keys, each defaulting to the parameter file: the probability
@@ -1071,17 +1153,16 @@ of confirming a true target (per mission, or per volume), the cumulative search 
 bracket, and the largest angular rate and acceleration of the ship (the band loss of the navigation stays sized by the
 file; a harsher mission is flagged with the loss it misses). A mission switch allows the Ku burn-through in a
 self-protection jammer's axis: it is then budgeted (one look per revisit) and scheduled after the track updates (P3$'$);
-it is forbidden by default.
+it is forbidden by default. Step 5.2 adds \code{auto\_alloc\_max} per mission and \code{rr\_min\_s} per volume
+(Section~\ref{sec:load}).
 
 \paragraph{RCS and presentation.} Each class of the library has a table of its RCS against the presentation, every
 \SI{30}{\degree} in azimuth (12 values) and elevation (7 values), in dB relative to the frontal RCS, interpolated on a
 \SI{2}{\degree} grid that contains the nose. Detection uses the \emph{worst} presentation (least total RCS, the seeker
 optics counted only within their \SI{\pm5}{\degree} cone), except for the KKV, taken \emph{frontally}: it aims at the
-ship, nose and seeker toward the radar. With the present tables no detection range changes (the solid-angle mean
-would have nearly doubled the KKV's). The table's spread over every presentation (none for a class seen frontally) and
+ship, nose and seeker toward the radar. With the present tables no detection range changes. The table's spread over every presentation (none for a class seen frontally) and
 the spread from one object of a class to another (3 to \SI{5}{dB} in RCS, \SI{2}{dB} in depolarisation) enter the
-discrimination indices as systematic terms that more looks do not reduce: the separability, about 1 before, becomes
-realistic.
+discrimination indices as systematic terms that more looks do not reduce.
 
 %=====================================================================================================================
 \section{Other functions}
@@ -1100,7 +1181,7 @@ range and receive weighting (the digital receiver can apply both on the same loo
 met, with an unambiguous PRI and sufficient resolution.
 
 \paragraph{Fast estimate.} For live feedback while the operator edits, a precomputed table gives the cheapest energy per
-position versus range, RCS, speed and scan angle; only the full calculation is authoritative.
+position versus range, RCS, speed and scan angle; the verdict comes from the full calculation.
 
 \paragraph{Frames and navigation.}\label{sec:frames} The navigation message carries a Hamilton quaternion (ship to ICRF)
 and an optional orbit. Before any calculation, the mission is turned into the ship frame once: each sector given in
@@ -1126,13 +1207,15 @@ Module & Role\\
 jammers, Faraday\\
 \code{core/isolation.py} & leakage between bands and faces, scheduler rules\\
 \code{core/frames.py} & navigation, frames of the volumes\\
-\code{core/optimizer.py} & S search optimiser, mission run, sector summaries\\
+\code{core/optimizer.py} & S search optimiser, mission run, global loop, sector summaries\\
 \code{core/tracking.py} & Ku confirmation and active tracking budget\\
 \code{core/trackmodel.py} & track model: Singer Kalman filter, loss chain, initiation, discrimination\\
 \code{core/scheduler.py} & priorities, waits, synthetic timeline, common slots, latency\\
 \code{core/scanorder.py} & search pointings of a volume, shifts, bit-reversed Morton order\\
 \code{core/compute.py} & data rates, receive beams, processing load, buffers, power and latency of the digital chain\\
 \code{core/repoint.py} & re-pointing in flight: navigation pointing error, its loss, migration between faces\\
+\code{core/allocation.py} & power allocation among the faces by priority tier\\
+\code{core/margin.py} & margin reuse: revisits shortened up to \code{auto\_alloc\_max}\\
 \code{core/redundancy.py} & redundancy between sectors\\
 \code{core/cost\_estimate.py} & fast estimate for the interface\\
 \code{core/mission.py} & mission model, validation, JSON / CSV\\
@@ -1152,7 +1235,7 @@ The test bench has two families: frozen outputs of every test mission compared a
 (non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
 exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
 frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
-before any refreeze. At model V6.22.0 the bench has 221 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
+before any refreeze. At model V6.22.0 the bench has 228 tests (11 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 19 minutes, with a global progress bar).
 
 %=====================================================================================================================
 \section{Roadmap and open points}\label{sec:roadmap}
@@ -1160,7 +1243,7 @@ before any refreeze. At model V6.22.0 the bench has 221 tests (11 of them compar
 \begin{center}
 \begin{tabularx}{\linewidth}{@{}lL@{}}
 \toprule
-Phase & Steps (status on 25 October 2026)\\
+Phase & Steps (status on 26 October 2026)\\
 \midrule
 0, foundations & single parameter file, test bench, review of every value --- done\\
 1, antenna and RF & real pattern; active mismatch, grating and gap lobes; TRMs and transmit chain; band; receive chain,
@@ -1171,25 +1254,26 @@ calibration --- done (degraded modes and TRM failures deferred to the end of the
 4, resources & 4.1 power: shared ship budget, always-on consumption, TRM supply, face storage --- done; 4.2 thermal:
 coolant, cold plate, junction, ship heat rejection --- done; 4.3 scheduler: priorities, queues, synthetic timeline,
 common slots, latency --- done; 4.3 bis scan order inside a volume --- done; 4.4 compute and data --- done; 4.5 re-pointing in flight --- done\\
-5, mission and validation & 5.1 richer mission model --- coded; global optimiser; validation engine; Monte-Carlo
-simulation; operator interface; verification and documentation; end of development\\
+5, mission and validation & 5.1 richer mission model --- done; 5.2 global optimiser --- in progress (power allocation,
+couplings, global loop, margin reuse coded; flight tables to come); validation engine; Monte-Carlo simulation; operator
+interface; verification and documentation; end of development\\
 \bottomrule
 \end{tabularx}
 \end{center}
 
 Main provisional dispositions, each assigned to a later step:
 \begin{itemize}
-  \item \textbf{Scheduler}: the eclipse of the common slots fed back into the search plan (5.2); time multiplex and
-        superposition with an imperfect interleaving; GO-CFAR near limbs counted (advised only today); search-lattice
+  \item \textbf{Scheduler}: time multiplex and superposition with an imperfect interleaving; the P5 share of a search
+        as a class of its own; GO-CFAR near limbs counted (advised only today); search-lattice
         shift every frame (a rule); S/Ku alignment on external references; Ku burn-through authorised in flight (allowed by a mission switch since step 5.1).
   \item \textbf{Thermal}: ship heat rejection reserved for the radar (provisional \SI{6}{MW}).
-  \item \textbf{Computing}: the consumption of the processing fed back into the budgets that size the plan (5.2);
-        memory capacity of the coherent buffers (output only today, up to \SI{167}{GB} on a face); cost of an
-        in-flight waveform re-selection (provisional value).
+  \item \textbf{Computing}: the budgets that size the search plan keep the \SI{50}{kW} ceiling of the processing (the
+        power allocation uses the real consumption); cost of an in-flight waveform re-selection (provisional value).
   \item \textbf{Re-pointing in flight}: the maximum rate and acceleration per mission (system settings today); the
         whole attitude envelope (5.3); the ship turning in the 3D view (phase 6).
   \item \textbf{Mission and validation (5.x)}: the presentation tables and the spreads are provisional values (D);
-        joint optimisation of the power split among faces, recalibration of the fast estimate on the track model;
+        flight tables (5.2); other uses of the margin (longer search range, lower-priority volumes); overlap zones
+        between faces; recalibration of the fast estimate on the track model;
         the interface of the mission preparation is interim (a full HMI comes with the global simulation).
   \item \textbf{Antenna}: element pattern and mutual coupling at tile edges not modelled (isotropic elements);
         couplings between faces are optimistic orders of magnitude needing an electromagnetic simulation.
@@ -1231,8 +1315,8 @@ Sector area in $(u,v)$ & 2.0006\\
 %=====================================================================================================================
 \section{Glossary: quantities and the physics behind them}\label{sec:glossary}
 %=====================================================================================================================
-This appendix explains, for each main quantity of the model, what it means and which physical phenomenon it stands
-for. Values are those of the parameter file at the date of the document.
+Each main quantity of the model, its meaning and the physical phenomenon behind it. Values are those of the
+parameter file at the date of the document.
 
 \subsection{Geometry, antenna and beams}
 {\small
@@ -1303,6 +1387,8 @@ from its nose).\\
 Navigation message & Attitude, rate and orbit of the ship sent to the radar computer (here 100 per second).\\
 Little's law & Mean number of items in progress = arrival rate $\times$ time each item stays; here, open listening
 windows.\\
+Dimensioning resource & Most loaded resource of a face (energy, time, heat, computing, beams, memory); the margin reuse
+brings it up to \code{auto\_alloc\_max}.\\
 \bottomrule
 \end{longtable}}
 
@@ -1402,8 +1488,7 @@ Every effect the model accounts for, what it represents, and the range of its im
 impact is an SNR loss in dB (a gain when negative): a loss of $x\dB$ shortens the range by the factor
 $10^{-x/40}$ (\SI{1}{dB} $\approx -5.6\,\%$, \SI{3}{dB} $\approx -16\,\%$) or, at a fixed range, multiplies the energy
 by $10^{x/10}$. The ranges come from the parameter file and from a sample of the S search space (3 test sectors,
-900 waveforms, 3 frequencies, 0 to \SI{70}{\degree} scan) and of the Ku look space (300 looks); they are test values,
-not performances.
+900 waveforms, 3 frequencies, 0 to \SI{70}{\degree} scan) and of the Ku look space (300 looks).
 
 {\small
 \begin{longtable}{@{}p{0.22\linewidth}p{0.47\linewidth}p{0.25\linewidth}@{}}
@@ -1523,6 +1608,8 @@ Junction temperature & Heating of the PA transistors by the pulses & $\le$\SI{63
 not limiting\\
 Ship heat rejection & Heat of the radar against the rejection reserved & e.g. \SI{1.0}{MW} of \SI{6}{MW} (test
 mission)\\
+Margin reuse & Revisits shortened up to \code{auto\_alloc\_max} of the dimensioning resource, plan kept & cumulative
+range $+19$ to $+89\,\%$ on a test mission ($X = \SI{80}{\percent}$)\\
 Calculation settings & Approximations of the optimiser (rounded laws, few frequencies in a quiet spectrum, \dots) &
 $\le$\SI{0.003}{dB} on $\SNR_{\mathrm{req}}$; search energy $-5$ to $+9\,\%$ per sector\\
 \bottomrule

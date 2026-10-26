@@ -1758,6 +1758,7 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
         "time_to_impact_at_detection_s": (r_want * 1e3 / v_max - rr) if v_max > 0 else None,
     }
     out["_alternatives"] = getattr(plan, "alternatives", [])        # step 5.2
+    out["_choice"] = [int(c) for c in plan.choice]                   # step 5.2 (P4): ranges at the real revisit
     out["flags"] = []
     res = out["range_resolution_m"]
     if res["achieved"] > res["requested"] + 1e-9:
@@ -2070,6 +2071,37 @@ def _assemble(mission: dict, sectors: List[dict], results: List[dict], cancelled
     warn.extend(out["scheduler"]["flags"])
     return out
 
+def ranges_at_rr(sec: dict, r: dict, eps_min: float, eps_max: float, sky: Optional[dict] = None) -> Optional[list]:
+    """Step 5.2 (P4, a): per wf_by_bin group of a sector result, the range at the worst bin of the group with the plan
+    kept (frequency, lattice, waveform per bin) and the sector's own revisit and false-alarm settings (the margin reuse
+    passes the real revisit, false alarms frozen per second); full pulse, as range_km_at_bin_max."""
+    choice = r.get("_choice")
+    if choice is None:
+        return None
+    sph = _sphere(eps_min, eps_max)
+    x = _freq_ranges(dict(sec, _grid_spacing=r["beam_spacing_hpbw"]), sph, sph.mask(sec), r["frequency"]["freq_ghz"],
+                     sky, candidate_waveforms(sec, sky), sector_target(sec), exclusions_s(sec))
+    if x is None:
+        return None
+    Pc, _, rmat, _, _, _, col_bin, r_cols = x
+    pt = Pc.sum(axis=0)
+    rw = np.broadcast_to(np.asarray(r_cols, dtype=float), pt.shape)
+    col_bin = np.asarray(col_bin)
+    choice = np.asarray(choice)
+    rb = np.full(len(choice), np.nan)
+    for b in np.flatnonzero(choice >= 0):
+        cols = np.flatnonzero((col_bin == b) & (pt > 0))
+        if len(cols):
+            rb[b] = rmat[choice[b], cols[int(np.argmax(rw[cols]))]]   # the most demanding column, as _plan_to_bins
+    out = []
+    for lo in range(0, len(choice), BIN_DEG):
+        bins = [i for i in range(lo, min(lo + BIN_DEG, len(choice))) if choice[i] >= 0]
+        if bins:
+            v = rb[bins[-1]]
+            out.append(round(float(v)) if np.isfinite(v) else None)
+    return out
+
+
 def _couplings(mission: dict, out: dict) -> Dict[str, dict]:
     """Per sector, the coupling keys of the next pass (step 5.2): the eclipse of the common S slots when above
     scheduler.eclipse_flag_db (below, reported only, as before), and the Ku energy of confirming one false alarm when
@@ -2210,8 +2242,18 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
         out = _assemble(mission, sectors, results, cancelled, *args)
     out["global_opt"] = {"passes": 1 + len(history), "max_passes": GOPT_MAX_ITER, "history": history,
                          "converged": len(history) < GOPT_MAX_ITER - 1}
+    # step 5.2 (P4): the margin the mission leaves is reused to shorten the revisits, up to auto_alloc_max
+    from . import margin
+    if not cancelled and margin.auto_max(mission) > 0.0:
+        keep = {sid: {x: v for x, v in k.items() if x != "_force_plan"} for sid, k in applied.items()}
+        mr = margin.reuse(mission, out,
+                          lambda mis, res: _assemble(mis, mis["sectors"], res, cancelled, *args),
+                          lambda sec, r: ranges_at_rr(dict(sec, **keep.get(sec["id"], {})), r, eps_min, eps_max, sky))
+        out["margin_reuse"] = mr
+        out["warnings"].extend(mr["flags"])
     for r in out["sectors"]:
         r.pop("_alternatives", None)
+        r.pop("_choice", None)
     return out
 
 
@@ -2289,6 +2331,13 @@ def print_report(res: dict) -> None:
         tti = r["time_to_impact_at_detection_s"]
         print(f"     RR: target {r['rr_target_s']:.0f} s | alone {r['rr_alone_s']:.0f} s | in mission {r['rr_est_mission_s']:.0f} s"
               f" | time to impact after detection (vmax) {'n/a' if tti is None else f'{tti:.0f} s'}")
+        mr = (res.get("margin_reuse") or {}).get("sectors", {}).get(r["id"])
+        if mr and mr["g"] > 1.0:                             # step 5.2 (P4): the margin reused
+            rr_txt = (f"     RR real {mr['rr_real_s']:.3g} s (x{mr['g']:.3g}, limited by {mr['limited_by']})")
+            if mr.get("range_km_at_rr_real"):
+                rr_txt += (f" | range at the real RR {min(v for v in mr['range_km_at_rr_real'] if v is not None):.0f}"
+                           f" km at worst (asked {r['range_km']['requested']:.0f} km)")
+            print(rr_txt)
         for fl in r["flags"]:
             print("     !!", fl)
     print("-" * 100)

@@ -24,6 +24,7 @@ from PyQt5.QtWidgets import (
 from core import cost_estimate as ce
 from core import frames
 from core import geometry as geo
+from core import margin
 from core import mission as md
 from core import optimizer as mo
 from core import radar_model as rm
@@ -54,7 +55,8 @@ AT_COLUMNS = (
 AT_DEFAULTS = {**md.BRACKET_DEFAULTS, "pd_update": tm.PD_UPDATE, "p_discrimination": tm.P_DISCRIMINATION}
 # step 5.1: mission settings (stored in the mission only when they differ from the parameter file)
 MISSION_DEFAULTS = {"confirm_p_min": trk.CONFIRM_P_MIN, "ship_rate_max_dps": repoint.RATE_MAX_DPS,
-                    "ship_accel_max_dps2": repoint.ACCEL_MAX_DPS2}
+                    "ship_accel_max_dps2": repoint.ACCEL_MAX_DPS2,
+                    "auto_alloc_max": margin.AUTO_MAX_DEFAULT}          # step 5.2 (P4)
 CONFIRM_TIPS = {
     "auto": "Chosen per sector by the calculation: lowest load of the most loaded face, P confirm >= 0.98",
     "KU1+7": "One Ku look on the S estimate, then a 7-beam Ku cluster if it fails",
@@ -202,33 +204,41 @@ class PrepTab(QWidget):
         self.sb_rate.setToolTip("Largest angular rate of the ship (re-pointing in flight: migration between faces)")
         self.sb_accel.setToolTip("Largest angular acceleration of the ship (navigation pointing error); the band loss "
                                  "stays sized by the parameter file, a harsher mission is flagged")
+        self.sb_auto = self._spin(0.0, 1.0, 0.05, MISSION_DEFAULTS["auto_alloc_max"])
+        self.sb_auto.setDecimals(2)
+        self.sb_auto.setSpecialValueText("off")
+        self.sb_auto.setToolTip("Allocation auto max: utilisation of the dimensioning resource up to which the free "
+                                "margin shortens the revisits (same factor for every volume, down to their RR min); "
+                                "0 = off. The verdict stays on the revisits asked")
         self.chk_bt = QCheckBox("Ku burn-through allowed (P3')")
         self.chk_bt.setToolTip("Forbidden by default: the Ku look in a self-protection jammer's axis is only reported. "
                                "Allowed: budgeted (one look per revisit) and scheduled after the track updates")
         form.addRow("Confirmation P min", self.sb_p_min)
         form.addRow("Ship rate max (deg/s)", self.sb_rate)
         form.addRow("Ship acceleration max (deg/s2)", self.sb_accel)
+        form.addRow("Allocation auto max", self.sb_auto)
         form.addRow("", self.chk_bt)
-        for sb in (self.sb_p_min, self.sb_rate, self.sb_accel):
+        for sb in (self.sb_p_min, self.sb_rate, self.sb_accel, self.sb_auto):
             sb.valueChanged.connect(self._on_mission_settings_changed)
         self.chk_bt.toggled.connect(self._on_mission_settings_changed)
         return box
 
     def _load_mission_settings(self) -> None:
         g = self.mission["global"]
-        for sb in (self.sb_p_min, self.sb_rate, self.sb_accel, self.chk_bt):
+        for sb in (self.sb_p_min, self.sb_rate, self.sb_accel, self.sb_auto, self.chk_bt):
             sb.blockSignals(True)
         self.sb_p_min.setValue(g.get("confirm_p_min", MISSION_DEFAULTS["confirm_p_min"]))
         self.sb_rate.setValue(g.get("ship_rate_max_dps", MISSION_DEFAULTS["ship_rate_max_dps"]))
         self.sb_accel.setValue(g.get("ship_accel_max_dps2", MISSION_DEFAULTS["ship_accel_max_dps2"]))
+        self.sb_auto.setValue(g.get("auto_alloc_max", MISSION_DEFAULTS["auto_alloc_max"]))
         self.chk_bt.setChecked(bool(g.get("burn_through_allowed", False)))
-        for sb in (self.sb_p_min, self.sb_rate, self.sb_accel, self.chk_bt):
+        for sb in (self.sb_p_min, self.sb_rate, self.sb_accel, self.sb_auto, self.chk_bt):
             sb.blockSignals(False)
 
     def _on_mission_settings_changed(self, *_args) -> None:
         g = self.mission["global"]
         for key, sb in (("confirm_p_min", self.sb_p_min), ("ship_rate_max_dps", self.sb_rate),
-                        ("ship_accel_max_dps2", self.sb_accel)):
+                        ("ship_accel_max_dps2", self.sb_accel), ("auto_alloc_max", self.sb_auto)):
             if abs(sb.value() - MISSION_DEFAULTS[key]) > 1e-12:
                 g[key] = sb.value()
             else:
@@ -570,7 +580,13 @@ class PrepTab(QWidget):
         common.addRow("Pd (cumulative)", self.sb_pd)
         common.addRow("False alarms tolerated", fa_row)
         common.addRow("Confirmation P min", self.sb_sec_pmin)
-        for w in (self.sb_pd, self.sb_fa, self.sb_sec_pmin):
+        self.sb_rr_min = self._spin(0.0, 600, 0.1, 0.0)                 # step 5.2 (P4)
+        self.sb_rr_min.setDecimals(3)
+        self.sb_rr_min.setSpecialValueText("(none)")
+        self.sb_rr_min.setToolTip("Shortest revisit wanted when the mission's free margin is reused (allocation "
+                                  "auto max); (none) = only the resources bound it")
+        common.addRow("RR min (s)", self.sb_rr_min)
+        for w in (self.sb_pd, self.sb_fa, self.sb_sec_pmin, self.sb_rr_min):
             w.valueChanged.connect(self._on_field_changed)
         self.cb_fa_unit.currentIndexChanged.connect(self._on_field_changed)
         v.addLayout(common)
@@ -873,6 +889,7 @@ class PrepTab(QWidget):
             self.cb_fa_unit.setCurrentIndex(1 if per_s else 0)
             self.sb_fa.setValue(sec["fa_rate_per_s"] if per_s else sec.get("fa_per_rr", mo.FA_PER_RR_DEFAULT))
             self.sb_sec_pmin.setValue(sec.get("confirm_p_min", 0.0))
+            self.sb_rr_min.setValue(sec.get("rr_min_s", 0.0))
         finally:
             self._updating_form = False
 
@@ -1048,6 +1065,10 @@ class PrepTab(QWidget):
             sec["confirm_p_min"] = self.sb_sec_pmin.value()
         else:
             sec.pop("confirm_p_min", None)
+        if self.sb_rr_min.value() > 0.0:
+            sec["rr_min_s"] = self.sb_rr_min.value()
+        else:
+            sec.pop("rr_min_s", None)
         self._show_class(sec)
         self._decorate_item(self.list_sectors.item(self._cur_index), sec)
         self._schedule_refresh()

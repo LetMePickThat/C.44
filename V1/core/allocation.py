@@ -11,6 +11,8 @@ and the target class for the tracks):
   0  always-on and calibration          1  search of the self-protection volumes (P1)
   2  confirmations and initiations      3  track updates, by class: KKV > SHIP > DECOY > DEBRIS > other
   3' Ku burn-through (allowed)          4  search of the other volumes, P4_1, P4_2, ...
+  5  margin reuse (pass P4): the part of a search drawn by its revisit shortened below the one asked (core/margin.py),
+     the first given back
 Enough power (sum of the needs within the ship total, each face within its feeder and the operator's cap): every face
 gets a share of the ship total proportional to its need (water-filling under the caps), so the energy load of a face
 is need / allocation. Shortfall: the tiers are served in order over all the faces (a P1 volume on one face before a P3
@@ -29,7 +31,7 @@ from .params import P
 SHIP_W = float(P.get("power.ship_elec_total_mw")) * 1e6
 CLASS_RANK = {"KKV": 0, "SHIP": 1, "DECOY": 2, "DEBRIS": 3}         # the rest (GENERIC, ST, ...) after
 TIER_NAMES = {(0, 0): "always-on", (1, 0): "P1 self-protection search", (2, 0): "P2 confirmation / initiation",
-              (3, 9): "P3' burn-through"}
+              (3, 9): "P3' burn-through", (5, 0): "P5 margin reuse"}
 
 
 def tier_name(t: Tuple[int, int]) -> str:
@@ -69,8 +71,12 @@ def items(mission: dict, res: dict) -> List[dict]:
         sec = secs.get(r["id"], {})
         tier = (1, 0) if sec.get("self_protection") else (4, int(sec.get("search_priority", 1)))
         w = [float(r.get("faces", {}).get(str(k), {}).get("energy_fraction", 0.0)) * k_w for k in range(4)]
-        out.append({"label": f"search {r['id']}", "sector": r["id"], "kind": "search", "tier": tier, "w": w,
-                    "rr_s": float(r["rr_target_s"])})
+        g = float(r.get("_reuse_g", 1.0))                    # step 5.2 (P4): the revisit asked in its own tier
+        out.append({"label": f"search {r['id']}", "sector": r["id"], "kind": "search", "tier": tier,
+                    "w": [v / g for v in w], "rr_s": float(r["rr_target_s"]) * g})
+        if g > 1.0:
+            out.append({"label": f"margin reuse {r['id']}", "sector": r["id"], "kind": "reuse", "tier": (5, 0),
+                        "w": [v - v / g for v in w]})
     for t in trk.get("sectors", []):
         sec = secs.get(t["id"], {})
         cf = (t.get("confirmation") or {}).get("faces", {})

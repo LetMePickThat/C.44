@@ -1,0 +1,1731 @@
+% Référence de conception et de modélisation du radar -- outil de préparation de mission C.44
+% Traduction française de radar_design.tex (même contenu, même structure)
+% Compilation : tectonic radar_design_fr.tex   (ou pdflatex/lualatex deux fois)
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.3cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[french]{babel}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{icomma}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{siunitx}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc,fit}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+
+\sisetup{locale=FR,group-separator={\,},group-minimum-digits=4,detect-all}
+\setlist{itemsep=2pt,topsep=4pt}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\renewcommand{\arraystretch}{1.15}
+
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\dB}{\,\mathrm{dB}}
+\newcommand{\Tsys}{T_{\mathrm{sys}}}
+\newcommand{\SNR}{\mathrm{SNR}}
+\newcommand{\Pd}{P_{\mathrm d}}
+\newcommand{\Pfa}{P_{\mathrm{fa}}}
+\newcommand{\Denv}{D_{\mathrm{env}}}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small Radar C.44 -- référence de conception et de modélisation}
+\rhead{\small Modèle V6.22.0}
+\cfoot{\thepage}
+
+\title{\textbf{Radar AESA spatial à quatre faces}\\[4pt]
+\large Référence de conception et de modélisation de l'outil de préparation de mission}
+\author{Projet C.44}
+\date{26 octobre 2026 -- modèle radar V6.22.0 (étape 5.2 de la feuille de route en cours)}
+
+\begin{document}
+\maketitle
+
+\noindent\fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\small\textbf{Conventions.}
+(1) Les missions de test du dépôt et leurs sorties figées sont des cas de non-régression.
+(2) Les valeurs technologiques (TRM, récepteurs, convertisseurs, oscillateur) sont des hypothèses optimistes pour
+2050--2060 : d'une plage crédible, le bout optimiste est retenu. Les valeurs de menace et d'environnement sont des
+moyennes de classe ou des médianes.
+(3) Toutes les valeurs sont dans \code{radar\_system.toml} ; chaque entrée porte sa valeur, son unité, son statut et sa
+raison. Si ce document et le fichier diffèrent, le fichier fait foi.}}
+
+\tableofcontents
+\newpage
+
+%=====================================================================================================================
+\section{L'outil}
+%=====================================================================================================================
+
+\subsection{Ce que fait l'outil}
+L'outil est un outil de \emph{préparation de mission}. L'opérateur décrit ce que le radar doit faire pendant une
+mission :
+\begin{itemize}
+  \item des \textbf{volumes de veille} (« secteurs ») : une boîte ou une calotte angulaire, une portée de détection
+        exigée, une période de revisite, une menace (classe de cible, surface équivalente radar, vitesse), des réglages
+        de résolution et de fausses alarmes, des tranches de distance de poursuite active facultatives ;
+  \item le \textbf{ciel} : les corps devant les faces (Soleil, Terre, Lune, \dots), un repère galactique, des
+        brouilleurs à distance ;
+  \item la \textbf{navigation} : l'attitude du vaisseau et, en option, son orbite ;
+  \item des réglages globaux : plafond de puissance facultatif par face (les faces se partagent les \SI{8}{MW} du
+        vaisseau), spectre interdit au radar, fenêtre d'élévation.
+\end{itemize}
+Pour chaque volume, l'outil choisit la fréquence et les formes d'onde de veille en bande S, calcule les portées
+obtenues et l'énergie et le temps que chaque face y consacre, ajoute la confirmation en bande Ku de chaque détection et
+la poursuite active, et signale ce que le système ne peut pas faire (puissance ou temps sursouscrits, portée non
+atteinte, directions aveuglées, limites de dépointage, brouillage d'autoprotection, \dots). La mission est validée
+contre toutes les ressources du système radar.
+
+\subsection{Place dans une simulation plus large}
+L'outil est la couche \emph{calculateur radar} d'une architecture à quatre couches (figure~\ref{fig:layers}) qui
+sépare la \emph{vérité}, connue de la seule simulation, de la \emph{connaissance}, ce que sait le vaisseau :
+\begin{enumerate}
+  \item \textbf{simulation globale de scénario} : orbites, objets, propagation newtonienne (la vérité) ;
+  \item \textbf{convertisseur} : traduit la vérité dans le repère du vaisseau pour la simulation RF, et en message de
+        navigation pour le calculateur radar ;
+  \item \textbf{calculateur radar} (cet outil) : ne connaît que sa navigation et ses propres détections ; garde les
+        volumes attachés au vaisseau, ordonnance, choisit les formes d'onde ;
+  \item \textbf{simulation RF} : joue les ordres du calculateur radar contre la vérité.
+\end{enumerate}
+En préparation de mission, la navigation est un instantané saisi par l'opérateur ; plus tard, ce sera le message de
+navigation du simulateur global. Volumes et ciel sont donnés dans un \emph{repère de mission} (vaisseau, inertiel, RTN,
+limbe, deux directions) ; le calculateur radar applique la rotation par l'attitude (section~\ref{sec:frames}).
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[node distance=6mm and 10mm, box/.style={draw,rounded corners,align=center,minimum width=33mm,
+  minimum height=11mm,font=\small}, >={Stealth[length=2mm]}]
+\node[box,fill=gray!12] (sim) {1. Simulation globale\\de scénario (vérité)};
+\node[box,right=of sim] (conv) {2. Convertisseur};
+\node[box,right=of conv,fill=blue!8] (rc) {3. Calculateur radar\\(cet outil)};
+\node[box,below=12mm of conv] (rf) {4. Simulation RF};
+\draw[->] (sim) -- (conv);
+\draw[->] (conv) -- node[above,font=\scriptsize]{navigation} (rc);
+\draw[->] (conv) -- node[left,font=\scriptsize,align=right]{vérité dans le\\repère vaisseau} (rf);
+\draw[->] (rc) |- node[pos=0.25,right,font=\scriptsize]{ordres} (rf);
+\draw[->] (rf.west) -| node[pos=0.75,left,font=\scriptsize]{échos} ($(sim.south)+(0,0)$);
+\end{tikzpicture}
+\caption{Architecture à quatre couches : vérité et connaissance sont séparées. L'outil réalise la couche 3 en
+préparation de mission.}
+\label{fig:layers}
+\end{figure}
+
+\subsection{Méthode de conception}
+Le modèle a été reconstruit pas à pas le long d'une feuille de route (section~\ref{sec:roadmap}). Quelques règles
+en façonnent chaque partie :
+\begin{itemize}
+  \item \textbf{Un seul fichier de paramètres.} Chaque valeur du système est une entrée de \code{radar\_system.toml}
+        avec \code{value}, \code{unit}, \code{status} (V : verrouillée par le concepteur ; D : dérivée ou proposée, à
+        confirmer), \code{source} (la raison) et \code{date}. Les réglages de l'outil (grilles de recherche, caches,
+        valeurs par défaut) sont dans un bloc \code{[tool.*]} séparé. 290 entrées système existent aujourd'hui, dont
+        247 verrouillées.
+  \item \textbf{Dérivé, pas saisi.} Tout ce qui découle d'autres valeurs est calculé : la composition de l'antenne, les
+        diagrammes, la température de bruit du système, le facteur de bruit du convertisseur, l'impulsion la plus
+        longue, la grille de fréquences, \dots{} Le chargeur refuse les combinaisons incohérentes avec un message clair.
+  \item \textbf{Technologie optimiste, menaces médianes.} Pour notre technologie, le bout optimiste d'une plage
+        crédible 2050--2060 ; pour les menaces et l'environnement, la médiane ou la moyenne de classe.
+  \item \textbf{Approximations sur décision seulement.} Les raccourcis exacts (formes closes, caches, élagage exact)
+        passent d'abord ; depuis le 25 octobre 2026, les approximations sont admises quand elles ne dénaturent pas le
+        modèle, chacune décidée par le concepteur avec son effet mesuré et gardée comme un réglage dont la valeur exacte
+        reste disponible.
+\end{itemize}
+
+%=====================================================================================================================
+\section{Le radar}
+%=====================================================================================================================
+
+\subsection{Faces et géométrie}
+Le radar a \textbf{quatre faces planes} réparties à \SI{90}{\degree} autour de l'axe du vaisseau (azimuts
+\SIlist{0;90;180;270}{\degree}), toutes \textbf{inclinées de \SI{25}{\degree} vers le nez}. Le repère du vaisseau a
+$Z$ le long de l'axe, vers le nez (modèle « phare » : l'axe est vertical, le nez au zénith) ; l'azimut $\varphi$ est
+compté autour de $Z$ de $+X$ vers $+Y$, l'élévation $\varepsilon$ du plan $XY$ vers $+Z$.
+
+Chaque face couvre un \emph{secteur} de rayon \SI{75}{\degree} autour de sa normale (la plus grande limite de
+dépointage des bandes), coupé par les plans $\varphi = \pm\SI{45}{\degree}$ entre faces voisines. Les positions de
+veille sont comptées en cosinus directeurs $(u, v)$ de la face : un réseau plan dépointe un faisceau de largeur
+constante en $(u,v)$, qui s'élargit en $1/\cos\theta$ en angle. Le secteur couvre une aire de $2,0006$ en $(u,v)$.
+
+La géométrie du vaisseau vient d'un modèle 3D à faible nombre de polygones (\SI{149.46}{m} de long, \SI{74.68}{m}
+d'envergure sur ses ailes de radiateurs, coque de \SI{17.22}{m} de diamètre) ; les quatre panneaux radar sont des
+octogones posés sur un cône autour du poste avant, avec les centres d'ouverture à \SI{5.248}{m} de l'axe. Le chargeur
+vérifie le modèle contre les dimensions verrouillées et vérifie que chaque centre d'ouverture est sur un panneau dont
+la normale est celle de la face à l'inclinaison verrouillée.
+
+\subsection{Bandes et rôles}
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}lLL@{}}
+\toprule
+ & \textbf{Bande S} & \textbf{Bande Ku}\\
+\midrule
+Bande utilisable & \SIrange{2.60}{2.93}{GHz} & \SIrange{13.5}{14.5}{GHz}\\
+Bande c\oe{}ur (sans perte de bord) & \SIrange{2.66}{2.88}{GHz} & \SIrange{13.7}{14.3}{GHz}\\
+Rôle & veille (détection de nouvelles cibles) & confirmation des détections, poursuite active\\
+Limite de dépointage & \SI{75}{\degree} jusqu'à \SI{2.85}{GHz}, \SI{70}{\degree} au-delà & \SI{75}{\degree} jusqu'à \SI{14.25}{GHz}, \SI{70}{\degree} au-delà\\
+TRM par face & \num{4900} & \num{122500}\\
+Puissance crête par TRM (sortie PA) & \SI{2000}{W} & \SI{75}{W}\\
+Puissance crête par face & \SI{9.80}{MW} & \SI{9.19}{MW}\\
+Bande instantanée & \SI{200}{MHz} & \SI{200}{MHz}\\
+Température système, ciel froid & \SI{144.5}{K} & \SI{230.8}{K}\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+L'architecture est \textbf{entièrement numérique} : un convertisseur analogique-numérique par TRM et par voie de
+polarisation, retard vrai numérique dans chaque TRM (pas de dépointage en fréquence, pas de limite de remplissage
+d'ouverture sur la bande), faisceaux de réception formés par le calcul. La veille utilise la seule bande S ; le
+« toucher » S d'un mode de confirmation est l'unique exception.
+
+\subsection{Composition de l'antenne}
+Chaque face est un pavage bibande de \textbf{196 TRSA} (sous-réseaux d'émission-réception). Une TRSA est une tuile
+carrée de $25\times25$ TRM Ku (pas \SI{10.4}{mm}) et $5\times5$ TRM S (pas \SI{52}{mm}, proche de $\lambda/2$ en S) ;
+chaque TRM S couvre exactement un bloc de $5\times5$ TRM Ku. Les TRSA sont disposées en octogone approché de 16 rangées
+centrées,
+\[
+  [6, 8, 10, 12, 14, 16, 16, 16, 16, 16, 16, 14, 12, 10, 8, 6],
+\]
+séparées par un jeu mécanique de \SI{0.5}{mm} (zone morte, non rayonnante). Grandeurs dérivées :
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}Lr@{}}
+\toprule
+Côté d'une TRSA & \SI{260}{mm}\\
+Surface émissive & \SI{13.2496}{m^2} (remplissage \SI{99.65}{\percent} de \SI{13.2964}{m^2})\\
+Enveloppe $\Denv$ (rangée la plus large : 16 TRSA et 15 jeux) & \SI{4.1675}{m}\\
+Pas moyen des éléments (pas des TRSA / TRM par côté) & S \SI{52.1}{mm}, Ku \SI{10.42}{mm}\\
+Étendue RMS de l'ouverture selon un axe $x_{\mathrm{rms}}$ & \SI{1.033}{m} $= 0,248\,\Denv$\\
+\bottomrule
+\end{tabularx}
+\end{center}
+Le jeu a été ramené de \SI{2}{mm} à \SI{0.5}{mm} parce que la rupture du pas des éléments d'une TRSA à la suivante crée
+des « lobes de jeu » près du lobe de réseau (\SI{-16.6}{dB} en Ku avec \SI{2}{mm}) qu'aucune pondération de réception ne
+peut abaisser ; \SI{0.5}{mm} suppose des matériaux de TRSA et de plaque arrière appariés en dilatation thermique.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[scale=0.32]
+  \foreach \n [count=\r from 0] in {6,8,10,12,14,16,16,16,16,16,16,14,12,10,8,6} {
+    \pgfmathsetmacro{\xo}{-\n/2}
+    \foreach \k in {1,...,\n} {
+      \pgfmathsetmacro{\x}{\xo+\k-1}
+      \draw[fill=blue!10,draw=blue!50!black,line width=0.2pt] (\x,7.5-\r) rectangle ++(0.94,0.94);
+    }
+  }
+  \draw[->,thick] (0.47,8.4) -- (0.47,10.2) node[above,font=\scriptsize]{$v$ ($e_v$, vers le plan de l'axe du vaisseau)};
+  \draw[->,thick] (8.8,0.47) -- (10.8,0.47) node[right,font=\scriptsize]{$u$};
+  \draw[|<->|] (-8,-9.2) -- (8,-9.2) node[midway,below,font=\scriptsize]{$\Denv = \SI{4.1675}{m}$ (16 TRSA)};
+\end{tikzpicture}
+\caption{Les 196 TRSA d'une face (chaque carré : $25\times25$ TRM Ku et $5\times5$ TRM S).}
+\label{fig:octagon}
+\end{figure}
+
+%=====================================================================================================================
+\section{Modèle d'antenne}
+%=====================================================================================================================
+
+\subsection{Diagramme calculé à partir de la composition}
+Le diagramme est calculé à partir des positions des éléments de la composition (\code{core/antenna.py}). Les éléments
+sont isotropes dans le facteur de réseau ; le diagramme élémentaire n'entre que par l'aire projetée $\cos\theta$ et la
+désadaptation active (section~\ref{sec:mismatch}). Près de l'axe, en unités de $\lambda/\Denv$, le diagramme ne dépend
+pas de la fréquence : un calcul par bande sert toute la bande (S et Ku échantillonnent le même octogone et concordent à
+\SI{0.1}{\percent}). Les rangées sont centrées et palindromiques, donc le facteur de réseau est réel,
+\[
+  AF(u,v) = \sum_{\text{quadrant}} w\,m\,\cos(k x u)\cos(k y v),
+\]
+avec des multiplicités $m$ pour la symétrie ; avec la symétrie $x\leftrightarrow y$ de l'octogone, les coupes de
+\SIrange{0}{45}{\degree} suffisent, chacune un produit matriciel. Les résultats sont mis en cache sous une empreinte de
+leurs entrées.
+
+\begin{itemize}
+  \item \textbf{Faisceau d'émission} : éclairement uniforme (PA saturés). Largeur à mi-puissance (plus petite coupe)
+        $1,036\,\lambda/\Denv$, soit \SI{1.525}{\degree} à \SI{2.8}{GHz} et \SI{0.305}{\degree} à \SI{14}{GHz} ;
+        premier lobe secondaire \SI{-15.6}{dB}.
+  \item \textbf{Faisceau de réception} : loi de Taylor circulaire (Hansen), $\bar n = 5$, dont le niveau de conception
+        est \emph{ajusté numériquement} (fausse position) pour que le niveau \emph{obtenu} sur l'octogone réel soit
+        l'option choisie pour le volume de veille : \SIlist{-25;-30;-35}{dB}. Rendement et largeur en découlent :
+        \begin{center}
+        \begin{tabular}{@{}lccc@{}}
+        \toprule
+        Option & niveau de conception & $\eta_{\mathrm{RX}}$ & largeur ($\lambda/\Denv$)\\
+        \midrule
+        \SI{-25}{dB} (défaut) & \SI{29.5}{dB} & 0,873 & 1,173\\
+        \SI{-30}{dB} & \SI{35.7}{dB} & 0,773 & 1,255\\
+        \SI{-35}{dB} & \SI{41.7}{dB} & 0,693 & 1,325\\
+        \bottomrule
+        \end{tabular}
+        \end{center}
+        Baisser le niveau rejette les sources fortes hors de l'axe (cible brillante, Lune ou Terre, brouilleur) au prix
+        du gain de réception ($-0,53$ et $-1,00\dB$ par rapport à l'option \SI{-25}{dB}). Un réglage par volume sert S
+        et Ku.
+  \item \textbf{Gain} : $G = 4\pi A\,\eta\,\eta_{\mathrm{ohm}}\cos\theta/\lambda^2$ avec la surface émissive $A$ ; à
+        \SI{2.8}{GHz} dans l'axe, \SI{41.62}{dBi} en émission et \SI{41.03}{dBi} en réception (\SI{-25}{dB}) ; gain
+        d'émission Ku à \SI{14}{GHz} : \SI{55.60}{dBi}.
+  \item \textbf{Précision angulaire} : la borne de Cramér--Rao de l'ouverture numérique complète avec une marge de
+        1,13,
+        \[ \sigma_u = 1,13\,\frac{\lambda}{2\pi\,x_{\mathrm{rms}}\sqrt{2\,\SNR}}, \]
+        indépendante de la pondération de réception (l'estimateur du maximum de vraisemblance utilise toute
+        l'ouverture) ; la même marge s'applique aux estimateurs de Doppler et de distance.
+\end{itemize}
+
+\subsection{Lobes lointains et lobes de jeu}
+Au-delà de la fenêtre proche ($8\,\lambda/\Denv$), le facteur de réseau est balayé sur une grille 2D de toute la région
+visible de la bande (rayon $(1+\sin\theta_{\lim})\Denv/\lambda$ au haut de la bande), voisinages des lobes de réseau
+exclus. Un profil cumulé garde le niveau du plus fort lobe à moins de $r$ de l'axe du faisceau ; un lobe à $r$ devient
+visible dès que le faisceau est dépointé à $\theta$ avec $r\lambda/\Denv \le 1+\sin\theta$ (pire azimut). Les plus
+forts lobes lointains, lobes de jeu compris, sont à \SI{-25.3}{dB} en Ku et \SI{-30.7}{dB} en S (uniforme) ; la
+pondération n'abaisse pas les lobes de jeu. Pour chaque secteur, l'outil indique jusqu'à quel dépointage l'option de
+réception est tenue sur la région visible ; en Ku, les options \SIlist{-30;-35}{dB} ne sont tenues que jusqu'à
+\SIlist{75;62}{\degree} à \SI{14}{GHz}.
+
+Le même module fournit les \emph{moyennes azimutales} du diagramme de puissance de réception en fonction de la
+distance à l'axe du faisceau (fines près de l'axe, moyennes par anneaux au-delà). Elles servent à l'intégrale du bruit
+du ciel, au fouillis par les lobes secondaires et à la captation des brouilleurs (sections~\ref{sec:sky}
+et~\ref{sec:env}). Par le théorème de Parseval, la normalisation est exacte : un corps remplissant tout le demi-espace
+avant ajoute sa température de brillance (vérifié à 1,00--1,04).
+
+\subsection{Désadaptation active et lobes de réseau}\label{sec:mismatch}
+Un modèle, appliqué à S et Ku, en émission et en réception, décrit la réflexion active du réseau : une nappe de
+courant adaptée à $\theta_m = \SI{45}{\degree}$ par une couche d'adaptation grand angle (WAIM), et la montée de la
+réflexion à l'approche du premier lobe de réseau dans la région visible ($g_0 = 0,02$, $d_{\mathrm{mean}}$ le pas moyen
+des éléments, pire azimut) :
+\begin{align*}
+  |\Gamma_{\mathrm{WAIM}}| &= \frac{|\cos\theta - \cos\theta_m|}{\cos\theta + \cos\theta_m},\qquad
+  |\Gamma_{\mathrm{GL}}| = \exp(-g/g_0),\quad g = \frac{\lambda}{d_{\mathrm{mean}}} - \sin\theta - 1,\\
+  1 - |\Gamma|^2 &= (1 - |\Gamma_{\mathrm{WAIM}}|^2)(1 - |\Gamma_{\mathrm{GL}}|^2),
+\end{align*}
+avec une perte par passage $-10\log_{10}(1-|\Gamma|^2)$, comptée deux fois (émission et réception). À \SI{2.8}{GHz},
+l'aller-retour coûte \SI{0.26}{dB} dans l'axe, 0 à \SI{45}{\degree}, \SI{1.12}{dB} à \SI{70}{\degree} et
+\SI{2.11}{dB} à \SI{75}{\degree}. Le haut de la bande S est fixé par ce mur : à \SI{2.93}{GHz} et \SI{70}{\degree}, la
+perte est de \SI{0.97}{dB} par passage ; un lobe de réseau devient visible à \SI{3.0}{GHz}. L'optimiseur signale toute
+tranche utilisée au-delà de \SI{3}{dB} par passage.
+
+La polarisation d'émission est linéaire selon $e_v$ (l'axe de la face dans le plan de l'axe du vaisseau), un PA par
+TRM ; sa pureté (polarisation croisée de Ludwig-3, $(1+\cos\theta)/(1-\cos\theta)$ dans le plan à \SI{45}{\degree}) est
+donnée en sortie. Avec le récepteur bipolarisation, elle ne coûte rien au bilan.
+
+\subsection{Sous-ouvertures de la partition d'émission}\label{sec:subap}
+Pour le mode multifaisceau par partition de l'ouverture (section~\ref{sec:multibeam}), la face est coupée en moitiés
+(coupe horizontale \code{h} : rangées au-dessus du centre ; coupe verticale \code{v} : colonnes à droite du centre) ou
+en quadrants, chacun uniforme. Leurs diagrammes 2D sont évalués directement (une moitié n'est pas centrée, aucune
+symétrie n'est supposée), exactement, par une somme séparable par rangées d'éléments :
+\begin{center}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Ouverture & TRM S & largeurs à $-3\dB$ $u\times v$ ($\lambda/\Denv$) & maille / face complète\\
+\midrule
+Face complète & \num{4900} & $1,041\times1,041$ & 1\\
+Moitié & \num{2450} & $1,041\times1,928$ & $\times1,85$\\
+Quadrant & \num{1225} & $1,928\times1,928$ & $\times3,43$\\
+\bottomrule
+\end{tabular}
+\end{center}
+Le rapport des mailles est inférieur à 2 et 4 parce qu'un demi-octogone n'est pas deux fois moins large en largeur
+effective. L'octogone étant symétrique en $x$ et $y$, les deux moitiés donnent le même faisceau tourné de
+\SI{90}{\degree} : le code le vérifie exactement et n'en cherche alors qu'une.
+
+%=====================================================================================================================
+\section{Chaîne d'émission et bilan de puissance}
+%=====================================================================================================================
+
+\subsection{Modèle de TRM}
+Les TRM sont en GaN sur diamant avec refroidissement par microcanaux. La puissance crête est spécifiée à la sortie du
+PA (où le rendement en puissance ajoutée, PAE, est défini) ; le chemin du PA à l'élément est une perte dérivée (filtre
+d'harmoniques, circulateur, coupleur d'étalonnage, ligne : \SI{0.6}{dB} en S, \SI{0.95}{dB} en Ku).
+
+\paragraph{PAE.} Pour une impulsion de durée $\tau$ dans un train de facteur de charge $d = \tau/\mathrm{PRI}$,
+\[
+  \eta = \eta_{\mathrm{sat}}\,\frac{\tau}{\tau + t_{\mathrm{edge}}}\,\min\bigl(1,\;1 - a\,(d - d_{\mathrm{ref}})\bigr),
+\]
+avec la PAE saturée $\eta_{\mathrm{sat}}$ au facteur de charge de référence $d_{\mathrm{ref}} = 0,10$, le temps
+$t_{\mathrm{edge}}$ pendant lequel le PA consomme sans RF pleine (commutation, établissement de la polarisation et de
+la phase), et une pente $a$ pour l'échauffement du canal. Une impulsion seule utilise $d_{\mathrm{ref}}$.
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+ & S & Ku\\
+\midrule
+$\eta_{\mathrm{sat}}$ & 0,80 & 0,65\\
+$t_{\mathrm{edge}}$ & \SI{0.2}{\micro s} & \SI{0.1}{\micro s}\\
+Pente $a$ & 0,05 ($-2,75\,\%$ à $d=0,65$) & 0,08 ($-4,4\,\%$ à $d=0,65$)\\
+Plafond du facteur de charge des trains & 0,65 & 0,65\\
+Réserve d'énergie par TRM & \SI{25}{J} & \SI{1.2}{J}\\
+Impulsion la plus longue $\tau_{\max}$ & \SI{2.0}{ms} & \SI{2.08}{ms}\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Réserve d'énergie.} Chaque TRM tire son impulsion d'une batterie de condensateurs locale. Une impulsion qui
+en utilise une fraction $x = E/E_{\mathrm{buf}}$ perd en moyenne $-10\log_{10}(1-x/2)$ (la sortie du PA suit l'énergie
+stockée) ; une impulsion au-delà de $x = 0,2$ est refusée, ce qui fixe
+$\tau_{\max} = 0,2\,E_{\mathrm{buf}}\,\eta_{\mathrm{sat}}/P_{\mathrm{pk}} - t_{\mathrm{edge}}$. L'impulsion la plus longue
+finit \SI{0.97}{dB} plus bas (moyenne \SI{0.46}{dB}) ; la conversion AM/PM du PA pendant que la réserve se vide est
+donnée en sortie, non comptée (dérive de phase quasi linéaire).
+
+\subsection{Bilan électrique}\label{sec:power}
+Le bilan d'une face est \emph{électrique} : chaque visée coûte son énergie RF divisée par la PAE de son impulsion, et
+la chaleur de la face est l'énergie électrique moins l'énergie RF (environ \SI{370}{W} par TRM S pendant un long train
+à $d = 0,65$, une entrée de l'étape thermique). Depuis l'étape 4.1, la puissance électrique est modélisée à quatre
+niveaux.
+
+\paragraph{Niveau vaisseau : un budget partagé.} Le vaisseau fournit \SI{8}{MW} au radar. Les faces n'ont \emph{pas}
+de parts fixes : elles puisent ensemble dans ce budget, et une face très chargée peut prendre plus d'un quart quand les
+autres en demandent moins. Le verdict d'énergie est donc porté au niveau du vaisseau,
+\[
+  \sum_{k=1}^{4} P_{\mathrm{bus},k} \le \SI{8}{MW},\qquad
+  P_{\mathrm{bus},k} = \frac{P_{\mathrm{TX},k} + P_{\mathrm{on}} + p_{\mathrm{pump}}\,Q_k}{\eta_{\mathrm{psu}}\,\eta_{\mathrm{dist}}},
+\]
+où $P_{\mathrm{TX},k}$ est la puissance électrique moyenne des émissions de la face $k$ (veille, confirmation,
+poursuite, à l'alimentation des TRM), $P_{\mathrm{on}}$ la consommation permanente, $Q_k$ la chaleur moyenne de la face
+et $p_{\mathrm{pump}} = 2\,\%$ la part de cette chaleur dépensée par les pompes ; $\eta_{\mathrm{psu}} = 0,95$ et
+$\eta_{\mathrm{dist}} = 0,995$ sont les rendements de l'alimentation et de la distribution (produit 0,945). Chaque face
+est aussi limitée par ce que peut porter sa propre alimentation (câbles, convertisseur), \SI{8}{MW}, et par un plafond
+facultatif que l'opérateur peut lui réserver dans la mission (une valeur pour toutes les faces ou une par face).
+L'outil donne la puissance que chaque face tire réellement, la marge du budget partagé et la répartition entre faces
+(section~\ref{sec:load}). Pour arbitrer énergie et temps dans le choix des formes d'onde, l'optimiseur de veille garde
+une répartition de \emph{référence} de $\SI{8}{MW}/4 = \SI{2}{MW}$ par face.
+
+\paragraph{Consommation permanente.} Un réseau numérique reçoit en permanence, qu'il émette ou non. Par face : deux
+convertisseurs par TRM (un par polarisation ; \SI{0.1}{W} chacun à \SI{250}{MS/s} et 13 bits, valeur optimiste 2050,
+contre 0,3--1 W aujourd'hui) et deux chaînes de réception par TRM (LNA, amplificateurs, distribution de l'oscillateur
+local : \SI{0.5}{W} en S, \SI{0.1}{W} en Ku), dans les deux bandes ; \SI{50}{kW} de formation de faisceaux et de
+traitement numériques (plafond, section~\ref{sec:compute}) ; \SI{2}{kW} de contrôle. Total \SI{106.9}{kW} par face
+(\num{9800} convertisseurs S et \num{245000} Ku). Avec la référence de \SI{2}{MW}, il reste à une face
+$2\times0,945 - 0,107 = \SI{1.784}{MW}$ pour ses émissions.
+
+\paragraph{Niveau TRM : alimentation sur un train.} Chaque TRM tire son impulsion de sa réserve locale et la recharge
+par une alimentation continue (\SI{1700}{W} en S, \SI{80}{W} en Ku). Sur un train de $n$ impulsions d'énergie
+$E_p = P_{\mathrm{pk}}\tau/\eta$ à chaque PRI, deux conditions doivent tenir : la puissance moyenne $E_p/\mathrm{PRI}$
+reste dans l'alimentation, et la réserve, rechargée au débit de l'alimentation entre les impulsions, perd au plus la
+fraction admise :
+\[
+  (n-1)\,\max\bigl(0,\;E_p - P_{\mathrm{sup}}\,\mathrm{PRI}\bigr) + E_p \le 0,2\,E_{\mathrm{buf}}.
+\]
+Une forme d'onde qui viole l'une des conditions est retirée des espaces de recherche (aucune forme d'onde S
+aujourd'hui ; 68 visées Ku sur \num{2356}, trains longs à fort facteur de charge).
+
+\paragraph{Niveau face : stockage et puissance crête.} Quand une face émet, tous ses TRM consomment ensemble : environ
+\SI{12.3}{MW} pour une visée S à pleine puissance ($\num{4900}\times\SI{2}{kW}/0,8$) et \SI{14.1}{MW} en Ku, bien
+au-dessus de la moyenne que délivre le bus. L'écart vient d'un stockage d'énergie par face (supercondensateurs,
+\SI{5}{MJ}, \SI{80}{\percent} utilisables, décharge \SI{15}{MW}), rechargé au débit que laisse l'alimentation après la
+consommation permanente. Trois contrôles :
+\begin{itemize}
+  \item \emph{une observation} : l'énergie de l'observation la plus coûteuse du plan (un passage de veille S ou une
+        visée Ku), moins la recharge pendant celle-ci, doit tenir dans le stockage utilisable ;
+  \item \emph{pire rafale} : si toutes les émissions de la plus longue revisite de la face étaient groupées, le
+        déficit $RR\,(P_{\mathrm{TX}} - P_{\mathrm{rech}}\,f_t)$ ($f_t$ la part du temps en émission) doit tenir dans
+        le stockage utilisable ; il ne tient jamais pour des revisites longues, d'où une \emph{règle d'ordonnanceur} :
+        au plus $E_{\mathrm{usable}}/(P_{\mathrm{peak}} - P_{\mathrm{rech}})$ d'émission contiguë à puissance crête
+        (environ \SI{0.3}{s}), puis recharge ;
+  \item \emph{puissance crête} : la crête d'une observation doit rester dans la décharge du stockage plus la recharge.
+\end{itemize}
+L'échelon de charge du bus au début d'une observation et sa pente sur le front des impulsions (\SI{0.2}{\micro s} en
+S) sont donnés en sortie pour la conception du bus.
+
+\subsection{Bilan thermique}\label{sec:thermal}
+Toute la puissance électrique tirée par une face devient chaleur, sauf l'énergie RF rayonnée. Depuis l'étape 4.2, la
+chaleur est contrôlée à trois échelles, chacune avec sa constante de temps.
+
+\paragraph{Fluide et plaque froide.} Chaque face est refroidie par des microcanaux dans sa plaque froide, avec un
+fluide diélectrique (dérivé du submer SmartCoolant ; valeurs 2020 : capacité calorifique \SI{2.26}{kJ/(kg.K)},
+coefficient d'échange d'environ \SI{2050}{W/(m^2.K)} en circulation forcée, densité 0,796). Hypothèse 2050--2060 :
+\SI{2.5}{kJ/(kg.K)}, \SI{3000}{W/(m^2.K)}, 0,8. Les microcanaux mouillent dix fois l'empreinte ; la plaque peut être
+\SI{40}{K} au-dessus d'un fluide à \SI{20}{\celsius}. D'où un flux admissible de
+$h \times 10 \times \SI{40}{K} = \SI{120}{W/cm^2}$ et une capacité de refroidissement d'environ \SI{15.9}{MW} par face :
+bien au-delà de ce que dissipe une face (un TRM en long train S dégage environ \SI{14}{W/cm^2} sur son empreinte ; une
+face qui tire les \SI{8}{MW} dissipe environ \SI{2}{MW}). Toutes ces valeurs sont dérivées du fichier : un changement
+de spécification du fluide est absorbé.
+
+\paragraph{Chaleur d'une face.} Le circuit d'une face porte la chaleur des émissions (énergie électrique moins RF),
+de l'électronique permanente (\SI{106.9}{kW}) et des pompes ; les pertes de conversion de puissance vont au vaisseau.
+Une rafale d'émissions est absorbée par l'inertie thermique de la face (\SI{50}{L} de fluide et environ \SI{100}{kg} de
+structure, \SI{190}{kJ/K} ; \SI{10}{K} de montée admise, un tampon de \SI{1.9}{MJ}) ; l'outil contrôle la pire rafale
+et donne l'émission contiguë la plus longue à chaleur crête comme règle d'ordonnanceur (aucune n'est nécessaire
+aujourd'hui).
+
+\paragraph{Jonction des amplificateurs.} La température de jonction d'un amplificateur de TRM suit un réseau de Foster
+à deux pôles (puce et diffuseur diamant : S \SI{0.02}{K/W} à \SI{10}{\micro s} et \SI{0.03}{K/W} à \SI{1}{ms} ; Ku
+\SI{0.2}{K/W} et \SI{0.3}{K/W}) excité par la chaleur de chaque impulsion, plus la convection vers le fluide à la
+chaleur moyenne. Sur toutes les formes d'onde de veille et les visées Ku, elle reste sous \SI{63}{\celsius}, loin de
+la limite de \SI{225}{\celsius}, même en émission continue : l'échauffement ne limite pas le facteur de charge, dont le
+plafond de 0,65 traduit les limites de rendement et d'alimentation. La température est donnée par forme d'onde ; le
+retrait des formes d'onde au-delà de la limite existe comme réglage et est désactivé.
+
+\paragraph{Vaisseau.} La chaleur des quatre faces plus les pertes de conversion doit tenir dans le rejet thermique que
+le vaisseau réserve au radar, partagé par les faces comme le budget électrique (\SI{6}{MW}, provisoire).
+
+%=====================================================================================================================
+\section{Modèle de bande}
+%=====================================================================================================================
+Chaque bande a une bande utilisable et une bande c\oe{}ur. Un signal de largeur $B$ centré sur $f$ occupe
+$[f-B/2,\,f+B/2]$, qui doit tenir dans la bande utilisable (et hors du spectre interdit par la mission) ; sinon la
+forme d'onde n'est pas jouable à $f$. Hors de la bande c\oe{}ur, une dégradation en cosinus surélevé atteint
+\texttt{edge\_derating\_db} aux bords utilisables (\SI{1.0}{dB} aller-retour en S, \SI{0.5}{dB} en Ku) ; sa moyenne
+\emph{exacte} sur le spectre occupé est appliquée. Le chargeur vérifie que la bande c\oe{}ur et la fréquence de rupture de
+la limite de dépointage sont dans la bande utilisable : la bande se change dans le seul fichier. Avec le retard vrai
+numérique, il n'y a pas de limite de remplissage d'ouverture (un dépointage par la phase limiterait le signal à
+$c/(\Denv\sin\theta)$, environ \SI{75}{MHz} à \SI{75}{\degree}).
+
+%=====================================================================================================================
+\section{Chaîne de réception}\label{sec:rx}
+%=====================================================================================================================
+
+\subsection{Température de bruit du système}
+$\Tsys$ est la cascade de Friis ramenée à l'accès de l'antenne : température d'antenne en ciel froid, pertes avant le
+LNA (circulateur, limiteur, ligne : elles atténuent et ajoutent $(L-1)T_{\mathrm{phys}}$), le LNA, la chaîne après le
+LNA et le CAN, chacun divisé par le gain qui le précède, et un facteur de bruit numérique. Valeurs (S / Ku) : ciel froid
+\SI{3.2}{K} / \SI{2.8}{K}, tête de réception à \SI{320}{K}, pertes avant LNA \SI{0.85}{dB} / \SI{1.2}{dB}, facteur de
+bruit du LNA \SI{0.75}{dB} / \SI{1.15}{dB}, soit \textbf{\SI{144.5}{K} en S et \SI{230.8}{K} en Ku} en ciel froid. Le
+ciel devant la face est ajouté par direction (section~\ref{sec:sky}).
+
+\subsection{Convertisseur et dynamique}
+Le facteur de bruit du CAN est dérivé du convertisseur :
+\[
+  \mathrm{NF}_{\mathrm{ADC}} = P_{\mathrm{FS}} - (6,02\,\mathrm{ENOB} + 1,76) - 10\log_{10}(k T_0 f_s),
+\]
+avec 13 bits effectifs, une pleine échelle de \SI{+10}{dBm} et $f_s = 1,25\times\SI{200}{MHz} = \SI{250}{MS/s}$
+complexes : \SI{20.0}{dB}. Les niveaux sont ramenés à l'accès de l'antenne : le niveau d'écrêtage est
+$P_{\mathrm{FS}} - \SI{3}{dB}$ moins le gain jusqu'au CAN (\SI{53.4}{dB} au-dessus du bruit en S). La numérisation se
+fait par élément, \emph{avant} la formation des faisceaux : une source forte dans n'importe quelle direction avant
+atteint chaque convertisseur. La \emph{portée minimale sans saturation} est celle où l'écho crête par élément d'une
+visée à pleine puissance et un seul faisceau atteint le niveau d'écrêtage (S : \SI{12.2}{km} pour la cible de
+référence, \SI{2.3}{km} pour un KKV). Le récepteur est sourd pendant $\tau$ plus la récupération du limiteur
+(\SI{50}{ns} en S, \SI{25}{ns} en Ku).
+
+\subsection{Double polarisation}
+Chaque TRM a deux voies de réception. Une visée de détection utilise un détecteur GLRT sur la polarisation inconnue de
+l'écho, estimée sur la visée : une inconnue complexe de plus, une perte $\SNR_{\mathrm{req}}(n+1)-\SNR_{\mathrm{req}}(n)$
+(\SI{0.47}{dB} pour un échantillon cohérent, faible pour les longs trains non cohérents). Une visée de poursuite connaît
+la polarisation par la piste (\SI{0.05}{dB} de résidu). Le récepteur bivoie recueille aussi l'écho en polarisation
+croisée de la cible, un gain $10\log_{10}(1+\rho)$ avec $\rho$ le rapport des SER croisée et principale, et les deux
+voies ajoutent une diversité de polarisation à la fluctuation de la cible (section~\ref{sec:targets}).
+
+\subsection{Isolation entre bandes et entre faces}
+La fuite de chaque bande et face en émission vers chaque élément en réception est contrôlée contre trois limites :
+blocage du LNA, écrêtage du CAN et désensibilisation dans le canal (\SI{6}{dB} sous le bruit). Avec les couplages
+retenus (\SI{90}{dB} vers une face adjacente, \SI{120}{dB} vers la face opposée, \SI{-30}{dB} à l'intérieur d'une
+TRSA), une face ne peut pas recevoir une bande pendant qu'une autre face l'émet : toutes les faces partagent
+\textbf{une cadence commune d'émission et de réception par bande}. Règle supplémentaire : pas de réception Ku sur une
+face pendant une émission S dont la cinquième harmonique $[5(f-B/2),\,5(f+B/2)]$ couvre le canal Ku. Ce sont des
+règles de l'ordonnanceur (section~\ref{sec:sched}).
+
+\subsection{Bruit du ciel}\label{sec:sky}
+La température d'antenne dépend de la direction visée. Avec le gain de réception écrit $G = G_0\,w\,g(\rho)$
+(diagramme élémentaire $w=\cos\theta$, rien derrière la face) et $d\Omega = du\,dv/w$, le facteur $w$ se simplifie et
+la montée vaut
+\[
+  \Delta T = T_b\,\frac{A\,\eta_{\mathrm{RX}}\,\eta_{\mathrm{ohm}}}{\Denv^2}\int_{\text{corps}} g(\rho)\,d\rho^2,
+\]
+l'intégrale portant sur le corps vu dans le plan $(u,v)$ de la face (moitié avant seulement), $\rho$ étant la distance
+à l'axe du faisceau en $\lambda/\Denv$ et $g$ la moyenne azimutale du diagramme de réception calculé, lobe principal
+compris. Les petits corps (Soleil, Lune) sont échantillonnés finement sur leur disque ; les grands (Terre) par une
+grille polaire dans la fenêtre proche et des anneaux au-delà. Les températures de brillance sont des valeurs de classe
+par bande (Soleil calme, mi-cycle et actif : \SIlist{4.5e4;1.0e5;1.5e5}{K} en S ; Terre \SI{290}{K} au pire, variantes
+océan et terre ; Lune \SI{230}{K}) ; le fond galactique suit un modèle plan et bulbe en $f^{-2,5}$, avec un pire cas
+appliqué partout quand la mission ne donne pas de repère galactique. Le Soleil dans le faisceau ajoute environ
+\SI{17}{dB} en S comme en Ku ; la Lune environ \SI{2.6}{dB} en Ku.
+
+Pour un secteur, $\Tsys$ est évaluée tous les demi-lobes d'émission sur les positions balayées (trame de
+\SI{0.2}{\degree}). Près des sources chaudes, le bruit varie plus vite que ce pas : les cases de la trame sont évaluées
+une à une là où la montée de leur bloc dépasse \SI{0.5}{dB}, et à moins de trois largeurs de faisceau d'émission d'un
+brouilleur à distance, du centre d'un petit corps ou du limbe d'un grand corps ; chaque case est alors découpée en
+$8\times8$ points de même poids. Un point dont la montée dépasse \SI{10}{dB} est \emph{aveuglé} : la case n'est balayée
+que pour la part de ses points restants, et la part aveuglée est donnée avec le corps responsable. La $\Tsys$ de
+\emph{budget} du secteur est le quantile $(1-\text{\code{short\_tol}})$ (\SI{99}{\percent}) des positions non aveuglées,
+chaque point pour son poids, et toutes ses portées varient en $(T_{\mathrm{cold}}/T_{\mathrm{budget}})^{1/4}$. Tourner
+ensemble le ciel et le secteur autour de l'axe du vaisseau d'angles hors de la trame déplace le budget et la part
+aveuglée de moins de \SI{1}{\percent} (Soleil, \SI{0.37}{\degree} et \SI{1.13}{\degree}) ; une dérive régulière aux
+plus grands angles (\SI{1.4}{\percent} à \SI{2.9}{\degree}), attribuée aux faces fixes, reste à confirmer. La même
+règle s'applique en Ku à la confirmation et à la poursuite du secteur.
+
+%=====================================================================================================================
+\section{Formes d'onde}\label{sec:wf}
+%=====================================================================================================================
+
+\subsection{Modulation et compression d'impulsion}
+Deux familles sont modélisées : la modulation linéaire de fréquence (LFM, tolérante au Doppler) et la modulation non
+linéaire (NLFM, lobes secondaires en distance bas obtenus par la loi de fréquence, sans perte de pondération). Les codes
+de phase sont exclus : faible tolérance au Doppler aux vitesses de rapprochement jusqu'à \SI{25}{km/s}
+($f_d \approx \SI{470}{kHz}$ en S). Pour chaque visée, avec $f_{d,\max} = 2v/\lambda$ :
+\begin{itemize}
+  \item si $f_{d,\max}/B \le 2\,\%$ : NLFM, perte de désadaptation \SI{0.1}{dB} ;
+  \item sinon : LFM avec une pondération de Taylor ($\bar n = 5$) en réception seule au niveau de lobes secondaires du
+        volume ; perte = perte de pondération $-\,20\log_{10}(1-f_d/B)$ (perte Doppler au sommet de la fonction
+        d'ambiguïté).
+\end{itemize}
+Le niveau des lobes secondaires en distance est l'option angulaire du volume : une politique de lobes secondaires par
+volume. Une pondération à \SIlist{-25;-30;-35}{dB} coûte \SIlist{0.41;0.68;0.93}{dB} et élargit le lobe principal de
+$\times$1,18, 1,27, 1,34. La résolution physique en distance est cet élargissement fois $c/2B$ (2 m demandent
+\SI{89}{MHz} à \SI{-25}{dB}) ; la constante de l'estimateur de distance est $k_r = 0,6/(\text{rapport de largeur de
+bande RMS})$. Le biais de couplage distance--Doppler $c f_d \tau/2B$ est corrigé par la mesure Doppler.
+
+\subsection{Effets intra-impulsion et chronologie}
+Une cible traverse $n_c = 2v\tau B/c$ cases distance pendant l'impulsion ; un filtre adapté à une autre vitesse a alors
+une erreur de phase quadratique, une perte $-20\log_{10}\bigl|\langle e^{\,j2\pi n_c x^2}\rangle_{x\in[-1/2,1/2]}\bigr|$
+(1 dB à $n_c = 1,016$). Elle fixe le pas du banc de vitesses (section~\ref{sec:proc}).
+
+Le récepteur est sourd pendant l'impulsion et la récupération du limiteur : distance aveugle
+$c(\tau + t_{\mathrm{rec}})/2$ (\SI{3}{km} pour \SI{20}{\micro s}, \SI{300}{km} pour \SI{2}{ms}), qui doit rester sous
+la plus courte distance d'intérêt du secteur (\code{range\_min\_km}, 10\,\% de la portée exigée par défaut). Un train
+est non ambigu en distance si $\mathrm{PRI} \ge 2R/c + \tau + t_{\mathrm{rec}}$ ; un secteur peut autoriser des trains
+ambigus, décalés sur 3 PRI à $\pm10\,\%$, avec la perte moyenne d'éclipse $-10\log_{10}(1-(\tau+t_{\mathrm{rec}})/\mathrm{PRI})$
+(ils sont retirés quand une surface est dans le lobe principal, son fouillis se replierait sur les cibles).
+
+\subsection{Agilité de fréquence}
+Un train non cohérent peut sauter de porteuse d'impulsion à impulsion sur une excursion $\Delta f$ ; la bande occupée
+devient $B + \Delta f$ et le nombre d'échantillons indépendants de la cible vaut
+$\min(n, \lfloor \Delta f/(c/2L)\rfloor + 1)$ pour une cible de longueur $L$, ce qui rend une cible déclarée Swerling~1/3
+semblable à un cas 2/4 sur le train.
+
+\subsection{Multifaisceau en émission}\label{sec:multibeam}
+En S, un passage peut servir $B_{\mathrm{tx}}$ faisceaux. Le récepteur numérique forme déjà de nombreux faisceaux de
+réception par position (sans perte ; une charge de calcul). Trois modes d'émission sont modélisés :
+\begin{itemize}
+  \item \textbf{Superposition en phase seule} ($B_{\mathrm{tx}} = 2, 4, 8$) : chaque TRM émet la somme à enveloppe
+        constante des faisceaux (PA saturés, PAE inchangée), puissance $P/B_{\mathrm{tx}}$ par faisceau, gain
+        d'émission complet, perte de \SIlist{0.4;0.6;0.8}{dB} (puissance perdue en intermodulation de la somme à
+        enveloppe constante).
+  \item \textbf{Partition de l'ouverture} ($B_{\mathrm{tx}} = 2, 4$) : moitiés ou quadrants (section~\ref{sec:subap}),
+        puissance $P/B_{\mathrm{tx}}$ et gain $G\,N_{\mathrm{sub}}/N$ par faisceau, un faisceau plus large sur sa propre
+        grille : moins de positions.
+  \item \textbf{Multiplexage en temps} ($B_{\mathrm{tx}} = 2, 4, 8$) : impulsions à pleine puissance émises à la suite
+        dans la PRI ; distance aveugle, réserve, facteur de charge et PAE calculés sur $B_{\mathrm{tx}}\tau$. Non
+        proposé à l'optimiseur : avec des positions entrelacées, il dépense par position la même énergie et le même
+        temps qu'un seul faisceau.
+\end{itemize}
+
+\subsection{Espace de recherche de veille}
+L'espace de recherche S est le produit de : intégration (cohérente, non cohérente), mode d'émission et nombre de
+faisceaux, largeurs de signal \SIlist{10;20;30;50;75;100;150;200}{MHz} compatibles avec la résolution du secteur,
+impulsions de \SI{5}{\micro s} à \SI{2}{ms} (13 valeurs, la dernière fixée par la réserve), 1 à 32 impulsions, la
+variante agile des trains non cohérents et, là où une surface encombre le secteur, des pondérations Doppler de Taylor
+des trains cohérents. La PRI est la plus courte non ambiguë (ou \SI{1}{ms} pour les impulsions seules et les trains
+ambigus autorisés). Environ \num{6500} candidats par secteur.
+
+%=====================================================================================================================
+\section{Traitement du signal}\label{sec:proc}
+%=====================================================================================================================
+
+\subsection{Blocs cohérents et cohérence}
+Un train cohérent de $N$ impulsions est découpé en $M$ blocs ($M$ divise $N$) intégrés de façon non cohérente, $M$
+minimisant le SNR requis de $M$ blocs plus la perte de cohérence d'un bloc. Les trains non cohérents, et les cas
+Swerling~2/4 déclarés, ont $M = N$. La perte de cohérence d'un bloc de durée $T$ combine
+\begin{itemize}
+  \item la décorrélation de la cible $\eta = \exp(-(T/T_0)^2)$, avec $T_0 = \lambda/(2L\omega)$ tiré de la classe de
+        cible (longueur $L$, vitesse de rotation $\omega$) ;
+  \item la variance de phase résiduelle $\sigma^2$, qui donne $4,34\,\sigma^2\dB$ : bruit de phase de l'oscillateur
+        filtré par l'aller-retour, $4\sin^2(\pi f\tau_{rt})$, intégré de $1/T$ à $B/2$ (un oscillateur pour l'émission
+        et la réception ; un oscillateur photonique optimiste, \SI{-150}{dBc/Hz} à \SI{1}{kHz} de \SI{10}{GHz}), plus le
+        mouvement résiduel de la plateforme $(4\pi\delta/\lambda)^2$ avec $\delta = \SI{10}{\micro m}$ RMS.
+\end{itemize}
+Les pertes sont négligeables avec ces valeurs ; l'effet visible est le plancher Doppler, donné par visée.
+
+\subsection{Bancs de vitesses et d'accélérations}
+La migration en distance est compensée (type keystone ou Radon, résidu \SI{0.1}{dB} quand la cible traverse plus de
+1,5 case). Le filtre pour un écart de vitesse $\Delta v$ perd le terme intra-impulsion plus la migration sur la visée ;
+le pas du banc est choisi pour qu'une cible à un demi-pas perde \SI{1}{dB} ; la perte \emph{moyenne} sur le pas entre
+dans le bilan, et le nombre d'hypothèses dans le décompte des fausses alarmes et la charge de calcul. Les accélérations
+jusqu'au maximum de la classe ajoutent une phase quadratique sur un bloc cohérent et une courbure résiduelle en
+distance ; quand elles coûtent plus de \SI{1}{dB}, un banc d'hypothèses d'accélération multiplie les hypothèses de
+vitesse.
+
+\subsection{Grilles, CFAR et fausses alarmes}
+La grille de détection est suréchantillonnée $\times4$ en distance et la transformée Doppler complétée de zéros
+$\times4$ : chevauchement moyen \SI{0.05}{dB} et \SI{0.07}{dB}. Le CA-CFAR utilise \num{1024} cases de référence (perte
+\SI{0.04}{dB}, exacte pour Swerling~1 sur un échantillon) ; l'OS-CFAR (rang 0,75) et le GO-CFAR (la plus grande des deux
+demi-fenêtres, qui tient la $\Pfa$ à un bord de fouillis, \SI{0.05}{dB}) sont des options. Cases indépendantes par
+position : étendue en distance sur $c/2B$, cases Doppler d'un bloc, hypothèses de vitesse et d'accélération, et cases
+angulaires (faisceaux de réception par position $\times$ le carré de l'écart entre faisceaux de réception). Les grilles
+suréchantillonnées ne sont pas comptées (échantillons corrélés).
+
+%=====================================================================================================================
+\section{Critère de détection}\label{sec:det}
+%=====================================================================================================================
+
+\subsection{Lois de détection exactes}
+Un détecteur quadratique sur $n$ échantillons intégrés de façon non cohérente (les blocs cohérents) est modélisé
+exactement : sous le bruit seul, la statistique suit une loi Gamma$(n,1)$, donc $\Pfa = P(\mathrm{Poisson}(T) \le n-1)$ ;
+pour une cible stable de SNR total $\lambda$, $\Pd = \sum_k \mathrm{Pois}(k;\lambda)\,P(\mathrm{Poisson}(T)\le n+k-1)$.
+Les cibles fluctuantes sont des mélanges sur une puissance de cible de loi Gamma de forme $k$ ($k=1$ : Swerling~1,
+$2$ : Swerling~3, $n$ : Swerling~2, $2n$ : Swerling~4, $\infty$ : stable) ; les formes non entières sont admises, ce qui
+fait entrer la décorrélation dans une visée et la diversité de polarisation. Les lois valent pour toute $\Pfa$ et
+concordent avec l'ajustement de Shnidman à son erreur de \SI{0.3}{dB} près.
+
+\subsection{Pd moyennée sur la position de la cible}
+La position aléatoire de la cible coûte du SNR. Les écarts dans la maille hexagonale d'émission (diagramme réel), dans
+la grille des faisceaux de réception, en chevauchement distance et Doppler, et au filtre de vitesse le plus proche
+forment une loi de perte discrète (16 quantiles chacun, combinés comme indépendants). La $\Pd$ d'une visée est la $\Pd$
+\emph{moyenne} sur cette loi, et le SNR qu'elle coûte est la perte de bilan appelée « positions ». Un pas de 1,4
+largeur de faisceau d'émission est l'optimum de ce critère pour une visée (plat à \SI{0.1}{dB} près de 1,3 à 1,6) ; le
+critère cumulé baissant la $\Pd$ demandée à une visée, l'optimiseur choisit le pas de chaque secteur de 1,3 à 2,0 par
+pas de 0,1 (section~\ref{sec:opt}). Un coin de maille est à \SI{-7.9}{dB} au pas 1,4 : l'ordonnanceur doit décaler la
+grille à chaque trame.
+
+\subsection{Pd cumulée de la veille}
+Une cible qui se rapproche à $v$ est vue une fois par revisite $RR$, aux distances $R(1+(k+\phi)q)$ avec $q = vRR/R$ et
+une phase uniforme $\phi$ ; le SNR d'une visée varie en $(R/R_k)^4$. L'exigence porte sur la probabilité
+\emph{cumulée}
+\[
+  P_{\mathrm{cum}}(R) = \bigl\langle 1 - \textstyle\prod_k (1 - P_{\mathrm{d},k})\bigr\rangle_\phi = 0,9
+\]
+à la portée exigée du secteur (les visées sous $\Pd = 10^{-3}$ ne comptent plus). Par rapport à une seule visée à $R$,
+le SNR requis change de $+6,0\dB$ pour $q=1$ et de $-6,8\dB$ pour $q=0,1$.
+
+\subsection{Politique de fausses alarmes}
+Par défaut, un secteur tolère un nombre de fausses alarmes par revisite (\code{fa\_per\_rr} = 10) ; la $\Pfa$ par case
+est ce nombre divisé par les positions et les cases indépendantes, bornée à $[10^{-14}, 10^{-4}]$ et arrondie au
+vingtième de décade. Chaque fausse alarme est ensuite confirmée en Ku comme une détection. Les visées Ku utilisent
+$\Pfa = 10^{-8}$.
+
+%=====================================================================================================================
+\section{Modèles de cibles}\label{sec:targets}
+%=====================================================================================================================
+Les cibles sont décrites par des \emph{classes} dont les valeurs sont des \emph{moyennes de classe} (l'équipement de
+l'adversaire est inconnu). Un secteur nomme une classe et peut surcharger chaque valeur. ST est la cible de référence
+conventionnelle du banc ; GENERIC complète un secteur qui ne nomme aucune classe.
+
+\begin{center}
+{\small\setlength{\tabcolsep}{4pt}\begin{tabular}{@{}lcccccccc@{}}
+\toprule
+Classe & $v$ (km/s) & $L$ (m) & $\omega$ (\si{\degree/s}) & $a_{\max}$ & SER S / Ku (\si{m^2}) & Fluct. & Dépol. & $T_0$ S / Ku (s)\\
+\midrule
+ST (référence) & 5 & 10 & 0,1 & 0 & \num{1000} / \num{1000} & SW1/2 & \SI{-10}{dB} & 3,1 / 0,6\\
+GENERIC & 10 & 3 & 1 & 1\,g & 1 / 1 & SW1/2 & \SI{-10}{dB} & 1,0 / 0,20\\
+KKV & 25 & 1,5 & 1 & 10\,g & 1,27 / 13,8 & SW3/4 & \SI{-20}{dB} & 2,0 / 0,41\\
+SHIP & 5 & 100 & 0,1 & 1\,g & 300 / 300 & SW1/2 & \SI{-6}{dB} & 0,31 / 0,06\\
+DEBRIS & 15 & 0,5 & 10 & 0 & 0,01 / 0,01 & SW1/2 & \SI{-3}{dB} & 0,61 / 0,12\\
+DECOY & 25 & 1,5 & 0,5 & 0 & 0,135 / 0,135 & SW0 & \SI{-20}{dB} & 4,1 / 0,82\\
+\bottomrule
+\end{tabular}}
+\end{center}
+
+\paragraph{SER frontale et optique d'autodirecteur.} La SER est copolaire et frontale (l'aspect d'une cible qui se
+rapproche). L'avant du KKV est un grand miroir d'autodirecteur infrarouge, métallique et donc conducteur parfait aux
+fréquences radar, pointé vers sa cible. Sa contribution vaut
+$\sigma_{\mathrm{opt}} = \max\bigl(\pi(2f)^2,\;\eta_r\,4\pi A^2/\lambda^2\bigr)$ avec $A = \pi D^2/4$,
+$D = \SI{0.3}{m}$, $f/D = 1$, $\eta_r = 0,1$ : réflexion directe sur le primaire concave, et rétroréflexion « \oe{}il de
+chat » de l'ensemble focal, en $1/\lambda^2$, donc surtout en Ku. Le leurre imite le corps sans l'optique, ce qui aide
+la discrimination.
+
+\paragraph{Fluctuation.} La fluctuation d'une visée est une forme de loi Gamma : la famille (SW1/2 : un degré de
+liberté par échantillon indépendant, SW3/4 : deux, SW0 : stable) fois $\min(n, 1 + T_{\mathrm{obs}}/T_0)$ échantillons
+indépendants sur la visée ($n$ blocs cohérents), fois la diversité de polarisation $(1+\rho)^2/(1+\rho^2)$ des deux
+voies de réception. Un cas de Swerling déclaré prime sur la classe.
+
+\paragraph{Masquage.} La scène est inconnue : le masquage d'une cible faible par une voisine forte est une sortie,
+l'enveloppe de la réponse de la cible forte à 1, 2 et 3 cases en distance (avec la pondération de la visée) et en
+Doppler (\SI{-13.3}{dB} au-delà d'une case sans fenêtre Doppler).
+
+%=====================================================================================================================
+\section{Environnement}\label{sec:env}
+%=====================================================================================================================
+
+\subsection{Structure du vaisseau}
+Les obstacles sont dans le champ proche de l'ouverture (limite de Fraunhofer environ \SI{325}{m} en S) : le faisceau
+est un tube de la largeur de l'ouverture. Des rayons partent de 37 points de l'ouverture dans la direction de pointage,
+exactement sur les triangles du modèle 3D ; la fraction occultée $f$ coûte $-20\log_{10}(1-f)$ par passage, et une
+position au-delà de \SI{3}{dB} par passage est masquée. La structure rayonne aussi : son émissivité fois sa
+température physique (coque $\varepsilon = 0,01$ à \SI{290}{K}, radiateurs $0,05$ à \SI{750}{K}) est captée par le lobe
+principal à travers la fraction occultée et par les lobes lointains comme un corps du ciel. Avec l'inclinaison de
+\SI{25}{\degree}, la structure n'occulte que les directions à plus de \SI{71.7}{\degree} d'une normale de face, toutes
+servies par une autre face à un dépointage plus faible : aucune position n'est masquée et les radiateurs ne sont jamais
+vus ; la coque ajoute \SI{2.9}{K}, négligeable.
+
+\subsection{Surfaces : ombre, fouillis, saturation du convertisseur}
+Les corps à surface (Terre, Lune) sont des sphères à une distance $D$ donnée par leur rayon apparent. Une direction
+dans le disque rencontre la surface à $d = D\cos\delta - \sqrt{R^2 - D^2\sin^2\delta}$ ; rien n'existe au-delà. La
+rétrodiffusion de la surface est à « $\gamma$ constant », $\sigma_0 = \gamma\cos\theta_i$ ($\gamma$ = albédo radar ;
+Terre \SI{-12}{dB} en S, Lune \SI{-11.5}{dB}). Le fouillis par les lobes secondaires dans la case distance $r$ de la
+cible vient de l'anneau isodistance de la surface (aire $2\pi R r\,\Delta r/D$ par case), échantillonné sur 720 points
+et vu à travers le diagramme aller-retour : $y = \sigma_c/\sigma_{\mathrm{cible}}$. L'écho d'une surface dans le lobe
+principal est contrôlé contre le niveau d'écrêtage du CAN par élément (alerte), et un limbe dans un secteur est signalé
+(GO-CFAR conseillé).
+
+\subsection{Fouillis par forme d'onde}\label{sec:clutter}
+En S, le fouillis est évalué \emph{par forme d'onde candidate et par tranche de dépointage de \SI{1}{\degree}}, hors du
+budget de $\Tsys$ (la Ku garde un modèle plus simple de facteur de bruit) :
+\begin{itemize}
+  \item \textbf{Rapport de fouillis} $y$, par pointage et par faisceau d'émission de l'espace de recherche (face
+        complète, ou diagramme 2D d'une sous-ouverture de partition), à la distance exigée du pointage, pour une case
+        distance de référence ; il varie exactement en $c/2B$ avec la bande du candidat et est divisé par le nombre de
+        blocs cohérents $M$ (l'exigence par bloc).
+  \item \textbf{Résidu Doppler} $\rho(v)$ : le spectre Doppler de la surface (gaussien, moyenne et écart-type de sa
+        vitesse de rapprochement donnés par le scénario), replié sur la PRF, à travers le filtre d'un bloc cohérent
+        (poids uniformes $w_k$, ou Taylor \SIlist{-30;-40}{dB}),
+        \[ H(x) = \Bigl|\textstyle\sum_k w_k e^{j2\pi kx}\Bigr|^2 \big/ \bigl(\textstyle\sum_k w_k\bigr)^2, \]
+        plus un plancher blanc dû à la variance de phase résiduelle à travers la bande de bruit du filtre. $\rho = 1$
+        sans blocs cohérents ou sans vitesse de rapprochement du scénario (prudent). Il est évalué à 11 vitesses de
+        cible sur la plage du secteur.
+  \item \textbf{Portée} : le fouillis est traité comme du bruit au détecteur, $S/(N + C)$ avec $C/N = a\,S/N$,
+        $a = y\,\rho(v)/M$. Dans chaque tranche, $y$ est pris au quantile 99\,\% des pointages ; l'augmentation de SNR
+        $G$ qui rétablit la $\Pd$ de la visée \emph{moyennée sur les vitesses de cible} est résolue par dichotomie, et la
+        portée devient $R_n G^{-1/4}$. Si aucune puissance ne la rétablit, le candidat n'est pas jouable dans la tranche ;
+        un pointage qu'aucun candidat ne dégage est aveuglé.
+  \item \textbf{Exigence ramenée à la surface} : là où un pointage rencontre une surface à $d$ en deçà de la portée
+        exigée, l'exigence devient $d - \text{garde}$ (garde = max(\SI{10}{km}, résolution en distance)), arrondie
+        \emph{vers le haut} sur une grille de 5\,\% de la portée ; le critère cumulé est recalculé pour chacune de ces
+        classes ; avec $d - \text{garde} \le 0$ il n'y a pas de volume et le pointage n'est pas balayé.
+\end{itemize}
+
+\subsection{Brouilleurs}
+\paragraph{Les brouilleurs à distance} sont déclarés dans le ciel. Leur bruit entre dans $\Tsys$ à travers le
+diagramme de réception : $T_j = (\text{densité de PIRE}/4\pi R^2)/k \times A_{\mathrm{eff}}(\text{direction})$. Un
+brouilleur à plus d'une largeur de faisceau de réception de l'axe est dans les lobes secondaires et annulé
+adaptativement de \SI{40}{dB} (les 8 plus forts par face).
+
+\paragraph{Les brouilleurs d'autoprotection} sont portés par la cible du secteur (barrage sur la bande de leur classe,
+densités de PIRE de \SI{5}{dBW/MHz} sur un KKV à \SI{27}{dBW/MHz} sur un vaisseau ; dans le lobe principal, non
+annulés). Ils entrent exactement dans la portée : avec $S \propto 1/R^4$ et $J \propto 1/R^2$,
+$S = \SNR_{\mathrm{req}}(N + J)$ est quadratique en $1/R^2$,
+\[
+  \frac{1}{R^2} = \frac12\left(\frac{1}{R_{bt}^2} + \sqrt{\frac{1}{R_{bt}^4} + \frac{4}{R_n^4}}\right),\qquad
+  R_{bt} = \sqrt{\frac{P\,G_t\,\sigma\,\tau N}{4\pi\,J_0\,\SNR_{\mathrm{req}}\,L}},
+\]
+avec $R_n$ la portée contre le bruit seul et $R_{bt}$ la portée de percée. \textbf{Concept d'emploi} : la veille n'a
+pas à percer un brouilleur d'autoprotection ; elle identifie l'axe du brouillage, et l'ordonnanceur pointe ensuite une
+veille de percée Ku dans cet axe (gain d'émission Ku environ 25 fois celui de la S, donc une portée de percée environ
+5 fois plus grande pour la même énergie). Un secteur dont le brouilleur met l'exigence hors de portée de la veille est
+donc planifié contre le bruit seul et signalé pour la percée Ku.
+
+\subsection{Autres termes}
+Les objets non menaçants (débris, satellites) vus par revisite sont confirmés comme des cibles. La rotation de Faraday
+sur l'aller-retour, $\Omega = 2\times2,36\cdot10^4\,B_\parallel\,\mathrm{TEC}/f^2$ (unités SI), est donnée à partir du
+contenu électronique et du champ du scénario ; elle ne coûte rien avec le récepteur bipolarisation.
+
+%=====================================================================================================================
+\section{Équation radar et bilan des pertes}\label{sec:solve}
+%=====================================================================================================================
+La portée d'une visée est la forme énergétique de l'équation radar,
+\[
+  R^4 = \frac{P_{\mathrm{beam}}\,G_{\mathrm{TX}}\,G_{\mathrm{RX}}\,\lambda^2\,\sigma\,\tau N}
+             {(4\pi)^3\,k\,\Tsys\,L\,\SNR_{\mathrm{req}}},
+\]
+avec $\SNR_{\mathrm{req}}$ le SNR sur l'énergie totale intégrée tiré de la loi de détection exacte (cumulée en veille),
+$P_{\mathrm{beam}}$ et $G_{\mathrm{TX}}$ ceux du mode d'émission, $G_{\mathrm{RX}}$ avec la pondération de réception du
+volume, et $\Tsys$ la température de budget de la direction. La perte totale $L$ est la somme de :
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}lL@{}}
+\toprule
+Fixes (S) & précision finie \SI{0.3}{dB}, erreurs du réseau après étalonnage \SI{0.006}{dB} (section~\ref{sec:cal}),
+occultation par les éléments Ku \SI{0.2}{dB}, chaîne d'émission \SI{0.6}{dB}\\
+Bande & dégradation de bord moyennée sur le spectre occupé\\
+Forme d'onde & compression (pondération, désadaptation NLFM, Doppler LFM), éclipse des trains décalés, chute de la
+réserve, superposition multifaisceau, pondération Doppler\\
+Antenne & désadaptation active, émission et réception\\
+Polarisation & recombinaison GLRT ; énergie en polarisation croisée de la cible (un gain)\\
+Traitement & positions (cases de grille, chevauchement, écart au filtre de vitesse, par la $\Pd$ moyennée), CFAR,
+cohérence, accélération, résidu de migration\\
+\bottomrule
+\end{tabularx}
+\end{center}
+Pour la forme d'onde de référence (24 impulsions de \SI{200}{\micro s}, superposition de 4 faisceaux) sur la cible de
+référence à \SI{2.8}{GHz} dans l'axe, les pertes totalisent environ \SI{6.6}{dB}, terme de positions compris (la
+section~\ref{sec:effects} donne chaque terme et sa plage) ; une dérivation manuelle indépendante de l'équation concorde
+à \SI{0.5}{\percent} (autotest).
+
+Le coût d'une position de veille est électrique : énergie $P_{\mathrm{pk}}\,N\tau\,t/c_d/\eta$ et temps d'émission
+$N\tau\,t/c_d$, avec $t$ les trains par passage (les faisceaux d'un multiplexage en temps, 1 sinon) et $c_d$ les
+positions que couvre un passage (1, $B_{\mathrm{tx}}$, ou $B_{\mathrm{tx}}$ fois le rapport de maille de la
+sous-ouverture).
+
+%=====================================================================================================================
+\section{Optimiseur de veille}\label{sec:opt}
+%=====================================================================================================================
+Pour chaque secteur, l'optimiseur (\code{core/optimizer.py}) choisit la fréquence centrale S et les formes d'onde, et
+calcule l'énergie et le temps que chaque face y consacre.
+
+\subsection{Fréquence}
+Les fréquences centrales sont \emph{dérivées de la bande} : le bord bas utilisable plus des multiples de
+\SI{5}{MHz}, gardées là où le signal tient dans la bande et ne touche aucune exclusion de spectre de la mission. La
+recherche se fait en deux passes : les centres valides au pas de \SI{20}{MHz} (plus le plus central de chaque fragment
+libre de la bande), puis le pas de \SI{5}{MHz} à \SI{\pm20}{MHz} du meilleur. L'optimum est plat en fréquence : la
+grille sert surtout à éviter le spectre brouillé ou interdit. Un secteur peut imposer ses fréquences candidates.
+
+\subsection{Plan de formes d'onde}
+À chaque fréquence, les portées de tous les candidats sont calculées dans chaque tranche de dépointage de
+\SI{1}{\degree}. Dans le modèle, le dépointage n'entre dans une portée que par les gains et la désadaptation active,
+donc $R(\theta) = R(0)\,h(f,\theta)$ avec $h$ indépendant de la forme d'onde (vérifié à l'exécution) : une solution par
+candidat et par fréquence suffit.
+\begin{itemize}
+  \item Une forme d'onde par groupe de tranches de \SI{5}{\degree}, au plus quatre formes d'onde distinctes par
+        secteur ; les groupes voisins en partagent une par programmation dynamique sur des segments contigus.
+  \item Un candidat est admissible sur un segment s'il atteint l'exigence dans chaque tranche peuplée. « Pas
+        d'énergie en trop » : là où il dépasse l'exigence, l'\emph{impulsion est raccourcie} à $s\tau$ avec
+        $s = (R_{\mathrm{req}}/R)^4$ (PA toujours saturés ; PAE exacte de l'impulsion raccourcie ; plancher
+        $\tau B \ge 1$ ; les pertes de l'impulsion complète sont gardées, ce qui est prudent). Énergie et temps
+        d'émission baissent tous deux.
+  \item Objectif : minimiser $\max(\text{part d'énergie}, \text{part de temps d'émission})$ sur les faces, par une
+        somme pondérée dont le poids est balayé (21 valeurs).
+  \item Sans candidat admissible sur un segment : le moins de positions en deçà de la portée, puis la plus longue
+        portée, puis le coût. Un secteur dont l'exigence est mise hors de portée par un brouilleur d'autoprotection est
+        planifié contre le bruit seul (section~\ref{sec:env}).
+  \item Classement des fréquences : d'abord la part non balayée due à la fréquence, puis les positions en deçà de la
+        portée (tolérance 1\,\%), puis l'objectif, puis un critère secondaire déterministe (énergie, temps, nombre de
+        formes d'onde, distance au centre de la bande c\oe{}ur).
+\end{itemize}
+Les candidats dominés (même fonction de coût, portée inférieure ou égale partout) sont élagués exactement avant le
+plan. Chaque pas de grille de veille (1,3 à 2,0 largeurs de faisceau d'émission) est évalué à chaque fréquence
+centrale, et le plan le moins cher est gardé : le pas change les positions, les pertes de grille, les faisceaux de
+réception par position, les cases de fausses alarmes et le budget Ku qui suit. Quand une face est sursouscrite, la
+revisite est allongée en proportion.
+
+\subsection{Sorties et alertes}
+Par secteur : fréquence et bande occupée, formes d'onde par tranche avec leur chronologie, portées au meilleur et au
+pire dépointage, positions, faisceaux de réception par position, résumés du ciel et de l'environnement, énergie et
+temps par face, revisite seul et dans la mission. Alertes : résolution non tenue, portée non atteinte, puissance ou
+temps sursouscrits, part non balayée, désadaptation active, option de lobes secondaires de réception non tenue,
+aveuglement ou montée du ciel au-delà du budget, masquage, limitation par le fouillis, surfaces plus proches que
+l'exigence, brouillage d'autoprotection, revisite inférieure à trois temps de cohérence de la cible (le critère cumulé
+suppose des visées indépendantes), exclusions de spectre retirant la plupart des centres.
+
+%=====================================================================================================================
+\section{Confirmation et poursuite active en Ku}\label{sec:ku}
+%=====================================================================================================================
+Chaque détection S, vraie cible ou fausse alarme, est confirmée en Ku (\code{core/tracking.py}, étape 3.2). Trois
+modes :
+\begin{itemize}
+  \item \textbf{KU1+7} : une visée Ku sur l'estimation S, puis une grappe de 7 faisceaux en cas d'échec (deux
+        allers-retours) ;
+  \item \textbf{KU7} : la grappe de 7 faisceaux d'emblée (un aller-retour) ;
+  \item \textbf{S2} : un « toucher » S pointé (une forme d'onde S de rôle CONFIRM, qui rejette aussi les fausses
+        alarmes S), puis KU1+7 sur l'estimation angulaire améliorée.
+\end{itemize}
+La grappe est émise en 7 visées successives, en superposition en phase seule des 7 faisceaux (puissance / 7, perte
+interpolée dans la table multifaisceau, \SI{0.76}{dB}), ou par une partition de la face en 2 ou 4 sous-ouvertures Ku ;
+la moins chère est gardée. Les échos qui franchissent le seuil ont un SNR aléatoire, tiré par quantiles de la loi Gamma
+de la cible ; l'erreur angulaire par axe vaut $K\,\mathrm{HPBW}/\sqrt{\mathrm{SNR}}$ (borne de Cramér--Rao $\times 1,13$)
+plus un biais résiduel d'alignement S/Ku, moyennée par des n\oe{}uds de Gauss--Hermite. Chaque mode reçoit la plus petite
+marge de puissance qui confirme une vraie cible avec une probabilité d'au moins 0,98, résolue par dichotomie ; le mode
+qui minimise la charge de la face la plus chargée est choisi, ou l'opérateur en impose un.
+
+La fréquence Ku est choisie par secteur sur une grille de \SI{10}{MHz} dérivée de la bande Ku, le signal dans la bande
+et hors des exclusions Ku de la mission ; la cinquième harmonique S sur le canal Ku de la même face est signalée comme
+règle de temps de l'ordonnanceur. Les visées Ku sont choisies dans leur propre espace (impulsions de
+\SI{5}{\micro s} à \SI{2.08}{ms}, PRI de \SIrange{0.5}{5}{ms}, bandes de \SIrange{25}{200}{MHz}, les deux intégrations,
+une variante agile des trains non cohérents), raccourcies à PA saturés juste assez pour la portée, avec le budget du
+ciel Ku du secteur, son brouilleur d'autoprotection et le fouillis de ses surfaces par les lobes secondaires ; une visée
+de percée Ku est pointée dans l'axe du brouillage quand le brouilleur met le secteur hors de portée de la veille.
+
+La poursuite active est décrite par tranche de distance (nombre de pistes, période de mise à jour voulue par
+l'opérateur, zone angulaire, précisions en distance et en vitesse radiale) et suit un modèle de piste
+(\code{core/trackmodel.py}, étape 3.3). Chaque axe (distance ; deux axes transverses) porte un filtre de Kalman en
+régime établi à trois états avec le modèle de man\oe{}uvre de Singer
+($\sigma_m^2 = a_{\max}^2/3\,(1 + 4p_{\max} - p_0)$ plus un plancher, constante de temps par classe), discrétisé
+exactement et résolu par l'équation de Riccati discrète. La zone angulaire ($\sigma$ = zone / 4) s'applique à l'angle
+prédit à la mise à jour suivante, les précisions en distance et en vitesse à la piste filtrée ; chaque exigence devient
+la plus grande erreur de mesure qui la tient, les planchers de mesure (\SI{0.05}{mrad}, \SI{0.05}{m}, \SI{0.01}{m/s})
+retirés quadratiquement, et la précision en distance paie le résidu de couplage distance--Doppler
+$c\tau\sigma_{f_d}/2B$. La visée de mise à jour est pointée sur la prédiction : son erreur de pointage entre dans sa
+$\Pd$ comme une loi de perte sur le diagramme Ku réel ; elle couvre par des bancs $\pm 3\sigma$ de la vitesse radiale et
+de l'accélération prédites ; la moins chère d'une visée pointée et d'une grappe séquentielle de 7 faisceaux est gardée.
+Une chaîne de Markov sur les manques consécutifs (piste perdue après 3, l'erreur de pointage croissant pendant
+l'extrapolation) donne le taux de perte ; les visées d'initialisation amènent une cible confirmée aux précisions
+exigées ; les coûts sont moyennés sur 8 distances de la tranche. Quand la période de l'opérateur ne tient pas à une
+distance, la plus longue période tenable est donnée en alerte. Un KKV est distingué d'un leurre sur les visées de
+poursuite par quatre indices (dépolarisation, fluctuation, niveau de SER avec l'optique d'autodirecteur, man\oe{}uvre vue par
+le filtre), l'incertitude de Faraday affaiblissant l'indice de dépolarisation sauf si la polarisation d'émission est
+commutée. Un atténuateur après le LNA (\SI{30}{dB}) abaisse d'un facteur 5,6 la distance sous laquelle l'écho écrête les
+CAN. S et Ku partagent l'énergie électrique d'une face ; leurs temps d'émission sont comptés séparément.
+
+\paragraph{Réglages de calcul.} Depuis le 25 octobre 2026, les approximations sont admises quand elles ne dénaturent
+pas le modèle, chacune une entrée \code{[tool.*]} dont la valeur exacte reste disponible : lois de perte de position
+arrondies à \SI{0.02}{dB} (SNR requis à \SI{0.003}{dB} près), inversion cumulée à \SI{1e-3}{dB}, pas de grille cherché
+à la fréquence retenue, trois centres S et trois centres Ku sur la bande c\oe{}ur quand le spectre est calme (aucune
+exclusion, aucun brouilleur), marges S2 à \SI{0.05}{dB} avec 16 quantiles de SNR et 8 n\oe{}uds de Gauss--Hermite. Sur deux
+missions de test, elles changent l'énergie de veille d'au plus \SI{+0.25}{\percent} (un secteur \SI{+9}{\percent}, un
+\SI{-5}{\percent} : la fréquence compte pour certains secteurs) pour un calcul 7 à 8 fois plus rapide.
+
+%=====================================================================================================================
+\section{Ordonnanceur}\label{sec:sched}
+%=====================================================================================================================
+Le bilan des sections précédentes compte les ressources de chaque face \emph{en moyenne}. L'ordonnanceur
+(\code{core/scheduler.py}, étape 4.3) vérifie que les tâches tiennent aussi \emph{dans le temps}, et combien de temps
+une détection attend sa confirmation. S et Ku ont des chronologies d'émission distinctes sur chaque face.
+
+\paragraph{Priorités.} Fixées par le concepteur :
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}lL@{}}
+\toprule
+P0 & étalonnage (sans lui le radar ne fonctionne pas)\\
+P1 & veille des volumes cochés \emph{autoprotection} (une case à cocher par volume)\\
+P2 & confirmation d'une détection et initialisation de piste (ne jamais perdre une détection)\\
+P3 & mises à jour de piste (quelques manques restent gérables) ; P3$'$ percée Ku, seulement si l'opérateur l'autorise\\
+P4$_n$ & veille, avec une sous-priorité par volume choisie par l'opérateur ($n = 1$ servi d'abord)\\
+P5 & réemploi de la marge : la part de veille ajoutée par une revisite raccourcie sous la valeur demandée
+(section~\ref{sec:load})\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\paragraph{Bilan statistique.} Sur chaque face et chaque bande, les tâches forment une file servie sans préemption
+(une observation commencée n'est pas interrompue). L'attente moyenne de la classe $k$ suit la formule de Cobham,
+\[
+  W_k = \frac{W_0}{(1-\sigma_{k-1})(1-\sigma_k)},\qquad W_0 = \tfrac12\textstyle\sum_i \rho_i S_i,
+\]
+avec $\rho_i$ la part de temps de la classe $i$, $S_i$ sa durée de service et $\sigma_k$ la charge des classes jusqu'à
+$k$ ; le quantile à 95\,\% utilise une queue exponentielle au-delà de la probabilité que l'émetteur soit occupé. Quand
+la charge dépasse le temps, la veille est délestée d'abord (sa revisite s'étire, sous-priorité la plus basse d'abord),
+puis les mises à jour de piste (leur période s'étire) ; l'étalonnage, l'autoprotection, la confirmation et
+l'initialisation ne sont jamais délestés : s'ils ne tiennent pas, la mission n'est pas faisable.
+
+\paragraph{Chronologie synthétique.} Une chronologie déterministe par face et par bande, sur la plus longue revisite
+de la face (au plus \SI{60}{s}) : positions de veille réparties sur leur revisite, mises à jour de piste à leur
+période, confirmations et initialisations tirées comme des arrivées de Poisson avec une graine fixe, un étalonnage ; à
+chaque instant libre, la tâche prête de plus haute priorité, puis d'échéance la plus proche, est servie. Après
+l'émission contiguë la plus longue que permettent le stockage de la face (environ \SI{0.3}{s}) ou la plaque froide, une
+pause de recharge est insérée. La chronologie donne les retards de départ, la part des mises à jour en retard de plus
+de \SI{10}{\percent} de leur période (comptées comme des manques), le retard de l'étalonnage et les pauses.
+
+\paragraph{Ordre des pointages dans un volume.} Les pointages de veille d'un volume sur une face sont les points de sa
+grille hexagonale en $(u,v)$ (où le faisceau garde une largeur constante, son élargissement aux grands dépointages est
+donc exact), décalée d'une trame à la suivante de $0$, $(a+b)/3$ et $2(a+b)/3$ de la base de la grille (le décalage
+d'une trame à l'autre que suppose le critère cumulé). Ils sont servis dans l'\emph{ordre de Morton à bits renversés}
+(une suite de van der Corput à deux dimensions) : les $4^k$ premiers pointages tombent un dans chacun des $4^k$
+sous-carrés du volume, à toutes les échelles ; la couverture est uniforme dès le début de la trame, et une trame étirée
+ou coupée par le délestage se dégrade uniformément. Les cases du code ne sont pas plus fines que l'écart entre
+pointages. Changer de pointage ne coûte rien avec le retard vrai numérique : aucune proximité n'est recherchée. Chaque
+pointage dure le temps d'émission de la forme d'onde de sa tranche ; un passage multifaisceau sert ensemble les
+pointages suivants. La chronologie synthétique sert ces passages ; l'outil donne par volume et par face les pointages,
+le temps d'émission d'une trame, l'uniformité de la couverture à 10, 25 et 50\,\% de la trame, le pas moyen et la
+cadence des pointages (entrées de l'étape de calcul) et la dispersion de la revisite des directions.
+
+\paragraph{Règles entre faces et bandes.} Toutes les faces émettent une bande dans des créneaux communs (sinon
+l'émission d'une face aveuglerait les récepteurs des autres) ; les créneaux sont dimensionnés par la face la plus
+chargée, et toutes les faces y sont sourdes : les échos de veille perdent $-10\log_{10}(1-\rho_{\mathrm{créneaux}})$ ;
+au-delà de \SI{0.5}{dB}, la perte est réinjectée dans le plan de veille par l'optimiseur global
+(section~\ref{sec:load}). Sur une face où la cinquième harmonique d'une forme d'onde S couvre le canal Ku, les visées Ku
+évitent les créneaux S.
+
+\paragraph{Latence.} La latence d'une confirmation est l'attente à 95\,\% de la classe P2, plus son service, ses
+allers-retours et la latence de traitement de la détection (section~\ref{sec:compute}). Elle est comparée à l'exigence
+du secteur, ou par défaut à \SI{10}{\percent} du temps avant impact à la portée de détection.
+
+%=====================================================================================================================
+\section{Calcul et données}\label{sec:compute}
+%=====================================================================================================================
+Chaque face est entièrement numérique : chaque TRM a deux convertisseurs (un par polarisation) échantillonnant à
+\SI{250}{Méch/s} sur 13 bits, soit \SI{63.7}{Tbit/s} par face en S et \SI{1.59}{Pbit/s} en Ku avant toute réduction.
+Le bilan de calcul et de données (\code{core/compute.py}, étape 4.4) vérifie que la chaîne numérique suit ce que demande
+le plan : débits, faisceaux de réception simultanés, charge de traitement, tampons, latence et puissance du traitement.
+Chaque valeur ci-dessous est un réglage du fichier de paramètres (section \code{[compute]}).
+
+\paragraph{Architecture.} Hiérarchique. Chaque TRSA ramène ses voies à la bande du signal (conversion numérique vers
+le bas : échantillons complexes à $1,25\,B$, I et Q sur 16 bits). En S, une TRSA n'a que 50 voies, moins que les
+faisceaux que forme un passage : elle envoie ses voies et le processeur de face forme les faisceaux. En Ku, une TRSA a
+\num{1250} voies pour quelques faisceaux : elle forme des faisceaux partiels et les envoie (données divisées par environ
+100). Le processeur de face forme ou somme les faisceaux, comprime les impulsions, exécute les bancs de vitesses et
+d'accélérations et le CFAR, et annule les brouilleurs des lobes secondaires sur les 196 sorties de TRSA ; le calculateur
+central tient les pistes.
+
+\paragraph{Charge d'une visée.} Avec $f_s = 1,25\,B$, le temps d'écoute $T = N\cdot\mathrm{PRI}$,
+$n_p = f_s\,\mathrm{PRI}$ échantillons par impulsion, $c_r = 4\,B\,\mathrm{PRI}$ cases distance de la grille de
+détection, $h$ hypothèses de vitesse $\times$ accélération, $M$ cases Doppler et $b$ faisceaux de réception, les
+opérations d'une visée sont
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}lL@{}}
+\toprule
+formation de faisceaux & $8\times$ voies $\times\, b\, f_s T$ (une multiplication-accumulation complexe = 8 opérations)\\
+compression d'impulsion & $10\, n_p\log_2 n_p$ par impulsion, faisceau et polarisation (convolution rapide)\\
+bancs & $8\times 2\, b\, h\, c_r N$, plus la transformée Doppler $10\,M\log_2 M$ par case et hypothèse\\
+CFAR & 10 par case testée et hypothèse\\
+annulation des brouilleurs & $d^2$ par instantané d'apprentissage ($2d$ instantanés), $d^3/3$ par inversion, $d$ par
+échantillon et faisceau\\
+poursuite & $10^4$ par mise à jour de piste\\
+\bottomrule
+\end{tabularx}
+\end{center}
+Les visées sont les passages de veille S (cadence = positions / positions par passage / revisite), les confirmations Ku
+et les mises à jour de piste Ku, tirées du plan et du budget Ku. Les fenêtres d'écoute d'une face se recouvrent ; par la
+loi de Little, leur nombre moyen vaut $\sum \text{cadence}\times T$, et les faisceaux simultanés sont ce nombre arrondi
+au-dessus fois les faisceaux du plus grand passage (une borne supérieure). Sur deux missions de test, des formes d'onde
+S qui partitionnent l'ouverture en quatre sous-faisceaux d'émission sur 13,7 positions demandent 155 à 171 faisceaux de
+réception simultanés ; le formateur forme 512 faisceaux en S et 32 en Ku (coût de calcul négligeable). Les tampons
+cohérents sont contrôlés contre \SI{4}{To} de mémoire par face et le trafic mémoire (écritures des échantillons reçus
+et comprimés, une lecture par passage : les bancs travaillent dans la mémoire interne du processeur) contre
+\SI{50}{To/s}.
+
+\paragraph{Puissance et capacité.} La puissance du traitement a un plafond (\SI{50}{kW} par face). Une part fixe
+(\SI{20}{\percent} : fuites, horloges) est toujours consommée ; le reste suit la charge à \SI{0.01}{pJ} par opération et
+\SI{0.05}{pJ} par bit transporté (2050--2060, bout optimiste). La capacité est ce que permet le plafond, environ
+$4\times10^{18}$ opérations par seconde et par face ; les missions de test demandent $10^{11}$ à $2\times10^{16}$ (le
+plus : les bancs de vitesses d'un secteur encombré par une surface), et le traitement consomme environ \SI{10}{kW} par
+face. Les bilans de puissance et de chaleur qui dimensionnent le plan gardent le plafond (prudent : la consommation
+dépend de la charge Ku, calculée après eux) ; la consommation réelle, l'appel du bus et la chaleur de face corrigés sont
+donnés à côté, et la répartition de la puissance entre faces utilise la consommation réelle.
+
+\paragraph{Latence.} Les données arrivent au processeur de face pendant la réception des échos ; après la fin d'un
+passage restent le retard d'un lien plus lent que le flux (aucun aujourd'hui : \SI{0.2}{Tbit/s} par lien de TRSA contre
+\SI{4}{Tbit/s}, \SI{39}{Tbit/s} vers le processeur de face contre \SI{400}{Tbit/s}) et le traitement à la capacité que
+laisse la charge moyenne. Cette latence de traitement (\SI{0.01}{\micro s} à \SI{5}{ms} sur les missions de test) entre
+dans la latence de confirmation de l'ordonnanceur.
+
+\paragraph{En vol.} Le calculateur radar applique le plan de mission, l'ordonnanceur et la poursuite, et resélectionne
+une forme d'onde précalculée quand le spectre mesuré change : \num{1000} opérations par entrée (forme d'onde, tranche)
+(provisoire). La réoptimisation complète reste en préparation de mission.
+
+%=====================================================================================================================
+\section{Re-pointage en vol}\label{sec:repoint}
+%=====================================================================================================================
+Les repères de la section~\ref{sec:frames} ramènent chaque volume dans le repère du vaisseau pour un message de
+navigation. En vol, le vaisseau tourne (jusqu'à \SI{30}{\degree/s} et \SI{15}{\degree/s^2}, réglages éditables) et se
+déplace sur son orbite ; le calculateur radar garde les pointages sur leurs volumes et leurs pistes
+(\code{core/repoint.py}, étape 4.5).
+
+\paragraph{Boucle.} La grille de pointage d'un volume est fixée une fois par trame dans le repère propre du volume ;
+chaque pointage est converti en $(u,v)$ d'une face à l'instant de son émission, avec le dernier message de navigation
+prolongé par la vitesse mesurée, et émis par la face qui le voit alors ; les faisceaux de réception sont formés avec
+l'attitude de la réception. La couverture d'un volume reste donc exacte pendant que le vaisseau tourne au cours d'une
+trame. Les volumes liés au vaisseau ne bougent pas ; le décalage du limbe suit l'altitude.
+
+\paragraph{Erreurs.} À une émission, la navigation a au plus le retard plus un intervalle de message
+(\SI{15}{ms}) ; l'erreur quadratique moyenne de pointage vaut
+\[
+  \overline{r^2} = 2\left(\sigma_{\mathrm{att}}^2 + (\sigma_{\dot\theta}\,a)^2\right) + \left(\tfrac12\,\alpha_{\max}a^2\right)^2,
+\]
+avec la connaissance d'attitude et de vitesse $\sigma_{\mathrm{att}} = 1''$, $\sigma_{\dot\theta} = 10^{-4}\,\si{\degree/s}$
+par axe et l'accélération non mesurée $\alpha_{\max}$, qui domine ($6''$). Sa perte moyenne aller-retour de forme de
+faisceau $2\times12,04\,\overline{r^2}/\theta_3^2$\,dB rejoint les pertes de chaque bande (\num{3e-5}\,dB en S,
+\num{8e-4}\,dB en Ku) ; l'erreur est contrôlée contre \SI{5}{\percent} d'une largeur de faisceau (elle vaut $0,001$ en
+S, $0,006$ en Ku). Dans une visée de poursuite, l'erreur par axe s'ajoute quadratiquement à l'erreur de pointage du
+filtre. La vitesse angulaire elle-même est mesurée et compensée : elle n'entre pas dans l'erreur.
+
+\paragraph{Migration entre faces.} Un volume non lié au vaisseau traverse une frontière de face à la vitesse maximale
+en une fraction de seconde à environ une seconde ; la face voisine doit porter sa charge pendant ce temps (alerte
+sinon). L'enveloppe complète des attitudes est contrôlée plus tard (moteur de validation).
+
+\paragraph{Calcul.} Environ 100 opérations par pointage et, par trame, le masque de chaque volume non lié au vaisseau :
+environ $10^7$ opérations par seconde et par face, négligeable.
+
+%=====================================================================================================================
+\section{Pilotage de la charge}\label{sec:load}
+%=====================================================================================================================
+Cette section rassemble les règles qui décident quelle tâche reçoit quelle ressource, quand, et ce qui cède quand une
+ressource manque (étapes 4.1 à 4.5 et 5.2). Elles dimensionnent et vérifient un plan en préparation de mission ; leur
+exécution dynamique en vol relève de la simulation globale.
+
+\subsection{Ressources}
+Chaque face a ses propres ressources, sauf l'énergie et le rejet de chaleur, partagés par le vaisseau.
+\begin{center}
+{\small\begin{tabularx}{\linewidth}{@{}lllL@{}}
+\toprule
+Ressource & Portée & Capacité & Charge\\
+\midrule
+Énergie électrique & vaisseau ; face & \SI{8}{MW} ; alimentation \SI{8}{MW}, plafond opérateur & appel moyen du bus / capacité\\
+Stockage de face & face & \SI{5}{MJ} (\SI{80}{\percent} utilisables), \SI{15}{MW} & déficit par visée et par pire rafale\\
+Temps d'émission S & face & 1 & somme des parts de temps des tâches S\\
+Temps d'émission Ku & face & 1 & idem en Ku (réseau distinct)\\
+Chaleur & face ; vaisseau & \SI{15.9}{MW} ; \SI{6}{MW} & chaleur moyenne / capacité\\
+Calcul & face & $4\times10^{18}$ op/s & opérations par seconde / capacité\\
+Faisceaux de réception & face, bande & 512 S, 32 Ku & pic de faisceaux d'un passage / capacité\\
+Mémoire, débit & face & \SI{4}{To}, \SI{50}{To/s} & tampons cohérents au pic ; trafic\\
+\bottomrule
+\end{tabularx}}
+\end{center}
+La \emph{ressource dimensionnante} d'une face est celle dont la charge est la plus haute ; pour l'énergie, le plus grand
+de (besoin du vaisseau / \SI{8}{MW}) et (besoin de la face / son plafond).
+
+\subsection{Enchaînement du calcul d'une mission}
+\begin{enumerate}
+  \item \textbf{Plan de veille par secteur} (section~\ref{sec:opt}) : fréquence, grille, forme d'onde par tranche de
+        dépointage, impulsion raccourcie à l'exigence ; objectif $\min\max$(part d'énergie, part de temps S) sur les
+        faces, l'énergie rapportée à \SI{2}{MW} par face. Une direction est servie par la face la plus proche.
+  \item \textbf{Budgets} : totaux par face, confirmation Ku (mode choisi pour baisser la face la plus chargée) et
+        poursuite, calcul et données, répartition de la puissance (ci-dessous), re-pointage, ordonnanceur.
+  \item \textbf{Boucle globale} (au plus 3 passes) : les couplages sont réinjectés dans les plans (éclipse des créneaux
+        communs au-delà de \SI{0.5}{dB} ; coût Ku des fausses alarmes quand elles dépendent de la forme d'onde ; formes
+        d'onde demandant plus de faisceaux que le formateur retirées) ; chaque secteur peut passer à l'une de ses
+        alternatives (autre fréquence ou grille, même couverture et même portée) quand elle baisse la face la plus
+        chargée de la mission, puis la somme des charges ; seuls les secteurs concernés sont replanifiés ; la boucle
+        s'arrête quand rien ne change.
+  \item \textbf{Réemploi de la marge} quand la mission fixe \code{auto\_alloc\_max} (ci-dessous).
+  \item \textbf{Verdict} par ressource et par face, sur les revisites demandées.
+\end{enumerate}
+
+\subsection{Répartition de la puissance entre les faces}
+Le besoin de chaque face (appel du bus) est décomposé par niveau de priorité : P0 permanent (avec la consommation réelle
+du traitement) et étalonnage, P1 veille d'autoprotection, P2 confirmation et initialisation, P3 mises à jour de piste
+par classe de cible (KKV, SHIP, DECOY, DEBRIS, autres), P3$'$ percée, P4$_n$ veille, P5 réemploi de la marge.
+\begin{itemize}
+  \item \textbf{Puissance suffisante} : chaque face reçoit une part des \SI{8}{MW} proportionnelle à son besoin ;
+        l'excédent d'une face plafonnée va aux autres.
+  \item \textbf{Manque} : les niveaux sont servis dans l'ordre, toutes faces confondues (une veille P1 d'une face avant
+        une piste P3 d'une autre) ; le dernier niveau servi l'est en partie : ses volumes de veille reçoivent une
+        revisite tenable ($RR$ / part servie), ses pistes un nombre tenable. Un niveau P0 à P2 non servi en entier rend
+        la mission non tenable.
+\end{itemize}
+
+\subsection{Réemploi de la marge}
+La revisite demandée pour un volume est un minimum. Quand les ressources ont de la marge, les revisites sont
+raccourcies jusqu'à ce que la ressource dimensionnante atteigne $X$ = \code{auto\_alloc\_max} (une valeur par mission,
+0 = désactivé par défaut) :
+\begin{itemize}
+  \item un facteur $g \ge 1$ pour tous les volumes de veille, autoprotection comprise, monté ensemble ; les volumes
+        d'une face qui atteint $X$ s'arrêtent, les autres continuent ; un volume sur plusieurs faces est borné par la
+        plus chargée ; un volume s'arrête aussi à sa \code{rr\_min\_s}, fixée par l'opérateur (pas de valeur par
+        défaut) ;
+  \item le plan est gardé (formes d'onde, grille, durées d'impulsion) ; la revisite devient $RR/g$ ; les fausses
+        alarmes restent au même nombre par seconde ($\Pfa$ par case divisée par $g$), donc la charge de confirmation ne
+        bouge pas ; le gain est donné en portée de détection cumulée à la revisite réelle ;
+  \item la charge de veille ajoutée est le niveau P5, le premier rendu en cas de surcharge ; le verdict reste porté sur
+        la revisite demandée ;
+  \item une sonde à $g = 2$ donne la pente de chaque ressource ; après le remplissage, les budgets sont réassemblés aux
+        revisites réelles et une ressource non linéaire est corrigée par la sécante de ses deux derniers points (au plus
+        2 corrections, tolérance 0,5 point).
+\end{itemize}
+Exemple (mission de test, $X = \SI{80}{\percent}$, plafonds opérateur de \SI{2}{MW} par face) : des revisites de 20,
+5 et \SI{120}{s} deviennent 0,09, 0,068 et \SI{1.6}{s}, bornées par l'énergie des faces 1 et 2, portées cumulées
+$+56$ à $+89\,\%$ ; avec \code{rr\_min\_s} = \SI{5}{s} sur le premier volume, $g = 4$ et $+19\,\%$.
+
+\subsection{Surcharge : ordre de ce qui cède}
+\begin{center}
+{\small\begin{tabularx}{\linewidth}{@{}lL@{}}
+\toprule
+Ressource en manque & Réponse\\
+\midrule
+Temps S (plan de veille) & revisites de la face allongées en proportion (alerte)\\
+Énergie & niveaux servis dans l'ordre ; revisite ou nombre de pistes tenable du dernier niveau\\
+Temps (ordonnanceur) & P4$_n$ à partir de la sous-priorité la plus basse (revisite étirée), puis P3 (période de mise à
+jour étirée) ; P0, P1, P2 jamais délestés (mission non faisable) ; en vol, P5 est rendu en premier\\
+Faisceaux & formes d'onde demandant plus de faisceaux que le formateur retirées du plan\\
+Migration entre faces & la face voisine doit porter la charge du volume (alerte)\\
+\bottomrule
+\end{tabularx}}
+\end{center}
+Avec l'ordre de Morton à bits renversés des pointages (section~\ref{sec:sched}), une trame étirée ou coupée garde une
+couverture uniforme.
+
+\subsection{En vol}
+Le calculateur radar re-pointe chaque pointage à son émission (section~\ref{sec:repoint}) et resélectionne des formes
+d'onde précalculées quand le spectre mesuré change. Règles fixées pour la simulation globale : la répartition devient
+dynamique (ressources allouées et reprises entre fonctions selon la charge réelle ; le réemploi de la marge s'applique,
+P5 rendu en premier) ; sur une surcharge, avant tout délestage, la ressource qui bloque la face en limite est
+réallouée : énergie depuis les faces qui ont de la marge, temps d'émission par resélection de formes d'onde (énergie
+contre temps) ou par la face voisine dans les zones de recouvrement, chaleur, calcul, faisceaux et mémoire par le
+recouvrement ; le délestage par priorités vient en dernier.
+
+%=====================================================================================================================
+\section{Réglages de mission et présentation des cibles}\label{sec:mission51}
+%=====================================================================================================================
+L'étape 5.1 fait des réglages opérationnels des clés de mission, chacune par défaut à la valeur du fichier de
+paramètres : la probabilité de confirmer une vraie cible (par mission, ou par volume), la $P_d$ cumulée de veille et les
+fausses alarmes tolérées (par revisite ou par seconde) d'un volume, la $P_d$ d'une mise à jour de piste et la
+probabilité de discrimination d'une tranche de distance, et la plus grande vitesse et accélération angulaires du
+vaisseau (la perte de bande de la navigation reste dimensionnée par le fichier ; une mission plus sévère est signalée
+avec la perte qui manque). Un interrupteur de mission autorise la percée Ku dans l'axe d'un brouilleur
+d'autoprotection : elle est alors budgétée (une visée par revisite) et ordonnancée après les mises à jour de piste
+(P3$'$) ; elle est interdite par défaut. L'étape 5.2 ajoute \code{auto\_alloc\_max} par mission et \code{rr\_min\_s}
+par volume (section~\ref{sec:load}).
+
+\paragraph{SER et présentation.} Chaque classe de la bibliothèque a une table de sa SER en fonction de la présentation,
+tous les \SI{30}{\degree} en azimut (12 valeurs) et en élévation (7 valeurs), en dB par rapport à la SER frontale,
+interpolée sur une grille de \SI{2}{\degree} qui contient le nez. La détection utilise la \emph{pire} présentation
+(moindre SER totale, l'optique d'autodirecteur comptée seulement dans son cône de \SI{\pm5}{\degree}), sauf pour le KKV,
+pris \emph{de face} : il vise le vaisseau, nez et autodirecteur vers le radar. Avec les tables actuelles, aucune portée
+de détection ne change. La dispersion de la table sur toutes les présentations (aucune pour une classe vue de face) et
+la dispersion d'un objet à l'autre d'une classe (3 à \SI{5}{dB} en SER, \SI{2}{dB} en dépolarisation) entrent dans les
+indices de discrimination comme des termes systématiques que des visées supplémentaires ne réduisent pas.
+
+%=====================================================================================================================
+\section{Autres fonctions}
+%=====================================================================================================================
+\paragraph{Erreurs du réseau et étalonnage.}\label{sec:cal} Chaque TRM est étalonné en vol par son coupleur (bouclage en
+émission et en réception, tous les TRM d'une face à la fois avec des codes orthogonaux), \SI{10}{ms} en S et
+\SI{50}{ms} en Ku toutes les \SI{300}{s}, pris sur le temps d'émission de la face. Les erreurs résiduelles en fin
+d'intervalle (aléatoires par TRM \SI{1}{\degree} / \SI{0.1}{dB}, corrélées par TRSA \SI{0.5}{\degree} / \SI{0.05}{dB}
+plus une dérive thermique de \SI{0.1}{\degree/min} / \SI{0.01}{dB/min}) donnent la perte de gain par la formule de Ruze
+en émission et en réception (environ \SI{0.006}{dB}, à la place d'une perte globale de \SI{0.5}{dB} / \SI{0.8}{dB}), un
+plancher moyen de lobes secondaires vers \SI{-59}{dB} et une erreur d'axe de quelques centièmes de milliradian ; le
+plancher de mesure angulaire et le biais d'alignement S/Ku restent des entrées, contrôlées contre eux. Les modes
+dégradés et les pannes de TRM sont traités en fin de développement (fonctionnement nominal d'abord).
+
+\paragraph{Redondance.} Un secteur $A$ couvre le besoin d'un secteur $B$ si, avec les formes d'onde et la revisite de
+$A$, la cible, la portée et la pondération de réception de $B$ (le récepteur numérique peut appliquer les deux sur la
+même visée), le critère cumulé de $B$ est tenu, avec une PRI non ambiguë et une résolution suffisante.
+
+\paragraph{Estimation rapide.} Pour un retour immédiat pendant que l'opérateur édite, une table précalculée donne
+l'énergie la moins chère par position en fonction de la portée, de la SER, de la vitesse et du dépointage ; le verdict
+vient du calcul complet.
+
+\paragraph{Repères et navigation.}\label{sec:frames} Le message de navigation porte un quaternion de Hamilton (vaisseau
+vers ICRF) et une orbite facultative. Avant tout calcul, la mission est ramenée une fois dans le repère du vaisseau :
+chaque secteur donné dans un autre repère (inertiel, RTN, relatif au limbe, deux directions) reçoit sa matrice de
+rotation et la trame des directions est tournée avant le test de forme ; le ciel inertiel est tourné en sens inverse.
+Tous les calculs suivants restent dans le repère du vaisseau.
+
+%=====================================================================================================================
+\section{Logiciel}\label{sec:software}
+%=====================================================================================================================
+
+\subsection{Modules}
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.33\linewidth}L@{}}
+\toprule
+Module & Rôle\\
+\midrule
+\code{core/params.py} & charge \code{radar\_system.toml} une fois par processus ; un autre fichier par \code{RADAR\_PARAMS}\\
+\code{core/radar\_model.py} & bandes, TRM, diagrammes, pertes, formes d'onde, traitement, cibles, \code{solve()}\\
+\code{core/antenna.py} & diagrammes à partir de la composition, profils des lobes lointains, sous-ouvertures (en cache)\\
+\code{core/detection.py} & lois de détection exactes, $\Pd$ moyennée et cumulée\\
+\code{core/sky.py} & bruit du ciel par direction, aveuglement, budget du secteur\\
+\code{core/environment.py} & structure (modèle 3D, lancer de rayons, en cache), surfaces et fouillis, résidu Doppler,
+brouilleurs, Faraday\\
+\code{core/isolation.py} & fuites entre bandes et entre faces, règles d'ordonnanceur\\
+\code{core/frames.py} & navigation, repères des volumes\\
+\code{core/optimizer.py} & optimiseur de veille S, calcul de mission, boucle globale, résumés des secteurs\\
+\code{core/tracking.py} & budget de confirmation Ku et de poursuite active\\
+\code{core/trackmodel.py} & modèle de piste : filtre de Kalman de Singer, chaîne de perte, initialisation, discrimination\\
+\code{core/scheduler.py} & priorités, attentes, chronologie synthétique, créneaux communs, latence\\
+\code{core/scanorder.py} & pointages de veille d'un volume, décalages, ordre de Morton à bits renversés\\
+\code{core/compute.py} & débits, faisceaux de réception, charge de traitement, tampons, puissance et latence de la chaîne
+numérique\\
+\code{core/repoint.py} & re-pointage en vol : erreur de pointage de la navigation, sa perte, migration entre faces\\
+\code{core/allocation.py} & répartition de la puissance entre les faces par niveau de priorité\\
+\code{core/margin.py} & réemploi de la marge : revisites raccourcies jusqu'à \code{auto\_alloc\_max}\\
+\code{core/redundancy.py} & redondance entre secteurs\\
+\code{core/cost\_estimate.py} & estimation rapide pour l'interface\\
+\code{core/mission.py} & modèle de mission, validation, JSON / CSV\\
+\code{core/geometry.py} & trame de la sphère, vue 3D du vaisseau\\
+\code{gui/} & interface PyQt5 avec vues 3D (PyVista)\\
+\bottomrule
+\end{tabularx}
+\end{center}
+Python 3.11 ou plus récent, NumPy, et SciPy pour le modèle de piste (équation de Riccati discrète, exponentielle de
+matrice ; les fonctions de Bessel des diagrammes sont codées directement) ; Numba, s'il est installé, compile les sommes
+du bruit des corps (mêmes formules en double précision, en parallèle ; la voie NumPy donne le même résultat à
+$10^{-14}$ près). L'optimiseur exécute les secteurs, et les fréquences d'un secteur avec tous leurs pas de grille, dans
+des processus de travail ; les lois de détection, les lois de perte de position et les inversions de $\Pd$ cumulée sont
+mises en cache exactement.
+
+\subsection{Tests}
+Le banc de tests a deux familles : les sorties figées de chaque mission de test comparées à une tolérance relative de
+$10^{-9}$ (non-régression), et des lois physiques et invariants qui doivent tenir quelles que soient les valeurs
+($R\propto\sigma^{1/4}$, exactitude de chaque raccourci, cohérence des caches, lois de détection contre les formes
+closes, \dots). Chaque regel des sorties figées est consigné avec sa cause. Un rapport d'impact donne les chiffres clés
+et les formes d'onde qui changent avant tout regel. Au modèle V6.22.0, le banc compte 228 tests (dont 11 comparent les
+sorties figées des cas de test), exécutés à trois niveaux : tests rapides, tests touchés par un changement, et passe
+complète (table de coût, chaque cas de test calculé une fois et gardé avec une empreinte du code, rapport d'impact, banc
+entier ; environ 19 minutes, avec une barre de progression globale).
+
+%=====================================================================================================================
+\section{Feuille de route et points ouverts}\label{sec:roadmap}
+%=====================================================================================================================
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}lL@{}}
+\toprule
+Phase & Étapes (état au 26 octobre 2026)\\
+\midrule
+0, fondations & fichier de paramètres unique, banc de tests, revue de chaque valeur --- fait\\
+1, antenne et RF & diagramme réel ; désadaptation active, lobes de réseau et de jeu ; TRM et chaîne d'émission ; bande ;
+chaîne de réception, bruit du ciel, convertisseurs, isolation --- fait\\
+2, signal et détection & formes d'onde paramétriques ; traitement ; critère de détection ; modèles de cibles ;
+environnement --- fait\\
+3, fonctions radar & 3.0 repères et navigation ; 3.1 veille S ; 3.2 confirmation Ku ; 3.3 poursuite ; 3.4 erreurs du
+réseau et étalonnage --- fait (modes dégradés et pannes de TRM reportés en fin de développement)\\
+4, ressources & 4.1 puissance : budget partagé du vaisseau, consommation permanente, alimentation des TRM, stockage de
+face --- fait ; 4.2 thermique : fluide, plaque froide, jonction, rejet de chaleur du vaisseau --- fait ; 4.3
+ordonnanceur : priorités, files, chronologie synthétique, créneaux communs, latence --- fait ; 4.3 bis ordre des
+pointages dans un volume --- fait ; 4.4 calcul et données --- fait ; 4.5 re-pointage en vol --- fait\\
+5, mission et validation & 5.1 modèle de mission enrichi --- fait ; 5.2 optimiseur global --- en cours (répartition de
+la puissance, couplages, boucle globale, réemploi de la marge codés ; tables pour le vol à venir) ; moteur de
+validation ; simulation Monte-Carlo ; interface opérateur ; vérification et documentation ; fin de développement\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Principales dispositions provisoires, chacune affectée à une étape ultérieure :
+\begin{itemize}
+  \item \textbf{Ordonnanceur} : multiplexage en temps et superposition avec un entrelacement imparfait ; la part P5
+        d'une veille comme classe à part ; GO-CFAR près des limbes compté (seulement conseillé aujourd'hui) ; décalage
+        de la grille de veille à chaque trame (une règle) ; alignement S/Ku sur des références externes ; percée Ku
+        autorisée en vol (autorisée par un interrupteur de mission depuis l'étape 5.1).
+  \item \textbf{Thermique} : rejet de chaleur du vaisseau réservé au radar (\SI{6}{MW} provisoires).
+  \item \textbf{Calcul} : les bilans qui dimensionnent le plan de veille gardent le plafond de \SI{50}{kW} du traitement
+        (la répartition de la puissance utilise la consommation réelle) ; coût d'une resélection de forme d'onde en vol
+        (valeur provisoire).
+  \item \textbf{Re-pointage en vol} : vitesse et accélération maximales par mission (réglages du système aujourd'hui) ;
+        enveloppe complète des attitudes (5.3) ; vaisseau en rotation dans la vue 3D (phase 6).
+  \item \textbf{Mission et validation (5.x)} : les tables de présentation et les dispersions sont des valeurs
+        provisoires (D) ; tables pour le vol (5.2) ; autres usages de la marge (veille plus loin, volumes de moindre
+        priorité) ; zones de recouvrement entre faces ; recalage de l'estimation rapide sur le modèle de piste ;
+        l'interface de préparation de mission est provisoire (une IHM complète vient avec la simulation globale).
+  \item \textbf{Antenne} : diagramme élémentaire et couplage mutuel aux bords des tuiles (éléments isotropes) ; les
+        couplages entre faces sont des ordres de grandeur optimistes à confirmer par une simulation électromagnétique.
+  \item \textbf{Fin de développement} : modes dégradés (face, TRM, puissance ou ouverture Ku perdus) et pannes de TRM
+        au fil d'une mission ; couplages thermiques (pompes dérivées du débit, dérive d'étalonnage liée à la
+        température, dilatation des jeux de \SI{0.5}{mm}).
+\end{itemize}
+
+\appendix
+%=====================================================================================================================
+\section{Principales valeurs dérivées}
+%=====================================================================================================================
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}lL@{}}
+\toprule
+Grandeur & Valeur\\
+\midrule
+Positions de veille par face à \SI{2.8}{GHz} & environ \num{1664} sur le secteur complet (grille de 1,4 largeur de
+faisceau d'émission)\\
+Faisceaux de réception par position & 6,1 / 5,3 / 4,8 à \SIlist{-25;-30;-35}{dB} (écart de 0,5 largeur de faisceau de
+réception)\\
+Perte moyenne de grille d'émission sur une maille & \SI{3.4}{dB} (diagramme réel) ; grille de réception \SI{0.40}{dB}\\
+Puissance d'émission disponible par face (référence \SI{2}{MW}) & \SI{1.784}{MW} électriques (chaîne 0,945, permanent
+\SI{106.9}{kW})\\
+Puissance électrique crête d'une visée à pleine puissance & \SI{12.3}{MW} S, \SI{14.1}{MW} Ku (stockage de face
+\SI{5}{MJ})\\
+Impulsion la plus longue & \SI{2.0}{ms} en S (\SI{300}{km} aveugles), \SI{2.08}{ms} en Ku\\
+PAE à $d=0,65$, impulsion longue & 0,778 en S, 0,621 en Ku\\
+Facteur de bruit du CAN & \SI{20.0}{dB} (13 bits, \SI{+10}{dBm}, \SI{250}{MS/s})\\
+Bruit au CAN & \SI{-56.4}{dBFS} en S\\
+Portée minimale sans saturation (S, dans l'axe) & cible de référence \SI{12.2}{km}, KKV \SI{2.3}{km}, vaisseau
+\SI{9.1}{km}\\
+Pondération en distance \SIlist{-25;-30;-35}{dB} & perte \SIlist{0.41;0.68;0.93}{dB}, élargissement $\times$1,18 / 1,27 /
+1,34\\
+Doppler à \SI{25}{km/s} & \SI{470}{kHz} en S ; NLFM possible au-delà de \SI{23}{MHz} en S, \SI{117}{MHz} en Ku\\
+Désadaptation active aller-retour à \SI{2.8}{GHz} & \SI{0.26}{dB} à \SI{0}{\degree}, 0 à \SI{45}{\degree},
+\SI{1.12}{dB} à \SI{70}{\degree}, \SI{2.11}{dB} à \SI{75}{\degree}\\
+Aire du secteur en $(u,v)$ & 2,0006\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+%=====================================================================================================================
+\section{Glossaire : les grandeurs et la physique qu'elles traduisent}\label{sec:glossary}
+%=====================================================================================================================
+Chaque grandeur principale du modèle, son sens et le phénomène physique qu'elle traduit. Les valeurs sont celles du
+fichier de paramètres à la date du document.
+
+\subsection{Géométrie, antenne et faisceaux}
+{\small
+\begin{longtable}{@{}p{0.2\linewidth}p{0.76\linewidth}@{}}
+\toprule
+Grandeur & Sens et physique\\
+\midrule
+\endhead
+$\lambda$, $f$ & Longueur d'onde et fréquence porteuse, $\lambda = c/f$ (\SI{10.7}{cm} à \SI{2.8}{GHz}, \SI{2.14}{cm} à
+\SI{14}{GHz}). Toute taille angulaire du réseau varie en $\lambda/D$.\\
+$\Denv$, $x_{\mathrm{rms}}$ & Enveloppe de l'ouverture (\SI{4.17}{m}) et étendue RMS des positions des éléments selon un
+axe. $\lambda/\Denv$ fixe la largeur du faisceau ; $x_{\mathrm{rms}}$ fixe la meilleure précision angulaire possible
+(une ouverture mesure la pente de phase du front d'onde sur son étendue).\\
+$(u, v)$, $\theta$ & Cosinus directeurs dans le plan de la face et angle de dépointage par rapport à la normale. Un
+réseau plan forme un faisceau de largeur constante en $(u,v)$ ; en angle, il s'élargit en $1/\cos\theta$ parce que
+l'ouverture projetée diminue.\\
+Largeur à mi-puissance & Angle entre les deux directions où le gain est divisé par deux. Émission (éclairement
+uniforme) $1,036\,\lambda/\Denv$ ; réception plus large à cause de la pondération.\\
+$G$, $\eta$ & Gain $4\pi A\eta\cos\theta/\lambda^2$ : combien le réseau concentre la puissance dans la direction du
+faisceau par rapport à un rayonneur isotrope. $\eta$ est le rendement d'éclairement : 1 pour une excitation uniforme,
+moins avec une pondération qui abaisse les lobes secondaires (énergie retirée des bords).\\
+Niveau des lobes secondaires & Gain relatif hors du lobe principal. Des lobes bas rejettent les sources fortes hors de
+l'axe (Soleil, Terre, brouilleurs, fouillis) au prix du gain. La pondération de réception (loi de Taylor) le fixe par
+volume.\\
+Lobe de réseau & Réplique complète du lobe principal qui apparaît quand l'écart entre éléments dépasse environ
+$\lambda/(1+\sin\theta)$ : il fixe le haut de la bande utilisable et la limite de dépointage.\\
+Désadaptation active $\Gamma$ & Dans un réseau dépointé, les éléments se couplent entre eux ; l'impédance vue par chaque
+TRM change avec le dépointage, une partie de la puissance est réfléchie. La couche WAIM adapte le réseau à
+\SI{45}{\degree} ; la perte monte à l'approche du lobe de réseau.\\
+TRSA, jeux & Tuile de sous-réseau d'émission-réception et bandes mortes entre tuiles. La rupture du pas régulier aux
+jeux crée des « lobes de jeu » que la pondération ne peut abaisser.\\
+Pas de grille & Distance entre faisceaux de veille voisins, en largeurs de faisceau d'émission (1,3 à 2,0). Un pas plus
+large donne moins de positions mais une cible plus loin du centre du faisceau le plus proche (perte de grille).\\
+\bottomrule
+\end{longtable}}
+
+\subsection{Émetteur et puissance}
+{\small
+\begin{longtable}{@{}p{0.2\linewidth}p{0.76\linewidth}@{}}
+\toprule
+Grandeur & Sens et physique\\
+\midrule
+\endhead
+$P_{\mathrm{pk}}$ & Puissance RF crête d'un TRM à la sortie du PA (\SI{2}{kW} S, \SI{75}{W} Ku). Les PA fonctionnent
+saturés (enveloppe constante), le régime le plus efficace.\\
+PAE $\eta$ & Rendement en puissance ajoutée : puissance RF sortante sur puissance continue entrante. Abaissé par les
+fronts d'impulsion (courant continu consommé pendant l'établissement de la RF) et par l'échauffement du canal à fort
+facteur de charge.\\
+$\tau$, PRI, $d$ & Durée d'impulsion, intervalle de répétition et facteur de charge $d = \tau/\mathrm{PRI}$. Les
+impulsions longues portent plus d'énergie (portée) mais aveuglent le récepteur plus longtemps (distance aveugle
+$c\tau/2$).\\
+$N$, train & Nombre d'impulsions d'une visée ; leurs échos sont intégrés de façon cohérente (phase gardée) ou non
+cohérente (puissances additionnées).\\
+Réserve d'énergie & Batterie de condensateurs locale de chaque TRM qui délivre l'impulsion ; la tension baisse à mesure
+qu'elle se vide (affaissement) et la sortie du PA suit.\\
+Alimentation des TRM & Puissance continue qui recharge la réserve entre les impulsions ; elle borne la puissance moyenne
+d'un train.\\
+Rendement de chaîne & Rendement de l'alimentation et de la distribution (0,945) : la part de la puissance du bus qui
+atteint les TRM et les récepteurs.\\
+Puissance permanente & Récepteurs, convertisseurs, formation de faisceaux, contrôle : consommée que la face émette ou
+non.\\
+Stockage de face & Réserve d'énergie qui délivre la puissance crête d'une visée (tous les TRM à la fois) au-dessus de ce
+que le bus fournit en moyenne.\\
+Température de jonction & Température du canal du transistor d'un PA ; elle monte à chaque impulsion (pôle rapide) et
+sur le train (pôle lent) ; au-delà d'environ \SI{225}{\celsius}, la durée de vie du GaN chute.\\
+Plaque froide, flux & Plaque à microcanaux où le fluide prend la chaleur ; le flux qu'elle accepte par unité de surface
+vaut $h \times$ facteur de surface mouillée $\times$ écart de température admis.\\
+Inertie thermique & Chaleur que le fluide et la structure stockent par kelvin : elle absorbe les rafales d'émission.\\
+Conversion numérique vers le bas & Ramener les échantillons d'une voie à la bande du signal, près du convertisseur,
+pour réduire le débit.\\
+Formation de faisceaux par sous-réseau & Faisceaux partiels formés dans une TRSA et sommés par le processeur de face.\\
+Présentation & Direction d'où le radar voit la cible, dans les axes propres de la cible (azimut et élévation depuis son
+nez).\\
+Message de navigation & Attitude, vitesse et orbite du vaisseau envoyées au calculateur radar (ici 100 par seconde).\\
+Loi de Little & Nombre moyen d'éléments en cours = cadence d'arrivée $\times$ durée de séjour de chacun ; ici, les
+fenêtres d'écoute ouvertes.\\
+Ressource dimensionnante & Ressource la plus chargée d'une face (énergie, temps, chaleur, calcul, faisceaux, mémoire) ;
+le réemploi de la marge la porte jusqu'à \code{auto\_alloc\_max}.\\
+\bottomrule
+\end{longtable}}
+
+\subsection{Récepteur, bruit et interférences}
+{\small
+\begin{longtable}{@{}p{0.2\linewidth}p{0.76\linewidth}@{}}
+\toprule
+Grandeur & Sens et physique\\
+\midrule
+\endhead
+$\Tsys$ & Température de bruit du système : la puissance de bruit thermique $kT_{\mathrm{sys}}B$ qu'ajoute le récepteur,
+ramenée à l'antenne. Elle somme le ciel vu par l'antenne, les pertes avant le premier amplificateur (un élément à pertes
+à la température $T$ rayonne $(L-1)T$), le bruit de l'amplificateur et celui du convertisseur, chacun divisé par le
+gain qui le précède (Friis).\\
+Facteur de bruit, ENOB & Facteur de bruit : combien un étage dégrade le SNR. ENOB : nombre effectif de bits du
+convertisseur ; son bruit de quantification donne le facteur de bruit du convertisseur.\\
+Écrêtage, dynamique & Un convertisseur sature au-dessus de sa pleine échelle ; chaque élément étant numérisé avant la
+formation des faisceaux, un écho fort ou une surface brillante dans le lobe principal peut écrêter tous les
+convertisseurs à la fois.\\
+Bruit du ciel $T_b$ & Tout corps émet un bruit thermique à sa température de brillance (Soleil \SI{1e5}{K} en S, Terre
+\SI{290}{K}, Lune \SI{230}{K}, galaxie quelques K). Vu à travers le diagramme, il élève $\Tsys$ ; un corps dans le lobe
+principal peut aveugler une direction.\\
+Polarisation, $\rho$ & La polarisation de l'écho est inconnue ; deux voies de réception en recueillent les deux
+composantes. $\rho$ est le rapport de SER croisée sur principale de la cible : l'énergie supplémentaire que recueille la
+seconde voie.\\
+Rotation de Faraday & Les électrons de l'ionosphère dans le champ magnétique tournent le plan de polarisation en
+$\propto B_\parallel\,\mathrm{TEC}/f^2$ ; sans effet sur la détection avec deux voies, une source d'erreur pour la
+polarimétrie.\\
+Fouillis & Échos d'une surface (Terre, Lune) à la même distance que la cible, par les lobes secondaires, en concurrence
+avec elle. Le filtrage Doppler le rejette quand les vitesses diffèrent.\\
+Brouilleur & Bruit envoyé vers le radar : à distance (dans les lobes secondaires, annulé adaptativement) ou
+d'autoprotection (porté par la cible, dans le lobe principal). Portée de percée : là où l'écho domine de nouveau le
+brouillage.\\
+\bottomrule
+\end{longtable}}
+
+\subsection{Forme d'onde, traitement et détection}
+{\small
+\begin{longtable}{@{}p{0.2\linewidth}p{0.76\linewidth}@{}}
+\toprule
+Grandeur & Sens et physique\\
+\midrule
+\endhead
+$B$, compression d'impulsion & Largeur de bande du signal. Une impulsion longue codée, comprimée à la réception, a
+l'énergie de l'impulsion longue et la résolution en distance $c/2B$ d'une courte. LFM : balayage linéaire de
+fréquence, tolérant au Doppler ; NLFM : balayage non linéaire dont la forme de spectre donne des lobes secondaires en
+distance bas sans perte de pondération.\\
+Lobes secondaires en distance, pondération & Réponse résiduelle de l'impulsion comprimée à côté de son pic ; une
+pondération les abaisse (pour garder visible une cible faible à côté d'une forte) au prix du SNR et de la résolution.\\
+Doppler $f_d$ & Décalage de fréquence $2v/\lambda$ de l'écho d'une cible qui se rapproche à $v$ (\SI{470}{kHz} à
+\SI{25}{km/s} en S). Il décale le pic comprimé (couplage) et sépare les cibles du fouillis.\\
+Bloc cohérent, $T_0$ & Partie d'un train intégrée avec ses phases. Cela fonctionne tant que la phase de l'écho reste
+prévisible : une cible en rotation se décorrèle en son temps de cohérence $T_0 = \lambda/(2L\omega)$, et le bruit de
+phase d'un oscillateur la dégrade aussi.\\
+Migration en distance & Une cible rapide traverse plusieurs cases distance pendant la visée ; elle est compensée, au
+prix d'un banc d'hypothèses de vitesse.\\
+Bancs de vitesses, d'accélérations & Le traitement essaie plusieurs hypothèses de vitesse (et d'accélération) ; chacune
+coûte un filtre (calcul) et compte comme des cases supplémentaires pour les fausses alarmes ; une cible entre deux
+hypothèses perd du SNR.\\
+Chevauchement & Une cible qui tombe entre deux échantillons de la grille distance ou Doppler perd du SNR ; le
+suréchantillonnage le réduit.\\
+CFAR & Détecteur à taux de fausses alarmes constant : le seuil est fixé à partir du bruit mesuré dans les cases
+voisines ; l'aléa de cette estimation coûte une petite perte.\\
+$\Pd$, $\Pfa$ & Probabilité de détecter une cible et de fausse alarme par case indépendante.\\
+Swerling, forme Gamma $k$ & Modèle statistique de la puissance de l'écho d'une visée à l'autre : stable (sphère),
+Swerling 1/2 (nombreux réflecteurs, exponentielle), Swerling 3/4 (un réflecteur dominant). Le modèle utilise une loi
+Gamma de forme $k$ : plus $k$ est grand, plus l'écho est stable ; les échantillons indépendants (impulsions,
+fréquences, polarisations) augmentent $k$.\\
+$\SNR_{\mathrm{req}}$ & SNR dont le détecteur a besoin pour atteindre la $\Pd$ exigée à la $\Pfa$ et la fluctuation
+données.\\
+$\Pd$ cumulée, $q$ & Probabilité qu'une cible qui se rapproche ait été détectée au moins une fois quand elle atteint la
+portée exigée ; $q = vRR/R$ est la distance relative qu'elle parcourt entre deux visées.\\
+Perte de positions & SNR perdu parce que la cible est quelque part dans la case de veille (centre du faisceau, grilles
+distance et Doppler, filtre de vitesse), moyenné en $\Pd$.\\
+\bottomrule
+\end{longtable}}
+
+\subsection{Confirmation et poursuite}
+{\small
+\begin{longtable}{@{}p{0.2\linewidth}p{0.76\linewidth}@{}}
+\toprule
+Grandeur & Sens et physique\\
+\midrule
+\endhead
+Confirmation & Une visée Ku pointée sur une détection S : le faisceau Ku étroit (5 fois plus étroit) vérifie qu'elle est
+réelle avant l'ouverture d'une piste ; l'erreur angulaire de l'estimation S décide s'il faut un faisceau ou une grappe
+de 7.\\
+Filtre de Kalman, modèle de Singer & Estimateur récursif de la position, de la vitesse et de l'accélération. Le modèle
+de Singer traite l'accélération de la cible comme un processus aléatoire d'écart-type $\sigma_m$ et de constante de
+temps $\tau_m$ (la durée d'une man\oe{}uvre).\\
+Erreur prédite, filtrée & Incertitude sur la cible juste avant une mise à jour (où pointer) et juste après (qualité de
+piste délivrée).\\
+Perte de pointage & Le faisceau de mise à jour est pointé sur la prédiction ; la cible est hors du centre du faisceau de
+l'erreur de prédiction et perd du gain en émission et en réception.\\
+Extrapolation, perte de piste & Une mise à jour manquée (pas de détection) laisse la piste extrapoler une période de
+plus ; l'erreur grandit, la visée suivante est plus difficile ; quelques manques d'affilée perdent la piste.\\
+Discrimination & Distinguer une charge (KKV) d'un leurre : polarisation (taux de dépolarisation), statistique de
+fluctuation, niveau de SER (optique d'autodirecteur) et man\oe{}uvres diffèrent.\\
+Erreurs du réseau, étalonnage & Erreurs résiduelles d'amplitude et de phase des TRM après étalonnage : elles baissent le
+gain (Ruze) et élèvent un plancher de lobes secondaires aléatoires ; elles dérivent avec la température entre deux
+étalonnages.\\
+\bottomrule
+\end{longtable}}
+
+%=====================================================================================================================
+\section{Effets modélisés et leur impact}\label{sec:effects}
+%=====================================================================================================================
+Chaque effet pris en compte par le modèle, ce qu'il représente, et la plage de son impact. Sauf mention, l'impact est
+une perte de SNR en dB (un gain si négatif) : une perte de $x\dB$ raccourcit la portée du facteur $10^{-x/40}$
+(\SI{1}{dB} $\approx -5,6\,\%$, \SI{3}{dB} $\approx -16\,\%$) ou, à portée fixée, multiplie l'énergie par $10^{x/10}$.
+Les plages viennent du fichier de paramètres et d'un échantillon de l'espace de recherche S (3 secteurs de test, 900
+formes d'onde, 3 fréquences, dépointage de 0 à \SI{70}{\degree}) et de l'espace des visées Ku (300 visées).
+
+{\small
+\begin{longtable}{@{}p{0.22\linewidth}p{0.47\linewidth}p{0.25\linewidth}@{}}
+\toprule
+Effet & Ce qu'il représente & Impact (plage)\\
+\midrule
+\endhead
+\multicolumn{3}{@{}l}{\textbf{Antenne et chaîne d'émission}}\\
+Ouverture projetée $\cos\theta$ & Le réseau vu de la direction de dépointage est plus petit : gain en émission et en
+réception & 0 à \SI{9.3}{dB} aller-retour à \SI{70}{\degree}\\
+Désadaptation active & Réflexion de la puissance des TRM par l'impédance couplée du réseau, fonction du dépointage,
+WAIM adaptée à \SI{45}{\degree}, montant près des lobes de réseau & 0 (\SI{45}{\degree}) à \SI{1.1}{dB} à
+\SI{70}{\degree}, \SI{2.1}{dB} à \SI{75}{\degree} (\SI{2.8}{GHz}, aller-retour)\\
+Chaîne d'émission & Filtre d'harmoniques, circulateur, coupleur, ligne entre PA et élément & \SI{0.60}{dB} S,
+\SI{0.95}{dB} Ku\\
+Occultation par l'autre bande & Les éléments de l'autre bande diffusent une partie du champ & \SI{0.2}{dB} S,
+\SI{0.3}{dB} Ku\\
+Erreurs du réseau (étalonnage) & Erreurs résiduelles d'amplitude et de phase des TRM et dérive thermique entre
+étalonnages (Ruze) & \SI{0.006}{dB} ; plancher de lobes \SI{-59}{dB}\\
+Option de pondération de réception & Pondération de Taylor à \SIlist{-25;-30;-35}{dB} de lobes secondaires & gain 0,
+$-0,53$, \SI{-1.00}{dB}\\
+Bords de bande & Dégradation en cosinus surélevé du TRM hors de la bande c\oe{}ur, moyennée sur le spectre occupé & 0 (c\oe{}ur)
+à \SI{1.0}{dB} S / \SI{0.5}{dB} Ku aux bords (échantillon : 0--0,17)\\
+Affaissement de la réserve & Sortie du PA qui suit la tension de la réserve pendant l'impulsion & 0 à \SI{0.46}{dB}\\
+PAE (fronts, facteur de charge) & Puissance continue consommée sans RF pleine sur les fronts, échauffement du canal à
+fort facteur de charge & énergie $+0,1$ à $+2,8\,\%$ S, jusqu'à $+4,4\,\%$ Ku\\
+Multifaisceau en émission & Intermodulation de la superposition en phase seule ; partition : gain plus faible, faisceau
+plus large & 0,4 / 0,6 / \SI{0.8}{dB} pour 2 / 4 / 8 faisceaux\\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{Forme d'onde et traitement}}\\
+Compression d'impulsion & Désadaptation NLFM, ou pondération LFM plus perte Doppler & \SI{0.1}{dB} (NLFM) ; LFM 0,41 à
+\SI{0.93}{dB} + Doppler (échantillon Ku jusqu'à \SI{1.26}{dB})\\
+Pondération Doppler & Pondération de Taylor d'un bloc cohérent contre le fouillis & \SI{0.68}{dB} (\SI{-30}{dB}),
+\SI{1.14}{dB} (\SI{-40}{dB})\\
+Éclipse & Échos perdus pendant que le récepteur est sourd lors des impulsions suivantes d'un train ambigu en distance &
+$-10\log_{10}(1-(\tau+t_{\mathrm{rec}})/\mathrm{PRI})$, typiquement 0,1 à \SI{1}{dB}\\
+Cohérence & Décorrélation de la cible et bruit de phase de l'oscillateur dans un bloc cohérent & 0 à \SI{0.63}{dB}\\
+Migration en distance & Résidu de la compensation quand la cible traverse plusieurs cases & 0 ou \SI{0.1}{dB}\\
+Banc de vitesses & Cible entre deux hypothèses de vitesse (moyenne sur le pas) & 0 à \SI{0.34}{dB}\\
+Accélération & Phase quadratique et courbure en distance d'une cible qui accélère, ou résidu du banc & 0 à
+\SI{0.35}{dB}\\
+Chevauchement distance et Doppler & Cible entre deux échantillons de grille (grilles suréchantillonnées $\times4$) &
+\SI{0.05}{dB} et \SI{0.07}{dB}\\
+CFAR & Aléa de l'estimation du bruit (CA, 1024 cases ; GO aux bords de fouillis) & \SI{0.04}{dB} (GO
+\SI{0.05}{dB})\\
+Précision finie & Quantification et arithmétique du traitement numérique & \SI{0.3}{dB}\\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{Détection}}\\
+Grille de veille (émission) & Cible n'importe où dans la maille hexagonale de la grille de veille, diagramme réel &
+\SI{3.3}{dB} en moyenne (pas 1,4), plus pour des pas plus larges\\
+Grille des faisceaux de réception & Cible entre les faisceaux de réception numériques (écart 0,5 largeur de faisceau de
+réception) & \SI{0.40}{dB}\\
+Perte de positions (totale) & Tous les effets de position ci-dessus à travers la $\Pd$ moyennée sur la case & 3,1 à
+\SI{4.3}{dB} (veille), 0,05 à \SI{0.5}{dB} (visées Ku)\\
+Fluctuation de la cible & Puissance de l'écho variant d'une visée à l'autre ; stable, Swerling 1, Swerling 3 à
+$\Pd = 0,9$, $\Pfa = 10^{-8}$, un échantillon & $\SNR_{\mathrm{req}}$ 14,2 / 22,4 / \SI{18.5}{dB} (la fluctuation
+coûte jusqu'à \SI{8}{dB} ; agilité et diversité en récupèrent une partie)\\
+Politique de fausses alarmes & $\Pfa$ par case tirée des fausses alarmes tolérées, $10^{-14}$ à $10^{-4}$ &
+$\SNR_{\mathrm{req}}$ $\pm$\SI{3}{dB} autour de $10^{-8}$\\
+Critère cumulé & Plusieurs visées d'une cible qui se rapproche au lieu d'une & $-6,8\dB$ ($q = 0,1$) à $+6,0\dB$
+($q = 1$) par rapport à une visée\\
+Polarisation (GLRT) & Polarisation inconnue de l'écho estimée sur la visée & 0,03 à \SI{0.47}{dB}\\
+Énergie en polarisation croisée & La seconde voie recueille l'écho en polarisation croisée & gain $-0,04$ (KKV) à
+$-1,76\dB$ (débris)\\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{Récepteur et environnement}}\\
+Bruit du système (ciel froid) & Cascade de Friis : ciel, pertes avant LNA, LNA, après LNA, convertisseur & $\Tsys$
+\SI{144.5}{K} S, \SI{230.8}{K} Ku\\
+Fond galactique & Brillance de la galaxie à travers le diagramme (pire cas sans repère) & jusqu'à $+$\SI{8}{K}
+($\approx +$\SI{0.2}{dB} en S)\\
+Corps (Soleil, Terre, Lune) & Température de brillance à travers le diagramme de réception & Terre $+$2,5 à
+\SI{4}{dB} S ; Lune $+$\SI{2.6}{dB} Ku ; Soleil $\approx +$\SI{17}{dB} : aveuglé au-delà de \SI{10}{dB}\\
+Structure du vaisseau & Occultation du tube du faisceau par la coque ; émission de la coque et des radiateurs & 0 avec
+l'inclinaison de \SI{25}{\degree} ; coque $+$\SI{2.9}{K}\\
+Fouillis de surface & Échos de la Terre ou de la Lune dans la case distance de la cible par les lobes secondaires, après
+filtrage Doppler & 0 à l'aveuglement (augmentation de SNR $G$ par forme d'onde) ; exigence ramenée à la surface\\
+Brouilleurs à distance & Bruit par les lobes secondaires, annulé adaptativement (\SI{40}{dB}) & montée de $\Tsys$,
+fonction de la direction\\
+Brouilleur d'autoprotection & Bruit de barrage dans le lobe principal & portée limitée à la portée de percée (visée de
+percée Ku dans l'axe du brouillage)\\
+Rotation de Faraday & Rotation de la polarisation par l'ionosphère & 0 pour la détection ; erreur en polarimétrie\\
+Écrêtage des convertisseurs & Écho fort ou surface brillante saturant le convertisseur de chaque élément & portée
+minimale sans saturation (KKV en S \SI{2.3}{km}) ; l'atténuateur après LNA l'abaisse jusqu'à $\times5,6$\\
+Distance aveugle & Récepteur sourd pendant l'impulsion et la récupération du limiteur & $c(\tau+t_{\mathrm{rec}})/2$ :
+\SI{3}{km} (\SI{20}{\micro s}) à \SI{300}{km} (\SI{2}{ms})\\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{Confirmation et poursuite}}\\
+Erreur angulaire S vers Ku & Erreur de l'estimation S et biais S/Ku face au faisceau Ku étroit & marges de confirmation
+\SIrange{0}{12}{dB}, visée seule ou grappe de 7\\
+Perte de pointage de piste & Erreur de prédiction de la piste face au faisceau Ku (émission et réception) & 0,4 (0,1
+largeur de faisceau) à \SI{3.9}{dB} (0,3 largeur) ; maille de grappe \SI{3.8}{dB} sur 7 visées\\
+Bancs de poursuite & Hypothèses de vitesse et d'accélération sur $\pm3\sigma$ de la prédiction & 0 à
+$\approx$\SI{0.4}{dB}\\
+Couplage distance--Doppler & Résidu du couplage après correction Doppler, sur la précision en distance & élève le SNR
+des mises à jour pilotées par la distance (impulsions longues, bande étroite)\\
+Perte et initialisation de piste & Mises à jour manquées, extrapolation, réinitialisation ; visées d'initialisation
+après confirmation & perte $10^{-3}$ à $10^{-2}$ par mise à jour ; initialisation 1 à $\approx 30$ visées\\
+Planchers de mesure & Étalonnage, erreurs des TRM, horloge, oscillateur & \SI{0.05}{mrad}, \SI{0.05}{m},
+\SI{0.01}{m/s}\\
+Discrimination & Quatre indices sur les visées de poursuite & visées nécessaires pour atteindre $P = 0,95$ (optimiste
+sans dispersion de classe)\\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{Ressources}}\\
+Temps d'étalonnage & Étalonnage en vol pris sur le temps d'émission & \num{3.3e-5} (S), \num{1.7e-4} (Ku) du temps\\
+Puissance permanente & Convertisseurs, chaînes de réception, formation de faisceaux, contrôle & \SI{106.9}{kW} par face
+($\approx 5\,\%$ de \SI{2}{MW}) ; pompes 2\,\% de la chaleur\\
+Alimentation des TRM & Puissance moyenne et recharge de la réserve sur un train & retire des formes d'onde (0 en S,
+3\,\% des visées Ku)\\
+Stockage de face & Puissance crête d'une visée au-dessus de la moyenne du bus & règle d'ordonnanceur
+$\approx$\SI{0.3}{s} d'émission contiguë\\
+Créneaux d'émission communs & Toutes les faces émettent une bande ensemble ; récepteurs sourds dans les créneaux &
+éclipse $-10\log_{10}(1-\rho)$ : \SI{0.1}{dB} sur une mission de test (\SI{2.4}{\percent} du temps)\\
+Files à priorités & Attente d'une tâche derrière les priorités plus hautes, sans préemption & latence de confirmation
+\SIrange{8}{80}{ms} (95\,\%) sur une mission de test\\
+Charge de traitement & Formation de faisceaux, compression, bancs, CFAR, annulation contre la capacité de la puissance
+plafond & $\le 0,6\,\%$ de la capacité sur les missions de test : non limitant\\
+Puissance du traitement & Part statique plus énergie par opération et par bit & environ \SI{10}{kW} par face au lieu du
+plafond de \SI{50}{kW} (donnée en sortie ; le dimensionnement garde le plafond)\\
+Latence de traitement & Flux de données et traitement après un passage & \SI{0.01}{\micro s} à \SI{5}{ms}, dans la
+latence de confirmation\\
+Pointage de navigation & Connaissance d'attitude et de vitesse, accélération non mesurée entre messages &
+\num{3e-5}\,dB en S, \num{8e-4}\,dB en Ku ($\le 0,006$ largeur de faisceau)\\
+Présentation de la cible & SER en fonction de l'azimut et de l'élévation de la présentation, la pire (KKV de face) &
+aucune portée de détection changée aujourd'hui ; indice de SER de discrimination $\div 3$ (KKV / leurre, 5 visées)\\
+Refroidissement d'une face & Plaque froide à microcanaux, fluide diélectrique & capacité \SI{15.9}{MW} par face : non
+limitant (dissipation $\le$ \SI{2}{MW})\\
+Température de jonction & Échauffement des transistors des PA par les impulsions & $\le$\SI{63}{\celsius} contre
+\SI{225}{\celsius} : non limitant\\
+Rejet de chaleur du vaisseau & Chaleur du radar face au rejet réservé & par exemple \SI{1.0}{MW} sur \SI{6}{MW}
+(mission de test)\\
+Réemploi de la marge & Revisites raccourcies jusqu'à \code{auto\_alloc\_max} de la ressource dimensionnante, plan gardé
+& portée cumulée $+19$ à $+89\,\%$ sur une mission de test ($X = \SI{80}{\percent}$)\\
+Réglages de calcul & Approximations de l'optimiseur (lois arrondies, peu de fréquences dans un spectre calme, \dots) &
+$\le$\SI{0.003}{dB} sur $\SNR_{\mathrm{req}}$ ; énergie de veille $-5$ à $+9\,\%$ par secteur\\
+\bottomrule
+\end{longtable}}
+
+\end{document}

@@ -1022,6 +1022,77 @@ Dans tous les repères, φ est compté autour de Z, de X vers Y, et ε à partir
 
 **Contrôles et alertes.** Navigation : un seul message (étape 5.3 pour l'enveloppe), norme du quaternion à 1e-3 près (normalisé), date ISO 8601, orbite complète (corps de `[sky.surface]`, r hors du corps, plan d'orbite défini). Secteur : repère connu, orbite donnée pour `rtn` et `limb`, vaisseau au-dessus de l'altitude du limbe, directions de `two_dir` données et non alignées. Alerte quand le corps central du ciel s'écarte de plus de 0,5° de la navigation (direction ou rayon apparent).
 
+### 7.15 Pilotage de la charge du radar (synthèse au 26 octobre 2026)
+
+Ce paragraphe rassemble les règles qui décident **qui reçoit quelle ressource, quand, et ce qui cède quand il n'y en a pas assez**. Elles ont été fixées étape par étape (4.1, 4.2, 4.3, 4.3 bis, 4.4, 4.5, 5.2) ; le détail et l'historique des décisions sont au §11. Sauf mention, tout se passe en **préparation de mission (Pmiss)** : l'outil dimensionne un plan et vérifie qu'il tient ; l'exécution dynamique en vol relève de la phase 6 (dernier point).
+
+**1. Les ressources et leur mesure.** Chaque face a ses propres ressources, sauf l'énergie et le rejet de chaleur, communs au vaisseau.
+
+| Ressource | Portée | Capacité | Mesure de la charge |
+|---|---|---|---|
+| Énergie électrique | **vaisseau** (8 MW répartissables entre faces) et face (alimentation 8 MW, plafond facultatif de l'opérateur `face_elec_mw`) | `ship_elec_total_mw`, `face_feeder_max_mw` | puissance moyenne tirée du bus (émission à travers la chaîne + permanent + pompes) / capacité |
+| Stockage de face | face | 5 MJ, 80 % utilisables, décharge 15 MW | déficit par observation et sur la rafale la plus défavorable |
+| Temps d'émission S | face | 1 (part du temps) | somme des parts de temps des tâches S |
+| Temps d'émission Ku | face (réseau distinct) | 1 | idem en Ku |
+| Chaleur | face (plaque froide, ≈ 15,9 MW) et vaisseau (rejet 6 MW, D) | dérivées du fluide | chaleur moyenne / capacité |
+| Calcul | face | ≈ 4·10¹⁸ op/s | opérations par seconde / capacité |
+| Faisceaux de réception simultanés | face et bande | 512 en S, 32 en Ku | pic de faisceaux d'une visée / capacité (ne dépend pas de la revisite) |
+| Mémoire, débit mémoire | face | 4 To, 50 To/s | tampons cohérents au pic ; trafic (une lecture par visée) |
+
+La **ressource dimensionnante** d'une face est celle dont la charge est la plus haute ; pour l'énergie, c'est le plus grand de (besoin du vaisseau / 8 MW) et (besoin de la face / son plafond).
+
+**2. Les tâches et leurs priorités** (étape 4.3, priorités de l'utilisateur ; elles servent à l'ordonnancement, à la répartition de l'énergie et au délestage) :
+
+| Niveau | Tâche | Ne cède jamais ? |
+|---|---|---|
+| P0 | étalonnage (toutes les 300 s, bloc de 10 ms en S, 50 ms en Ku, retard ≤ 10 % de l'intervalle), consommation permanente | oui |
+| P1 | veille des volumes cochés « autoprotection » (`self_protection`) | oui |
+| P2 | confirmation et initialisation de piste (ne jamais perdre une détection), toucher S du mode S2 | oui |
+| P3 | mises à jour de piste, par classe de cible pour l'énergie : KKV > SHIP > DECOY > DEBRIS > autres (tolérance ±10 % de la période, au-delà un manque) | non |
+| P3' | percée Ku dans l'axe d'un brouilleur, seulement si la mission l'autorise (`burn_through_allowed`) | non |
+| P4_n | veille des autres volumes, sous-priorité `search_priority` choisie par l'opérateur (P4_1 d'abord) | non |
+| P5 | **réemploi de la marge** : la part de veille due aux revisites raccourcies sous la RR demandée (point 7) | non, rendue en premier |
+
+Une tâche P1 d'une face passe avant une tâche P3 d'une autre face : les niveaux valent **toutes faces confondues** pour l'énergie, qui est commune.
+
+**3. Chaîne de calcul d'une mission** (`optimizer.run`) :
+1. **Plan de veille par secteur** (§7.5) : fréquence, pas de grille, forme d'onde par tranche de dépointage, échelle d'impulsion juste suffisante pour la portée ; objectif min(max(part d'énergie, part de temps S)) sur les faces, l'énergie étant rapportée à une référence de 8 MW / 4 = 2 MW par face pour arbitrer énergie et temps. Les secteurs sont planifiés indépendamment ; une direction est servie par la face la plus proche (zones de responsabilité, recouvrements non utilisés : point ouvert).
+2. **Assemblage des budgets** : totaux par face ; confirmation et poursuite Ku (mode de confirmation choisi pour baisser la face la plus chargée ; formes d'onde Ku) ; calcul et données (4.4) ; **répartition des 8 MW** (point 4) ; re-pointage (4.5) ; **ordonnanceur** (point 5).
+3. **Boucle globale** (5.2, P3, au plus 3 passes) : les couplages sont réinjectés dans les plans (éclipse des créneaux communs au-delà de 0,5 dB ; coût Ku des fausses alarmes en politique `pfa_cell` ; formes d'onde demandant plus de faisceaux que le formateur exclues) ; chaque secteur peut prendre une de ses alternatives (autre fréquence ou pas de grille, même couverture et même portée) si elle baisse **la face la plus chargée de la mission**, puis la somme des charges ; seuls les secteurs touchés sont replanifiés ; arrêt quand rien ne change.
+4. **Réemploi de la marge** (5.2, P4, si `auto_alloc_max` > 0 : point 7).
+5. Verdict : par ressource et par face, sur les RR **demandées**.
+
+**4. Répartition de l'énergie entre les faces** (`core/allocation.py`, 5.2 P1). Le besoin de chaque face est décomposé par niveau (P0 avec la consommation réelle du calcul, P1, P2, P3 par classe, P3', P4_n, P5).
+- **Énergie suffisante** (somme des besoins ≤ 8 MW, chaque face sous son plafond) : chaque face reçoit une part des 8 MW **au prorata de son besoin** ; l'excédent d'une face plafonnée va aux autres.
+- **Manque** : les niveaux sont servis **dans l'ordre, toutes faces confondues** ; le dernier niveau servi l'est en partie : ses volumes de veille reçoivent une revisite tenable (RR / part servie), ses pistes un nombre tenable ; si P0, P1 ou P2 n'est pas servi en entier, la mission est déclarée **non tenable**. L'énergie restante est répartie au prorata.
+
+**5. Ordonnancement dans le temps** (`core/scheduler.py`, 4.3). Par face et par bande (S et Ku ont des chronologies d'émission distinctes) :
+- **Tâches** : une visée de veille par pointage et par trame (émission + écoute 2R/c), de période la revisite ; confirmations et initialisations à arrivées de Poisson aux taux de la face ; mises à jour périodiques ; étalonnages.
+- **(a) Bilan statistique** : file à priorités **non préemptive** (Cobham) ; attente moyenne de la classe k, W_k = W₀ / ((1 − σ_{k−1})(1 − σ_k)), W₀ = Σ ρ_i S_i / 2, σ_k la charge des classes jusqu'à k ; quantile à 95 % par une queue exponentielle au-delà de la probabilité d'occupation.
+- **(b) Chronologie synthétique** déterministe sur la plus longue revisite de la face (au plus 60 s) : **gloutonne, par priorité puis échéance, sans préemption**, arrivées tirées une fois (graine fixe). Elle applique les règles physiques : **émission contiguë maximale** (stockage de face, ≈ 0,29 s à pleine puissance, et plaque froide), au-delà une **pause de recharge** ; étalonnage dans son retard admis.
+- **Règles entre faces et bandes** : les faces émettent une bande dans des **créneaux communs**, dont la part est fixée par la face la plus chargée ; toutes les faces sont sourdes pendant ces créneaux, d'où une perte d'**éclipse** des échos de veille −10 log₁₀(1 − ρ_créneaux), signalée au-delà de 0,5 dB et réinjectée dans le plan par la boucle globale. Sur une face où l'harmonique S tombe dans le canal Ku, les observations Ku évitent les créneaux S.
+- **Latence de confirmation** : attente au quantile 95 % + service + allers-retours + traitement (4.4), contre `latency_max_s` du secteur, sinon 10 % du temps avant impact.
+
+**6. Ordre des pointages dans un volume** (`core/scanorder.py`, 4.3 bis) : la grille hexagonale du plan, en cosinus directeurs (u, v) de la face, est servie dans un **ordre de Morton à bits renversés** (van der Corput à deux dimensions) : les 4^k premiers pointages tombent un dans chacun des 4^k sous-carrés du volume, à toutes les échelles. La couverture est donc uniforme dès le début de la trame, et **une trame étirée ou coupée par le délestage se dégrade uniformément**, sans trou. La grille est décalée à chaque trame (cycle de 3 décalages qui remplissent la maille). Chaque pointage dure le temps d'émission de la forme d'onde de sa tranche ; en multifaisceau, les pointages suivants de l'ordre sont servis ensemble. Changer de pointage ne coûte rien (retard vrai numérique) : aucune proximité n'est recherchée.
+
+**7. Marge : réemploi** (`core/margin.py`, 5.2 P4, règle de l'utilisateur du 26 octobre 2026). La RR demandée d'un volume est un **minimum**. Si les ressources ont de la marge, le radar raccourcit les revisites jusqu'à ce que la ressource dimensionnante atteigne **X = `auto_alloc_max`** (une valeur par mission, 0 = désactivé par défaut) :
+- un **même facteur g** pour tous les volumes (P1 compris), monté ensemble ; les volumes d'une face qui atteint X s'arrêtent, les autres continuent ; un volume à cheval sur plusieurs faces est borné par la plus chargée ; un volume s'arrête aussi à sa **RR minimale** `rr_min_s`, **à spécifier par l'opérateur** (pas de valeur par défaut ; de l'ordre de 1 à 2 s) ;
+- le plan est gardé (formes d'onde, grille, impulsions) : seule la revisite s'accélère (RR réelle = RR / g) ; les fausses alarmes restent au même nombre par seconde (la Pfa par case baisse comme 1 / g), donc la charge de confirmation ne bouge pas ; le gain est publié en **portée de détection cumulée à la RR réelle** ;
+- la part de veille ajoutée forme le niveau **P5**, le plus bas : c'est la première ressource rendue sur une surcharge ;
+- le verdict reste porté sur la RR demandée.
+
+**8. Surcharge : ce qui cède, et dans quel ordre.**
+- Plan de veille seul : une face sursouscrite en temps étire la RR de ses volumes en proportion (`rr_est_mission_s`, alerte).
+- Énergie : la répartition (point 4) sert les niveaux dans l'ordre et donne la revisite ou le nombre de pistes tenable.
+- Temps (ordonnanceur) : **délestage** de la veille P4 de la sous-priorité la plus basse vers la plus haute (la revisite s'étire), puis des mises à jour P3 (la période s'étire, alerte) ; **P0, P1 et P2 ne sont jamais délestés** : sinon la mission est déclarée non faisable.
+- Grâce à l'ordre des pointages (point 6), une veille étirée garde une couverture uniforme.
+- Faisceaux : une forme d'onde qui en demande plus que le formateur est exclue du plan.
+
+**9. En vol** (ce qui existe et ce qui reste à faire).
+- **Re-pointage** (4.5) : chaque pointage est recalculé à son émission avec la dernière navigation ; quand un volume non lié au vaisseau traverse une frontière de face (≈ 0,3 à 1,3 s à 30 °/s), la face voisine doit porter sa charge (charge de la face + charge du secteur ≤ 1, sinon alerte).
+- **Resélection de forme d'onde** (4.4) : dans des tables précalculées quand le spectre mesuré change (tables : 5.2, P5, à venir).
+- **Phase 6, règles déjà posées par l'utilisateur** : le pilotage devient **dynamique** : le radar alloue et reprend les ressources aux fonctions selon la charge réelle et les besoins (le réemploi de la marge vaut en vol, P5 rendu en premier) ; sur une surcharge, **avant tout délestage**, identifier la ressource qui bloque sur la face en limite et la **réallouer** : énergie depuis les faces qui ont de la marge (jusqu'aux plafonds), temps d'émission par resélection de formes d'onde (énergie contre temps) ou par la face voisine dans les **zones de recouvrement**, chaleur, calcul, faisceaux et mémoire par le recouvrement ; **le délestage par priorités n'intervient qu'en dernier recours**.
+
 ---
 
 ## 8. Paramètres de l'outil (`[tool.*]`)
@@ -1915,11 +1986,25 @@ Insérée par l'utilisateur entre 4.3 et 4.4 (le rythme des changements de point
 
 **N3 (25 octobre 2026, 22,2 min)** : 211 tests passés ; seuls les snapshots ont changé (291 valeurs : nouvelles sorties de mission, de percée et de présentation, séparabilité des classes avec les dispersions), regelés ; aucun jeu de formes d'onde, fréquence, mode de confirmation, statut ni portée ne change.
 
-### Étape 5.2 : optimiseur global (ouverte le 25 octobre 2026, en cours : passes P1 à P3 codées)
+### Étape 5.2 : optimiseur global (ouverte le 25 octobre 2026, en cours : passes P1 à P4 codées)
 
 **Cadrage validé par l'utilisateur** : A boucle de point fixe sur les optimiseurs existants ; B objectif « face la plus chargée de la mission », puis somme des charges ; C les 8 MW du vaisseau répartis au prorata du besoin ; en cas de manque ou d'égalité, priorités par niveaux, toutes faces confondues : P0 étalonnage et permanent, P1 autoprotection, P2 confirmations et initialisations, P3 poursuite par classe de cible (KKV > SHIP > DECOY > DEBRIS > autres), P3′ percée, P4_n veille (un P1 de l'antenne 2 passe avant un P3 de l'antenne 3) ; points traités en 5.2 : 1 coût des fausses alarmes, 2 répartition des 8 MW, 3 éclipse, 4 puissance réelle du calcul, 5 capacité de faisceaux, 7 critère secondaire, 8 tables pour le vol ; point 6 (entrelacement imparfait, GO-CFAR) reporté en 5.4 ; au plus 3 passes, +30 % de temps au plus.
 
 - **P1, répartition** (`core/allocation.py`, clé `power_allocation`) : besoin de chaque face décomposé par niveau (permanent avec la puissance **réelle** du calcul de la 4.4, pompes ; veille P1 ; confirmations ; poursuite par classe ; percée ; veille P4_n), égal à la puissance réelle tirée par la face (à 0,1 kW près) ; puissance suffisante : prorata du besoin sous les plafonds (alimentation 8 MW, plafond opérateur), l'excédent d'une face plafonnée reporté sur les autres ; manque : niveaux servis dans l'ordre, le dernier en partie, RR tenable (veille) ou nombre de pistes tenables (poursuite), alerte « mission not tenable » si P0 à P2 n'est pas servi en entier. Vérifié sur les missions de test (besoin 0,73 à 0,90 MW) et sur un manque simulé (vaisseau ramené en mémoire à 0,5 MW, fichier inchangé).
 - **P2, couplages dans le choix des formes d'onde de veille** (clés internes de secteur remplies par la boucle) : `_fa_energy_J` (énergie Ku de confirmation d'une fausse alarme, ajoutée à l'énergie de chaque position au prorata des fausses alarmes du candidat) ; `_eclipse_db` (perte d'éclipse des créneaux communs, appliquée aux portées comme le facteur de T_sys) ; filtre permanent des candidats dont un dwell demande plus de faisceaux que le formateur (512 en S). Sans ces clés, les sorties sont identiques aux snapshots. Constat sur le point 1 : avec la politique `fa_rate` (2.3, défaut), le nombre de fausses alarmes par revisite est fixe, leur coût Ku ne dépend pas de la forme d'onde (≈ 25 W pour une face de 1,8 MW) ; il ne joue qu'en mode `pfa_cell`.
 - **P3, boucle de point fixe** (`optimizer.run` → `_assemble`, `_couplings`, `_mission_choice`, clé `global_opt`) : chaque secteur garde jusqu'à 6 alternatives (fréquence, pas de grille) de même couverture et même portée ; après chaque assemblage des budgets, l'éclipse n'est réinjectée qu'au-delà de `scheduler.eclipse_flag_db` (0,5 dB), le coût des fausses alarmes qu'en mode `pfa_cell` ; le choix global retient, secteur par secteur, l'alternative qui baisse la face la plus chargée de la mission (énergie et temps S, confirmations et poursuites comprises), puis la somme ; seuls les secteurs touchés sont replanifiés (`_force_plan` : une seule fréquence évaluée) ; arrêt quand rien ne change, au plus `tool.global_opt.max_iterations` = 3 passes. Sur les missions de test : aucun changement (les charges s'additionnent face par face et la répartition entre faces est fixée par la géométrie : le meilleur choix propre est aussi le meilleur pour la mission), temps inchangé. Réglages `[tool.global_opt]` max_iterations 3, alternatives 6 ; 3 tests.
-- **Reste** : P4 (tables précalculées pour le vol : taille par secteur et coût de resélection, documentation), P5 (charge en énergie des faces du verdict du budget sur la répartition de la P1, documentation LaTeX, N3, snapshots, journal, commit de fin d'étape).
+- **P4, réemploi de la marge** (règle ajoutée par l'utilisateur le 26 octobre 2026, `core/margin.py`, clé `margin_reuse`) : la RR demandée d'un volume est un **minimum** ; si les ressources ont de la marge (mission « facile »), le radar raccourcit les revisites jusqu'à l'utilisation **X = `auto_alloc_max`** (« allocation auto max », **une valeur par mission**, défaut **0 = désactivé**, `[tool.global_opt]`). Exemple de l'utilisateur : un volume à RR 20 s peut tourner à RR 2 s si X est assez haut. Décisions de l'utilisateur :
+  - **niveau de priorité** : la marge réaffectée est le niveau **P5**, sous la veille P4_n (la première rendue en cas de surcharge, avant tout délestage) ;
+  - **X porte sur la ressource dimensionnante** : énergie du vaisseau (besoin / 8 MW, partagée par les faces), et par face énergie (besoin / plafond d'alimentation ou opérateur), temps S et Ku, chaleur, calcul, mémoire, débit mémoire, faisceaux ;
+  - **même facteur g pour tous les volumes**, P1 (autoprotection) compris, monté ensemble (remplissage) : les volumes d'une face qui atteint X s'arrêtent, les autres continuent ; un volume à cheval sur plusieurs faces est borné par la plus chargée ;
+  - **RR minimale optionnelle par volume** (`rr_min_s`), **sans valeur par défaut : c'est à l'opérateur de la spécifier** (utilisateur, 26 octobre 2026 ; une RR crédible est de l'ordre de 1 à 2 s, sans plancher le réemploi peut descendre à des valeurs inutiles, 0,09 s à l'essai) ;
+  - **fausses alarmes figées par seconde** (politique `fa_rate` : la Pfa par case baisse comme 1 / g, la charge de confirmation ne bouge pas) ;
+  - **seulement la RR pour l'instant** (« veille plus loin », « volumes de moindre priorité mieux servis » : à affiner plus tard) ;
+  - **plan gardé** (formes d'onde, pas de grille, échelle d'impulsion par tranche) : seule la revisite s'accélère, RR réelle = RR / g ; la **portée de détection cumulée à la RR réelle** est calculée et publiée par tranche (`range_km_at_rr_real`, à pleine impulsion comme `range_km_at_bin_max`) ;
+  - le verdict reste porté sur la RR demandée ; la RR réelle est une sortie ;
+  - **la règle vaut aussi en vol** (phase 6) : le radar alloue et reprend dynamiquement aux différentes fonctions selon la charge, les besoins et les ressources.
+
+  Mise en œuvre : une sonde (toutes les veilles à g = 2) donne la pente de chaque ressource, répartie entre secteurs au prorata de leur énergie sur la face (énergie, chaleur), de leur temps S (temps S) ou de leur cadence de pointage (les autres) ; remplissage ; assemblage complet des budgets aux RR réelles ; une ressource non linéaire (ordonnanceur, chaleur) est corrigée par la sécante des deux derniers points et le remplissage refait, au plus `reuse_corrections` = 2 fois (tolérance 0,5 point) ; la part de veille due au raccourcissement est un niveau P5 de la répartition de la P1 (`power_allocation` aux RR réelles publiée dans `margin_reuse`) ; les alertes nouvelles aux RR réelles sont publiées (préfixe « at the real revisits »). Interface provisoire : « Allocation auto max » dans Mission settings, « RR min » dans le formulaire du volume ; RR réelle affichée dans le résultat du secteur. 4 tests.
+  - Essai, `mission_example` à X = 80 % : utilisation nominale 22 % sur chaque face (faisceaux Ku : 7 sur 32, ressource qui ne dépend pas de la RR), énergie 4 % du vaisseau ; RR réelles S01 20 → 0,09 s (g = 224, bornée par l'énergie de F1, plafond opérateur 2 MW), S02 5 → 0,068 s et S03 120 → 1,6 s (g = 74, bornées par l'énergie de F2) ; portées cumulées +56 % (S01), +89 % (S02), +66 % (S03) ; vaisseau à 60 % ; 4,4 MW en P5. Avec `rr_min_s` = 5 s sur S01 : g = 4, portée +19 %. Nouvelle alerte aux RR réelles : éclipse des créneaux communs 0,54 dB (non réinjectée dans le plan). Temps : deux assemblages de plus et une résolution des portées par secteur (59 → 119 s à froid).
+  - **Écarts à signaler** : en politique `pfa_cell`, la Pfa par case est un réglage de l'opérateur, gardée : les fausses alarmes par seconde montent avec g (comptées dans la charge) ; les faisceaux simultanés entrent dans X mais ne dépendent pas de la RR (ils ne bornent jamais g, ils peuvent seulement fixer l'utilisation nominale publiée) ; l'ordonnanceur ne sépare pas la part P5 de la veille (une seule classe par volume, la séparation en vol est en phase 6).
+- **Reste** : P5 (tables précalculées pour le vol : taille par secteur et coût de resélection, documentation), P6 (charge en énergie des faces du verdict du budget sur la répartition de la P1, documentation LaTeX, N3, snapshots, journal, commit de fin d'étape).

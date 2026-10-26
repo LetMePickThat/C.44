@@ -2655,3 +2655,80 @@ def test_couplings_feed_back_only_what_moves_a_choice(monkeypatch):
     k = mo._couplings({}, out)["A"]
     assert k["_eclipse_db"] == pytest.approx(2 * sch.ECLIPSE_FLAG_DB)
     assert k["_fa_energy_J"] == pytest.approx(0.001 * 1e6 * 10.0 / 10.0)
+
+
+# ----------------------------------------------------------------------------- margin reuse (step 5.2, P4)
+from core import margin as margin_  # noqa: E402
+
+
+def test_margin_fill_one_factor_until_a_face_or_rr_min():
+    """R3: one factor raised for every search volume; the volumes of the face that reaches X stop, the others go on
+    until their own face reaches X or their rr_min_s."""
+    cons = {"F1 energy": {"fixed": 0.1, "a": {"A": 0.1, "B": 0.1}, "face": 0},
+            "F2 energy": {"fixed": 0.2, "a": {"B": 0.05, "C": 0.05}, "face": 1}}
+    ids = ["A", "B", "C"]
+    nominal = {n: margin_._value(c, {s: 1.0 for s in ids}) for n, c in cons.items()}
+    g, why = margin_._fill(cons, ids, {s: math.inf for s in ids}, 0.8, nominal)
+    assert g["A"] == pytest.approx(3.5) and g["B"] == pytest.approx(3.5) and g["C"] == pytest.approx(8.5)
+    assert why == {"A": "F1 energy", "B": "F1 energy", "C": "F2 energy"}
+    g, why = margin_._fill(cons, ids, {"A": math.inf, "B": math.inf, "C": 6.0}, 0.8, nominal)
+    assert g["C"] == pytest.approx(6.0) and why["C"] == "rr_min_s"
+    nominal["F1 energy"] = 0.9                                        # a face above X: its volumes keep their RR
+    g, why = margin_._fill(cons, ids, {s: math.inf for s in ids}, 0.8, nominal)
+    assert g["A"] == g["B"] == 1.0 and g["C"] > 1.0
+
+
+def test_margin_reuse_corrects_a_non_linear_resource(monkeypatch):
+    """R4: a resource that grows faster than the revisit (here as g^2) is corrected by its secant and the filling
+    redone: the real utilisation ends within the tolerance of X; X = 0 -> no reuse."""
+    mission = {"global": {"auto_alloc_max": 0.6},
+               "sectors": [{"id": "A", "rr_target_s": 10.0, "fa_per_rr": 5.0}]}
+    res = {"sectors": [{"id": "A", "status": "OK", "rr_target_s": 10.0, "fa_per_rr": 5.0,
+                        "wf": {"pfa": 1e-6}, "wf_set": [{"pfa": 1e-6}], "wf_by_bin": [{"wf": {"pfa": 1e-6}}],
+                        "faces": {"0": {"positions": 100.0, "energy_fraction": 0.1, "time_fraction": 0.01}}}],
+           "warnings": []}
+
+    def util(out):
+        g = 10.0 / out["sectors"][0]["rr_target_s"]
+        faces = {k: {"heat": 0.0} for k in range(4)}
+        faces[0]["heat"] = 0.1 * g * g
+        return 0.0, faces
+    monkeypatch.setattr(margin_, "utilisation", util)
+    seen = []
+
+    def assemble(mis, results):
+        seen.append((mis["sectors"][0], results[0]))
+        return {"sectors": results, "warnings": []}
+    mr = margin_.reuse(mission, res, assemble)
+    g = mr["sectors"]["A"]["g"]
+    assert 0.1 * g * g == pytest.approx(0.6, abs=margin_.TOL) and mr["sectors"]["A"]["limited_by"] == "F1 heat"
+    sec, r = seen[-1]
+    assert sec["rr_target_s"] == pytest.approx(10.0 / g) and "fa_per_rr" not in sec
+    if rm.FA_MODE == "fa_rate":                                       # false alarms frozen per second
+        assert sec["fa_rate_per_s"] == pytest.approx(0.5) and r["wf"]["pfa"] == pytest.approx(1e-6 / g)
+    assert r["faces"]["0"]["energy_fraction"] == pytest.approx(0.1 * g) and r["_reuse_g"] == g
+    assert res["sectors"][0]["rr_target_s"] == 10.0                  # the nominal result is untouched
+    mission["global"]["auto_alloc_max"] = 0.0
+    assert margin_.reuse(mission, res, assemble) is None
+
+
+def test_margin_reuse_is_the_last_power_tier():
+    """R5: the part of a search drawn by its shortened revisit is tier P5, after every search P4_n."""
+    res = {"global": {"face_elec_avail_kW": 1000.0, "face_elec_cap_mw": None},
+           "compute": {"faces": {str(f): {"non_tx_kW_actual": 0.0} for f in range(4)}},
+           "sectors": [{"id": "A", "status": "OK", "rr_target_s": 2.0, "_reuse_g": 4.0,
+                        "faces": {"0": {"energy_fraction": 0.8}}}],
+           "tracking": {"faces": {str(f): {"pumps_kW": 0.0} for f in range(4)}, "sectors": []}}
+    its = {it["label"]: it for it in alloc_.items({"sectors": [{"id": "A"}]}, res)}
+    k = 1e6 / rm.CHAIN_EFF
+    assert its["search A"]["w"][0] == pytest.approx(0.2 * k) and its["search A"]["rr_s"] == pytest.approx(8.0)
+    assert its["margin reuse A"]["w"][0] == pytest.approx(0.6 * k) and its["margin reuse A"]["tier"] == (5, 0)
+    assert alloc_.tier_name((5, 0)) == "P5 margin reuse"
+
+
+def test_margin_reuse_mission_keys_validated():
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_example.json"))
+    m["global"]["auto_alloc_max"] = 1.5
+    m["sectors"][0]["rr_min_s"] = m["sectors"][0]["rr_target_s"] * 2
+    errs = md.validate_mission(m)
+    assert any("auto_alloc_max" in e for e in errs) and any("rr_min_s" in e for e in errs)

@@ -66,6 +66,7 @@ class ResultsTab(QWidget):
         self.exported = False                 # set once the result has been exported (closing asks otherwise)
         self.sectors_by_id = {s["id"]: s for s in frames.resolve(mission)[0]["sectors"]}   # ship frame (step 3.0)
         self.tracking_by_id = {s["id"]: s for s in result.get("tracking", {}).get("sectors", [])}
+        self.reuse_by_id = (result.get("margin_reuse") or {}).get("sectors", {})       # step 5.2 (P4)
         self.grid = grid
         self.eps_min = result["global"]["eps_min_deg"]
         self.eps_max = result["global"]["eps_max_deg"]
@@ -261,6 +262,9 @@ class ResultsTab(QWidget):
                 f"mission {r.get('rr_est_mission_s', r['rr_target_s']):.0f}s\n"
                 f"sector: energy {100 * self._sector_energy(r):.0f} % / time {100 * self._sector_time(r):.0f} %"
                 f" | face total energy {100 * self._face_total_energy(r):.0f} %")
+        mr = self.reuse_by_id.get(sid)
+        if mr and mr["g"] > 1.0:
+            text += f"\nRR real {mr['rr_real_s']:.3g}s (margin reuse x{mr['g']:.3g}, {mr['limited_by']})"
         trk = self.tracking_by_id.get(sid)
         if trk:
             n_tr = sum(b["n_targets"] for b in trk["at"])
