@@ -3326,3 +3326,29 @@ def test_mc_confirmation_matches_the_analytic_success():
         r = spec.draw(snr, np.random.default_rng(2))
         lo, hi = mc.wilson(int(round(r["p_mc"] * r["detections"])), r["detections"], 0.999)
         assert lo <= st.ku(mode, m_db)[0] <= hi, (mode, r["p_mc"], st.ku(mode, m_db)[0])
+
+
+def test_mc_batch_kalman_reaches_the_steady_covariance():
+    """Step 5.4 M3: the batch Kalman of the Monte-Carlo, fed every period with the allowed angle measurement of a
+    bracket, settles to the steady predicted cross-range error of trackmodel.TrackState (RMS of the drawn errors within
+    5 %)."""
+    from core import montecarlo as mc
+    from core import trackmodel as tm
+    tgt = mo.sector_target({"id": "T", "rcs_m2": 1.0, "swerling": 1})
+    st = tm.TrackState(tgt, 1.0, 500.0, 0.2, None, 5.0, 14.0, 0.0)
+    rng = np.random.default_rng(4)
+    n, f, q = 4000, st.f, st.q
+    sq = mc._sqrtm(q)
+    s_c = st.allowed["theta"] * st.r_m
+    truth = rng.standard_normal((n, 3)) * [s_c, 1.0, 0.1]
+    est, cov = np.zeros((n, 3)), np.tile(np.diag([s_c ** 2, 1.0, 0.01]), (n, 1, 1))
+    err = []
+    for k in range(300):
+        truth = truth @ f.T + rng.standard_normal((n, 3)) @ sq.T
+        est, cov = est @ f.T, f @ cov @ f.T + q
+        if k >= 200:
+            err.append(truth[:, 0] - est[:, 0])
+        z = truth[:, :1] + s_c * rng.standard_normal((n, 1))
+        est, cov = mc._kf_update(est, cov, z, np.full((n, 1), s_c ** 2), np.array([[1.0, 0.0, 0.0]]))
+    rms = float(np.sqrt(np.mean(np.square(err))))
+    assert abs(rms / math.sqrt(st.p_cross[0, 0]) - 1.0) < 0.05

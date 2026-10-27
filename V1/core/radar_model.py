@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.29.0
+# Radar Performance Model - V6.30.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -10,6 +10,12 @@
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
 #
+# Changes V6.29.0 -> V6.30.0 (roadmap step 5.4, pass M3: Monte-Carlo of the tracks, Kalman filter drawn, user, 27 October 2026)
+#   - core/montecarlo.py: per active-tracking bracket, tracks drawn with the Singer Kalman running (truth on three axes,
+#     hand-over from the confirming Ku look of M2, updates decided at the real pointing error with the drawn SNR,
+#     loss after n_miss_lost misses then a new initiation): loss per update, initiation looks, RMS accuracies against
+#     the analytic chain and the requirements; [tool.montecarlo] tracks_per_bracket, updates_per_track.
+#   - tracking.KEEP_MC_OBJECTS: sector_budget keeps the states and update looks of each bracket ("_mc", on demand).
 # Changes V6.28.0 -> V6.29.0 (roadmap step 5.4, pass M2: Monte-Carlo of false alarms, confirmation, timelines, eclipse)
 #   - core/montecarlo.py: eclipse drawn whole per echo (the plan's mean loss given back), confirmation of every detected
 #     test target drawn from the SNR of the look that detected (exact Ku decisions, one power draw within T0), drawn
@@ -632,7 +638,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.29.0"
+MODEL_VERSION = "6.30.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

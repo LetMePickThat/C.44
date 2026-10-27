@@ -770,6 +770,9 @@ horizon_max_s   = 600.0         # B2: scheduler timeline of a Monte-Carlo draw o
 warmup_revisits = 2             # B2: revisits played before the counted time to fill the queues (scheduler passes, D)
 v_draw          = "max"         # C4: closing velocity of the test targets: "max" (v_close_max) or "uniform" (D)
 n_rep           = 10            # M2-2: drawn timelines per face (D, user, 27 Oct 2026)
+tracks_per_bracket = 2000       # M3 (T7): tracks drawn per active-tracking bracket (D, user, 27 Oct 2026)
+updates_per_track  = 200        # M3 (T7): updates per drawn track (D)
+init_pointing_max_hpbw = 0.3   # M3: initiation looks as fast as possible, each interval the longest keeping the predicted pointing error (1 sigma per axis) below this many Ku beamwidths, between the round trip + processing and the bracket period (user, 27 Oct 2026, D)
 batch           = 200           # test targets drawn per batch between two checks of the stopping rule
 pd_look_floor   = 1e-5          # looks whose mean Pd stays below this are not drawn (they cannot change the result)
 

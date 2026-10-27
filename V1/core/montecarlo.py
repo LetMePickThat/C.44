@@ -50,7 +50,23 @@ Pass M2 (user, 27 October 2026, M2-1 to M2-9):
     latency above its requirement); ALERTE when the analytic value is optimistic. The false alarms per revisit and the
     mean waits per class are information (user, 27 October 2026, after the trials: Poisson of the analytic mean, and
     waits of microseconds).
-To come: M3 tracks; M4 verdict and load_ceiling; M5 tests at N3, snapshots, docs.
+Pass M3 (user, 27 October 2026, T1-T11; option A: the Kalman filter runs, D2 (b)):
+  - per active-tracking bracket, tracks_per_bracket tracks of updates_per_track updates, each at one of the
+    bracket's ranges (the budget's update look there, tracking.KEEP_MC_OBJECTS); truth = Singer manoeuvre on three
+    axes, filter = the same Singer Kalman running from the hand-over (angle error of the confirming Ku look drawn in
+    M2, else the analytic one); each update a drawn look (pointing error = prediction - truth + navigation, real Ku
+    TX / RX patterns or the 7-beam cluster, straddles, fluctuation renewed every T0, Ku eclipse), measurement errors
+    from the drawn SNR (floors in quadrature); loss after n_miss_lost consecutive misses, then a new initiation;
+    initiation done on the criterion of trackmodel.initiation. Range fixed for the life of a track (T8).
+  - Initiation AS FAST AS POSSIBLE (user, 27 October 2026, after the first trial: at the bracket period the first
+    look pointed 9.5 Ku beamwidths off and 98.5 % of the initiations were lost): each interval the longest keeping the
+    predicted pointing error under init_pointing_max_hpbw, between the round trip + processing and the period, with
+    the budget's look sized for that pointing.
+  - Two populations per bracket: tracks started in the filter's steady state (loss per update and RMS accuracies of
+    established tracks, against the analytic chain, p_loss_max and the bracket's requirements) and tracks born from
+    the hand-over (share established, looks and time to establish against the analytic initiation); NOK / ALERTE as
+    T10.
+To come: M4 verdict and load_ceiling; M5 tests at N3, snapshots, docs.
 """
 from __future__ import annotations
 
@@ -81,6 +97,9 @@ CI_LEVEL = float(P.get(_T + "ci_level"))
 HORIZON_MAX_S = float(P.get(_T + "horizon_max_s"))          # scheduler timeline of a draw (M2)
 WARMUP_REVISITS = int(P.get(_T + "warmup_revisits"))        # revisits played before the counted time (M2)
 N_REP = int(P.get(_T + "n_rep"))                            # drawn timelines per face (M2-2)
+TRACKS_PER_BRACKET = int(P.get(_T + "tracks_per_bracket"))  # M3 (T7)
+UPDATES_PER_TRACK = int(P.get(_T + "updates_per_track"))    # M3 (T7)
+INIT_POINTING_MAX_HPBW = float(P.get(_T + "init_pointing_max_hpbw"))   # M3: fast initiation
 HORIZON_REVISITS = 10                                       # M2-2: counted window = 10 longest revisits of the face
 V_DRAW = str(P.get(_T + "v_draw"))
 BATCH = int(P.get(_T + "batch"))
@@ -322,10 +341,17 @@ class ConfirmSpec:
         looks = len(st.cl.beams) + 1
         g = _look_power(rng, shape, n, self.trip_s < self.t0_ku_s, looks)
         ok = np.zeros(n, dtype=bool)
+        snr_hit = np.full(n, np.nan)                    # signal SNR of the Ku look that confirmed (M3 hand-over)
         if not cluster_only:
-            ok = _detect1(rng, snr0 * trk._tx_gain(ex, ey) * g[:, 0], t1)
+            x = snr0 * trk._tx_gain(ex, ey) * g[:, 0]
+            ok = _detect1(rng, x, t1)
+            snr_hit = np.where(ok, x, snr_hit)
         for j, (cx, cy, ku, kv) in enumerate(st.cl.beams):
-            ok |= _detect1(rng, snr0 * st.cl.eirp * trk._tx_gain(ex - cx, ey - cy, ku, kv) * g[:, j + 1], t1)
+            x = snr0 * st.cl.eirp * trk._tx_gain(ex - cx, ey - cy, ku, kv) * g[:, j + 1]
+            hit = _detect1(rng, x, t1)
+            snr_hit = np.where(hit & ~ok, x, snr_hit)
+            ok |= hit
+        self.last_snr_ku = snr_hit
         return ok
 
     def draw(self, snr_det: np.ndarray, rng: np.random.Generator) -> dict:
@@ -338,6 +364,7 @@ class ConfirmSpec:
         ey = st.bias_ku + sig * rng.standard_normal(n)
         if self.mode in ("KU1+7", "KU7"):
             ok = self._ku17(rng, ex, ey, float(self.margin_db), self.mode == "KU7")
+            self.handover_snr = self.last_snr_ku[ok]
         else:                                   # S2: pointed S touch, then KU1+7 on the combined estimate
             mt, mk = (float(x) for x in self.margin_db)
             t_snr = st.touch_snr0 * rm.db_to_lin(mt)
@@ -348,6 +375,7 @@ class ConfirmSpec:
             ex2 = st.bias_ku + sig2 * rng.standard_normal(n)
             ey2 = st.bias_ku + sig2 * rng.standard_normal(n)
             ok = touched & self._ku17(rng, ex2, ey2, mk, False)
+        self.handover_snr = self.last_snr_ku[ok]           # M3: hand-over accuracy of the confirmed detections
         k = int(ok.sum())
         lo, hi = wilson(k, n)
         p = k / n
@@ -710,6 +738,368 @@ def timelines(mission: dict, out: dict, seed: int = SEED, progress_cb=None) -> d
     return {"n_rep": N_REP, "faces": faces, "sectors": sectors}
 
 
+# ----------------------------------------------------------------------------- tracks (M3: T1-T11)
+@dataclass
+class TrackLook:
+    """The update look of one bracket at one range, as the track budget chose it (step 3.3), for the draws: its
+    detection law (n, shape, threshold), its SNR before the position losses, the samples of its range / Doppler /
+    velocity-filter losses, the TX and RX beams, the cluster offsets (cluster mode), the mean SNR it delivers at the
+    steady pointing (reference of the measurement accuracies)."""
+    n: int
+    shape: float
+    threshold: float
+    x_db: float
+    range_samples: np.ndarray
+    doppler_samples: np.ndarray
+    velocity_samples: np.ndarray
+    tx_beam: object
+    rx_beam: object
+    hpbw_lamd: float                        # Ku TX beamwidth in lambda / D (offsets in beamwidths -> beam loss)
+    cluster: Optional[np.ndarray]           # (7, 2) beam centres in TX beamwidths, None: one pointed look
+    rx_cell_samples: Optional[np.ndarray]   # cluster: RX lattice loss samples (digital RX lattice of the search)
+    snr_ref: float = 1.0
+
+
+def track_look(upd: dict, st, mc: dict) -> TrackLook:
+    """TrackLook of an update chosen by tracking._track_update (same parts as tracking._coast_pd)."""
+    look = upd["look"]
+    sp, j = look["space"], look["index"]
+    d = sp.det[j]
+    p0 = sp.det_parts[j]
+    margin = 40.0 * math.log10(p0[0] / sp.rn[j]) if sp.rn[j] > 0 and p0[0] > sp.rn[j] else 0.0
+    tgt_t = dataclasses.replace(trk.tm.track_target(mc["tgt"], st), name="ku")
+    b = rm.solve_base(d, mc["f_ku"], 0.0, tgt_t, mc["sll"], round(st.v_span_mps, 1))
+    u = (np.arange(401) + 0.5) / 401 - 0.5
+    rng_s = -10.0 * np.log10(rm._range_response(b.psl)(u / rm.RANGE_GRID_OVERSAMPLING))
+    dop_s = np.zeros(1)
+    if b.ppb > 1:
+        resp = (np.sinc(u / rm.DOPPLER_ZERO_PADDING) ** 2 if d.doppler_window_db is None
+                else rm._range_response(d.doppler_window_db)(u / rm.DOPPLER_ZERO_PADDING))
+        dop_s = -10.0 * np.log10(resp)
+    vel_s = np.zeros(1)
+    if b.bank_half > 0.0:
+        vel_s = np.array([rm.bank_mismatch_loss_db(dv, d.tau_s, d.sig_bw_mhz, b.t_span, d.n, b.n_blocks == 1)
+                          for dv in (np.arange(41) + 0.5) / 41 * b.bank_half])
+    pat = rm.PATTERNS["Ku"]
+    rxb = rm.rx_beam("Ku", mc["sll"])
+    cluster = rx_cells = None
+    if upd["mode"] == "cluster":
+        s_ = rm.BEAM_SPACING_HPBW
+        cluster = np.array([[0.0, 0.0]] + [[s_ * math.cos(a), s_ * math.sin(a)] for a in np.radians(np.arange(0, 360, 60))])
+        rx = rm._hex_cell_points(rm.RX_BEAM_SPACING_HPBW * rxb.hpbw)
+        rx_cells = rm._beam_loss_db(rxb, np.hypot(rx[:, 0], rx[:, 1]))
+    tl = TrackLook(n=b.n_blocks, shape=detection.shape_of(b.fl, b.n_blocks),
+                   threshold=detection.threshold(b.n_blocks, rm.DETECT_PFA), x_db=p0[2] + margin,
+                   range_samples=rng_s, doppler_samples=dop_s, velocity_samples=vel_s, tx_beam=pat.tx, rx_beam=rxb,
+                   hpbw_lamd=pat.tx.hpbw, cluster=cluster, rx_cell_samples=rx_cells)
+    # reference SNR of the accuracies: the mean signal SNR the look gives at the steady pointing law (no fluctuation)
+    rng = np.random.default_rng(0)
+    e = st.pointing_hpbw * rng.standard_normal((4000, 2))
+    tl.snr_ref = float(np.mean(10.0 ** ((tl.x_db - _track_loss(tl, e, rng)) / 10.0)))
+    return tl
+
+
+def _track_loss(tl: TrackLook, e: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """Position losses (dB) of looks pointed with errors e (..., 2) in TX beamwidths; a cluster: its best beam."""
+    n = e.shape[:-1]
+    draw = lambda a: a[rng.integers(0, len(a), n)]                       # noqa: E731
+    base = draw(tl.range_samples) + draw(tl.doppler_samples) + draw(tl.velocity_samples)
+    if tl.cluster is None:
+        r = np.hypot(e[..., 0], e[..., 1]) * tl.hpbw_lamd
+        return base + rm._beam_loss_db(tl.tx_beam, r) + rm._beam_loss_db(tl.rx_beam, r)
+    d = e[..., None, :] - tl.cluster                                      # (..., 7, 2)
+    r = np.hypot(d[..., 0], d[..., 1]) * tl.hpbw_lamd
+    return base + rm._beam_loss_db(tl.tx_beam, r).min(axis=-1) + draw(tl.rx_cell_samples)
+
+
+def _sqrtm(q: np.ndarray) -> np.ndarray:
+    w, v = np.linalg.eigh(0.5 * (q + q.T))
+    return v * np.sqrt(np.maximum(w, 0.0))
+
+
+def _kf_update(x, p, z, r_diag, h):
+    """Batch Kalman update: x (n, 3), p (n, 3, 3), z (n, m), r_diag (n, m), h (m, 3); rows where r_diag is NaN skip."""
+    s = np.einsum("ij,njk,lk->nil", h, p, h) + np.einsum("ni,ij->nij", np.nan_to_num(r_diag, nan=1.0), np.eye(len(h)))
+    k = np.einsum("nij,kj->nik", p, h) @ np.linalg.inv(s)
+    y = z - np.einsum("ij,nj->ni", h, x)
+    upd = ~np.isnan(r_diag[:, 0])
+    x_new = x + np.einsum("nij,nj->ni", k, y)
+    p_new = p - k @ np.einsum("ij,njk->nik", h, p)
+    return np.where(upd[:, None], x_new, x), np.where(upd[:, None, None], p_new, p)
+
+
+def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.random.Generator,
+                     rho_ku: float, handover_snr: Optional[np.ndarray], steady_start: bool = False,
+                     snr_scaled: bool = True) -> dict:
+    """Tracks of one bracket drawn with the Singer Kalman filter running (T1-T9), each at one of the bracket's ranges:
+    truth on three axes, each look decided at the real pointing error with the drawn SNR, measurements from that SNR,
+    loss after n_miss_lost consecutive misses. steady_start False: tracks born from the confirmation hand-over and
+    initiated AS FAST AS POSSIBLE (user, 27 October 2026): each initiation interval is the longest keeping the
+    predicted pointing error below init_pointing_max_hpbw, between the round trip + processing and the bracket period,
+    with the initiation look (the budget's update look sized for that pointing); a lost track is initiated again.
+    steady_start True: tracks started in the steady state of the filter (filtered covariance), restarted so after a
+    loss: the loss per update and the accuracies of established tracks, apart from the initiation.
+    snr_scaled False: measurement errors at their design values whatever the drawn SNR (diagnostic)."""
+    tm = trk.tm
+    nav_deg = mc["st_kw"].get("nav_axis_deg")
+    nav_rad = math.radians(trk.repoint.axis_sigma_deg() if nav_deg is None else float(nav_deg))
+    h1 = np.array([[1.0, 0.0, 0.0]])
+    h2 = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+    pick = rng.integers(0, len(states), n_tracks)
+    tot = {"updates": 0, "losses": 0, "init_done": [], "init_time": [], "init_lost": 0, "inits": 0,
+           "err_angle2": 0.0, "err_r2": 0.0, "err_vr2": 0.0, "n_err": 0, "dt_min_s": None,
+           "hits": 0, "point2": 0.0, "i_looks": 0, "i_hits": 0, "i_point2": 0.0, "i_dt": [], "i_fail": [0, 0, 0],
+           "i_mode": None}
+    req = (None, None, None)
+    for si in np.unique(pick):
+        rk, st, upd = states[int(si)]
+        n = int((pick == si).sum())
+        tl_upd = track_look(upd, st, mc)
+        tl_init = tl_upd
+        tot["i_mode"] = "update look (no initiation look found)"
+        if not steady_start and mc.get("gr") is not None:
+            iu = trk._track_update(mc["gr"], mc["tgt"], st, rk, mc["ctx"],
+                                   pointing_hpbw=max(INIT_POINTING_MAX_HPBW, st.pointing_hpbw))
+            if iu is not None:
+                tl_init = track_look(iu, st, mc)
+                tot["i_mode"] = f"{iu['mode']} look, SNR {tl_init.x_db:.2f} dB (update look {tl_upd.x_db:.2f} dB)"
+        r_m, hp, T = st.r_m, st.hpbw_rad, st.t_s
+        tgt = mc["tgt"]
+        t0 = tgt.t0_s(mc["f_ku"])
+        # time grid of the intervals: the round trip + processing up to the period (the period is the last entry)
+        dt_min = min(T, 2.0 * r_m / rm.C_MPS + mc.get("proc_s", 0.0))
+        tot["dt_min_s"] = dt_min
+        dts = np.unique(np.concatenate([np.geomspace(dt_min, T, 48), [T]])) if dt_min < T else np.array([T])
+        fq = [tm.singer(float(d), st.sigma_m, st.tau_s) for d in dts]
+        fs = np.array([x[0] for x in fq])
+        qs = np.array([x[1] for x in fq])
+        sqs = np.array([_sqrtm(q) for q in qs])
+        k_t = len(dts) - 1
+        sa0 = tgt.accel_max_mps2 / math.sqrt(3.0) if tgt.accel_max_mps2 > 0 else tm.FLOOR_MPS2
+        vt0 = tm.INIT_VEL_SIGMA_FRAC * tgt.v_close_mps
+        s_r0 = st.allowed["r"] if math.isfinite(st.allowed["r"]) else 1e3
+        s_v0 = st.allowed["vr"]
+        f_t, q_t = fs[k_t], qs[k_t]
+        zone_lim = st.zone_sigma_rad * r_m * (1.0 + tm.INIT_CONV_FRAC)
+        r_lim = (math.inf if st.range_acc_m is None else st.range_acc_m) * (1.0 + tm.INIT_CONV_FRAC)
+        v_lim = st.vr_acc_mps * (1.0 + tm.INIT_CONV_FRAC)
+        req = (st.zone_sigma_rad, st.range_acc_m, st.vr_acc_mps)
+        noise_r = st.noise_r if math.isfinite(st.noise_r) else s_r0
+
+        def priors(m):
+            """Covariances of new tracks (cross, cross, range): hand-over, or the filter's steady state."""
+            if steady_start:
+                pc = np.broadcast_to(st.pf_cross, (m, 3, 3)).copy()
+                pr = np.broadcast_to(st.pf_range, (m, 3, 3)).copy()
+                return pc, pc.copy(), pr
+            if handover_snr is not None and len(handover_snr):
+                snr = handover_snr[rng.integers(0, len(handover_snr), m)]
+                sth = trk.K_ML_KU * math.radians(rm.hpbw_deg(mc["f_ku"])) / np.sqrt(np.maximum(snr, 1e-12))
+            else:
+                sth = np.full(m, mc["hand_theta_rad"])
+            pc = np.zeros((m, 3, 3))
+            pc[:, 0, 0], pc[:, 1, 1], pc[:, 2, 2] = (sth * r_m) ** 2, vt0 ** 2, sa0 ** 2
+            pr = np.zeros((m, 3, 3))
+            pr[:, 0, 0], pr[:, 1, 1], pr[:, 2, 2] = s_r0 ** 2, s_v0 ** 2, sa0 ** 2
+            return pc, pc.copy(), pr
+
+        truth = [np.zeros((n, 3)) for _ in range(3)]
+        est = [np.zeros((n, 3)) for _ in range(3)]
+        cov = [np.zeros((n, 3, 3)) for _ in range(3)]
+        misses = np.zeros(n, dtype=int)
+        in_init = np.zeros(n, dtype=bool)
+        init_looks = np.zeros(n, dtype=int)
+        init_t = np.zeros(n)
+        g = np.ones(n)
+        t_draw = np.full(n, np.inf)
+
+        def start(idx):
+            """(Re)start the tracks idx: truth drawn from the prior around an estimate at 0."""
+            m = len(idx)
+            for ax, p0 in enumerate(priors(m)):
+                truth[ax][idx] = np.einsum("nij,nj->ni", np.linalg.cholesky(p0 + 1e-30 * np.eye(3)),
+                                           rng.standard_normal((m, 3)))
+                est[ax][idx] = 0.0
+                cov[ax][idx] = p0
+            misses[idx] = 0
+            in_init[idx] = not steady_start
+            init_looks[idx] = 0
+            init_t[idx] = 0.0
+            t_draw[idx] = np.inf
+            if not steady_start:
+                tot["inits"] += m
+        start(np.arange(n))
+        for _ in range(n_upd):
+            # interval of each track: the period, or (initiation) the longest keeping the predicted pointing error low
+            k = np.full(n, k_t)
+            if in_init.any() and len(dts) > 1:
+                p00 = np.maximum(np.einsum("ka,nab,kb->nk", fs[:, 0, :], cov[0], fs[:, 0, :]),
+                                 np.einsum("ka,nab,kb->nk", fs[:, 0, :], cov[1], fs[:, 0, :])) + qs[None, :, 0, 0]
+                ok = np.sqrt(p00 / r_m ** 2 + nav_rad ** 2) / hp <= INIT_POINTING_MAX_HPBW
+                k_init = np.where(ok.any(axis=1), (len(dts) - 1) - np.argmax(ok[:, ::-1], axis=1), 0)
+                k = np.where(in_init, k_init, k_t)
+            dt = dts[k]
+            for kk in np.unique(k):
+                sel = k == kk
+                for ax in range(3):
+                    truth[ax][sel] = truth[ax][sel] @ fs[kk].T + rng.standard_normal((int(sel.sum()), 3)) @ sqs[kk].T
+                    est[ax][sel] = est[ax][sel] @ fs[kk].T
+                    cov[ax][sel] = fs[kk] @ cov[ax][sel] @ fs[kk].T + qs[kk]
+            e = np.stack([(truth[a][:, 0] - est[a][:, 0]) / r_m + nav_rad * rng.standard_normal(n) for a in (0, 1)], -1) / hp
+            steady = ~in_init
+            tot["err_angle2"] += float((((truth[0][:, 0] - est[0][:, 0]) / r_m) ** 2)[steady].sum())
+            # target power: a new draw once T0 has passed since the last one
+            if math.isfinite(tl_upd.shape) and tl_upd.shape <= 1e4:
+                t_draw += dt
+                new = t_draw >= (t0 if math.isfinite(t0) else np.inf)
+                new |= ~np.isfinite(t_draw)
+                g = np.where(new, rng.gamma(tl_upd.shape, 1.0 / tl_upd.shape, n), g)
+                t_draw = np.where(new, 0.0, t_draw)
+            lam = np.empty(n)
+            hit = np.empty(n, dtype=bool)
+            for tl, sel in ((tl_upd, steady), (tl_init, in_init)):
+                if not sel.any():
+                    continue
+                lam[sel] = 10.0 ** ((tl.x_db - _track_loss(tl, e[sel], rng)) / 10.0) * g[sel]
+                hit[sel] = 0.5 * rng.noncentral_chisquare(2 * tl.n, np.maximum(2.0 * lam[sel], 1e-300)) > tl.threshold
+            if rho_ku > 0.0:
+                hit &= rng.random(n) >= rho_ku
+            tot["hits"] += int((hit & steady).sum())
+            tot["i_looks"] += int(in_init.sum())
+            tot["i_hits"] += int((hit & in_init).sum())
+            tot["i_point2"] += float((e ** 2).sum(axis=1)[in_init].sum() / 2.0)
+            if in_init.any():
+                tot["i_dt"].extend(dt[in_init][:50].tolist())
+            tot["point2"] += float((e ** 2).sum(axis=1)[steady].sum() / 2.0)
+            ref = np.where(in_init, tl_init.snr_ref, tl_upd.snr_ref)
+            scale = np.sqrt(ref / np.maximum(lam, 1e-12)) if snr_scaled else np.ones(n)
+            s_th = np.sqrt((st.noise_theta * scale) ** 2 + tm.ANGLE_FLOOR_RAD ** 2) * r_m
+            s_rr = np.sqrt((noise_r * scale) ** 2 + tm.RANGE_FLOOR_M ** 2)
+            s_vv = np.sqrt((st.noise_vr * scale) ** 2 + tm.VR_FLOOR_MPS ** 2)
+            for a in (0, 1):
+                rd = np.where(hit, s_th ** 2, np.nan)[:, None]
+                z = truth[a][:, :1] + s_th[:, None] * rng.standard_normal((n, 1))
+                est[a], cov[a] = _kf_update(est[a], cov[a], z, rd, h1)
+            rd = np.where(hit[:, None], np.stack([s_rr ** 2, s_vv ** 2], -1), np.nan)
+            z = truth[2][:, :2] + np.stack([s_rr, s_vv], -1) * rng.standard_normal((n, 2))
+            est[2], cov[2] = _kf_update(est[2], cov[2], z, rd, h2)
+            tot["err_r2"] += float(((truth[2][:, 0] - est[2][:, 0]) ** 2)[steady].sum())
+            tot["err_vr2"] += float(((truth[2][:, 1] - est[2][:, 1]) ** 2)[steady].sum())
+            tot["n_err"] += int(steady.sum())
+            tot["updates"] += int(steady.sum())
+            misses = np.where(hit, 0, misses + 1)
+            init_looks += in_init
+            init_t += np.where(in_init, dt, 0.0)
+            # initiation done: the criterion of trackmodel.initiation at the period, on the filter's own covariance
+            nxt = np.einsum("ij,njk,lk->nil", f_t, cov[0], f_t) + q_t
+            done = in_init & (np.sqrt(nxt[:, 0, 0]) <= zone_lim) & (np.sqrt(cov[2][:, 0, 0]) <= r_lim) \
+                & (np.sqrt(cov[2][:, 1, 1]) <= v_lim)
+            tot["init_done"].extend(init_looks[done].tolist())
+            still = in_init & ~done
+            tot["i_fail"][0] += int((still & (np.sqrt(nxt[:, 0, 0]) > zone_lim)).sum())
+            tot["i_fail"][1] += int((still & (np.sqrt(cov[2][:, 0, 0]) > r_lim)).sum())
+            tot["i_fail"][2] += int((still & (np.sqrt(cov[2][:, 1, 1]) > v_lim)).sum())
+            tot["init_time"].extend(init_t[done].tolist())
+            in_init &= ~done
+            lost = misses >= tm.N_MISS_LOST
+            if lost.any():
+                tot["losses"] += int((lost & ~in_init).sum())
+                tot["init_lost"] += int((lost & in_init).sum())
+                start(np.flatnonzero(lost))
+    ne = max(tot["n_err"], 1)
+    return {**tot, "pd_update_mc": tot["hits"] / ne, "pointing_rms_hpbw": math.sqrt(tot["point2"] / ne),
+            "rms_angle_rad": math.sqrt(tot["err_angle2"] / ne), "rms_r_m": math.sqrt(tot["err_r2"] / ne),
+            "rms_vr_mps": math.sqrt(tot["err_vr2"] / ne), "req_zone_rad": req[0], "req_r_m": req[1],
+            "req_vr_mps": req[2]}
+
+
+def bracket_objects(mission: dict, out: dict, sid: str) -> List[Optional[dict]]:
+    """The track budget of one sector at its chosen Ku frequency, recomputed in this process with the track objects
+    kept (tracking.KEEP_MC_OBJECTS): the "_mc" entry of each bracket."""
+    g = out["global"]
+    secs = {s["id"]: trk._with_mission_settings(s, mission.get("global", {})) for s in mission["sectors"]}
+    r = next(x for x in out["sectors"] if x["id"] == sid)
+    t = next(x for x in out["tracking"]["sectors"] if x["id"] == sid)
+    sec = secs[sid]
+    sph = mo._sphere(g["eps_min_deg"], g["eps_max_deg"])
+    sec_s = dict(sec, _grid_spacing=r.get("beam_spacing_hpbw", rm.BEAM_SPACING_HPBW))
+    pos, _, _, _ = mo.search_positions(sec_s, sph, sph.mask(sec), r["wf"]["freq_ghz"], mission.get("global", {}).get("sky"))
+    pm = np.array([pos[k] for k in range(4)])
+    trk.KEEP_MC_OBJECTS = True
+    try:
+        sb = trk._ku_freq_task(sec, r, pm, g["face_elec_avail_kW"] * 1e3, g["eps_min_deg"], g["eps_max_deg"],
+                               mission.get("global", {}).get("sky"), float(t["ku_freq_ghz"]))
+    finally:
+        trk.KEEP_MC_OBJECTS = False
+    return [b.get("_mc") for b in sb.get("at", [])]
+
+
+def tracks(mission: dict, out: dict, handover: Dict[str, np.ndarray], seed: int = SEED) -> List[dict]:
+    """M3 for every bracket of active tracking of the mission (T9-T10)."""
+    rho_ku = float((out.get("scheduler") or {}).get("slots", {}).get("Ku", 0.0))
+    rows = []
+    for n, t in enumerate(out.get("tracking", {}).get("sectors", [])):
+        if not t.get("at"):
+            continue
+        objs = bracket_objects(mission, out, t["id"])
+        for bi, (at, mc) in enumerate(zip(t["at"], objs)):
+            row = {"id": f"{t['id']}/{bi}", "r_min_km": at.get("r_min_km"), "r_max_km": at.get("r_max_km"),
+                   "period_s": at.get("rr_s")}
+            if not mc or not mc["states"]:
+                rows.append({**row, "status": "NO_LOOK"})
+                continue
+            t_start = time.perf_counter()
+            mc = dict(mc, proc_s=sch.compute.processing_s(out, t["id"]))
+            rng = np.random.default_rng([int(seed), 2000 + n, bi])
+            ho = handover.get(t["id"])
+            res = simulate_bracket(mc["states"], mc, TRACKS_PER_BRACKET, UPDATES_PER_TRACK, rng, rho_ku, ho, True)
+            ini = simulate_bracket(mc["states"], mc, TRACKS_PER_BRACKET, UPDATES_PER_TRACK, rng, rho_ku, ho, False)
+            lo, hi = wilson(res["losses"], res["updates"])
+            p_mc = res["losses"] / res["updates"] if res["updates"] else None
+            p_an = float(at.get("p_loss_per_update", 0.0))
+            looks = np.array(ini["init_done"])
+            dur = np.array(ini["init_time"])
+            i_mean = float(looks.mean()) if len(looks) else None
+            i_q95 = float(np.quantile(looks, 0.95)) if len(looks) else None
+            i_an = at.get("init_looks")
+            n_ini = ini["inits"]
+            ok_ini = len(looks)
+            acc = [("angle", res["rms_angle_rad"], res["req_zone_rad"])]
+            if res["req_r_m"] is not None:
+                acc.append(("range", res["rms_r_m"], res["req_r_m"]))
+            acc.append(("radial velocity", res["rms_vr_mps"], res["req_vr_mps"]))
+            state, why = "OK", []
+            p_max = float(P.get("tracking.p_loss_max"))
+            if p_mc is not None and lo > p_max:
+                state = "NOK"
+                why.append(f"loss per update {p_mc:.2e} (lower bound {lo:.2e}) above p_loss_max {p_max:g}")
+            bad = [f"{nm} RMS {v:.3g} above {req_:.3g}" for nm, v, req_ in acc if req_ and v > req_ * (1.0 + CI_TOL)]
+            if bad:
+                state = "NOK"
+                why.extend(bad)
+            if state == "OK" and p_mc is not None and p_an < lo:
+                state = "ALERTE"
+                why.append(f"analytic loss {p_an:.2e} below the interval (model optimistic)")
+            if state == "OK" and i_an is not None and i_mean is not None and i_an < i_mean * (1.0 - CI_TOL):
+                state = "ALERTE"
+                why.append(f"analytic initiation {i_an} look(s) below the drawn mean {i_mean:.1f}")
+            rows.append({**row, "status": "OK", "tracks": TRACKS_PER_BRACKET, "updates": res["updates"],
+                         "pd_update_mc": res["pd_update_mc"], "pointing_rms_hpbw": res["pointing_rms_hpbw"],
+                         "pd_update_design": float(at.get("pd_update") or trk.tm.PD_UPDATE),
+                         "pointing_sigma_analytic_hpbw": at.get("pointing_sigma_hpbw"),
+                         "p_loss_mc": p_mc, "ci": [lo, hi], "p_loss_analytic": p_an, "p_loss_max": p_max,
+                         "rms": {nm: v for nm, v, _ in acc}, "required": {nm: req_ for nm, _, req_ in acc},
+                         "inits": n_ini, "init_done": ok_ini, "init_lost": ini["init_lost"],
+                         "init_success": ok_ini / max(ok_ini + ini["init_lost"], 1),
+                         "init_looks_mc_mean": i_mean, "init_looks_mc_q95": i_q95, "init_looks_analytic": i_an,
+                         "init_time_mean_s": float(dur.mean()) if len(dur) else None,
+                         "init_time_q95_s": float(np.quantile(dur, 0.95)) if len(dur) else None,
+                         "init_dt_min_s": ini["dt_min_s"],
+                         "handover": "drawn (M2)" if ho is not None and len(ho) else "analytic",
+                         "state": state, "why": "; ".join(why), "runtime_s": time.perf_counter() - t_start})
+    return rows
+
+
 # ----------------------------------------------------------------------------- mission
 def plan_eclipse_db(out: dict) -> Dict[str, float]:
     """Eclipse loss (dB) each sector's kept plan holds: the global optimiser's last coupling of the sector (step 5.2)."""
@@ -732,7 +1122,7 @@ def run(mission: dict, out: Optional[dict] = None, seed: int = SEED, progress_cb
     ecl = plan_eclipse_db(out)
     rho = float((out.get("scheduler") or {}).get("slots", {}).get("S", 0.0))
     g = mission.get("global", {})
-    rows = []
+    rows, handover = [], {}
     for n, sec in enumerate(mission["sectors"]):
         plan = plans.get(sec["id"])
         if not plan:
@@ -740,17 +1130,21 @@ def run(mission: dict, out: Optional[dict] = None, seed: int = SEED, progress_cb
             continue
         spec = confirm_spec(sec, plan, tsec[sec["id"]], g) if sec["id"] in tsec else None
         rows.append(sector_mc(sec, plan, n, seed, eclipse=(ecl.get(sec["id"], 0.0), rho), confirm=spec))
+        if spec is not None and getattr(spec, "handover_snr", None) is not None:
+            handover[sec["id"]] = spec.handover_snr
         if progress_cb:
             progress_cb(n + 1, len(mission["sectors"]), sec["id"])
     tl = timelines(mission, out, seed, progress_cb)
+    trk_rows = tracks(mission, out, handover, seed)
     states = [r.get("state") for r in rows if r.get("status") == "OK"]
     states += [(r.get("confirmation") or {}).get("state") for r in rows]
     states += [r[x] for r in tl["sectors"] for x in ("fa_state", "latency_state")]
     states += [fb["state"] for fk in tl["faces"].values() for fb in fk.values()]
     states += [c["state"] for fk in tl["faces"].values() for fb in fk.values() for c in fb["classes"]]
+    states += [r.get("state") for r in trk_rows]
     state = "NOK" if "NOK" in states else ("ALERTE" if "ALERTE" in states else "OK")
-    return {"pass": "M2", "seed": int(seed), "ci_level": CI_LEVEL, "state": state, "sectors": rows,
-            "eclipse_share_s": rho, "timelines": tl, "runtime_s": time.perf_counter() - t_start}
+    return {"pass": "M3", "seed": int(seed), "ci_level": CI_LEVEL, "state": state, "sectors": rows,
+            "eclipse_share_s": rho, "timelines": tl, "tracks": trk_rows, "runtime_s": time.perf_counter() - t_start}
 
 
 def report_lines(mc: dict) -> List[str]:
@@ -803,6 +1197,26 @@ def report_lines(mc: dict) -> List[str]:
                                  + (f" -- {fb['why']}" if fb["why"] else ""))
                 for c in bad:
                     lines.append(f"  F{int(k) + 1} {b}: {c['class']}: {c['why']}")
+    if mc.get("tracks"):
+        lines.append("  Tracks (Kalman drawn): loss per update, initiation looks, RMS accuracies")
+        for r in mc["tracks"]:
+            if r.get("status") != "OK":
+                lines.append(f"  {r['id']:<14}no update look")
+                continue
+            p_ = r["p_loss_mc"] if r["p_loss_mc"] is not None else math.nan
+            im = r["init_looks_mc_mean"]
+            lines.append(f"  {r['id']:<14}steady: loss {p_:.2e} [{r['ci'][0]:.2e}, {r['ci'][1]:.2e}] over "
+                         f"{r['updates']} updates, analytic {r['p_loss_analytic']:.2e}, max {r['p_loss_max']:g}  {r['state']}"
+                         + (f" -- {r['why']}" if r["why"] else ""))
+            it = r["init_time_mean_s"]
+            iq = r["init_looks_mc_q95"]
+            lines.append(f"  {'':<14}initiation: {100 * r['init_success']:.1f} % established ({r['init_lost']} lost), "
+                         f"{(f'{im:.1f}' if im is not None else '-')} looks (95 %: "
+                         f"{(f'{iq:.0f}' if iq is not None else '-')}), "
+                         f"{(f'{it:.3g} s' if it is not None else '-')} (analytic {r['init_looks_analytic']} look(s)), "
+                         f"hand-over {r['handover']}")
+            lines.append(f"  {'':<14}RMS " + ", ".join(f"{k} {v:.3g} (required {r['required'][k]:.3g})"
+                                                     for k, v in r["rms"].items()))
     return lines
 
 

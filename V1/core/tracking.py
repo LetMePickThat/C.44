@@ -70,6 +70,7 @@ BIAS_MRAD = P.get("confirmation.bias_mrad")          # residual S/Ku alignment b
 CONFIRM_P_MIN = P.get("confirmation.p_min")          # minimum probability of confirming a true target
 CONFIRM_MODES = ("KU1+7", "KU7", "S2")
 CLUSTER_N = 7                   # hexagonal cluster: centre + first ring, spacing rm.BEAM_SPACING_HPBW
+KEEP_MC_OBJECTS = False         # step 5.4 (M3): sector_budget keeps the track states and update looks per bracket
 ANGLE_ZONE_SIGMAS = P.get("tracking.angle_zone_sigmas")     # angular zone opening = full width at +/-2 sigma
 MARGIN_MAX_DB = P.get(_T + "margin_db_max")          # power margins of the confirmation looks: 0 .. max dB,
 MARGIN_TOL_DB = P.get(_T + "margin_db_tol")          # solved continuously to this tolerance (step 3.2, B6)
@@ -1036,6 +1037,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         drivers: Dict[str, float] = {}
         wf_main, pos_main, unreachable = None, -1.0, 0.0
         n_cluster, n_upd, p_loss, infeasible = 0.0, 0.0, [], []
+        mc_states = []                                  # step 5.4 (M3): (range, state, update) of the main group
         tracks_face = np.zeros(4)                       # step 4.3: tracks per face
         for gr in groups:
             share = gr["pos"] / p_all * b["n_targets"]                       # tracks per face in this group
@@ -1062,6 +1064,8 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                 n_cluster += float(w.sum()) if upd["mode"] == "cluster" else 0.0
                 if gr is main_gr:
                     p_loss.append(upd["p_loss"])
+                    if KEEP_MC_OBJECTS:
+                        mc_states.append((rk, st, upd))
                 if gr["pos"].sum() > pos_main:
                     wf_main, pos_main = look["wf"], float(gr["pos"].sum())
             unreachable += float(share.sum()) * (1.0 - ok_w)
@@ -1117,6 +1121,10 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                  "attenuation_db": rm.attenuation_needed_db(f_ku, 0.0, tgt.rcs_at(f_ku), r_lo),
                  "deception_verification": deceptive, "tracks_face": tracks_face.tolist(),
                  "init_tk": (t_init if isinstance(t_init, np.ndarray) else np.zeros(4)).tolist()}
+        if KEEP_MC_OBJECTS:                             # step 5.4 (M3): Python objects, not JSON
+            out_b["_mc"] = {"states": mc_states, "tgt": tgt, "sll": sll, "f_ku": f_ku, "spj": spj,
+                            "theta": main_gr["theta"] if main_gr is not None else 0.0, "st_kw": st_kw,
+                            "hand_theta_rad": hand_theta, "gr": main_gr, "ctx": tm_ctx}
         if unreachable > 0:
             flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: {unreachable:.1f} track(s) out of Ku reach "
                          f"(scan limit, range, jammer, clutter or accuracy)")
