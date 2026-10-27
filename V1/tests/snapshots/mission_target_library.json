@@ -5,22 +5,22 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 2.483394664997251,
-    "energy_fraction": 0.0013923339416452225,
-    "energy_j_per_refresh": 74501.83994991754,
+    "avg_power_kw": 2.4833946649972503,
+    "energy_fraction": 0.001392333941645222,
+    "energy_j_per_refresh": 74501.83994991751,
     "positions": 636.8073692008927,
-    "time_fraction_min": 0.00020272609510181645,
+    "time_fraction_min": 0.00020272609510181637,
     "unreachable_pct": 0.0
    },
    "2": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 0.5509859970521033,
-    "energy_fraction": 0.00030891445321991416,
-    "energy_j_per_refresh": 16529.579911563098,
+    "avg_power_kw": 0.5509859970521029,
+    "energy_fraction": 0.000308914453219914,
+    "energy_j_per_refresh": 16529.579911563087,
     "positions": 111.96146590875844,
-    "time_fraction_min": 4.497844873894721e-05,
+    "time_fraction_min": 4.497844873894717e-05,
     "unreachable_pct": 0.0
    }
   },
@@ -29,22 +29,22 @@
     "at_avg_power_kw": 0.00585731603628304,
     "at_ku_time_fraction": 3.736772392904504e-07,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 99.49250476545286,
-    "energy_fraction": 0.05578122288685531,
-    "energy_j_per_refresh": 2984599.423482497,
+    "avg_power_kw": 99.49250476545284,
+    "energy_fraction": 0.055781222886855296,
+    "energy_j_per_refresh": 2984599.4234824963,
     "positions": 196.0705950192209,
-    "time_fraction_min": 0.008121358975462577,
+    "time_fraction_min": 0.008121358975462576,
     "unreachable_pct": 0.0
    },
    "3": {
     "at_avg_power_kw": 0.007909012953131506,
     "at_ku_time_fraction": 5.00267124586497e-07,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 134.5419378125249,
-    "energy_fraction": 0.07543195176804753,
-    "energy_j_per_refresh": 4036020.863987153,
+    "avg_power_kw": 134.54193781252485,
+    "energy_fraction": 0.07543195176804748,
+    "energy_j_per_refresh": 4036020.8639871515,
     "positions": 285.46345359480995,
-    "time_fraction_min": 0.010982369697924226,
+    "time_fraction_min": 0.010982369697924222,
     "unreachable_pct": 0.0
    }
   },
@@ -53,33 +53,33 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 5.180706413493099,
-    "energy_fraction": 0.002904602108909465,
-    "energy_j_per_refresh": 103614.12826986198,
+    "avg_power_kw": 5.180706413493097,
+    "energy_fraction": 0.0029046021089094635,
+    "energy_j_per_refresh": 103614.12826986193,
     "positions": 1214.888378678833,
-    "time_fraction_min": 0.00042291480926474277,
+    "time_fraction_min": 0.00042291480926474266,
     "unreachable_pct": 0.0
    },
    "1": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 0.9553917106691839,
-    "energy_fraction": 0.0005356475654394905,
-    "energy_j_per_refresh": 19107.834213383678,
+    "avg_power_kw": 0.9553917106691836,
+    "energy_fraction": 0.0005356475654394902,
+    "energy_j_per_refresh": 19107.83421338367,
     "positions": 180.53949001926142,
-    "time_fraction_min": 7.799116005462726e-05,
+    "time_fraction_min": 7.799116005462723e-05,
     "unreachable_pct": 0.0
    },
    "3": {
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 0.955391710669184,
-    "energy_fraction": 0.0005356475654394906,
-    "energy_j_per_refresh": 19107.83421338368,
+    "avg_power_kw": 0.9553917106691836,
+    "energy_fraction": 0.0005356475654394902,
+    "energy_j_per_refresh": 19107.83421338367,
     "positions": 180.5394900192614,
-    "time_fraction_min": 7.799116005462727e-05,
+    "time_fraction_min": 7.799116005462723e-05,
     "unreachable_pct": 0.0
    }
   },
@@ -88,11 +88,11 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 1.55530548797642,
-    "energy_fraction": 0.0008719937475339032,
-    "energy_j_per_refresh": 46659.164639292605,
+    "avg_power_kw": 1.5553054879764188,
+    "energy_fraction": 0.0008719937475339025,
+    "energy_j_per_refresh": 46659.16463929256,
     "positions": 464.95135233223294,
-    "time_fraction_min": 0.0001269637133041976,
+    "time_fraction_min": 0.00012696371330419746,
     "unreachable_pct": 0.0
    }
   },
@@ -226,23 +226,23 @@
      "bands": {
       "Ku": {
        "beams_max": 32,
-       "beams_mean": 0.01929482537348416,
+       "beams_mean": 0.019294825373484155,
        "beams_peak": 7,
-       "bits_per_s": 13774009664.453592,
+       "bits_per_s": 13774009664.453585,
        "buffer_peak_GB": 0.14,
        "face_input_peak_tbps": 21.952,
        "link_trsa_peak_tbps": 0.112,
-       "open_windows_mean": 0.0027564036247834513,
+       "open_windows_mean": 0.0027564036247834504,
        "ops_per_s": {
-        "banks": 2993104179.912021,
-        "beamforming": 2155632512486.9873,
-        "cfar": 444907503.3975286,
-        "compression": 405285044.1876078,
+        "banks": 2993104179.912019,
+        "beamforming": 2155632512486.986,
+        "cfar": 444907503.39752823,
+        "compression": 405285044.1876076,
         "nulling": 0.0,
-        "repointing": 8.83040525645967,
+        "repointing": 8.830405256459667,
         "tracks": 0.0
        },
-       "ops_total_per_s": 2159475809223.315,
+       "ops_total_per_s": 2159475809223.3137,
        "transport": "subarray_beams"
       },
       "S": {
@@ -272,7 +272,7 @@
      "capacity_ops_per_s": 3.999953070934343e+18,
      "face_heat_kW_actual": 108.77279398620502,
      "jammers_nulled": 0,
-     "load": 5.653115380124755e-06,
+     "load": 5.653115380124754e-06,
      "memory": {
       "bandwidth_TB_per_s": 50.0,
       "buffers_peak_TB": 0.0010170597425980356,
@@ -281,10 +281,10 @@
       "traffic_TB_per_s": 1.1758124007958808
      },
      "non_tx_kW_actual": 66.88069541261882,
-     "ops_total_per_s": 22612196225076.18,
+     "ops_total_per_s": 22612196225076.176,
      "power_kW": {
       "ceiling": 50.0,
-      "ops": 0.00022612196225076182,
+      "ops": 0.00022612196225076176,
       "static": 10.0,
       "total": 10.000695412618818,
       "transport": 0.00046929065656786163
@@ -294,23 +294,23 @@
      "bands": {
       "Ku": {
        "beams_max": 32,
-       "beams_mean": 0.00822127047734582,
+       "beams_mean": 0.008221270477345818,
        "beams_peak": 7,
-       "bits_per_s": 5293317356.5377445,
+       "bits_per_s": 5293317356.537743,
        "buffer_peak_GB": 0.14,
        "face_input_peak_tbps": 21.952,
        "link_trsa_peak_tbps": 0.112,
-       "open_windows_mean": 0.0013827037282612528,
+       "open_windows_mean": 0.0013827037282612526,
        "ops_per_s": {
-        "banks": 750594821.6914076,
-        "beamforming": 828404166298.1571,
-        "cfar": 107729475.88373739,
-        "compression": 151134656.72610444,
+        "banks": 750594821.691407,
+        "beamforming": 828404166298.1567,
+        "cfar": 107729475.8837373,
+        "compression": 151134656.72610438,
         "nulling": 0.0,
         "repointing": 51.97991578397103,
         "tracks": 4071.7908611499006
        },
-       "ops_total_per_s": 829413629376.2291,
+       "ops_total_per_s": 829413629376.2288,
        "transport": "subarray_beams"
       },
       "S": {
@@ -548,11 +548,11 @@
   "power_allocation": {
    "faces": {
     "0": {
-     "alloc_MW": 2.0,
+     "alloc_MW": 1.9999999999999998,
      "always_on_MW": 0.0708481418037675,
      "cap_MW": 2.0,
-     "load": 0.04685696399248888,
-     "need_MW": 0.09371392798497775
+     "load": 0.04685696399248887,
+     "need_MW": 0.09371392798497773
     },
     "1": {
      "alloc_MW": 2.0,
@@ -565,8 +565,8 @@
      "alloc_MW": 2.0,
      "always_on_MW": 0.07173246196882956,
      "cap_MW": 2.0,
-     "load": 0.15763321084126888,
-     "need_MW": 0.31526642168253777
+     "load": 0.1576332108412689,
+     "need_MW": 0.3152664216825378
     },
     "3": {
      "alloc_MW": 2.0,
@@ -577,7 +577,7 @@
     }
    },
    "flags": [],
-   "need_MW": 1.0273643104447476,
+   "need_MW": 1.0273643104447479,
    "partial": [],
    "ship_MW": 8.0,
    "status": "OK",
@@ -590,8 +590,8 @@
     },
     {
      "fraction": 1.0,
-     "need_MW": 0.0003669003837349529,
-     "served_MW": 0.0003669003837349529,
+     "need_MW": 0.00036690038373495297,
+     "served_MW": 0.00036690038373495297,
      "tier": "P2 confirmation / initiation"
     },
     {
@@ -640,18 +640,18 @@
      "binding_alone": "F4 Ku beams",
      "cost_per_track": {
       "F3 Ku beams": 1.8698981902904733e-06,
-      "F3 Ku time": 8.722453085342427e-08,
+      "F3 Ku time": 8.722453085345137e-08,
       "F3 compute": 1.0490585465221187e-09,
       "F3 energy": 8.144011082178437e-07,
       "F3 heat": 4.617489230036853e-08,
       "F3 memory bandwidth": 6.770099961889153e-08,
-      "F4 Ku beams": 2.5418098394918006e-06,
+      "F4 Ku beams": 2.5418098394917735e-06,
       "F4 Ku time": 1.185669743515702e-07,
       "F4 compute": 1.4260207655014158e-09,
-      "F4 energy": 1.1235373633400325e-06,
+      "F4 energy": 1.123537363312277e-06,
       "F4 heat": 6.460658405482711e-08,
       "F4 memory bandwidth": 9.202804081287486e-08,
-      "ship energy": 4.84484617896408e-07
+      "ship energy": 4.844846178686524e-07
      },
      "extra_alone": 228675,
      "n_targets": 2.0,
@@ -673,7 +673,7 @@
      "extra": {
       "T_DECOY/0": 3658840
      },
-     "p": 1829420.1457955262,
+     "p": 1829420.1457955455,
      "verified": true
     },
     "first_shed": "tracks of bracket T_DECOY/0 (DECOY), the farthest first",
@@ -701,7 +701,7 @@
     "extra": {
      "T_DECOY/0": 228675
     },
-    "p": 114337.82161222039,
+    "p": 114337.8216122216,
     "verified": true
    },
    "extrapolated": true,
@@ -765,15 +765,15 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.0017827399003180677,
+      "load": 0.001782739900318065,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
-       "P4_1": 0.0017494065669847343
+       "P4_1": 0.0017494065669847317
       },
       "mean_wait_s": {
-       "calibration S": 3.064128934539533e-07,
-       "search T_KKV": 3.069601235139482e-07,
-       "search T_SHIP": 3.069601235139482e-07
+       "calibration S": 3.0641289345395366e-07,
+       "search T_KKV": 3.069601235139486e-07,
+       "search T_SHIP": 3.069601235139486e-07
       },
       "stretch": {},
       "timeline": {
@@ -828,16 +828,16 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.0166789241041742,
+      "load": 0.016678924104174205,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
-       "P4_1": 0.016645590770840865
+       "P4_1": 0.016645590770840872
       },
       "mean_wait_s": {
-       "calibration S": 5.30288999369522e-06,
-       "search T_DEBRIS": 5.392836707851682e-06,
-       "search T_KKV": 5.392836707851682e-06,
-       "search T_SHIP": 5.392836707851682e-06
+       "calibration S": 5.302889993695223e-06,
+       "search T_DEBRIS": 5.3928367078516846e-06,
+       "search T_KKV": 5.3928367078516846e-06,
+       "search T_SHIP": 5.3928367078516846e-06
       },
       "stretch": {},
       "timeline": {
@@ -864,7 +864,7 @@
      "Ku": {
       "capacity": 0.9800116927108079,
       "feasible": true,
-      "load": 0.00017568733747921919,
+      "load": 0.00017568733747921916,
       "load_by_priority": {
        "P0": 0.0001666666666666667,
        "P2": 8.872463008175913e-06,
@@ -899,17 +899,17 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.018799840091340735,
+      "load": 0.01879984009134074,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
-       "P4_1": 0.018766506758007402
+       "P4_1": 0.01876650675800741
       },
       "mean_wait_s": {
-       "calibration S": 1.5226310559916328e-05,
-       "search T_DEBRIS": 1.551804736898306e-05,
-       "search T_DECOY": 1.551804736898306e-05,
-       "search T_KKV_RETRO": 1.551804736898306e-05,
-       "search T_SHIP": 1.551804736898306e-05
+       "calibration S": 1.5226310559916336e-05,
+       "search T_DEBRIS": 1.5518047368983067e-05,
+       "search T_DECOY": 1.5518047368983067e-05,
+       "search T_KKV_RETRO": 1.5518047368983067e-05,
+       "search T_SHIP": 1.5518047368983067e-05
       },
       "stretch": {},
       "timeline": {
@@ -973,16 +973,16 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.019988307289192056,
+      "load": 0.01998830728919206,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
-       "P4_1": 0.019954973955858723
+       "P4_1": 0.019954973955858726
       },
       "mean_wait_s": {
-       "calibration S": 1.7052753089280016e-05,
-       "search T_DECOY": 1.7400560846483817e-05,
-       "search T_KKV": 1.7400560846483817e-05,
-       "search T_SHIP": 1.7400560846483817e-05
+       "calibration S": 1.7052753089280022e-05,
+       "search T_DECOY": 1.7400560846483824e-05,
+       "search T_KKV": 1.7400560846483824e-05,
+       "search T_SHIP": 1.7400560846483824e-05
       },
       "stretch": {},
       "timeline": {
@@ -1217,7 +1217,7 @@
    ],
    "slots": {
     "Ku": 0.00017681892680132378,
-    "S": 0.019988307289192056
+    "S": 0.01998830728919206
    }
   },
   "sectors": [
@@ -1233,34 +1233,34 @@
     "fa_per_rr": 10.0,
     "faces": {
      "0": {
-      "avg_power_kW": 18.49524583707021,
-      "dissipation_kW": 3.8219649782185106,
-      "dissipation_kW_m2": 0.2874435921165511,
-      "energy_J_per_refresh": 369904.9167414042,
-      "energy_fraction": 0.0103694990172067,
+      "avg_power_kW": 18.49524583707018,
+      "dissipation_kW": 3.8219649782185035,
+      "dissipation_kW_m2": 0.2874435921165506,
+      "energy_J_per_refresh": 369904.9167414036,
+      "energy_fraction": 0.010369499017206681,
       "positions": 1254.2,
       "theta_max_deg": 63.0,
-      "time_fraction": 0.0014972735570256837
+      "time_fraction": 0.0014972735570256807
      },
      "1": {
-      "avg_power_kW": 3.4519451946990096,
-      "dissipation_kW": 0.7086550435473652,
-      "dissipation_kW_m2": 0.0532967602920614,
-      "energy_J_per_refresh": 69038.9038939802,
-      "energy_fraction": 0.0019353590981817936,
+      "avg_power_kW": 3.451945194699002,
+      "dissipation_kW": 0.7086550435473634,
+      "dissipation_kW_m2": 0.05329676029206126,
+      "energy_J_per_refresh": 69038.90389398004,
+      "energy_fraction": 0.0019353590981817886,
       "positions": 186.4,
       "theta_max_deg": 63.0,
-      "time_fraction": 0.00027992756644404533
+      "time_fraction": 0.0002799275664440447
      },
      "3": {
-      "avg_power_kW": 3.4519451946990096,
-      "dissipation_kW": 0.7086550435473652,
-      "dissipation_kW_m2": 0.0532967602920614,
-      "energy_J_per_refresh": 69038.9038939802,
-      "energy_fraction": 0.0019353590981817936,
+      "avg_power_kW": 3.451945194699002,
+      "dissipation_kW": 0.7086550435473634,
+      "dissipation_kW_m2": 0.05329676029206126,
+      "energy_J_per_refresh": 69038.90389398004,
+      "energy_fraction": 0.0019353590981817886,
       "positions": 186.4,
       "theta_max_deg": 63.0,
-      "time_fraction": 0.00027992756644404533
+      "time_fraction": 0.0002799275664440447
      }
     },
     "flags": [],
@@ -1272,7 +1272,7 @@
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.010511779171792331,
+       "energy_max": 0.010511779171792303,
        "freq_ghz": 2.695,
        "groups": 13,
        "occupied_ghz": [
@@ -1282,13 +1282,13 @@
        "range_worst_km": 501,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.0015192774900901792,
+       "time_max": 0.0015192774900901751,
        "unscanned_pct": 0.0
       },
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.010433586670990196,
+       "energy_max": 0.010433586670990175,
        "freq_ghz": 2.77,
        "groups": 13,
        "occupied_ghz": [
@@ -1298,13 +1298,13 @@
        "range_worst_km": 503,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.0015072573956311478,
+       "time_max": 0.0015072573956311445,
        "unscanned_pct": 0.0
       },
       {
        "chosen": true,
        "degraded": false,
-       "energy_max": 0.0103694990172067,
+       "energy_max": 0.010369499017206681,
        "freq_ghz": 2.845,
        "groups": 13,
        "occupied_ghz": [
@@ -1314,7 +1314,7 @@
        "range_worst_km": 502,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.0014972735570256837,
+       "time_max": 0.0014972735570256807,
        "unscanned_pct": 0.0
       }
      ],
@@ -1347,7 +1347,7 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 0.207389980344134,
+    "rr_alone_s": 0.20738998034413364,
     "rr_est_mission_s": 20.0,
     "rr_target_s": 20.0,
     "rx_beams_per_position": 6.118998226960277,
@@ -1425,8 +1425,8 @@
     },
     "wf_by_bin": [
      {
-      "elec_J_per_position": 208.17484947891782,
-      "pae_at_scale": 0.7905848376741663,
+      "elec_J_per_position": 208.17484947891762,
+      "pae_at_scale": 0.7905848376741662,
       "positions": 20.5,
       "pulse_scale": 0.84,
       "range_km_at_bin_max": 522,
@@ -1471,7 +1471,7 @@
       }
      },
      {
-      "elec_J_per_position": 211.88054926177753,
+      "elec_J_per_position": 211.8805492617773,
       "pae_at_scale": 0.7907495048184983,
       "positions": 60.9,
       "pulse_scale": 0.855,
@@ -1517,7 +1517,7 @@
       }
      },
      {
-      "elec_J_per_position": 218.51136853532168,
+      "elec_J_per_position": 218.51136853532148,
       "pae_at_scale": 0.7910302149808596,
       "positions": 99.4,
       "pulse_scale": 0.882,
@@ -1563,7 +1563,7 @@
       }
      },
      {
-      "elec_J_per_position": 228.55226795939822,
+      "elec_J_per_position": 228.55226795939802,
       "pae_at_scale": 0.791424281117402,
       "positions": 134.9,
       "pulse_scale": 0.923,
@@ -1609,7 +1609,7 @@
       }
      },
      {
-      "elec_J_per_position": 242.79879545763697,
+      "elec_J_per_position": 242.79879545763677,
       "pae_at_scale": 0.7919274723076541,
       "positions": 166.4,
       "pulse_scale": 0.981,
@@ -1655,7 +1655,7 @@
       }
      },
      {
-      "elec_J_per_position": 270.8236140780691,
+      "elec_J_per_position": 270.8236140780685,
       "pae_at_scale": 0.7927628172060542,
       "positions": 197.1,
       "pulse_scale": 0.438,
@@ -1701,8 +1701,8 @@
       }
      },
      {
-      "elec_J_per_position": 298.85190713535445,
-      "pae_at_scale": 0.7934415677022524,
+      "elec_J_per_position": 298.8519071353538,
+      "pae_at_scale": 0.7934415677022523,
       "positions": 261.3,
       "pulse_scale": 0.484,
       "range_km_at_bin_max": 599,
@@ -1747,7 +1747,7 @@
       }
      },
      {
-      "elec_J_per_position": 337.8968238942872,
+      "elec_J_per_position": 337.8968238942865,
       "pae_at_scale": 0.7941994127751458,
       "positions": 286.9,
       "pulse_scale": 0.548,
@@ -1793,8 +1793,8 @@
       }
      },
      {
-      "elec_J_per_position": 393.5725882914,
-      "pae_at_scale": 0.7950199783767746,
+      "elec_J_per_position": 393.57258829139903,
+      "pae_at_scale": 0.7950199783767745,
       "positions": 182.9,
       "pulse_scale": 0.639,
       "range_km_at_bin_max": 559,
@@ -1839,7 +1839,7 @@
       }
      },
      {
-      "elec_J_per_position": 475.88734382397166,
+      "elec_J_per_position": 475.88734382397024,
       "pae_at_scale": 0.7958813781760816,
       "positions": 111.5,
       "pulse_scale": 0.773,
@@ -1885,8 +1885,8 @@
       }
      },
      {
-      "elec_J_per_position": 604.0134482233051,
-      "pae_at_scale": 0.7967550391373484,
+      "elec_J_per_position": 604.0134482233032,
+      "pae_at_scale": 0.7967550391373482,
       "positions": 69.6,
       "pulse_scale": 0.982,
       "range_km_at_bin_max": 502,
@@ -1931,7 +1931,7 @@
       }
      },
      {
-      "elec_J_per_position": 854.0883337406401,
+      "elec_J_per_position": 854.0883337406393,
       "pae_at_scale": 0.7977051554007115,
       "positions": 31.7,
       "pulse_scale": 0.695,
@@ -1977,8 +1977,8 @@
       }
      },
      {
-      "elec_J_per_position": 1068.4441167611983,
-      "pae_at_scale": 0.7981655568417173,
+      "elec_J_per_position": 1068.444116761198,
+      "pae_at_scale": 0.7981655568417172,
       "positions": 4.1,
       "pulse_scale": 0.87,
       "range_km_at_bin_max": 518,
@@ -2158,14 +2158,14 @@
     "fa_per_rr": 10.0,
     "faces": {
      "2": {
-      "avg_power_kW": 4.546613730058755,
-      "dissipation_kW": 0.9456973077246047,
-      "dissipation_kW_m2": 0.07112431242476194,
-      "energy_J_per_refresh": 136398.41190176262,
-      "energy_fraction": 0.002549093265414581,
+      "avg_power_kW": 4.5466137300587555,
+      "dissipation_kW": 0.9456973077246049,
+      "dissipation_kW_m2": 0.07112431242476196,
+      "energy_J_per_refresh": 136398.41190176265,
+      "energy_fraction": 0.0025490932654145815,
       "positions": 556.8,
       "theta_max_deg": 30.0,
-      "time_fraction": 0.00036744045125858667
+      "time_fraction": 0.0003674404512585868
      }
     },
     "flags": [],
@@ -2177,7 +2177,7 @@
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.002839850167055953,
+       "energy_max": 0.002839850167055955,
        "freq_ghz": 2.695,
        "groups": 6,
        "occupied_ghz": [
@@ -2187,13 +2187,13 @@
        "range_worst_km": 886,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.00041061501332090484,
+       "time_max": 0.00041061501332090506,
        "unscanned_pct": 0.0
       },
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.0026797513172801147,
+       "energy_max": 0.0026797513172801156,
        "freq_ghz": 2.77,
        "groups": 6,
        "occupied_ghz": [
@@ -2209,7 +2209,7 @@
       {
        "chosen": true,
        "degraded": false,
-       "energy_max": 0.002549093265414581,
+       "energy_max": 0.0025490932654145815,
        "freq_ghz": 2.845,
        "groups": 6,
        "occupied_ghz": [
@@ -2219,7 +2219,7 @@
        "range_worst_km": 802,
        "short_pct": 0.0,
        "spacing": 1.3,
-       "time_max": 0.00036744045125858667,
+       "time_max": 0.0003674404512585868,
        "unscanned_pct": 0.0
       }
      ],
@@ -2252,7 +2252,7 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 0.07647279796243743,
+    "rr_alone_s": 0.07647279796243744,
     "rr_est_mission_s": 30.0,
     "rr_target_s": 30.0,
     "rx_beams_per_position": 5.276075001817792,
@@ -2560,8 +2560,8 @@
       }
      },
      {
-      "elec_J_per_position": 290.3577614963741,
-      "pae_at_scale": 0.7932497068791996,
+      "elec_J_per_position": 290.3577614963742,
+      "pae_at_scale": 0.7932497068791995,
       "positions": 65.2,
       "pulse_scale": 0.47,
       "range_km_at_bin_max": 966,
@@ -2701,44 +2701,44 @@
     "fa_per_rr": 10.0,
     "faces": {
      "0": {
-      "avg_power_kW": 3.089317349982009,
-      "dissipation_kW": 0.6184138523833137,
-      "dissipation_kW_m2": 0.046509871272172446,
-      "energy_J_per_refresh": 370718.0819978411,
-      "energy_fraction": 0.0017320490631311655,
+      "avg_power_kW": 3.0893173499820152,
+      "dissipation_kW": 0.6184138523833149,
+      "dissipation_kW_m2": 0.046509871272172536,
+      "energy_J_per_refresh": 370718.08199784183,
+      "energy_fraction": 0.001732049063131169,
       "positions": 31.3,
       "theta_max_deg": 65.0,
-      "time_fraction": 0.00025213300995905055
+      "time_fraction": 0.00025213300995905103
      },
      "1": {
-      "avg_power_kW": 6.2234284962712465,
-      "dissipation_kW": 1.246092816686835,
-      "dissipation_kW_m2": 0.09371655611194271,
-      "energy_J_per_refresh": 746811.4195525496,
-      "energy_fraction": 0.003489212105869662,
+      "avg_power_kW": 6.223428496271255,
+      "dissipation_kW": 1.246092816686837,
+      "dissipation_kW_m2": 0.09371655611194285,
+      "energy_J_per_refresh": 746811.4195525507,
+      "energy_fraction": 0.0034892121058696674,
       "positions": 83.7,
       "theta_max_deg": 65.0,
-      "time_fraction": 0.0005078913958759603
+      "time_fraction": 0.0005078913958759611
      },
      "2": {
-      "avg_power_kW": 3.0893173499820095,
-      "dissipation_kW": 0.6184138523833138,
-      "dissipation_kW_m2": 0.04650987127217245,
-      "energy_J_per_refresh": 370718.08199784113,
-      "energy_fraction": 0.0017320490631311657,
+      "avg_power_kW": 3.0893173499820152,
+      "dissipation_kW": 0.6184138523833149,
+      "dissipation_kW_m2": 0.046509871272172536,
+      "energy_J_per_refresh": 370718.08199784183,
+      "energy_fraction": 0.001732049063131169,
       "positions": 31.3,
       "theta_max_deg": 65.0,
-      "time_fraction": 0.0002521330099590506
+      "time_fraction": 0.00025213300995905103
      },
      "3": {
-      "avg_power_kW": 1.2743124586275556,
-      "dissipation_kW": 0.25504933888880676,
-      "dissipation_kW_m2": 0.0191818340971095,
-      "energy_J_per_refresh": 152917.49503530667,
-      "energy_fraction": 0.000714452887177513,
+      "avg_power_kW": 1.274312458627558,
+      "dissipation_kW": 0.25504933888880726,
+      "dissipation_kW_m2": 0.019181834097109537,
+      "energy_J_per_refresh": 152917.49503530696,
+      "energy_fraction": 0.0007144528871775144,
       "positions": 9.0,
       "theta_max_deg": 65.0,
-      "time_fraction": 0.00010400644078966824
+      "time_fraction": 0.00010400644078966843
      }
     },
     "flags": [],
@@ -2750,7 +2750,7 @@
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.003658806050728378,
+       "energy_max": 0.0036588060507283774,
        "freq_ghz": 2.695,
        "groups": 6,
        "occupied_ghz": [
@@ -2760,13 +2760,13 @@
        "range_worst_km": 8044,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.000532564555887427,
+       "time_max": 0.0005325645558874268,
        "unscanned_pct": 0.0
       },
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.003553920402719902,
+       "energy_max": 0.0035539204027199007,
        "freq_ghz": 2.77,
        "groups": 6,
        "occupied_ghz": [
@@ -2776,13 +2776,13 @@
        "range_worst_km": 8005,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.0005172838030450311,
+       "time_max": 0.0005172838030450308,
        "unscanned_pct": 0.0
       },
       {
        "chosen": true,
        "degraded": false,
-       "energy_max": 0.003489212105869662,
+       "energy_max": 0.0034892121058696674,
        "freq_ghz": 2.845,
        "groups": 6,
        "occupied_ghz": [
@@ -2792,7 +2792,7 @@
        "range_worst_km": 8123,
        "short_pct": 0.0,
        "spacing": 1.6,
-       "time_max": 0.0005078913958759603,
+       "time_max": 0.0005078913958759611,
        "unscanned_pct": 0.0
       }
      ],
@@ -2825,7 +2825,7 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 0.41870545270435944,
+    "rr_alone_s": 0.4187054527043601,
     "rr_est_mission_s": 120.0,
     "rr_target_s": 120.0,
     "rx_beams_per_position": 7.992160949499142,
@@ -2903,8 +2903,8 @@
     },
     "wf_by_bin": [
      {
-      "elec_J_per_position": 5910.672337341117,
-      "pae_at_scale": 0.7996683964381485,
+      "elec_J_per_position": 5910.672337341123,
+      "pae_at_scale": 0.7996683964381484,
       "positions": 12.4,
       "pulse_scale": 0.804,
       "range_km_at_bin_max": 8449,
@@ -2949,7 +2949,7 @@
       }
      },
      {
-      "elec_J_per_position": 6891.289148795043,
+      "elec_J_per_position": 6891.289148795049,
       "pae_at_scale": 0.7997155829689221,
       "positions": 20.7,
       "pulse_scale": 0.937,
@@ -2995,7 +2995,7 @@
       }
      },
      {
-      "elec_J_per_position": 9074.148363146554,
+      "elec_J_per_position": 9074.148363146567,
       "pae_at_scale": 0.7997840017683687,
       "positions": 42.0,
       "pulse_scale": 0.741,
@@ -3041,7 +3041,7 @@
       }
      },
      {
-      "elec_J_per_position": 11529.217416566933,
+      "elec_J_per_position": 11529.217416566944,
       "pae_at_scale": 0.7998299971343082,
       "positions": 39.5,
       "pulse_scale": 0.941,
@@ -3087,8 +3087,8 @@
       }
      },
      {
-      "elec_J_per_position": 16057.84956859415,
-      "pae_at_scale": 0.7998779413151416,
+      "elec_J_per_position": 16057.8495685942,
+      "pae_at_scale": 0.7998779413151414,
       "positions": 31.2,
       "pulse_scale": 0.874,
       "range_km_at_bin_max": 8274,
@@ -3133,8 +3133,8 @@
       }
      },
      {
-      "elec_J_per_position": 30746.028102236654,
-      "pae_at_scale": 0.7998725038568572,
+      "elec_J_per_position": 30746.02810223667,
+      "pae_at_scale": 0.7998725038568573,
       "positions": 9.6,
       "pulse_scale": 0.836,
       "range_km_at_bin_max": 8365,
@@ -3354,14 +3354,14 @@
     "fa_per_rr": 10.0,
     "faces": {
      "1": {
-      "avg_power_kW": 194.49359912437757,
-      "dissipation_kW": 39.087435400873126,
-      "dissipation_kW_m2": 2.9397006257989475,
-      "energy_J_per_refresh": 5834807.973731327,
-      "energy_fraction": 0.10904430266782027,
+      "avg_power_kW": 194.4935991243776,
+      "dissipation_kW": 39.08743540087314,
+      "dissipation_kW_m2": 2.9397006257989484,
+      "energy_J_per_refresh": 5834807.973731328,
+      "energy_fraction": 0.10904430266782028,
       "positions": 762.5,
       "theta_max_deg": 51.0,
-      "time_fraction": 0.01585777180852086
+      "time_fraction": 0.015857771808520865
      },
      "2": {
       "avg_power_kW": 44.56423499300813,
@@ -3371,7 +3371,7 @@
       "energy_fraction": 0.024985274325813867,
       "positions": 134.1,
       "theta_max_deg": 51.0,
-      "time_fraction": 0.0036331876422094787
+      "time_fraction": 0.0036331876422094783
      }
     },
     "flags": [],
@@ -3383,7 +3383,7 @@
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.11037578488733948,
+       "energy_max": 0.11037578488733943,
        "freq_ghz": 2.695,
        "groups": 11,
        "occupied_ghz": [
@@ -3393,13 +3393,13 @@
        "range_worst_km": 301,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.0160519104279685,
+       "time_max": 0.016051910427968493,
        "unscanned_pct": 0.0
       },
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.11029501765083634,
+       "energy_max": 0.11029501765083627,
        "freq_ghz": 2.77,
        "groups": 11,
        "occupied_ghz": [
@@ -3409,13 +3409,13 @@
        "range_worst_km": 300,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.0160392169555009,
+       "time_max": 0.016039216955500885,
        "unscanned_pct": 0.0
       },
       {
        "chosen": true,
        "degraded": false,
-       "energy_max": 0.10904430266782027,
+       "energy_max": 0.10904430266782028,
        "freq_ghz": 2.845,
        "groups": 11,
        "occupied_ghz": [
@@ -3425,7 +3425,7 @@
        "range_worst_km": 304,
        "short_pct": 0.0,
        "spacing": 1.3,
-       "time_max": 0.01585777180852086,
+       "time_max": 0.015857771808520865,
        "unscanned_pct": 0.0
       }
      ],
@@ -3458,7 +3458,7 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 3.271329080034608,
+    "rr_alone_s": 3.2713290800346084,
     "rr_est_mission_s": 30.0,
     "rr_target_s": 30.0,
     "rx_beams_per_position": 5.276075001817792,
@@ -3536,7 +3536,7 @@
     },
     "wf_by_bin": [
      {
-      "elec_J_per_position": 6331.281930620425,
+      "elec_J_per_position": 6331.28193062043,
       "pae_at_scale": 0.7990712781290685,
       "positions": 23.8,
       "pulse_scale": 0.86,
@@ -3766,8 +3766,8 @@
       }
      },
      {
-      "elec_J_per_position": 8258.936652277673,
-      "pae_at_scale": 0.7990507252531308,
+      "elec_J_per_position": 8258.936652277678,
+      "pae_at_scale": 0.7990507252531307,
       "positions": 130.0,
       "pulse_scale": 0.842,
       "range_km_at_bin_max": 313,
@@ -3812,7 +3812,7 @@
       }
      },
      {
-      "elec_J_per_position": 9120.456591016411,
+      "elec_J_per_position": 9120.456591016416,
       "pae_at_scale": 0.7991403939132037,
       "positions": 114.3,
       "pulse_scale": 0.93,
@@ -3904,8 +3904,8 @@
       }
      },
      {
-      "elec_J_per_position": 12533.40147692592,
-      "pae_at_scale": 0.7990617072291468,
+      "elec_J_per_position": 12533.401476925907,
+      "pae_at_scale": 0.7990617072291469,
       "positions": 46.0,
       "pulse_scale": 0.852,
       "range_km_at_bin_max": 312,
@@ -3950,8 +3950,8 @@
       }
      },
      {
-      "elec_J_per_position": 15550.833049320674,
-      "pae_at_scale": 0.7989916938886638,
+      "elec_J_per_position": 15550.833049320696,
+      "pae_at_scale": 0.7989916938886636,
       "positions": 12.6,
       "pulse_scale": 0.792,
       "range_km_at_bin_max": 318,
@@ -3996,7 +3996,7 @@
       }
      },
      {
-      "elec_J_per_position": 16242.759069191663,
+      "elec_J_per_position": 16242.759069191674,
       "pae_at_scale": 0.7990346467657862,
       "positions": 0.0,
       "pulse_scale": 0.828,
@@ -4217,24 +4217,24 @@
     "fa_per_rr": 10.0,
     "faces": {
      "2": {
-      "avg_power_kW": 177.86643708513017,
-      "dissipation_kW": 35.6317296702434,
-      "dissipation_kW_m2": 2.679802778965991,
-      "energy_J_per_refresh": 5335993.112553905,
-      "energy_fraction": 0.09972215891564919,
+      "avg_power_kW": 177.86643708513026,
+      "dissipation_kW": 35.631729670243416,
+      "dissipation_kW_m2": 2.679802778965992,
+      "energy_J_per_refresh": 5335993.112553908,
+      "energy_fraction": 0.09972215891564923,
       "positions": 234.8,
       "theta_max_deg": 56.0,
-      "time_fraction": 0.014513745654580286
+      "time_fraction": 0.01451374565458029
      },
      "3": {
       "avg_power_kW": 239.84517259924243,
-      "dissipation_kW": 48.04898110271731,
-      "dissipation_kW_m2": 3.6136834859599074,
+      "dissipation_kW": 48.04898110271733,
+      "dissipation_kW_m2": 3.6136834859599083,
       "energy_J_per_refresh": 7195355.177977272,
       "energy_fraction": 0.13447100424935943,
       "positions": 341.8,
       "theta_max_deg": 56.0,
-      "time_fraction": 0.01957103994862501
+      "time_fraction": 0.019571039948625014
      }
     },
     "flags": [],
@@ -4246,7 +4246,7 @@
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.14137884709074017,
+       "energy_max": 0.1413788470907401,
        "freq_ghz": 2.695,
        "groups": 11,
        "occupied_ghz": [
@@ -4256,13 +4256,13 @@
        "range_worst_km": 1011,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.02057617590303634,
+       "time_max": 0.020576175903036335,
        "unscanned_pct": 0.0
       },
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.13982381007451375,
+       "energy_max": 0.1398238100745137,
        "freq_ghz": 2.77,
        "groups": 11,
        "occupied_ghz": [
@@ -4272,7 +4272,7 @@
        "range_worst_km": 1001,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.02035002291000448,
+       "time_max": 0.020350022910004477,
        "unscanned_pct": 0.0
       },
       {
@@ -4288,7 +4288,7 @@
        "range_worst_km": 1011,
        "short_pct": 0.0,
        "spacing": 1.3,
-       "time_max": 0.01957103994862501,
+       "time_max": 0.019571039948625014,
        "unscanned_pct": 0.0
       }
      ],
@@ -4721,7 +4721,7 @@
       }
      },
      {
-      "elec_J_per_position": 28164.05532157322,
+      "elec_J_per_position": 28164.055321573233,
       "pae_at_scale": 0.7997216309970108,
       "positions": 79.0,
       "pulse_scale": 0.958,
@@ -4813,8 +4813,8 @@
       }
      },
      {
-      "elec_J_per_position": 45868.31112429003,
-      "pae_at_scale": 0.7996581517911677,
+      "elec_J_per_position": 45868.31112428999,
+      "pae_at_scale": 0.7996581517911678,
       "positions": 14.3,
       "pulse_scale": 0.78,
       "range_km_at_bin_max": 1064,
@@ -4859,7 +4859,7 @@
       }
      },
      {
-      "elec_J_per_position": 48463.367258182065,
+      "elec_J_per_position": 48463.367258182116,
       "pae_at_scale": 0.7996764566540235,
       "positions": 0.4,
       "pulse_scale": 0.824,
@@ -5088,7 +5088,7 @@
    "confirm_p_min": 0.98,
    "faces": {
     "0": {
-     "alloc_MW": 2.0,
+     "alloc_MW": 1.9999999999999998,
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
@@ -5098,7 +5098,7 @@
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 2.0,
-     "confirm_energy": 1.64391522503468e-05,
+     "confirm_energy": 1.6439152250346804e-05,
      "confirm_ku_time": 1.9547067786450845e-06,
      "confirm_s_time": 0.0,
      "coolant_flow_L_s": 5.571039878942605,
@@ -5110,11 +5110,11 @@
      "heat_burst_ok": true,
      "heat_flux_W_cm2": 0.8409370666197629,
      "heat_load": 0.007007808888498024,
-     "load": 0.04685696399248888,
+     "load": 0.04685696399248887,
      "max_contiguous_tx_s": 0.3238582025694456,
      "max_contiguous_tx_thermal_s": Infinity,
      "non_tx_kW": 106.88,
-     "p_left_kW": 1906.2860720150222,
+     "p_left_kW": 1906.286072015022,
      "peak_MW": {
       "Ku": 14.134615384615383,
       "S": 12.25
@@ -5126,10 +5126,10 @@
      "status": "OK",
      "store_burst_deficit_MJ": 2.1862713705166392,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 0.013382553121464118,
+     "store_obs_deficit_MJ": 0.013382553121464167,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
-     "total_energy": 0.04685696399248888,
+     "total_energy": 0.04685696399248887,
      "total_ku_time": 0.00016862137344531177,
      "total_s_time": 0.0017333333333333333,
      "transient_MW_per_us": {
@@ -5148,7 +5148,7 @@
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 2.0,
-     "confirm_energy": 4.0495686281505235e-05,
+     "confirm_energy": 4.049568628150524e-05,
      "confirm_ku_time": 4.761256043592531e-06,
      "confirm_s_time": 0.0,
      "coolant_flow_L_s": 7.438604928679309,
@@ -5176,7 +5176,7 @@
      "status": "OK",
      "store_burst_deficit_MJ": 20.92046571666483,
      "store_burst_ok": false,
-     "store_obs_deficit_MJ": 0.013383651689140434,
+     "store_obs_deficit_MJ": 0.013383651689140482,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
      "total_energy": 0.14384729481166536,
@@ -5210,7 +5210,7 @@
      "heat_burst_ok": true,
      "heat_flux_W_cm2": 1.1623633239264302,
      "heat_load": 0.009686361032720251,
-     "load": 0.15763321084126888,
+     "load": 0.1576332108412689,
      "max_contiguous_tx_s": 0.3238363081016917,
      "max_contiguous_tx_thermal_s": Infinity,
      "non_tx_kW": 106.88,
@@ -5226,10 +5226,10 @@
      "status": "OK",
      "store_burst_deficit_MJ": 23.56002585855941,
      "store_burst_ok": false,
-     "store_obs_deficit_MJ": 0.013383805700681414,
+     "store_obs_deficit_MJ": 0.013383805700681463,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
-     "total_energy": 0.15763321084126888,
+     "total_energy": 0.1576332108412689,
      "total_ku_time": 0.00017568733747921919,
      "total_s_time": 0.018833333333333334,
      "transient_MW_per_us": {
@@ -5248,7 +5248,7 @@
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 2.0,
-     "confirm_energy": 7.133794957415222e-05,
+     "confirm_energy": 7.13379495741522e-05,
      "confirm_ku_time": 8.803972084060277e-06,
      "confirm_s_time": 0.0,
      "coolant_flow_L_s": 7.846441566317782,
@@ -5276,7 +5276,7 @@
      "status": "OK",
      "store_burst_deficit_MJ": 25.03883827063566,
      "store_burst_ok": false,
-     "store_obs_deficit_MJ": 0.013383891593044926,
+     "store_obs_deficit_MJ": 0.013383891593044976,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
      "total_energy": 0.16534468557695073,
@@ -5323,18 +5323,18 @@
        "admissible": true,
        "faces": {
         "0": {
-         "energy_fraction": 7.933414352207403e-07,
-         "ku_time_fraction": 1.4670311225362259e-08,
+         "energy_fraction": 7.933414352207401e-07,
+         "ku_time_fraction": 1.4670311225362254e-08,
          "s_time_fraction": 0.0
         },
         "1": {
          "energy_fraction": 1.226685945162094e-07,
-         "ku_time_fraction": 2.7824450374767503e-09,
+         "ku_time_fraction": 2.7824450374767495e-09,
          "s_time_fraction": 0.0
         },
         "3": {
-         "energy_fraction": 1.2266859451620944e-07,
-         "ku_time_fraction": 2.7824450374767508e-09,
+         "energy_fraction": 1.2266859451620941e-07,
+         "ku_time_fraction": 2.78244503747675e-09,
          "s_time_fraction": 0.0
         }
        },
@@ -5346,7 +5346,7 @@
        "faces": {
         "0": {
          "energy_fraction": 2.6840522594144172e-06,
-         "ku_time_fraction": 2.694551886354379e-08,
+         "ku_time_fraction": 2.6945518863543787e-08,
          "s_time_fraction": 0.0
         },
         "1": {
@@ -5367,19 +5367,19 @@
        "admissible": true,
        "faces": {
         "0": {
-         "energy_fraction": 2.3432771709238157e-05,
-         "ku_time_fraction": 1.4153223251213143e-09,
-         "s_time_fraction": 3.3779373599528345e-06
+         "energy_fraction": 2.3432771709238116e-05,
+         "ku_time_fraction": 1.4153223251213134e-09,
+         "s_time_fraction": 3.377937359952829e-06
         },
         "1": {
-         "energy_fraction": 4.46237122301567e-06,
-         "ku_time_fraction": 2.684371530684151e-10,
-         "s_time_fraction": 6.446218946079319e-07
+         "energy_fraction": 4.462371223015659e-06,
+         "ku_time_fraction": 2.6843715306841493e-10,
+         "s_time_fraction": 6.446218946079303e-07
         },
         "3": {
-         "energy_fraction": 4.46237122301567e-06,
-         "ku_time_fraction": 2.684371530684152e-10,
-         "s_time_fraction": 6.44621894607932e-07
+         "energy_fraction": 4.46237122301566e-06,
+         "ku_time_fraction": 2.6843715306841503e-10,
+         "s_time_fraction": 6.446218946079304e-07
         }
        },
        "mission_max_load": 0.1372,
@@ -5394,18 +5394,18 @@
       "cluster_tx": "superposition x7",
       "faces": {
        "0": {
-        "energy_fraction": 7.933414352207403e-07,
-        "ku_time_fraction": 1.4670311225362259e-08,
+        "energy_fraction": 7.933414352207401e-07,
+        "ku_time_fraction": 1.4670311225362254e-08,
         "s_time_fraction": 0.0
        },
        "1": {
         "energy_fraction": 1.226685945162094e-07,
-        "ku_time_fraction": 2.7824450374767503e-09,
+        "ku_time_fraction": 2.7824450374767495e-09,
         "s_time_fraction": 0.0
        },
        "3": {
-        "energy_fraction": 1.2266859451620944e-07,
-        "ku_time_fraction": 2.7824450374767508e-09,
+        "energy_fraction": 1.2266859451620941e-07,
+        "ku_time_fraction": 2.78244503747675e-09,
         "s_time_fraction": 0.0
        }
       },
@@ -5487,7 +5487,7 @@
        "faces": {
         "2": {
          "energy_fraction": 6.009750135267897e-07,
-         "ku_time_fraction": 6.032567243257219e-09,
+         "ku_time_fraction": 6.032567243257216e-09,
          "s_time_fraction": 0.0
         }
        },
@@ -5499,7 +5499,7 @@
        "faces": {
         "2": {
          "energy_fraction": 2.1443792332054852e-06,
-         "ku_time_fraction": 1.5291649809117773e-08,
+         "ku_time_fraction": 1.529164980911777e-08,
          "s_time_fraction": 0.0
         }
        },
@@ -5510,8 +5510,8 @@
        "admissible": true,
        "faces": {
         "2": {
-         "energy_fraction": 1.761556665071049e-05,
-         "ku_time_fraction": 1.2089981766984786e-09,
+         "energy_fraction": 1.7615566650710495e-05,
+         "ku_time_fraction": 1.208998176698478e-09,
          "s_time_fraction": 2.5345820521302067e-06
         }
        },
@@ -5528,7 +5528,7 @@
       "faces": {
        "2": {
         "energy_fraction": 6.009750135267897e-07,
-        "ku_time_fraction": 6.032567243257219e-09,
+        "ku_time_fraction": 6.032567243257216e-09,
         "s_time_fraction": 0.0
        }
       },
@@ -5607,12 +5607,12 @@
        "admissible": true,
        "faces": {
         "0": {
-         "energy_fraction": 1.564581081512606e-05,
+         "energy_fraction": 1.5645810815126062e-05,
          "ku_time_fraction": 1.940036467419722e-06,
          "s_time_fraction": 0.0
         },
         "1": {
-         "energy_fraction": 3.2449526428076756e-05,
+         "energy_fraction": 3.244952642807677e-05,
          "ku_time_fraction": 4.004696436550704e-06,
          "s_time_fraction": 0.0
         },
@@ -5623,7 +5623,7 @@
         },
         "3": {
          "energy_fraction": 6.1618770397001384e-06,
-         "ku_time_fraction": 7.679550163232932e-07,
+         "ku_time_fraction": 7.679550163232933e-07,
          "s_time_fraction": 0.0
         }
        },
@@ -5661,24 +5661,24 @@
        "admissible": true,
        "faces": {
         "0": {
-         "energy_fraction": 5.0560103758966e-05,
-         "ku_time_fraction": 1.9296403431944174e-07,
-         "s_time_fraction": 7.134149599005134e-06
+         "energy_fraction": 5.05601037589661e-05,
+         "ku_time_fraction": 1.9296403431944182e-07,
+         "s_time_fraction": 7.134149599005145e-06
         },
         "1": {
-         "energy_fraction": 0.00010012754677641486,
-         "ku_time_fraction": 3.960895235954279e-07,
-         "s_time_fraction": 1.4110016072641972e-05
+         "energy_fraction": 0.00010012754677641497,
+         "ku_time_fraction": 3.96089523595428e-07,
+         "s_time_fraction": 1.4110016072641989e-05
         },
         "2": {
-         "energy_fraction": 5.056010375896601e-05,
-         "ku_time_fraction": 1.9296403431944177e-07,
-         "s_time_fraction": 7.134149599005134e-06
+         "energy_fraction": 5.056010375896609e-05,
+         "ku_time_fraction": 1.9296403431944182e-07,
+         "s_time_fraction": 7.134149599005143e-06
         },
         "3": {
-         "energy_fraction": 2.1285449900086e-05,
-         "ku_time_fraction": 7.777237936530637e-08,
-         "s_time_fraction": 3.008094464158406e-06
+         "energy_fraction": 2.1285449900086045e-05,
+         "ku_time_fraction": 7.777237936530641e-08,
+         "s_time_fraction": 3.0080944641584124e-06
         }
        },
        "mission_max_load": 0.1372,
@@ -5693,12 +5693,12 @@
       "cluster_tx": "superposition x7",
       "faces": {
        "0": {
-        "energy_fraction": 1.564581081512606e-05,
+        "energy_fraction": 1.5645810815126062e-05,
         "ku_time_fraction": 1.940036467419722e-06,
         "s_time_fraction": 0.0
        },
        "1": {
-        "energy_fraction": 3.2449526428076756e-05,
+        "energy_fraction": 3.244952642807677e-05,
         "ku_time_fraction": 4.004696436550704e-06,
         "s_time_fraction": 0.0
        },
@@ -5709,15 +5709,15 @@
        },
        "3": {
         "energy_fraction": 6.1618770397001384e-06,
-        "ku_time_fraction": 7.679550163232932e-07,
+        "ku_time_fraction": 7.679550163232933e-07,
         "s_time_fraction": 0.0
        }
       },
       "ku_looks_fa": 2.0,
-      "ku_looks_true": 1.0583670652272004,
+      "ku_looks_true": 1.0583670652272006,
       "margin_db": 7.5,
       "round_trips": 2,
-      "success": 0.9803018211076453,
+      "success": 0.9803018211076452,
       "why_not": ""
      },
      "discrimination": null,
@@ -5792,13 +5792,13 @@
        "admissible": true,
        "faces": {
         "1": {
-         "energy_fraction": 7.92349125891227e-06,
-         "ku_time_fraction": 7.53777162004351e-07,
+         "energy_fraction": 7.923491258912266e-06,
+         "ku_time_fraction": 7.537771620043504e-07,
          "s_time_fraction": 0.0
         },
         "2": {
-         "energy_fraction": 1.676284256114269e-06,
-         "ku_time_fraction": 1.6913963441324084e-07,
+         "energy_fraction": 1.676284256114268e-06,
+         "ku_time_fraction": 1.6913963441324065e-07,
          "s_time_fraction": 0.0
         }
        },
@@ -5809,13 +5809,13 @@
        "admissible": true,
        "faces": {
         "1": {
-         "energy_fraction": 1.9118666587398285e-05,
-         "ku_time_fraction": 1.5137992125675954e-06,
+         "energy_fraction": 1.9118666587398275e-05,
+         "ku_time_fraction": 1.513799212567594e-06,
          "s_time_fraction": 0.0
         },
         "2": {
-         "energy_fraction": 3.926380577809178e-06,
-         "ku_time_fraction": 3.405143956547603e-07,
+         "energy_fraction": 3.926380577809175e-06,
+         "ku_time_fraction": 3.4051439565476005e-07,
          "s_time_fraction": 0.0
         }
        },
@@ -5826,13 +5826,13 @@
        "admissible": true,
        "faces": {
         "1": {
-         "energy_fraction": 0.0005427459350229472,
-         "ku_time_fraction": 6.918625793213932e-08,
+         "energy_fraction": 0.0005427459350229473,
+         "ku_time_fraction": 6.918625793213926e-08,
          "s_time_fraction": 7.883478522980187e-05
         },
         "2": {
          "energy_fraction": 0.00012546769197705208,
-         "ku_time_fraction": 1.5771536849422505e-08,
+         "ku_time_fraction": 1.5771536849422488e-08,
          "s_time_fraction": 1.8224669786415184e-05
         }
        },
@@ -5848,13 +5848,13 @@
       "cluster_tx": "superposition x7",
       "faces": {
        "1": {
-        "energy_fraction": 7.92349125891227e-06,
-        "ku_time_fraction": 7.53777162004351e-07,
+        "energy_fraction": 7.923491258912266e-06,
+        "ku_time_fraction": 7.537771620043504e-07,
         "s_time_fraction": 0.0
        },
        "2": {
-        "energy_fraction": 1.676284256114269e-06,
-        "ku_time_fraction": 1.6913963441324084e-07,
+        "energy_fraction": 1.676284256114268e-06,
+        "ku_time_fraction": 1.6913963441324065e-07,
         "s_time_fraction": 0.0
        }
       },
@@ -5942,7 +5942,7 @@
          "s_time_fraction": 0.0
         },
         "3": {
-         "energy_fraction": 6.505340393993586e-05,
+         "energy_fraction": 6.505340393993585e-05,
          "ku_time_fraction": 8.033234622699508e-06,
          "s_time_fraction": 0.0
         }
@@ -5954,13 +5954,13 @@
        "admissible": true,
        "faces": {
         "2": {
-         "energy_fraction": 5.761214393278177e-05,
+         "energy_fraction": 5.7612143932781766e-05,
          "ku_time_fraction": 7.150172908010953e-06,
          "s_time_fraction": 0.0
         },
         "3": {
          "energy_fraction": 7.763659450855762e-05,
-         "ku_time_fraction": 9.62115377148063e-06,
+         "ku_time_fraction": 9.621153771480629e-06,
          "s_time_fraction": 0.0
         }
        },
@@ -5971,13 +5971,13 @@
        "admissible": true,
        "faces": {
         "2": {
-         "energy_fraction": 0.000558268693988249,
+         "energy_fraction": 0.0005582686939882491,
          "ku_time_fraction": 5.030734531455081e-07,
-         "s_time_fraction": 8.066731261305785e-05
+         "s_time_fraction": 8.066731261305787e-05
         },
         "3": {
-         "energy_fraction": 0.0007488381758273945,
-         "ku_time_fraction": 6.759788221204874e-07,
+         "energy_fraction": 0.0007488381758273946,
+         "ku_time_fraction": 6.759788221204873e-07,
          "s_time_fraction": 0.0001082006037305135
         }
        },
@@ -5994,7 +5994,7 @@
        "cluster_update_share": 0.0,
        "deception_verification": false,
        "driver": "DOP",
-       "energy_per_update_J": 6.324863583793366,
+       "energy_per_update_J": 6.324863583793364,
        "faces": {
         "2": {
          "energy_fraction": 8.886188649902185e-06,
@@ -6005,8 +6005,8 @@
          "ku_time_fraction": 1.3482880505968085e-06
         }
        },
-       "filtered_range_sigma_m": 9.99980413075798,
-       "filtered_vr_sigma_mps": 0.35533868988492484,
+       "filtered_range_sigma_m": 9.999804130756058,
+       "filtered_vr_sigma_mps": 0.35533868988486733,
        "init_energy_J": 843.4178226294747,
        "init_looks": 32,
        "init_tk": [
@@ -6018,8 +6018,8 @@
        "initiations_per_s": 0.034322928659902496,
        "n_targets": 2.0,
        "p_loss_per_update": 0.0009895953265691613,
-       "pointing_sigma_hpbw": 0.1663662470411181,
-       "predicted_angle_sigma_mrad": 0.8726646258620944,
+       "pointing_sigma_hpbw": 0.16636624704111852,
+       "predicted_angle_sigma_mrad": 0.8726646258620966,
        "r_max_km": 600.0,
        "r_min_km": 200.0,
        "range_acc_m": 10.0,
@@ -6035,7 +6035,7 @@
         1.18564182777002
        ],
        "unreachable_tracks": 0.0,
-       "velocity_bank_mps": 2.2063012616094295,
+       "velocity_bank_mps": 2.2063012616090285,
        "vr_acc_mps": 5.0,
        "wf": "14.2 GHz COHE tau 5 us x N 1 @ PRI 0.5 ms B 200 MHz",
        "wf_params": {
@@ -6063,7 +6063,7 @@
         "s_time_fraction": 0.0
        },
        "3": {
-        "energy_fraction": 6.505340393993586e-05,
+        "energy_fraction": 6.505340393993585e-05,
         "ku_time_fraction": 8.033234622699508e-06,
         "s_time_fraction": 0.0
        }
@@ -6178,6 +6178,1702 @@
      2.493
     ]
    }
+  },
+  "verdict": {
+   "advice": [],
+   "constraints": [
+    {
+     "family": "sector",
+     "id": "T_KKV.plan",
+     "kind": "spec",
+     "limit": "OK",
+     "load": 0.0,
+     "note": "",
+     "object": "T_KKV",
+     "priority": "P4_1",
+     "quantity": "plan",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "",
+     "value": "OK"
+    },
+    {
+     "family": "sector",
+     "id": "T_KKV.range",
+     "kind": "spec",
+     "limit": 500.0,
+     "load": 0.0,
+     "note": "",
+     "object": "T_KKV",
+     "priority": "P4_1",
+     "quantity": "range",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "km",
+     "value": 518
+    },
+    {
+     "family": "sector",
+     "id": "T_KKV.revisit",
+     "kind": "spec",
+     "limit": 20.0,
+     "load": 1.0,
+     "note": "",
+     "object": "T_KKV",
+     "priority": "P4_1",
+     "quantity": "revisit",
+     "state": "OK",
+     "step": "2.3",
+     "unit": "s",
+     "value": 20.0
+    },
+    {
+     "family": "sector",
+     "id": "T_KKV_RETRO.plan",
+     "kind": "spec",
+     "limit": "OK",
+     "load": 0.0,
+     "note": "",
+     "object": "T_KKV_RETRO",
+     "priority": "P4_1",
+     "quantity": "plan",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "",
+     "value": "OK"
+    },
+    {
+     "family": "sector",
+     "id": "T_KKV_RETRO.range",
+     "kind": "spec",
+     "limit": 800.0,
+     "load": 0.0,
+     "note": "",
+     "object": "T_KKV_RETRO",
+     "priority": "P4_1",
+     "quantity": "range",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "km",
+     "value": 966
+    },
+    {
+     "family": "sector",
+     "id": "T_KKV_RETRO.revisit",
+     "kind": "spec",
+     "limit": 30.0,
+     "load": 1.0,
+     "note": "",
+     "object": "T_KKV_RETRO",
+     "priority": "P4_1",
+     "quantity": "revisit",
+     "state": "OK",
+     "step": "2.3",
+     "unit": "s",
+     "value": 30.0
+    },
+    {
+     "family": "sector",
+     "id": "T_SHIP.plan",
+     "kind": "spec",
+     "limit": "OK",
+     "load": 0.0,
+     "note": "",
+     "object": "T_SHIP",
+     "priority": "P4_1",
+     "quantity": "plan",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "",
+     "value": "OK"
+    },
+    {
+     "family": "sector",
+     "id": "T_SHIP.range",
+     "kind": "spec",
+     "limit": 8000.0,
+     "load": 0.0,
+     "note": "",
+     "object": "T_SHIP",
+     "priority": "P4_1",
+     "quantity": "range",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "km",
+     "value": 8365
+    },
+    {
+     "family": "sector",
+     "id": "T_SHIP.revisit",
+     "kind": "spec",
+     "limit": 120.0,
+     "load": 1.0,
+     "note": "",
+     "object": "T_SHIP",
+     "priority": "P4_1",
+     "quantity": "revisit",
+     "state": "OK",
+     "step": "2.3",
+     "unit": "s",
+     "value": 120.0
+    },
+    {
+     "family": "sector",
+     "id": "T_DEBRIS.plan",
+     "kind": "spec",
+     "limit": "OK",
+     "load": 0.0,
+     "note": "",
+     "object": "T_DEBRIS",
+     "priority": "P4_1",
+     "quantity": "plan",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "",
+     "value": "OK"
+    },
+    {
+     "family": "sector",
+     "id": "T_DEBRIS.range",
+     "kind": "spec",
+     "limit": 300.0,
+     "load": 0.0,
+     "note": "",
+     "object": "T_DEBRIS",
+     "priority": "P4_1",
+     "quantity": "range",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "km",
+     "value": 315
+    },
+    {
+     "family": "sector",
+     "id": "T_DEBRIS.revisit",
+     "kind": "spec",
+     "limit": 30.0,
+     "load": 1.0,
+     "note": "",
+     "object": "T_DEBRIS",
+     "priority": "P4_1",
+     "quantity": "revisit",
+     "state": "OK",
+     "step": "2.3",
+     "unit": "s",
+     "value": 30.0
+    },
+    {
+     "family": "sector",
+     "id": "T_DECOY.plan",
+     "kind": "spec",
+     "limit": "OK",
+     "load": 0.0,
+     "note": "",
+     "object": "T_DECOY",
+     "priority": "P4_1",
+     "quantity": "plan",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "",
+     "value": "OK"
+    },
+    {
+     "family": "sector",
+     "id": "T_DECOY.range",
+     "kind": "spec",
+     "limit": 1000.0,
+     "load": 0.0,
+     "note": "",
+     "object": "T_DECOY",
+     "priority": "P4_1",
+     "quantity": "range",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "km",
+     "value": 1050
+    },
+    {
+     "family": "sector",
+     "id": "T_DECOY.revisit",
+     "kind": "spec",
+     "limit": 30.0,
+     "load": 1.0,
+     "note": "",
+     "object": "T_DECOY",
+     "priority": "P4_1",
+     "quantity": "revisit",
+     "state": "OK",
+     "step": "2.3",
+     "unit": "s",
+     "value": 30.0
+    },
+    {
+     "family": "confirmation",
+     "id": "T_KKV.confirmation mode",
+     "kind": "spec",
+     "limit": "admissible",
+     "load": 0.0,
+     "note": "",
+     "object": "T_KKV",
+     "priority": "P2",
+     "quantity": "confirmation mode",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": "KU1+7"
+    },
+    {
+     "family": "confirmation",
+     "id": "T_KKV.P confirm",
+     "kind": "spec",
+     "limit": 0.98,
+     "load": 0.9982552919357004,
+     "note": "",
+     "object": "T_KKV",
+     "priority": "P2",
+     "quantity": "P confirm",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": 0.980034894161286
+    },
+    {
+     "family": "confirmation",
+     "id": "T_KKV.confirmation latency",
+     "kind": "spec",
+     "limit": 2.0,
+     "load": 0.003335669509282741,
+     "note": "95 % quantile",
+     "object": "T_KKV",
+     "priority": "P2",
+     "quantity": "confirmation latency",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "s",
+     "value": 0.006671339018565482
+    },
+    {
+     "family": "confirmation",
+     "id": "T_KKV_RETRO.confirmation mode",
+     "kind": "spec",
+     "limit": "admissible",
+     "load": 0.0,
+     "note": "",
+     "object": "T_KKV_RETRO",
+     "priority": "P2",
+     "quantity": "confirmation mode",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": "KU1+7"
+    },
+    {
+     "family": "confirmation",
+     "id": "T_KKV_RETRO.P confirm",
+     "kind": "spec",
+     "limit": 0.98,
+     "load": 0.9982552919357004,
+     "note": "",
+     "object": "T_KKV_RETRO",
+     "priority": "P2",
+     "quantity": "P confirm",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": 0.980034894161286
+    },
+    {
+     "family": "confirmation",
+     "id": "T_KKV_RETRO.confirmation latency",
+     "kind": "spec",
+     "limit": 3.2,
+     "load": 0.0033356501821601276,
+     "note": "95 % quantile",
+     "object": "T_KKV_RETRO",
+     "priority": "P2",
+     "quantity": "confirmation latency",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "s",
+     "value": 0.010674080582912408
+    },
+    {
+     "family": "confirmation",
+     "id": "T_SHIP.confirmation mode",
+     "kind": "spec",
+     "limit": "admissible",
+     "load": 0.0,
+     "note": "",
+     "object": "T_SHIP",
+     "priority": "P2",
+     "quantity": "confirmation mode",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": "KU1+7"
+    },
+    {
+     "family": "confirmation",
+     "id": "T_SHIP.P confirm",
+     "kind": "spec",
+     "limit": 0.98,
+     "load": 0.9849089446177397,
+     "note": "",
+     "object": "T_SHIP",
+     "priority": "P2",
+     "quantity": "P confirm",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": 0.9803018211076452
+    },
+    {
+     "family": "confirmation",
+     "id": "T_SHIP.confirmation latency",
+     "kind": "spec",
+     "limit": 160.0,
+     "load": 0.000668020548048468,
+     "note": "95 % quantile",
+     "object": "T_SHIP",
+     "priority": "P2",
+     "quantity": "confirmation latency",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "s",
+     "value": 0.10688328768775489
+    },
+    {
+     "family": "confirmation",
+     "id": "T_DEBRIS.confirmation mode",
+     "kind": "spec",
+     "limit": "admissible",
+     "load": 0.0,
+     "note": "",
+     "object": "T_DEBRIS",
+     "priority": "P2",
+     "quantity": "confirmation mode",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": "KU1+7"
+    },
+    {
+     "family": "confirmation",
+     "id": "T_DEBRIS.P confirm",
+     "kind": "spec",
+     "limit": 0.98,
+     "load": 0.98040318360078,
+     "note": "",
+     "object": "T_DEBRIS",
+     "priority": "P2",
+     "quantity": "P confirm",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": 0.9803919363279844
+    },
+    {
+     "family": "confirmation",
+     "id": "T_DEBRIS.confirmation latency",
+     "kind": "spec",
+     "limit": 2.0,
+     "load": 0.00200320929292521,
+     "note": "95 % quantile",
+     "object": "T_DEBRIS",
+     "priority": "P2",
+     "quantity": "confirmation latency",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "s",
+     "value": 0.00400641858585042
+    },
+    {
+     "family": "confirmation",
+     "id": "T_DECOY.confirmation mode",
+     "kind": "spec",
+     "limit": "admissible",
+     "load": 0.0,
+     "note": "",
+     "object": "T_DECOY",
+     "priority": "P2",
+     "quantity": "confirmation mode",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": "KU1+7"
+    },
+    {
+     "family": "confirmation",
+     "id": "T_DECOY.P confirm",
+     "kind": "spec",
+     "limit": 0.98,
+     "load": 0.9664877678750896,
+     "note": "",
+     "object": "T_DECOY",
+     "priority": "P2",
+     "quantity": "P confirm",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": 0.9806702446424982
+    },
+    {
+     "family": "confirmation",
+     "id": "T_DECOY.confirmation latency",
+     "kind": "spec",
+     "limit": 4.0,
+     "load": 0.003347251504331453,
+     "note": "95 % quantile",
+     "object": "T_DECOY",
+     "priority": "P2",
+     "quantity": "confirmation latency",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "s",
+     "value": 0.013389006017325813
+    },
+    {
+     "family": "track",
+     "id": "T_DECOY/0 200-600 km.track period",
+     "kind": "spec",
+     "limit": 2.0,
+     "load": 0.0,
+     "note": "",
+     "object": "T_DECOY/0 200-600 km",
+     "priority": "P3 DECOY",
+     "quantity": "track period",
+     "state": "OK",
+     "step": "3.3",
+     "unit": "s",
+     "value": 2.0
+    },
+    {
+     "family": "track",
+     "id": "T_DECOY/0 200-600 km.track reach",
+     "kind": "spec",
+     "limit": 2.0,
+     "load": 0.0,
+     "note": "",
+     "object": "T_DECOY/0 200-600 km",
+     "priority": "P3 DECOY",
+     "quantity": "track reach",
+     "state": "OK",
+     "step": "3.3",
+     "unit": "",
+     "value": 2.0
+    },
+    {
+     "family": "face",
+     "id": "F1.energy",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.04685696399248887,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "energy",
+     "state": "OK",
+     "step": "5.2",
+     "unit": "",
+     "value": 0.04685696399248887
+    },
+    {
+     "family": "face",
+     "id": "F1.S time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.001782739900318065,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "S time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.001782739900318065
+    },
+    {
+     "family": "face",
+     "id": "F1.Ku time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.00017206057305182615,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "Ku time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.00017206057305182615
+    },
+    {
+     "family": "face",
+     "id": "F1.heat",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.007007808888498024,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "heat",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "",
+     "value": 0.007007808888498024
+    },
+    {
+     "family": "face",
+     "id": "F1.compute",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 1.093318698342685e-06,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "compute",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 1.093318698342685e-06
+    },
+    {
+     "family": "face",
+     "id": "F1.memory",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0002367658476495089,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "memory",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0002367658476495089
+    },
+    {
+     "family": "face",
+     "id": "F1.memory bandwidth",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.006369109723481517,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "memory bandwidth",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.006369109723481517
+    },
+    {
+     "family": "face",
+     "id": "F1.S beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.015609689354490511,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "S beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.015609689354490511
+    },
+    {
+     "family": "face",
+     "id": "F1.Ku beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.21875,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "Ku beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.21875
+    },
+    {
+     "family": "face",
+     "id": "F1.S TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.05,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "S TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.2
+    },
+    {
+     "family": "face",
+     "id": "F1.S processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.098,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "S processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 39.2
+    },
+    {
+     "family": "face",
+     "id": "F1.Ku TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.028,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "Ku TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.112
+    },
+    {
+     "family": "face",
+     "id": "F1.Ku processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.05488,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "Ku processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 21.952
+    },
+    {
+     "family": "face",
+     "id": "F1.processing power",
+     "kind": "resource",
+     "limit": 50.0,
+     "load": 0.20000341586734155,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "processing power",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "kW",
+     "value": 10.000170793367078
+    },
+    {
+     "family": "face",
+     "id": "F1.storage (observation)",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.0033456382803660418,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "storage (observation)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.013382553121464167
+    },
+    {
+     "family": "face",
+     "id": "F1.storage (burst)",
+     "kind": "spec",
+     "limit": 4.0,
+     "load": null,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "storage (burst)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 2.1862713705166392
+    },
+    {
+     "family": "face",
+     "id": "F1.heat (burst)",
+     "kind": "spec",
+     "limit": 0.0,
+     "load": null,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "heat (burst)",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F1.peak power",
+     "kind": "spec",
+     "limit": null,
+     "load": 0.0,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "peak power",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "",
+     "value": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     }
+    },
+    {
+     "family": "face",
+     "id": "F2.energy",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.14384729481166536,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "energy",
+     "state": "OK",
+     "step": "5.2",
+     "unit": "",
+     "value": 0.14384729481166536
+    },
+    {
+     "family": "face",
+     "id": "F2.S time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.016678924104174205,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "S time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.016678924104174205
+    },
+    {
+     "family": "face",
+     "id": "F2.Ku time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.00017492436466352038,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "Ku time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.00017492436466352038
+    },
+    {
+     "family": "face",
+     "id": "F2.heat",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.009357018235367243,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "heat",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "",
+     "value": 0.009357018235367243
+    },
+    {
+     "family": "face",
+     "id": "F2.compute",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 5.653115380124754e-06,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "compute",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 5.653115380124754e-06
+    },
+    {
+     "family": "face",
+     "id": "F2.memory",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0002542663756495089,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "memory",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0002542663756495089
+    },
+    {
+     "family": "face",
+     "id": "F2.memory bandwidth",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.023516248015917614,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "memory bandwidth",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.023516248015917614
+    },
+    {
+     "family": "face",
+     "id": "F2.S beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.015609689354490511,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "S beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.015609689354490511
+    },
+    {
+     "family": "face",
+     "id": "F2.Ku beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.21875,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "Ku beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.21875
+    },
+    {
+     "family": "face",
+     "id": "F2.S TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.05,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "S TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.2
+    },
+    {
+     "family": "face",
+     "id": "F2.S processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.098,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "S processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 39.2
+    },
+    {
+     "family": "face",
+     "id": "F2.Ku TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.028,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "Ku TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.112
+    },
+    {
+     "family": "face",
+     "id": "F2.Ku processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.05488,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "Ku processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 21.952
+    },
+    {
+     "family": "face",
+     "id": "F2.processing power",
+     "kind": "resource",
+     "limit": 50.0,
+     "load": 0.20001390825237636,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "processing power",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "kW",
+     "value": 10.000695412618818
+    },
+    {
+     "family": "face",
+     "id": "F2.storage (observation)",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.0033459129222851206,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "storage (observation)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.013383651689140482
+    },
+    {
+     "family": "face",
+     "id": "F2.storage (burst)",
+     "kind": "spec",
+     "limit": 4.0,
+     "load": null,
+     "note": "scheduler rule: a revisit packed together would exhaust the storage, spread (at most 0.32 s contiguous at peak power)",
+     "object": "F2",
+     "priority": null,
+     "quantity": "storage (burst)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 20.92046571666483
+    },
+    {
+     "family": "face",
+     "id": "F2.heat (burst)",
+     "kind": "spec",
+     "limit": 0.0,
+     "load": null,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "heat (burst)",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F2.peak power",
+     "kind": "spec",
+     "limit": null,
+     "load": 0.0,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "peak power",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "",
+     "value": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     }
+    },
+    {
+     "family": "face",
+     "id": "F3.energy",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.1576332108412689,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "energy",
+     "state": "OK",
+     "step": "5.2",
+     "unit": "",
+     "value": 0.1576332108412689
+    },
+    {
+     "family": "face",
+     "id": "F3.S time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.01879984009134074,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "S time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.01879984009134074
+    },
+    {
+     "family": "face",
+     "id": "F3.Ku time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.00017927065440744982,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "Ku time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.00017927065440744982
+    },
+    {
+     "family": "face",
+     "id": "F3.heat",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.009686361032720251,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "heat",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "",
+     "value": 0.009686361032720251
+    },
+    {
+     "family": "face",
+     "id": "F3.compute",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 1.2346073327333587e-05,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "compute",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 1.2346073327333587e-05
+    },
+    {
+     "family": "face",
+     "id": "F3.memory",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0002542665676495089,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "memory",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0002542665676495089
+    },
+    {
+     "family": "face",
+     "id": "F3.memory bandwidth",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.02644622926098685,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "memory bandwidth",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.02644622926098685
+    },
+    {
+     "family": "face",
+     "id": "F3.S beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.015609689354490511,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "S beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.015609689354490511
+    },
+    {
+     "family": "face",
+     "id": "F3.Ku beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.21875,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "Ku beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.21875
+    },
+    {
+     "family": "face",
+     "id": "F3.S TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.05,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "S TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.2
+    },
+    {
+     "family": "face",
+     "id": "F3.S processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.098,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "S processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 39.2
+    },
+    {
+     "family": "face",
+     "id": "F3.Ku TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.028,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "Ku TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.112
+    },
+    {
+     "family": "face",
+     "id": "F3.Ku processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.05488,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "Ku processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 21.952
+    },
+    {
+     "family": "face",
+     "id": "F3.processing power",
+     "kind": "resource",
+     "limit": 50.0,
+     "load": 0.20002043235721045,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "processing power",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "kW",
+     "value": 10.001021617860523
+    },
+    {
+     "family": "face",
+     "id": "F3.storage (observation)",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.0033459514251703657,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "storage (observation)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.013383805700681463
+    },
+    {
+     "family": "face",
+     "id": "F3.storage (burst)",
+     "kind": "spec",
+     "limit": 4.0,
+     "load": null,
+     "note": "scheduler rule: a revisit packed together would exhaust the storage, spread (at most 0.32 s contiguous at peak power)",
+     "object": "F3",
+     "priority": null,
+     "quantity": "storage (burst)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 23.56002585855941
+    },
+    {
+     "family": "face",
+     "id": "F3.heat (burst)",
+     "kind": "spec",
+     "limit": 0.0,
+     "load": null,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "heat (burst)",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.peak power",
+     "kind": "spec",
+     "limit": null,
+     "load": 0.0,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "peak power",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "",
+     "value": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     }
+    },
+    {
+     "family": "face",
+     "id": "F4.energy",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.16534468557695073,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "energy",
+     "state": "OK",
+     "step": "5.2",
+     "unit": "",
+     "value": 0.16534468557695073
+    },
+    {
+     "family": "face",
+     "id": "F4.S time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.01998830728919206,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "S time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.01998830728919206
+    },
+    {
+     "family": "face",
+     "id": "F4.Ku time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0001804253236124412,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "Ku time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.0001804253236124412
+    },
+    {
+     "family": "face",
+     "id": "F4.heat",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.00987003578261203,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "heat",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "",
+     "value": 0.00987003578261203
+    },
+    {
+     "family": "face",
+     "id": "F4.compute",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 1.6248882498739305e-05,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "compute",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 1.6248882498739305e-05
+    },
+    {
+     "family": "face",
+     "id": "F4.memory",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0002367663756495089,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "memory",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0002367663756495089
+    },
+    {
+     "family": "face",
+     "id": "F4.memory bandwidth",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.030872469933710445,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "memory bandwidth",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.030872469933710445
+    },
+    {
+     "family": "face",
+     "id": "F4.S beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.015609689354490511,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "S beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.015609689354490511
+    },
+    {
+     "family": "face",
+     "id": "F4.Ku beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.21875,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "Ku beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.21875
+    },
+    {
+     "family": "face",
+     "id": "F4.S TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.05,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "S TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.2
+    },
+    {
+     "family": "face",
+     "id": "F4.S processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.098,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "S processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 39.2
+    },
+    {
+     "family": "face",
+     "id": "F4.Ku TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.028,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "Ku TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.112
+    },
+    {
+     "family": "face",
+     "id": "F4.Ku processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.05488,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "Ku processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 21.952
+    },
+    {
+     "family": "face",
+     "id": "F4.processing power",
+     "kind": "resource",
+     "limit": 50.0,
+     "load": 0.20002532118949579,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "processing power",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "kW",
+     "value": 10.001266059474789
+    },
+    {
+     "family": "face",
+     "id": "F4.storage (observation)",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.003345972898261244,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "storage (observation)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.013383891593044976
+    },
+    {
+     "family": "face",
+     "id": "F4.storage (burst)",
+     "kind": "spec",
+     "limit": 4.0,
+     "load": null,
+     "note": "scheduler rule: a revisit packed together would exhaust the storage, spread (at most 0.32 s contiguous at peak power)",
+     "object": "F4",
+     "priority": null,
+     "quantity": "storage (burst)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 25.03883827063566
+    },
+    {
+     "family": "face",
+     "id": "F4.heat (burst)",
+     "kind": "spec",
+     "limit": 0.0,
+     "load": null,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "heat (burst)",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.peak power",
+     "kind": "spec",
+     "limit": null,
+     "load": 0.0,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "peak power",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "",
+     "value": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     }
+    },
+    {
+     "family": "ship",
+     "id": "ship.energy",
+     "kind": "resource",
+     "limit": 8.0,
+     "load": 0.12842053880559348,
+     "note": "",
+     "object": "ship",
+     "priority": null,
+     "quantity": "energy",
+     "state": "OK",
+     "step": "5.2",
+     "unit": "MW",
+     "value": 1.0273643104447479
+    },
+    {
+     "family": "ship",
+     "id": "ship.heat rejection",
+     "kind": "resource",
+     "limit": 6.0,
+     "load": 0.10610795112895818,
+     "note": "",
+     "object": "ship",
+     "priority": null,
+     "quantity": "heat rejection",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "MW",
+     "value": 0.636647706773749
+    },
+    {
+     "family": "flight",
+     "id": "S.navigation pointing",
+     "kind": "transient",
+     "limit": 0.05,
+     "load": 0.023781520075791686,
+     "note": "",
+     "object": "S",
+     "priority": null,
+     "quantity": "navigation pointing",
+     "state": "OK",
+     "step": "4.5",
+     "unit": "HPBW",
+     "value": 0.0011890760037895844
+    },
+    {
+     "family": "flight",
+     "id": "Ku.navigation pointing",
+     "kind": "transient",
+     "limit": 0.05,
+     "load": 0.11770056745113382,
+     "note": "",
+     "object": "Ku",
+     "priority": null,
+     "quantity": "navigation pointing",
+     "state": "OK",
+     "step": "4.5",
+     "unit": "HPBW",
+     "value": 0.005885028372556691
+    }
+   ],
+   "counts": {
+    "ALERT": 0,
+    "NOK": 0,
+    "OK": 108
+   },
+   "faces": {
+    "0": {
+     "load": 0.21875,
+     "resource": "Ku beams",
+     "state": "OK"
+    },
+    "1": {
+     "load": 0.21875,
+     "resource": "Ku beams",
+     "state": "OK"
+    },
+    "2": {
+     "load": 0.21875,
+     "resource": "Ku beams",
+     "state": "OK"
+    },
+    "3": {
+     "load": 0.21875,
+     "resource": "Ku beams",
+     "state": "OK"
+    }
+   },
+   "limiting": {
+    "load": 0.21875,
+    "object": "F1",
+    "resource": "Ku beams",
+    "state": "OK"
+   },
+   "load_ceiling": 0.8,
+   "nok_priorities": [],
+   "saturation": {
+    "brackets": {
+     "T_DECOY/0": {
+      "binding": "F4 Ku beams",
+      "critical_alone": 3658840,
+      "critical_cumulative": 3658840,
+      "manageable_alone": 228675,
+      "manageable_cumulative": 228675,
+      "n_targets": 2.0,
+      "t_max_s": 32.0
+     }
+    },
+    "first_shed": "tracks of bracket T_DECOY/0 (DECOY), the farthest first",
+    "load_ceiling": 0.8,
+    "mode": "NONE",
+    "p2_unreachable": [],
+    "state_at_spec": "nominal"
+   },
+   "ship": {
+    "load": 0.12842053880559348,
+    "object": "ship",
+    "resource": "energy"
+   },
+   "state": "OK"
   },
   "warnings": [
    "sectors T_KKV_RETRO / T_DECOY share 0.037 sr: each is budgeted independently there -- fine for intentional layered coverage (different RCS/range/RR on the same sky), check for a duplicated requirement if not",

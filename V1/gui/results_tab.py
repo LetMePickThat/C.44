@@ -13,7 +13,7 @@ from __future__ import annotations
 import csv
 import json
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import QThread, Qt, pyqtSignal
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
     QAbstractItemView, QComboBox, QFileDialog, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QMessageBox,
@@ -24,7 +24,27 @@ from core import frames
 from core import geometry as geo
 from core import optimizer as mo
 from core import radar_model as rm
+from core import validation
 from gui.scene_view import SceneView, SectorDraw
+
+
+class VerifyWorker(QThread):
+    """core.validation.verify() of one advice on a background thread (step 5.3, P2): several whole recomputations."""
+    progress = pyqtSignal(str)
+    done = pyqtSignal(dict)
+    failed = pyqtSignal(str)
+
+    def __init__(self, mission: dict, advice: dict, parent=None):
+        super().__init__(parent)
+        self.mission, self.advice = mission, advice
+
+    def run(self) -> None:
+        try:
+            res = validation.verify(self.mission, self.advice, progress=self.progress.emit)
+        except Exception as exc:  # noqa: BLE001 -- surface any model error to the UI instead of crashing
+            self.failed.emit(f"verification failed: {exc}")
+            return
+        self.done.emit(res)
 
 
 def _metric_color(ratio: float) -> str:
@@ -145,9 +165,68 @@ class ResultsTab(QWidget):
         self.table_verdict.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.table_verdict.horizontalHeader().setStretchLastSection(True)
         self.table_verdict.setToolTip("Resource: OK up to the load ceiling, ALERT up to 100 % (safety reserve in use), "
-                                      "KO above. Requirement: OK up to 100 %, KO above. Transient: ALERT above 100 %.")
+                                      "NOK above. Requirement: OK up to 100 %, NOK above. Transient: ALERT above 100 %.")
         v.addWidget(self.table_verdict)
+        # step 5.3 (P2): the quantified relaxation advice, estimated; one of them verified on request
+        self.table_advice = QTableWidget()
+        cols = ["n", "constraint", "kind", "on", "change", "law / note", "verified"]
+        self.table_advice.setColumnCount(len(cols))
+        self.table_advice.setHorizontalHeaderLabels(cols)
+        self.table_advice.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.table_advice.horizontalHeader().setStretchLastSection(True)
+        self.table_advice.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table_advice.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.table_advice.setToolTip("Estimates from the load laws of each lever; 'Verify' recomputes the mission with "
+                                     "the change and bisects for the smallest relaxation that holds (several minutes)")
+        v.addWidget(self.table_advice)
+        h = QHBoxLayout()
+        self.btn_verify = QPushButton("Verify the selected advice")
+        self.btn_verify.clicked.connect(self._verify_advice)
+        self.lbl_verify = QLabel("")
+        self.lbl_verify.setWordWrap(True)
+        h.addWidget(self.btn_verify)
+        h.addWidget(self.lbl_verify, 1)
+        v.addLayout(h)
+        self._verify_worker = None
         return box
+
+    def _fill_advice(self) -> None:
+        adv = (self.result.get("verdict") or {}).get("advice", [])
+        self.table_advice.setRowCount(len(adv))
+        self.btn_verify.setEnabled(bool(adv) and not self.partial)
+        for i, a in enumerate(adv):
+            change = validation.changes_text(a, most=len(a["changes"])) if a["changes"] else "-"
+            ver = a.get("verified")
+            ver_txt = ("-" if ver is None else "holds: " + ", ".join(f"{c['key']} {c['verified']:.4g}" if isinstance(
+                c["verified"], (int, float)) else f"{c['key']} {c['verified']}" for c in ver["changes"])
+                if ver["holds"] else "does not hold")
+            vals = [str(a["n"]), f"{a['object']} {a['quantity']} ({a['state']})", a["kind"], a["item"] or "-",
+                    change, "; ".join(x for x in (a["law"], "approximate" if a["approximate"] else "", a["note"],
+                                                 ", ".join(a["others_left"])) if x), ver_txt]
+            for col, val in enumerate(vals):
+                self.table_advice.setItem(i, col, QTableWidgetItem(val))
+
+    def _verify_advice(self) -> None:
+        adv = (self.result.get("verdict") or {}).get("advice", [])
+        row = self.table_advice.currentRow()
+        if not 0 <= row < len(adv) or not adv[row]["changes"]:
+            self.lbl_verify.setText("Select an advice with a change first.")
+            return
+        a = adv[row]
+        self.btn_verify.setEnabled(False)
+        self.lbl_verify.setText(f"Verifying advice {a['n']} (each step recomputes the whole mission)...")
+        self._verify_worker = VerifyWorker(self.mission, a, self)
+        self._verify_worker.progress.connect(lambda s: self.lbl_verify.setText(f"advice {a['n']}: {s}"))
+        self._verify_worker.done.connect(lambda res: self._on_verified(a, res))
+        self._verify_worker.failed.connect(lambda msg: (self.lbl_verify.setText(msg), self.btn_verify.setEnabled(True)))
+        self._verify_worker.start()
+
+    def _on_verified(self, a: dict, res: dict) -> None:
+        a["verified"] = res
+        self.lbl_verify.setText(f"advice {a['n']}: " + ("holds" if res["holds"] else "does not hold")
+                                + f" after {len(res['runs'])} recomputations")
+        self.btn_verify.setEnabled(True)
+        self._fill_advice()
 
     def _fill_verdict(self) -> None:
         vd = self.result.get("verdict")
@@ -158,18 +237,18 @@ class ResultsTab(QWidget):
         lim = vd.get("limiting")
         sat = vd.get("saturation") or {}
         c = vd["counts"]
-        txt = (f"{vd['state']}: {c['KO']} KO, {c['ALERT']} alert, {c['OK']} OK (load ceiling "
+        txt = (f"{vd['state']}: {c['NOK']} NOK, {c['ALERT']} alert, {c['OK']} OK (load ceiling "
                f"{100 * vd['load_ceiling']:.0f} %)")
         if lim:
             txt += f"\nLimiting resource: {lim['object']} {lim['resource']} at {100 * lim['load']:.1f} %"
-        if vd.get("ko_priorities"):
-            txt += "\nPriorities failed: " + ", ".join(vd["ko_priorities"])
+        if vd.get("nok_priorities"):
+            txt += "\nPriorities failed: " + ", ".join(vd["nok_priorities"])
         txt += f"\nSaturation at the specification: {sat.get('state_at_spec')} (mode {sat.get('mode')})"
         self.lbl_verdict.setText(txt)
-        colour = {"OK": "#2fa35a", "ALERT": "#e08a1e", "KO": "#d6453d"}
+        colour = {"OK": "#2fa35a", "ALERT": "#e08a1e", "NOK": "#d6453d"}
         self.lbl_verdict.setStyleSheet(f"color: {colour.get(vd['state'], '#d6453d')}; font-weight: bold;")
         rows = sorted((r for r in vd["constraints"] if r["state"] != "OK"),
-                      key=lambda r: (r["state"] != "KO", r["object"], r["quantity"]))
+                      key=lambda r: (r["state"] != "NOK", r["object"], r["quantity"]))
         self.table_verdict.setRowCount(len(rows))
 
         def num(x) -> str:
@@ -394,6 +473,7 @@ class ResultsTab(QWidget):
                 self.table_faces.setItem(i, c, QTableWidgetItem(str(val)))
 
         self._fill_verdict()
+        self._fill_advice()
         self._fill_tracking_tables()
         warnings = self.result.get("warnings", [])
         self.lbl_warnings.setText("\n".join(warnings) if warnings else "None")

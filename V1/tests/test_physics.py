@@ -3041,10 +3041,10 @@ from core import validation as val_  # noqa: E402
 
 
 def test_verdict_states_by_kind():
-    """Step 5.3 P1: resource OK up to the load ceiling, ALERT up to 1, KO above; spec OK up to 1, KO above; transient
+    """Step 5.3 P1: resource OK up to the load ceiling, ALERT up to 1, NOK above; spec OK up to 1, NOK above; transient
     ALERT above 1; an infinite load (None) fails a resource or a spec and alerts a transient."""
-    assert [val_._state(x, "resource", 0.8) for x in (0.8, 0.9, 1.0, 1.01, None)] == ["OK", "ALERT", "ALERT", "KO", "KO"]
-    assert [val_._state(x, "spec", 0.8) for x in (0.9, 1.0, 1.01, None)] == ["OK", "OK", "KO", "KO"]
+    assert [val_._state(x, "resource", 0.8) for x in (0.8, 0.9, 1.0, 1.01, None)] == ["OK", "ALERT", "ALERT", "NOK", "NOK"]
+    assert [val_._state(x, "spec", 0.8) for x in (0.9, 1.0, 1.01, None)] == ["OK", "OK", "NOK", "NOK"]
     assert [val_._state(x, "transient", 0.8) for x in (1.0, 1.5, None)] == ["OK", "ALERT", "ALERT"]
 
 
@@ -3060,13 +3060,13 @@ def test_verdict_ko_alert_priorities_and_limiting():
     v = val_.verdict({"global": {}, "sectors": [{"id": "A", "range_km": 1000.0, "short_tol": 0.01}]}, out)
     by = {r["id"]: r for r in v["constraints"]}
     assert by["F1.energy"]["state"] == "ALERT" and by["F1.heat"]["state"] == "OK"
-    assert by["A.revisit"]["state"] == "KO" and abs(by["A.revisit"]["load"] - 1.2) < 1e-12
+    assert by["A.revisit"]["state"] == "NOK" and abs(by["A.revisit"]["load"] - 1.2) < 1e-12
     assert by["A.range"]["state"] == "ALERT" and abs(by["A.range"]["load"] - 0.5) < 1e-12
-    assert by["confirmation A.ship power served"]["state"] == "KO"
-    assert v["state"] == "KO" and v["ko_priorities"] == ["P2", "P4_1"]
+    assert by["confirmation A.ship power served"]["state"] == "NOK"
+    assert v["state"] == "NOK" and v["nok_priorities"] == ["P2", "P4_1"]
     assert v["saturation"]["state_at_spec"] == "P2 unreachable"
     assert v["limiting"] == {"object": "F1", "resource": "energy", "load": 0.9, "state": "ALERT"}
-    assert v["counts"]["KO"] == 2 and v["faces"]["0"]["resource"] == "energy"
+    assert v["counts"]["NOK"] == 2 and v["faces"]["0"]["resource"] == "energy"
 
 
 def test_verdict_on_the_frozen_missions(runs):
@@ -3077,6 +3077,70 @@ def test_verdict_on_the_frozen_missions(runs):
         json.dumps(v, allow_nan=False)
         states = {r["state"] for r in v["constraints"]}
         assert states <= set(val_.STATES), n
-        assert v["state"] == ("KO" if "KO" in states else "ALERT" if "ALERT" in states else "OK"), n
+        assert v["state"] == ("NOK" if "NOK" in states else "ALERT" if "ALERT" in states else "OK"), n
         if "verdict" in res:                 # frozen from the refreeze of step 5.3 on
-            assert tb.differences(tb.to_plain(res["verdict"]), tb.to_plain(v)) == [], n
+            # the frozen outputs keep their keys sorted (the re-pointing bands Ku before S): the order of the rows,
+            # and so the numbers of the advice, is presentation only
+            def plain(x):
+                x = tb.to_plain(x)
+                x["constraints"] = {r["id"]: r for r in x["constraints"]}
+                x["advice"] = sorted((dict(a, n=None) for a in x["advice"]), key=lambda a: json.dumps(a, sort_keys=True))
+                return x
+            assert tb.differences(plain(res["verdict"]), plain(v)) == [], n
+
+
+def test_advice_laws_alone_and_uniform(monkeypatch):
+    """Step 5.3 P2: a face 0.4 above the ceiling (S time 1.2, ceiling 0.8), a search of share 0.6 alone keeps
+    f = 1/3 of its load: range x f^(1/4), RR / f, RCS / f, rounded to 3 digits on the relieving side; the track
+    bracket (0.3) cannot alone; the uniform factor over both is f = 1 - 0.4 / 0.9 on the revisits."""
+    items = {("search", "A", None): {"share": {(0, "S time"): 0.6}, "ship": 0.1},
+             ("track", "A", 0): {"share": {(0, "S time"): 0.3}, "ship": 0.05}}
+    monkeypatch.setattr(val_, "_items", lambda m, o: items)
+    mission = {"global": {}, "sectors": [{"id": "A", "range_km": 1000.0, "rr_target_s": 10.0,
+                                          "tracking": [{"n_targets": 10, "rr_s": 1.0, "range_acc_m": 10.0}]}]}
+    out = {"sectors": [{"id": "A", "status": "OK", "target": {"rcs_m2": 1.0}}],
+           "tracking": {"sectors": [{"id": "A", "at": [{"driver": "RNG"}]}]}}
+    row = {"id": "F1.S time", "family": "face", "object": "F1", "quantity": "S time", "kind": "resource",
+           "load": 1.2, "state": "NOK", "limit": 1.0, "value": 1.2}
+    adv = val_.advice(mission, out, [row], 0.8)
+    alone = {a["changes"][0]["key"]: a["changes"][0] for a in adv if a["kind"] == "alone"}
+    assert set(alone) == {"range_km", "rr_target_s", "rcs_m2"}
+    assert alone["range_km"]["proposed"] == 759.0 and alone["range_km"]["proposed_at_1"] == 903.0
+    assert alone["rr_target_s"]["proposed"] == 30.0 and alone["rcs_m2"]["proposed"] == 3.0
+    uni = [a for a in adv if a["kind"] == "uniform"][0]
+    assert {c["key"]: c["proposed"] for c in uni["changes"]} == {"rr_target_s": 18.0, "rr_s": 1.8}
+    assert val_._safe(1234.5, True) == 1240.0 and val_._safe(1234.5, False) == 1230.0
+    assert val_._safe(2.3, False, integer=True) == 2.0
+
+
+def test_verify_bisects_to_the_smallest_relaxation():
+    """Step 5.3 P2: a mission whose load goes as (R / 1000)^4 x 1.2 holds at the ceiling 0.8 for R <= 903.6 km; from
+    the estimate 759 km the verification keeps the largest range that holds, within the 6 bisection steps."""
+    a = {"constraint": "F1.S time", "target_load": 0.8,
+         "changes": [{"sector": "A", "bracket": None, "key": "range_km", "current": 1000.0, "proposed": 759.0}]}
+    mission = {"global": {}, "sectors": [{"id": "A", "range_km": 1000.0}]}
+
+    def run(m):
+        load = 1.2 * (m["sectors"][0]["range_km"] / 1000.0) ** 4
+        return {"verdict": {"state": "NOK", "constraints": [{"id": "F1.S time", "load": load, "kind": "resource",
+                                                            "state": "NOK" if load > 1 else "OK"}]}}
+    res = val_.verify(mission, a, run=run)
+    r = res["changes"][0]["verified"]
+    assert res["holds"] and len(res["runs"]) == 1 + val_.VERIFY_BISECTIONS
+    assert 1000.0 * (0.8 / 1.2) ** 0.25 * (759.0 / 1000.0) ** (1 / 2 ** val_.VERIFY_BISECTIONS) <= r
+    assert r <= 1000.0 * (0.8 / 1.2) ** 0.25 + 1e-9
+    a["changes"][0]["proposed"] = 950.0                   # an estimate that does not hold: doubled, then bisected
+    res = val_.verify(mission, a, run=run)
+    assert res["holds"] and res["runs"][0]["holds"] is False
+
+def test_search_law_counts_the_look_spacing():
+    """Step 5.3 P2 (user, 27 October 2026): the range of a volume is the worst one, the looks that count being spaced
+    v RR beyond it. Without closing speed the law is R^4 / RR; for a fast closer (25 km/s, RR 20 s, 500 km: q = 1) a
+    longer revisit raises the load, and a shorter range relieves less than R^4 (R' below R f^(1/4))."""
+    res = {"wf": {"n_pulses": 4, "pfa": 6.3e-11}, "target": {"swerling": 1}, "pd_cumulative": 0.9}
+    still = val_._SearchLaw({"range_km": 1000.0, "rr_target_s": 10.0, "v_close_max_mps": 0.0}, res)
+    assert abs(still.ratio(500.0, 20.0) - 0.5 ** 4 / 2) < 1e-12
+    assert abs(still.range_at(0.5) - 1000.0 * 0.5 ** 0.25) < 1e-6 and abs(still.rr_at(0.5) - 20.0) < 1e-6
+    fast = val_._SearchLaw({"range_km": 500.0, "rr_target_s": 20.0, "v_close_max_mps": 25000.0}, res)
+    assert fast.ratio(500.0, 33.8) > 1.0 and fast.rr_at(0.64) is None
+    assert fast.range_at(0.64) < 500.0 * 0.64 ** 0.25

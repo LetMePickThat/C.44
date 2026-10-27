@@ -598,3 +598,15 @@ default: no margin reuse output; no load-ceiling alert on the test missions. 121
 waveform set, frequency, confirmation mode, range, face status, load or binding resource changes.
 N3 34.6 min (the saturation table adds assemblies on the missions with tracks): 232 passed; only the 9 snapshot tests
 failed before the refreeze.
+
+## 2026-10-27 -- step 5.3, passes P1 (verdict) and P2 (relaxation advice) (radar_model V6.26.0)
+
+Causes: new output -- the key "verdict" on every mission (table of constraints with load, state OK / ALERT / NOK,
+priority tier; limiting resource per face and for the mission; saturation state at the specification; relaxation
+advice for the constraints in alert or failed). P1 was not refrozen (intermediate pass). 9 values differ (one per
+mission, the added key); no other output changes; the model case does not change (model.json kept: the refreeze only
+rewrote last-digit float noise on this laptop). Verdicts: mission_sky_demo NOK (EARTH: no admissible confirmation mode),
+mission_environment NOK (E_EARTH: 1.3 % of the positions short of range, tolerance 1 %), mission_veille500 ALERT
+(VEILLE_KV: 0.3 % short), the six others OK. tool.optimizer.track_margin_warn removed and tool.validation added: cost
+table regenerated (fingerprint only, entries equal to 3e-15).
+N3 34.8 min: 238 passed; only the 9 snapshot tests failed before the refreeze.

@@ -40,13 +40,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small Radar C.44 -- référence de conception et de modélisation}
-\rhead{\small Modèle V6.25.0}
+\rhead{\small Modèle V6.26.0}
 \cfoot{\thepage}
 
 \title{\textbf{Radar AESA spatial à quatre faces}\\[4pt]
 \large Référence de conception et de modélisation de l'outil de préparation de mission}
 \author{Projet C.44}
-\date{27 octobre 2026 -- modèle radar V6.25.0 (étape 5.3 de la feuille de route en cours, passe P1 : verdict)}
+\date{27 octobre 2026 -- modèle radar V6.26.0 (étape 5.3 de la feuille de route en cours, passes P1 verdict et P2 conseil)}
 
 \begin{document}
 \maketitle
@@ -1266,10 +1266,10 @@ Genre & Contraintes & États\\
 \midrule
 Ressource & énergie de la face (besoin sur allocation), temps S et Ku, chaleur, calcul, mémoire et son débit, faisceaux S
 et Ku, lien TRSA, entrée du processeur, puissance du calcul, stockage par observation ; énergie et rejet de chaleur du
-vaisseau & OK $\le$ \code{load\_ceiling} $<$ ALERTE $\le 1 <$ KO\\
+vaisseau & OK $\le$ \code{load\_ceiling} $<$ ALERTE $\le 1 <$ NOK\\
 Exigence & plan trouvé, portée, revisite dans la mission, mode de confirmation admissible, probabilité de confirmation
 (charge $(1-P)/(1-p_\mathrm{min})$), latence, période et portée de chaque tranche de poursuite, discrimination, niveau
-de puissance servi en entier, ordonnancement faisable, délestage & OK $\le 1 <$ KO\\
+de puissance servi en entier, ordonnancement faisable, délestage & OK $\le 1 <$ NOK\\
 Transitoire & migration entre faces quand le vaisseau tourne, erreur de pointage de navigation, accélération angulaire
 au-delà du dimensionnement & OK $\le 1 <$ ALERTE\\
 \bottomrule
@@ -1277,12 +1277,36 @@ au-delà du dimensionnement & OK $\le 1 <$ ALERTE\\
 \end{center}
 Des positions courtes dans la tolérance du secteur et une discrimination atteinte sous la plus courte portée d'intérêt
 sont des alertes ; le stockage et la chaleur d'une revisite tassée sont des règles de l'ordonnanceur (la frise
-synthétique alerte s'il reste une pause ou une mise à jour en retard). La mission est KO dès qu'une contrainte est KO, la
+synthétique alerte s'il reste une pause ou une mise à jour en retard). La mission est NOK dès qu'une contrainte est NOK, la
 spécification de l'opérateur n'étant pas tenue ; chaque contrainte porte son niveau de priorité, et les niveaux en défaut
 sont listés. Le verdict donne aussi la ressource limitante (la plus forte charge de ressource) de la mission et de chaque
 face, et l'état de saturation à la spécification (nominal, réserve entamée, sur-souscrit ou P2 inatteignable) avec la
-place par tranche de poursuite de la section~\ref{sec:sched}. Les passes suivantes ajoutent le conseil chiffré de
-relâchement, les redondances et la sensibilité du verdict aux valeurs de la menace.
+place par tranche de poursuite de la section~\ref{sec:sched}.
+
+\paragraph{Conseil de relâchement.} Chaque contrainte en alerte ou en défaut reçoit ses leviers chiffrés. Une ressource
+linéaire d'une face (énergie, temps S ou Ku) au-dessus de sa cible (le plafond de charge ; la valeur à 1 en second
+chiffre) de $\Delta L$ est soulagée par un élément de part $s>\Delta L$ dans sa charge, qui garde la fraction
+$f=1-\Delta L/s$ de sa charge. La portée d'un volume est la portée au pire : un objet raté en début de cycle doit encore
+être détecté à $R$, les observations qui comptent sont donc espacées de $v\,RR$ au-delà de $R$ (pour 20~km/s et une
+revisite de 20~s, un volume à 500~km doit détecter entre 500 et 900~km), et un volume de veille suit
+\[ \frac{L'}{L}=\Big(\frac{R'}{R}\Big)^4\,\frac{\mathrm{SNR}_\mathrm{req}(q')}{\mathrm{SNR}_\mathrm{req}(q)}\,
+\frac{RR}{RR'},\qquad q=\frac{v_\mathrm{close}\,RR}{R}, \]
+le critère cumulé de la section~\ref{sec:det} sur sa forme d'onde principale, résolu pour sa portée $R'$ ou sa
+revisite $RR'$ (une revisite plus longue espace les observations et peut alourdir la charge d'une cible rapide : pas de
+levier de revisite alors), ou par sa SER de dimensionnement $\sigma'=\sigma/f$ (une hypothèse de menace) ; une tranche de poursuite par son nombre de pistes
+$n'=nf$, sa période $T'=T/f$ ou la précision qui fixe l'énergie d'une mise à jour, $a'=a/\sqrt f$ (temps d'émission
+pris limité en énergie, d'où les mêmes lois). Les trois plus gros éléments sont donnés seuls, plus un facteur uniforme
+sur les revisites de toute la face quand aucun ne suffit seul ; les alternatives de confirmation (exactes), le plafond
+opérateur de la face et la percée sont donnés tels quels. Quand la puissance du vaisseau suffit, l'allocation est au
+prorata des besoins et la charge d'énergie de chaque face est celle du vaisseau : le conseil est donné une fois, sur le
+vaisseau. Les ressources en marches (faisceaux, calcul, débit mémoire, stockage) et la chaleur reçoivent un facteur
+proportionnel, signalé approché, sans la part statique de la puissance du calcul ; une crête par observation (lien
+TRSA, entrée du processeur, tampons) est fixée par les formes d'onde, pas par les revisites, et n'a pas de levier de
+revisite. Une exigence en défaut reçoit sa valeur directe (défaut accepté ou portée des tranches d'angle courtes,
+probabilité de confirmation ou latence atteintes, plus longue période de poursuite tenable, revisite ou pistes tenables
+d'un niveau de puissance servi en partie). Chaque chiffre est une estimation : la vérification recalcule la mission avec
+le changement et procède par bissection (six recalculs) pour le plus petit relâchement qui tient, et seul le chiffre
+vérifié fait foi. Les passes suivantes ajoutent les redondances et la sensibilité du verdict aux valeurs de la menace.
 
 %=====================================================================================================================
 \section{Réglages de mission et présentation des cibles}\label{sec:mission51}
@@ -1383,7 +1407,7 @@ Le banc de tests a deux familles : les sorties figées de chaque mission de test
 $10^{-9}$ (non-régression), et des lois physiques et invariants qui doivent tenir quelles que soient les valeurs
 ($R\propto\sigma^{1/4}$, exactitude de chaque raccourci, cohérence des caches, lois de détection contre les formes
 closes, \dots). Chaque regel des sorties figées est consigné avec sa cause. Un rapport d'impact donne les chiffres clés
-et les formes d'onde qui changent avant tout regel. Au modèle V6.25.0, le banc compte 244 tests (dont 12 comparent les
+et les formes d'onde qui changent avant tout regel. Au modèle V6.26.0, le banc compte 247 tests (dont 12 comparent les
 sorties figées des cas de test), exécutés à trois niveaux : tests rapides, tests touchés par un changement, et passe
 complète (table de coût, chaque cas de test calculé une fois et gardé avec une empreinte du code, rapport d'impact, banc
 entier ; environ 35 minutes depuis la passe P7 de la 5.2 (table de saturation), avec une barre de progression globale).
@@ -1410,7 +1434,7 @@ pointages dans un volume --- fait ; 4.4 calcul et données --- fait ; 4.5 re-poi
 5, mission et validation & 5.1 modèle de mission enrichi --- fait ; 5.2 optimiseur global (répartition de la
 puissance, couplages, boucle globale, réemploi de la marge, tables pour le vol, réallocation et saturation) ---
 fait ; 5.3 moteur de
-validation (verdict fait) ; simulation Monte-Carlo ; interface opérateur ; vérification et documentation ; fin de développement\\
+validation (verdict et conseil faits) ; simulation Monte-Carlo ; interface opérateur ; vérification et documentation ; fin de développement\\
 \bottomrule
 \end{tabularx}
 \end{center}

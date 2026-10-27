@@ -757,6 +757,9 @@ sat_stretch_search = [2.0, 4.0, 8.0, 16.0]       # P7: search revisits y x these
 sat_probe_frac    = 0.1         # P7: saturation table, probe of max(1, frac x n) more tracks per bracket (linear cost per track)
 rr_min_track_s    = 0.1         # P7: default shortest track update period of the margin reuse when the bracket sets no rr_min_s (user, 26 Oct 2026)
 
+[tool.validation]             # step 5.3: verdict and relaxation advice (core/validation.py)
+verify_bisections = 6           # P2: recomputations of the mission bisecting the verified figure of one advice (D, user, 27 Oct 2026)
+
 [tool.scheduler]              # step 4.3
 horizon_max_s = 60.0            # B1: synthetic timeline over the longest revisit of a face, at most this
 seed          = 1               # B3: random arrivals drawn once (reproducible)

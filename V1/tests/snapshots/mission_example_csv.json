@@ -18,11 +18,11 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 21.557610593839666,
-    "energy_fraction": -0.20169920091541602,
-    "energy_j_per_refresh": 107788.05296919832,
+    "avg_power_kw": 21.55761059383966,
+    "energy_fraction": -0.20169920091541596,
+    "energy_j_per_refresh": 107788.05296919828,
     "positions": 174.89380211360498,
-    "time_fraction_min": 0.0017598049464358913,
+    "time_fraction_min": 0.0017598049464358904,
     "unreachable_pct": 0.0
    }
   }
@@ -39,23 +39,23 @@
      "bands": {
       "Ku": {
        "beams_max": 32,
-       "beams_mean": 0.0008616100294363738,
+       "beams_mean": 0.000861610029436374,
        "beams_peak": 7,
-       "bits_per_s": 337751131.5390585,
+       "bits_per_s": 337751131.5390586,
        "buffer_peak_GB": 0.0035,
        "face_input_peak_tbps": 2.744,
        "link_trsa_peak_tbps": 0.014,
-       "open_windows_mean": 0.0001230871470623391,
+       "open_windows_mean": 0.00012308714706233914,
        "ops_per_s": {
-        "banks": 1378576.047098198,
-        "beamforming": 52858052085.862656,
-        "cfar": 215402.50735909343,
-        "compression": 7502237.003193913,
+        "banks": 1378576.0470981984,
+        "beamforming": 52858052085.86267,
+        "cfar": 215402.5073590935,
+        "compression": 7502237.003193916,
         "nulling": 0.0,
-        "repointing": 6.154357353116955,
+        "repointing": 6.154357353116957,
         "tracks": 0.0
        },
-       "ops_total_per_s": 52867148307.57466,
+       "ops_total_per_s": 52867148307.57468,
        "transport": "subarray_beams"
       },
       "S": {
@@ -107,23 +107,23 @@
      "bands": {
       "Ku": {
        "beams_max": 32,
-       "beams_mean": 0.022763318605452644,
+       "beams_mean": 0.02276331860545263,
        "beams_peak": 7,
-       "bits_per_s": 71385767146.6995,
+       "bits_per_s": 71385767146.69945,
        "buffer_peak_GB": 0.28,
        "face_input_peak_tbps": 21.952,
        "link_trsa_peak_tbps": 0.112,
-       "open_windows_mean": 0.0032519026579218065,
+       "open_windows_mean": 0.0032519026579218044,
        "ops_per_s": {
-        "banks": 46619276503.96702,
-        "beamforming": 11171872558458.47,
-        "cfar": 7284261953.744846,
-        "compression": 2305183987.2095976,
+        "banks": 46619276503.96698,
+        "beamforming": 11171872558458.463,
+        "cfar": 7284261953.744842,
+        "compression": 2305183987.2095957,
         "nulling": 0.0,
-        "repointing": 16.259513289609032,
+        "repointing": 16.25951328960902,
         "tracks": 0.0
        },
-       "ops_total_per_s": 11228081280919.652,
+       "ops_total_per_s": 11228081280919.645,
        "transport": "subarray_beams"
       },
       "S": {
@@ -153,7 +153,7 @@
      "capacity_ops_per_s": 3.999994123711164e+18,
      "face_heat_kW_actual": 69.06146235094627,
      "jammers_nulled": 0,
-     "load": 3.29425734405134e-06,
+     "load": 3.2942573440513385e-06,
      "memory": {
       "bandwidth_TB_per_s": 50.0,
       "buffers_peak_TB": 0.0002870243602095207,
@@ -162,10 +162,10 @@
       "traffic_TB_per_s": 0.14739388613475946
      },
      "non_tx_kW_actual": 66.88019053298854,
-     "ops_total_per_s": 13177010018197.707,
+     "ops_total_per_s": 13177010018197.7,
      "power_kW": {
       "ceiling": 50.0,
-      "ops": 0.00013177010018197707,
+      "ops": 0.000131770100181977,
       "static": 10.0,
       "total": 10.000190532988539,
       "transport": 5.876288835733497e-05
@@ -439,8 +439,8 @@
     },
     {
      "fraction": 1.0,
-     "need_MW": 0.0143590103479802,
-     "served_MW": 0.0143590103479802,
+     "need_MW": 0.014359010347980213,
+     "served_MW": 0.014359010347980213,
      "tier": "P4_1 search"
     }
    ]
@@ -484,7 +484,7 @@
       "load": 0.00016789753813729007,
       "load_by_priority": {
        "P0": 0.0001666666666666667,
-       "P2": 1.2308714706233908e-06
+       "P2": 1.2308714706233913e-06
       },
       "mean_wait_s": {
        "calibration Ku": 4.1673626014516145e-06,
@@ -507,10 +507,10 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.0003029476869551394,
+      "load": 0.0003029476869551399,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
-       "P4_1": 0.00026961435362180604
+       "P4_1": 0.00026961435362180653
       },
       "mean_wait_s": {
        "calibration S": 1.6819397921760825e-07,
@@ -540,7 +540,7 @@
       "load": 0.0001699185693245885,
       "load_by_priority": {
        "P0": 0.0001666666666666667,
-       "P2": 3.251902657921806e-06
+       "P2": 3.251902657921804e-06
       },
       "mean_wait_s": {
        "calibration Ku": 4.167363529424923e-06,
@@ -563,14 +563,14 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.0008612986084569592,
+      "load": 0.00086129860845696,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
-       "P4_1": 0.0008279652751236259
+       "P4_1": 0.0008279652751236266
       },
       "mean_wait_s": {
-       "calibration S": 1.7884461850925114e-07,
-       "search S02": 1.789987899179229e-07
+       "calibration S": 1.7884461850925117e-07,
+       "search S02": 1.7899878991792294e-07
       },
       "stretch": {},
       "timeline": {
@@ -739,7 +739,7 @@
    ],
    "slots": {
     "Ku": 0.0001699185693245885,
-    "S": 0.0008612986084569592
+    "S": 0.00086129860845696
    }
   },
   "sectors": [
@@ -755,14 +755,14 @@
     "fa_per_rr": 10.0,
     "faces": {
      "0": {
-      "avg_power_kW": 3.3612977533294934,
-      "dissipation_kW": 0.7190770878357943,
-      "dissipation_kW_m2": 0.054080584807601625,
-      "energy_J_per_refresh": 67225.95506658987,
-      "energy_fraction": 0.0018845369267722354,
+      "avg_power_kW": 3.361297753329499,
+      "dissipation_kW": 0.7190770878357955,
+      "dissipation_kW_m2": 0.054080584807601716,
+      "energy_J_per_refresh": 67225.95506658999,
+      "energy_fraction": 0.0018845369267722386,
       "positions": 477.7,
       "theta_max_deg": 51.0,
-      "time_fraction": 0.00026961435362180604
+      "time_fraction": 0.00026961435362180653
      }
     },
     "flags": [],
@@ -774,7 +774,7 @@
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.0024733328166165556,
+       "energy_max": 0.0024733328166165604,
        "freq_ghz": 2.695,
        "groups": 11,
        "occupied_ghz": [
@@ -784,13 +784,13 @@
        "range_worst_km": 5051,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.000350892513729577,
+       "time_max": 0.0003508925137295778,
        "unscanned_pct": 0.0
       },
       {
        "chosen": true,
        "degraded": false,
-       "energy_max": 0.0018845369267722354,
+       "energy_max": 0.0018845369267722386,
        "freq_ghz": 2.77,
        "groups": 11,
        "occupied_ghz": [
@@ -800,13 +800,13 @@
        "range_worst_km": 5011,
        "short_pct": 0.0,
        "spacing": 2.0,
-       "time_max": 0.00026961435362180604,
+       "time_max": 0.00026961435362180653,
        "unscanned_pct": 0.0
       },
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.0024655435591686226,
+       "energy_max": 0.002465543559168629,
        "freq_ghz": 2.845,
        "groups": 11,
        "occupied_ghz": [
@@ -816,7 +816,7 @@
        "range_worst_km": 5002,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.0003487024727185399,
+       "time_max": 0.00034870247271854085,
        "unscanned_pct": 0.0
       }
      ],
@@ -849,7 +849,7 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 0.037690738535444704,
+    "rr_alone_s": 0.03769073853544477,
     "rr_est_mission_s": 20.0,
     "rr_target_s": 20.0,
     "rx_beams_per_position": 12.487751483592406,
@@ -927,7 +927,7 @@
     },
     "wf_by_bin": [
      {
-      "elec_J_per_position": 112.91388221996228,
+      "elec_J_per_position": 112.91388221996243,
       "pae_at_scale": 0.7826416383755027,
       "positions": 9.5,
       "pulse_scale": 0.902,
@@ -973,7 +973,7 @@
       }
      },
      {
-      "elec_J_per_position": 114.90365635465311,
+      "elec_J_per_position": 114.90365635465321,
       "pae_at_scale": 0.7829422312380521,
       "positions": 28.3,
       "pulse_scale": 0.918,
@@ -1019,7 +1019,7 @@
       }
      },
      {
-      "elec_J_per_position": 118.46407232340907,
+      "elec_J_per_position": 118.46407232340928,
       "pae_at_scale": 0.7834548993499973,
       "positions": 46.2,
       "pulse_scale": 0.947,
@@ -1065,7 +1065,7 @@
       }
      },
      {
-      "elec_J_per_position": 123.85552957406712,
+      "elec_J_per_position": 123.8555295740673,
       "pae_at_scale": 0.7841751110609245,
       "positions": 62.7,
       "pulse_scale": 0.991,
@@ -1111,7 +1111,7 @@
       }
      },
      {
-      "elec_J_per_position": 131.56979010885695,
+      "elec_J_per_position": 131.56979010885718,
       "pae_at_scale": 0.7851029632381541,
       "positions": 77.3,
       "pulse_scale": 0.527,
@@ -1157,7 +1157,7 @@
       }
      },
      {
-      "elec_J_per_position": 142.1576876631543,
+      "elec_J_per_position": 142.15768766315455,
       "pae_at_scale": 0.7862124938002351,
       "positions": 76.9,
       "pulse_scale": 0.57,
@@ -1203,7 +1203,7 @@
       }
      },
      {
-      "elec_J_per_position": 156.7484216502872,
+      "elec_J_per_position": 156.74842165028755,
       "pae_at_scale": 0.7874958868525461,
       "positions": 75.5,
       "pulse_scale": 0.63,
@@ -1249,7 +1249,7 @@
       }
      },
      {
-      "elec_J_per_position": 177.0740973100561,
+      "elec_J_per_position": 177.07409731005652,
       "pae_at_scale": 0.7889311873968329,
       "positions": 66.0,
       "pulse_scale": 0.713,
@@ -1295,7 +1295,7 @@
       }
      },
      {
-      "elec_J_per_position": 206.05732030505357,
+      "elec_J_per_position": 206.05732030505405,
       "pae_at_scale": 0.7904880836211091,
       "positions": 29.8,
       "pulse_scale": 0.831,
@@ -1341,7 +1341,7 @@
       }
      },
      {
-      "elec_J_per_position": 249.459066754697,
+      "elec_J_per_position": 249.45906675469726,
       "pae_at_scale": 0.7921429995489907,
       "positions": 5.6,
       "pulse_scale": 0.403,
@@ -1568,14 +1568,14 @@
     "fa_per_rr": 10.0,
     "faces": {
      "1": {
-      "avg_power_kW": 10.211556778098787,
-      "dissipation_kW": 2.0974970818872523,
-      "dissipation_kW_m2": 0.15774924655449987,
-      "energy_J_per_refresh": 51057.78389049394,
-      "energy_fraction": 0.005725186294221185,
+      "avg_power_kW": 10.211556778098794,
+      "dissipation_kW": 2.0974970818872536,
+      "dissipation_kW_m2": 0.15774924655449998,
+      "energy_J_per_refresh": 51057.78389049397,
+      "energy_fraction": 0.005725186294221188,
       "positions": 140.8,
       "theta_max_deg": 20.0,
-      "time_fraction": 0.0008279652751236259
+      "time_fraction": 0.0008279652751236266
      }
     },
     "flags": [],
@@ -1587,7 +1587,7 @@
       {
        "chosen": true,
        "degraded": false,
-       "energy_max": 0.005725186294221185,
+       "energy_max": 0.005725186294221188,
        "freq_ghz": 2.695,
        "groups": 4,
        "occupied_ghz": [
@@ -1597,13 +1597,13 @@
        "range_worst_km": 562,
        "short_pct": 0.0,
        "spacing": 1.5,
-       "time_max": 0.0008279652751236259,
+       "time_max": 0.0008279652751236266,
        "unscanned_pct": 0.0
       },
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.005823882035704101,
+       "energy_max": 0.0058238820357040914,
        "freq_ghz": 2.77,
        "groups": 4,
        "occupied_ghz": [
@@ -1613,13 +1613,13 @@
        "range_worst_km": 587,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.0008411375437703507,
+       "time_max": 0.000841137543770349,
        "unscanned_pct": 0.0
       },
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.005821448476896441,
+       "energy_max": 0.005821448476896429,
        "freq_ghz": 2.845,
        "groups": 4,
        "occupied_ghz": [
@@ -1629,7 +1629,7 @@
        "range_worst_km": 595,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.0008404083954799187,
+       "time_max": 0.0008404083954799172,
        "unscanned_pct": 0.0
       }
      ],
@@ -1662,7 +1662,7 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 0.028625931471105925,
+    "rr_alone_s": 0.028625931471105943,
     "rr_est_mission_s": 5.0,
     "rr_target_s": 5.0,
     "rx_beams_per_position": 7.024360209520728,
@@ -1786,7 +1786,7 @@
       }
      },
      {
-      "elec_J_per_position": 358.2794649207316,
+      "elec_J_per_position": 358.27946492073204,
       "pae_at_scale": 0.7945294101618868,
       "positions": 47.6,
       "pulse_scale": 0.581,
@@ -1832,8 +1832,8 @@
       }
      },
      {
-      "elec_J_per_position": 369.54544728294263,
-      "pae_at_scale": 0.7946961868576361,
+      "elec_J_per_position": 369.54544728294275,
+      "pae_at_scale": 0.7946961868576362,
       "positions": 48.3,
       "pulse_scale": 0.599,
       "range_km_at_bin_max": 568,
@@ -1878,7 +1878,7 @@
       }
      },
      {
-      "elec_J_per_position": 386.6052691760997,
+      "elec_J_per_position": 386.6052691760998,
       "pae_at_scale": 0.7949302294710651,
       "positions": 28.9,
       "pulse_scale": 0.627,
@@ -1997,8 +1997,8 @@
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 8.0,
-     "confirm_energy": 1.3100210875073706e-05,
-     "confirm_ku_time": 1.2308714706233908e-06,
+     "confirm_energy": 1.3100210875073708e-05,
+     "confirm_ku_time": 1.2308714706233913e-06,
      "confirm_s_time": 0.0,
      "coolant_flow_L_s": 5.381289015490716,
      "cooling_capacity_kW": 15899.520000000002,
@@ -2025,7 +2025,7 @@
      "status": "OK",
      "store_burst_deficit_MJ": 0.0,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 0.00020605732030505355,
+     "store_obs_deficit_MJ": 0.00020605732030505404,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
      "total_energy": 0.0371918486436571,
@@ -2048,7 +2048,7 @@
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 8.0,
      "confirm_energy": 3.973864274966765e-05,
-     "confirm_ku_time": 3.251902657921806e-06,
+     "confirm_ku_time": 3.251902657921804e-06,
      "confirm_s_time": 0.0,
      "coolant_flow_L_s": 5.453063590897886,
      "cooling_capacity_kW": 15899.520000000002,
@@ -2075,7 +2075,7 @@
      "status": "OK",
      "store_burst_deficit_MJ": 0.01379096111278837,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 1.0064214694867565e-05,
+     "store_obs_deficit_MJ": 1.006421469486756e-05,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
      "total_energy": 0.03719184864365709,
@@ -2205,8 +2205,8 @@
        "admissible": true,
        "faces": {
         "0": {
-         "energy_fraction": 1.3100210875073706e-05,
-         "ku_time_fraction": 1.2308714706233908e-06,
+         "energy_fraction": 1.3100210875073708e-05,
+         "ku_time_fraction": 1.2308714706233913e-06,
          "s_time_fraction": 0.0
         }
        },
@@ -2217,8 +2217,8 @@
        "admissible": true,
        "faces": {
         "0": {
-         "energy_fraction": 3.821067850740089e-05,
-         "ku_time_fraction": 3.2784133470886027e-06,
+         "energy_fraction": 3.82106785074009e-05,
+         "ku_time_fraction": 3.278413347088604e-06,
          "s_time_fraction": 0.0
         }
        },
@@ -2229,9 +2229,9 @@
        "admissible": true,
        "faces": {
         "0": {
-         "energy_fraction": 1.3589256832683994e-05,
-         "ku_time_fraction": 1.3381365988813087e-07,
-         "s_time_fraction": 1.7598158006118047e-06
+         "energy_fraction": 1.3589256832684018e-05,
+         "ku_time_fraction": 1.3381365988813092e-07,
+         "s_time_fraction": 1.759815800611808e-06
         }
        },
        "mission_max_load": 0.0057,
@@ -2246,8 +2246,8 @@
       "cluster_tx": "superposition x7",
       "faces": {
        "0": {
-        "energy_fraction": 1.3100210875073706e-05,
-        "ku_time_fraction": 1.2308714706233908e-06,
+        "energy_fraction": 1.3100210875073708e-05,
+        "ku_time_fraction": 1.2308714706233913e-06,
         "s_time_fraction": 0.0
        }
       },
@@ -2321,7 +2321,7 @@
        "faces": {
         "1": {
          "energy_fraction": 3.973864274966765e-05,
-         "ku_time_fraction": 3.251902657921806e-06,
+         "ku_time_fraction": 3.251902657921804e-06,
          "s_time_fraction": 0.0
         }
        },
@@ -2333,7 +2333,7 @@
        "faces": {
         "1": {
          "energy_fraction": 0.00011773984168749786,
-         "ku_time_fraction": 8.426554195812105e-06,
+         "ku_time_fraction": 8.426554195812102e-06,
          "s_time_fraction": 0.0
         }
        },
@@ -2344,9 +2344,9 @@
        "admissible": true,
        "faces": {
         "1": {
-         "energy_fraction": 0.00023068680602648497,
-         "ku_time_fraction": 3.84155584129689e-07,
-         "s_time_fraction": 3.2797376168533935e-05
+         "energy_fraction": 0.0002306868060264851,
+         "ku_time_fraction": 3.8415558412968883e-07,
+         "s_time_fraction": 3.279737616853396e-05
         }
        },
        "mission_max_load": 0.0059,
@@ -2362,7 +2362,7 @@
       "faces": {
        "1": {
         "energy_fraction": 3.973864274966765e-05,
-        "ku_time_fraction": 3.251902657921806e-06,
+        "ku_time_fraction": 3.251902657921804e-06,
         "s_time_fraction": 0.0
        }
       },
@@ -2466,6 +2466,1392 @@
      1.938
     ]
    }
+  },
+  "verdict": {
+   "advice": [],
+   "constraints": [
+    {
+     "family": "sector",
+     "id": "S01.plan",
+     "kind": "spec",
+     "limit": "OK",
+     "load": 0.0,
+     "note": "",
+     "object": "S01",
+     "priority": "P4_1",
+     "quantity": "plan",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "",
+     "value": "OK"
+    },
+    {
+     "family": "sector",
+     "id": "S01.range",
+     "kind": "spec",
+     "limit": 5000.0,
+     "load": 0.0,
+     "note": "",
+     "object": "S01",
+     "priority": "P4_1",
+     "quantity": "range",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "km",
+     "value": 6206
+    },
+    {
+     "family": "sector",
+     "id": "S01.revisit",
+     "kind": "spec",
+     "limit": 20.0,
+     "load": 1.0,
+     "note": "",
+     "object": "S01",
+     "priority": "P4_1",
+     "quantity": "revisit",
+     "state": "OK",
+     "step": "2.3",
+     "unit": "s",
+     "value": 20.0
+    },
+    {
+     "family": "sector",
+     "id": "S02.plan",
+     "kind": "spec",
+     "limit": "OK",
+     "load": 0.0,
+     "note": "",
+     "object": "S02",
+     "priority": "P4_1",
+     "quantity": "plan",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "",
+     "value": "OK"
+    },
+    {
+     "family": "sector",
+     "id": "S02.range",
+     "kind": "spec",
+     "limit": 500.0,
+     "load": 0.0,
+     "note": "",
+     "object": "S02",
+     "priority": "P4_1",
+     "quantity": "range",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "km",
+     "value": 562
+    },
+    {
+     "family": "sector",
+     "id": "S02.revisit",
+     "kind": "spec",
+     "limit": 5.0,
+     "load": 1.0,
+     "note": "",
+     "object": "S02",
+     "priority": "P4_1",
+     "quantity": "revisit",
+     "state": "OK",
+     "step": "2.3",
+     "unit": "s",
+     "value": 5.0
+    },
+    {
+     "family": "confirmation",
+     "id": "S01.confirmation mode",
+     "kind": "spec",
+     "limit": "admissible",
+     "load": 0.0,
+     "note": "",
+     "object": "S01",
+     "priority": "P2",
+     "quantity": "confirmation mode",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": "KU1+7"
+    },
+    {
+     "family": "confirmation",
+     "id": "S01.P confirm",
+     "kind": "spec",
+     "limit": 0.98,
+     "load": 0.9820909782601241,
+     "note": "",
+     "object": "S01",
+     "priority": "P2",
+     "quantity": "P confirm",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": 0.9803581804347975
+    },
+    {
+     "family": "confirmation",
+     "id": "S01.confirmation latency",
+     "kind": "spec",
+     "limit": 100.0,
+     "load": 0.0006671508293476956,
+     "note": "95 % quantile",
+     "object": "S01",
+     "priority": "P2",
+     "quantity": "confirmation latency",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "s",
+     "value": 0.06671508293476956
+    },
+    {
+     "family": "confirmation",
+     "id": "S02.confirmation mode",
+     "kind": "spec",
+     "limit": "admissible",
+     "load": 0.0,
+     "note": "",
+     "object": "S02",
+     "priority": "P2",
+     "quantity": "confirmation mode",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": "KU1+7"
+    },
+    {
+     "family": "confirmation",
+     "id": "S02.P confirm",
+     "kind": "spec",
+     "limit": 0.98,
+     "load": 0.995207605056291,
+     "note": "",
+     "object": "S02",
+     "priority": "P2",
+     "quantity": "P confirm",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": 0.9800958478988742
+    },
+    {
+     "family": "confirmation",
+     "id": "S02.confirmation latency",
+     "kind": "spec",
+     "limit": 2.0,
+     "load": 0.0033363575487128706,
+     "note": "95 % quantile",
+     "object": "S02",
+     "priority": "P2",
+     "quantity": "confirmation latency",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "s",
+     "value": 0.006672715097425741
+    },
+    {
+     "family": "face",
+     "id": "F1.energy",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0371918486436571,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "energy",
+     "state": "OK",
+     "step": "5.2",
+     "unit": "",
+     "value": 0.0371918486436571
+    },
+    {
+     "family": "face",
+     "id": "F1.S time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0003029476869551399,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "S time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.0003029476869551399
+    },
+    {
+     "family": "face",
+     "id": "F1.Ku time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.00016789753813729007,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "Ku time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.00016789753813729007
+    },
+    {
+     "family": "face",
+     "id": "F1.heat",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0067691213514505045,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "heat",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "",
+     "value": 0.0067691213514505045
+    },
+    {
+     "family": "face",
+     "id": "F1.compute",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 7.480646880869361e-07,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "compute",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 7.480646880869361e-07
+    },
+    {
+     "family": "face",
+     "id": "F1.memory",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 3.997465870898102e-06,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "memory",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 3.997465870898102e-06
+    },
+    {
+     "family": "face",
+     "id": "F1.memory bandwidth",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.002354006289246863,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "memory bandwidth",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.002354006289246863
+    },
+    {
+     "family": "face",
+     "id": "F1.S beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.02439013961639142,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "S beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.02439013961639142
+    },
+    {
+     "family": "face",
+     "id": "F1.Ku beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.21875,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "Ku beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.21875
+    },
+    {
+     "family": "face",
+     "id": "F1.S TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.05,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "S TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.2
+    },
+    {
+     "family": "face",
+     "id": "F1.S processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.098,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "S processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 39.2
+    },
+    {
+     "family": "face",
+     "id": "F1.Ku TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.0035,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "Ku TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.014
+    },
+    {
+     "family": "face",
+     "id": "F1.Ku processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.00686,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "Ku processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 2.744
+    },
+    {
+     "family": "face",
+     "id": "F1.processing power",
+     "kind": "resource",
+     "limit": 50.0,
+     "load": 0.2000015352768008,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "processing power",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "kW",
+     "value": 10.00007676384004
+    },
+    {
+     "family": "face",
+     "id": "F1.storage (observation)",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 5.151433007626351e-05,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "storage (observation)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.00020605732030505404
+    },
+    {
+     "family": "face",
+     "id": "F1.storage (burst)",
+     "kind": "spec",
+     "limit": 4.0,
+     "load": null,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "storage (burst)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F1.heat (burst)",
+     "kind": "spec",
+     "limit": 0.0,
+     "load": null,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "heat (burst)",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F1.peak power",
+     "kind": "spec",
+     "limit": null,
+     "load": 0.0,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "peak power",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "",
+     "value": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     }
+    },
+    {
+     "family": "face",
+     "id": "F2.energy",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.03719184864365709,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "energy",
+     "state": "OK",
+     "step": "5.2",
+     "unit": "",
+     "value": 0.03719184864365709
+    },
+    {
+     "family": "face",
+     "id": "F2.S time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.00086129860845696,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "S time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.00086129860845696
+    },
+    {
+     "family": "face",
+     "id": "F2.Ku time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0001699185693245885,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "Ku time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.0001699185693245885
+    },
+    {
+     "family": "face",
+     "id": "F2.heat",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.006859406561830654,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "heat",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "",
+     "value": 0.006859406561830654
+    },
+    {
+     "family": "face",
+     "id": "F2.compute",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 3.2942573440513385e-06,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "compute",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 3.2942573440513385e-06
+    },
+    {
+     "family": "face",
+     "id": "F2.memory",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 7.175628205238019e-05,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "memory",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 7.175628205238019e-05
+    },
+    {
+     "family": "face",
+     "id": "F2.memory bandwidth",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.002947877722695189,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "memory bandwidth",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.002947877722695189
+    },
+    {
+     "family": "face",
+     "id": "F2.S beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.013719453534220171,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "S beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.013719453534220171
+    },
+    {
+     "family": "face",
+     "id": "F2.Ku beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.21875,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "Ku beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.21875
+    },
+    {
+     "family": "face",
+     "id": "F2.S TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.05,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "S TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.2
+    },
+    {
+     "family": "face",
+     "id": "F2.S processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.098,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "S processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 39.2
+    },
+    {
+     "family": "face",
+     "id": "F2.Ku TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.028,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "Ku TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.112
+    },
+    {
+     "family": "face",
+     "id": "F2.Ku processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.05488,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "Ku processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 21.952
+    },
+    {
+     "family": "face",
+     "id": "F2.processing power",
+     "kind": "resource",
+     "limit": 50.0,
+     "load": 0.20000381065977077,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "processing power",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "kW",
+     "value": 10.000190532988539
+    },
+    {
+     "family": "face",
+     "id": "F2.storage (observation)",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 2.51605367371689e-06,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "storage (observation)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 1.006421469486756e-05
+    },
+    {
+     "family": "face",
+     "id": "F2.storage (burst)",
+     "kind": "spec",
+     "limit": 4.0,
+     "load": null,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "storage (burst)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.01379096111278837
+    },
+    {
+     "family": "face",
+     "id": "F2.heat (burst)",
+     "kind": "spec",
+     "limit": 0.0,
+     "load": null,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "heat (burst)",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F2.peak power",
+     "kind": "spec",
+     "limit": null,
+     "load": 0.0,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "peak power",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "",
+     "value": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     }
+    },
+    {
+     "family": "face",
+     "id": "F3.energy",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0371918486436571,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "energy",
+     "state": "OK",
+     "step": "5.2",
+     "unit": "",
+     "value": 0.0371918486436571
+    },
+    {
+     "family": "face",
+     "id": "F3.S time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 3.3333333333333335e-05,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "S time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 3.3333333333333335e-05
+    },
+    {
+     "family": "face",
+     "id": "F3.Ku time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0001666666666666667,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "Ku time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.0001666666666666667
+    },
+    {
+     "family": "face",
+     "id": "F3.heat",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.006722215513424304,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "heat",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "",
+     "value": 0.006722215513424304
+    },
+    {
+     "family": "face",
+     "id": "F3.compute",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "compute",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.memory",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "memory",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.memory bandwidth",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "memory bandwidth",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.S beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "S beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.Ku beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "Ku beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.S TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "S TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.S processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "S processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.Ku TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "Ku TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.Ku processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "Ku processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.processing power",
+     "kind": "resource",
+     "limit": 50.0,
+     "load": 0.2,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "processing power",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "kW",
+     "value": 10.0
+    },
+    {
+     "family": "face",
+     "id": "F3.storage (observation)",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "storage (observation)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.storage (burst)",
+     "kind": "spec",
+     "limit": 4.0,
+     "load": null,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "storage (burst)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.heat (burst)",
+     "kind": "spec",
+     "limit": 0.0,
+     "load": null,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "heat (burst)",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.peak power",
+     "kind": "spec",
+     "limit": null,
+     "load": 0.0,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "peak power",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "",
+     "value": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     }
+    },
+    {
+     "family": "face",
+     "id": "F4.energy",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0371918486436571,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "energy",
+     "state": "OK",
+     "step": "5.2",
+     "unit": "",
+     "value": 0.0371918486436571
+    },
+    {
+     "family": "face",
+     "id": "F4.S time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 3.3333333333333335e-05,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "S time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 3.3333333333333335e-05
+    },
+    {
+     "family": "face",
+     "id": "F4.Ku time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0001666666666666667,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "Ku time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.0001666666666666667
+    },
+    {
+     "family": "face",
+     "id": "F4.heat",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.006722215513424304,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "heat",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "",
+     "value": 0.006722215513424304
+    },
+    {
+     "family": "face",
+     "id": "F4.compute",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "compute",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.memory",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "memory",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.memory bandwidth",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "memory bandwidth",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.S beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "S beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.Ku beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "Ku beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.S TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "S TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.S processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "S processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.Ku TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "Ku TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.Ku processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "Ku processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.processing power",
+     "kind": "resource",
+     "limit": 50.0,
+     "load": 0.2,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "processing power",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "kW",
+     "value": 10.0
+    },
+    {
+     "family": "face",
+     "id": "F4.storage (observation)",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "storage (observation)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.storage (burst)",
+     "kind": "spec",
+     "limit": 4.0,
+     "load": null,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "storage (burst)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.heat (burst)",
+     "kind": "spec",
+     "limit": 0.0,
+     "load": null,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "heat (burst)",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.peak power",
+     "kind": "spec",
+     "limit": null,
+     "load": 0.0,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "peak power",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "",
+     "value": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     }
+    },
+    {
+     "family": "ship",
+     "id": "ship.energy",
+     "kind": "resource",
+     "limit": 8.0,
+     "load": 0.0371918486436571,
+     "note": "",
+     "object": "ship",
+     "priority": null,
+     "quantity": "energy",
+     "state": "OK",
+     "step": "5.2",
+     "unit": "MW",
+     "value": 0.2975347891492568
+    },
+    {
+     "family": "ship",
+     "id": "ship.heat rejection",
+     "kind": "resource",
+     "limit": 6.0,
+     "load": 0.0760005752385087,
+     "note": "",
+     "object": "ship",
+     "priority": null,
+     "quantity": "heat rejection",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "MW",
+     "value": 0.45600345143105225
+    },
+    {
+     "family": "flight",
+     "id": "S.navigation pointing",
+     "kind": "transient",
+     "limit": 0.05,
+     "load": 0.023781520075791686,
+     "note": "",
+     "object": "S",
+     "priority": null,
+     "quantity": "navigation pointing",
+     "state": "OK",
+     "step": "4.5",
+     "unit": "HPBW",
+     "value": 0.0011890760037895844
+    },
+    {
+     "family": "flight",
+     "id": "Ku.navigation pointing",
+     "kind": "transient",
+     "limit": 0.05,
+     "load": 0.11770056745113382,
+     "note": "",
+     "object": "Ku",
+     "priority": null,
+     "quantity": "navigation pointing",
+     "state": "OK",
+     "step": "4.5",
+     "unit": "HPBW",
+     "value": 0.005885028372556691
+    }
+   ],
+   "counts": {
+    "ALERT": 0,
+    "NOK": 0,
+    "OK": 88
+   },
+   "faces": {
+    "0": {
+     "load": 0.21875,
+     "resource": "Ku beams",
+     "state": "OK"
+    },
+    "1": {
+     "load": 0.21875,
+     "resource": "Ku beams",
+     "state": "OK"
+    },
+    "2": {
+     "load": 0.2,
+     "resource": "processing power",
+     "state": "OK"
+    },
+    "3": {
+     "load": 0.2,
+     "resource": "processing power",
+     "state": "OK"
+    }
+   },
+   "limiting": {
+    "load": 0.21875,
+    "object": "F1",
+    "resource": "Ku beams",
+    "state": "OK"
+   },
+   "load_ceiling": 0.8,
+   "nok_priorities": [],
+   "saturation": {
+    "brackets": {},
+    "first_shed": null,
+    "load_ceiling": null,
+    "mode": "NONE",
+    "p2_unreachable": [],
+    "state_at_spec": "nominal"
+   },
+   "ship": {
+    "load": 0.0371918486436571,
+    "object": "ship",
+    "resource": "energy"
+   },
+   "state": "OK"
   },
   "warnings": []
  },

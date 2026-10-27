@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.25.0
+# Radar Performance Model - V6.26.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -10,11 +10,24 @@
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
 #
+# Changes V6.25.0 -> V6.26.0 (roadmap step 5.3, pass P2: quantified relaxation advice, user, 27 October 2026)
+#   - verdict["advice"]: for every constraint in alert or failed, the lever and its value: a face resource over its
+#     target (load ceiling; the value at 1 second) relieved by an item of share s > dL keeping f = 1 - dL / s of its
+#     load (search range x f^(1/4), RR / f, RCS / f; tracks n f, period / f, accuracy of the driver / sqrt(f)), the
+#     three largest items alone, a uniform revisit factor on the face, the confirmation alternatives (exact), the
+#     operator's face cap; the energy of an uncapped face is the ship's (advised once); resources in steps and heat
+#     proportional (approximate; the static part of the compute power left out); a failed requirement gets its direct
+#     value (short_tol accepted or range of the short bins, P confirm or latency reached, longest tenable period,
+#     tenable revisit or tracks of a power tier short).
+#   - core/validation.verify(): the mission recomputed with one advice, bisection (tool.validation.verify_bisections
+#     6, D) for the smallest relaxation that holds, the change doubled at most twice first; python -m core.validation
+#     <mission> --verify <n>, and a "Verify" button in the results tab. No physics changed.
+#
 # Changes V6.24.0 -> V6.25.0 (roadmap step 5.3, pass P1: verdict, framed with the user on 27 October 2026)
 #   - core/validation.py: out["verdict"], one table of constraints (sector, confirmation, track, face, ship, flight),
-#     each a load = need / limit in three states: resource OK up to load_ceiling, ALERT up to 1, KO above; spec OK up
-#     to 1, KO above (ALERT for positions short of range within short_tol and a late discrimination); transient OK up
-#     to 1, ALERT above. Mission KO as soon as one constraint is KO; priority tier per constraint; limiting resource
+#     each a load = need / limit in three states: resource OK up to load_ceiling, ALERT up to 1, NOK above; spec OK up
+#     to 1, NOK above (ALERT for positions short of range within short_tol and a late discrimination); transient OK up
+#     to 1, ALERT above. Mission NOK as soon as one constraint is NOK; priority tier per constraint; limiting resource
 #     per face and for the mission; saturation state at the specification (step 5.2 P7). No physics changed.
 #   - tool.optimizer.track_margin_warn removed (its alert is the load ceiling of the verdict).
 #   - Pmiss only: one navigation snapshot per mission (no attitude envelope, user, 27 October 2026; phase 6).
@@ -596,7 +609,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.25.0"
+MODEL_VERSION = "6.26.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

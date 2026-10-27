@@ -37,13 +37,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small C.44 radar -- design and modelling reference}
-\rhead{\small Model V6.25.0}
+\rhead{\small Model V6.26.0}
 \cfoot{\thepage}
 
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{27 October 2026 -- radar model V6.25.0 (roadmap step 5.3 in progress, pass P1: verdict)}
+\date{27 October 2026 -- radar model V6.26.0 (roadmap step 5.3 in progress, passes P1 verdict and P2 advice)}
 
 \begin{document}
 \maketitle
@@ -1199,10 +1199,10 @@ Kind & Constraints & States\\
 \midrule
 Resource & face energy (need over allocation), S and Ku time, heat, compute, memory and its bandwidth, S and Ku beams,
 TRSA link, processor input, compute power, storage per observation; ship energy and heat rejection &
-OK $\le$ \code{load\_ceiling} $<$ ALERT $\le 1 <$ KO\\
+OK $\le$ \code{load\_ceiling} $<$ ALERT $\le 1 <$ NOK\\
 Requirement & plan found, range, revisit in the mission, admissible confirmation mode, confirmation probability (load
 $(1-P)/(1-p_\mathrm{min})$), latency, period and reach of each track bracket, discrimination, power tier served in
-full, scheduling feasible, shedding & OK $\le 1 <$ KO\\
+full, scheduling feasible, shedding & OK $\le 1 <$ NOK\\
 Transient & migration between faces while the ship turns, navigation pointing error, angular acceleration beyond the
 sizing & OK $\le 1 <$ ALERT\\
 \bottomrule
@@ -1214,8 +1214,31 @@ pause or a late update remains). The mission fails as soon as one constraint fai
 being held; each constraint carries its priority tier, and the tiers failed are listed. The verdict also gives the
 limiting resource (highest resource load) of the mission and of each face, and the saturation state at the
 specification (nominal, reserve in use, over-subscribed or P2 unreachable) with the room per track bracket of
-Section~\ref{sec:sched}. Further passes add the quantified relaxation advice, the redundancies and the sensitivity of
-the verdict to the threat values.
+Section~\ref{sec:sched}.
+
+\paragraph{Relaxation advice.} Every constraint in alert or failed gets its levers with their values. A linear resource
+of a face (energy, S or Ku time) above its target (the load ceiling; the value at 1 as a second figure) by $\Delta L$ is
+relieved by an item of share $s>\Delta L$ in its load, which keeps the fraction $f=1-\Delta L/s$ of its load. The range
+of a volume is the worst one: a target missed at the start of a cycle must still be detected by $R$, so the looks that
+count are spaced $v\,RR$ beyond $R$ (for 20~km/s and a 20~s revisit, a volume at 500~km must detect between 500 and
+900~km), and a search volume follows
+\[ \frac{L'}{L}=\Big(\frac{R'}{R}\Big)^4\,\frac{\mathrm{SNR}_\mathrm{req}(q')}{\mathrm{SNR}_\mathrm{req}(q)}\,
+\frac{RR}{RR'},\qquad q=\frac{v_\mathrm{close}\,RR}{R}, \]
+the cumulative criterion of Section~\ref{sec:det} on its main waveform, solved for its range $R'$ or its revisit
+$RR'$ (a longer revisit spaces the looks and may raise the load of a fast closer: no revisit lever then), or through
+its dimensioning RCS $\sigma'=\sigma/f$ (a threat assumption); a track bracket through its number of tracks $n'=nf$, its update period $T'=T/f$ or the accuracy that
+sets its update energy, $a'=a/\sqrt f$ (transmit time taken energy-limited, hence the same laws). The three largest
+items are given alone, and one uniform factor on the revisits of every item of the face when none suffices alone; the
+confirmation alternatives (exact), an operator cap of the face and the burn-through look are given as they are. When
+the ship's power suffices, the allocation is pro rata of the needs and the energy load of every face is the ship's: the
+advice is given once, on the ship. Resources in steps (beams, compute, memory bandwidth, storage) and the heat get a
+proportional factor, flagged approximate, the static part of the compute power left out; a peak per look (TRSA link,
+processor input, buffers) is set by the waveforms, not by the revisits, and gets no revisit lever. A failed requirement
+gets its direct value (shortfall accepted or range of the short scan-angle bins, confirmation probability or latency
+reached, longest tenable track period, tenable revisit or tracks of a power tier short). Every figure is an estimate:
+the verification recomputes the mission with the change and bisects (six recomputations) for the smallest relaxation
+that holds, and only the verified figure stands. Further passes add the redundancies and the sensitivity of the verdict
+to the threat values.
 
 %=====================================================================================================================
 \section{Mission settings and target presentation}\label{sec:mission51}
@@ -1309,7 +1332,7 @@ The test bench has two families: frozen outputs of every test mission compared a
 (non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
 exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
 frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
-before any refreeze. At model V6.25.0 the bench has 244 tests (12 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 35 minutes since pass P7 of step 5.2 (saturation table), with a global progress bar).
+before any refreeze. At model V6.26.0 the bench has 247 tests (12 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 35 minutes since pass P7 of step 5.2 (saturation table), with a global progress bar).
 
 %=====================================================================================================================
 \section{Roadmap and open points}\label{sec:roadmap}
@@ -1329,7 +1352,7 @@ calibration --- done (degraded modes and TRM failures deferred to the end of the
 coolant, cold plate, junction, ship heat rejection --- done; 4.3 scheduler: priorities, queues, synthetic timeline,
 common slots, latency --- done; 4.3 bis scan order inside a volume --- done; 4.4 compute and data --- done; 4.5 re-pointing in flight --- done\\
 5, mission and validation & 5.1 richer mission model --- done; 5.2 global optimiser (power allocation, couplings,
-global loop, margin reuse, flight tables, reallocation and saturation) --- done; 5.3 validation engine (verdict done); Monte-Carlo simulation; operator
+global loop, margin reuse, flight tables, reallocation and saturation) --- done; 5.3 validation engine (verdict and relaxation advice done); Monte-Carlo simulation; operator
 interface; verification and documentation; end of development\\
 \bottomrule
 \end{tabularx}
