@@ -3287,3 +3287,42 @@ def test_mc_reproducible_and_matches_the_analytic_criterion():
     assert abs(an - 0.9) < 0.003
     c = mc.draw_targets(bm, np.random.default_rng(11), 6000, 20.0, v, 0.0, correlated=True)[0]
     assert not np.array_equal(a, c)
+
+
+def test_mc_poisson_and_quantile_intervals():
+    """Step 5.4 M2: Poisson interval of a count (Byar, reference values at 95 %) and the order-statistic interval of a
+    quantile (contains the true 95 % quantile of an exponential sample)."""
+    from core import montecarlo as mc
+    lo, hi = mc.poisson_ci(10, 0.95)
+    assert abs(lo - 4.80) < 0.03 and abs(hi - 18.39) < 0.05
+    assert mc.poisson_ci(0)[0] == 0.0
+    x = np.random.default_rng(5).exponential(1.0, 4000)
+    q, qlo, qhi = mc.quantile_ci(x, 0.95)
+    assert qlo <= math.log(20.0) <= qhi and qlo <= q <= qhi
+
+
+def test_mc_greedy_matches_the_scheduler_rule():
+    """Step 5.4 M2-1: the drawn timeline serves by priority then deadline without preemption, as scheduler._timeline:
+    a P2 task released during a long P4 dwell waits for its end, then goes before the next P4."""
+    from core import montecarlo as mc
+    tasks = [(0.0, (4, 1), 10.0, 1.0), (0.5, (2, 0), 1e9, 0.1), (0.2, (4, 1), 10.0, 1.0)]
+    d, pauses = mc._greedy(tasks, math.inf, 0.0)
+    assert np.allclose(d, [0.0, 0.5, 0.9], atol=1e-12) and pauses == 0
+    d, pauses = mc._greedy([(0.0, (4, 1), 9.0, 1.0), (0.0, (4, 1), 9.0, 1.0)], 1.5, 0.5)
+    assert pauses == 1 and abs(d[1] - 1.5) < 1e-12
+
+
+def test_mc_confirmation_matches_the_analytic_success():
+    """Step 5.4 M2-4: fed with the analytic detected-SNR quantiles and independent looks (T0 = 0), the drawn KU1+7 and
+    KU7 successes fall in the 99.9 % interval of tracking.ConfirmStats (the same Gaussian errors, averaged)."""
+    from core import montecarlo as mc
+    from core import tracking as trk_
+    cl = trk_.cluster_variants()[0]
+    st = trk_.ConfirmStats(1, 1, 2.8, 14.0, None, cl)
+    snr = np.tile(np.asarray(st.x_det), 3000)
+    for mode, m_db in (("KU1+7", 3.0), ("KU7", 3.0)):
+        spec = mc.ConfirmSpec(sid="T", mode=mode, margin_db=m_db, success_analytic=0.0, p_min=0.0, st=st,
+                              t0_s_s=0.0, t0_ku_s=0.0, trip_s=1.0)
+        r = spec.draw(snr, np.random.default_rng(2))
+        lo, hi = mc.wilson(int(round(r["p_mc"] * r["detections"])), r["detections"], 0.999)
+        assert lo <= st.ku(mode, m_db)[0] <= hi, (mode, r["p_mc"], st.ku(mode, m_db)[0])

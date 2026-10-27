@@ -769,6 +769,7 @@ ci_level        = 0.95          # G3: level of the Wilson intervals (D)
 horizon_max_s   = 600.0         # B2: scheduler timeline of a Monte-Carlo draw over at most this time (M2; the test targets count every look above pd_look_floor, user 27 Oct 2026, D)
 warmup_revisits = 2             # B2: revisits played before the counted time to fill the queues (scheduler passes, D)
 v_draw          = "max"         # C4: closing velocity of the test targets: "max" (v_close_max) or "uniform" (D)
+n_rep           = 10            # M2-2: drawn timelines per face (D, user, 27 Oct 2026)
 batch           = 200           # test targets drawn per batch between two checks of the stopping rule
 pd_look_floor   = 1e-5          # looks whose mean Pd stays below this are not drawn (they cannot change the result)
 

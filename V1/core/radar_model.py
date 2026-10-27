@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.28.0
+# Radar Performance Model - V6.29.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -10,6 +10,12 @@
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
 #
+# Changes V6.28.0 -> V6.29.0 (roadmap step 5.4, pass M2: Monte-Carlo of false alarms, confirmation, timelines, eclipse)
+#   - core/montecarlo.py: eclipse drawn whole per echo (the plan's mean loss given back), confirmation of every detected
+#     test target drawn from the SNR of the look that detected (exact Ku decisions, one power draw within T0), drawn
+#     timelines per face and band (scheduler classes and rule, confirmations from drawn false alarms and detections,
+#     n_rep per face): confirmation latency (95 %) and late updates against the analytic scheduler; false alarms per
+#     revisit and mean waits as information; [tool.montecarlo] n_rep.
 # Changes V6.27.0 -> V6.28.0 (roadmap step 5.4, pass M1: Monte-Carlo of the search test targets, user, 27 October 2026)
 #   - core/montecarlo.py (on demand, python -m core.montecarlo <mission>): cumulative Pd of each search sector by
 #     draws of test targets on the plan kept by the run (SNR read from the plan, position point fixed per target through
@@ -626,7 +632,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.28.0"
+MODEL_VERSION = "6.29.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
