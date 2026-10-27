@@ -1818,6 +1818,12 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
     out["_alternatives"] = getattr(plan, "alternatives", [])        # step 5.2
     out["flight_table"] = getattr(plan, "flight_table", None)       # step 5.2 (P5): plans kept for the flight
     out["_choice"] = [int(c) for c in plan.choice]                   # step 5.2 (P4): ranges at the real revisit
+    out["_plan"] = {"freq_ghz": f, "beam_spacing_hpbw": sp,          # step 5.3 (P3): the redundancy test, plan kept
+                    "wf": [cands[c] if c >= 0 else None for c in plan.choice],
+                    "pfa": [pfas[c] if c >= 0 else None for c in plan.choice],
+                    "pulse_scale": [float(s) for s in plan.s_bin],
+                    "short": [bool(r < r_want) for r in plan.r_bin]}
+    out["face_overlap"] = face_overlap(sec, sph, m, f, plan, cands, pfas, tgt, p_avg_max_w)
     out["flags"] = []
     res = out["range_resolution_m"]
     if res["achieved"] > res["requested"] + 1e-9:
@@ -1861,6 +1867,85 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
     if fi["valid_centres_unexcluded"] and (fi["valid_centres_unexcluded"] - fi["valid_centres"]) >             EXCLUDED_FLAG_FRAC * fi["valid_centres_unexcluded"]:
         out["flags"].append(f"spectrum exclusions remove {fi['valid_centres_unexcluded'] - fi['valid_centres']} of the "
                             f"{fi['valid_centres_unexcluded']} valid S centres (step 3.1, A10)")
+    return out
+
+
+def face_overlap(sec: dict, sph: Sphere, m: np.ndarray, f: float, plan: "_Plan", cands: List, pfas: List,
+                 tgt: "rm.Target", p_avg_max_w: float) -> Dict[str, dict]:
+    """Step 5.3 (P3): the search load of the sector that a neighbouring face could take over, plan unchanged
+    (information). A direction is served by the face of least scan (Sphere.owner); face j also sees it while its own
+    scan angle stays under the scan limit at f. Per pair "k>j": the solid angle of that zone (sr), the load of face k
+    there (fe_own, ft_own: fractions of the face reference power and of the time, as faces[k]), the part j can reach
+    (sr_reach, fe_own_reach, ft_own_reach) and what j would pay for it (fe_other, ft_other). The cost of a position at
+    the scan angle seen from j is the plan's own where the plan has that scan bin (range, pulse scale, cost: exact);
+    beyond, the waveform of the nearest bin of the plan, its range scaled by range_at() between the two angles (the
+    sector's T_sys, jamming and eclipse terms carried over), the pulse scale (R / r)^4 and PositionCosts (unreachable
+    above full pulse). The positions follow positions_table() (w dOmega / cell), the sky blinding left aside."""
+    lim = rm.band_for_frequency(f).scan_limit_deg(f)
+    sel = m & sph.scan_zone & (sph.theta <= lim)
+    pop = np.flatnonzero(plan.choice >= 0)
+    if not sel.any() or not len(pop):
+        return {}
+    sp = grid_spacing(sec)
+    cell = rm.beam_cell_area_uv(f, sp)
+    rr, r_want = float(sec["rr_target_s"]), float(sec["range_km"])
+    nb = len(plan.choice)
+    theta_c = _theta_centres(f, nb)
+    costs = PositionCosts(cands)
+    e_fa = float(sec.get("_fa_energy_J", 0.0))
+    if e_fa > 0.0:
+        costs = costs.with_extra(np.array([cells_per_position(sec, w, f) * pfas[j] * e_fa for j, w in enumerate(cands)]))
+    cum = (float(sec["v_close_max_mps"]), rr, r_want)
+    e_at, t_at = np.zeros(nb), np.zeros(nb)
+    ok_at = np.zeros(nb, dtype=bool)
+    for b in range(nb):                                  # cost of one position at each scan bin seen from j
+        if theta_c[b] > lim:
+            continue
+        if plan.choice[b] >= 0:
+            e_at[b], t_at[b], ok_at[b] = plan.e_bin[b], plan.t_bin[b], bool(plan.r_bin[b] >= r_want)
+            continue
+        ref = int(pop[np.argmin(np.abs(pop - b))])
+        c = int(plan.choice[ref])
+        args = (tgt, rx_sll_db(sec), velocity_span_mps(sec), pfas[c], cum)
+        r_ref, r_b = range_at(cands[c], f, float(theta_c[ref]), *args, spacing=sp), \
+            range_at(cands[c], f, float(theta_c[b]), *args, spacing=sp)
+        if not r_ref or not r_b or not np.isfinite(plan.r_bin[ref]):
+            continue
+        s = (r_want / (plan.r_bin[ref] * r_b / r_ref)) ** 4
+        if s > 1.0 + 1e-9:
+            continue
+        e, t, _s, _eta = costs(np.array([s]), np.array([c]))
+        e_at[b], t_at[b], ok_at[b] = float(e[0]), float(t[0]), True
+    p, e = np.radians(sph.phi[sel]), np.radians(sph.eps[sel])
+    dx, dy, dz = np.cos(e) * np.cos(p), np.cos(e) * np.sin(p), np.sin(e)
+    own, dom = sph.owner[sel], sph.d_omega[sel]
+    b_own = np.minimum((sph.theta[sel] / THETA_BIN_DEG).astype(int), nb - 1)
+    pos_own = sph.w[sel] * dom / cell
+    e_own, t_own = pos_own * plan.e_bin[b_own], pos_own * plan.t_bin[b_own]
+    out = {}
+    for k in range(4):
+        mine = own == k
+        if not mine.any():
+            continue
+        for j in range(4):
+            if j == k:
+                continue
+            n = face_frame(FACE_PHI[j])[0]
+            wj = dx * n[0] + dy * n[1] + dz * n[2]
+            th = np.degrees(np.arccos(np.clip(wj, 0.0, 1.0)))
+            zone = mine & (wj > 0) & (th <= lim)
+            if not zone.any():
+                continue
+            bj = np.minimum((th / THETA_BIN_DEG).astype(int), nb - 1)
+            reach = zone & ok_at[bj]
+            pos_j = wj * dom / cell
+            out[f"{k}>{j}"] = {
+                "sr": float(dom[zone].sum()), "sr_reach": float(dom[reach].sum()),
+                "fe_own": float(e_own[zone].sum()) / (p_avg_max_w * rr), "ft_own": float(t_own[zone].sum()) / rr,
+                "fe_own_reach": float(e_own[reach].sum()) / (p_avg_max_w * rr),
+                "ft_own_reach": float(t_own[reach].sum()) / rr,
+                "fe_other": float((pos_j * e_at[bj])[reach].sum()) / (p_avg_max_w * rr),
+                "ft_other": float((pos_j * t_at[bj])[reach].sum()) / rr}
     return out
 
 
@@ -2353,11 +2438,16 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
         mr = margin.reuse_tracks(mission, out, lambda mis, res: _assemble(mis, mis["sectors"], res, cancelled, *args))
         out["margin_reuse"] = mr
         out["warnings"].extend(mr["flags"])
+    if not cancelled:                        # step 5.3 (P3): "the plan of A holds the need of B", plans kept
+        from . import redundancy
+        plans = {r["id"]: r["_plan"] for r in out["sectors"] if r.get("_plan")}
+        out["redundancy"] = redundancy.in_plan(mission, plans, _sphere(eps_min, eps_max), out)
     from . import validation                 # step 5.3 (P1): the verdict, one table of constraints
     out["verdict"] = validation.verdict(mission, out)
     for r in out["sectors"]:
         r.pop("_alternatives", None)
         r.pop("_choice", None)
+        r.pop("_plan", None)
     return out
 
 

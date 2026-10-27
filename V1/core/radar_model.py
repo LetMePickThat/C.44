@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.26.0
+# Radar Performance Model - V6.27.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -10,6 +10,16 @@
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
 #
+# Changes V6.26.0 -> V6.27.0 (roadmap step 5.3, pass P3: redundancies and overlaps, user, 27 October 2026)
+#   - out["redundancy"] (core/redundancy.in_plan): "the plan of A holds the need of B" tested with the plans the run
+#     kept (worst-range rule: A's revisit, B's target and range), with the cost of the redundant volume per face;
+#     verdict["redundancy"] repeats it and a face resource in alert or failed (energy, S time) is first advised to drop
+#     or trim it (kind "redundancy"; verify() applies the drop or the pieces).
+#   - sectors[...]["face_overlap"] (optimizer.face_overlap): per face and neighbour, the S search a neighbour also sees
+#     under its scan limit, its load on the owner and its cost on the neighbour (the plan's own cost per scan bin,
+#     beyond it range_at() scaling and PositionCosts); verdict["overlap"]: the margin of the neighbour to the load
+#     ceiling, the part takeable and the relief (information, plan unchanged: kind "overlap" in the advice).
+#   - redundancy.find_redundancies takes the plans of a run (plans=) and any optimizer.Sphere (grid.mask).
 # Changes V6.25.0 -> V6.26.0 (roadmap step 5.3, pass P2: quantified relaxation advice, user, 27 October 2026)
 #   - verdict["advice"]: for every constraint in alert or failed, the lever and its value: a face resource over its
 #     target (load ceiling; the value at 1 second) relieved by an item of share s > dL keeping f = 1 - dL / s of its
@@ -609,7 +619,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.26.0"
+MODEL_VERSION = "6.27.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

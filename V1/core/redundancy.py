@@ -205,8 +205,11 @@ def _pair_note(sa_id: str, sb_id: str, om_met: float, om_inter: float, reason_ce
     return f"{reason} -- not a duplicated requirement"
 
 
-def find_redundancies(mission: dict, grid: geo.SphereGrid) -> Tuple[List[Finding], Dict[Tuple[str, str], str]]:
-    """Step 3.0: computed on the mission turned into the ship frame (core/frames.py); nothing if its frames are invalid."""
+def find_redundancies(mission: dict, grid: geo.SphereGrid,
+                      plans: Optional[Dict[str, Optional[dict]]] = None) -> Tuple[List[Finding], Dict[Tuple[str, str], str]]:
+    """Step 3.0: computed on the mission turned into the ship frame (core/frames.py); nothing if its frames are invalid.
+    plans: the waveform plan of each sector by id (step 5.3 P3: the plans of a finished run); a sector without one is
+    planned here alone, at the reference power (core.optimizer.sector_plan). grid: any core.optimizer.Sphere."""
     try:
         mission, _ = frames.resolve(mission)
     except ValueError:
@@ -215,11 +218,12 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid) -> Tuple[List[Finding
     g = mission.get("global", {})
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
     p_avg_max_w = rm.face_elec_avail_w(rm.FACE_ELEC_POWER_MW)     # the optimiser's reference (step 4.1)
+    plans = plans or {}
     sectors = mission.get("sectors", [])
     scanned = grid.scanned(eps_min, eps_max)
     masks: List[Optional[np.ndarray]] = []
     for i, sec in enumerate(sectors):
-        masks.append(grid.sector_mask(sec) & scanned if not md.validate_sector(sec, i) else None)
+        masks.append(grid.mask(sec) & scanned if not md.validate_sector(sec, i) else None)
     ids = [s.get("id") for s in sectors]
     out = []
     pair_notes: Dict[Tuple[str, str], str] = {}
@@ -241,8 +245,8 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid) -> Tuple[List[Finding
             inter = ma & mb
             if not inter.any():
                 continue
-            met, short, worst, reason_cells = need_met(grid, sa, _plan(sa, eps_min, eps_max, p_avg_max_w, g.get("sky")),
-                                                       sb, inter)
+            plan_a = plans[sa["id"]] if sa["id"] in plans else _plan(sa, eps_min, eps_max, p_avg_max_w, g.get("sky"))
+            met, short, worst, reason_cells = need_met(grid, sa, plan_a, sb, inter)
             om_met = float((grid.d_omega * met).sum())
             om_inter = float((grid.d_omega * inter).sum())
             pair_notes[(sa["id"], sb["id"])] = _pair_note(sa["id"], sb["id"], om_met, om_inter, reason_cells,
@@ -270,6 +274,24 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid) -> Tuple[List[Finding
         out.append(Finding(index=j, sid=sb["id"], by=by, fraction=frac, full=full, pieces=pieces, note=note,
                            caveat="; ".join(short_notes) if pieces else "", detail="\n".join(details)))
     return out, pair_notes
+
+
+def in_plan(mission: dict, plans: Dict[str, dict], grid, out: dict) -> List[dict]:
+    """Step 5.3 (P3, user, 27 October 2026): the redundancies of a finished run, tested with the plans it kept (a
+    sector without one, e.g. NO_WAVEFORM, planned alone at the reference power), each with what the redundant sector
+    costs (its search energy and S time per face, fractions of the face reference as in its "faces"): the relief if it
+    is dropped (full) or trimmed (pieces; the relief then scales with the part removed, an estimate). Information:
+    the plan is not changed."""
+    findings, _notes = find_redundancies(mission, grid, plans)
+    res = {r["id"]: r for r in out.get("sectors", [])}
+    rows = []
+    for f in findings:
+        faces = {k: {"energy_fraction": float(v.get("energy_fraction", 0.0)),
+                     "time_fraction": float(v.get("time_fraction", 0.0))}
+                 for k, v in (res.get(f.sid, {}).get("faces") or {}).items()}
+        rows.append({"sector": f.sid, "by": list(f.by), "fraction": float(f.fraction), "full": bool(f.full),
+                     "pieces": f.pieces, "note": f.note, "caveat": f.caveat, "detail": f.detail, "faces": faces})
+    return rows
 
 
 # ----------------------------------------------------------------------------- trim proposal (box algebra)
@@ -310,7 +332,7 @@ def _phi_boxes(intervals: List[Tuple[float, float]]) -> List[Tuple[float, float]
     return iv
 
 
-def trim_proposal(sb: dict, clean: List[dict], grid: geo.SphereGrid, scanned: np.ndarray,
+def trim_proposal(sb: dict, clean: List[dict], grid: mo.Sphere, scanned: np.ndarray,
                   existing_ids: List[str]) -> Tuple[Optional[List[dict]], str]:
     """B's box minus the boxes of the earlier sectors meeting B's need over their whole overlap with B. The first
     piece keeps B's id; the others get B's id with a _2, _3... suffix."""
@@ -340,7 +362,7 @@ def trim_proposal(sb: dict, clean: List[dict], grid: geo.SphereGrid, scanned: np
                 continue
             piece = dict(sb, phi_min_deg=round(p0, 6), phi_max_deg=round(p1, 6),
                          eps_min_deg=round(e0, 6), eps_max_deg=round(e1, 6))
-            if (grid.sector_mask(piece) & scanned).any():
+            if (grid.mask(piece) & scanned).any():
                 pieces.append(frames.unresolved(piece))
     if not pieces:
         return None, "nothing left to scan once the covered part is removed"

@@ -188,7 +188,35 @@ class ResultsTab(QWidget):
         h.addWidget(self.lbl_verify, 1)
         v.addLayout(h)
         self._verify_worker = None
+        # step 5.3 (P3): redundancies and overlaps between faces, information (the plan is not changed)
+        self.table_overlap = QTableWidget()
+        cols = ["kind", "on", "by / neighbour", "share", "relief", "detail"]
+        self.table_overlap.setColumnCount(len(cols))
+        self.table_overlap.setHorizontalHeaderLabels(cols)
+        self.table_overlap.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.table_overlap.horizontalHeader().setStretchLastSection(True)
+        self.table_overlap.setToolTip("Redundancy: the plan of another volume holds this volume's need (share of its "
+                                      "need held). Overlap: S search a neighbouring face also sees under its scan limit "
+                                      "and could take over within its margin to the load ceiling (plan unchanged).")
+        v.addWidget(self.table_overlap)
         return box
+
+    def _fill_overlap(self) -> None:
+        vd = self.result.get("verdict") or {}
+        rows = []
+        for d in vd.get("redundancy", []):
+            rows.append(["redundancy", d["sector"], ", ".join(d["by"]), f"{100 * d['fraction']:.0f} % held",
+                         "drop" if d["full"] else (f"trim to {len(d['pieces'])} box(es)" if d.get("pieces") else "-"),
+                         validation.redundancy_text(d)])
+        for o in vd.get("overlap", []):
+            if o["takeable"] <= 0:
+                continue
+            rows.append(["overlap", o["face"], o["neighbour"], f"{100 * o['takeable']:.0f} % takeable",
+                         f"S time -{100 * o['relief_s_time']:.2f} %", validation.overlap_text(o)])
+        self.table_overlap.setRowCount(len(rows))
+        for i, vals in enumerate(rows):
+            for col, val in enumerate(vals):
+                self.table_overlap.setItem(i, col, QTableWidgetItem(val))
 
     def _fill_advice(self) -> None:
         adv = (self.result.get("verdict") or {}).get("advice", [])
@@ -197,8 +225,10 @@ class ResultsTab(QWidget):
         for i, a in enumerate(adv):
             change = validation.changes_text(a, most=len(a["changes"])) if a["changes"] else "-"
             ver = a.get("verified")
-            ver_txt = ("-" if ver is None else "holds: " + ", ".join(f"{c['key']} {c['verified']:.4g}" if isinstance(
-                c["verified"], (int, float)) else f"{c['key']} {c['verified']}" for c in ver["changes"])
+            ver_txt = ("-" if ver is None else "holds: " + ", ".join(
+                f"{c['key']} {c['verified']:.4g}" if isinstance(c["verified"], (int, float)) and not isinstance(
+                    c["verified"], bool) else c["key"] if c["key"] in ("removed", "pieces")
+                else f"{c['key']} {c['verified']}" for c in ver["changes"])
                 if ver["holds"] else "does not hold")
             vals = [str(a["n"]), f"{a['object']} {a['quantity']} ({a['state']})", a["kind"], a["item"] or "-",
                     change, "; ".join(x for x in (a["law"], "approximate" if a["approximate"] else "", a["note"],
@@ -474,6 +504,7 @@ class ResultsTab(QWidget):
 
         self._fill_verdict()
         self._fill_advice()
+        self._fill_overlap()
         self._fill_tracking_tables()
         warnings = self.result.get("warnings", [])
         self.lbl_warnings.setText("\n".join(warnings) if warnings else "None")

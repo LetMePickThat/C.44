@@ -3086,7 +3086,8 @@ def test_verdict_on_the_frozen_missions(runs):
                 x["constraints"] = {r["id"]: r for r in x["constraints"]}
                 x["advice"] = sorted((dict(a, n=None) for a in x["advice"]), key=lambda a: json.dumps(a, sort_keys=True))
                 return x
-            assert tb.differences(plain(res["verdict"]), plain(v)) == [], n
+            # keys added by a later pass (P3: redundancy, overlap) are compared once refrozen
+            assert tb.differences(plain(res["verdict"]), plain({k: v[k] for k in res["verdict"]})) == [], n
 
 
 def test_advice_laws_alone_and_uniform(monkeypatch):
@@ -3144,3 +3145,64 @@ def test_search_law_counts_the_look_spacing():
     fast = val_._SearchLaw({"range_km": 500.0, "rr_target_s": 20.0, "v_close_max_mps": 25000.0}, res)
     assert fast.ratio(500.0, 33.8) > 1.0 and fast.rr_at(0.64) is None
     assert fast.range_at(0.64) < 500.0 * 0.64 ** 0.25
+
+
+def test_overlap_takeable_within_the_neighbour_margin(monkeypatch):
+    """Step 5.3 P3: face F1 could hand over to F2 a zone that costs F2 15 % of S time; F2 is at 74 % for a ceiling of
+    80 %, so 0.06 / 0.15 = 40 % of the zone is takeable, relieving F1 by 40 % of its 10 %; the ship energy (faces
+    pro rata, not capped) rises by the cost difference. On F1 S time in alert, one overlap line, no change."""
+    monkeypatch.setattr(val_, "_items", lambda m, o: {})
+    out = {"sectors": [{"id": "A", "face_overlap": {"0>1": {
+        "sr": 1.0, "sr_reach": 0.5, "fe_own": 0.1, "ft_own": 0.2, "fe_own_reach": 0.05, "ft_own_reach": 0.1,
+        "fe_other": 0.08, "ft_other": 0.15}}}],
+        "power_allocation": {"ship_MW": 8.0, "need_MW": 4.0, "faces": {str(k): {"need_MW": 1.0} for k in range(4)}}}
+    rows = [{"id": "F1.S time", "family": "face", "object": "F1", "quantity": "S time", "kind": "resource",
+             "load": 0.85, "state": "ALERT", "limit": 1.0, "value": 0.85},
+            {"id": "F2.S time", "family": "face", "object": "F2", "quantity": "S time", "kind": "resource",
+             "load": 0.74, "state": "OK", "limit": 1.0, "value": 0.74}]
+    ov = val_._overlap(out, rows, 0.8)
+    assert len(ov) == 1 and ov[0]["face"] == "F1" and ov[0]["neighbour"] == "F2"
+    o = ov[0]
+    assert abs(o["takeable"] - 0.4) < 1e-12 and abs(o["relief_s_time"] - 0.04) < 1e-12
+    p_ref = rm.face_elec_avail_w(rm.FACE_ELEC_POWER_MW) / 1e6
+    assert o["energy_on"] == "ship" and abs(o["relief_energy"] - 0.4 * (0.05 - 0.08) * p_ref / 8.0) < 1e-12
+    adv = val_.advice({"global": {}, "sectors": []}, out, rows, 0.8, ov)
+    lines = [a for a in adv if a["kind"] == "overlap"]
+    assert len(lines) == 1 and lines[0]["changes"] == [] and "takeable 40 %" in lines[0]["note"]
+
+
+def test_redundancy_advice_comes_first_and_applies(monkeypatch):
+    """Step 5.3 P3: a fully redundant volume weighing 0.3 on an S time in alert is advised first (drop), a partly
+    redundant one is trimmed to its pieces; apply_changes drops or replaces the volume."""
+    monkeypatch.setattr(val_, "_items", lambda m, o: {("search", "B", None): {"share": {(0, "S time"): 0.3}, "ship": 0.1},
+                                                     ("search", "C", None): {"share": {(0, "S time"): 0.2}, "ship": 0.1}})
+    pieces = [{"id": "C", "phi_min_deg": 0.0, "phi_max_deg": 10.0, "eps_min_deg": 0.0, "eps_max_deg": 5.0},
+              {"id": "C_2", "phi_min_deg": 20.0, "phi_max_deg": 30.0, "eps_min_deg": 0.0, "eps_max_deg": 5.0}]
+    out = {"sectors": [], "redundancy": [
+        {"sector": "B", "by": ["A"], "fraction": 1.0, "full": True, "pieces": None, "note": "", "caveat": ""},
+        {"sector": "C", "by": ["A"], "fraction": 0.5, "full": False, "pieces": pieces, "note": "", "caveat": ""}]}
+    row = {"id": "F1.S time", "family": "face", "object": "F1", "quantity": "S time", "kind": "resource",
+           "load": 0.9, "state": "ALERT", "limit": 1.0, "value": 0.9}
+    mission = {"global": {}, "sectors": [{"id": "A"}, {"id": "B"}, {"id": "C"}]}
+    adv = val_.advice(mission, out, [row], 0.8)
+    assert [a["kind"] for a in adv[:2]] == ["redundancy", "redundancy"]
+    assert adv[0]["changes"][0]["key"] == "removed" and "relief 30.00 %" in adv[0]["note"]
+    assert adv[1]["changes"][0]["key"] == "pieces" and adv[1]["approximate"]
+    assert [s["id"] for s in val_.apply_changes(mission, adv[0]["changes"])["sectors"]] == ["A", "C"]
+    assert [s["id"] for s in val_.apply_changes(mission, adv[1]["changes"])["sectors"]] == ["A", "B", "C", "C_2"]
+    assert val_.apply_changes(mission, adv[0]["changes"], 0.0)["sectors"] == mission["sectors"]
+    assert "B removed" in val_.changes_text(adv[0]) and "C_2" in val_.changes_text(adv[1])
+
+
+def test_redundancy_uses_the_plans_given(monkeypatch):
+    """Step 5.3 P3: with the plans of a run, find_redundancies plans no sector itself (a sector without a plan meets
+    nobody's need: no finding)."""
+    from core import geometry as geo
+    from core import redundancy as red
+
+    def no_plan(*a, **k):
+        raise AssertionError("planned again")
+    monkeypatch.setattr(red, "_plan", no_plan)
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_redundancy_demo.json"))
+    findings, notes = red.find_redundancies(m, geo.SphereGrid(res_deg=2.0), {s["id"]: None for s in m["sectors"]})
+    assert findings == [] and notes

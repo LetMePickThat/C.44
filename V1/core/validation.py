@@ -41,6 +41,17 @@ failed requirement gets its direct value (range at the worst bin of the plan kep
 reached, longest tenable track period, tenable revisit or tracks of a power tier short). Every figure is an estimate:
 verify() recomputes the mission with the lever and bisects (tool.validation.verify_bisections steps), and only the
 verified figure stands.
+
+Pass P3 (validated by the user on 27 October 2026): redundancies and overlaps, information only (the plan is not
+changed). verdict["redundancy"] repeats optimizer.run()'s out["redundancy"] ("the plan of A holds the need of B",
+core/redundancy.py, tested with the plans the run kept and the worst-range rule: A's revisit, B's target and range):
+the redundant sector, by whom, the share of its need held and what it costs per face. A face resource in alert or
+failed (energy, S time) gets, first in its advice, the drop or the trim of a redundant sector that weighs on it (kind
+"redundancy", relief = share held x the sector's share in the load, an estimate; verify() recomputes it).
+verdict["overlap"] gives, per face and neighbour, the S search load the neighbour could take over in the directions it
+also sees under its scan limit (optimizer.face_overlap: cost on the neighbour by the optimiser's laws), the margin of
+the neighbour up to the load ceiling and the part it could take; on a face resource in alert or failed, one line of
+advice (kind "overlap", no change: the zones of responsibility stay those of the plan, the reallocation is phase 6).
 """
 from __future__ import annotations
 
@@ -342,9 +353,90 @@ def verdict(mission: dict, out: dict) -> dict:
     sat_state = ("over-subscribed" if any(r["load"] > 1.0 + TOL for r in face_res + [r for r in res if r["family"] == "ship"])
                  else "reserve in use" if any(r["load"] > ceiling + TOL for r in face_res) else "nominal")
     failing_p = sorted({r["priority"] for r in t.rows if r["state"] == "NOK" and r["priority"]})
+    overlap = _overlap(out, t.rows, ceiling)
     return {"state": state, "load_ceiling": ceiling, "counts": counts, "limiting": limiting, "faces": faces,
             "ship": ship, "nok_priorities": failing_p, "saturation": _saturation(out, sat_state),
-            "constraints": t.rows, "advice": advice(mission, out, t.rows, ceiling)}
+            "constraints": t.rows, "redundancy": list(out.get("redundancy") or []), "overlap": overlap,
+            "advice": advice(mission, out, t.rows, ceiling, overlap)}
+
+
+# ----------------------------------------------------------------------------- P3: overlaps between faces
+def _overlap(out: dict, rows: List[dict], ceiling: float) -> List[dict]:
+    """Per face k and neighbour j (numbered from 1, as the constraints), summed over the search volumes: the zone j
+    also sees (sr; sr_reach where j reaches the range), the S time and energy of k there and their cost on j, the
+    margin of j up to the load ceiling and the part x of the reachable zone it could take (limited by its S time and
+    its energy: its own allocation when it is capped, else the ship's, the transfer then adding the cost difference),
+    and the relief on k (S time load; energy load of k when capped, else of the ship, negative when it rises)."""
+    pa = out.get("power_allocation") or {}
+    pa_f = pa.get("faces", {})
+    ship_mw = float(pa.get("ship_MW") or 8.0)
+    need_tot = float(pa.get("need_MW") or 0.0)
+    p_ref_mw = rm.face_elec_avail_w(rm.FACE_ELEC_POWER_MW) / 1e6       # the reference of the fractions (step 4.1)
+    sch = (out.get("scheduler") or {}).get("faces", {})
+    by_id = {r["id"]: r for r in rows}
+    tot: Dict[str, Dict[str, float]] = {}
+    for r in out.get("sectors", []):
+        for key, v in (r.get("face_overlap") or {}).items():
+            acc = tot.setdefault(key, {})
+            for x, y in v.items():
+                acc[x] = acc.get(x, 0.0) + float(y)
+    res = []
+    for key in sorted(tot, key=lambda s: tuple(int(x) for x in s.split(">"))):
+        v = tot[key]
+        k, j = (int(x) for x in key.split(">"))
+        if v.get("ft_own", 0.0) <= 0 and v.get("fe_own", 0.0) <= 0:
+            continue
+        cap_k = float((sch.get(str(k), {}).get("S") or {}).get("capacity", 1.0) or 1.0)
+        cap_j = float((sch.get(str(j), {}).get("S") or {}).get("capacity", 1.0) or 1.0)
+        t_own, t_oth = v["ft_own_reach"] / cap_k, v["ft_other"] / cap_j
+        e_own, e_oth = v["fe_own_reach"] * p_ref_mw, v["fe_other"] * p_ref_mw
+        row_t = by_id.get(f"F{j + 1}.S time")
+        m_t = ceiling - float(row_t["load"]) if row_t and row_t["load"] is not None else 0.0
+        capped_j, capped_k = _capped(pa, j), _capped(pa, k)
+        fj = pa_f.get(str(j), {})
+        if capped_j:
+            m_e = ceiling * float(fj.get("alloc_MW", 0.0)) - float(fj.get("need_MW", 0.0))
+            de = e_oth
+        else:
+            m_e = ceiling * ship_mw - need_tot
+            de = e_oth - (0.0 if capped_k else e_own)
+        lim = [1.0]
+        if t_oth > 0:
+            lim.append(max(m_t, 0.0) / t_oth)
+        if de > 0:
+            lim.append(max(m_e, 0.0) / de)
+        x = min(lim) if v["sr_reach"] > 0 else 0.0
+        fk = pa_f.get(str(k), {})
+        if capped_k and float(fk.get("alloc_MW", 0.0)) > 0:
+            relief_e, e_on = x * e_own / float(fk["alloc_MW"]), "face"
+        else:
+            relief_e, e_on = x * (e_own - e_oth) / ship_mw, "ship"
+        res.append({"face": f"F{k + 1}", "neighbour": f"F{j + 1}", "sr": v["sr"], "sr_reach": v["sr_reach"],
+                    "s_time_own": v["ft_own"] / cap_k, "s_time_own_reach": t_own, "s_time_other": t_oth,
+                    "energy_own_MW": v["fe_own"] * p_ref_mw, "energy_own_reach_MW": e_own, "energy_other_MW": e_oth,
+                    "margin_s_time": m_t, "margin_energy_MW": m_e, "energy_on": e_on, "takeable": x,
+                    "relief_s_time": x * t_own, "relief_energy": relief_e})
+    return res
+
+
+def overlap_text(o: dict) -> str:
+    return (f"{o['neighbour']} sees {o['sr']:.3g} sr of {o['face']}'s search ({o['sr_reach']:.3g} sr within its "
+            f"reach): {o['face']} S time {100 * o['s_time_own']:.2f} % there, {100 * o['s_time_other']:.2f} % on "
+            f"{o['neighbour']} for the reachable part; energy {o['energy_own_reach_MW']:.3g} -> "
+            f"{o['energy_other_MW']:.3g} MW; {o['neighbour']} margin to the ceiling S time "
+            f"{100 * o['margin_s_time']:.1f} %, energy {o['margin_energy_MW']:.3g} MW ({o['energy_on']}); takeable "
+            f"{100 * o['takeable']:.0f} %: {o['face']} S time -{100 * o['relief_s_time']:.2f} %, energy load "
+            f"({o['energy_on']}) {'-' if o['relief_energy'] >= 0 else '+'}{100 * abs(o['relief_energy']):.2f} %")
+
+
+def redundancy_text(d: dict) -> str:
+    what = "fully redundant" if d["full"] else f"{100 * d['fraction']:.0f} % of its need held"
+    cost = ", ".join(f"F{int(k) + 1} energy {100 * v['energy_fraction']:.3g} % / S time {100 * v['time_fraction']:.3g} %"
+                     for k, v in sorted(d.get("faces", {}).items()))
+    prop = ("drop it" if d["full"] else f"trim to {len(d['pieces'])} box(es)" if d.get("pieces")
+            else f"no trim ({d['note']})" if d.get("note") else "no trim")
+    return (f"{d['sector']}: {what} by {', '.join(d['by'])} -- {prop}" + (f"; costs {cost}" if cost else "")
+            + (f"; {d['caveat']}" if d.get("caveat") else ""))
 
 
 def summary_lines(v: dict) -> List[str]:
@@ -362,6 +454,13 @@ def summary_lines(v: dict) -> List[str]:
         pr = f" [{r['priority']}]" if r["priority"] else ""
         lines.append(f"  {r['state']:5s} {r['object']} {r['quantity']}{pr}: load {load}"
                      + (f" -- {r['note']}" if r["note"] else ""))
+    if v.get("redundancy"):
+        lines.append("redundancies (the plan of A holds the need of B; information):")
+        lines.extend("  " + redundancy_text(d) for d in v["redundancy"])
+    over = [o for o in v.get("overlap", []) if o["takeable"] > 0]
+    if over:
+        lines.append("overlaps between faces (S search a neighbour could take over; information, plan unchanged):")
+        lines.extend("  " + overlap_text(o) for o in over)
     if v.get("advice"):
         lines.append("advice (estimates; python -m core.validation <mission> --verify <n> recomputes one):")
         lines.extend("  " + advice_text(a) for a in v["advice"])
@@ -560,8 +659,9 @@ def _uniform(items: Dict[tuple, dict], face: Optional[int], res: Optional[str], 
     return ch
 
 
-def advice(mission: dict, out: dict, rows: List[dict], ceiling: float) -> List[dict]:
-    """Quantified relaxation advice for every constraint in alert or failed (module docstring, P2)."""
+def advice(mission: dict, out: dict, rows: List[dict], ceiling: float,
+           overlap: Optional[List[dict]] = None) -> List[dict]:
+    """Quantified relaxation advice for every constraint in alert or failed (module docstring, P2, P3)."""
     try:
         items = _items(mission, out)
     except (KeyError, TypeError, ValueError, ZeroDivisionError):
@@ -591,6 +691,8 @@ def advice(mission: dict, out: dict, rows: List[dict], ceiling: float) -> List[d
             dl, dl1 = row["load"] - ceiling, row["load"] - 1.0
             approx = (q not in _LIN) or (out.get("power_allocation") or {}).get("status") == "SHORT"
             n_before = len(adv)
+            if q in ("energy", "S time"):
+                _redundancy_advice(row, face, q, items, out, add)
             if q in _LIN:
                 def share(it, r_=q):
                     return it["ship"] if face is None else it["share"].get((face, r_), 0.0)
@@ -653,6 +755,12 @@ def advice(mission: dict, out: dict, rows: List[dict], ceiling: float) -> List[d
                                                     "current": mode, "proposed": m_}], f"confirmation {s['id']}",
                                     None, None, f"mission's most loaded face {100 * cur:.1f} % -> "
                                     f"{100 * a['mission_max_load']:.1f} % (step 3.2)", False)
+                if face is not None and q in ("energy", "S time"):
+                    for o in overlap or []:
+                        rel = o["relief_s_time"] if q == "S time" else o["relief_energy"]
+                        if o["face"] == obj and o["takeable"] > 0 and rel > 0 and (q == "S time" or o["energy_on"] == "face"):
+                            add(row, "overlap", [], f"zone shared with {o['neighbour']}", law="zones of "
+                                "responsibility kept (information; reallocation in flight: phase 6)", note=overlap_text(o))
                 if len(adv) == n_before:                  # nothing moves enough: say what the load is made of
                     var = sum(s for s, _k in ranked)
                     add(row, "none", [], None, law="no lever", approx=approx,
@@ -684,6 +792,26 @@ def advice(mission: dict, out: dict, rows: List[dict], ceiling: float) -> List[d
             continue
         _direct(row, out, mission, add)
     return adv
+
+
+def _redundancy_advice(row: dict, face: Optional[int], q: str, items: Dict[tuple, dict], out: dict, add) -> None:
+    """P3: drop (full) or trim (pieces) a redundant search volume weighing on the resource; relief = its share in
+    the load x the share of its need held elsewhere (an estimate for a trim)."""
+    for d in out.get("redundancy") or []:
+        it = items.get(("search", d["sector"], None))
+        if it is None:
+            continue
+        s = it["ship"] if face is None else it["share"].get((face, q), 0.0)
+        if s <= 0 or not (d["full"] or d.get("pieces")):
+            continue
+        if d["full"]:
+            ch = [{"sector": d["sector"], "bracket": None, "key": "removed", "current": False, "proposed": True}]
+        else:
+            ch = [{"sector": d["sector"], "bracket": None, "key": "pieces", "current": None, "proposed": d["pieces"]}]
+        relief = s * (1.0 if d["full"] else d["fraction"])
+        add(row, "redundancy", ch, f"search {d['sector']}", None, None,
+            "need held by " + ", ".join(d["by"]) + " (the specification kept)", not d["full"],
+            note=f"relief {100 * relief:.2f} % of the load" + (f"; {d['caveat']}" if d.get("caveat") else ""))
 
 
 _LAW = {"range_km": "load ~ R^4 SNR_req(v RR / R): R' solved", "rr_target_s": "load ~ SNR_req(v RR / R) / RR: RR' solved",
@@ -760,12 +888,22 @@ def _val(v) -> str:
     return f"{v:g}" if isinstance(v, (int, float)) and not isinstance(v, bool) else str(v)
 
 
+def _change_text(c: dict) -> str:
+    if c["key"] == "removed":
+        return f"{c['sector']} removed"
+    if c["key"] == "pieces":
+        return f"{c['sector']} trimmed to " + ", ".join(
+            f"{p['id']} (phi {p['phi_min_deg']:g}..{p['phi_max_deg']:g}, eps {p['eps_min_deg']:g}..{p['eps_max_deg']:g} deg)"
+            for p in c["proposed"])
+    return (f"{c['sector'] + ('/' + str(c['bracket']) if c['bracket'] is not None else '') + ' ' if c['sector'] else ''}"
+            f"{c['key']} {_val(c['current'])} -> {_val(c['proposed'])}"
+            + (f" ({_val(c['proposed_at_1'])} at 100 %)" if c.get("proposed_at_1") is not None else "")
+            + (f" {_UNITS[c['key']]}" if c["key"] in _UNITS else ""))
+
+
 def changes_text(a: dict, most: int = 4) -> str:
     """The changes of an advice as text: 'S01 range_km 1500 -> 1380 (1310 at 100 %) km; ...'."""
-    ch = "; ".join(f"{c['sector'] + ('/' + str(c['bracket']) if c['bracket'] is not None else '') + ' ' if c['sector'] else ''}"
-                   f"{c['key']} {_val(c['current'])} -> {_val(c['proposed'])}"
-                   + (f" ({_val(c['proposed_at_1'])} at 100 %)" if c.get("proposed_at_1") is not None else "")
-                   + (f" {_UNITS[c['key']]}" if c["key"] in _UNITS else "") for c in a["changes"][:most])
+    ch = "; ".join(_change_text(c) for c in a["changes"][:most])
     if len(a["changes"]) > most:
         ch += f"; ... ({len(a['changes'])} changes)"
     return ch
@@ -801,6 +939,11 @@ def apply_changes(mission: dict, changes: List[dict], t: float = 1.0) -> dict:
     m = copy.deepcopy(mission)
     secs = {s["id"]: s for s in m.get("sectors", [])}
     for c in changes:
+        if c["key"] in ("removed", "pieces"):        # P3: a redundant volume dropped or trimmed (whole or nothing)
+            if t > 0:
+                i = next(n for n, s in enumerate(m["sectors"]) if s.get("id") == c["sector"])
+                m["sectors"][i:i + 1] = [] if c["key"] == "removed" else [copy.deepcopy(p) for p in c["proposed"]]
+            continue
         v = _value(c, t)
         if c["sector"] is None:
             m.setdefault("global", {})[c["key"]] = v

@@ -37,13 +37,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small C.44 radar -- design and modelling reference}
-\rhead{\small Model V6.26.0}
+\rhead{\small Model V6.27.0}
 \cfoot{\thepage}
 
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{27 October 2026 -- radar model V6.26.0 (roadmap step 5.3 in progress, passes P1 verdict and P2 advice)}
+\date{27 October 2026 -- radar model V6.27.0 (roadmap step 5.3 in progress, passes P1 verdict, P2 advice and P3 redundancies)}
 
 \begin{document}
 \maketitle
@@ -1237,8 +1237,21 @@ processor input, buffers) is set by the waveforms, not by the revisits, and gets
 gets its direct value (shortfall accepted or range of the short scan-angle bins, confirmation probability or latency
 reached, longest tenable track period, tenable revisit or tracks of a power tier short). Every figure is an estimate:
 the verification recomputes the mission with the change and bisects (six recomputations) for the smallest relaxation
-that holds, and only the verified figure stands. Further passes add the redundancies and the sensitivity of the verdict
-to the threat values.
+that holds, and only the verified figure stands.
+
+\paragraph{Redundancies and overlaps.} Information only: the plan is not changed. At the end of the run, the test ``the
+plan of A holds the need of B'' uses the plans the run kept, with the worst-range rule (A's
+revisit, B's target and range, cumulative criterion); each redundant volume comes with its cost per face, and a face
+resource in alert or failed (energy, S time) is first advised to drop it (fully held) or to trim it to the boxes left
+(partly held), the specification kept; the verification applies the drop or the pieces. A direction is served by the
+face of least scan; the neighbouring face also sees it while its own scan angle stays under the scan limit. Per face
+and neighbour, the verdict gives the solid angle of that zone, the S time and energy of the face there and their cost on
+the neighbour, at the higher scan angle: the plan's own cost per position where the plan has that scan bin, beyond it
+the waveform of the nearest bin with its range scaled between the two angles, the pulse scale $(R/r)^4$ and the cost
+law of the search (unreachable above the full pulse), with the neighbour's density of positions; then the neighbour's
+margin up to the load ceiling (S time; energy of the face when it is capped, else of the ship) and the part it could
+take. The zones of responsibility stay those of the plan: the reallocation in flight is phase 6. The next pass adds the
+sensitivity of the verdict to the threat values.
 
 %=====================================================================================================================
 \section{Mission settings and target presentation}\label{sec:mission51}
@@ -1312,7 +1325,7 @@ jammers, Faraday\\
 \code{core/repoint.py} & re-pointing in flight: navigation pointing error, its loss, migration between faces\\
 \code{core/allocation.py} & power allocation among the faces by priority tier\\
 \code{core/margin.py} & margin reuse by reallocation mode, track saturation table\\
-\code{core/redundancy.py} & redundancy between sectors\\
+\code{core/redundancy.py} & redundancy between sectors (before the run, and with the plans of the run)\\
 \code{core/validation.py} & mission verdict: table of constraints, limiting resource, saturation state\\
 \code{core/cost\_estimate.py} & fast estimate for the interface\\
 \code{core/mission.py} & mission model, validation, JSON / CSV\\
@@ -1332,7 +1345,7 @@ The test bench has two families: frozen outputs of every test mission compared a
 (non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
 exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
 frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
-before any refreeze. At model V6.26.0 the bench has 247 tests (12 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 35 minutes since pass P7 of step 5.2 (saturation table), with a global progress bar).
+before any refreeze. At model V6.27.0 the bench has 250 tests (12 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 35 minutes since pass P7 of step 5.2 (saturation table), with a global progress bar).
 
 %=====================================================================================================================
 \section{Roadmap and open points}\label{sec:roadmap}
