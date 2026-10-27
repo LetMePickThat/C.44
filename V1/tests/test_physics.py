@@ -2055,6 +2055,7 @@ def test_parameter_file_entries_are_complete():
 def test_every_parameter_is_read_by_the_code():
     """An entry nothing reads is a dead value (renamed or forgotten in the code)."""
     import gui.main_window  # noqa: F401  (GUI defaults)
+    import core.montecarlo  # noqa: F401  (step 5.4, command line only until M4)
     spec = importlib.util.spec_from_file_location("gen_cost_table", os.path.join(tb.ROOT, "tools", "gen_cost_table.py"))
     spec.loader.exec_module(importlib.util.module_from_spec(spec))
     unread = sorted(p.path for p in params.P if p.path not in params.P.read_keys and p.path != "meta.file_version")
@@ -3206,3 +3207,83 @@ def test_redundancy_uses_the_plans_given(monkeypatch):
     m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_redundancy_demo.json"))
     findings, notes = red.find_redundancies(m, geo.SphereGrid(res_deg=2.0), {s["id"]: None for s in m["sectors"]})
     assert findings == [] and notes
+
+def _mc_bin(n=4, shape=1.0, pfa=1e-6, x_db=None, r_km=500.0, short=False, lattice=False, q=0.0):
+    """A scan bin of the Monte-Carlo (step 5.4) built without the optimiser: a range straddle of +/- 0.5 dB and, with
+    lattice, the S TX and RX lattices of the search; its analytic law from the same samples; x_db None = the SNR the
+    criterion requires (cumulative over looks spaced q)."""
+    from core import detection as det
+    from core import montecarlo as mc
+    rng_s = np.linspace(0.0, 1.0, 401)
+    tx_cell = tx_beam = rx_cell = rx_beam = None
+    law = (np.array(det.quantiles(rng_s, rm.OFFSET_QUANTILES)[0]), np.full(rm.OFFSET_QUANTILES, 1.0 / rm.OFFSET_QUANTILES))
+    if lattice:
+        pat = rm.PATTERNS["S"]
+        tx_cell, tx_beam = rm.BEAM_SPACING_HPBW * pat.tx.hpbw, pat.tx
+        rx_beam = rm.rx_beam("S", None)
+        rx_cell = rm.RX_BEAM_SPACING_HPBW * rx_beam.hpbw
+        tx = rm._hex_cell_points(tx_cell)
+        rx = rm._hex_cell_points(rx_cell)
+        for v in (rm._beam_loss_db(tx_beam, np.hypot(tx[:, 0], tx[:, 1])), rm._beam_loss_db(rx_beam, np.hypot(rx[:, 0], rx[:, 1]))):
+            law = det.combine(law, det.quantiles(v, rm.OFFSET_QUANTILES), 2 * rm.OFFSET_QUANTILES)
+    fl = det.Fluct(shape)
+    x_req = det.required_snr_db(n, fl, pfa, 0.9, law[0], law[1], q, rm.CUM_PD_FLOOR)
+    return mc.BinModel(n=n, shape=shape, threshold=det.threshold(n, pfa), x_req_db=x_req,
+                       x_avail_db=x_req if x_db is None else x_db, r_bin_km=r_km, short=short,
+                       pos_l=tuple(law[0]), pos_w=tuple(law[1]), pfa=pfa, tx_cell=tx_cell or 0.0, tx_beam=tx_beam,
+                       rx_cell=rx_cell or 0.0, rx_beam=rx_beam, range_samples=rng_s)
+
+
+def test_mc_hex_reduction():
+    """Step 5.4 M1: a point reduced into the hexagonal cell is its offset to the nearest lattice site (inside the
+    cell of radar_model._hex_cell_points, same for a point moved by a lattice vector)."""
+    from core import montecarlo as mc
+    d = 1.7
+    rng = np.random.default_rng(3)
+    p = rng.uniform(-5, 5, (2000, 2))
+    off = mc.reduce_hex(p, d)
+    b = mc._basis(d)
+    sites = np.array([i * b[0] + j * b[1] for i in range(-1, 2) for j in range(-1, 2)])
+    dist0 = (off ** 2).sum(1)
+    assert np.all(dist0[:, None] <= ((off[:, None, :] - sites[None]) ** 2).sum(2) + 1e-9)
+    assert np.allclose(mc.reduce_hex(p + 2 * b[0] - 3 * b[1], d), off)
+
+
+def test_mc_wilson_interval():
+    """Step 5.4 G3: Wilson interval at 95 % (reference values) and its limits."""
+    from core import montecarlo as mc
+    lo, hi = mc.wilson(90, 100, 0.95)
+    assert abs(lo - 0.8256) < 2e-4 and abs(hi - 0.9448) < 2e-4
+    assert mc.wilson(0, 50)[0] == 0.0 and mc.wilson(50, 50)[1] == 1.0
+
+
+def test_mc_single_look_matches_the_exact_law():
+    """Step 5.4 B6: one look (q = 0 through a revisit of 0 s) of a steady and a Swerling 1 target, no position loss:
+    the drawn Pd falls in the 99.9 % interval of the exact law of detection.pd_at."""
+    from core import detection as det
+    from core import montecarlo as mc
+    for shape, sw in ((math.inf, 0), (1.0, 1)):
+        bm = _mc_bin(n=4, shape=shape, x_db=13.0)
+        bm.range_samples = np.zeros(1)
+        rng = np.random.default_rng(7)
+        hit, _ = mc.draw_targets(bm, rng, 20000, 1e9, np.zeros(20000), 0.0)
+        lo, hi = mc.wilson(int(hit.sum()), len(hit), 0.999)
+        assert lo <= float(det.pd_at(4, sw, 1e-6, 13.0)) <= hi
+
+
+def test_mc_reproducible_and_matches_the_analytic_criterion():
+    """Step 5.4 G1 + B4: the same seed gives the same draws; with every position loss drawn anew at each look (the
+    analytic assumption) the cumulative Pd of targets at the required SNR is the criterion's 0.9 within its 99.9 %
+    interval; with the lattice point fixed per target the draws differ (the effect M1 measures)."""
+    from core import montecarlo as mc
+    bm = _mc_bin(lattice=True, q=1.0)
+    v = np.full(6000, 25000.0)
+    a = mc.draw_targets(bm, np.random.default_rng(11), 6000, 20.0, v, 0.0, correlated=False)[0]
+    b = mc.draw_targets(bm, np.random.default_rng(11), 6000, 20.0, v, 0.0, correlated=False)[0]
+    assert np.array_equal(a, b)
+    lo, hi = mc.wilson(int(a.sum()), len(a), 0.999)
+    assert lo <= 0.9 <= hi
+    an = mc.analytic_pcum(bm.curve(), 25000.0 * 20.0 / 500e3, bm.x_avail_db)
+    assert abs(an - 0.9) < 0.003
+    c = mc.draw_targets(bm, np.random.default_rng(11), 6000, 20.0, v, 0.0, correlated=True)[0]
+    assert not np.array_equal(a, c)

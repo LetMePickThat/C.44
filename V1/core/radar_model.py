@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.27.0
+# Radar Performance Model - V6.28.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -10,6 +10,13 @@
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
 #
+# Changes V6.27.0 -> V6.28.0 (roadmap step 5.4, pass M1: Monte-Carlo of the search test targets, user, 27 October 2026)
+#   - core/montecarlo.py (on demand, python -m core.montecarlo <mission>): cumulative Pd of each search sector by
+#     draws of test targets on the plan kept by the run (SNR read from the plan, position point fixed per target through
+#     the lattice shifts, range straddle per look, Gamma fluctuation, exact noncentral chi-square decision), against the
+#     analytic expectation; state NOK / ALERTE (model optimistic) / OK per sector; [tool.montecarlo].
+#   - optimizer.run(keep_plans=True) keeps "_plan" (with the full-pulse range and the positions of each bin); the
+#     outputs of a normal run do not change.
 # Changes V6.26.0 -> V6.27.0 (roadmap step 5.3, pass P3: redundancies and overlaps, user, 27 October 2026)
 #   - out["redundancy"] (core/redundancy.in_plan): "the plan of A holds the need of B" tested with the plans the run
 #     kept (worst-range rule: A's revisit, B's target and range), with the cost of the redundant volume per face;
@@ -619,7 +626,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.27.0"
+MODEL_VERSION = "6.28.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

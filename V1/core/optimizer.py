@@ -1822,7 +1822,9 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
                     "wf": [cands[c] if c >= 0 else None for c in plan.choice],
                     "pfa": [pfas[c] if c >= 0 else None for c in plan.choice],
                     "pulse_scale": [float(s) for s in plan.s_bin],
-                    "short": [bool(r < r_want) for r in plan.r_bin]}
+                    "short": [bool(r < r_want) for r in plan.r_bin],
+                    "range_km": [float(r) for r in plan.r_bin],      # step 5.4: full-pulse range per bin (NaN: none)
+                    "positions": [float(x) for x in p_tot]}         # step 5.4: positions per bin (test target draws)
     out["face_overlap"] = face_overlap(sec, sph, m, f, plan, cands, pfas, tgt, p_avg_max_w)
     out["flags"] = []
     res = out["range_resolution_m"]
@@ -2336,12 +2338,14 @@ def _mission_choice(out: dict) -> Dict[str, Tuple[float, float]]:
     return changes
 
 
-def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] = None) -> dict:
+def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] = None, keep_plans: bool = False) -> dict:
     """progress_cb(done, total, sector_id) is called after each sector (optional, e.g. for a UI
     progress bar). cancel_cb() is polled between sectors (every 0.2 s in parallel mode); if it returns True,
     run() stops early and returns the partial result with "cancelled": True (sectors not computed are absent).
     workers: None = automatic (parallel from PARALLEL_MIN_SECTORS sectors), 1 = sequential, > 1 = parallel.
-    Step 3.0: the volumes and the sky are first turned into the ship frame with the mission navigation (core/frames.py)."""
+    Step 3.0: the volumes and the sky are first turned into the ship frame with the mission navigation (core/frames.py).
+    keep_plans (step 5.4): the waveform plan of each sector stays under "_plan" (Python objects, not JSON) for the
+    Monte-Carlo verification (core/montecarlo.py)."""
     framed = frames.uses_frames(mission)
     mission, frame_alerts = frames.resolve(mission)
     mission = with_spectrum(mission)                 # step 3.1: the S exclusions seen by every sector
@@ -2447,7 +2451,8 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
     for r in out["sectors"]:
         r.pop("_alternatives", None)
         r.pop("_choice", None)
-        r.pop("_plan", None)
+        if not keep_plans:
+            r.pop("_plan", None)
     return out
 
 
