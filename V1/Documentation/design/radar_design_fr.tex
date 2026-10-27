@@ -40,13 +40,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small Radar C.44 -- référence de conception et de modélisation}
-\rhead{\small Modèle V6.24.0}
+\rhead{\small Modèle V6.25.0}
 \cfoot{\thepage}
 
 \title{\textbf{Radar AESA spatial à quatre faces}\\[4pt]
 \large Référence de conception et de modélisation de l'outil de préparation de mission}
 \author{Projet C.44}
-\date{26 octobre 2026 -- modèle radar V6.24.0 (étape 5.2 de la feuille de route faite, passe P7 comprise)}
+\date{27 octobre 2026 -- modèle radar V6.25.0 (étape 5.3 de la feuille de route en cours, passe P1 : verdict)}
 
 \begin{document}
 \maketitle
@@ -1254,6 +1254,36 @@ réallouée : énergie depuis les faces qui ont de la marge, temps d'émission p
 contre temps) ou par la face voisine dans les zones de recouvrement, chaleur, calcul, faisceaux et mémoire par le
 recouvrement ; le délestage par priorités vient en dernier.
 
+\subsection{Verdict de la mission}\label{sec:verdict}
+Le verdict (\code{core/validation.py}, étape 5.3) juge le plan en préparation de mission seulement, sur l'instantané de
+navigation de la mission (un seul message de navigation : l'enveloppe d'attitudes relève du simulateur de scénario) et à
+la spécification demandée (le réemploi de la marge est rapporté à part). Il n'ajoute aucune physique : chaque contrainte
+est lue dans les sorties des autres modules comme une charge, besoin sur limite, de l'un de trois genres :
+\begin{center}
+{\small\begin{tabularx}{\linewidth}{@{}lLl@{}}
+\toprule
+Genre & Contraintes & États\\
+\midrule
+Ressource & énergie de la face (besoin sur allocation), temps S et Ku, chaleur, calcul, mémoire et son débit, faisceaux S
+et Ku, lien TRSA, entrée du processeur, puissance du calcul, stockage par observation ; énergie et rejet de chaleur du
+vaisseau & OK $\le$ \code{load\_ceiling} $<$ ALERTE $\le 1 <$ KO\\
+Exigence & plan trouvé, portée, revisite dans la mission, mode de confirmation admissible, probabilité de confirmation
+(charge $(1-P)/(1-p_\mathrm{min})$), latence, période et portée de chaque tranche de poursuite, discrimination, niveau
+de puissance servi en entier, ordonnancement faisable, délestage & OK $\le 1 <$ KO\\
+Transitoire & migration entre faces quand le vaisseau tourne, erreur de pointage de navigation, accélération angulaire
+au-delà du dimensionnement & OK $\le 1 <$ ALERTE\\
+\bottomrule
+\end{tabularx}}
+\end{center}
+Des positions courtes dans la tolérance du secteur et une discrimination atteinte sous la plus courte portée d'intérêt
+sont des alertes ; le stockage et la chaleur d'une revisite tassée sont des règles de l'ordonnanceur (la frise
+synthétique alerte s'il reste une pause ou une mise à jour en retard). La mission est KO dès qu'une contrainte est KO, la
+spécification de l'opérateur n'étant pas tenue ; chaque contrainte porte son niveau de priorité, et les niveaux en défaut
+sont listés. Le verdict donne aussi la ressource limitante (la plus forte charge de ressource) de la mission et de chaque
+face, et l'état de saturation à la spécification (nominal, réserve entamée, sur-souscrit ou P2 inatteignable) avec la
+place par tranche de poursuite de la section~\ref{sec:sched}. Les passes suivantes ajoutent le conseil chiffré de
+relâchement, les redondances et la sensibilité du verdict aux valeurs de la menace.
+
 %=====================================================================================================================
 \section{Réglages de mission et présentation des cibles}\label{sec:mission51}
 %=====================================================================================================================
@@ -1333,6 +1363,7 @@ numérique\\
 \code{core/allocation.py} & répartition de la puissance entre les faces par niveau de priorité\\
 \code{core/margin.py} & réemploi de la marge selon le mode de réallocation, table de saturation de la poursuite\\
 \code{core/redundancy.py} & redondance entre secteurs\\
+\code{core/validation.py} & verdict de la mission : table des contraintes, ressource limitante, état de saturation\\
 \code{core/cost\_estimate.py} & estimation rapide pour l'interface\\
 \code{core/mission.py} & modèle de mission, validation, JSON / CSV\\
 \code{core/geometry.py} & trame de la sphère, vue 3D du vaisseau\\
@@ -1352,7 +1383,7 @@ Le banc de tests a deux familles : les sorties figées de chaque mission de test
 $10^{-9}$ (non-régression), et des lois physiques et invariants qui doivent tenir quelles que soient les valeurs
 ($R\propto\sigma^{1/4}$, exactitude de chaque raccourci, cohérence des caches, lois de détection contre les formes
 closes, \dots). Chaque regel des sorties figées est consigné avec sa cause. Un rapport d'impact donne les chiffres clés
-et les formes d'onde qui changent avant tout regel. Au modèle V6.24.0, le banc compte 241 tests (dont 12 comparent les
+et les formes d'onde qui changent avant tout regel. Au modèle V6.25.0, le banc compte 244 tests (dont 12 comparent les
 sorties figées des cas de test), exécutés à trois niveaux : tests rapides, tests touchés par un changement, et passe
 complète (table de coût, chaque cas de test calculé une fois et gardé avec une empreinte du code, rapport d'impact, banc
 entier ; environ 35 minutes depuis la passe P7 de la 5.2 (table de saturation), avec une barre de progression globale).
@@ -1363,7 +1394,7 @@ entier ; environ 35 minutes depuis la passe P7 de la 5.2 (table de saturation), 
 \begin{center}
 \begin{tabularx}{\linewidth}{@{}lL@{}}
 \toprule
-Phase & Étapes (état au 26 octobre 2026)\\
+Phase & Étapes (état au 27 octobre 2026)\\
 \midrule
 0, fondations & fichier de paramètres unique, banc de tests, revue de chaque valeur --- fait\\
 1, antenne et RF & diagramme réel ; désadaptation active, lobes de réseau et de jeu ; TRM et chaîne d'émission ; bande ;
@@ -1378,8 +1409,8 @@ ordonnanceur : priorités, files, chronologie synthétique, créneaux communs, l
 pointages dans un volume --- fait ; 4.4 calcul et données --- fait ; 4.5 re-pointage en vol --- fait\\
 5, mission et validation & 5.1 modèle de mission enrichi --- fait ; 5.2 optimiseur global (répartition de la
 puissance, couplages, boucle globale, réemploi de la marge, tables pour le vol, réallocation et saturation) ---
-fait ; moteur de
-validation ; simulation Monte-Carlo ; interface opérateur ; vérification et documentation ; fin de développement\\
+fait ; 5.3 moteur de
+validation (verdict fait) ; simulation Monte-Carlo ; interface opérateur ; vérification et documentation ; fin de développement\\
 \bottomrule
 \end{tabularx}
 \end{center}

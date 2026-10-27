@@ -111,7 +111,6 @@ MAX_WF_PER_SECTOR = P.get(_T + "max_wf_per_sector")  # default cap on distinct w
 SHORT_TOL = P.get(_T + "short_tol")                  # positions-short-of-range fractions within it rank equal (sector key "short_tol")
 ALPHAS = np.linspace(0.0, 1.0, P.get(_T + "n_alphas"))   # energy weight of the scalarised energy/time cost
 SHORT_PENALTY = P.get(_T + "short_penalty")          # DP penalty per fraction of positions short of range (ranks range before cost)
-TRACK_MARGIN_WARN = P.get(_T + "track_margin_warn")  # warn when a face keeps less than this fraction of its power for tracking
 SKY_ABOVE_BUDGET_ALERT_DB = P.get("tool.alerts.sky_above_budget_db")   # flag positions this far above the sky budget
 RR_T0_RATIO = P.get("tool.alerts.rr_t0_ratio")       # flag a revisit below this x the target T0 (step 2.4, B4)
 SURFACE_GUARD_KM = P.get("tool.mission_defaults.sector.surface_guard_km")   # step 3.1, P4 Q9 (sector key)
@@ -2097,9 +2096,7 @@ def _assemble(mission: dict, sectors: List[dict], results: List[dict], cancelled
         if v["time_fraction"] > 1.0:       # energy: the ship total is shared (step 4.1), judged in the budget
             warn.append(f"face F{k + 1} over-subscribed: time on air {100 * v['time_fraction']:.0f} % "
                         f"(RR stretched x{dil[k]:.2f})")
-        elif v["energy_fraction"] <= 1.0 and v["power_margin"] < TRACK_MARGIN_WARN:
-            warn.append(f"face F{k + 1} tracking margin < {100 * TRACK_MARGIN_WARN:.0f} % "
-                        f"({v['p_available_kW']:.0f} kW left for Ku)")
+        # step 5.3: the tracking margin alert (track_margin_warn) is the load ceiling of the verdict (core/validation.py)
     out = {"global": {"eps_min_deg": eps_min, "eps_max_deg": eps_max, "face_elec_mw": elec, "face_elec_cap_mw": cap,
                       "face_elec_avail_kW": p_avg_max / 1e3, "objective": "max(energy,time)",
                       "bin_deg": BIN_DEG, "max_wf_per_sector": MAX_WF_PER_SECTOR,
@@ -2356,6 +2353,8 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
         mr = margin.reuse_tracks(mission, out, lambda mis, res: _assemble(mis, mis["sectors"], res, cancelled, *args))
         out["margin_reuse"] = mr
         out["warnings"].extend(mr["flags"])
+    from . import validation                 # step 5.3 (P1): the verdict, one table of constraints
+    out["verdict"] = validation.verdict(mission, out)
     for r in out["sectors"]:
         r.pop("_alternatives", None)
         r.pop("_choice", None)
@@ -2567,6 +2566,11 @@ def print_report(res: dict) -> None:
         for sid, s_ in rp["sectors"].items():
             tr = [f"F{int(k) + 1} {v['transit_s']:.2f} s" for k, v in s_["faces"].items()]
             print(f"   {sid} ({s_['frame']}): face transit at the maximum rate {', '.join(tr)}")
+    if res.get("verdict"):                                     # step 5.3 (P1)
+        from . import validation
+        print("=" * 100)
+        for line in validation.summary_lines(res["verdict"]):
+            print("", line)
     for wmsg in res["warnings"]:
         print(" WARNING:", wmsg)
 

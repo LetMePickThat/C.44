@@ -37,13 +37,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small C.44 radar -- design and modelling reference}
-\rhead{\small Model V6.24.0}
+\rhead{\small Model V6.25.0}
 \cfoot{\thepage}
 
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{26 October 2026 -- radar model V6.24.0 (roadmap step 5.2 done, pass P7 included)}
+\date{27 October 2026 -- radar model V6.25.0 (roadmap step 5.3 in progress, pass P1: verdict)}
 
 \begin{document}
 \maketitle
@@ -1187,6 +1187,36 @@ first); on an overload, before any shedding, the resource that blocks the face a
 from the faces with margin, transmit time by waveform re-selection (energy against time) or by the neighbouring face in
 the overlap zones, heat, computing, beams and memory through the overlap; shedding by priority comes last.
 
+\subsection{Mission verdict}\label{sec:verdict}
+The verdict (\code{core/validation.py}, step 5.3) judges the plan in mission preparation only, at the navigation
+snapshot of the mission (one navigation message: the attitude envelope belongs to the scenario simulator) and at the
+specification asked (the margin reuse is reported apart). It adds no physics: every constraint is read from the outputs
+of the other modules as a load, need over limit, of one of three kinds:
+\begin{center}
+{\small\begin{tabularx}{\linewidth}{@{}lLl@{}}
+\toprule
+Kind & Constraints & States\\
+\midrule
+Resource & face energy (need over allocation), S and Ku time, heat, compute, memory and its bandwidth, S and Ku beams,
+TRSA link, processor input, compute power, storage per observation; ship energy and heat rejection &
+OK $\le$ \code{load\_ceiling} $<$ ALERT $\le 1 <$ KO\\
+Requirement & plan found, range, revisit in the mission, admissible confirmation mode, confirmation probability (load
+$(1-P)/(1-p_\mathrm{min})$), latency, period and reach of each track bracket, discrimination, power tier served in
+full, scheduling feasible, shedding & OK $\le 1 <$ KO\\
+Transient & migration between faces while the ship turns, navigation pointing error, angular acceleration beyond the
+sizing & OK $\le 1 <$ ALERT\\
+\bottomrule
+\end{tabularx}}
+\end{center}
+Positions short of range within the sector's tolerance and a discrimination reached below the shortest range of
+interest are alerts; the storage and heat of a packed revisit are scheduler rules (the synthetic timeline alerts if a
+pause or a late update remains). The mission fails as soon as one constraint fails, the operator's specification not
+being held; each constraint carries its priority tier, and the tiers failed are listed. The verdict also gives the
+limiting resource (highest resource load) of the mission and of each face, and the saturation state at the
+specification (nominal, reserve in use, over-subscribed or P2 unreachable) with the room per track bracket of
+Section~\ref{sec:sched}. Further passes add the quantified relaxation advice, the redundancies and the sensitivity of
+the verdict to the threat values.
+
 %=====================================================================================================================
 \section{Mission settings and target presentation}\label{sec:mission51}
 %=====================================================================================================================
@@ -1260,6 +1290,7 @@ jammers, Faraday\\
 \code{core/allocation.py} & power allocation among the faces by priority tier\\
 \code{core/margin.py} & margin reuse by reallocation mode, track saturation table\\
 \code{core/redundancy.py} & redundancy between sectors\\
+\code{core/validation.py} & mission verdict: table of constraints, limiting resource, saturation state\\
 \code{core/cost\_estimate.py} & fast estimate for the interface\\
 \code{core/mission.py} & mission model, validation, JSON / CSV\\
 \code{core/geometry.py} & sphere raster, 3D view of the ship\\
@@ -1278,7 +1309,7 @@ The test bench has two families: frozen outputs of every test mission compared a
 (non-regression), and physical laws and invariants that must hold whatever the values ($R\propto\sigma^{1/4}$,
 exactness of every shortcut, consistency of caches, detection laws against closed forms, \dots). Every refreeze of the
 frozen outputs is recorded with its cause. An impact report lists the key figures and the waveforms that change
-before any refreeze. At model V6.24.0 the bench has 241 tests (12 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 35 minutes since pass P7 of step 5.2 (saturation table), with a global progress bar).
+before any refreeze. At model V6.25.0 the bench has 244 tests (12 of them compare the frozen outputs of the test cases), run at three levels: fast tests, tests touched by a change, and the full pass (cost table, every test case computed once and kept with a fingerprint of the code, impact report, whole bench; about 35 minutes since pass P7 of step 5.2 (saturation table), with a global progress bar).
 
 %=====================================================================================================================
 \section{Roadmap and open points}\label{sec:roadmap}
@@ -1286,7 +1317,7 @@ before any refreeze. At model V6.24.0 the bench has 241 tests (12 of them compar
 \begin{center}
 \begin{tabularx}{\linewidth}{@{}lL@{}}
 \toprule
-Phase & Steps (status on 26 October 2026)\\
+Phase & Steps (status on 27 October 2026)\\
 \midrule
 0, foundations & single parameter file, test bench, review of every value --- done\\
 1, antenna and RF & real pattern; active mismatch, grating and gap lobes; TRMs and transmit chain; band; receive chain,
@@ -1298,7 +1329,7 @@ calibration --- done (degraded modes and TRM failures deferred to the end of the
 coolant, cold plate, junction, ship heat rejection --- done; 4.3 scheduler: priorities, queues, synthetic timeline,
 common slots, latency --- done; 4.3 bis scan order inside a volume --- done; 4.4 compute and data --- done; 4.5 re-pointing in flight --- done\\
 5, mission and validation & 5.1 richer mission model --- done; 5.2 global optimiser (power allocation, couplings,
-global loop, margin reuse, flight tables, reallocation and saturation) --- done; validation engine; Monte-Carlo simulation; operator
+global loop, margin reuse, flight tables, reallocation and saturation) --- done; 5.3 validation engine (verdict done); Monte-Carlo simulation; operator
 interface; verification and documentation; end of development\\
 \bottomrule
 \end{tabularx}

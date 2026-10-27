@@ -18,7 +18,8 @@ in the band losses ('nav_pointing'); the error against tolerance_hpbw x HPBW, el
 Tracking: the per-axis error sqrt(E[r^2] / 2) adds in quadrature to the filter's pointing error (step 3.3).
 Migration (D): at rate_max_dps a sector that is not tied to the ship crosses a face boundary in (its angular extent on the face) / rate; while it
 does, the neighbouring face must carry its load: face load + the sector's load on the face it leaves <= 1, else alert.
-The check over the whole attitude envelope stays in step 5.3.
+The check over the whole attitude envelope is for the scenario simulator (phase 6; no envelope in mission
+preparation, user, 27 October 2026).
 Compute (E): ops_per_pointing per pointing (rotation, (u, v), face choice), and per frame the mask of each volume that
 is not tied to the ship on every raster direction: a function 'repointing' of the compute budget (step 4.4).
 Every value is in radar_system.toml [repointing] (rate and acceleration editable there).

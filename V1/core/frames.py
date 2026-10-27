@@ -9,7 +9,7 @@ navigation: every sector is turned into the SHIP frame here, once, before any co
 (optimizer, Ku, sky, structure, 3D views) stays in the ship frame. In mission prep the navigation is a snapshot typed
 by the operator (later the global simulator's navigation message).
 
-Navigation, global key "nav": a LIST of messages (one until the attitude envelope of step 5.3):
+Navigation, global key "nav": a LIST of messages (one in mission preparation; the attitude envelope is phase 6):
   {"label": str, "epoch": ISO 8601 UTC (optional),
    "q_ship_to_icrf": [w, x, y, z]   Hamilton, scalar first: v_icrf = R(q) v_ship,
    "central_body": a type of [sky.surface], "r_km": [x, y, z], "v_kms": [x, y, z]
@@ -141,7 +141,8 @@ def validate_nav(nav) -> List[str]:
     if not isinstance(nav, list) or not nav:
         return ["nav must be a list of navigation messages (one)"]
     if len(nav) > 1:
-        return [f"nav gives {len(nav)} navigation messages: one only until the attitude envelope (roadmap step 5.3)"]
+        return [f"nav gives {len(nav)} navigation messages: one only in mission preparation (the attitude envelope "
+                f"is for the scenario simulator, roadmap phase 6)"]
     n = nav[0]
     tag = "navigation" + (f" ({n.get('label')})" if isinstance(n, dict) and n.get("label") else "")
     if not isinstance(n, dict):

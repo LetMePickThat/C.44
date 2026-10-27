@@ -1821,6 +1821,11 @@ def test_inertial_frame_with_identity_attitude_is_the_ship_frame():
     # step 4.5: an ICRF volume re-points in flight whatever the attitude of the moment (its mask follows the ship's
     # rotation, and it migrates between faces): only that re-pointing work and its totals may differ
     repoint_paths = ("ops_per_s/repointing", "ops_total_per_s", "/load", "power_kW/ops")
+    for r_ in (ref, got):                 # step 5.3: the same in the verdict (migration rows, compute loads)
+        vd = r_["verdict"]
+        vd["constraints"] = [c for c in vd["constraints"]
+                             if c["quantity"] not in ("migration", "compute", "processing power")]
+        vd.pop("counts")
     diffs = [d for d in tb.differences(ref, got)
              if not d[0].startswith("/repointing/sectors/")
              and not (d[0].startswith("/compute/faces/") and d[0].endswith(repoint_paths))]
@@ -3029,3 +3034,49 @@ def test_flight_table_keeps_the_search_after_a_forced_plan():
     ft = mo._merge_flight_table(old, new)
     assert [(x["freq_ghz"], x["chosen"]) for x in ft["entries"]] == [(2.66, False), (2.72, False), (2.83, True)]
     assert ft["centres_evaluated"] == 12 and ft["degraded"] == 0 and ft["entry_groups"] == 6
+
+
+# ----------------------------------------------------------------------------- step 5.3: verdict
+from core import validation as val_  # noqa: E402
+
+
+def test_verdict_states_by_kind():
+    """Step 5.3 P1: resource OK up to the load ceiling, ALERT up to 1, KO above; spec OK up to 1, KO above; transient
+    ALERT above 1; an infinite load (None) fails a resource or a spec and alerts a transient."""
+    assert [val_._state(x, "resource", 0.8) for x in (0.8, 0.9, 1.0, 1.01, None)] == ["OK", "ALERT", "ALERT", "KO", "KO"]
+    assert [val_._state(x, "spec", 0.8) for x in (0.9, 1.0, 1.01, None)] == ["OK", "OK", "KO", "KO"]
+    assert [val_._state(x, "transient", 0.8) for x in (1.0, 1.5, None)] == ["OK", "ALERT", "ALERT"]
+
+
+def test_verdict_ko_alert_priorities_and_limiting():
+    """Step 5.3 P1: a face in its safety reserve alerts, a tier P2 not served in full fails the mission (P2
+    unreachable), a revisit stretched fails its sector; the limiting resource is the highest resource load."""
+    out = {"sectors": [{"id": "A", "status": "OK", "rr_target_s": 10.0, "rr_est_mission_s": 12.0,
+                        "range_km": {"requested": 1000.0, "at_worst_scan": 1000, "positions_short_of_range_pct": 0.5}}],
+           "tracking": {"faces": {"0": {"total_energy": 0.9, "heat_load": 0.1}}},
+           "power_allocation": {"need_MW": 4.0, "ship_MW": 8.0, "faces": {},
+                                "partial": [{"label": "confirmation A", "tier": "P2 confirmation / initiation",
+                                             "served_fraction": 0.5}]}}
+    v = val_.verdict({"global": {}, "sectors": [{"id": "A", "range_km": 1000.0, "short_tol": 0.01}]}, out)
+    by = {r["id"]: r for r in v["constraints"]}
+    assert by["F1.energy"]["state"] == "ALERT" and by["F1.heat"]["state"] == "OK"
+    assert by["A.revisit"]["state"] == "KO" and abs(by["A.revisit"]["load"] - 1.2) < 1e-12
+    assert by["A.range"]["state"] == "ALERT" and abs(by["A.range"]["load"] - 0.5) < 1e-12
+    assert by["confirmation A.ship power served"]["state"] == "KO"
+    assert v["state"] == "KO" and v["ko_priorities"] == ["P2", "P4_1"]
+    assert v["saturation"]["state_at_spec"] == "P2 unreachable"
+    assert v["limiting"] == {"object": "F1", "resource": "energy", "load": 0.9, "state": "ALERT"}
+    assert v["counts"]["KO"] == 2 and v["faces"]["0"]["resource"] == "energy"
+
+
+def test_verdict_on_the_frozen_missions(runs):
+    """Step 5.3 P1: the verdict frozen with each mission is the one recomputed from its outputs, without NaN or
+    infinity, and the mission state is the worst constraint state."""
+    for n, res in runs.items():
+        v = val_.verdict(md.load_mission(os.path.join(tb.MISSIONS_DIR, n)), res)
+        json.dumps(v, allow_nan=False)
+        states = {r["state"] for r in v["constraints"]}
+        assert states <= set(val_.STATES), n
+        assert v["state"] == ("KO" if "KO" in states else "ALERT" if "ALERT" in states else "OK"), n
+        if "verdict" in res:                 # frozen from the refreeze of step 5.3 on
+            assert tb.differences(tb.to_plain(res["verdict"]), tb.to_plain(v)) == [], n

@@ -3,6 +3,7 @@
 """
 RESULTS_TAB -- optimisation result tab (closable). Same 3D view as the mission-preparation tab, but sectors are
 coloured by result (achieved RR / target RR, or % energy), with WF / range / RR / energy / flag labels; per-sector
+verdict (step 5.3: state, limiting resource, constraints in alert or failed), per-sector
 summary table, waveforms by scan-angle bin, per-face totals, confirmation + active tracking (AT) budget (search +
 confirmation + AT per face, confirmation mode per sector, AT cost per range bracket, what to relax); JSON/CSV export. It shows the frozen copy of the mission
 that was optimised.
@@ -117,6 +118,7 @@ class ResultsTab(QWidget):
         panel.setWidget(inner)
         v = QVBoxLayout(inner)
 
+        v.addWidget(self._build_verdict_group())
         v.addWidget(self._build_sector_table_group())
         v.addWidget(self._build_bin_table_group())
         v.addWidget(self._build_face_table_group())
@@ -128,6 +130,60 @@ class ResultsTab(QWidget):
         splitter.setChildrenCollapsible(False)
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 2)
+
+    def _build_verdict_group(self) -> QGroupBox:
+        """Step 5.3 (P1): the mission verdict, the limiting resource and every constraint in alert or failed."""
+        box = QGroupBox("Verdict")
+        v = QVBoxLayout(box)
+        self.lbl_verdict = QLabel("")
+        self.lbl_verdict.setWordWrap(True)
+        v.addWidget(self.lbl_verdict)
+        self.table_verdict = QTableWidget()
+        cols = ["state", "object", "constraint", "priority", "load %", "value", "limit", "note"]
+        self.table_verdict.setColumnCount(len(cols))
+        self.table_verdict.setHorizontalHeaderLabels(cols)
+        self.table_verdict.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.table_verdict.horizontalHeader().setStretchLastSection(True)
+        self.table_verdict.setToolTip("Resource: OK up to the load ceiling, ALERT up to 100 % (safety reserve in use), "
+                                      "KO above. Requirement: OK up to 100 %, KO above. Transient: ALERT above 100 %.")
+        v.addWidget(self.table_verdict)
+        return box
+
+    def _fill_verdict(self) -> None:
+        vd = self.result.get("verdict")
+        if not vd:
+            self.lbl_verdict.setText("No verdict in this result.")
+            self.table_verdict.setRowCount(0)
+            return
+        lim = vd.get("limiting")
+        sat = vd.get("saturation") or {}
+        c = vd["counts"]
+        txt = (f"{vd['state']}: {c['KO']} KO, {c['ALERT']} alert, {c['OK']} OK (load ceiling "
+               f"{100 * vd['load_ceiling']:.0f} %)")
+        if lim:
+            txt += f"\nLimiting resource: {lim['object']} {lim['resource']} at {100 * lim['load']:.1f} %"
+        if vd.get("ko_priorities"):
+            txt += "\nPriorities failed: " + ", ".join(vd["ko_priorities"])
+        txt += f"\nSaturation at the specification: {sat.get('state_at_spec')} (mode {sat.get('mode')})"
+        self.lbl_verdict.setText(txt)
+        colour = {"OK": "#2fa35a", "ALERT": "#e08a1e", "KO": "#d6453d"}
+        self.lbl_verdict.setStyleSheet(f"color: {colour.get(vd['state'], '#d6453d')}; font-weight: bold;")
+        rows = sorted((r for r in vd["constraints"] if r["state"] != "OK"),
+                      key=lambda r: (r["state"] != "KO", r["object"], r["quantity"]))
+        self.table_verdict.setRowCount(len(rows))
+
+        def num(x) -> str:
+            return f"{x:.4g}" if isinstance(x, (int, float)) and not isinstance(x, bool) else ("-" if x is None else str(x))
+        for i, r in enumerate(rows):
+            vals = [r["state"], r["object"], r["quantity"], r["priority"] or "-",
+                    "-" if r["load"] is None else f"{100 * r['load']:.1f}",
+                    num(r["value"]) + (f" {r['unit']}" if r["unit"] and r["value"] is not None else ""),
+                    num(r["limit"]), r["note"]]
+            for col, val in enumerate(vals):
+                item = QTableWidgetItem(val)
+                if col == 0:
+                    item.setForeground(QColor(colour[r["state"]]))
+                self.table_verdict.setItem(i, col, item)
 
     def _build_sector_table_group(self) -> QGroupBox:
         box = QGroupBox("Per-sector summary")
@@ -337,6 +393,7 @@ class ResultsTab(QWidget):
             for c, val in enumerate(vals):
                 self.table_faces.setItem(i, c, QTableWidgetItem(str(val)))
 
+        self._fill_verdict()
         self._fill_tracking_tables()
         warnings = self.result.get("warnings", [])
         self.lbl_warnings.setText("\n".join(warnings) if warnings else "None")

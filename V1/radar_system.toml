@@ -736,7 +736,6 @@ max_wf_per_sector    = 4        # default; sector key "max_wf_per_sector"
 short_tol            = 0.01     # default; sector key "short_tol"
 n_alphas             = 21       # energy weights of the scalarised energy/time cost, 0..1
 short_penalty        = 1e6      # DP penalty per fraction of positions short of range
-track_margin_warn    = 0.10     # warn when a face keeps less than this power fraction for tracking
 sphere_res_deg       = 0.2      # (phi, eps) raster of the exact calculation
 solve_cache_size     = 262144   # memoised solve() ranges per process (~50 MB when full)
 solve_base_cache_size = 16384   # memoised solve_base() parts per process, ~2 KB each (step 3.2, Q6 E1; exact)

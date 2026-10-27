@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.24.0
+# Radar Performance Model - V6.25.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,15 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.24.0 -> V6.25.0 (roadmap step 5.3, pass P1: verdict, framed with the user on 27 October 2026)
+#   - core/validation.py: out["verdict"], one table of constraints (sector, confirmation, track, face, ship, flight),
+#     each a load = need / limit in three states: resource OK up to load_ceiling, ALERT up to 1, KO above; spec OK up
+#     to 1, KO above (ALERT for positions short of range within short_tol and a late discrimination); transient OK up
+#     to 1, ALERT above. Mission KO as soon as one constraint is KO; priority tier per constraint; limiting resource
+#     per face and for the mission; saturation state at the specification (step 5.2 P7). No physics changed.
+#   - tool.optimizer.track_margin_warn removed (its alert is the load ceiling of the verdict).
+#   - Pmiss only: one navigation snapshot per mission (no attitude envelope, user, 27 October 2026; phase 6).
 #
 # Changes V6.23.0 -> V6.24.0 (roadmap step 5.2, pass P7: reallocation and saturation, user rule of 26 October 2026)
 #   - Mission keys realloc_mode (NONE default, PRIO_SEARCH, PRIO_TRACK) and load_ceiling (default 0.80, D; above it a
@@ -587,7 +596,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.24.0"
+MODEL_VERSION = "6.25.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
