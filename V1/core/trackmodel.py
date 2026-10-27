@@ -48,6 +48,36 @@ VEL_BANK_SIGMAS = P.get(_T + "vel_bank_sigmas")
 ACCEL_BANK_SIGMAS = P.get(_T + "accel_bank_sigmas")
 INIT_VEL_SIGMA_FRAC = P.get(_T + "init_vel_sigma_frac")
 INIT_CONV_FRAC = P.get(_T + "init_conv_frac")
+INIT_POINTING_MAX_HPBW = P.get(_T + "init_pointing_max_hpbw")    # fast initiation (return on 3.3 from step 5.4, H1-H11)
+PD_INIT = P.get(_T + "pd_init")                                   # lever B: Pd of an initiation look
+PD_RESEARCH = P.get(_T + "pd_research")                           # lever D: Pd of one beam of a re-search
+RESEARCH_SIGMAS = P.get(_T + "init_research_sigmas")               # lever D (D2): ellipse covered, sigmas per axis
+RESEARCH_MAX_BEAMS = int(P.get(_T + "init_research_max_beams"))    # lever D (D3)
+RESEARCH_ATTEMPTS = int(P.get(_T + "init_research_attempts"))      # lever D (D4)
+P_TRACK_FAIL_MAX = P.get(_T + "p_track_fail_max")                  # chain detection > confirmation > track
+
+
+def research_cluster(sigma_hpbw: float, spacing_hpbw: float) -> Tuple[int, float]:
+    """(beams, coverage) of the local re-search of an initiation after a miss (lever D, D2-D3): hexagonal rings of
+    beams spacing_hpbw apart around the prediction, the fewest covering RESEARCH_SIGMAS sigma per axis (inscribed
+    radius (R + 1/2) s sqrt(3)/2), at most RESEARCH_MAX_BEAMS; coverage = P(|error| <= covered radius), the error
+    Gaussian with sigma_hpbw per axis."""
+    want = RESEARCH_SIGMAS * sigma_hpbw
+    rings, beams = 0, 1
+    while (rings + 0.5) * spacing_hpbw * math.sqrt(3.0) / 2.0 < want:
+        nb = 1 + 3 * (rings + 1) * (rings + 2)
+        if nb > RESEARCH_MAX_BEAMS:
+            break
+        rings, beams = rings + 1, nb
+    r = (rings + 0.5) * spacing_hpbw * math.sqrt(3.0) / 2.0
+    return beams, 1.0 - math.exp(-r * r / (2.0 * max(sigma_hpbw, 1e-9) ** 2))
+
+
+def init_vt_sigma(tgt: "rm.Target") -> float:
+    """1-sigma transverse velocity per axis at the track birth (lever C): the class's (or sector's) prior, else
+    init_vel_sigma_frac x the closing speed."""
+    v = float(getattr(tgt, "init_vt_sigma_mps", 0.0) or 0.0)
+    return v if v > 0 else INIT_VEL_SIGMA_FRAC * tgt.v_close_mps
 ANGLE_FLOOR_RAD = P.get(_T + "angle_floor_mrad") * 1e-3
 RANGE_FLOOR_M = P.get(_T + "range_floor_m")
 VR_FLOOR_MPS = P.get(_T + "vr_floor_mps")
@@ -275,6 +305,100 @@ def initiation(st: TrackState, tgt: "rm.Target", sigma_theta_conf_rad: float, si
         if (math.sqrt(nxt[0, 0]) <= zone_lim and math.sqrt(pr[0, 0]) <= r_lim and math.sqrt(pr[1, 1]) <= v_lim):
             return n, float(np.mean(pts))
     return n_max, float(np.mean(pts))
+
+
+# ----------------------------------------------------------------------------- C bis: fast initiation (5.4 -> 3.3)
+def fast_initiation(st: TrackState, tgt: "rm.Target", sigma_theta_conf_rad: float, sigma_r_conf_m: float,
+                    sigma_vr_conf_mps: float, zone_deg: float, range_acc_m: Optional[float], vr_acc_mps: float,
+                    dt_min_s: float, nav_rad: float, n_max: int = 200) -> dict:
+    """Initiation AS FAST AS POSSIBLE (user, 27 October 2026, return on step 3.3 from the Monte-Carlo of step 5.4):
+    from the confirmation hand-over, each interval is the longest keeping the predicted pointing error (1 sigma per
+    axis, navigation included) under INIT_POINTING_MAX_HPBW Ku beamwidths, between dt_min_s (round trip + processing)
+    and the bracket period; the covariance iterates as in initiation() (looks assumed to detect) until every
+    requirement holds within INIT_CONV_FRAC (criterion at the period). Returns the intervals before each look, the
+    pointing error of each look (beamwidths), the covariance predicted before the first look (for the misses)."""
+    t_per = st.t_s
+    dts = np.unique(np.concatenate([np.geomspace(min(dt_min_s, t_per), t_per, 48), [t_per]]))
+    fq = [singer(float(d), st.sigma_m, st.tau_s) for d in dts]
+    sa0 = tgt.accel_max_mps2 / math.sqrt(3.0) if tgt.accel_max_mps2 > 0 else FLOOR_MPS2
+    vt0 = init_vt_sigma(tgt)                                   # lever C
+    pc = np.diag([(sigma_theta_conf_rad * st.r_m) ** 2, vt0 ** 2, sa0 ** 2])
+    pr = np.diag([sigma_r_conf_m ** 2, sigma_vr_conf_mps ** 2, sa0 ** 2])
+    rc = np.array([[(min(max(st.allowed["theta"], 1e-12), sigma_theta_conf_rad) * st.r_m) ** 2]])
+    s_r = min(st.allowed["r"] if math.isfinite(st.allowed["r"]) else 1e6, sigma_r_conf_m)
+    rr = np.diag([s_r * s_r, min(max(st.allowed["vr"], 1e-9), sigma_vr_conf_mps) ** 2])
+    zone_lim = st.zone_sigma_rad * st.r_m * (1.0 + INIT_CONV_FRAC)
+    r_lim = (math.inf if range_acc_m is None else range_acc_m) * (1.0 + INIT_CONV_FRAC)
+    v_lim = vr_acc_mps * (1.0 + INIT_CONV_FRAC)
+    intervals, sig, first_pred = [], [], None
+    for _ in range(n_max):
+        ok = [math.hypot(math.sqrt((f @ pc @ f.T + q)[0, 0]) / st.r_m, nav_rad) / st.hpbw_rad <= INIT_POINTING_MAX_HPBW
+              for f, q in fq]
+        k = max([i for i, x in enumerate(ok) if x], default=0)
+        f, q = fq[k]
+        pc = f @ pc @ f.T + q
+        pr = f @ pr @ f.T + q
+        if first_pred is None:
+            first_pred = pc.copy()
+        intervals.append(float(dts[k]))
+        sig.append(math.hypot(math.sqrt(pc[0, 0]) / st.r_m, nav_rad) / st.hpbw_rad)
+        pc = pc - pc @ _H_POS.T @ np.linalg.solve(_H_POS @ pc @ _H_POS.T + rc, _H_POS @ pc)
+        pr = pr - pr @ _H_POS_VEL.T @ np.linalg.solve(_H_POS_VEL @ pr @ _H_POS_VEL.T + rr, _H_POS_VEL @ pr)
+        nxt = st.f @ pc @ st.f.T + st.q
+        if math.sqrt(nxt[0, 0]) <= zone_lim and math.sqrt(pr[0, 0]) <= r_lim and math.sqrt(pr[1, 1]) <= v_lim:
+            break
+    return {"intervals": intervals, "pointing_hpbw": sig, "first_pred": first_pred}
+
+
+def coast_from(st: TrackState, p: np.ndarray, waits: List[float], nav_rad: float) -> List[float]:
+    """Pointing error (beamwidths) of a look after k missed looks (k = 0 .. len(waits)), each followed by its wait, from
+    the predicted cross-range covariance p (H3-H4)."""
+    out = [math.hypot(math.sqrt(p[0, 0]) / st.r_m, nav_rad) / st.hpbw_rad]
+    for w in waits:
+        f, q = singer(float(w), st.sigma_m, st.tau_s)
+        p = f @ p @ f.T + q
+        out.append(math.hypot(math.sqrt(p[0, 0]) / st.r_m, nav_rad) / st.hpbw_rad)
+    return out
+
+
+def init_chain(intervals: List[float], pds: List[float], retry_s: float,
+               weights: Optional[List[float]] = None) -> dict:
+    """Initiation as a chain over (looks detected h, consecutive misses k) (H5): the h-th look comes after
+    intervals[h] when the previous one detected, after retry_s after a miss; its Pd is pds[k]; len(pds) failures in a
+    row lose the attempt, a lost attempt starts again (geometric). weights[k]: looks one step in state k costs (a local
+    re-search after a miss is a cluster of beams, lever D). Returns the loss probability of one attempt, the expected
+    looks and time until the track is established (lost attempts included) and the expected steps per state."""
+    w_k = weights or [1.0] * len(pds)
+    n_hits, n_lost = len(intervals), len(pds)
+    mass = {(0, 0): (1.0, 0.0, 0.0)}           # (probability, looks x probability, time x probability)
+    p_ok = p_lost = l_ok = l_lost = t_ok = t_lost = 0.0
+    visits = [0.0] * n_lost
+    while mass:
+        nxt: Dict[Tuple[int, int], Tuple[float, float, float]] = {}
+        for (h, k), (m, lm, tm_) in mass.items():
+            if m < 1e-15:
+                continue
+            dt = intervals[h] if k == 0 else retry_s
+            pd = pds[k]
+            visits[k] += m
+            lm1, tm1 = lm + m * w_k[k], tm_ + m * dt      # this step
+            for (h2, k2), w in (((h + 1, 0), pd), ((h, k + 1), 1.0 - pd)):
+                mw, lw, tw = m * w, lm1 * w, tm1 * w
+                if h2 == n_hits:
+                    p_ok, l_ok, t_ok = p_ok + mw, l_ok + lw, t_ok + tw
+                elif k2 == n_lost:
+                    p_lost, l_lost, t_lost = p_lost + mw, l_lost + lw, t_lost + tw
+                else:
+                    a = nxt.get((h2, k2), (0.0, 0.0, 0.0))
+                    nxt[(h2, k2)] = (a[0] + mw, a[1] + lw, a[2] + tw)
+        mass = nxt
+    p_ok = max(p_ok, 1e-15)
+    retries = p_lost / p_ok                         # expected lost attempts before the one that succeeds
+    looks = l_ok / p_ok + retries * (l_lost / p_lost if p_lost > 0 else 0.0)
+    time = t_ok / p_ok + retries * (t_lost / p_lost if p_lost > 0 else 0.0)
+    per_attempt = 1.0 / p_ok                        # attempts per established track
+    return {"loss_prob": p_lost / (p_ok + p_lost), "looks": looks, "time_s": time,
+            "visits": [v * per_attempt for v in visits]}
 
 
 # ----------------------------------------------------------------------------- F: discrimination

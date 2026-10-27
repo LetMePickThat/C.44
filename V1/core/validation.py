@@ -163,7 +163,20 @@ def _tracking(t: _Table, out: dict, secs: Dict[str, dict]) -> None:
             t.add("confirmation", sid, "confirmation latency", "spec", q, req, _ratio(q, req), "P2", "4.3",
                   "95 % quantile", unit="s")
         pr = _track_priority(sec)
-        for i, b in enumerate(s.get("at", [])):
+        # requirement of the user (27 October 2026): the chain detection > confirmation > established track fails at
+        # most tracking.p_track_fail_max (confirmation success x 1 - initiation loss of the bracket where tracks start)
+        brs = s.get("at", [])
+        if mode is not None and brs:
+            from . import tracking as trk_
+            bi = trk_._start_bracket(sec.get("tracking", []), float(sec.get("range_km", 0.0))) if sec else 0
+            b0 = brs[bi if bi is not None and bi < len(brs) else 0]
+            if b0.get("init_loss_prob") is not None:
+                p_c = float(conf.get("success", 0.0))
+                fail = 1.0 - p_c * (1.0 - float(b0["init_loss_prob"]))
+                lim = float(trk_.tm.P_TRACK_FAIL_MAX)
+                t.add("track", sid, "track chain failure", "spec", fail, lim, _ratio(fail, lim), "P2", "3.3",
+                      f"confirmation {p_c:.4f}, initiation loss {float(b0['init_loss_prob']):.2e}")
+        for i, b in enumerate(brs):
             obj = f"{sid}/{i} {b['r_min_km']:g}-{b['r_max_km']:g} km"
             if "rr_tenable" in b:
                 ok = bool(b["rr_tenable"])

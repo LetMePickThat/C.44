@@ -130,8 +130,9 @@ def look_cost(band: str, wf: dict, beams: float, nulled: int = 0) -> Dict[str, f
 
 
 def _cluster_beams(name: Optional[str]) -> int:
-    """RX beams of a Ku confirmation cluster: 'superposition x7' / 'partition x3' -> 7 / 3, 'sequential' -> 1."""
-    if not name or "x" not in name:
+    """RX beams of a Ku confirmation cluster: 'superposition x7' / 'partition x3' -> 7 / 3, 'sequential' and the
+    larger sequential clusters 'sequential x19' / 'x37' (return on 3.2 from step 5.4: one beam at a time) -> 1."""
+    if not name or "x" not in name or str(name).startswith("sequential"):
         return 1
     try:
         return max(1, int(str(name).rsplit("x", 1)[1]))

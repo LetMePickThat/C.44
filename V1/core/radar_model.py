@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.30.0
+# Radar Performance Model - V6.32.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -10,6 +10,32 @@
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
 #
+# Changes V6.31.0 -> V6.32.0 (requirement of the user: the chain first detection > confirmation > established track
+#   fails at most tracking.p_track_fail_max = 1e-3; return on 3.2 and 3.3 from the Monte-Carlo of 5.4, 27 Oct 2026)
+#   - confirmation (3.2): CONFIRM_P_MIN = 1 - chain_split x p_track_fail_max (0.9995; confirmation.p_min removed);
+#     first_detection_snr_quantiles (the SNR of the first detection of the cumulative criterion, K2); attempts
+#     confirm_attempts 2 .. confirm_attempts_max 3 with the same angle error, the cluster shifted 0, +1/3, -1/3 of
+#     (a + b) per attempt, the centre look on the estimate (K3, K9, K11); false alarms pay every attempt (K4); round
+#     trips of the 95 % latency (K6); sequential clusters of 19 and 37 beams (K9 c'); margin_db_max 15 dB;
+#     compute._cluster_beams: a sequential cluster forms one RX beam at a time.
+#   - initiation (3.3): Pd tracking.pd_init 0.99 (lever B; agile trains follow, lever A); class / sector key
+#     init_vt_sigma_mps (KKV 1000 m/s, lever C); local re-search after a miss (lever D: research_cluster, 3 sigma,
+#     <= 37 beams, pd_research 0.999, init_research_attempts 4, lattice shifted per attempt with a beam kept on the
+#     estimate); narrower initiation look for more hop frequencies (tracking.init_look); init_chain weighted.
+#   - verdict: requirement row 'track chain failure'; montecarlo: track_chain, confirmation hopping and attempts,
+#     per-look fluctuation shape, re-search beams; diagnostics counters.
+# Changes V6.30.0 -> V6.31.0 (return on roadmap step 3.3 from the Monte-Carlo of 5.4: fast initiation, H1-H11, user,
+#   27 October 2026)
+#   - trackmodel.fast_initiation: each interval the longest keeping the predicted pointing error under
+#     tracking.init_pointing_max_hpbw (0.3 Ku beamwidth, D), from the round trip up to the period; coast_from,
+#     init_chain: misses degrade the pointing, n_miss_lost misses in a row lose an attempt, lost attempts repeat.
+#   - tracking: the initiation look sized for that pointing (no 7-beam cluster), Ku frequency hopping from look to
+#     look (init_hop_freqs: spacing c / 2L in the core band, outside the exclusions and the S harmonic bands), a
+#     wait of T0 after a miss when one frequency only; new outputs init_time_s, init_loss_prob, init_freqs,
+#     init_mode; init_looks is now the expected number with the misses and the repeated attempts; alerts when the
+#     time to the track exceeds the latency requirement or the loss exceeds p_loss_max. _initiation_cost removed.
+#   - montecarlo (M3): the initiation looks hop (one target power per frequency) or wait T0; established when the
+#     covariance is within init_conv_frac of the accuracies the filter really holds (steady-start population).
 # Changes V6.29.0 -> V6.30.0 (roadmap step 5.4, pass M3: Monte-Carlo of the tracks, Kalman filter drawn, user, 27 October 2026)
 #   - core/montecarlo.py: per active-tracking bracket, tracks drawn with the Singer Kalman running (truth on three axes,
 #     hand-over from the confirming Ku look of M2, updates decided at the real pointing error with the drawn SNR,
@@ -638,7 +664,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.30.0"
+MODEL_VERSION = "6.32.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -1227,7 +1253,10 @@ _TARGET_OPTICS = {"optics_diameter_m": 0.0, "optics_f_ratio": 1.0, "optics_retro
                   # the frontal RCS (absent = flat); spreads from one object to another (1 sigma); half-angle of the cone
                   # where the seeker optics return; the class's own aspect policy ("" = tool.targets.aspect_policy)
                   "aspect_rcs_db": (), "rcs_spread_db": 0.0, "depol_spread_db": 0.0, "optics_cone_deg": 180.0,
-                  "aspect_policy": ""}
+                  "aspect_policy": "",
+                  # return on 3.3 from step 5.4 (lever C): 1-sigma transverse velocity at the track birth, per axis;
+                  # 0 = tracking.init_vel_sigma_frac x v_close (a homing class aims at the ship: small)
+                  "init_vt_sigma_mps": 0.0}
 ASPECT_AZ_DEG = tuple(range(0, 360, 30))
 ASPECT_EL_DEG = tuple(range(-90, 91, 30))
 ASPECT_POLICIES = ("worst", "frontal", "mean")
@@ -1266,7 +1295,7 @@ def _target_class_values(name: str) -> Dict[str, object]:
     if tab and (len(tab) != len(ASPECT_EL_DEG) or any(len(r) != len(ASPECT_AZ_DEG) for r in tab)):
         raise ValueError(f"{P.path}: target class '{name}': aspect_rcs_db must be {len(ASPECT_EL_DEG)} rows (elevation "
                          f"{ASPECT_EL_DEG[0]}..{ASPECT_EL_DEG[-1]} deg) of {len(ASPECT_AZ_DEG)} values (azimuth 0..330 deg)")
-    if (v["maneuver_tau_s"] < 0 or v["rcs_spread_db"] < 0 or v["depol_spread_db"] < 0
+    if (v["maneuver_tau_s"] < 0 or v["rcs_spread_db"] < 0 or v["depol_spread_db"] < 0 or v["init_vt_sigma_mps"] < 0
             or not 0.0 < v["optics_cone_deg"] <= 180.0 or v["aspect_policy"] not in ("",) + ASPECT_POLICIES):
         raise ValueError(f"{P.path}: target class '{name}': maneuver_tau_s and spreads >= 0, optics_cone_deg in ]0, 180], "
                          f"aspect_policy one of {', '.join(ASPECT_POLICIES)}")
@@ -1357,6 +1386,7 @@ class Target:
     depol_spread_db: float = _DEF["depol_spread_db"]
     optics_cone_deg: float = _DEF["optics_cone_deg"]
     aspect_policy: str = _DEF["aspect_policy"]
+    init_vt_sigma_mps: float = _DEF["init_vt_sigma_mps"]     # return on 3.3 from step 5.4 (lever C)
 
     def _ku(self, f_ghz: float) -> bool:
         band = band_for_frequency(f_ghz)
@@ -1435,7 +1465,8 @@ def _target_of_class(name: str) -> Target:
                   optics_retro_eff=v["optics_retro_eff"], target_type=name, maneuver_tau_s=v["maneuver_tau_s"],
                   aspect_offset_deg=v["aspect_offset_deg"], aspect_rcs_db=v["aspect_rcs_db"],
                   rcs_spread_db=v["rcs_spread_db"], depol_spread_db=v["depol_spread_db"],
-                  optics_cone_deg=v["optics_cone_deg"], aspect_policy=v["aspect_policy"])
+                  optics_cone_deg=v["optics_cone_deg"], aspect_policy=v["aspect_policy"],
+                  init_vt_sigma_mps=v["init_vt_sigma_mps"])
 
 
 TARGETS: Dict[str, Target] = {name: _target_of_class(name) for name in TARGET_TYPES}
@@ -1443,7 +1474,7 @@ TARGETS: Dict[str, Target] = {name: _target_of_class(name) for name in TARGET_TY
 # Sector keys overriding a class value (step 2.4, A2); rcs_m2, depol_db and fluctuation apply to both bands.
 SECTOR_TARGET_KEYS = ("target_type", "rcs_m2", "swerling", "fluctuation", "depol_db", "length_m", "rotation_dps",
                       "accel_max_mps2", "optics_diameter_m", "optics_f_ratio", "optics_retro_eff", "maneuver_tau_s",
-                      "aspect_offset_deg")
+                      "aspect_offset_deg", "init_vt_sigma_mps")
 
 
 def target_for_sector(sec: dict) -> Target:
@@ -1468,7 +1499,7 @@ def target_for_sector(sec: dict) -> Target:
     if "depol_db" in sec:
         kw.update(depol_s_db=float(sec["depol_db"]), depol_ku_db=float(sec["depol_db"]))
     for k in ("length_m", "rotation_dps", "accel_max_mps2", "optics_diameter_m", "optics_f_ratio", "optics_retro_eff",
-              "maneuver_tau_s", "aspect_offset_deg"):
+              "maneuver_tau_s", "aspect_offset_deg", "init_vt_sigma_mps"):
         if k in sec:
             kw[k] = float(sec[k])
     return dataclasses.replace(base, **kw)

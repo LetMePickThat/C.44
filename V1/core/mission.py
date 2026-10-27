@@ -319,7 +319,7 @@ def validate_environment(sec: dict, tag: str) -> List[str]:
     lm = sec.get("latency_max_s")
     if lm is not None and (not isinstance(lm, (int, float)) or lm <= 0):
         errs.append(f"{tag}: latency_max_s must be > 0")
-    for k in ("maneuver_tau_s", "aspect_offset_deg"):
+    for k in ("maneuver_tau_s", "aspect_offset_deg", "init_vt_sigma_mps"):
         if sec.get(k) is not None and (not isinstance(sec[k], (int, float)) or sec[k] < 0):
             errs.append(f"{tag}: {k} must be a number >= 0")
     errs.extend(_probabilities(sec, ("confirm_p_min", "pd"), tag))                              # step 5.1
@@ -436,7 +436,8 @@ _CSV_FIELDS = [
     "jammer_erp_dbw_mhz", "objects_per_rr", "tec_tecu", "b_parallel_nt", "range_km", "rr_target_s",
     "v_close_min_mps", "v_close_max_mps", "res_max_m", "range_min_km", "fa_per_rr", "allow_ambiguous", "rx_sll_db",
     "confirm_mode", "new_targets_per_rr", "tracking", "frame", "limb_alt_km", *frames.TWO_DIR_KEYS,
-    *frames.TRACK_KEYS, "maneuver_tau_s", "aspect_offset_deg", "discriminate_against", "jammer_deceptive",
+    *frames.TRACK_KEYS, "maneuver_tau_s", "aspect_offset_deg", "init_vt_sigma_mps", "discriminate_against",
+    "jammer_deceptive",
     "self_protection", "search_priority", "latency_max_s", "confirm_p_min", "pd", "fa_rate_per_s", "rr_min_s",
     "rr_max_s",
 ]

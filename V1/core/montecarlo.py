@@ -99,7 +99,7 @@ WARMUP_REVISITS = int(P.get(_T + "warmup_revisits"))        # revisits played be
 N_REP = int(P.get(_T + "n_rep"))                            # drawn timelines per face (M2-2)
 TRACKS_PER_BRACKET = int(P.get(_T + "tracks_per_bracket"))  # M3 (T7)
 UPDATES_PER_TRACK = int(P.get(_T + "updates_per_track"))    # M3 (T7)
-INIT_POINTING_MAX_HPBW = float(P.get(_T + "init_pointing_max_hpbw"))   # M3: fast initiation
+INIT_POINTING_MAX_HPBW = float(trk.tm.INIT_POINTING_MAX_HPBW)  # fast initiation, a radar rule of 3.3 (tracking.*)
 HORIZON_REVISITS = 10                                       # M2-2: counted window = 10 longest revisits of the face
 V_DRAW = str(P.get(_T + "v_draw"))
 BATCH = int(P.get(_T + "batch"))
@@ -332,14 +332,21 @@ class ConfirmSpec:
     t0_s_s: float
     t0_ku_s: float
     trip_s: float
+    n_freqs: int = 1                        # K1: independent Ku frequencies the looks hop over
+    attempts: int = 1                       # K3: confirmations of one detection at most
 
-    def _ku17(self, rng, ex, ey, m_db: float, cluster_only: bool) -> np.ndarray:
+    def _ku17(self, rng, ex, ey, m_db: float, cluster_only: bool, attempt: int = 0) -> np.ndarray:
         st, n = self.st, len(ex)
+        sx, sy = trk.attempt_shift(attempt, rm.BEAM_SPACING_HPBW)          # K11: the cluster shifted per attempt
         snr0 = st.snr_ku * rm.db_to_lin(m_db)
         t1 = detection.threshold(1, rm.DETECT_PFA)
         shape = detection.shape_of(st.fl_ku, 1)
         looks = len(st.cl.beams) + 1
-        g = _look_power(rng, shape, n, self.trip_s < self.t0_ku_s, looks)
+        # K1: the looks hop over n_freqs frequencies: one target power per frequency (shared within T0)
+        nf = max(1, min(self.n_freqs, looks))
+        gf = _look_power(rng, shape, n, False, nf) if nf > 1 else _look_power(rng, shape, n,
+                                                                               self.trip_s < self.t0_ku_s, looks)
+        g = gf[:, np.arange(looks) % nf] if nf > 1 else gf
         ok = np.zeros(n, dtype=bool)
         snr_hit = np.full(n, np.nan)                    # signal SNR of the Ku look that confirmed (M3 hand-over)
         if not cluster_only:
@@ -347,7 +354,7 @@ class ConfirmSpec:
             ok = _detect1(rng, x, t1)
             snr_hit = np.where(ok, x, snr_hit)
         for j, (cx, cy, ku, kv) in enumerate(st.cl.beams):
-            x = snr0 * st.cl.eirp * trk._tx_gain(ex - cx, ey - cy, ku, kv) * g[:, j + 1]
+            x = snr0 * st.cl.eirp * trk._tx_gain(ex - sx - cx, ey - sy - cy, ku, kv) * g[:, j + 1]
             hit = _detect1(rng, x, t1)
             snr_hit = np.where(hit & ~ok, x, snr_hit)
             ok |= hit
@@ -364,7 +371,14 @@ class ConfirmSpec:
         ey = st.bias_ku + sig * rng.standard_normal(n)
         if self.mode in ("KU1+7", "KU7"):
             ok = self._ku17(rng, ex, ey, float(self.margin_db), self.mode == "KU7")
-            self.handover_snr = self.last_snr_ku[ok]
+            snr_h = self.last_snr_ku.copy()
+            for a_ in range(1, self.attempts):           # K3: again on other frequencies, the same angle error
+                if ok.all():
+                    break
+                ok2 = self._ku17(rng, ex, ey, float(self.margin_db), self.mode == "KU7", a_)
+                snr_h = np.where(~ok & ok2, self.last_snr_ku, snr_h)
+                ok = ok | ok2
+            self.handover_snr = snr_h[ok]
         else:                                   # S2: pointed S touch, then KU1+7 on the combined estimate
             mt, mk = (float(x) for x in self.margin_db)
             t_snr = st.touch_snr0 * rm.db_to_lin(mt)
@@ -375,6 +389,12 @@ class ConfirmSpec:
             ex2 = st.bias_ku + sig2 * rng.standard_normal(n)
             ey2 = st.bias_ku + sig2 * rng.standard_normal(n)
             ok = touched & self._ku17(rng, ex2, ey2, mk, False)
+            snr_h = self.last_snr_ku.copy()
+            for a_ in range(1, self.attempts):           # K3: the Ku part again, the same combined estimate
+                ok2 = touched & self._ku17(rng, ex2, ey2, mk, False, a_)
+                snr_h = np.where(~ok & ok2, self.last_snr_ku, snr_h)
+                ok = ok | ok2
+            self.last_snr_ku = snr_h
         self.handover_snr = self.last_snr_ku[ok]           # M3: hand-over accuracy of the confirmed detections
         k = int(ok.sum())
         lo, hi = wilson(k, n)
@@ -406,9 +426,13 @@ def confirm_spec(sec: dict, plan: dict, t: dict, g: dict) -> Optional[ConfirmSpe
     st = trk.ConfirmStats(rm.look_fluctuation(tgt, f_s, tgt.swerling, 1, 0.0),
                           rm.look_fluctuation(tgt, f_ku, tgt.swerling, 1, 0.0), f_s, f_ku,
                           plan.get("beam_spacing_hpbw"), cl, p_min)
+    at = t.get("at") or []
+    n_f = int(at[0].get("init_freqs") or 1) if at else trk.init_hop_freqs({}, f_ku, min(trk.KU_BW), tgt.length_m,
+                                                                        trk.exclusions_ku(s))
     return ConfirmSpec(sid=sec["id"], mode=mode, margin_db=c["margin_db"], success_analytic=float(c["success"]),
                        p_min=p_min, st=st, t0_s_s=tgt.t0_s(f_s), t0_ku_s=tgt.t0_s(f_ku),
-                       trip_s=2.0 * float(sec["range_km"]) * 1e3 / rm.C_MPS)
+                       trip_s=2.0 * float(sec["range_km"]) * 1e3 / rm.C_MPS, n_freqs=max(1, n_f),
+                       attempts=int(c.get("attempts", 1)))
 
 
 # ----------------------------------------------------------------------------- one sector
@@ -739,6 +763,22 @@ def timelines(mission: dict, out: dict, seed: int = SEED, progress_cb=None) -> d
 
 
 # ----------------------------------------------------------------------------- tracks (M3: T1-T11)
+def _hex_rings(rings: int) -> np.ndarray:
+    """Offsets (unit spacing) of the sites of a hexagonal lattice, ring by ring from the centre (lever D)."""
+    pts = [(0.0, 0.0)]
+    a, b = np.array([1.0, 0.0]), np.array([0.5, math.sqrt(3.0) / 2.0])
+    for r in range(1, rings + 1):
+        ring = []
+        for i in range(-r, r + 1):
+            for j in range(-r, r + 1):
+                if max(abs(i), abs(j), abs(i + j)) == r:
+                    ring.append(tuple(i * a + j * b))
+        ring.sort(key=lambda p: math.atan2(p[1], p[0]))
+        pts.extend(ring)
+    return np.array(pts)
+
+
+_HEX37 = _hex_rings(3)
 @dataclass
 class TrackLook:
     """The update look of one bracket at one range, as the track budget chose it (step 3.3), for the draws: its
@@ -830,7 +870,7 @@ def _kf_update(x, p, z, r_diag, h):
 
 def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.random.Generator,
                      rho_ku: float, handover_snr: Optional[np.ndarray], steady_start: bool = False,
-                     snr_scaled: bool = True) -> dict:
+                     snr_scaled: bool = True, refs: Optional[dict] = None) -> dict:
     """Tracks of one bracket drawn with the Singer Kalman filter running (T1-T9), each at one of the bracket's ranges:
     truth on three axes, each look decided at the real pointing error with the drawn SNR, measurements from that SNR,
     loss after n_miss_lost consecutive misses. steady_start False: tracks born from the confirmation hand-over and
@@ -839,7 +879,11 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
     with the initiation look (the budget's update look sized for that pointing); a lost track is initiated again.
     steady_start True: tracks started in the steady state of the filter (filtered covariance), restarted so after a
     loss: the loss per update and the accuracies of established tracks, apart from the initiation.
-    snr_scaled False: measurement errors at their design values whatever the drawn SNR (diagnostic)."""
+    snr_scaled False: measurement errors at their design values whatever the drawn SNR (diagnostic).
+    Return on 3.3 (H10): the initiation looks hop over the bracket's independent Ku frequencies (one target power per
+    frequency, renewed every T0), or wait T0 after a miss when only one is free; refs (A b): the accuracies the filter
+    really holds in steady state per range (from the steady-start population), the initiation ending within
+    init_conv_frac of them."""
     tm = trk.tm
     nav_deg = mc["st_kw"].get("nav_axis_deg")
     nav_rad = math.radians(trk.repoint.axis_sigma_deg() if nav_deg is None else float(nav_deg))
@@ -849,40 +893,55 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
     tot = {"updates": 0, "losses": 0, "init_done": [], "init_time": [], "init_lost": 0, "inits": 0,
            "err_angle2": 0.0, "err_r2": 0.0, "err_vr2": 0.0, "n_err": 0, "dt_min_s": None,
            "hits": 0, "point2": 0.0, "i_looks": 0, "i_hits": 0, "i_point2": 0.0, "i_dt": [], "i_fail": [0, 0, 0],
-           "i_mode": None}
+           "i_mode": None, "refs": {}}
     req = (None, None, None)
     for si in np.unique(pick):
         rk, st, upd = states[int(si)]
         n = int((pick == si).sum())
         tl_upd = track_look(upd, st, mc)
         tl_init = tl_upd
+        nf_state = None
         tot["i_mode"] = "update look (no initiation look found)"
         if not steady_start and mc.get("gr") is not None:
-            iu = trk._track_update(mc["gr"], mc["tgt"], st, rk, mc["ctx"],
-                                   pointing_hpbw=max(INIT_POINTING_MAX_HPBW, st.pointing_hpbw))
+            iu, nf_state = trk.init_look(mc["gr"], mc["tgt"], st, rk, mc["ctx"], mc.get("r") or {})
             if iu is not None:
                 tl_init = track_look(iu, st, mc)
                 tot["i_mode"] = f"{iu['mode']} look, SNR {tl_init.x_db:.2f} dB (update look {tl_upd.x_db:.2f} dB)"
+        tl_res = None                                    # lever D: one beam of a local re-search after a miss
+        if not steady_start and mc.get("gr") is not None:
+            rs = trk._research_look(mc["gr"], mc["tgt"], trk.research_state(st), rk, mc["ctx"])
+            if rs is not None:
+                tl_res = track_look({"look": rs, "mode": "single"}, st, mc)
+        n_fail_init = 1 + tm.RESEARCH_ATTEMPTS
         r_m, hp, T = st.r_m, st.hpbw_rad, st.t_s
         tgt = mc["tgt"]
         t0 = tgt.t0_s(mc["f_ku"])
         # time grid of the intervals: the round trip + processing up to the period (the period is the last entry)
         dt_min = min(T, 2.0 * r_m / rm.C_MPS + mc.get("proc_s", 0.0))
         tot["dt_min_s"] = dt_min
-        dts = np.unique(np.concatenate([np.geomspace(dt_min, T, 48), [T]])) if dt_min < T else np.array([T])
+        extra = [t0] if (math.isfinite(t0) and dt_min < t0 < T) else []
+        dts = np.unique(np.concatenate([np.geomspace(dt_min, T, 48), [T], extra])) if dt_min < T else np.array([T])
+        n_f = max(1, min(int(nf_state or mc.get("init_freqs", 1) or 1), 8))   # H1: independent Ku frequencies
+        k_t0 = min(int(np.searchsorted(dts, t0 - 1e-12)) if math.isfinite(t0) else len(dts) - 1, len(dts) - 1)
         fq = [tm.singer(float(d), st.sigma_m, st.tau_s) for d in dts]
         fs = np.array([x[0] for x in fq])
         qs = np.array([x[1] for x in fq])
         sqs = np.array([_sqrtm(q) for q in qs])
         k_t = len(dts) - 1
         sa0 = tgt.accel_max_mps2 / math.sqrt(3.0) if tgt.accel_max_mps2 > 0 else tm.FLOOR_MPS2
-        vt0 = tm.INIT_VEL_SIGMA_FRAC * tgt.v_close_mps
+        vt0 = tm.init_vt_sigma(tgt)                                  # lever C
         s_r0 = st.allowed["r"] if math.isfinite(st.allowed["r"]) else 1e3
         s_v0 = st.allowed["vr"]
         f_t, q_t = fs[k_t], qs[k_t]
         zone_lim = st.zone_sigma_rad * r_m * (1.0 + tm.INIT_CONV_FRAC)
         r_lim = (math.inf if st.range_acc_m is None else st.range_acc_m) * (1.0 + tm.INIT_CONV_FRAC)
         v_lim = st.vr_acc_mps * (1.0 + tm.INIT_CONV_FRAC)
+        if refs and int(si) in refs:                     # A (b): the accuracies the filter really holds
+            ref = refs[int(si)]
+            zone_lim = ref[0] * (1.0 + tm.INIT_CONV_FRAC)
+            r_lim = ref[1] * (1.0 + tm.INIT_CONV_FRAC) if math.isfinite(r_lim) else r_lim
+            v_lim = ref[2] * (1.0 + tm.INIT_CONV_FRAC)
+        acc_ref = np.zeros(4)                            # steady start: sums of the accuracies the filter holds
         req = (st.zone_sigma_rad, st.range_acc_m, st.vr_acc_mps)
         noise_r = st.noise_r if math.isfinite(st.noise_r) else s_r0
 
@@ -910,8 +969,9 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
         in_init = np.zeros(n, dtype=bool)
         init_looks = np.zeros(n, dtype=int)
         init_t = np.zeros(n)
-        g = np.ones(n)
-        t_draw = np.full(n, np.inf)
+        g_f = np.ones((n, n_f))                          # target power per Ku frequency (H1-H2)
+        t_f = np.full((n, n_f), np.inf)
+        ci = np.zeros(n, dtype=int)                      # frequency of the next initiation look
 
         def start(idx):
             """(Re)start the tracks idx: truth drawn from the prior around an estimate at 0."""
@@ -925,11 +985,12 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
             in_init[idx] = not steady_start
             init_looks[idx] = 0
             init_t[idx] = 0.0
-            t_draw[idx] = np.inf
+            t_f[idx] = np.inf
+            ci[idx] = 0
             if not steady_start:
                 tot["inits"] += m
         start(np.arange(n))
-        for _ in range(n_upd):
+        for u in range(n_upd):
             # interval of each track: the period, or (initiation) the longest keeping the predicted pointing error low
             k = np.full(n, k_t)
             if in_init.any() and len(dts) > 1:
@@ -937,6 +998,8 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
                                  np.einsum("ka,nab,kb->nk", fs[:, 0, :], cov[1], fs[:, 0, :])) + qs[None, :, 0, 0]
                 ok = np.sqrt(p00 / r_m ** 2 + nav_rad ** 2) / hp <= INIT_POINTING_MAX_HPBW
                 k_init = np.where(ok.any(axis=1), (len(dts) - 1) - np.argmax(ok[:, ::-1], axis=1), 0)
+                if n_f == 1:                             # H3: one frequency, wait T0 after a miss
+                    k_init = np.where(misses > 0, np.maximum(k_init, k_t0), k_init)
                 k = np.where(in_init, k_init, k_t)
             dt = dts[k]
             for kk in np.unique(k):
@@ -948,20 +1011,53 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
             e = np.stack([(truth[a][:, 0] - est[a][:, 0]) / r_m + nav_rad * rng.standard_normal(n) for a in (0, 1)], -1) / hp
             steady = ~in_init
             tot["err_angle2"] += float((((truth[0][:, 0] - est[0][:, 0]) / r_m) ** 2)[steady].sum())
-            # target power: a new draw once T0 has passed since the last one
-            if math.isfinite(tl_upd.shape) and tl_upd.shape <= 1e4:
-                t_draw += dt
-                new = t_draw >= (t0 if math.isfinite(t0) else np.inf)
-                new |= ~np.isfinite(t_draw)
-                g = np.where(new, rng.gamma(tl_upd.shape, 1.0 / tl_upd.shape, n), g)
-                t_draw = np.where(new, 0.0, t_draw)
+            # target power per frequency: a new draw once T0 has passed since its last one; initiation looks hop
+            cur = np.where(in_init, ci, 0)
+            rows = np.arange(n)
+            # each look draws with its OWN shape (a frequency-agile initiation train averages several independent
+            # samples: far fewer deep fades than one pulse; fixed after the pd_init sweep, 27 October 2026)
+            shp = np.where(in_init, tl_init.shape, tl_upd.shape)
+            fin = np.isfinite(shp) & (shp <= 1e4)
+            if fin.any():
+                t_f += dt[:, None]
+                new = ~np.isfinite(t_f[rows, cur]) | (t_f[rows, cur] >= (t0 if math.isfinite(t0) else np.inf))
+                k_ = np.where(fin, shp, 1.0)
+                draw = np.where(fin, rng.gamma(k_, 1.0 / k_), 1.0)
+                g_f[rows, cur] = np.where(new, draw, g_f[rows, cur])
+                t_f[rows, cur] = np.where(new, 0.0, t_f[rows, cur])
+            g = g_f[rows, cur]
+            ci = np.where(in_init, (ci + 1) % n_f, ci)
             lam = np.empty(n)
             hit = np.empty(n, dtype=bool)
-            for tl, sel in ((tl_upd, steady), (tl_init, in_init)):
+            res_sel = in_init & (misses > 0) if tl_res is not None else np.zeros(n, dtype=bool)
+            for tl, sel in ((tl_upd, steady), (tl_init, in_init & ~res_sel)):
                 if not sel.any():
                     continue
                 lam[sel] = 10.0 ** ((tl.x_db - _track_loss(tl, e[sel], rng)) / 10.0) * g[sel]
                 hit[sel] = 0.5 * rng.noncentral_chisquare(2 * tl.n, np.maximum(2.0 * lam[sel], 1e-300)) > tl.threshold
+            if res_sel.any():
+                # lever D: rings of beams around the prediction covering RESEARCH_SIGMAS of its error, the beam that
+                # detects measures; one target power for the cluster
+                idx = np.flatnonzero(res_sel)
+                sg = np.sqrt(np.maximum(cov[0][idx, 0, 0], cov[1][idx, 0, 0]) / r_m ** 2 + nav_rad ** 2) / hp
+                nb = np.array([tm.research_cluster(float(x), rm.BEAM_SPACING_HPBW)[0] for x in sg])
+                # the lattice shifted by (a + b) j / 3 from one re-search to the next (as the search frames, step 4.3
+                # bis): a target on a cell vertex (the worst point, s / sqrt(3)) is on a beam axis at the next one
+                off = _HEX37 * rm.BEAM_SPACING_HPBW
+                shift = np.array([trk.attempt_shift(int(a_) - 1, rm.BEAM_SPACING_HPBW) for a_ in misses[idx]])
+                d = e[idx][:, None, :] - (off[None, :, :] + shift[:, None, :])
+                # a shifted re-search keeps one more beam on the estimate (the shifted lattice leaves it on a vertex)
+                d = np.concatenate([d, e[idx][:, None, :]], axis=1)
+                keep_c = np.any(shift != 0.0, axis=1)
+                lb = 10.0 ** ((tl_res.x_db - _track_loss(tl_res, d, rng)) / 10.0) * g[idx][:, None]
+                hb = 0.5 * rng.noncentral_chisquare(2 * tl_res.n, np.maximum(2.0 * lb, 1e-300)) > tl_res.threshold
+                hb[:, :-1] &= np.arange(len(off))[None, :] < nb[:, None]
+                hb[:, -1] &= keep_c
+                lam[idx] = np.where(hb, lb, 0.0).max(axis=1)
+                hit[idx] = hb.any(axis=1)
+                lam[idx] = np.where(hit[idx], lam[idx], lb[:, 0])
+                tot["i_research"] = tot.get("i_research", 0) + len(idx)
+                tot["i_research_beams"] = tot.get("i_research_beams", 0) + int(nb.sum())
             if rho_ku > 0.0:
                 hit &= rng.random(n) >= rho_ku
             tot["hits"] += int((hit & steady).sum())
@@ -972,6 +1068,8 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
                 tot["i_dt"].extend(dt[in_init][:50].tolist())
             tot["point2"] += float((e ** 2).sum(axis=1)[steady].sum() / 2.0)
             ref = np.where(in_init, tl_init.snr_ref, tl_upd.snr_ref)
+            if tl_res is not None:
+                ref = np.where(res_sel, tl_res.snr_ref, ref)
             scale = np.sqrt(ref / np.maximum(lam, 1e-12)) if snr_scaled else np.ones(n)
             s_th = np.sqrt((st.noise_theta * scale) ** 2 + tm.ANGLE_FLOOR_RAD ** 2) * r_m
             s_rr = np.sqrt((noise_r * scale) ** 2 + tm.RANGE_FLOOR_M ** 2)
@@ -992,6 +1090,9 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
             init_t += np.where(in_init, dt, 0.0)
             # initiation done: the criterion of trackmodel.initiation at the period, on the filter's own covariance
             nxt = np.einsum("ij,njk,lk->nil", f_t, cov[0], f_t) + q_t
+            if steady_start and u >= 20:
+                acc_ref += [float(np.sqrt(nxt[:, 0, 0]).sum()), float(np.sqrt(cov[2][:, 0, 0]).sum()),
+                            float(np.sqrt(cov[2][:, 1, 1]).sum()), n]
             done = in_init & (np.sqrt(nxt[:, 0, 0]) <= zone_lim) & (np.sqrt(cov[2][:, 0, 0]) <= r_lim) \
                 & (np.sqrt(cov[2][:, 1, 1]) <= v_lim)
             tot["init_done"].extend(init_looks[done].tolist())
@@ -1001,11 +1102,19 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
             tot["i_fail"][2] += int((still & (np.sqrt(cov[2][:, 1, 1]) > v_lim)).sum())
             tot["init_time"].extend(init_t[done].tolist())
             in_init &= ~done
-            lost = misses >= tm.N_MISS_LOST
+            lost = misses >= np.where(in_init, n_fail_init, tm.N_MISS_LOST)   # lever D in the initiation
             if lost.any():
                 tot["losses"] += int((lost & ~in_init).sum())
                 tot["init_lost"] += int((lost & in_init).sum())
+                li = lost & in_init                      # diagnostics of the initiations lost
+                if li.any():
+                    sg_l = np.sqrt(np.maximum(cov[0][li, 0, 0], cov[1][li, 0, 0]) / r_m ** 2 + nav_rad ** 2) / hp
+                    err_l = np.hypot(e[li, 0], e[li, 1])
+                    tot.setdefault("lost_diag", []).extend(zip(sg_l.tolist(), err_l.tolist(), init_looks[li].tolist(),
+                                                              init_t[li].tolist()))
                 start(np.flatnonzero(lost))
+        if steady_start and acc_ref[3] > 0:
+            tot["refs"][int(si)] = tuple(acc_ref[:3] / acc_ref[3])
     ne = max(tot["n_err"], 1)
     return {**tot, "pd_update_mc": tot["hits"] / ne, "pointing_rms_hpbw": math.sqrt(tot["point2"] / ne),
             "rms_angle_rad": math.sqrt(tot["err_angle2"] / ne), "rms_r_m": math.sqrt(tot["err_r2"] / ne),
@@ -1053,7 +1162,8 @@ def tracks(mission: dict, out: dict, handover: Dict[str, np.ndarray], seed: int 
             rng = np.random.default_rng([int(seed), 2000 + n, bi])
             ho = handover.get(t["id"])
             res = simulate_bracket(mc["states"], mc, TRACKS_PER_BRACKET, UPDATES_PER_TRACK, rng, rho_ku, ho, True)
-            ini = simulate_bracket(mc["states"], mc, TRACKS_PER_BRACKET, UPDATES_PER_TRACK, rng, rho_ku, ho, False)
+            ini = simulate_bracket(mc["states"], mc, TRACKS_PER_BRACKET, UPDATES_PER_TRACK, rng, rho_ku, ho, False,
+                                   refs=res["refs"])
             lo, hi = wilson(res["losses"], res["updates"])
             p_mc = res["losses"] / res["updates"] if res["updates"] else None
             p_an = float(at.get("p_loss_per_update", 0.0))
@@ -1082,7 +1192,13 @@ def tracks(mission: dict, out: dict, handover: Dict[str, np.ndarray], seed: int 
                 why.append(f"analytic loss {p_an:.2e} below the interval (model optimistic)")
             if state == "OK" and i_an is not None and i_mean is not None and i_an < i_mean * (1.0 - CI_TOL):
                 state = "ALERTE"
-                why.append(f"analytic initiation {i_an} look(s) below the drawn mean {i_mean:.1f}")
+                why.append(f"analytic initiation {i_an:.3g} look(s) below the drawn mean {i_mean:.1f}")
+            # initiation losses per attempt against the analytic chain (return on 3.3, H5)
+            ilo, ihi = wilson(ini["init_lost"], ok_ini + ini["init_lost"])
+            il_an = at.get("init_loss_prob")
+            if state == "OK" and il_an is not None and il_an < ilo:
+                state = "ALERTE"
+                why.append(f"analytic initiation loss {il_an:.2e} below the interval [{ilo:.2e}, {ihi:.2e}]")
             rows.append({**row, "status": "OK", "tracks": TRACKS_PER_BRACKET, "updates": res["updates"],
                          "pd_update_mc": res["pd_update_mc"], "pointing_rms_hpbw": res["pointing_rms_hpbw"],
                          "pd_update_design": float(at.get("pd_update") or trk.tm.PD_UPDATE),
@@ -1094,13 +1210,57 @@ def tracks(mission: dict, out: dict, handover: Dict[str, np.ndarray], seed: int 
                          "init_looks_mc_mean": i_mean, "init_looks_mc_q95": i_q95, "init_looks_analytic": i_an,
                          "init_time_mean_s": float(dur.mean()) if len(dur) else None,
                          "init_time_q95_s": float(np.quantile(dur, 0.95)) if len(dur) else None,
-                         "init_dt_min_s": ini["dt_min_s"],
+                         "init_dt_min_s": ini["dt_min_s"], "init_loss_ci": [ilo, ihi],
+                         "init_loss_analytic": at.get("init_loss_prob"), "init_time_analytic_s": at.get("init_time_s"),
+                         "init_freqs": at.get("init_freqs"), "init_mode": at.get("init_mode"),
                          "handover": "drawn (M2)" if ho is not None and len(ho) else "analytic",
                          "state": state, "why": "; ".join(why), "runtime_s": time.perf_counter() - t_start})
     return rows
 
 
 # ----------------------------------------------------------------------------- mission
+def track_chain(mission: dict, out: dict, rows: List[dict], trk_rows: List[dict]) -> List[dict]:
+    """Requirement of the user (27 October 2026): the chain first detection > confirmation > established track fails at
+    most tracking.p_track_fail_max. Per sector with tracks: drawn confirmation success (M2) x drawn initiation
+    success of the bracket where the tracks start (M3), the interval from the two Wilson intervals; against the
+    analytic chain."""
+    secs = {s["id"]: s for s in mission["sectors"]}
+    tsec = {t["id"]: t for t in out.get("tracking", {}).get("sectors", [])}
+    by_id = {r["id"]: r for r in trk_rows}
+    lim = float(trk.tm.P_TRACK_FAIL_MAX)
+    res = []
+    for r in rows:
+        c = r.get("confirmation")
+        sid = r["id"]
+        t = tsec.get(sid)
+        if not c or not t or not t.get("at"):
+            continue
+        sec = secs[sid]
+        bi = trk._start_bracket(sec.get("tracking", []), float(sec["range_km"]))
+        bi = 0 if bi is None else bi
+        b = by_id.get(f"{sid}/{bi}")
+        if not b or b.get("status") != "OK":
+            continue
+        n_i = b["init_done"] + b["init_lost"]
+        p_i = b["init_done"] / n_i if n_i else 0.0
+        ci_i = wilson(b["init_done"], n_i)
+        p_c, ci_c = c["p_mc"], c["ci"]
+        fail = 1.0 - p_c * p_i
+        lo, hi = 1.0 - ci_c[1] * ci_i[1], 1.0 - ci_c[0] * ci_i[0]
+        at = t["at"][bi]
+        an = (1.0 - float(c["p_analytic"]) * (1.0 - float(at["init_loss_prob"]))
+              if at.get("init_loss_prob") is not None else None)
+        if lo > lim:
+            state, why = "NOK", f"chain failure {fail:.2e} (lower bound {lo:.2e}) above {lim:g}"
+        elif an is not None and an < lo:
+            state, why = "ALERTE", f"analytic chain failure {an:.2e} below the interval (model optimistic)"
+        else:
+            state, why = "OK", ""
+        res.append({"id": sid, "bracket": bi, "confirmation_mc": p_c, "initiation_mc": p_i, "failure_mc": fail,
+                    "ci": [lo, hi], "failure_analytic": an, "required": lim, "state": state, "why": why})
+    return res
+
+
 def plan_eclipse_db(out: dict) -> Dict[str, float]:
     """Eclipse loss (dB) each sector's kept plan holds: the global optimiser's last coupling of the sector (step 5.2)."""
     ecl: Dict[str, float] = {}
@@ -1136,15 +1296,18 @@ def run(mission: dict, out: Optional[dict] = None, seed: int = SEED, progress_cb
             progress_cb(n + 1, len(mission["sectors"]), sec["id"])
     tl = timelines(mission, out, seed, progress_cb)
     trk_rows = tracks(mission, out, handover, seed)
+    chain = track_chain(mission, out, rows, trk_rows)
     states = [r.get("state") for r in rows if r.get("status") == "OK"]
     states += [(r.get("confirmation") or {}).get("state") for r in rows]
     states += [r[x] for r in tl["sectors"] for x in ("fa_state", "latency_state")]
     states += [fb["state"] for fk in tl["faces"].values() for fb in fk.values()]
     states += [c["state"] for fk in tl["faces"].values() for fb in fk.values() for c in fb["classes"]]
     states += [r.get("state") for r in trk_rows]
+    states += [r.get("state") for r in chain]
     state = "NOK" if "NOK" in states else ("ALERTE" if "ALERTE" in states else "OK")
     return {"pass": "M3", "seed": int(seed), "ci_level": CI_LEVEL, "state": state, "sectors": rows,
-            "eclipse_share_s": rho, "timelines": tl, "tracks": trk_rows, "runtime_s": time.perf_counter() - t_start}
+            "eclipse_share_s": rho, "timelines": tl, "tracks": trk_rows, "chain": chain,
+            "runtime_s": time.perf_counter() - t_start}
 
 
 def report_lines(mc: dict) -> List[str]:
@@ -1213,10 +1376,22 @@ def report_lines(mc: dict) -> List[str]:
             lines.append(f"  {'':<14}initiation: {100 * r['init_success']:.1f} % established ({r['init_lost']} lost), "
                          f"{(f'{im:.1f}' if im is not None else '-')} looks (95 %: "
                          f"{(f'{iq:.0f}' if iq is not None else '-')}), "
-                         f"{(f'{it:.3g} s' if it is not None else '-')} (analytic {r['init_looks_analytic']} look(s)), "
-                         f"hand-over {r['handover']}")
+                         f"{(f'{it:.3g} s' if it is not None else '-')}; analytic {r['init_looks_analytic']:.3g} "
+                         f"look(s), {r['init_time_analytic_s']:.3g} s, loss {r['init_loss_analytic']:.2e}; "
+                         f"{r['init_freqs']} Ku frequencies ({r['init_mode']}), hand-over {r['handover']}"
+                         if r["init_looks_analytic"] is not None else
+                         f"{(f'{it:.3g} s' if it is not None else '-')}; hand-over {r['handover']}")
             lines.append(f"  {'':<14}RMS " + ", ".join(f"{k} {v:.3g} (required {r['required'][k]:.3g})"
                                                      for k, v in r["rms"].items()))
+    if mc.get("chain"):
+        lines.append("  Chain first detection > confirmation > established track (failure, requirement "
+                     f"{mc['chain'][0]['required']:g})")
+        for r in mc["chain"]:
+            a = r["failure_analytic"]
+            lines.append(f"  {r['id']:<14}failure {r['failure_mc']:.2e} [{r['ci'][0]:.2e}, {r['ci'][1]:.2e}] "
+                         f"(confirmation {r['confirmation_mc']:.4f} x initiation {r['initiation_mc']:.4f}, bracket "
+                         f"{r['bracket']}), analytic {(f'{a:.2e}' if a is not None else '-')}  {r['state']}"
+                         + (f" -- {r['why']}" if r["why"] else ""))
     return lines
 
 

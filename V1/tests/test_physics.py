@@ -1919,7 +1919,10 @@ def test_ku_cluster_superposition_loss_is_interpolated():
     assert names[0] == "sequential" and any(n.startswith("superposition") for n in names) \
         and any(n.startswith("partition") for n in names)
     seq = trk.cluster_variants()[0]
-    assert seq.looks == trk.CLUSTER_N and all(c.looks == 1.0 for c in trk.cluster_variants()[1:])
+    assert seq.looks == trk.CLUSTER_N and all(c.looks == 1.0 for c in trk.cluster_variants()[1:]
+                                              if not c.name.startswith("sequential"))
+    big = [c for c in trk.cluster_variants() if c.name.startswith("sequential x")]   # K9 (c'): 19 and 37 beams
+    assert [len(c.beams) for c in big] == [19, 37] and all(c.looks == len(c.beams) for c in big)
 
 
 def test_ku_scan_factor_is_common_to_the_waveforms():
@@ -3322,7 +3325,7 @@ def test_mc_confirmation_matches_the_analytic_success():
     snr = np.tile(np.asarray(st.x_det), 3000)
     for mode, m_db in (("KU1+7", 3.0), ("KU7", 3.0)):
         spec = mc.ConfirmSpec(sid="T", mode=mode, margin_db=m_db, success_analytic=0.0, p_min=0.0, st=st,
-                              t0_s_s=0.0, t0_ku_s=0.0, trip_s=1.0)
+                              t0_s_s=0.0, t0_ku_s=0.0, trip_s=1.0, attempts=st.attempts)
         r = spec.draw(snr, np.random.default_rng(2))
         lo, hi = mc.wilson(int(round(r["p_mc"] * r["detections"])), r["detections"], 0.999)
         assert lo <= st.ku(mode, m_db)[0] <= hi, (mode, r["p_mc"], st.ku(mode, m_db)[0])
@@ -3352,3 +3355,52 @@ def test_mc_batch_kalman_reaches_the_steady_covariance():
         est, cov = mc._kf_update(est, cov, z, np.full((n, 1), s_c ** 2), np.array([[1.0, 0.0, 0.0]]))
     rms = float(np.sqrt(np.mean(np.square(err))))
     assert abs(rms / math.sqrt(st.p_cross[0, 0]) - 1.0) < 0.05
+
+
+def test_fast_initiation_chain():
+    """Return on 3.3 from step 5.4 (H5): the initiation chain; two looks to detect, Pd 0.9 without degradation, three
+    misses lose the attempt: loss 1 - P(two hits before three misses in a row), looks and time include the misses."""
+    from core import trackmodel as tm
+    ch = tm.init_chain([0.01, 0.1], [0.9, 0.9, 0.9], 0.001)
+    assert abs(ch["loss_prob"] - 0.001999) < 1e-5
+    assert 2.0 < ch["looks"] < 2.3 and 0.11 < ch["time_s"] < 0.12
+    sure = tm.init_chain([0.01, 0.1], [1.0, 1.0, 1.0], 0.001)
+    assert sure["loss_prob"] == 0.0 and abs(sure["looks"] - 2.0) < 1e-12 and abs(sure["time_s"] - 0.11) < 1e-12
+
+
+def test_fast_initiation_keeps_the_pointing_and_lengthens_the_steps():
+    """Return on 3.3 (H1, I1): from a hand-over with an unknown transverse velocity (v_close / 3), every initiation
+    look is pointed within init_pointing_max_hpbw where the shortest interval allows it, the intervals grow, the
+    last one is at most the period, and the sequence ends."""
+    from core import trackmodel as tm
+    tgt = mo.sector_target({"id": "T", "rcs_m2": 1.0, "swerling": 1, "target_type": "KKV"})
+    st = tm.TrackState(tgt, 1.0, 162.5, 0.2, 10.0, 5.0, 14.0, 0.0)
+    seq = tm.fast_initiation(st, tgt, 2.4e-4, 10.0, 5.0, 0.2, 10.0, 5.0, 1.1e-3, 0.0)
+    iv, sg = seq["intervals"], seq["pointing_hpbw"]
+    assert 1 <= len(iv) < 200 and iv[-1] <= 1.0 + 1e-12
+    assert all(b >= a - 1e-12 for a, b in zip(iv, iv[1:3]))
+    assert all(x <= tm.INIT_POINTING_MAX_HPBW + 1e-9 for x, d in zip(sg, iv) if d > 1.1e-3 + 1e-9)
+
+
+def test_initiation_hop_frequencies():
+    """Return on 3.3 (H1): independent Ku frequencies spaced c / 2L in the core band: many for a 100 m ship, about
+    five for a 1.5 m object, one when the length is unknown; an exclusion over the core band leaves fewer."""
+    from core import tracking as trk_
+    r = {"wf": {"freq_ghz": 2.7, "sig_bw_mhz": 10.0, "name": "W"}}
+    f = 14.0
+    ship, kkv = trk_.init_hop_freqs(r, f, 100.0, 100.0, ()), trk_.init_hop_freqs(r, f, 100.0, 1.5, ())
+    assert ship > kkv >= 4 and trk_.init_hop_freqs(r, f, 100.0, None, ()) == 1
+    assert trk_.init_hop_freqs(r, f, 100.0, 1.5, ((13.75, 14.25),)) < kkv
+
+
+def test_initiation_research_cluster():
+    """Lever D (D2-D3): the re-search rings cover RESEARCH_SIGMAS sigma per axis with the fewest beams (1, 7, 19, 37),
+    capped at RESEARCH_MAX_BEAMS with the coverage it leaves; the weighted chain counts a re-search as its beams."""
+    from core import trackmodel as tm
+    assert tm.research_cluster(0.1, 1.4)[0] == 1 and tm.research_cluster(0.3, 1.4)[0] == 7
+    assert tm.research_cluster(1.0, 1.4)[0] == 19
+    nb, cov = tm.research_cluster(5.0, 1.4)
+    assert nb == tm.RESEARCH_MAX_BEAMS and 0.0 < cov < 0.5
+    ch = tm.init_chain([0.01, 0.1], [0.9, 0.8, 0.8], 0.001, [1.0, 7.0, 19.0])
+    assert 0.1 * 0.2 * 0.2 <= ch["loss_prob"] < 2 * 0.1 * 0.2 * 0.2 + 1e-12   # a miss, then two failed re-searches
+    assert ch["looks"] > 2.0 + 0.2 * 7 * 0.9

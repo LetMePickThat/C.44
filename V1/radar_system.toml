@@ -574,6 +574,7 @@ length_m          = { value = 1.5, unit = "m", status = "V", source = "class mea
 rotation_dps      = { value = 1.0, unit = "deg/s", status = "V", source = "class mean, attitude-controlled (step 2.4, F): T0 S 2.0 s / Ku 0.4 s", date = "2026-10-22" }
 accel_max_mps2    = { value = 98.0665, unit = "m/s2", status = "V", source = "10 g divert, class mean (step 2.4, F)", date = "2026-10-22" }
 maneuver_tau_s = { value = 5.0, unit = "s", status = "V", source = "Singer manoeuvre time constant (step 3.3, A5): divert burns, class mean; 0 = no manoeuvre", date = "2026-10-25" }
+init_vt_sigma_mps = { value = 1000.0, unit = "m/s", status = "D", source = "lever C: 1-sigma transverse velocity per axis at the track birth; a KKV that threatens the ship aims at it (user, 27 Oct 2026: 1000 m/s by default, for the test, to adjust)", date = "2026-10-27" }
 optics_diameter_m = { value = 0.3, unit = "m", status = "V", source = "IR seeker primary mirror facing the target (GBI-EKV-like concept), class mean of 0.2-0.4 m (step 2.4, K1)", date = "2026-10-22" }
 optics_f_ratio    = { value = 1.0, unit = "-", status = "V", source = "primary f/D, class mean of 0.8-1.5 (step 2.4, K2)", date = "2026-10-22" }
 optics_retro_eff  = { value = 0.1, unit = "-", status = "V", source = "fraction retro-reflected by the focal assembly (cat's eye), log mean of 0.01-1 (step 2.4, K3); no RF countermeasure in the class mean (K4: a sector override)", date = "2026-10-22" }
@@ -648,7 +649,8 @@ depol_db    = { value = -20.0, unit = "dB", status = "V", source = "smooth ballo
 # --- confirmation and active tracking (core/tracking.py) ----------------------------------------------------------
 [confirmation]
 bias_mrad        = { value = 1.1, unit = "mrad", status = "V", source = "residual S/Ku alignment bias per axis, as an ABSOLUTE angle (direction cosines, i.e. constant across scan); was 1/20 of the S beamwidth (1.13 mrad at 2.8 GHz), which would have grown with the beamwidth; S/Ku calibration at 3.2", date = "2026-10-20" }
-p_min            = { value = 0.98, unit = "-", status = "V", source = "minimum probability of confirming a true target (smallest Ku margin per mode reaching it; end-to-end 0.9 x 0.98 per pass): operational requirement, per-mission setting at 5.1, per-volume (sector) setting as an option to study", date = "2026-10-19" }
+confirm_attempts = { value = 2, unit = "-", status = "D", source = "K3 (return on 3.2 from step 5.4, user, 27 Oct 2026): confirmations of one detection at most, the later ones on other Ku frequencies with the same angle error; replaces p_min 0.98 (V), now derived from tracking.p_track_fail_max x chain_split (K5)", date = "2026-10-27" }
+confirm_attempts_max = { value = 3, unit = "-", status = "D", source = "K9 (a) (user, 27 Oct 2026): up to this many attempts when confirm_attempts does not reach confirm_p_min (weak first detections)", date = "2026-10-27" }
 fa_r4_mean       = { value = 0.2, unit = "-", status = "V", source = "false alarm's Ku look sized for the threat: mean of (R/R_det)^4 = 1/5 exactly, assuming false alarms uniform in range over [0, R_det]", date = "2026-10-20" }
 
 [tracking]
@@ -664,6 +666,14 @@ vel_bank_sigmas   = { value = 3.0, unit = "sigma", status = "V", source = "veloc
 accel_bank_sigmas = { value = 3.0, unit = "sigma", status = "V", source = "acceleration bank of a track look over +/- this x the predicted acceleration sigma (E1)", date = "2026-10-25" }
 init_vel_sigma_frac = { value = 0.3333333333, unit = "-", status = "V", source = "initial transverse-velocity sigma = this x v_close of the class (C1, prudent bound)", date = "2026-10-25" }
 init_conv_frac    = { value = 0.1, unit = "-", status = "V", source = "initiation ends when every A7 accuracy is within this fraction of its steady-state value (C3)", date = "2026-10-25" }
+init_pointing_max_hpbw = { value = 0.3, unit = "HPBW", status = "D", source = "fast initiation: each interval the longest keeping the predicted pointing error (1 sigma per axis) under this many Ku beamwidths, between round trip + processing and the period (user, step 5.4 M3 -> return on 3.3)", date = "2026-10-27" }
+pd_init           = { value = 0.99, unit = "-", status = "D", source = "lever B: Pd of an initiation look at its pointing law (the cheapest look reaching it is a frequency-agile train for a fluctuating target: lever A); proposed for the test, to adjust (step 5.4 M3 -> return on 3.3)", date = "2026-10-27" }
+init_research_sigmas = { value = 3.0, unit = "sigma", status = "D", source = "lever D (D2): after a miss in an initiation, a local re-search covers the predicted error up to this many sigmas per axis (user, 27 Oct 2026)", date = "2026-10-27" }
+init_research_max_beams = { value = 37, unit = "-", status = "D", source = "lever D (D3): beams of a re-search at most (3 hexagonal rings); beyond, the centre is covered and the coverage counted (user, 27 Oct 2026)", date = "2026-10-27" }
+pd_research       = { value = 0.999, unit = "-", status = "D", source = "lever D (user, 27 Oct 2026): Pd of one beam of a re-search, the target anywhere in its cell", date = "2026-10-27" }
+init_research_attempts = { value = 4, unit = "-", status = "D", source = "lever D (D4): re-searches in a row without a detection before the initiation is lost (user, 27 Oct 2026: 2, then 4 after the trial)", date = "2026-10-27" }
+p_track_fail_max = { value = 0.001, unit = "-", status = "V", source = "requirement of the user (27 Oct 2026): a true object first detected is almost never left without a track; probability that the chain detection > confirmation > established track fails, at most this", date = "2026-10-27" }
+chain_split      = { value = 0.5, unit = "-", status = "D", source = "K5 (user, 27 Oct 2026): share of p_track_fail_max left to the confirmation; the default confirm_p_min is 1 - chain_split x p_track_fail_max (0.9995), the initiation keeps the rest", date = "2026-10-27" }
 angle_floor_mrad  = { value = 0.05, unit = "mrad", status = "V", source = "angle measurement floor per axis, in quadrature (calibration, TRM phase errors, panel deformation; E4; median value, the optimistic end 0.02 was offered)", date = "2026-10-25" }
 range_floor_m     = { value = 0.05, unit = "m", status = "V", source = "range measurement floor, in quadrature (clock, calibration; E5)", date = "2026-10-25" }
 vr_floor_mps      = { value = 0.01, unit = "m/s", status = "V", source = "radial-velocity measurement floor, in quadrature (oscillator stability; E6)", date = "2026-10-25" }
@@ -772,7 +782,6 @@ v_draw          = "max"         # C4: closing velocity of the test targets: "max
 n_rep           = 10            # M2-2: drawn timelines per face (D, user, 27 Oct 2026)
 tracks_per_bracket = 2000       # M3 (T7): tracks drawn per active-tracking bracket (D, user, 27 Oct 2026)
 updates_per_track  = 200        # M3 (T7): updates per drawn track (D)
-init_pointing_max_hpbw = 0.3   # M3: initiation looks as fast as possible, each interval the longest keeping the predicted pointing error (1 sigma per axis) below this many Ku beamwidths, between the round trip + processing and the bracket period (user, 27 Oct 2026, D)
 batch           = 200           # test targets drawn per batch between two checks of the stopping rule
 pd_look_floor   = 1e-5          # looks whose mean Pd stays below this are not drawn (they cannot change the result)
 
@@ -811,7 +820,7 @@ ku_freq_step_mhz   = 10.0       # Ku centre grid: usable_lo + k x step, signal i
 ku_freq_coarse_mhz = 50.0       # Ku centres evaluated: valid ones on this step + the centre-most of each free fragment (A5)
 ku_freq_quiet_centres = 3       # A8 (25 Oct 2026): no Ku exclusion and no jammer -> this many Ku centres over the core
                                 # band (Ku frequency choice flat there); 0 = the coarse grid always
-margin_db_max   = 12.0          # power margins of the confirmation looks: 0 .. max dB,
+margin_db_max   = 15.0          # power margins of the confirmation looks: 0 .. max dB,   (12 -> 15 dB: K9 (b), return on 3.2 from step 5.4, user, 27 Oct 2026)
 margin_db_tol   = 0.05          # solved by bisection to this tolerance (step 3.2 B6; 0.01 until A9, 25 Oct 2026)
 s2_touch_step_db = 0.5          # S2: grid of the S touch margin (the former grid), its Ku margin by bisection (B6)
 n_snr_quantiles = 16            # quantiles of the detected-echo SNR (32 until A9, 25 Oct 2026)
