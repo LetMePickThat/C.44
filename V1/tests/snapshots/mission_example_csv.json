@@ -18,11 +18,11 @@
     "at_avg_power_kw": 0.0,
     "at_ku_time_fraction": 0.0,
     "at_unreachable_tracks": 0.0,
-    "avg_power_kw": 21.55761059383966,
-    "energy_fraction": -0.20169920091541596,
-    "energy_j_per_refresh": 107788.05296919828,
+    "avg_power_kw": 21.557610593839666,
+    "energy_fraction": -0.20169920091541602,
+    "energy_j_per_refresh": 107788.05296919832,
     "positions": 174.89380211360498,
-    "time_fraction_min": 0.0017598049464358904,
+    "time_fraction_min": 0.0017598049464358913,
     "unreachable_pct": 0.0
    }
   }
@@ -39,23 +39,23 @@
      "bands": {
       "Ku": {
        "beams_max": 32,
-       "beams_mean": 0.000861610029436374,
+       "beams_mean": 0.0008616100294363738,
        "beams_peak": 7,
-       "bits_per_s": 337751131.5390586,
+       "bits_per_s": 337751131.5390585,
        "buffer_peak_GB": 0.0035,
        "face_input_peak_tbps": 2.744,
        "link_trsa_peak_tbps": 0.014,
-       "open_windows_mean": 0.00012308714706233914,
+       "open_windows_mean": 0.0001230871470623391,
        "ops_per_s": {
-        "banks": 1378576.0470981984,
-        "beamforming": 52858052085.86267,
-        "cfar": 215402.5073590935,
-        "compression": 7502237.003193916,
+        "banks": 1378576.047098198,
+        "beamforming": 52858052085.862656,
+        "cfar": 215402.50735909343,
+        "compression": 7502237.003193913,
         "nulling": 0.0,
-        "repointing": 6.154357353116957,
+        "repointing": 6.154357353116955,
         "tracks": 0.0
        },
-       "ops_total_per_s": 52867148307.57468,
+       "ops_total_per_s": 52867148307.57466,
        "transport": "subarray_beams"
       },
       "S": {
@@ -107,23 +107,23 @@
      "bands": {
       "Ku": {
        "beams_max": 32,
-       "beams_mean": 0.02276331860545263,
+       "beams_mean": 0.022763318605452644,
        "beams_peak": 7,
-       "bits_per_s": 71385767146.69945,
+       "bits_per_s": 71385767146.6995,
        "buffer_peak_GB": 0.28,
        "face_input_peak_tbps": 21.952,
        "link_trsa_peak_tbps": 0.112,
-       "open_windows_mean": 0.0032519026579218044,
+       "open_windows_mean": 0.0032519026579218065,
        "ops_per_s": {
-        "banks": 46619276503.96698,
-        "beamforming": 11171872558458.463,
-        "cfar": 7284261953.744842,
-        "compression": 2305183987.2095957,
+        "banks": 46619276503.96702,
+        "beamforming": 11171872558458.47,
+        "cfar": 7284261953.744846,
+        "compression": 2305183987.2095976,
         "nulling": 0.0,
-        "repointing": 16.25951328960902,
+        "repointing": 16.259513289609032,
         "tracks": 0.0
        },
-       "ops_total_per_s": 11228081280919.645,
+       "ops_total_per_s": 11228081280919.652,
        "transport": "subarray_beams"
       },
       "S": {
@@ -153,7 +153,7 @@
      "capacity_ops_per_s": 3.999994123711164e+18,
      "face_heat_kW_actual": 69.06146235094627,
      "jammers_nulled": 0,
-     "load": 3.2942573440513385e-06,
+     "load": 3.29425734405134e-06,
      "memory": {
       "bandwidth_TB_per_s": 50.0,
       "buffers_peak_TB": 0.0002870243602095207,
@@ -162,10 +162,10 @@
       "traffic_TB_per_s": 0.14739388613475946
      },
      "non_tx_kW_actual": 66.88019053298854,
-     "ops_total_per_s": 13177010018197.7,
+     "ops_total_per_s": 13177010018197.707,
      "power_kW": {
       "ceiling": 50.0,
-      "ops": 0.000131770100181977,
+      "ops": 0.00013177010018197707,
       "static": 10.0,
       "total": 10.000190532988539,
       "transport": 5.876288835733497e-05
@@ -439,12 +439,13 @@
     },
     {
      "fraction": 1.0,
-     "need_MW": 0.014359010347980213,
-     "served_MW": 0.014359010347980213,
+     "need_MW": 0.0143590103479802,
+     "served_MW": 0.0143590103479802,
      "tier": "P4_1 search"
     }
    ]
   },
+  "redundancy": [],
   "repointing": {
    "accel_max_dps2": 15.0,
    "bands": {
@@ -484,7 +485,7 @@
       "load": 0.00016789753813729007,
       "load_by_priority": {
        "P0": 0.0001666666666666667,
-       "P2": 1.2308714706233913e-06
+       "P2": 1.2308714706233908e-06
       },
       "mean_wait_s": {
        "calibration Ku": 4.1673626014516145e-06,
@@ -507,10 +508,10 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.0003029476869551399,
+      "load": 0.0003029476869551394,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
-       "P4_1": 0.00026961435362180653
+       "P4_1": 0.00026961435362180604
       },
       "mean_wait_s": {
        "calibration S": 1.6819397921760825e-07,
@@ -540,7 +541,7 @@
       "load": 0.0001699185693245885,
       "load_by_priority": {
        "P0": 0.0001666666666666667,
-       "P2": 3.251902657921804e-06
+       "P2": 3.251902657921806e-06
       },
       "mean_wait_s": {
        "calibration Ku": 4.167363529424923e-06,
@@ -563,14 +564,14 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.00086129860845696,
+      "load": 0.0008612986084569592,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
-       "P4_1": 0.0008279652751236266
+       "P4_1": 0.0008279652751236259
       },
       "mean_wait_s": {
-       "calibration S": 1.7884461850925117e-07,
-       "search S02": 1.7899878991792294e-07
+       "calibration S": 1.7884461850925114e-07,
+       "search S02": 1.789987899179229e-07
       },
       "stretch": {},
       "timeline": {
@@ -739,7 +740,7 @@
    ],
    "slots": {
     "Ku": 0.0001699185693245885,
-    "S": 0.00086129860845696
+    "S": 0.0008612986084569592
    }
   },
   "sectors": [
@@ -753,16 +754,38 @@
      "objects_per_rr": 0.0
     },
     "fa_per_rr": 10.0,
+    "face_overlap": {
+     "0>1": {
+      "fe_other": 0.0008348203583717959,
+      "fe_own": 0.000858260394220796,
+      "fe_own_reach": 0.0005764047382793752,
+      "ft_other": 0.00012060181659851402,
+      "ft_own": 0.00012283674459905304,
+      "ft_own_reach": 8.258789195715283e-05,
+      "sr": 0.6137295195486623,
+      "sr_reach": 0.40069093174401016
+     },
+     "0>3": {
+      "fe_other": 0.0008348203583717952,
+      "fe_own": 0.000858260394220796,
+      "fe_own_reach": 0.0005764047382793753,
+      "ft_other": 0.00012060181659851394,
+      "ft_own": 0.00012283674459905302,
+      "ft_own_reach": 8.258789195715286e-05,
+      "sr": 0.6137295195486623,
+      "sr_reach": 0.4006909317440101
+     }
+    },
     "faces": {
      "0": {
-      "avg_power_kW": 3.361297753329499,
-      "dissipation_kW": 0.7190770878357955,
-      "dissipation_kW_m2": 0.054080584807601716,
-      "energy_J_per_refresh": 67225.95506658999,
-      "energy_fraction": 0.0018845369267722386,
+      "avg_power_kW": 3.3612977533294934,
+      "dissipation_kW": 0.7190770878357943,
+      "dissipation_kW_m2": 0.054080584807601625,
+      "energy_J_per_refresh": 67225.95506658987,
+      "energy_fraction": 0.0018845369267722354,
       "positions": 477.7,
       "theta_max_deg": 51.0,
-      "time_fraction": 0.00026961435362180653
+      "time_fraction": 0.00026961435362180604
      }
     },
     "flags": [],
@@ -774,7 +797,7 @@
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.0024733328166165604,
+       "energy_max": 0.0024733328166165556,
        "freq_ghz": 2.695,
        "groups": 11,
        "occupied_ghz": [
@@ -784,13 +807,13 @@
        "range_worst_km": 5051,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.0003508925137295778,
+       "time_max": 0.000350892513729577,
        "unscanned_pct": 0.0
       },
       {
        "chosen": true,
        "degraded": false,
-       "energy_max": 0.0018845369267722386,
+       "energy_max": 0.0018845369267722354,
        "freq_ghz": 2.77,
        "groups": 11,
        "occupied_ghz": [
@@ -800,13 +823,13 @@
        "range_worst_km": 5011,
        "short_pct": 0.0,
        "spacing": 2.0,
-       "time_max": 0.00026961435362180653,
+       "time_max": 0.00026961435362180604,
        "unscanned_pct": 0.0
       },
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.002465543559168629,
+       "energy_max": 0.0024655435591686226,
        "freq_ghz": 2.845,
        "groups": 11,
        "occupied_ghz": [
@@ -816,7 +839,7 @@
        "range_worst_km": 5002,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.00034870247271854085,
+       "time_max": 0.0003487024727185399,
        "unscanned_pct": 0.0
       }
      ],
@@ -849,7 +872,7 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 0.03769073853544477,
+    "rr_alone_s": 0.037690738535444704,
     "rr_est_mission_s": 20.0,
     "rr_target_s": 20.0,
     "rx_beams_per_position": 12.487751483592406,
@@ -927,7 +950,7 @@
     },
     "wf_by_bin": [
      {
-      "elec_J_per_position": 112.91388221996243,
+      "elec_J_per_position": 112.91388221996228,
       "pae_at_scale": 0.7826416383755027,
       "positions": 9.5,
       "pulse_scale": 0.902,
@@ -973,7 +996,7 @@
       }
      },
      {
-      "elec_J_per_position": 114.90365635465321,
+      "elec_J_per_position": 114.90365635465311,
       "pae_at_scale": 0.7829422312380521,
       "positions": 28.3,
       "pulse_scale": 0.918,
@@ -1019,7 +1042,7 @@
       }
      },
      {
-      "elec_J_per_position": 118.46407232340928,
+      "elec_J_per_position": 118.46407232340907,
       "pae_at_scale": 0.7834548993499973,
       "positions": 46.2,
       "pulse_scale": 0.947,
@@ -1065,7 +1088,7 @@
       }
      },
      {
-      "elec_J_per_position": 123.8555295740673,
+      "elec_J_per_position": 123.85552957406712,
       "pae_at_scale": 0.7841751110609245,
       "positions": 62.7,
       "pulse_scale": 0.991,
@@ -1111,7 +1134,7 @@
       }
      },
      {
-      "elec_J_per_position": 131.56979010885718,
+      "elec_J_per_position": 131.56979010885695,
       "pae_at_scale": 0.7851029632381541,
       "positions": 77.3,
       "pulse_scale": 0.527,
@@ -1157,7 +1180,7 @@
       }
      },
      {
-      "elec_J_per_position": 142.15768766315455,
+      "elec_J_per_position": 142.1576876631543,
       "pae_at_scale": 0.7862124938002351,
       "positions": 76.9,
       "pulse_scale": 0.57,
@@ -1203,7 +1226,7 @@
       }
      },
      {
-      "elec_J_per_position": 156.74842165028755,
+      "elec_J_per_position": 156.7484216502872,
       "pae_at_scale": 0.7874958868525461,
       "positions": 75.5,
       "pulse_scale": 0.63,
@@ -1249,7 +1272,7 @@
       }
      },
      {
-      "elec_J_per_position": 177.07409731005652,
+      "elec_J_per_position": 177.0740973100561,
       "pae_at_scale": 0.7889311873968329,
       "positions": 66.0,
       "pulse_scale": 0.713,
@@ -1295,7 +1318,7 @@
       }
      },
      {
-      "elec_J_per_position": 206.05732030505405,
+      "elec_J_per_position": 206.05732030505357,
       "pae_at_scale": 0.7904880836211091,
       "positions": 29.8,
       "pulse_scale": 0.831,
@@ -1341,7 +1364,7 @@
       }
      },
      {
-      "elec_J_per_position": 249.45906675469726,
+      "elec_J_per_position": 249.459066754697,
       "pae_at_scale": 0.7921429995489907,
       "positions": 5.6,
       "pulse_scale": 0.403,
@@ -1566,16 +1589,38 @@
      "objects_per_rr": 0.0
     },
     "fa_per_rr": 10.0,
+    "face_overlap": {
+     "1>0": {
+      "fe_other": 0.0,
+      "fe_own": 0.0012688627703125851,
+      "fe_own_reach": 0.0,
+      "ft_other": 0.0,
+      "ft_own": 0.00018349812094806708,
+      "ft_own_reach": 0.0,
+      "sr": 0.04750177282793604,
+      "sr_reach": 0.0
+     },
+     "1>2": {
+      "fe_other": 0.0,
+      "fe_own": 0.0012688627703125851,
+      "fe_own_reach": 0.0,
+      "ft_other": 0.0,
+      "ft_own": 0.00018349812094806708,
+      "ft_own_reach": 0.0,
+      "sr": 0.04750177282793603,
+      "sr_reach": 0.0
+     }
+    },
     "faces": {
      "1": {
-      "avg_power_kW": 10.211556778098794,
-      "dissipation_kW": 2.0974970818872536,
-      "dissipation_kW_m2": 0.15774924655449998,
-      "energy_J_per_refresh": 51057.78389049397,
-      "energy_fraction": 0.005725186294221188,
+      "avg_power_kW": 10.211556778098787,
+      "dissipation_kW": 2.0974970818872523,
+      "dissipation_kW_m2": 0.15774924655449987,
+      "energy_J_per_refresh": 51057.78389049394,
+      "energy_fraction": 0.005725186294221185,
       "positions": 140.8,
       "theta_max_deg": 20.0,
-      "time_fraction": 0.0008279652751236266
+      "time_fraction": 0.0008279652751236259
      }
     },
     "flags": [],
@@ -1587,7 +1632,7 @@
       {
        "chosen": true,
        "degraded": false,
-       "energy_max": 0.005725186294221188,
+       "energy_max": 0.005725186294221185,
        "freq_ghz": 2.695,
        "groups": 4,
        "occupied_ghz": [
@@ -1597,13 +1642,13 @@
        "range_worst_km": 562,
        "short_pct": 0.0,
        "spacing": 1.5,
-       "time_max": 0.0008279652751236266,
+       "time_max": 0.0008279652751236259,
        "unscanned_pct": 0.0
       },
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.0058238820357040914,
+       "energy_max": 0.005823882035704101,
        "freq_ghz": 2.77,
        "groups": 4,
        "occupied_ghz": [
@@ -1613,13 +1658,13 @@
        "range_worst_km": 587,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.000841137543770349,
+       "time_max": 0.0008411375437703507,
        "unscanned_pct": 0.0
       },
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.005821448476896429,
+       "energy_max": 0.005821448476896441,
        "freq_ghz": 2.845,
        "groups": 4,
        "occupied_ghz": [
@@ -1629,7 +1674,7 @@
        "range_worst_km": 595,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.0008404083954799172,
+       "time_max": 0.0008404083954799187,
        "unscanned_pct": 0.0
       }
      ],
@@ -1662,7 +1707,7 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 0.028625931471105943,
+    "rr_alone_s": 0.028625931471105925,
     "rr_est_mission_s": 5.0,
     "rr_target_s": 5.0,
     "rx_beams_per_position": 7.024360209520728,
@@ -1786,7 +1831,7 @@
       }
      },
      {
-      "elec_J_per_position": 358.27946492073204,
+      "elec_J_per_position": 358.2794649207316,
       "pae_at_scale": 0.7945294101618868,
       "positions": 47.6,
       "pulse_scale": 0.581,
@@ -1832,8 +1877,8 @@
       }
      },
      {
-      "elec_J_per_position": 369.54544728294275,
-      "pae_at_scale": 0.7946961868576362,
+      "elec_J_per_position": 369.54544728294263,
+      "pae_at_scale": 0.7946961868576361,
       "positions": 48.3,
       "pulse_scale": 0.599,
       "range_km_at_bin_max": 568,
@@ -1878,7 +1923,7 @@
       }
      },
      {
-      "elec_J_per_position": 386.6052691760998,
+      "elec_J_per_position": 386.6052691760997,
       "pae_at_scale": 0.7949302294710651,
       "positions": 28.9,
       "pulse_scale": 0.627,
@@ -1997,8 +2042,8 @@
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 8.0,
-     "confirm_energy": 1.3100210875073708e-05,
-     "confirm_ku_time": 1.2308714706233913e-06,
+     "confirm_energy": 1.3100210875073706e-05,
+     "confirm_ku_time": 1.2308714706233908e-06,
      "confirm_s_time": 0.0,
      "coolant_flow_L_s": 5.381289015490716,
      "cooling_capacity_kW": 15899.520000000002,
@@ -2025,7 +2070,7 @@
      "status": "OK",
      "store_burst_deficit_MJ": 0.0,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 0.00020605732030505404,
+     "store_obs_deficit_MJ": 0.00020605732030505355,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
      "total_energy": 0.0371918486436571,
@@ -2048,7 +2093,7 @@
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 8.0,
      "confirm_energy": 3.973864274966765e-05,
-     "confirm_ku_time": 3.251902657921804e-06,
+     "confirm_ku_time": 3.251902657921806e-06,
      "confirm_s_time": 0.0,
      "coolant_flow_L_s": 5.453063590897886,
      "cooling_capacity_kW": 15899.520000000002,
@@ -2075,7 +2120,7 @@
      "status": "OK",
      "store_burst_deficit_MJ": 0.01379096111278837,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 1.006421469486756e-05,
+     "store_obs_deficit_MJ": 1.0064214694867565e-05,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
      "total_energy": 0.03719184864365709,
@@ -2205,8 +2250,8 @@
        "admissible": true,
        "faces": {
         "0": {
-         "energy_fraction": 1.3100210875073708e-05,
-         "ku_time_fraction": 1.2308714706233913e-06,
+         "energy_fraction": 1.3100210875073706e-05,
+         "ku_time_fraction": 1.2308714706233908e-06,
          "s_time_fraction": 0.0
         }
        },
@@ -2217,8 +2262,8 @@
        "admissible": true,
        "faces": {
         "0": {
-         "energy_fraction": 3.82106785074009e-05,
-         "ku_time_fraction": 3.278413347088604e-06,
+         "energy_fraction": 3.821067850740089e-05,
+         "ku_time_fraction": 3.2784133470886027e-06,
          "s_time_fraction": 0.0
         }
        },
@@ -2229,9 +2274,9 @@
        "admissible": true,
        "faces": {
         "0": {
-         "energy_fraction": 1.3589256832684018e-05,
-         "ku_time_fraction": 1.3381365988813092e-07,
-         "s_time_fraction": 1.759815800611808e-06
+         "energy_fraction": 1.3589256832683994e-05,
+         "ku_time_fraction": 1.3381365988813087e-07,
+         "s_time_fraction": 1.7598158006118047e-06
         }
        },
        "mission_max_load": 0.0057,
@@ -2246,8 +2291,8 @@
       "cluster_tx": "superposition x7",
       "faces": {
        "0": {
-        "energy_fraction": 1.3100210875073708e-05,
-        "ku_time_fraction": 1.2308714706233913e-06,
+        "energy_fraction": 1.3100210875073706e-05,
+        "ku_time_fraction": 1.2308714706233908e-06,
         "s_time_fraction": 0.0
        }
       },
@@ -2321,7 +2366,7 @@
        "faces": {
         "1": {
          "energy_fraction": 3.973864274966765e-05,
-         "ku_time_fraction": 3.251902657921804e-06,
+         "ku_time_fraction": 3.251902657921806e-06,
          "s_time_fraction": 0.0
         }
        },
@@ -2333,7 +2378,7 @@
        "faces": {
         "1": {
          "energy_fraction": 0.00011773984168749786,
-         "ku_time_fraction": 8.426554195812102e-06,
+         "ku_time_fraction": 8.426554195812105e-06,
          "s_time_fraction": 0.0
         }
        },
@@ -2344,9 +2389,9 @@
        "admissible": true,
        "faces": {
         "1": {
-         "energy_fraction": 0.0002306868060264851,
-         "ku_time_fraction": 3.8415558412968883e-07,
-         "s_time_fraction": 3.279737616853396e-05
+         "energy_fraction": 0.00023068680602648497,
+         "ku_time_fraction": 3.84155584129689e-07,
+         "s_time_fraction": 3.2797376168533935e-05
         }
        },
        "mission_max_load": 0.0059,
@@ -2362,7 +2407,7 @@
       "faces": {
        "1": {
         "energy_fraction": 3.973864274966765e-05,
-        "ku_time_fraction": 3.251902657921804e-06,
+        "ku_time_fraction": 3.251902657921806e-06,
         "s_time_fraction": 0.0
        }
       },
@@ -2670,7 +2715,7 @@
      "id": "F1.S time",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.0003029476869551399,
+     "load": 0.0003029476869551394,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -2678,7 +2723,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.0003029476869551399
+     "value": 0.0003029476869551394
     },
     {
      "family": "face",
@@ -2865,7 +2910,7 @@
      "id": "F1.storage (observation)",
      "kind": "resource",
      "limit": 4.0,
-     "load": 5.151433007626351e-05,
+     "load": 5.151433007626339e-05,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -2873,7 +2918,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.00020605732030505404
+     "value": 0.00020605732030505355
     },
     {
      "family": "face",
@@ -2943,7 +2988,7 @@
      "id": "F2.S time",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.00086129860845696,
+     "load": 0.0008612986084569592,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -2951,7 +2996,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.00086129860845696
+     "value": 0.0008612986084569592
     },
     {
      "family": "face",
@@ -2988,7 +3033,7 @@
      "id": "F2.compute",
      "kind": "resource",
      "limit": 1.0,
-     "load": 3.2942573440513385e-06,
+     "load": 3.29425734405134e-06,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -2996,7 +3041,7 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 3.2942573440513385e-06
+     "value": 3.29425734405134e-06
     },
     {
      "family": "face",
@@ -3138,7 +3183,7 @@
      "id": "F2.storage (observation)",
      "kind": "resource",
      "limit": 4.0,
-     "load": 2.51605367371689e-06,
+     "load": 2.5160536737168913e-06,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -3146,7 +3191,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 1.006421469486756e-05
+     "value": 1.0064214694867565e-05
     },
     {
      "family": "face",
@@ -3838,6 +3883,81 @@
    },
    "load_ceiling": 0.8,
    "nok_priorities": [],
+   "overlap": [
+    {
+     "energy_on": "ship",
+     "energy_other_MW": 0.0014890022875991024,
+     "energy_own_MW": 0.001530810404340096,
+     "energy_own_reach_MW": 0.001028087019289859,
+     "face": "F1",
+     "margin_energy_MW": 6.102465210850744,
+     "margin_s_time": 0.7991387013915431,
+     "neighbour": "F2",
+     "relief_energy": -5.761440853865543e-05,
+     "relief_s_time": 8.258789195715283e-05,
+     "s_time_other": 0.00012060181659851402,
+     "s_time_own": 0.00012283674459905304,
+     "s_time_own_reach": 8.258789195715283e-05,
+     "sr": 0.6137295195486623,
+     "sr_reach": 0.40069093174401016,
+     "takeable": 1.0
+    },
+    {
+     "energy_on": "ship",
+     "energy_other_MW": 0.0014890022875991013,
+     "energy_own_MW": 0.001530810404340096,
+     "energy_own_reach_MW": 0.0010280870192898592,
+     "face": "F1",
+     "margin_energy_MW": 6.102465210850744,
+     "margin_s_time": 0.7999666666666667,
+     "neighbour": "F4",
+     "relief_energy": -5.7614408538655265e-05,
+     "relief_s_time": 8.258789195715286e-05,
+     "s_time_other": 0.00012060181659851394,
+     "s_time_own": 0.00012283674459905302,
+     "s_time_own_reach": 8.258789195715286e-05,
+     "sr": 0.6137295195486623,
+     "sr_reach": 0.4006909317440101,
+     "takeable": 1.0
+    },
+    {
+     "energy_on": "ship",
+     "energy_other_MW": 0.0,
+     "energy_own_MW": 0.0022631690143849327,
+     "energy_own_reach_MW": 0.0,
+     "face": "F2",
+     "margin_energy_MW": 6.102465210850744,
+     "margin_s_time": 0.7996970523130449,
+     "neighbour": "F1",
+     "relief_energy": 0.0,
+     "relief_s_time": 0.0,
+     "s_time_other": 0.0,
+     "s_time_own": 0.00018349812094806708,
+     "s_time_own_reach": 0.0,
+     "sr": 0.04750177282793604,
+     "sr_reach": 0.0,
+     "takeable": 0.0
+    },
+    {
+     "energy_on": "ship",
+     "energy_other_MW": 0.0,
+     "energy_own_MW": 0.0022631690143849327,
+     "energy_own_reach_MW": 0.0,
+     "face": "F2",
+     "margin_energy_MW": 6.102465210850744,
+     "margin_s_time": 0.7999666666666667,
+     "neighbour": "F3",
+     "relief_energy": 0.0,
+     "relief_s_time": 0.0,
+     "s_time_other": 0.0,
+     "s_time_own": 0.00018349812094806708,
+     "s_time_own_reach": 0.0,
+     "sr": 0.04750177282793603,
+     "sr_reach": 0.0,
+     "takeable": 0.0
+    }
+   ],
+   "redundancy": [],
    "saturation": {
     "brackets": {},
     "first_shed": null,

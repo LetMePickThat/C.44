@@ -99,7 +99,7 @@ Procédure d'une étape :
 |---|---|---|
 | Durée de la suite de tests | Résolu. L'écart observé sur le portable (jusqu'à 3,5 fois plus lent sur batterie, cause précise non identifiée) venait de la machine, pas du code. Depuis le 22 octobre 2026, la suite tourne en parallèle (pytest-xdist) ; durées de référence au §1.6. | Pour comparer deux machines, mesurer `mission_example` en séquentiel (§1.6), sur secteur et en mode performance. |
 | Hash des commits | 2.4 `008d583` ; 2.5 `baeadcf` ; géométrie 3D V6.10.1 `9ea4985` ; 3.0 `22114fd` ; tests en parallèle `146cae9` ; 3.1 P1 `90555d8` ; bande S élargie `b4be91e` ; 3.1 P2 `cd97216` ; temps de calcul X1-X5 `f6a526c` ; 3.1 P3 `b0dbc09` ; 3.1 P4 `f8fa433` ; 3.1 P5 intermédiaire `d19829e` ; puis 5.2 P6 `78ba4e1`, 5.2 P7 `db1af20` (regel `bb2e170`), 5.3 P1 `37bcd0c`, 5.3 P2 `8565545`, 5.3 P3 `ed15e4a` (la suite au tableau d'avancement de `Feuille_de_route.md`). | — |
-| Prochaine étape | **Étape 5.3 (moteur de validation) en cours, modèle V6.27.0, en pause le 27 octobre 2026 après la P3 (`ed15e4a`)** : P1 verdict, P2 conseil chiffré (regel fait), P3 redondances et recouvrements (passe intermédiaire : **valeurs figées non regelées**, le test du verdict figé ne compare que les clés figées). Cadrage de la 5.3 au §11 (« Étape 5.3 »), décision Q8 déjà prise pour la P4 : SER en deux chiffres (plan figé et plan réoptimisé), vitesse et Swerling en plan figé seulement ; rappel de l'utilisateur : la portée d'un volume est la portée au pire (observations espacées de v·RR au-delà de R). | Reprendre à la **P4 sensibilité à la menace** : proposer la méthode et les variables (procédure §1.4), coder sur accord. La P4 est une passe paire : table de coût (`python tools/gen_cost_table.py`), N3, rapport d'impact et **regel** (clés `redundancy`, `verdict.redundancy`, `verdict.overlap`, `face_overlap` par secteur à ajouter ; contrôler qu'aucune autre valeur ne change), entrée dans `tests/snapshots/JOURNAL.md`, puis fermer la 5.3. Point ouvert signalé, non décidé : la Pd cumulée est moyennée sur la phase de la cible au lieu du pire cas de phase. |
+| Prochaine étape | **Étape 5.3 (moteur de validation) fermée le 27 octobre 2026, modèle V6.27.0** : P1 verdict, P2 conseil chiffré, P3 redondances et recouvrements ; P4 sensibilité à la menace retirée (utilisateur : le verdict porte sur les valeurs données, développement futur potentiel) ; regel fait (N3 34,3 min sur le bureau, 241 tests passés, 66 valeurs ajoutées). **Étape 5.4 (Monte-Carlo) : cadrage validé le 27 octobre 2026** (§11, « Étape 5.4 »). | Coder la **passe M1** (moteur à événements `core/montecarlo.py` et cibles test, Pd cumulée) ; N2 seulement à la fin de M1, sur accord de l'utilisateur. |
 | Sauvegardes locales de la réécriture d'historique | Sur le portable seulement : branche `backup-before-rewrite` et `refs/original/`, gardées à la demande de l'utilisateur ; un `git stash` de fichiers de cache locaux (27 octobre 2026). | Les supprimer quand l'utilisateur le dira ; rien à faire sur une autre machine. |
 | Fichiers réécrits par le portable | `core/structure_cache.npz` (et parfois `core/cost_table.json`) sont réécrits par les calculs du portable ; un regel y réécrit aussi `tests/snapshots/model.json` avec un bruit de dernier chiffre. | Sur le portable : ne pas les commiter, restaurer `model.json` si le cas « model » n'a pas changé. Sur le fixe, la règle du §1.4 point 4 s'applique (commiter les caches s'ils changent). |
 | Documentation de l'étape 2.4 | Une partie des mises à jour de ce document (en-tête, modules, bilan des entrées, lignes CFAR et cohérence) n'avait pas été appliquée au commit `008d583` ; rattrapée avec l'étape 2.5. | Vérifier, à chaque étape, que chaque remplacement de la documentation a bien été appliqué. |
@@ -307,7 +307,7 @@ Retraits faits lors de la revue 0.3 et de l'étape 1.1 :
 |---|---|---|---|---|
 | `range_grid_oversampling` | Suréchantillonnage de la grille de détection en distance (interpolation numérique). | ×4 | V | **C1**, bout optimiste de ×1,25 à ×4 : chevauchement moyen 0,05 dB à −25 dB (0,54 dB à ×1,25, 0,22 dB à ×2). Coût de calcul à l'étape 4.4. |
 | `doppler_zero_padding` | Bourrage de zéros de la transformée Doppler d'un bloc cohérent. | ×4 | V | **C2** : 0,07 dB en moyenne (1,12 dB sans bourrage, 0,29 dB à ×2). |
-| `doppler_window` | Pondération Doppler. | "none" | V | **C3.** Pas de fouillis à rejeter dans l'espace. **Étape 2.4, D1** : le masquage par une cible forte est donné en sortie (premier lobe Doppler à −13,3 dB, le point faible de l'absence de fenêtre) ; son effet sur une scène dense relève de l'étape 5.4. |
+| `doppler_window` | Pondération Doppler. | "none" | V | **C3.** Pas de fouillis à rejeter dans l'espace. **Étape 2.4, D1** : le masquage par une cible forte est donné en sortie (premier lobe Doppler à −13,3 dB, le point faible de l'absence de fenêtre) ; son effet sur une scène dense relève de la phase 6 (était 5.4, 27 octobre 2026). |
 | `doppler_window_options_db` | Pondérations Doppler de Taylor que l'optimiseur peut donner à un train cohérent de veille S. | −30 / −40 dB | V | **Étape 3.1, P4, Q5** : proposées seulement là où une surface dont le scénario donne la vitesse de rapprochement peut ramener du fouillis dans le secteur ; perte de pondération (loi de Taylor 1D, nbar 5) et filtre élargi calculés. La valeur par défaut reste `doppler_window` = "none". |
 | `cfar_type` | Type de CFAR. | "CA" | V | **D1.** Bruit thermique homogène. **Étape 2.4, D3** : option "OS" (statistique d'ordre, robuste aux cibles voisines). **Étape 2.5, G1** : option "GO" (voir ci-dessous). |
 | `cfar_type` = "GO" | Option « greatest of » : la plus grande des moyennes des deux demi-fenêtres fixe le seuil, ce qui tient la Pfa à un bord de fouillis. | option | V | **Étape 2.5, G1.** Perte exacte de Hansen et Sawyers : 0,05 dB à 1 024 cellules (0,76 dB à 64). Le choix par pointage relève des étapes 4.3 et 5.2 ; un secteur qui contient un limbe est signalé. |
@@ -984,7 +984,7 @@ Tous ces termes sont évalués par direction de pointage dans `sector_sky` (band
 
 **Masquage par la structure.** Les obstacles sont dans le champ proche (limite de Fraunhofer d'environ 325 m en S) : le faisceau est un tube de la largeur de l'ouverture. Des rayons partent de 37 points de l'ouverture (anneaux hexagonaux, `tool.environment.aperture_ray_rings` = 3) dans la direction du pointage ; f = fraction de rayons qui touchent la structure (lancer de rayons exact sur les primitives). Perte par passage −20 log(1 − f), aller-retour le double ; au-delà de `ship.block_mask_db` par passage, le pointage est masqué (retiré du balayage et signalé). Table par face sur une grille (u, v) au pas de 0,01.
 
-**Bruit de la structure.** Lobe principal : f × (ε·T des parties touchées) × part du diagramme de réception dans la zone proche. Lobes lointains : les directions de la structure vues du centre de l'antenne (20 000 directions sur la sphère), pondérées par ε·T, intégrées sur le profil lointain moyenné en azimut, comme un corps du ciel ; tabulé par face sur une grille (u, v) au pas de 0,05. Les réflexions sur la structure (Soleil, Terre) ne sont pas comptées (étape 5.4).
+**Bruit de la structure.** Lobe principal : f × (ε·T des parties touchées) × part du diagramme de réception dans la zone proche. Lobes lointains : les directions de la structure vues du centre de l'antenne (20 000 directions sur la sphère), pondérées par ε·T, intégrées sur le profil lointain moyenné en azimut, comme un corps du ciel ; tabulé par face sur une grille (u, v) au pas de 0,05. Les réflexions sur la structure (Soleil, Terre) ne sont pas comptées (sorties du modèle le 27 octobre 2026 : développement futur potentiel, liste de `Feuille_de_route.md`).
 
 **Surfaces.** Distance au centre D = R / sin(rayon angulaire). Une direction qui tombe dans le disque rencontre la surface à d = D cos δ − √(R² − D² sin² δ) : rien n'existe au-delà (signalé quand d est inférieure à la portée exigée). **Fouillis** dans la case de la cible, à la portée exigée r : l'anneau d'égale distance (cos α = (r² + D² − R²) / 2rD, incidence cos θᵢ = (D² − r² − R²) / 2rR), de surface 2π R r Δr / D par case Δr = c / 2B (B = la plus étroite des bandes admissibles du secteur ; 50 MHz en Ku), échantillonné sur 720 points, vu par le diagramme aller-retour (profils d'émission et de réception, facteur d'élément cos) : C/S = σ_c / σ_cible. Le fouillis étant traité comme un bruit au seuil, S ≥ SNR_req (N + C) donne le facteur 1 / (1 − x), x = (C/S) · SNR_req (SNR d'une observation au cas de Swerling de la cible) ; à x ≥ 1, aucune puissance ne suffit : pointage **limité par le fouillis**, aveuglé. Le fouillis est rejeté si le scénario donne la bande Doppler de la surface et qu'elle ne recouvre pas l'étendue de vitesses du secteur (traitement cohérent supposé). Dans le lobe principal, une cible devant la surface n'a pas de fouillis dans sa case, sauf pour un train ambigu en distance : ces trains sont retirés de l'espace de recherche d'un secteur dont un pointage voit une surface. **CAN** : écho de la surface dans le lobe principal (empreinte du faisceau × σ₀) par élément, avant la formation de faisceau, comparé au niveau d'écrêtage (alerte). Un limbe dans le secteur est signalé (GO-CFAR conseillé).
 
@@ -1256,12 +1256,12 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 | Limite de 70° au-dessus de la fréquence de rupture | Gardée à l'étape 1.4 tant que le diagramme de l'élément n'est pas modélisé (flanc du lobe de réseau à l'horizon). | avec le diagramme de l'élément (à placer) |
 | Fréquences candidates de la veille S | 2,7 / 2,8 / 2,9 GHz : depuis l'étape 1.4, aucun signal ne tient aux bords de bande (2,7 et 2,9 GHz), seule 2,8 GHz est jouable. | 3.1 (grille fine dans la bande) |
 | Temps de cohérence de la cible | **Par classe et par bande depuis l'étape 2.4** (T₀ = λ / 2Lω). | — |
-| Masquage par une cible forte (lobes Doppler et en distance, bruit de phase) | Niveaux en sortie depuis l'étape 2.4 ; OS-CFAR en option. Effet sur une scène dense non compté. | 5.4 |
+| Masquage par une cible forte (lobes Doppler et en distance, bruit de phase) | Niveaux en sortie depuis l'étape 2.4 ; OS-CFAR en option. Effet sur une scène dense non compté. | phase 6 (était 5.4, 27 octobre 2026) |
 | Table d'aspect de la SER | Clé réservée (SER frontale seule dans le bilan). | 3.3 |
 | Tables de confirmation | Cas de Swerling le plus proche (famille ou cas déclaré) : sans décorrélation partielle ni diversité de polarisation, que `solve()` compte pour les observations Ku. | 3.2 |
 | Choix de la classe dans l'interface | L'interface conserve `target_type`, montre les valeurs de la classe ; une SER ou un Swerling modifié devient une surcharge. | 5.1 |
 | Estimation rapide | Table de coût calculée sur GENERIC en Swerling 1 ; un secteur à classe y entre par sa SER frontale en S. | 5.5 |
-| Sensibilité du verdict aux valeurs de la menace | Les classes sont des moyennes : le moteur de validation dira de combien la SER (et les autres valeurs) peut baisser avant que le secteur ne tienne plus. | 5.3 |
+| Sensibilité du verdict aux valeurs de la menace | Les classes sont des moyennes. **Non retenue en 5.3** (utilisateur, 27 octobre 2026) : le verdict porte sur les valeurs données (secteur, sinon classe) ; l'opérateur édite la classe pour une autre hypothèse. | développement futur potentiel |
 | Synchronisation des faces par bande | Règle signalée (`scheduler_rules`), non imposée ; aucune perte dans le bilan. Annulation active à revoir. | 4.3 |
 | Harmonique 5 de la S dans le canal Ku | Règle de fréquence signalée par secteur. | 3.2, 4.3 |
 | T_sys du ciel d'un secteur | Centile (1 − `short_tol`) des pointages non aveuglés, gardé à l'étape 2.3 (effet spatial, pas aléatoire). | — |
@@ -1277,7 +1277,7 @@ Jalons : A = phases 0 à 2 ; B = phase 3 ; C = étapes 4.1 à 4.3 ; D = phase 5.
 | Multifaisceau | Étape 3.1 (P3) : superposition en phase seule, partition de l'ouverture et multiplexage en temps modélisés (§5.8) ; les deux premiers cherchés par l'optimiseur. Fouillis et sources vus par le faisceau d'émission élargi d'une partition non modélisés (diagramme de la face complète), à reprendre avec l'environnement (P4) ; faisceaux de réception par position ×1,85 / ×3,43 pour une partition (charge de calcul, 4.4). | 3.1 (P4), 4.3, 4.4, 5.2 |
 | Fréquence Ku | Fixée à 14,0 GHz, provisoire. | 3.2 |
 | Masquage par le vaisseau | Modélisé à l'étape 2.5 (tube d'ouverture ; modèle 3D `LP_NISO.obj` depuis le 22 octobre 2026) : aucun pointage masqué avec la géométrie actuelle. Diffraction en champ proche et couplage avec la structure non modélisés. | — |
-| Réflexions sur la structure | Soleil, Terre et autres faces réfléchis par la coque ou les radiateurs : non comptés. | 5.4 |
+| Réflexions sur la structure | Soleil, Terre et autres faces réfléchis par la coque ou les radiateurs : non comptés. | hors modèle : développement futur potentiel (27 octobre 2026) |
 | Fouillis d'une forme d'onde | Étape 3.1 (P4) : par candidate et par tranche, rejet Doppler progressif, faisceau de partition, Pd moyenné sur les vitesses (§7.13, « Environnement par forme d'onde »). La Ku garde le modèle de l'étape 2.5. | 3.2 (Ku) |
 | Portée exigée derrière une surface | Signalée, mais l'exigence n'est pas réduite à la distance de la surface sur ces pointages. | 3.1 |
 | Brouilleurs et confirmation Ku | La portée de percée n'est calculée que pour la veille S ; les brouilleurs à distance entrent dans le T_sys Ku. | 3.2 |
@@ -1556,7 +1556,7 @@ Effet sur les missions de test (valeurs de test seulement) :
 
 ### Étape 2.4 : les modèles de cibles (22 octobre 2026)
 
-Questions de cadrage (validées) : Q1 clé de secteur `target_type`, valeurs explicites en surcharge ; Q2 SER frontale par bande (table d'aspect réservée à la poursuite) ; Q3 cas de Swerling calculé à partir de la famille et de T₀ ; Q4 T₀ = λ / (2 L ω) ; Q5 perte d'accélération sous une cellule, banc au-delà ; Q6 niveaux de masquage en sortie et OS-CFAR en option, effet sur une scène dense à l'étape 5.4 ; Q7 dépolarisation et diversité ; Q8 classes ST, KKV, SHIP, plus débris et leurres (utilisateur), et le code doit accepter de nouveaux types et des changements de valeurs dans le fichier seul.
+Questions de cadrage (validées) : Q1 clé de secteur `target_type`, valeurs explicites en surcharge ; Q2 SER frontale par bande (table d'aspect réservée à la poursuite) ; Q3 cas de Swerling calculé à partir de la famille et de T₀ ; Q4 T₀ = λ / (2 L ω) ; Q5 perte d'accélération sous une cellule, banc au-delà ; Q6 niveaux de masquage en sortie et OS-CFAR en option, effet sur une scène dense à l'étape 5.4 (passé en phase 6 le 27 octobre 2026) ; Q7 dépolarisation et diversité ; Q8 classes ST, KKV, SHIP, plus débris et leurres (utilisateur), et le code doit accepter de nouveaux types et des changements de valeurs dans le fichier seul.
 
 Variables (toutes validées) : A1 schéma d'une classe ; A2 `target_type` et surcharges ; A3 classe par défaut, puis **GENERIC** dédiée (utilisateur : ST reste la référence) ; A4 SER copolaire frontale ; A5 table d'aspect réservée ; B1 T₀ = k λ / 2Lω, k = 1 ; B2 p = 2 ; B3 fluctuation continue ; B4 alerte sous 3 T₀ ; C1-C2 accélération et banc (1 dB à mi-pas) ; D1-D3 masquage, OS-CFAR rang 3/4 ; E1-E2 énergie croisée et diversité ; F valeurs des classes.
 
@@ -2118,10 +2118,12 @@ Insérée par l'utilisateur entre 4.3 et 4.4 (le rythme des changements de point
 | Q5 conseil chiffré | (c) estimation analytique par défaut, calcul vérifié (bissection) sur demande ; c'est le résultat vérifié qui fait foi |
 | Q6 leviers | portée, RR, SER de dimensionnement, pistes par tranche, précisions de poursuite, plafonds de puissance des faces, mode de confirmation |
 | Q7 redondances | « le plan de A tient le besoin de B » (`core/redundancy.py`) ; recouvrement entre faces en information chiffrée (charge reprenable par la face voisine), sans changer le plan |
-| Q8 sensibilité | SER : deux chiffres (plan figé, plan réoptimisé) ; vitesse et Swerling : plan figé seulement |
+| Q8 sensibilité | ~~SER : deux chiffres (plan figé, plan réoptimisé) ; vitesse et Swerling : plan figé seulement~~ **retirée** avec la P4 (voir plus bas) |
 | Q10 présentation | clé JSON `verdict`, rapport texte de `optimizer`, tableau dans l'onglet Résultats (interface définitive en 5.5) |
 
-**Découpage** : P1 table des contraintes et verdict ; P2 conseil chiffré ; P3 redondances et recouvrements ; P4 sensibilité à la menace.
+**Découpage** : P1 table des contraintes et verdict ; P2 conseil chiffré ; P3 redondances et recouvrements ; ~~P4 sensibilité à la menace~~ (retirée).
+
+**P4 sensibilité à la menace retirée** (décision de l'utilisateur, 27 octobre 2026) : le moteur valide la mission **avec les valeurs qu'on lui donne** (celles du secteur si l'opérateur les a saisies, sinon celles de la classe choisie) ; il ne cherche pas de combien la menace peut s'écarter de ces valeurs. Pour une autre hypothèse, l'opérateur édite la classe ou surcharge le secteur et relance le calcul. La décision Q8 et le renvoi de l'étape 2.4 sont fermés ; à revisiter plus tard si le temps le permet.
 
 - **P1, verdict** (codée le 27 octobre 2026, modèle **V6.25.0**, `core/validation.py`, clé `verdict`, appelée à la fin de `optimizer.run`) : toute contrainte est une **charge = besoin / limite**, de l'un de trois genres :
   - **ressource** (énergie besoin / allocation de la P6, temps S et Ku, chaleur, calcul, mémoire, débit mémoire, faisceaux S et Ku, lien TRSA, entrée du processeur, puissance du calcul, stockage par observation ; énergie du vaisseau besoin / 8 MW, rejet de chaleur du vaisseau) : OK jusqu'à `load_ceiling`, ALERTE jusqu'à 1, NOK au-delà ;
@@ -2152,3 +2154,54 @@ Insérée par l'utilisateur entre 4.3 et 4.4 (le rythme des changements de point
   - **V7** : `verdict.overlap` par face et voisine : angle solide de la zone (et la part atteignable), temps S et énergie de la face dans la zone et sur la voisine, marge de la voisine jusqu'à `load_ceiling` (temps S ; énergie de la face si elle est plafonnée, sinon du vaisseau), part reprenable et gain ; une ligne de conseil (genre `overlap`, sans changement : les zones de responsabilité restent celles du plan, la réallocation en vol est en phase 6).
   - **V8** : clés `verdict.redundancy` et `verdict.overlap`, lignes du rapport texte, tableau « redondances et recouvrements » de l'onglet Résultats.
   - Essais (valeurs de mission de test, pas une performance) : `mission_veille500` (500 km, 25 km/s), chaque face voit 0,97 sr de la zone de sa voisine, 0,90 sr atteignable : le temps S y passe de 1,06 % à 2,93 % sur la voisine (dépointage plus fort) et l'énergie de 0,12 à 0,36 MW ; reprise possible en temps, mais l'énergie du vaisseau monte de 3 %. `mission_redundancy_demo` : A1_TRIM entièrement tenu par B1_TRIM, B1_TRIM tenu à 50 % par A1_TRIM (cas mutuel, l'un ou l'autre suffit), B5_LONG entièrement tenu par A5_SHORT. Temps de calcul : 70 s et 41 s sur le portable. **N2 (28,9 min)** : 237 tests passés ; seul le test du verdict figé échouait sur les deux clés ajoutées (passe intermédiaire, valeurs figées non regelées) : il compare désormais les clés figées, les nouvelles le seront au regel de la P4.
+- **Fermeture de l'étape** (27 octobre 2026) : la P4 étant retirée, le regel est fait après la P3. Table de coût régénérée (empreinte seulement), **N3 34,3 min sur le bureau, 241 tests passés**, seuls les 9 tests de valeurs figées échouaient ; 66 valeurs changent, toutes des ajouts (`redundancy`, `face_overlap` par secteur, `verdict.redundancy`, `verdict.overlap`) ; le reste ne diffère que par le bruit de dernier chiffre entre le portable et le bureau (au plus 5,7·10⁻¹¹ en relatif) ; journal `tests/snapshots/JOURNAL.md`. **Étape 5.3 fermée.**
+
+### Étape 5.4 : simulation Monte-Carlo à événements discrets (cadrage validé le 27 octobre 2026)
+
+**Raison d'être** : le modèle de la Pmiss est analytique (moyennes, quantiles, entrelacement parfait). La 5.4 **joue la mission par tirages** pour le plan calculé et l'instantané de navigation de la mission, et dit où le modèle analytique est optimiste. C'est l'arbitre final du bilan statistique ; le moteur à événements sert ensuite de base au simulateur de la phase 6.
+
+**Sorties du périmètre** (utilisateur, 27 octobre 2026) : **scène dense** (masquage par les lobes en distance et en Doppler et par le bruit de phase, CFAR CA, OS, GO pollués par les objets voisins) → **phase 6**, car l'effet ne compte que dans les grappes du scénario ; **réflexions sur la structure** (Soleil, Terre, émission renvoyée) → **sorties du modèle**, développement futur potentiel (calcul déterministe, pas un tirage).
+
+**Cadrage validé** (« appliquer les propositions », 27 octobre 2026) :
+
+| Question | Décision |
+|---|---|
+| A1 quantités | Pd cumulée au pire par secteur ; fausses alarmes par revisite et par seconde contre `fa_per_rr` ; P et latence de confirmation contre `confirm_p_min` et `latency_max_s` ; initialisation des pistes et perte par mise à jour contre `p_loss_max` ; ordonnanceur : latences au quantile 95 %, mises à jour en retard, pertes d'entrelacement |
+| A2 déclenchement | sur demande seulement (`python -m core.montecarlo <mission>`, bouton de l'onglet Résultats), jamais dans le calcul normal |
+| A3 verdict | exigence non tenue (borne haute de l'intervalle sous l'exigence) : NOK « selon Monte-Carlo » ; exigence tenue mais valeur analytique hors de l'intervalle du côté optimiste : ALERTE « modèle optimiste » ; le plan ne change jamais |
+| A4 `load_ceiling` | charge maximale qui tient latences et mises à jour, **proposée** sans être appliquée (D, change seulement avec l'accord de l'utilisateur) |
+| A5 faces | une chronologie par face et par bande ; énergie des 8 MW à la répartition moyenne de la 5.2 |
+| B1 moteur | `core/montecarlo.py`, file d'événements datés, classes de tâches et règles de la chronologie 4.3, ordre de balayage 4.3 bis ; réutilisé en phase 6 |
+| B2 durée d'un tirage | traversée de la fenêtre de la portée au pire par la cible test + préchauffe de 2 revisites ; `horizon_max_s` 600 s |
+| B3 SNR d'une visée | lu dans le plan (SNR(R)·(R/r)⁴ et pertes de la position), pas de recalcul RF |
+| B4 pertes de position | tirées : position dans le faisceau, dans la cellule de distance et dans le filtre Doppler |
+| B5 fluctuation | Swerling tiré (SW1/3 constant sur une visée, SW2/4 d'impulsion à impulsion) ; entre visées, même valeur si Δt < T₀, nouvelle sinon ; tirages d'agilité du modèle |
+| B6 détection | statistique de test tirée exactement (loi du χ²) contre le seuil de la Pfa du plan (vérifie l'ajustement de Shnidman) ; CFAR en bruit homogène |
+| B7 fausses alarmes | nombre par visée tiré (loi binomiale, cellules réelles de l'étape 2.2) ; chacune déclenche une confirmation P2 qui consomme du temps et échoue avec la Pfa de confirmation |
+| B8 éclipse | écho tombant dans un créneau d'émission commun perdu (tiré) |
+| B9 pauses | règles de stockage (4.1) et de plaque froide (4.2) de la chronologie 4.3 |
+| C1 populations | (i) cibles test, une par tirage et par secteur (Pd cumulée, confirmation) ; (ii) charge de fond au dimensionnement : n pistes par tranche entretenues + fausses alarmes |
+| C2 direction | uniforme en angle solide dans le volume, positions masquées exclues |
+| C3 entrée | à R + v·RR, phase de balayage uniforme, trajectoire radiale à vitesse constante |
+| C4 vitesse | `v_close_max` ; option `v_draw` = "uniform" entre `v_close_min` et `v_close_max` |
+| C5 manœuvre | aucune en veille ; Singer en poursuite |
+| C6 valeurs | celles du secteur, sinon de la classe (règle de la 5.3) ; SER frontale, aspect dans le temps en phase 6 |
+| D1 chaîne | détection → confirmation (mode du plan) → initialisation (critère 3.3) → mises à jour à la période de la tranche → perte selon la règle de ratés de la 3.3 |
+| D2 filtre | (a) succès ou raté par mise à jour, erreur de pointage tirée de la covariance stationnaire de Singer ; Kalman complet et précisions en phase 6 |
+| D3 association | parfaite |
+| D4 SNR de mise à jour | plan Ku à la portée de la piste, piste placée uniformément dans la portée de sa tranche |
+| D5 discrimination | hors du Monte-Carlo (phase 6) |
+| G1 graine | `seed` 1, écrite dans la sortie ; même graine, même résultat |
+| G2 tirages | 200 à 5 000 cibles test par secteur, arrêt à une demi-largeur de 0,01 à 95 % (`n_min` 200, `n_max` 5000, `ci_tol` 0,01) |
+| G3 intervalles | Wilson à 95 % (`ci_level` 0,95) ; Poisson pour les nombres de fausses alarmes |
+| G4 événements rares | Pfa vérifiée par le nombre de fausses alarmes sur toutes les cellules visitées |
+| G5 temps de calcul | pas de budget, mesuré et rapporté ; parallèle par secteur et par face |
+| H1 clé | `montecarlo` dans le résultat quand le calcul est lancé ; lignes ajoutées au verdict, source « MC » |
+| H2 tableau | quantité, analytique, Monte-Carlo, intervalle, exigence, état |
+| H3 présentation | rapport texte, tableau et bouton de l'onglet Résultats (interface définitive en 5.5) |
+| H4 tests | reproductibilité, visée seule contre Shnidman, nombre de fausses alarmes contre Pfa, petite mission à graine fixe dans les valeurs figées |
+| H5 version | modèle V6.28.0 |
+
+Réglages dans `[tool.montecarlo]` (statut D) : `seed` 1, `n_min` 200, `n_max` 5000, `ci_tol` 0,01, `ci_level` 0,95, `horizon_max_s` 600, `warmup_revisits` 2, `v_draw` "max".
+
+**Découpage** : M1 moteur et cibles test (B, C), Pd cumulée ; M2 fausses alarmes, confirmation, latences de l'ordonnanceur, éclipse tirée ; M3 poursuite (D) ; M4 verdict, proposition de `load_ceiling`, rapport et interface ; M5 impact, N3, regel, documents. N2 sur les passes intermédiaires, N3 et regel en fin d'étape, chaque test sur accord de l'utilisateur.

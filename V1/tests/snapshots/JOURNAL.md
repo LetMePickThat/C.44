@@ -610,3 +610,13 @@ mission_environment NOK (E_EARTH: 1.3 % of the positions short of range, toleran
 (VEILLE_KV: 0.3 % short), the six others OK. tool.optimizer.track_margin_warn removed and tool.validation added: cost
 table regenerated (fingerprint only, entries equal to 3e-15).
 N3 34.8 min: 238 passed; only the 9 snapshot tests failed before the refreeze.
+
+## 2026-10-27 -- step 5.3, pass P3 (redundancies and overlaps), step closed (radar_model V6.27.0)
+
+Causes: new outputs -- "redundancy" (does the plan of sector A hold the need of sector B, with the retained plans),
+"face_overlap" per sector (cost of the zone seen from the neighbouring face), "verdict.redundancy" and "verdict.overlap".
+P3 was not refrozen (intermediate pass); pass P4 (threat sensitivity) was removed by the user, so this refreeze closes
+step 5.3. 66 values differ, all additions (6 to 13 per mission); no value removed; the model case does not change.
+Every other number differs only by last-digit float noise between the laptop (previous refreeze) and the desktop
+(relative difference at most 5.7e-11, below the 1e-9 tolerance); rewritten by this refreeze. Cost table regenerated
+(fingerprint only). N3 34.3 min on the desktop: 241 passed; only the 9 snapshot tests failed before the refreeze.

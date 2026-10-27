@@ -43,7 +43,7 @@
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{27 October 2026 -- radar model V6.27.0 (roadmap step 5.3 in progress, passes P1 verdict, P2 advice and P3 redundancies)}
+\date{27 October 2026 -- radar model V6.27.0 (roadmap step 5.3 closed: P1 verdict, P2 advice, P3 redundancies)}
 
 \begin{document}
 \maketitle
@@ -1250,8 +1250,9 @@ the neighbour, at the higher scan angle: the plan's own cost per position where 
 the waveform of the nearest bin with its range scaled between the two angles, the pulse scale $(R/r)^4$ and the cost
 law of the search (unreachable above the full pulse), with the neighbour's density of positions; then the neighbour's
 margin up to the load ceiling (S time; energy of the face when it is capped, else of the ship) and the part it could
-take. The zones of responsibility stay those of the plan: the reallocation in flight is phase 6. The next pass adds the
-sensitivity of the verdict to the threat values.
+take. The zones of responsibility stay those of the plan: the reallocation in flight is phase 6. The verdict is given for the
+threat values supplied (the sector's own, else those of its class); it does not search how far the threat may depart
+from them: for another assumption the operator edits the class or overrides the sector and computes again.
 
 %=====================================================================================================================
 \section{Mission settings and target presentation}\label{sec:mission51}
