@@ -17,7 +17,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 from PyQt5.QtCore import QTimer, Qt, pyqtSignal
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QInputDialog, QFileDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
-                             QListWidgetItem, QMessageBox, QPlainTextEdit, QPushButton, QSpinBox, QSplitter,
+                             QListWidgetItem, QMessageBox, QPlainTextEdit, QPushButton, QScrollArea, QSpinBox, QSplitter, QTabWidget,
                              QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from core import radar_model as rm
@@ -30,6 +30,7 @@ from sim import scenario as scn
 Field = Tuple[str, str, str, dict]          # (key, label, kind, options)
 
 _BIG = 1e12
+COMPACT_TREE_H = 220                       # px: the tree at the top of the compact column
 TREE_MIN_W, FORM_MIN_W = 220, 340          # px: the narrowest the tree and the forms start at
 
 
@@ -69,10 +70,12 @@ MANOEUVRE_DEFAULTS = {"impulse": {"type": "impulse", "t_s": 0.0, "dv_mps": [0.0,
                                "frame": "rtn"},
                       "singer": {"type": "singer"},
                       "pn": {"type": "pn", "start_range_km": 100.0}}
+# a new relative object 1000 km ahead along the nose (+Z; the default attitude is prograde: along the track); at
+# phi = eps = 0 (+X = toward the central body in the orbital reference) it started below the surface (user, 29 Oct 2026)
 ORBIT_DEFAULTS = {"elements": {"type": "elements", "a_km": 7000.0, "e": 0.0, "i_deg": 51.6, "raan_deg": 0.0,
                                "argp_deg": 0.0, "nu_deg": 0.0},
                   "state": {"type": "state", "r_km": [7000.0, 0.0, 0.0], "v_kms": [0.0, 7.546, 0.0]},
-                  "relative": {"type": "relative", "range_km": 1000.0, "phi_deg": 0.0, "eps_deg": 0.0, "frame": "ship",
+                  "relative": {"type": "relative", "range_km": 1000.0, "phi_deg": 0.0, "eps_deg": 90.0, "frame": "ship",
                                "v_close_mps": 5000.0, "v_transverse_mps": [0.0, 0.0]}}
 
 
@@ -410,21 +413,29 @@ class ScenarioTab(QWidget):
     """Scenario editor: tree, forms, validation messages, JSON files."""
     scenario_changed = pyqtSignal(dict)           # the scenario on screen, after each valid change (for S6 / S7)
 
-    def __init__(self, grid=None, view: bool = True, parent=None):
+    def __init__(self, grid=None, view: bool = True, parent=None, layout: Optional[str] = None):
         super().__init__(parent)
         self.sc: dict = new_scenario()
         self.path: Optional[str] = None
         self.modified = False
+        # R1-R6 (user, 29 October 2026): "compact" re-organises the tab, "classic" keeps the former one (rollback,
+        # tool.display.scenario_layout); without the 3D view (tests of the editor) always classic
+        self.layout_mode = (layout or str(P.get("tool.display.scenario_layout"))) if view else "classic"
+        compact = self.layout_mode == "compact"
 
         top = QHBoxLayout()
+        file_buttons = []
         for text, slot in (("New", self.new), ("Open...", self.open), ("Save", self.save), ("Save as...", self.save_as),
                            ("Export mission at t...", self.export_mission)):
             b = QPushButton(text)
             b.clicked.connect(slot)
-            top.addWidget(b)
+            file_buttons.append(b)
+            if not compact:
+                top.addWidget(b)
         top.addStretch(1)
         self.file_label = QLabel()
-        top.addWidget(self.file_label)
+        if not compact:
+            top.addWidget(self.file_label)
 
         self.tree = QTreeWidget()
         self.tree.setHeaderHidden(True)
@@ -455,11 +466,17 @@ class ScenarioTab(QWidget):
 
         if view:                                   # passes S6 / S7: 3D views and playback
             from gui.sim_view import SimView
-            self.preview = SimView(grid, get_path=lambda: None if self.modified else self.path)
+            self.preview = SimView(grid, get_path=lambda: None if self.modified else self.path, layout=self.layout_mode)
             self.scenario_changed.connect(self.preview.set_scenario)
         else:
             self.preview = QLabel("3D preview and playback (not built)")
             self.preview.setAlignment(Qt.AlignCenter)
+
+        if compact:
+            self._build_compact(left, middle, file_buttons)
+            self._rebuild_tree()
+            self._validate()
+            return
 
         split = QSplitter(Qt.Horizontal)
         split.addWidget(left)
@@ -476,8 +493,57 @@ class ScenarioTab(QWidget):
         self._rebuild_tree()
         self._validate()
 
+    def _build_compact(self, left: QWidget, middle: QWidget, file_buttons: list) -> None:
+        """R1-R6: one left column (tabs "Scenario": the tree over the form of the element chosen, which scrolls,
+        and "Events": the events of the run), the 3D view for the rest; the file buttons, the validation in one line
+        and the file name in the 3D view's first bar; the information as a box in the 3D view (SimView)."""
+        v = self.preview
+        for i, b in enumerate(file_buttons):                   # R5: one bar for the files, the run and the view
+            v.top_bar.insertWidget(i, b)
+        self.status = QPushButton("")                          # R4: the validation in one line
+        self.status.setFlat(True)
+        self.status.clicked.connect(self._show_problems)
+        v.top_bar.addWidget(self.status)
+        v.top_bar.addWidget(self.file_label)
+        self.messages.hide()                                   # (kept filled: the classic layout and the tests)
+        self._classic_middle = middle                          # keeps the classic column (and the messages) alive
+        form_scroll = QScrollArea()
+        form_scroll.setWidgetResizable(True)
+        form_scroll.setFrameShape(QScrollArea.NoFrame)
+        form_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)   # the fields narrow with the column
+        form_scroll.setWidget(self.form_holder)
+        col = QSplitter(Qt.Vertical)                           # R1: the tree over the form
+        col.addWidget(left)
+        col.addWidget(form_scroll)
+        col.setStretchFactor(0, 0)
+        col.setStretchFactor(1, 1)
+        col.setSizes([COMPACT_TREE_H, 800])
+        self.left_tabs = QTabWidget()                          # R2: the events in a tab of the column
+        self.left_tabs.addTab(col, "Scenario")
+        self.left_tabs.addTab(v.events, "Events")
+        split = QSplitter(Qt.Horizontal)
+        split.addWidget(self.left_tabs)
+        split.addWidget(v)
+        split.setStretchFactor(0, 0)
+        split.setStretchFactor(1, 1)
+        self._split = split
+        QTimer.singleShot(0, self._fit_columns)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(4, 4, 4, 4)
+        lay.addWidget(split, 1)
+
+    def _show_problems(self) -> None:
+        err = [self.messages.item(i).text() for i in range(self.messages.count())]
+        if err and err != ["Scenario valid"]:
+            QMessageBox.information(self, "Scenario", f"{len(err)} problem(s):\n\n" + "\n".join(err))
+
     def _fit_columns(self) -> None:
         """At start: the tree and the forms at the width they need, the rest of the window to the 3D view."""
+        if self.layout_mode == "compact":
+            w0 = max(self.left_tabs.sizeHint().width(), self.form_holder.sizeHint().width() + 24, FORM_MIN_W)
+            total = max(self._split.width(), w0 + 400)
+            self._split.setSizes([w0, total - w0])
+            return
         left, middle = self._split.widget(0), self._split.widget(1)
         w0 = max(left.sizeHint().width(), TREE_MIN_W)
         w1 = max(middle.sizeHint().width(), FORM_MIN_W)
@@ -796,6 +862,11 @@ class ScenarioTab(QWidget):
     def _validate(self) -> None:
         err = scn.validate(self.sc)
         self.messages.clear()
+        st = getattr(self, "status", None)
+        if st is not None:                                     # R4: compact layout
+            st.setText("\u2714 Scenario valid" if not err else f"\u2716 {len(err)} problem(s)")
+            st.setStyleSheet(f"color: {'darkgreen' if not err else 'darkred'}; font-weight: bold;")
+            st.setToolTip("\n".join(err) if err else "")
         if not err:
             it = QListWidgetItem("Scenario valid")
             it.setForeground(QColor("darkgreen"))

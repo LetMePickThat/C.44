@@ -16,6 +16,7 @@ import numpy as np
 from PyQt5.QtCore import QThread, Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
+    QApplication,
     QAbstractItemView, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView,
     QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSpinBox,
     QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
@@ -85,6 +86,9 @@ class RedundancyWorker(QThread):
             self.failed.emit(f"redundancy check failed: {exc}")
             return
         self.finished_ok.emit(result, self.token)
+
+
+PANEL_VIEW_MIN_W = 700                 # px left at least to the 3D view when the panel must scroll sideways
 
 
 class PrepTab(QWidget):
@@ -158,10 +162,15 @@ class PrepTab(QWidget):
 
         # no horizontal scrolling: the panel is always at least as wide as its content. No maximum: the splitter
         # handle is free to make it as wide as the user wants (bounded only by the 3D view's own minimum width).
-        panel.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         min_w = (inner.minimumSizeHint().width() + panel.verticalScrollBar().sizeHint().width()
                  + 2 * panel.frameWidth())
-        panel.setMinimumWidth(min_w)
+        scr = QApplication.primaryScreen()
+        avail = scr.availableGeometry().width() if scr is not None else 1 << 20
+        if min_w + PANEL_VIEW_MIN_W <= avail:
+            panel.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            panel.setMinimumWidth(min_w)
+        else:                                    # a screen too narrow (e.g. 1920 px): the panel scrolls sideways
+            panel.setMinimumWidth(min(min_w, max(avail - PANEL_VIEW_MIN_W, 320)))
 
         splitter.addWidget(panel)
         splitter.setChildrenCollapsible(False)

@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Optional
 
 from PyQt5.QtCore import QThread, Qt, pyqtSignal
-from PyQt5.QtWidgets import QMainWindow, QMessageBox, QProgressDialog, QTabBar, QTabWidget
+from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QProgressDialog, QTabBar, QTabWidget
 
 from core import geometry as geo
 from core import optimizer as mo
@@ -51,11 +51,15 @@ class OptimizeWorker(QThread):
         self.progress.emit(done, total, sector_id)
 
 
+WINDOW_SIZE = tuple(int(x) for x in P.get("tool.display.window_size"))   # at start (user)
+FRAME_MARGIN = (16, 48)                          # px kept for the window frame and its title bar
+
+
 class MainWindow(QMainWindow):
     def __init__(self, mission: dict):
         super().__init__()
         self.setWindowTitle("Radar mission preparation")
-        self.resize(1400, 860)
+        self.resize(*WINDOW_SIZE)                 # fitted to the screen by show_default()
         self.grid = geo.SphereGrid(res_deg=GRID_RES_DEG)
         self.results: Optional[ResultsTab] = None
         self._worker: Optional[OptimizeWorker] = None
@@ -73,6 +77,29 @@ class MainWindow(QMainWindow):
         for index in (0, 1):                                # the preparation and scenario tabs cannot be closed
             for side in (QTabBar.LeftSide, QTabBar.RightSide):
                 self.tabs.tabBar().setTabButton(index, side, None)
+
+    def show_default(self) -> bool:
+        """Show the window at WINDOW_SIZE centred on the available area of its screen (the task bar excluded),
+        never beyond it: a size that does not fit in one direction is cut to that area (e.g. 2560 x 1321 on a
+        5120 x 1440 screen); fitting in neither (e.g. 1920 x 1080) the window is maximised on it. Returns True when
+        the default size fits as it is."""
+        scr = self.screen() if self.screen() is not None else QApplication.primaryScreen()
+        if scr is None:
+            self.show()
+            return True
+        avail = scr.availableGeometry()
+        aw, ah = avail.width() - FRAME_MARGIN[0], avail.height() - FRAME_MARGIN[1]
+        w, h = WINDOW_SIZE
+        if w > aw and h > ah:
+            self.resize(max(aw, 640), max(ah, 480))
+            self.move(avail.x(), avail.y())
+            self.showMaximized()
+            return False
+        w, h = min(w, aw), min(h, ah)
+        self.resize(w, h)
+        self.move(avail.x() + (aw - w) // 2, avail.y() + (ah - h) // 2)
+        self.show()
+        return (w, h) == WINDOW_SIZE
 
     # ------------------------------------------------------------------ calculation
     def _run(self, mission: dict) -> None:

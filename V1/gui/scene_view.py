@@ -34,7 +34,7 @@ from pyvistaqt import QtInteractor
 
 from core import geometry as geo
 from core.params import P
-from gui.widgets import DecimalSpinBox
+from gui.widgets import DecimalSpinBox, FlowLayout
 
 KM_AXES_PREFIX = "km_axes_"
 KM_AXES_LINES = [f"{KM_AXES_PREFIX}{a}" for a in ("X", "Y", "Z")]   # the 3D axis meshes (labels are 2D actors)
@@ -56,7 +56,7 @@ class DisplayBar(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        h = QHBoxLayout(self)
+        h = FlowLayout(self)                     # wraps on a narrow window (the window fits a small screen)
         h.setContentsMargins(4, 2, 4, 2)
         h.addWidget(QLabel("Responsibility zones:"))
         self.cb_faces = []
@@ -235,11 +235,11 @@ def _arc_ball(st: dict, x: float, y: float) -> np.ndarray:
     r = max(st["radius"] * 0.5 * min(w, h), 1.0)
     v = np.array([(x - 0.5 * w) / r, (y - 0.5 * h) / r, 0.0])
     d2 = v[0] ** 2 + v[1] ** 2
-    if d2 < 1.0:
-        v[2] = math.sqrt(1.0 - d2)
-    else:
-        v[:2] /= math.sqrt(d2)
-    return v
+    # Bell's trackball (user, 29 October 2026: Shoemake's rim switched abruptly from a rotation in a plane to the
+    # roll): the sphere up to half its radius squared, then the hyperbolic sheet z = 1 / (2 d) that meets it smoothly;
+    # the farther from the centre, the more the drag rolls the view about the line of sight, without a step
+    v[2] = math.sqrt(1.0 - d2) if d2 <= 0.5 else 0.5 / math.sqrt(d2)
+    return v / np.linalg.norm(v)
 
 
 def _arc_move(style, _ev) -> None:
@@ -273,10 +273,11 @@ def _arc_move(style, _ev) -> None:
 
 
 def install_arcball(plotter, radius_frac: float):
-    """Left-drag rotation by a virtual trackball (Shoemake arcball, user 29 October 2026): the press and the current
-    point are put on a sphere of radius radius_frac x the half-height of the view around its centre; inside it the
-    scene turns as a ball under the hand, outside (left / right of the centre, top / bottom) the points lie on its rim
-    and the drag turns the view about the line of sight (clockwise / counterclockwise). The camera turns about its
+    """Left-drag rotation by a virtual trackball (Bell's trackball, user 29 October 2026): the press and the current
+    point are put on a sphere of radius radius_frac x the half-height of the view around its centre, prolonged by a
+    hyperbolic sheet that meets it smoothly; near the centre the scene turns as a ball under the hand, and the farther
+    from it (left / right, top / bottom) the more a drag along the edge turns the view about the line of sight
+    (clockwise / counterclockwise), progressively. The camera turns about its
     focal point (the pivot of lock_pivot). Built on pyvista's own trackball style (its capture of the release events
     and the observers pyvista puts on the style stay valid: install it BEFORE adding them); Shift / Ctrl + left drag
     keep VTK's pan / spin; the wheel, the right button and the interactor's observers (clicks) are unchanged."""

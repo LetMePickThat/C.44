@@ -936,6 +936,8 @@ sky_above_budget_db  = 1.0      # flag the positions above a sector's sky-noise 
 rr_t0_ratio          = 3.0      # flag a sector whose revisit is below this x the target T0 (looks no longer independent, step 2.4 B4)
 
 [tool.display]
+scenario_layout = "compact"     # Scenario tab: "compact" (R1-R6: one left column with tabs, info box in the 3D, one-line validation) or "classic" (the former layout, kept for a rollback) (user, 29 Oct 2026)
+window_size = [2560, 1440]      # main window at start, px; a smaller screen: maximised on its available area (user, 29 Oct 2026)
 grid_res_deg = 0.5              # direction-sphere raster of the 3D views and the fast estimate
 viz_freq_ghz = 2.8              # frequency of the viz-only scan limit and of the fast estimate
 sim_trail_s = 60.0              # simulator playback: trail length behind each body (S7, L3, D)
@@ -943,7 +945,9 @@ sim_fps = 20                    # simulator playback: frames per second aimed at
 sim_ship_view_r = [1.2, 3.0]    # simulator ship view: radii of the log range scale, nearest .. farthest object (S6, V4, D)
 sim_auto_max_cells = 2.0e6      # simulator: automatic re-propagation only below rows x steps (S6, V2, D)
 arcball_radius = 0.9            # 3D views (mission preparation, results, simulator), mouse rotation: radius of the virtual trackball, share of the half-height (outside: roll about the line of sight) (user, 29 Oct 2026, D)
-sim_max_view_km = 2.0e13       # simulator views: farthest zoom out, km (~130 000 AU; ship view in log scale: the range at the edge) (user, 29 Oct 2026)
+sim_model_screen = 0.6          # ship view, log scale: the ship model keeps this size on screen (its axes, share of the half-height) (user, 29 Oct 2026, D)
+sim_min_ring_km = 0.5           # simulator views: nearest zoom in, the innermost range ring (a quarter of the half-height) at least this, km (user, 29 Oct 2026)
+sim_max_view_km = 2.0e13     # simulator views: farthest zoom out, km (~130 000 AU; ship view in log scale: the range at the edge) (user, 29 Oct 2026)
 
 [tool.mission_defaults]       # values of a new mission / sector / AT bracket (operator inputs, not the radar)
 eps_min_deg = -90.0             # rear limit of the scan window (-90 = no limit)

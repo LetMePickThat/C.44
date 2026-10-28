@@ -58,6 +58,7 @@ from core import optimizer as opt
 from core import radar_model as rm
 from core.params import P
 from gui import scene_view as sv
+from gui.widgets import FlowLayout
 from sim import attitude as att
 from sim import engine
 from sim import ephemeris as eph
@@ -70,12 +71,23 @@ FPS = int(P.get("tool.display.sim_fps"))
 SHIP_R0, SHIP_R1 = (float(x) for x in P.get("tool.display.sim_ship_view_r"))
 AUTO_MAX_CELLS = float(P.get("tool.display.sim_auto_max_cells"))
 MAX_VIEW_KM = float(P.get("tool.display.sim_max_view_km"))     # farthest zoom out (user)
+MIN_RING_KM = float(P.get("tool.display.sim_min_ring_km"))     # nearest zoom in: the innermost ring (user)
+MODEL_SCREEN = float(P.get("tool.display.sim_model_screen"))   # ship view, log scale: model size on screen (user)
+MODEL_AXES_UNITS = 1.35                           # length of the model's axes in scene units (core.geometry.build_axes)
+LOG_E0 = math.log10(MIN_RING_KM)                  # log scale: MIN_RING_KM at a quarter of the half-height
+LOG_SPAN_MIN = 0.6                                # ... and at least 0.6 decade from there to the half-height (2 km)
+LOG_FAR_U = 0.8                                   # ... the farthest object of the run at this x the half-height at start
+LOG_R_FLOOR = 0.03                                # ... objects nearer than MIN_RING_KM drawn at least this x it
+LOG_MIN_SPAN = 10.0                               # ship view log scale: nearest .. farthest at least one decade
 ARCBALL_RADIUS = float(P.get("tool.display.arcball_radius"))   # mouse rotation (user)
 SPEEDS = (1, 10, 100, 1000, 10000, 100000)     # x10 000 and x100 000: the Moon on its orbit (user)
 VOL_REBUILD_DEG = 5.0                             # V5: a volume is turned in place, rebuilt past this turn of its frame
 RING_STEP_FRAC = 0.25                             # V4: range rings spaced this share of the visible half-height apart
 RING_COVER = 1.1                                  # ... out to this x the farthest corner of the 3D view
 RING_MIN_SIN_EL = 0.2                             # (a view almost in the rings' plane: at most 5 x the half-height)
+RING_LABEL_C, RING_LABEL_S = math.cos(math.radians(22.5)), math.sin(math.radians(22.5))   # ring values at az 22.5
+SPOKE_STEP_DEG = 45.0                             # ship view (not PPI): azimuth spokes every this
+SPOKE_LABEL_FRAC = 0.9                            # ... labelled at this x the visible half-height
 RING_MAX = 60                                     # rings at most
 DECADE_STEPS = (0.1, 0.2, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0)   # log scale: ring step in decades
 RING_POINTS = 121
@@ -83,6 +95,7 @@ RING_LOG10_KM = (-300.0, 300.0)                   # log scale: rings over the wh
 TRAIL_SAMPLES = 25                                # L3: points of a trail in the global view
 CLASS_COLORS = {c: cgeo.SECTOR_PALETTE[i % len(cgeo.SECTOR_PALETTE)] for i, c in enumerate(sorted(rm.TARGETS))}
 SHIP_COLOR = "#ffffff"
+KM_PER_MODEL_UNIT = 1e-3 / cgeo._M                # 1:1: the model's scene units to km (its true size)
 BG_COLOR = "#0b1020"                              # dark background of the 3D views
 TEXT_COLOR = "#e6e6e6"
 MUTED_COLOR = "#9aa0aa"
@@ -90,12 +103,14 @@ EARTH_COLOR = "#4a78b5"
 SUN_COLOR = "#e0a800"
 OCC_COLOR = "#a0a0a0"
 MASK_COLOR = "#e07b00"
+INFO_FONT_SIZE = 14                               # compact layout: the information box in the 3D view
 ZOOM_STEP = 1.5                                   # one press of Zoom + / Zoom -
 MIN_IDLE_MS = 15                                  # event-loop time kept between two frames (mouse live while playing)
 SIDEREAL_MONTH_S = 27.321661 * 86400.0            # the Moon's orbit drawn over one sidereal month
 FOLLOW_MIN_KM = 50.0                              # "follow the ship": framed span at least this
 TRIAD_FRAC = 0.03                                 # ship triad length, share of the camera distance
 TEXTURE_DIR = cgeo.MOON_TEXTURE_PATH.parent       # assets/textures: moon.jpg, earth.jpg (equirectangular, 2:1)
+NEAR_FRAC = 0.01                                  # near clipping plane at least this x the camera distance
 NEAR_TOL = 1e-9                                   # near / far clipping ratio: the Sun at 1 AU, objects at a few km
                                                   # (bodies drawn front faces only: no self-occlusion far away)
 BODY_NAMES = {"Earth": "earth", "Moon": "moon", "Sun": "sun"}   # the bodies the view can centre on
@@ -293,6 +308,27 @@ class _Labels:
         self.actor.SetVisibility(True)
 
 
+def _info_box():
+    """The information box of the compact layout: a 2D text in the top left corner of the 3D view, on a dark
+    translucent background with a frame."""
+    from vtkmodules.vtkRenderingCore import vtkTextActor
+    a = vtkTextActor()
+    a.GetPositionCoordinate().SetCoordinateSystemToNormalizedViewport()
+    a.GetPositionCoordinate().SetValue(0.01, 0.97)
+    tp = a.GetTextProperty()
+    tp.SetFontSize(INFO_FONT_SIZE)
+    tp.SetColor(*(c / 255.0 for c in _rgb(TEXT_COLOR)))
+    tp.SetBackgroundColor(*(c / 255.0 for c in _rgb(BG_COLOR)))
+    tp.SetBackgroundOpacity(0.8)
+    tp.SetFrame(True)
+    tp.SetFrameColor(*(c / 255.0 for c in _rgb(MUTED_COLOR)))
+    tp.SetVerticalJustificationToTop()
+    tp.SetJustificationToLeft()
+    tp.SetFontFamilyToCourier()
+    a.SetVisibility(False)
+    return a
+
+
 def _segments(a: np.ndarray, b: np.ndarray) -> pv.PolyData:
     pts = np.empty((2 * len(a), 3))
     pts[0::2], pts[1::2] = a, b
@@ -304,8 +340,9 @@ class SimView(QWidget):
     """3D views (S6) and playback (S7) of the global simulator."""
 
     def __init__(self, grid: Optional[cgeo.SphereGrid] = None, get_path: Callable[[], Optional[str]] = lambda: None,
-                 parent=None):
+                 parent=None, layout: str = "classic"):
         super().__init__(parent)
+        self.compact = layout == "compact"           # R1-R6 (Scenario tab re-organised, user 29 October 2026)
         self.grid = grid or cgeo.SphereGrid(float(P.get("tool.display.grid_res_deg")))
         self.get_path = get_path
         self.pending: Optional[dict] = None       # latest valid scenario from the editor
@@ -321,7 +358,7 @@ class SimView(QWidget):
         self.selected: Optional[str] = None
 
         # ---- V1, V2, L6 bar
-        top = QHBoxLayout()
+        top = FlowLayout()          # wraps on a narrow window
         self.cb_view = QComboBox()
         self.cb_view.addItems(["Global view", "Ship view"])
         self.cb_view.currentIndexChanged.connect(lambda _i: self._rebuild())
@@ -349,7 +386,7 @@ class SimView(QWidget):
         top.addWidget(self.status)
 
         # ---- L3 / V3 / V5 toggles
-        opts = QHBoxLayout()
+        opts = FlowLayout()          # wraps on a narrow window
         self.cb_labels = QCheckBox("labels")
         self.cb_labels.setChecked(True)
         self.cb_vectors = QCheckBox("vectors / noses")
@@ -373,10 +410,20 @@ class SimView(QWidget):
             cb.toggled.connect(lambda _on: self._draw_frame())
         self.cb_centre.currentTextChanged.connect(lambda _t: self._apply_centre(reframe=True))
         self.cb_volumes.toggled.connect(lambda _on: self._draw_volumes(force=True))
-        for cb in (self.cb_labels, self.cb_vectors, self.cb_trails, self.cb_volumes, self.cb_true, self.cb_bodies):
+        self.cb_ppi = QCheckBox("PPI rings")
+        self.cb_ppi.setToolTip("Ship view: the range rings face the screen around the ship (as on a PPI) and stay "
+                               "fixed while the view turns; the ship, the bodies and the objects turn")
+        self.cb_ppi.toggled.connect(lambda _on: (self._update_rings(), self._render()))
+        for cb in (self.cb_labels, self.cb_vectors, self.cb_trails, self.cb_volumes, self.cb_true, self.cb_bodies,
+                   self.cb_ppi):
             opts.addWidget(cb)
         opts.addWidget(QLabel("centre on"))
         opts.addWidget(self.cb_centre)
+        b = QPushButton("Recentre")
+        b.setToolTip("Back to the view's centre (the ship, the central body or the body chosen in 'centre on'), zoom "
+                     "and orientation kept: undoes a pan")
+        b.clicked.connect(self.recentre)
+        opts.addWidget(b)
         for text, f in (("Zoom +", ZOOM_STEP), ("Zoom -", 1.0 / ZOOM_STEP)):
             b = QPushButton(text)
             b.clicked.connect(lambda _c, ff=f: self.zoom(ff))
@@ -390,6 +437,7 @@ class SimView(QWidget):
         self.plotter.iren.interactor.AddObserver("LeftButtonPressEvent", self._on_click, 1.0)
         self.plotter.set_background(BG_COLOR)
         self.plotter.renderer.SetNearClippingPlaneTolerance(NEAR_TOL)
+        self.plotter.renderer.AddObserver("StartEvent", lambda *_a: self._clip())
         self.plotter.add_axes(color=TEXT_COLOR)
         self.plotter.renderer.GetActiveCamera().AddObserver("ModifiedEvent", lambda *_a: self._on_camera())
 
@@ -431,20 +479,30 @@ class SimView(QWidget):
         self.info = QPlainTextEdit()
         self.info.setReadOnly(True)
         il.addWidget(self.info)
-        low = QSplitter(Qt.Horizontal)
-        low.addWidget(self.events)
-        low.addWidget(info)
-
-        split = QSplitter(Qt.Vertical)
-        split.addWidget(self.plotter.interactor)
-        split.addWidget(low)
-        split.setSizes([600, 180])
+        self.top_bar, self.opts_bar = top, opts
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.addLayout(top)
         lay.addLayout(opts)
-        lay.addWidget(split, 1)
+        if self.compact:
+            # R2 / R3: the events go to the Scenario tab's left column (self.events, taken by it); the information
+            # is a box drawn in the 3D view, the object chosen in the option bar (or clicked / double-clicked)
+            opts.addWidget(QLabel("info"))
+            opts.addWidget(self.cb_object)
+            self.info.setParent(self)
+            self.info.hide()
+            lay.addWidget(self.plotter.interactor, 1)
+        else:
+            low = QSplitter(Qt.Horizontal)
+            low.addWidget(self.events)
+            low.addWidget(info)
+            split = QSplitter(Qt.Vertical)
+            split.addWidget(self.plotter.interactor)
+            split.addWidget(low)
+            split.setSizes([600, 180])
+            lay.addWidget(split, 1)
         lay.addLayout(play)
+        self._info_actor = _info_box()
 
         self.debounce = QTimer(self)
         self.debounce.setSingleShot(True)
@@ -509,7 +567,13 @@ class SimView(QWidget):
         self.status.setText(f"{label}: {len(g.ids)} objects, {float(sc['meta']['duration_s']):g} s")
         self.t = min(self.t, self.duration())
         rng = g.range_km[np.isfinite(g.range_km)]
-        self._r_log = (max(float(rng.min()), 1e-3), max(float(rng.max()), 1e-3)) if rng.size else (1.0, 10.0)
+        lo, hi = (max(float(rng.min()), 1e-3), max(float(rng.max()), 1e-3)) if rng.size else (1.0, 10.0)
+        if hi < LOG_MIN_SPAN * lo:                   # one object, or all at one range: the log scale keeps a span
+            mid = math.sqrt(lo * hi)
+            lo, hi = mid / math.sqrt(LOG_MIN_SPAN), mid * math.sqrt(LOG_MIN_SPAN)
+        self._r_log = (lo, hi)
+        self._log_span = None                             # range zoom: from the run's farthest object
+        self._log_d = None
         self._mission = None
         self._navigation = engine.Navigation(sc, truth)
         self._triad_rgb = np.array([_rgb(cgeo.COLORS[k]) for k in ("axis_x", "axis_y", "axis_z")], np.uint8)
@@ -630,6 +694,8 @@ class SimView(QWidget):
         p.set_background(BG_COLOR)
         p.remove_all_lights()
         self._reset_dynamic()
+        if self.compact:                           # the information box, removed with the rest by clear()
+            p.add_actor(self._info_actor, reset_camera=False, render=False)
         if self.truth is None:
             p.render()
             return
@@ -721,16 +787,44 @@ class SimView(QWidget):
     def _body_radius(self, b: str) -> float:
         return eph_sun_radius_km() if b == "sun" else float(scn.bodies()[b]["radius_km"])
 
+    def _clip(self) -> None:
+        """Before every render: the near plane at NEAR_FRAC of the camera's distance to its focal point (at least),
+        the far one as VTK computes it (the Sun at 1 AU stays drawn). With the camera inside the scene's bounds (the
+        rings all around) VTK put the near plane at NEAR_TOL x far, almost on the camera, and the depth test lost
+        all precision: the rings and lines showed through the hull (user, 29 October 2026)."""
+        ren = self.plotter.renderer
+        cam = ren.GetActiveCamera()
+        self._in_camera = True                        # a clipping change only: no zoom bound, no ring update
+        try:
+            ren.ResetCameraClippingRange()
+            near, far = cam.GetClippingRange()
+            near = max(near, NEAR_FRAC * cam.GetDistance())
+            cam.SetClippingRange(near, max(far, 1.01 * near))
+        finally:
+            self._in_camera = False
+
     def _max_camera_distance(self) -> Optional[float]:
-        """Camera distance at which the horizontal edge of the view stands for MAX_VIEW_KM (global view and ship
+        """Camera distance at which the half-height of the view (its smaller size on a landscape screen: the bound is
+        then reached in every direction, user 29 October 2026) stands for MAX_VIEW_KM (global view and ship
         view at 1:1: km; ship view in log scale: its extended log law)."""
         if self.truth is None:
             return None
         cam = self.plotter.camera
-        w, h = self.plotter.interactor.width(), self.plotter.interactor.height()
-        k = math.tan(math.radians(0.5 * cam.GetViewAngle())) * max(w / max(h, 1), 1.0)
+        w, h = self.plotter.ren_win.GetSize()
+        k = math.tan(math.radians(0.5 * cam.GetViewAngle())) * min(w / max(h, 1), 1.0)
         edge = MAX_VIEW_KM if (self._global() or self.cb_true.isChecked()) else self._ring_radius(MAX_VIEW_KM)
         return edge / k if k > 0 and edge > 0 else None
+
+    def _min_camera_distance(self) -> Optional[float]:
+        """Camera distance at which the innermost range ring (RING_STEP_FRAC of the half-height) stands for
+        MIN_RING_KM (global view and ship view at 1:1: km; ship view in log scale: its extended log law)."""
+        if self.truth is None:
+            return None
+        cam = self.plotter.camera
+        w, h = self.plotter.ren_win.GetSize()
+        k = math.tan(math.radians(0.5 * cam.GetViewAngle())) * min(w / max(h, 1), 1.0) * RING_STEP_FRAC
+        ring = MIN_RING_KM if (self._global() or self.cb_true.isChecked()) else self._ring_radius(MIN_RING_KM)
+        return ring / k if k > 0 and ring > 0 else None
 
     def _on_camera(self) -> None:
         """Every camera change (wheel, buttons, follow): the zoom out held at MAX_VIEW_KM, then the range rings."""
@@ -738,16 +832,48 @@ class SimView(QWidget):
             return
         self._in_camera = True
         try:
-            d_max = self._max_camera_distance()
             cam = self.plotter.camera
-            if d_max is not None and cam.GetDistance() > d_max:
+            if self._log_zoom():
+                # log scale: the camera keeps its distance, the zoom changes the span of the scale (range zoom)
+                d = cam.GetDistance()
+                if abs(d - self._log_d) > 1e-9 * self._log_d:
+                    span = float(np.clip(self._span() * d / self._log_d, LOG_SPAN_MIN, self._log_span_max()))
+                    f = np.asarray(cam.GetFocalPoint())
+                    u = np.asarray(cam.GetPosition()) - f
+                    cam.SetPosition(*(f + u / np.linalg.norm(u) * self._log_d))
+                    self.plotter.renderer.ResetCameraClippingRange()
+                    if span != self._log_span:
+                        self._log_span = span
+                        self._redraw_soon()
+            d_max, d_min = (None, None) if self._log_zoom() else (self._max_camera_distance(),
+                                                                 self._min_camera_distance())
+            d = cam.GetDistance()
+            target = d_max if (d_max is not None and d > d_max) else d_min if (d_min is not None and d < d_min) else None
+            if target is not None:
                 f = np.asarray(cam.GetFocalPoint())
                 u = np.asarray(cam.GetPosition()) - f
-                cam.SetPosition(*(f + u / np.linalg.norm(u) * d_max))
+                cam.SetPosition(*(f + u / np.linalg.norm(u) * target))
                 self.plotter.renderer.ResetCameraClippingRange()
         finally:
             self._in_camera = False
+        self._scale_model()
         self._update_rings()
+
+    def _log_zoom(self) -> bool:
+        """The ship view in log scale, built: its zoom is the range zoom."""
+        return (self.truth is not None and not self._global() and not self.cb_true.isChecked()
+                and getattr(self, "_log_d", None) is not None)
+
+    def _redraw_soon(self) -> None:
+        """One frame redrawn after the camera event (the objects follow the scale)."""
+        if not getattr(self, "_redraw_pending", False):
+            self._redraw_pending = True
+
+            def go():
+                self._redraw_pending = False
+                if not self._playing:
+                    self._draw_frame()
+            QTimer.singleShot(0, go)
 
     def zoom(self, f: float) -> None:
         """Move the camera toward its focal point by f (as the wheel; the triad keeps its size on screen)."""
@@ -799,8 +925,8 @@ class SimView(QWidget):
                 dist = 4.0 * span
             elif self.cb_true.isChecked():
                 dist = max(1.0, 0.3 * float(np.linalg.norm(tgt))) if np.linalg.norm(tgt) > 0 else 0.3 * self._r_log[1]
-            else:
-                dist = 1.5
+            else:                                      # log scale: the range zoom keeps the camera distance
+                dist = self._log_d if self._log_zoom() else 1.5
             cam.SetFocalPoint(*tgt)
             cam.SetPosition(*(tgt + dist * view))
         else:                                          # follow: the camera keeps its offset from the body
@@ -829,27 +955,88 @@ class SimView(QWidget):
         return out
 
     def _build_ship(self) -> None:
-        """V4: the ship model and its faces (log scale: unit sizes) or nothing but its axes (1:1, km: the model and
-        the face layer would be a 1 km symbol); the range rings are dynamic (_update_rings)."""
+        """V4: the ship model, scaled at every camera change (_scale_model, user 29 October 2026): log scale, a
+        constant size on screen with its faces, normals and axes; 1:1, its true size in km (the face layer, normals and
+        axes, of unit size, left out; the ship's axes are the dynamic ones); no equator (a ring without a range)."""
         p = self.plotter
-        if not self.cb_true.isChecked():
-            sv.add_static_scene(p)
+        true = self.cb_true.isChecked()
+        acts, labels = [], []
+        ship = cgeo.build_ship()
+        for i, part in enumerate(ship["hull"]):
+            acts.append(p.add_mesh(part["mesh"], color=part["color"], smooth_shading=True, name=f"model_hull_{i}",
+                                   render=False))
+        for d in ship["arrays"]:
+            acts.append(p.add_mesh(d["mesh"], color=d["color"], name=f"model_array_{d['k']}", render=False))
+        if not true:
+            for ax in cgeo.build_axes():
+                if not ax.get("no_line"):
+                    acts.append(p.add_mesh(ax["line"], color=ax["color"], line_width=2, name=f"model_axis_{ax['text']}",
+                                           render=False))
+                labels.append((np.array([ax["label_pos"]], float), [ax["text"]], ax["color"], 12))
+            for n in cgeo.build_face_normals():
+                acts.append(p.add_mesh(n["mesh"], color=n["color"], line_width=3, name=f"model_normal_{n['k']}",
+                                       render=False))
+                labels.append((np.array([n["label_pos"]], float), [n["name"]], n["color"], 14))
+            # (no equator of the model: a ring carrying no range, turning with the ship, user 29 October 2026)
             scene = cgeo.build_face_sectors(self.grid, -90.0, 90.0)
             for k in range(4):
                 if scene.surfaces[k].n_points:
-                    p.add_mesh(scene.surfaces[k], color=cgeo.FACE_COLORS[k], opacity=0.15, culling="back",
-                               name=f"face_{k}", render=False)
+                    acts.append(p.add_mesh(scene.surfaces[k], color=cgeo.FACE_COLORS[k], opacity=0.15, culling="back",
+                                           name=f"face_{k}", render=False))
+        self._model = {"actors": acts, "labels": [(_Labels(p, c, z), pts, t) for pts, t, c, z in labels], "s": None}
         p.set_background(BG_COLOR)
         p.enable_lightkit()
         self._centre_pending = True
         self._ship_home()
 
+    def _model_scale(self) -> float:
+        """Scale of the model (scene units -> drawn units): 1:1 its true size in km; log scale MODEL_SCREEN x the
+        visible half-height at the ship over the length of its axes (build_axes: MODEL_AXES_UNITS)."""
+        if self.cb_true.isChecked():
+            return KM_PER_MODEL_UNIT
+        cam = self.plotter.camera
+        d0 = float(np.linalg.norm(np.asarray(cam.GetPosition())))
+        half = d0 * math.tan(math.radians(0.5 * cam.GetViewAngle()))
+        return MODEL_SCREEN * half / MODEL_AXES_UNITS
+
+    def _scale_model(self) -> None:
+        """The model, its labels and (log scale) the mission volumes, which lie on its face layer, at the scale of
+        the moment; nothing done when it has not changed."""
+        model = getattr(self, "_model", None)
+        if model is None or self._global():
+            return
+        sc = self._model_scale()
+        if model["s"] is not None and abs(sc - model["s"]) <= 1e-9 * max(sc, 1e-300):
+            return
+        model["s"] = sc
+        for a in model["actors"]:
+            a.SetScale(sc, sc, sc)
+        for lab, pts, texts in model["labels"]:
+            lab.set(pts * sc, texts)
+        self._place_volumes()
+
+    def _place_volumes(self) -> None:
+        """Mission volumes: their turn (frame at t against the one they were built with) and, in log scale, the
+        model's scale (they lie on its face layer)."""
+        vol = self._vol
+        if not vol:
+            return
+        k = 1.0 if self.cb_true.isChecked() else (self._model or {}).get("s") or 1.0
+        for rot, acts in zip(vol.get("rot") or [np.eye(3)] * len(vol["per_sector"]), vol["per_sector"]):
+            u = np.eye(4)
+            u[:3, :3] = k * rot
+            for a in acts:
+                a.user_matrix = u
+
     def _ship_home(self) -> None:
         """Default camera of the ship view: the iso view, out to the farthest object (SHIP_R1, or its range in km)."""
         p = self.plotter
+        self._log_d = None                                # (the camera moves below: not a range zoom)
         sv.set_default_camera(p)
         k = (self._r_log[1] / 1.2) if self.cb_true.isChecked() else max(1.0, SHIP_R1 / 1.5)
-        pos = np.asarray(p.camera.position) * k
+        # the camera aims at the ship's centre, the centre of the range rings and the pivot of the rotations (the
+        # mission-preparation default aims 0.12 above it: the rings moved as the view turned, user 29 October 2026)
+        pos = (np.asarray(p.camera.position) - np.asarray(p.camera.focal_point)) * k
         if self.truth is not None:
             # the default camera on the side away from the central body (else it may stand inside it: celestial
             # objects drawn, both scales)
@@ -857,32 +1044,96 @@ class SimView(QWidget):
             dc = -(r[0] / np.linalg.norm(r[0])) @ self.truth.attitude("ship", self.t)
             if pos @ dc > 0.0:
                 pos = pos - 2.0 * (pos @ dc) * dc
+        p.camera.focal_point = (0.0, 0.0, 0.0)
         p.camera.position = tuple(pos)
+        p._pivot = (0.0, 0.0, 0.0)
         p.renderer.ResetCameraClippingRange()
+        if not self.cb_true.isChecked():
+            self._log_d = float(np.linalg.norm(pos))              # the log scale keeps this camera distance
+            if getattr(self, "_log_span", None) is None:
+                self._log_span = self._log_span_init()
+
+    def recentre(self) -> None:
+        """Back to the view's centre (button "Recentre"): the body chosen in "centre on", else the ship (ship view)
+        or the central body (global view); the zoom and the orientation kept (undoes a pan)."""
+        if self.truth is None:
+            return
+        tgt = self._target()
+        tgt = np.zeros(3) if tgt is None else np.asarray(tgt, float)
+        cam = self.plotter.camera
+        off = tgt - np.asarray(cam.GetFocalPoint())
+        cam.SetFocalPoint(*tgt)
+        cam.SetPosition(*(np.asarray(cam.GetPosition()) + off))
+        self.plotter._pivot = tuple(tgt)
+        self.plotter.renderer.ResetCameraClippingRange()
+        self._render()
 
     def _ship_r(self, rng_km: np.ndarray) -> np.ndarray:
         """Radius drawn for ranges in the ship view: the range itself (1:1, km) or the log scale."""
         return np.asarray(rng_km, float) if self.cb_true.isChecked() else self._radius(np.asarray(rng_km, float))
 
+    # log scale, range zoom (log PPI, user 29 October 2026): the camera keeps its distance _log_d; the zoom (wheel,
+    # buttons) changes the scale itself. A radius r stands for the range 10^e(r), e(r) = e0 + (r / H - 1/4) S / (3/4):
+    # MIN_RING_KM at a quarter of the half-height H of the view, 10^(e0 + S) km at H; S (decades) from the zoom, kept
+    # between LOG_SPAN_MIN and the span to MAX_VIEW_KM. No bound can contradict another; the rings fill the view.
+    def _log_h(self) -> float:
+        cam = self.plotter.camera
+        d = self._log_d if self._log_d is not None else cam.GetDistance()      # (while the home moves the camera)
+        return d * math.tan(math.radians(0.5 * cam.GetViewAngle()))
+
+    def _span(self) -> float:
+        """The span of the range zoom (decades), set from the run at its first use."""
+        if getattr(self, "_log_span", None) is None:
+            self._log_span = self._log_span_init()
+        return self._log_span
+
+    def _log_e(self, r: float) -> float:
+        return LOG_E0 + (r / self._log_h() - 0.25) * self._span() / 0.75
+
+    def _log_r(self, e):
+        return self._log_h() * (0.25 + 0.75 * (np.asarray(e, float) - LOG_E0) / self._span())
+
     def _ship_range(self, r: float) -> Optional[float]:
         """Range (km) drawn at radius r in the ship view (the inverse of _ship_r, the log law extended)."""
         if self.cb_true.isChecked():
             return r if r > 0 else None
-        a, b = (math.log10(x) for x in self._r_log)
-        if b - a < 1e-9:
-            return None
-        e = a + (r - SHIP_R0) / (SHIP_R1 - SHIP_R0) * (b - a)
+        e = self._log_e(r)
         # far zoomed out (or in) the extended log law leaves any meaning (and the floats, 1e308): no ring there
         return 10.0 ** e if RING_LOG10_KM[0] <= e <= RING_LOG10_KM[1] else None
 
     def _ring_radius(self, rng_km: float) -> float:
-        """Radius of a range ring: _ship_r without the bounds of the log scale (the inverse of _ship_range)."""
+        """Radius of a range ring or a body's surface: _ship_r without the floor of the objects."""
         if self.cb_true.isChecked():
             return float(rng_km)
-        a, b = (math.log10(x) for x in self._r_log)
-        if b - a < 1e-9:
-            return 0.5 * (SHIP_R0 + SHIP_R1)
-        return SHIP_R0 + (SHIP_R1 - SHIP_R0) * (math.log10(rng_km) - a) / (b - a)
+        return float(self._log_r(math.log10(max(rng_km, 1e-300))))
+
+    def _ring_frame(self):
+        """(visible half-height at the ship, the rings' plane axes e1, e2, the radius they must reach: the farthest
+        corner of the 3D view in that plane). The render window's size (the Qt widget's may differ)."""
+        cam = self.plotter.camera
+        pos = np.asarray(cam.GetPosition())
+        d0 = float(np.linalg.norm(pos))
+        half = d0 * math.tan(math.radians(0.5 * cam.GetViewAngle()))
+        w, h = self.plotter.ren_win.GetSize()
+        aspect = w / max(h, 1)
+        if self.cb_ppi.isChecked():                            # PPI: the rings in the screen's plane through the ship
+            up = np.asarray(cam.GetViewUp())
+            fwd = np.asarray(cam.GetDirectionOfProjection())
+            e2 = up - (up @ fwd) * fwd
+            e2 /= np.linalg.norm(e2)
+            e1 = np.cross(fwd, e2)
+            sin_el = 1.0
+        else:                                                  # the rings lie in the ship's XY plane
+            e1, e2 = np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])
+            sin_el = abs(float(pos[2])) / max(d0, 1e-12)
+        cover = RING_COVER * max(half * math.hypot(1.0, aspect), half / max(sin_el, RING_MIN_SIN_EL))
+        return half, e1, e2, cover
+
+    def _log_span_max(self) -> float:
+        """Farthest range zoom: the farthest ring the view shows (its corners) at MAX_VIEW_KM."""
+        half, _, _, cover = self._ring_frame()
+        u = max(cover / max(half, 1e-300), 1.0)
+        return max(LOG_SPAN_MIN, (math.log10(MAX_VIEW_KM) - LOG_E0) * 0.75 / (u - 0.25))
 
     def _update_rings(self) -> None:
         """Range rings of the ship view, spaced RING_STEP_FRAC of the visible half-height apart around the ship and
@@ -892,14 +1143,7 @@ class SimView(QWidget):
             return
         self._in_rings = True
         try:
-            cam = self.plotter.camera
-            pos = np.asarray(cam.GetPosition())
-            d0 = float(np.linalg.norm(pos))
-            half = d0 * math.tan(math.radians(0.5 * cam.GetViewAngle()))
-            w, h = self.plotter.interactor.width(), self.plotter.interactor.height()
-            aspect = w / max(h, 1)
-            sin_el = abs(float(pos[2])) / max(d0, 1e-12)       # the rings lie in the ship's XY plane
-            cover = RING_COVER * max(half * math.hypot(1.0, aspect), half / max(sin_el, RING_MIN_SIN_EL))
+            half, e1, e2, cover = self._ring_frame()
             step = RING_STEP_FRAC * half
             n = min(RING_MAX, int(math.ceil(cover / step)))
             ang = np.linspace(0.0, 2.0 * math.pi, RING_POINTS)
@@ -912,36 +1156,55 @@ class SimView(QWidget):
             else:
                 # equally spaced on screen (user): a constant step in decades, a round one (DECADE_STEPS), the ranges
                 # 10^(k x step) labelled to 3 figures
-                a, b = (math.log10(x) for x in self._r_log)
-                per = (b - a) / (SHIP_R1 - SHIP_R0) if b - a > 1e-9 else 1.0      # decades per unit of radius
+                per = self._span() / (0.75 * self._log_h())                       # decades per unit of radius
                 dd = min(DECADE_STEPS, key=lambda c: abs(math.log(c / max(step * per, 1e-12))))
-                e_of = lambda r: a + (r - SHIP_R0) * per                          # noqa: E731
+                e_of = self._log_e
                 k0, k1 = math.ceil(e_of(0.5 * step) / dd), math.floor(e_of(cover) / dd)
                 values = [10.0 ** (k * dd) for k in range(k0, min(k1, k0 + RING_MAX - 1) + 1)
                           if RING_LOG10_KM[0] <= k * dd <= RING_LOG10_KM[1]]
             for nice in values:
-                if nice in seen or nice > MAX_VIEW_KM:
+                # (the zoom bounds hold MAX_VIEW_KM at the half-height: beyond, the corners keep their rings)
+                if nice in seen or nice < MIN_RING_KM:
                     continue
                 seen.add(nice)
                 rad = self._ring_radius(nice)
                 off = len(pts) * RING_POINTS
-                pts.append(np.stack([rad * np.cos(ang), rad * np.sin(ang), np.zeros_like(ang)], axis=1))
+                pts.append(rad * (np.cos(ang)[:, None] * e1 + np.sin(ang)[:, None] * e2))
                 lines.append(np.r_[RING_POINTS, off + np.arange(RING_POINTS)])
-                lab_p.append([rad, 0.0, 0.0])
+                lab_p.append(rad * (RING_LABEL_C * e1 + RING_LABEL_S * e2))   # between two azimuth spokes
                 lab_t.append(f"{nice:g} km" if self.cb_true.isChecked() else f"{nice:.3g} km")
             if pts:
                 self._poly(f"{DYN}rings", np.vstack(pts), lines=np.hstack(lines), color="#4a5266", line_width=1)
                 self._labels(f"{DYN}rings_lbl", np.array(lab_p), lab_t, MUTED_COLOR, 9)
+            # azimuth spokes in the rings' plane (not in PPI): from the ship's centre out to the corners of the view
+            # every 45 deg, phi from +X toward +Y (the ship frame's convention), labelled inside the view
+            names = (f"{DYN}spokes", f"{DYN}spokes_lbl")
+            if self.cb_ppi.isChecked():
+                for n in names:
+                    e = self._dyn.get(n) or ([None, None, self._lab[n].actor] if n in self._lab else None)
+                    if e is not None:
+                        e[2].SetVisibility(False)
+            else:
+                az = np.radians(np.arange(0.0, 360.0, SPOKE_STEP_DEG))
+                d = np.cos(az)[:, None] * e1 + np.sin(az)[:, None] * e2
+                self._poly(names[0], np.r_[np.zeros((len(az), 3)), cover * d], lines=_pairs(len(az)),
+                           color="#3a4256", line_width=1)
+                self._labels(names[1], SPOKE_LABEL_FRAC * half * d,
+                             [f"{a:g}°" for a in np.arange(0.0, 360.0, SPOKE_STEP_DEG)], MUTED_COLOR, 9)
         finally:
             self._in_rings = False
 
     def _radius(self, rng_km: np.ndarray) -> np.ndarray:
-        """V4: log range scale from SHIP_R0 (nearest object of the run) to SHIP_R1 (farthest)."""
-        a, b = (math.log10(x) for x in self._r_log)
-        if b - a < 1e-9:
-            return np.full(len(rng_km), 0.5 * (SHIP_R0 + SHIP_R1))
-        x = np.clip((np.log10(np.maximum(rng_km, 1e-6)) - a) / (b - a), 0.0, 1.0)
-        return SHIP_R0 + (SHIP_R1 - SHIP_R0) * x
+        """V4, log scale: the radius of the objects' ranges by the range zoom's law; under MIN_RING_KM toward the
+        centre, at least LOG_R_FLOOR of the half-height."""
+        r = self._log_r(np.log10(np.maximum(np.asarray(rng_km, float), 1e-300)))
+        return np.maximum(r, LOG_R_FLOOR * self._log_h())
+
+    def _log_span_init(self) -> float:
+        """The span at start: the farthest object of the run at LOG_FAR_U of the half-height."""
+        far = max(self._r_log[1], 10.0 * MIN_RING_KM)
+        span = 0.75 * (math.log10(far) - LOG_E0) / (LOG_FAR_U - 0.25)
+        return float(np.clip(span, LOG_SPAN_MIN, self._log_span_max()))
 
     # ------------------------------------------------------------------ dynamic layer (updated in place)
     def _reset_dynamic(self) -> None:
@@ -949,6 +1212,7 @@ class SimView(QWidget):
         self._dyn: Dict[str, list] = {}               # name -> [topology key, mesh, actor]
         self._lab: Dict[str, "_Labels"] = {}
         self._vol: Optional[dict] = None
+        self._model: Optional[dict] = None
         self._used: set = set()
 
     def _poly(self, name: str, pts: np.ndarray, lines: Optional[np.ndarray] = None, rgb: Optional[np.ndarray] = None,
@@ -1214,11 +1478,8 @@ class SimView(QWidget):
                                 or abs(off_t - off_ref) > VOL_REBUILD_DEG)
                     turns.append(rot)
                 if not rebuild:
-                    for rot, acts in zip(turns, self._vol["per_sector"]):
-                        u = np.eye(4)
-                        u[:3, :3] = rot
-                        for a in acts:
-                            a.user_matrix = u
+                    self._vol["rot"] = turns
+                    self._place_volumes()
                     return
             m2 = copy.deepcopy(mis)
             m2.setdefault("global", {})["nav"] = [self._navigation.message(self.t)]
@@ -1249,7 +1510,9 @@ class SimView(QWidget):
             vol["frames"].append((raw, np.eye(3) if m_ref is None else m_ref, off_ref))
             vol["per_sector"].append(acts)
             vol["actors"] += acts
+        vol["rot"] = [np.eye(3)] * len(vol["per_sector"])
         self._vol = vol
+        self._place_volumes()
         self._render()
 
     # ------------------------------------------------------------------ L5 information
@@ -1283,22 +1546,33 @@ class SimView(QWidget):
         self.selected = oid or None
         self._show_info()
 
+    def _set_info(self, text: str) -> None:
+        """The information on the selected body: the text panel (classic layout) and, compact layout, the box drawn
+        in a corner of the 3D view (shown only when a body is selected)."""
+        self.info.setPlainText(text)
+        if self.compact:
+            a = self._info_actor
+            if not self.plotter.renderer.GetViewProps().IsItemPresent(a):
+                self.plotter.add_actor(a, reset_camera=False, render=False)
+            a.SetInput(text or " ")
+            a.SetVisibility(bool(text))
+
     def _show_info(self) -> None:
         if self.truth is None or not self.selected:
-            self.info.setPlainText("")
+            self._set_info("")
             return
         if self.selected == OWNSHIP:
             self._show_ship_info()
             return
         if self.selected not in self.g.ids:
-            self.info.setPlainText("")
+            self._set_info("")
             return
         tr, g = self.truth, self.g
         i, j, k = tr.row(self.selected), g.ids.index(self.selected), self._k()
 
         r, v = sgeo.states_at(tr, self.t)
         if not np.isfinite(r[i, 0]):
-            self.info.setPlainText(f"{self.selected} ({g.classes[j]}): does not exist at t = {self.t:.2f} s")
+            self._set_info(f"{self.selected} ({g.classes[j]}): does not exist at t = {self.t:.2f} s")
             return
         los = r[i] - r[0]
         rng = float(np.linalg.norm(los))
@@ -1318,7 +1592,7 @@ class SimView(QWidget):
                  f"masked by the structure: {'yes' if g.masked[k, j] else 'no'} "
                  f"({max(0.0, float(g.block_loss_db[k, j])):.2f} dB per pass)" if np.isfinite(g.block_loss_db[k, j]) else
                  f"occulted: {sgeo.BODIES[g.occulted_by[k, j]] if g.occulted_by[k, j] >= 0 else 'no'}"]
-        self.info.setPlainText("\n".join(lines))
+        self._set_info("\n".join(lines))
 
     def _show_ship_info(self) -> None:
         tr, g = self.truth, self.g
@@ -1334,4 +1608,4 @@ class SimView(QWidget):
                  f"nose (Z) toward {np.array2string(m[:, 2], precision=4)} (ICRF)",
                  f"angular rate {np.array2string(w, precision=3)} deg/s (ship frame), {float(np.linalg.norm(w)):.3f} deg/s",
                  f"at the recorded {g.t_s[k]:.1f} s: solar disk hidden {100.0 * float(g.ship_shadow[k]):.0f} %"]
-        self.info.setPlainText("\n".join(lines))
+        self._set_info("\n".join(lines))

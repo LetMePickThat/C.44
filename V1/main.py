@@ -95,7 +95,7 @@ def main() -> int:
         except Exception as exc:  # noqa: BLE001 -- bad path / file: say so and start on an empty mission
             QMessageBox.critical(None, "Open", f"Could not open {arg}: {exc}")
     win = MainWindow(mission)
-    win.show()
+    win.show_default()                     # tool.display.window_size, or maximised on a smaller screen
     return app.exec_()
 
 

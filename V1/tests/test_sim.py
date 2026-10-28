@@ -664,20 +664,32 @@ def test_sim_view_offscreen(tmp_path):
     rings = v._lab[DYN + "rings_lbl"]
     before = list(rings._last)
     assert before and all(t.endswith(" km") for t in before)
-    v.zoom(4.0)                                          # (the default log view is at the farthest zoom out)
-    assert rings._last != before
     from gui import sim_view as sv_
-    for z in (1.0, 1.7, 0.45, 2.9, 3.3):                # log scale: the rings equally spaced at any zoom
+    # log scale, range zoom: the camera keeps its distance, the scale follows the zoom (values, objects)
+    d_log = v.plotter.camera.GetDistance()
+    k_pos = np.array(v._screen_pts["K"])
+    v.zoom(4.0)
+    app.processEvents()
+    assert v.plotter.camera.GetDistance() == pytest.approx(d_log, rel=1e-9) and rings._last != before
+    assert np.linalg.norm(v._screen_pts["K"]) > np.linalg.norm(k_pos) * 1.05      # K drawn farther (fewer decades)
+    n_many = 0
+    for z in (1.0, 1.7, 0.45, 2.9, 3.3, 0.2):           # the rings equally spaced at any zoom, filling the view
         v.zoom(z)
         pts = v._dyn[DYN + "rings"][1].points
         rad = np.linalg.norm(pts[::sv_.RING_POINTS], axis=1)
+        n_many += len(rad) >= 3
         assert len(rad) >= 3 and np.allclose(np.diff(rad), np.diff(rad)[0], rtol=1e-6)
-    v.zoom(1e-6)                                         # far zoomed out: no overflow of the extended log law
+        assert min(float(t.split()[0]) for t in rings._last) >= sv_.MIN_RING_KM
+    v.zoom(1e-6)                                         # far zoomed out: the view's farthest ring at MAX_VIEW_KM
     assert v._ship_range(1e6) is None
-    assert v.plotter.camera.GetDistance() <= v._max_camera_distance() * (1 + 1e-9)   # zoom out held at its maximum
-    from gui import sim_view as sv_
-    assert all(float(t.split()[0]) <= sv_.MAX_VIEW_KM for t in rings._last)
-    v.zoom(1e6)
+    half, _, _, cover = v._ring_frame()
+    assert v._ship_range(cover) == pytest.approx(sv_.MAX_VIEW_KM, rel=1e-6)
+    assert max(float(t.split()[0]) for t in rings._last) <= sv_.MAX_VIEW_KM * (1 + 1e-9)
+    assert len(v._dyn[DYN + "rings"][1].points) >= 3 * sv_.RING_POINTS
+    v.zoom(1e9)                                          # far zoomed in: the half-height at the smallest span
+    assert v._log_span == pytest.approx(sv_.LOG_SPAN_MIN)
+    assert min(float(t.split()[0]) for t in rings._last) >= sv_.MIN_RING_KM
+    assert v.plotter.camera.GetDistance() == pytest.approx(d_log, rel=1e-9)
     # 1:1 scale: an object at its true range (km) from the ship
     v.cb_true.setChecked(True)
     v.set_time(10.0)
@@ -708,12 +720,48 @@ def test_sim_view_offscreen(tmp_path):
             iren.InvokeEvent("MouseMoveEvent")
         iren.InvokeEvent("LeftButtonReleaseEvent")
     d0, up0 = np.array(cam.GetDirectionOfProjection()), np.array(cam.GetViewUp())
-    drag((0.5 * w + 0.49 * h, 0.4 * h), (0.5 * w + 0.49 * h, 0.6 * h))
+    drag((0.97 * w, 0.4 * h), (0.97 * w, 0.6 * h))      # far right of the centre: mostly a roll
     d1, up1 = np.array(cam.GetDirectionOfProjection()), np.array(cam.GetViewUp())
-    assert np.allclose(d1, d0, atol=1e-6) and math.degrees(math.acos(np.clip(up0 @ up1, -1, 1))) > 5.0
+    tilt = math.degrees(math.acos(np.clip(d0 @ d1, -1, 1)))
+    roll = math.degrees(math.acos(np.clip(up0 @ up1, -1, 1)))
+    assert roll > 5.0 and roll > 3.0 * tilt
+    # azimuth spokes every 45 deg in the rings' plane (not in PPI), from the ship's centre, labelled 0..315 deg
+    v._draw_frame()
+    spk = v._dyn[DYN + "spokes"]
+    assert spk[2].GetVisibility() and len(spk[1].points) == 16
+    ends = spk[1].points[8:]
+    assert np.allclose(ends[:, 2], 0.0) and np.allclose(spk[1].points[:8], 0.0)
+    ang = np.degrees(np.arctan2(ends[:, 1], ends[:, 0])) % 360.0
+    assert np.allclose(ang, np.arange(0.0, 360.0, 45.0), atol=1e-6)
+    assert v._lab[DYN + "spokes_lbl"]._last == [f"{a}°" for a in range(0, 360, 45)]
+    # PPI rings: in the screen's plane through the ship, and still so after the view has turned
+    v.cb_ppi.setChecked(True)
+    v._draw_frame()
+    assert not v._dyn[DYN + "spokes"][2].GetVisibility()
+    for p0, p1 in (((0.5 * w, 0.5 * h), (0.6 * w, 0.55 * h)), ((0.9 * w, 0.3 * h), (0.9 * w, 0.7 * h))):
+        drag(p0, p1)
+        ring = v._dyn[DYN + "rings"][1].points
+        assert np.abs(ring @ np.array(cam.GetDirectionOfProjection())).max() < 1e-6 * np.abs(ring).max()
+    v.cb_ppi.setChecked(False)
+    # the rotations turn about the ship's centre, the centre of the rings; "Recentre" undoes a pan
+    assert np.allclose(cam.GetFocalPoint(), 0.0, atol=1e-9)
+    ring = v._dyn[DYN + "rings"][1].points
+    assert np.allclose(ring[:sv_.RING_POINTS - 1].mean(axis=0), 0.0, atol=1e-6 * np.abs(ring).max())
+    pan = np.array([0.3, -0.2, 0.1])                    # a pan: the camera and its focal point moved together
+    cam.SetFocalPoint(*(np.array(cam.GetFocalPoint()) + pan))
+    cam.SetPosition(*(np.array(cam.GetPosition()) + pan))
+    v.recentre()
+    assert np.allclose(cam.GetFocalPoint(), 0.0, atol=1e-9) and np.allclose(v.plotter._pivot, 0.0)
+    d1, up1 = np.array(cam.GetDirectionOfProjection()), np.array(cam.GetViewUp())
+    # Bell's trackball: no step from the ball to the roll (the mapped point moves little for one pixel anywhere)
+    from gui import scene_view as scv
+    st = scv._ARC[id(v.plotter.iren.style)]
+    pts = np.array([scv._arc_ball(st, x, 0.5 * h) for x in np.arange(0.5 * w, w, 1.0)])
+    assert np.degrees(np.arccos(np.clip(np.einsum("ij,ij->i", pts[1:], pts[:-1]), -1, 1))).max() < 0.5
     drag((0.5 * w - 0.1 * h, 0.5 * h), (0.5 * w + 0.1 * h, 0.5 * h))
     d2, up2 = np.array(cam.GetDirectionOfProjection()), np.array(cam.GetViewUp())
-    assert math.degrees(math.acos(np.clip(d1 @ d2, -1, 1))) > 5.0 and np.allclose(up2, up1, atol=1e-6)
+    roll = math.degrees(math.acos(np.clip(up1 @ up2, -1, 1)))      # (pixel rounding of the events: ~0.03 deg)
+    assert math.degrees(math.acos(np.clip(d1 @ d2, -1, 1))) > 5.0 and roll < 0.5
     v.cb_object.setCurrentText("K")
     assert "range" in v.info.toPlainText() and "RCS S" in v.info.toPlainText()
     v.step(1)
@@ -780,3 +828,64 @@ def test_lunar_interception_scenario_loads():
     imp = next(m for m in g["manoeuvres"] if m["type"] == "impulse")
     assert g["n"] == 20 and g["class"] == "KKV" and g["t_appear_s"] == 300.0
     assert np.linalg.norm(imp["dv_mps"]) == pytest.approx(5000.0, abs=0.01)
+
+
+def test_main_window_fits_the_screen(monkeypatch):
+    """The main window starts at tool.display.window_size (2560 x 1440) on a screen large enough, cut to the available
+    area in a direction that does not fit (5120 x 1440 with its task bar), maximised when neither fits (1920 x 1080);
+    never larger than the screen."""
+    app = _qt()
+    from PyQt5.QtCore import QRect, Qt
+    from core import mission as md
+    from gui import main_window as mw
+
+    class _Screen:
+        def __init__(self, r):
+            self.r = r
+
+        def availableGeometry(self):
+            return self.r
+    win = mw.MainWindow(md.empty_mission())
+    for rect, fits, size, maxi in ((QRect(0, 0, 3840, 2100), True, mw.WINDOW_SIZE, False),
+                                   (QRect(0, 0, 5120, 1369), False, (2560, 1369 - mw.FRAME_MARGIN[1]), False),
+                                   (QRect(0, 0, 1920, 1040), False, None, True)):
+        win.showNormal()
+        monkeypatch.setattr(win, "screen", lambda r=rect: _Screen(r))
+        assert win.show_default() == fits
+        app.processEvents()
+        assert bool(win.windowState() & Qt.WindowMaximized) == maxi
+        if size is not None:
+            assert (win.width(), win.height()) == size
+        assert win.width() <= rect.width() and win.height() <= rect.height()
+    win.close()
+
+
+def test_scenario_tab_compact_layout():
+    """R1-R6: the compact Scenario tab: one left column with the tabs Scenario (the tree over the form) and Events,
+    the file buttons and the validation in one line in the 3D view's first bar, the information as a box in the 3D
+    view; the classic layout is kept (tool.display.scenario_layout) for a rollback."""
+    app = _qt()
+    from gui.scenario_tab import ScenarioTab
+    for mode in ("compact", "classic"):
+        tab = ScenarioTab(layout=mode)
+        assert tab.layout_mode == mode
+        if mode == "classic":
+            assert tab._split.count() == 3 and not tab.preview.compact
+            continue
+        assert [tab.left_tabs.tabText(i) for i in range(tab.left_tabs.count())] == ["Scenario", "Events"]
+        assert tab.left_tabs.widget(1) is tab.preview.events and tab._split.count() == 2
+        assert "valid" in tab.status.text()
+        tab.sc["objects"][0]["class"] = "NOPE"
+        tab._validate()
+        assert "problem" in tab.status.text() and tab.messages.count() >= 1
+        tab.sc["objects"][0]["class"] = "KKV"
+        tab._validate()
+        sc = scn.normalise(tab.sc)
+        tr = prop.propagate(sc)
+        tab.preview.show_run(sc, tr, geo.geometry(sc, tr), "test")
+        tab.preview.cb_object.setCurrentText("OWNSHIP")
+        box = tab.preview._info_actor
+        assert box.GetVisibility() and "altitude" in box.GetInput()
+        tab.preview.cb_object.setCurrentText("")
+        assert not box.GetVisibility()
+    app.processEvents()
