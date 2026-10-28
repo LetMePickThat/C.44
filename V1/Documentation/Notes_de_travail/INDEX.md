@@ -1,0 +1,12 @@
+- [Radar roadmap](radar-roadmap.md) — phases 0-5, per-step status / decisions / renvois; STATUS says the next step (detail in V1/Documentation)
+- [Session workflow](session-workflow.md) — French replies, git identity / push / "c, p", per-step procedure, Windows shell pitfalls
+- [Ask for every variable](ask-for-every-variable.md) — each step: ask the user for every variable's value, never pick silently
+- [Global parameter file](global-parameter-file.md) — architecture must allow fast edits of system variables via one parameter file
+- [Test values are not reference](test-values-not-reference.md) — test missions / frozen values only detect regressions, never real radar performance
+- [Explain before coding](explain-before-coding.md) — restate purpose, inputs, outputs of a step and get the OK before coding
+- [Group by topic](group-by-topic.md) — treat everything about one subject in one place; settle dependent values after their inputs
+- [RADARv5 obsolete](radarv5-obsolete.md) — never use the old RADARv5 folder as a source; ask the user
+- [Global scenario simulator](global-scenario-simulator.md) — future scenario sim feeds the radar sim object positions in the ship frame; radar never computes where bodies are
+- [Mission params later](mission-params-later.md) — RR targets and standard mission values are set in the operator's mission prep (Pmiss), not while building the tool
+- [Ask before tests](ask-before-tests.md) — ask before ANY test; full battery at most once a day or every 2 days on the user's call; model work first
+- [Next-session reminders](next-session-reminders.md) — SAY AT SESSION START: finish the symbology (icons done, wiring + open questions left); rework the 3D option bar; load-ceiling late-dwell criterion
