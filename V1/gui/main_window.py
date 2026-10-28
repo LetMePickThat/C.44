@@ -68,7 +68,7 @@ class MainWindow(QMainWindow):
         self.prep = PrepTab(mission, self.grid)
         self.prep.run_requested.connect(self._run)
         self.tabs.addTab(self.prep, "Mission preparation")
-        self.scenario = ScenarioTab()                       # phase 6: scenario editor (passes S5-S7)
+        self.scenario = ScenarioTab(self.grid)              # phase 6: scenario editor (passes S5-S7)
         self.tabs.addTab(self.scenario, "Scenario")
         for index in (0, 1):                                # the preparation and scenario tabs cannot be closed
             for side in (QTabBar.LeftSide, QTabBar.RightSide):

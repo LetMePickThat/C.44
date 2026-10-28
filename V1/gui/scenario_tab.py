@@ -4,7 +4,8 @@
 SCENARIO_TAB -- the scenario editor of the global simulator (roadmap phase 6, pass S5; block F validated by the user on
 28 October 2026): a tree of the scenario (time and body, ship, objects, groups), a form per element generated from a
 field description, validation at every change (sim.scenario.validate, messages listed under the forms), JSON load and
-save. The 3D preview (S6) and the playback (S7) come next; the place they take is reserved on the right.
+save, attitude waypoints edited by a list (W1-W3). On the right the 3D views and the playback (gui/sim_view.py, passes
+S6 and S7).
 """
 from __future__ import annotations
 
@@ -15,7 +16,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QColor
-from PyQt5.QtWidgets import (QApplication, QComboBox, QInputDialog, QFileDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
+from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QInputDialog, QFileDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
                              QListWidgetItem, QMessageBox, QPlainTextEdit, QPushButton, QSpinBox, QSplitter,
                              QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
@@ -46,8 +47,12 @@ ORBIT_FIELDS: Dict[str, List[Field]] = {
                  _f("v_close_mps", "closing speed (m/s)", min=-_BIG),
                  _f("v_transverse_mps", "transverse velocity (m/s)", "vec2")],
 }
-# attitude by waypoints (pass S3a, sim/attitude.py): edited as JSON until a waypoint editor exists
-ATTITUDE_FIELD = _f("attitude", "attitude waypoints [{t_s, rate_dps, attitude}, ...] (JSON)", "json")
+# attitude by waypoints (pass S3a, sim/attitude.py), edited by WaypointList (W1-W3)
+_ROLL = _f("roll_deg", "roll (deg)", min=-360.0, max=360.0)
+ATT_DIRECTIONS = ("prograde", "retrograde", "normal+", "normal-", "radial_out", "radial_in")
+ATT_DEFAULTS = {"fixed": {"type": "fixed", "frame": "orbital", "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+                "target": {"type": "target", "id": "ship", "roll_deg": 0.0}}
+ATT_DEFAULTS.update({t: {"type": t, "roll_deg": 0.0} for t in ATT_DIRECTIONS})
 MANOEUVRE_FIELDS: Dict[str, List[Field]] = {
     "impulse": [_f("t_s", "time (s)", min=0.0), _f("dv_mps", "delta-v (m/s)", "vec3"),
                 _f("frame", "frame", "choice", choices=("rtn", "inertial"))],
@@ -293,12 +298,117 @@ class ManoeuvreList(QWidget):
         self.form_area.addWidget(form)
 
 
+class WaypointList(QWidget):
+    """Attitude waypoints of the ship or of a SHIP / KKV object (W1): a list kept sorted by time, add / remove, the
+    form of the point selected (time, slew rate except on the first point, attitude by type)."""
+
+    def __init__(self, items: list, on_change: Callable[[], None], targets: Callable[[], List[str]],
+                 duration: Callable[[], float], parent=None):
+        super().__init__(parent)
+        self.items, self.on_change, self.targets, self.duration = items, on_change, targets, duration
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        self.list = QListWidget()
+        self.list.setMaximumHeight(120)
+        lay.addWidget(self.list)
+        row = QHBoxLayout()
+        for text, slot in (("+ point", self._add), ("Remove", self._remove)):
+            b = QPushButton(text)
+            b.clicked.connect(slot)
+            row.addWidget(b)
+        lay.addLayout(row)
+        self.form_area = QVBoxLayout()
+        lay.addLayout(self.form_area)
+        self.list.currentRowChanged.connect(self._show)
+        self._refresh()
+
+    @staticmethod
+    def label(w: dict, first: bool) -> str:
+        a = w.get("attitude", {})
+        t = a.get("type", "?")
+        what = (f"fixed {a.get('frame', 'orbital')} ({a.get('yaw_deg', 0):g}, {a.get('pitch_deg', 0):g}, "
+                f"{a.get('roll_deg', 0):g})" if t == "fixed" else
+                f"toward {a.get('id')}" if t == "target" else t)
+        rate = "" if first else f", {w.get('rate_dps', 0):g} deg/s"
+        return f"t {w.get('t_s', 0):g} s: {what}{rate}"
+
+    def _refresh(self, select: Optional[int] = None) -> None:
+        self.list.blockSignals(True)
+        self.list.clear()
+        for i, w in enumerate(self.items):
+            self.list.addItem(self.label(w, i == 0))
+        self.list.blockSignals(False)
+        if self.items:
+            self.list.setCurrentRow(len(self.items) - 1 if select is None else select)
+        else:
+            self._show(-1)
+
+    def _add(self) -> None:
+        t = min(float(self.items[-1].get("t_s", 0.0)) + 10.0, self.duration()) if self.items else 0.0
+        w = {"t_s": t, "attitude": copy.deepcopy(ATT_DEFAULTS["prograde"])}
+        if self.items:
+            w["rate_dps"] = min(5.0, att.RATE_MAX_DPS)
+        self.items.append(w)
+        self._refresh()
+        self.on_change()
+
+    def _remove(self) -> None:
+        i = self.list.currentRow()
+        if 0 <= i < len(self.items):
+            del self.items[i]
+            if self.items:
+                self.items[0].pop("rate_dps", None)
+                self.items[0]["t_s"] = 0.0
+            self._refresh()
+            self.on_change()
+
+    def _sort(self, w: dict) -> None:
+        """Keep the points sorted by time; the first carries no slew rate, the others need one."""
+        order = sorted(self.items, key=lambda x: float(x.get("t_s", 0.0)))
+        if any(a is not b for a, b in zip(order, self.items)):
+            self.items[:] = order
+            for i, x in enumerate(self.items):
+                if i == 0:
+                    x.pop("rate_dps", None)
+                else:
+                    x.setdefault("rate_dps", min(5.0, att.RATE_MAX_DPS))
+            self._refresh(select=next(i for i, x in enumerate(self.items) if x is w))
+
+    def _show(self, i: int) -> None:
+        _clear(self.form_area)
+        if not (0 <= i < len(self.items)):
+            return
+        w = self.items[i]
+        fields = [_f("t_s", "time (s, start of the slew)", min=0.0)]
+        if i > 0:
+            fields.append(_f("rate_dps", "slew rate (deg/s)", min=0.001, max=att.RATE_MAX_DPS))
+        form = FormWidget(fields, w)
+        att_fields: Dict[str, List[Field]] = {
+            "fixed": [_f("frame", "frame", "choice", choices=att.FIXED_FRAMES),
+                      _f("yaw_deg", "yaw (deg)", min=-360.0, max=360.0),
+                      _f("pitch_deg", "pitch (deg)", min=-90.0, max=90.0), _ROLL],
+            "target": [_f("id", "target", "choice", choices=self.targets), _ROLL]}
+        att_fields.update({t: [_ROLL] for t in ATT_DIRECTIONS})
+
+        def changed():
+            k = next(j for j, x in enumerate(self.items) if x is w)
+            item = self.list.item(k)
+            if item is not None:
+                item.setText(self.label(w, k == 0))
+            self.on_change()
+            self._sort(w)
+        form.changed.connect(changed)
+        self.form_area.addWidget(form)
+        self.form_area.addWidget(_typed_form("attitude", att.TYPES, att_fields, ATT_DEFAULTS, w, "attitude", "type",
+                                             changed))
+
+
 # ----------------------------------------------------------------------------- the tab
 class ScenarioTab(QWidget):
     """Scenario editor: tree, forms, validation messages, JSON files."""
     scenario_changed = pyqtSignal(dict)           # the scenario on screen, after each valid change (for S6 / S7)
 
-    def __init__(self, parent=None):
+    def __init__(self, grid=None, view: bool = True, parent=None):
         super().__init__(parent)
         self.sc: dict = new_scenario()
         self.path: Optional[str] = None
@@ -341,9 +451,13 @@ class ScenarioTab(QWidget):
         ml.addWidget(QLabel("Validation"))
         ml.addWidget(self.messages)
 
-        self.preview = QLabel("3D preview and playback: passes S6 and S7")
-        self.preview.setAlignment(Qt.AlignCenter)
-        self.preview.setStyleSheet("color: gray")
+        if view:                                   # passes S6 / S7: 3D views and playback
+            from gui.sim_view import SimView
+            self.preview = SimView(grid, get_path=lambda: None if self.modified else self.path)
+            self.scenario_changed.connect(self.preview.set_scenario)
+        else:
+            self.preview = QLabel("3D preview and playback (not built)")
+            self.preview.setAlignment(Qt.AlignCenter)
 
         split = QSplitter(Qt.Horizontal)
         split.addWidget(left)
@@ -578,9 +692,42 @@ class ScenarioTab(QWidget):
         ship = self.sc.setdefault("ship", {})
         lay.addWidget(_typed_form("orbit", ("elements", "state"), ORBIT_FIELDS, ORBIT_DEFAULTS, ship, "orbit", "type",
                                   self._changed))
-        fa = FormWidget([ATTITUDE_FIELD], ship)
-        fa.changed.connect(self._changed)
-        lay.addWidget(fa)
+        lay.addWidget(QLabel("Attitude (waypoints)"))
+        lay.addWidget(WaypointList(ship.setdefault("attitude", copy.deepcopy(att.DEFAULT_SHIP)), self._changed,
+                                   lambda: list(scn.object_ids(self.sc)), self._duration))
+        return box
+
+    def _duration(self) -> float:
+        d = self.sc.get("meta", {}).get("duration_s")
+        return float(d) if isinstance(d, (int, float)) and d > 0 else 1e9
+
+    def _waypoints_box(self, o: dict) -> QWidget:
+        """The waypoints of a SHIP / KKV object: none = the class's default attitude (sim/geometry.py G5)."""
+        box = QWidget()
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(0, 0, 0, 0)
+        cb = QCheckBox("flies attitude waypoints (else the class's default attitude)")
+        cb.setChecked("attitude" in o)
+        lay.addWidget(cb)
+        area = QVBoxLayout()
+        lay.addLayout(area)
+
+        def build():
+            _clear(area)
+            if "attitude" in o:
+                area.addWidget(WaypointList(o["attitude"], self._changed,
+                                            lambda: ["ship"] + [x for x in scn.object_ids(self.sc) if x != o.get("id")],
+                                            self._duration))
+
+        def toggle(on: bool):
+            if on and "attitude" not in o:
+                o["attitude"] = [{"t_s": 0.0, "attitude": copy.deepcopy(ATT_DEFAULTS["target"])}]
+            elif not on:
+                o.pop("attitude", None)
+            build()
+            self._changed()
+        cb.toggled.connect(toggle)
+        build()
         return box
 
     def _object_form(self, kind: str, i: int) -> QWidget:
@@ -598,11 +745,19 @@ class ScenarioTab(QWidget):
                        _f("pos_sigma_m", "position spread (m, 1 sigma)", min=0.0),
                        _f("vel_sigma_mps", "velocity spread (m/s, 1 sigma)", min=0.0)]
         fields.append(_f("overrides", "class overrides (JSON)", "json"))
-        if kind == "objects" and o.get("class") in att.FLYING_CLASSES:
-            fields.append(ATTITUDE_FIELD)
         form = FormWidget(fields, o)
-        form.changed.connect(lambda: self._changed(relabel=(kind, i)))
+        cls0 = o.get("class")
+
+        def changed():
+            if o.get("class") != cls0 and o.get("class") not in att.FLYING_CLASSES:
+                o.pop("attitude", None)
+            self._changed(relabel=(kind, i))
+            if o.get("class") != cls0:
+                self._show(self.tree.currentItem())      # the waypoints box follows the class
+        form.changed.connect(changed)
         lay.addWidget(form)
+        if kind == "objects" and o.get("class") in att.FLYING_CLASSES:
+            lay.addWidget(self._waypoints_box(o))
         if kind == "objects":
             lay.addWidget(_typed_form("initial state", ("relative", "elements", "state"), ORBIT_FIELDS, ORBIT_DEFAULTS,
                                       o, "state", "type", self._changed))

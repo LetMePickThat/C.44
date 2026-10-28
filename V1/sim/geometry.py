@@ -73,6 +73,7 @@ class Geometry:
     u: np.ndarray
     v: np.ndarray
     aspect_deg: np.ndarray                    # 0 = nose on the ship
+    nose_ship: np.ndarray                     # (n_t, n_o, 3) unit nose (body Z) of each object, ship frame
     rcs_s_dbsm: np.ndarray
     rcs_ku_dbsm: np.ndarray
     occulted_by: np.ndarray                   # int8 index into BODIES, -1 = clear
@@ -187,6 +188,7 @@ def geometry(sc: dict, truth: Truth, times: Optional[np.ndarray] = None) -> Geom
                                               "rcs_s_dbsm", "rcs_ku_dbsm", "block_f", "block_loss_db")}
     exists = np.zeros(shp, bool)
     dir_ship = np.full(shp + (3,), np.nan)
+    nose_sh = np.full(shp + (3,), np.nan)
     face = -np.ones(shp, np.int8)
     occ = -np.ones(shp, np.int8)
     masked = np.zeros(shp, bool)
@@ -260,6 +262,7 @@ def geometry(sc: dict, truth: Truth, times: Optional[np.ndarray] = None) -> Geom
             if not np.linalg.norm(nose[j]) > 1e-12:              # no velocity: nose on the ship
                 nose[j] = -lu[j]
         asp = _angle_deg(_unit(nose), -lu)
+        nose_sh[it] = _unit(nose) @ m
         out["aspect_deg"][it] = asp
         for j in np.flatnonzero(ex):
             out["rcs_s_dbsm"][it, j] = np.interp(asp[j], grid, tabs[j][0]) + offs[j]
@@ -285,6 +288,6 @@ def geometry(sc: dict, truth: Truth, times: Optional[np.ndarray] = None) -> Geom
 
     return Geometry(t_s=t_all, ids=[truth.ids[i] for i in rows], classes=[truth.classes[i] for i in rows],
                     f_s_ghz=F_S_GHZ, f_ku_ghz=F_KU_GHZ, rcs_offset_db=offs, exists=exists,
-                    dir_ship=dir_ship, face=face, occulted_by=occ, masked=masked, body_angle_deg=b_ang,
+                    dir_ship=dir_ship, nose_ship=nose_sh, face=face, occulted_by=occ, masked=masked, body_angle_deg=b_ang,
                     ship_m=ship_m, body_dir_ship=b_dir, body_range_km=b_rng, body_radius_deg=b_rad, body_face=b_face,
                     body_theta_deg=b_th, ship_shadow=shadow, nose_rule=rules, **out)

@@ -97,7 +97,7 @@ def test_scenario_editor_forms(tmp_path):
     from PyQt5.QtWidgets import QApplication, QComboBox
     app = QApplication.instance() or QApplication([])
     from gui.scenario_tab import FormWidget, ManoeuvreList, ScenarioTab
-    tab = ScenarioTab()
+    tab = ScenarioTab(view=False)
     assert tab.messages.item(0).text() == "Scenario valid"
     tab.add_object()
     tab.add_group()
@@ -112,7 +112,7 @@ def test_scenario_editor_forms(tmp_path):
     tab.tree.setCurrentItem(tab.n_ship)
     tab.form_holder.findChildren(QComboBox)[0].setCurrentText("state")
     assert tab.sc["ship"]["orbit"]["type"] == "state"
-    assert len(tab.form_holder.findChildren(FormWidget)) == 2
+    assert len(tab.form_holder.findChildren(FormWidget)) == 3      # orbit, waypoint time, waypoint attitude
     tab.tree.setCurrentItem(tab.n_obj.child(0))
     tab.delete()
     assert [o["id"] for o in tab.sc["objects"]] == ["OBJ-1"]
@@ -570,3 +570,90 @@ def test_journal_roundtrip_and_summary(tmp_path):
     assert ok["range_min_km"] == pytest.approx(float(np.nanmin(g.range_km[:, k])), abs=1e-3)   # summary in m
     w = engine._weights(g.t_s)
     assert sum(ok["time_per_face_s"].values()) + ok["time_no_face_s"] == pytest.approx(float(w[g.exists[:, k]].sum()))
+
+
+# ----------------------------------------------------------------------------- waypoint editor (W), 3D views and playback (S6, S7)
+def _qt():
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PyQt5.QtWidgets import QApplication
+    return QApplication.instance() or QApplication([])
+
+
+def test_waypoint_editor():
+    """W1-W3: the ship's waypoints are a list kept sorted by time (the first without a slew rate); an object of class
+    KKV flies waypoints on demand (toward the ship by default) and goes back to its class attitude without them."""
+    app = _qt()
+    from PyQt5.QtWidgets import QCheckBox
+    from gui.scenario_tab import FormWidget, ScenarioTab, WaypointList
+    tab = ScenarioTab(view=False)
+    tab.tree.setCurrentItem(tab.n_ship)
+    wl = tab.form_holder.findChild(WaypointList)
+    wl._add()
+    wl._add()
+    assert [w["t_s"] for w in tab.sc["ship"]["attitude"]] == [0.0, 10.0, 20.0]
+    form = wl.form_area.itemAt(0).widget()
+    assert isinstance(form, FormWidget)
+    form.widgets["t_s"][1].setValue(5.0)                 # the last point moved before the second
+    ts = [w["t_s"] for w in tab.sc["ship"]["attitude"]]
+    assert ts == [0.0, 5.0, 10.0] and "rate_dps" not in tab.sc["ship"]["attitude"][0]
+    assert all("rate_dps" in w for w in tab.sc["ship"]["attitude"][1:])
+    assert scn.validate(tab.sc) == []
+    tab.add_object()                                    # KKV-1
+    tab.tree.setCurrentItem(tab.n_obj.child(0))
+    cb = [c for c in tab.form_holder.findChildren(QCheckBox) if "waypoints" in c.text()][0]
+    cb.setChecked(True)
+    o = tab.sc["objects"][0]
+    assert o["attitude"][0]["attitude"] == {"type": "target", "id": "ship", "roll_deg": 0.0}
+    assert scn.validate(tab.sc) == []
+    cb.setChecked(False)
+    assert "attitude" not in o
+    app.processEvents()
+
+
+def test_sim_view_offscreen(tmp_path):
+    """S6-S7: the view shows a propagated run in both views (trajectories, objects, lines of sight, the linked
+    mission's volumes), lists the events, plays and steps, informs on an object, computes in the background and
+    replays a journal."""
+    app = _qt()
+    from gui.sim_view import DYN, VOL, SimView
+    objs = [{"id": "K", "class": "KKV", "t_appear_s": 2.0, "manoeuvres": [{"type": "pn", "start_range_km": 30.0}],
+             "state": {"type": "relative", "range_km": 60.0, "phi_deg": 45.0, "eps_deg": 5.0, "v_close_mps": 4000.0}},
+            {"id": "D", "class": "DEBRIS", "state": {"type": "relative", "range_km": 300.0, "phi_deg": 200.0,
+                                                     "eps_deg": -10.0, "v_close_mps": 0.0}}]
+    sc = _orbit_sc(20.0, objs, step=0.1)
+    sc["mission"] = MISSION
+    tr = prop.propagate(sc)
+    g = geo.geometry(sc, tr)
+    v = SimView()
+    v.show_run(sc, tr, g, "test")
+    names = list(v.plotter.actors)
+    assert any(n.startswith("traj_") for n in names) and any(n.startswith(DYN + "pt_") for n in names)
+    texts = [v.events.item(i).text() for i in range(v.events.count())]
+    assert any("K appears" in x for x in texts) and any("terminal guidance" in x for x in texts)
+    v.cb_view.setCurrentIndex(1)                         # ship view
+    v.set_time(10.0)
+    names = list(v.plotter.actors)
+    assert any(n.startswith(DYN + "los_") for n in names) and any(n.startswith(VOL) for n in names)
+    v.cb_vectors.setChecked(True)
+    assert DYN + "nose" in v.plotter.actors
+    v.cb_object.setCurrentText("K")
+    assert "range" in v.info.toPlainText() and "RCS S" in v.info.toPlainText()
+    v.step(1)
+    assert v.t == pytest.approx(11.0)
+    v.toggle_play()
+    v._wall -= 0.1
+    v._tick()
+    v.toggle_play()
+    assert v.t > 11.0 and not v.timer.isActive()
+    v.cb_view.setCurrentIndex(0)
+    v.pending = scn.normalise(sc)
+    v.propagate()
+    v.worker.wait()
+    app.processEvents()
+    assert v.status.text().startswith("propagation")
+    npz = str(tmp_path / "j.npz")
+    engine.save_journal(npz, sc, tr, g)
+    sc2, tr2, g2, _n, _m = engine.load_journal(npz)
+    v.show_run(sc2, tr2, g2, "journal")
+    assert v.g.ids == g.ids
+    app.processEvents()
