@@ -21,6 +21,7 @@ from PyQt5.QtWidgets import (QComboBox, QFileDialog, QFormLayout, QHBoxLayout, Q
 
 from core import radar_model as rm
 from gui.widgets import DecimalSpinBox
+from sim import attitude as att
 from sim import scenario as scn
 
 # field kinds: "text", "float", "int", "choice", "vecN" (N numbers), "json" (a dict or list typed as JSON)
@@ -45,12 +46,8 @@ ORBIT_FIELDS: Dict[str, List[Field]] = {
                  _f("v_close_mps", "closing speed (m/s)", min=-_BIG),
                  _f("v_transverse_mps", "transverse velocity (m/s)", "vec2")],
 }
-ATTITUDE_FIELDS: Dict[str, List[Field]] = {
-    "inertial": [_f("q", "q ship -> ICRF (w, x, y, z)", "vec4", dec=6)],
-    "lvlh": [_f("q", "q ship -> local orbital (w, x, y, z)", "vec4", dec=6)],
-    "waypoints": [_f("points", "points [{t_s, q}, ...]", "json")],
-    "point": [_f("axis", "ship axis that points", "vec3", dec=6), _f("target", "object id or {ra_deg, dec_deg}", "json")],
-}
+# attitude by waypoints (pass S3a, sim/attitude.py): edited as JSON until a waypoint editor exists
+ATTITUDE_FIELD = _f("attitude", "attitude waypoints [{t_s, rate_dps, attitude}, ...] (JSON)", "json")
 MANOEUVRE_FIELDS: Dict[str, List[Field]] = {
     "impulse": [_f("t_s", "time (s)", min=0.0), _f("dv_mps", "delta-v (m/s)", "vec3"),
                 _f("frame", "frame", "choice", choices=("rtn", "inertial"))],
@@ -70,10 +67,6 @@ ORBIT_DEFAULTS = {"elements": {"type": "elements", "a_km": 7000.0, "e": 0.0, "i_
                   "state": {"type": "state", "r_km": [7000.0, 0.0, 0.0], "v_kms": [0.0, 7.546, 0.0]},
                   "relative": {"type": "relative", "range_km": 1000.0, "phi_deg": 0.0, "eps_deg": 0.0, "frame": "ship",
                                "v_close_mps": 5000.0, "v_transverse_mps": [0.0, 0.0]}}
-ATTITUDE_DEFAULTS = {"inertial": {"mode": "inertial", "q": [1.0, 0.0, 0.0, 0.0]},
-                     "lvlh": {"mode": "lvlh", "q": [1.0, 0.0, 0.0, 0.0]},
-                     "waypoints": {"mode": "waypoints", "points": [{"t_s": 0.0, "q": [1.0, 0.0, 0.0, 0.0]}]},
-                     "point": {"mode": "point", "axis": [0.0, 0.0, 1.0], "target": {"ra_deg": 0.0, "dec_deg": 0.0}}}
 
 
 def new_scenario() -> dict:
@@ -81,7 +74,7 @@ def new_scenario() -> dict:
     return {"meta": {"name": "new scenario", "epoch_utc": "2050-01-01T00:00:00Z", "duration_s": 600.0, "seed": 1},
             "central_body": "earth",
             "ship": {"orbit": copy.deepcopy(ORBIT_DEFAULTS["elements"]),
-                     "attitude": copy.deepcopy(ATTITUDE_DEFAULTS["inertial"])},
+                     "attitude": copy.deepcopy(att.DEFAULT_SHIP)},
             "objects": [{"id": "KKV-1", "class": "KKV", "t_appear_s": 0.0,
                          "state": copy.deepcopy(ORBIT_DEFAULTS["relative"]), "manoeuvres": []}],
             "groups": []}
@@ -543,8 +536,9 @@ class ScenarioTab(QWidget):
         ship = self.sc.setdefault("ship", {})
         lay.addWidget(_typed_form("orbit", ("elements", "state"), ORBIT_FIELDS, ORBIT_DEFAULTS, ship, "orbit", "type",
                                   self._changed))
-        lay.addWidget(_typed_form("attitude", tuple(ATTITUDE_FIELDS), ATTITUDE_FIELDS, ATTITUDE_DEFAULTS, ship,
-                                  "attitude", "mode", self._changed))
+        fa = FormWidget([ATTITUDE_FIELD], ship)
+        fa.changed.connect(self._changed)
+        lay.addWidget(fa)
         return box
 
     def _object_form(self, kind: str, i: int) -> QWidget:
@@ -562,6 +556,8 @@ class ScenarioTab(QWidget):
                        _f("pos_sigma_m", "position spread (m, 1 sigma)", min=0.0),
                        _f("vel_sigma_mps", "velocity spread (m/s, 1 sigma)", min=0.0)]
         fields.append(_f("overrides", "class overrides (JSON)", "json"))
+        if kind == "objects" and o.get("class") in att.FLYING_CLASSES:
+            fields.append(ATTITUDE_FIELD)
         form = FormWidget(fields, o)
         form.changed.connect(lambda: self._changed(relabel=(kind, i)))
         lay.addWidget(form)

@@ -28,7 +28,8 @@ def test_valid_scenario_and_defaults():
     assert scn.validate(sc) == []
     n = scn.normalise(sc)
     assert n["meta"]["step_s"] == P.get("sim.step_s") and n["meta"]["seed"] == 1
-    assert n["central_body"] == "earth" and n["ship"]["attitude"]["mode"] == "inertial"
+    assert n["central_body"] == "earth" and n["ship"]["attitude"] == [{"t_s": 0.0, "attitude": {"type": "prograde",
+                                                                                                 "roll_deg": 0.0}}]
     assert n["objects"][0]["manoeuvres"][0]["n"] == P.get("sim.pn_n")
     assert n["objects"][0]["state"]["frame"] == "ship" and n["objects"][0]["state"]["v_transverse_mps"] == [0.0, 0.0]
     assert n["groups"][0]["t_appear_s"] == 0.0
@@ -47,12 +48,22 @@ def test_valid_scenario_and_defaults():
     (lambda s: s["objects"][0]["manoeuvres"].append({"type": "impulse", "t_s": 1e6, "dv_mps": [0, 0, 1]}), "t_s must lie"),
     (lambda s: s["groups"][0].update(n=0), "n must be an integer"),
     (lambda s: s["groups"][0].update(around="nobody"), "around must name"),
-    (lambda s: s["ship"].update(attitude={"mode": "point", "axis": [0, 0, 1], "target": "ghost"}), "not found"),
+    (lambda s: s["ship"].update(attitude=[{"t_s": 0.0, "attitude": {"type": "target", "id": "ghost"}}]),
+     "not an object"),
     (lambda s: s["ship"].update(orbit={"type": "elements", "a_km": 7000.0, "e": 1.2, "i_deg": 0, "raan_deg": 0,
                                        "argp_deg": 0, "nu_deg": 0}), "closed orbits"),
-    (lambda s: s["ship"].update(attitude={"mode": "waypoints", "points": [{"t_s": 5.0, "q": [1, 0, 0, 0]},
-                                                                          {"t_s": 1.0, "q": [1, 0, 0, 0]}]}),
-     "strictly increasing"),
+    (lambda s: s["ship"].update(attitude=[{"t_s": 0.0, "attitude": {"type": "prograde"}},
+                                          {"t_s": 5.0, "rate_dps": 2.0, "attitude": {"type": "radial_in"}},
+                                          {"t_s": 1.0, "rate_dps": 2.0, "attitude": {"type": "normal+"}}]),
+     "increase strictly"),
+    (lambda s: s["ship"].update(attitude=[{"t_s": 0.0, "attitude": {"type": "prograde"}},
+                                          {"t_s": 5.0, "rate_dps": 90.0, "attitude": {"type": "radial_in"}}]),
+     "rate_dps must lie"),
+    (lambda s: s["ship"].update(attitude=[{"t_s": 3.0, "attitude": {"type": "prograde"}}]), "at t_s = 0"),
+    (lambda s: s["objects"].append(
+        {"id": "D1", "class": "DEBRIS", "attitude": [{"t_s": 0.0, "attitude": {"type": "prograde"}}],
+         "state": {"type": "relative", "range_km": 10.0, "phi_deg": 0.0, "eps_deg": 0.0, "v_close_mps": 0.0}}),
+     "fly waypoints"),
 ])
 def test_invalid_scenarios_are_explained(edit, words):
     """S1: each problem gives a clear message naming the element."""
@@ -237,3 +248,98 @@ def test_pn_intercepts_the_ship():
     free = prop.propagate(sc(False))
     d = np.linalg.norm(free.r_km[:, k] - free.r_km[:, 0], axis=1)
     assert np.nanmin(d) > 5.0
+
+
+# ----------------------------------------------------------------------------- attitudes by waypoints (pass S3a)
+from sim import attitude as att  # noqa: E402
+
+
+def _att_sc(duration: float, wps: list, objects=None, step: float = 0.1) -> dict:
+    sc = _orbit_sc(duration, objects, step=step)
+    sc["ship"]["attitude"] = wps
+    assert scn.validate(sc) == []
+    return scn.normalise(sc)
+
+
+def _nose_off_deg(m: np.ndarray, los: np.ndarray) -> float:
+    """Angle (deg) between the nose (Z) of an attitude and a direction."""
+    return math.degrees(math.acos(float(np.clip(m[:, 2] @ los / np.linalg.norm(los), -1.0, 1.0))))
+
+
+def _fixed(yaw: float = 0.0, frame: str = "inertial") -> dict:
+    return {"type": "fixed", "frame": frame, "yaw_deg": yaw, "pitch_deg": 0.0, "roll_deg": 0.0}
+
+
+def test_attitude_conventions():
+    """Axes of the user: Z roll axis, XZ the horizontal; yaw about Y (nose toward +X), pitch about X (nose up toward
+    +Y), roll about Z (+X wing down); the orbital reference X = -R, Y = N, Z = T; prograde with roll 0 is the orbital
+    reference on a circular orbit, X in the orbital plane."""
+    z, x = np.array([0.0, 0.0, 1.0]), np.array([1.0, 0.0, 0.0])
+    assert np.allclose(att.euler(90.0, 0.0, 0.0) @ z, [1.0, 0.0, 0.0])
+    assert np.allclose(att.euler(0.0, 90.0, 0.0) @ z, [0.0, 1.0, 0.0])
+    assert np.allclose(att.euler(0.0, 0.0, 90.0) @ x, [0.0, -1.0, 0.0])
+    r, v = prop.elements_to_state({"a_km": 7000.0, "e": 0.0, "i_deg": 51.6, "raan_deg": 30.0, "argp_deg": 10.0,
+                                   "nu_deg": 40.0}, MU)
+    ref = att.orbital_reference(r, v)
+    rr, t, n = att.orbital_axes(r, v)
+    assert np.allclose(ref[:, 0], -rr) and np.allclose(ref[:, 1], n) and np.allclose(ref[:, 2], t)
+    assert np.allclose(att.target_attitude({"type": "prograde", "roll_deg": 0.0}, r, v, None), ref, atol=1e-9)
+    assert np.allclose(att.target_attitude(_fixed(0.0, "orbital"), r, v, None), ref)
+    nrm = att.target_attitude({"type": "normal+", "roll_deg": 0.0}, r, v, None)
+    assert np.allclose(nrm[:, 2], n) and abs(nrm[:, 0] @ n) < 1e-12 and np.allclose(nrm[:, 0], t)
+
+
+def test_slew_is_the_trapezoid():
+    """G1: a 60 deg slew at 10 deg/s with 15 deg/s2 lasts 60 / 10 + 10 / 15 = 6.67 s from t_s, the rate stays at most
+    rate_dps, then the attitude is held."""
+    tr = prop.propagate(_att_sc(12.0, [{"t_s": 0.0, "attitude": _fixed()},
+                                       {"t_s": 1.0, "rate_dps": 10.0, "attitude": _fixed(60.0)}]))
+    goal = att.euler(60.0, 0.0, 0.0)
+    ts = np.arange(0.0, 12.0, 0.1)
+    err = np.array([att.angle_deg(goal, tr.attitude("ship", t)) for t in ts])
+    t_done = ts[np.argmax(err < 0.05)]
+    assert t_done == pytest.approx(1.0 + 60.0 / 10.0 + 10.0 / 15.0, abs=0.3)
+    rate = -np.diff(err) / 0.1
+    assert rate.max() <= 10.0 + 1e-6 and abs(err[ts <= 1.0]).max() == pytest.approx(60.0, abs=1e-6)
+    assert err[-1] < att.REACHED_TOL_DEG and not tr.att_events
+
+
+def test_target_tracking_unfinished_slew_and_ship_frame_state():
+    """G1-G2: the ship turns its nose toward a target and follows it; a slew still running when the next waypoint
+    starts is logged; a relative state in the ship frame is resolved with the ship's attitude."""
+    obj = {"id": "T", "class": "SHIP", "state": {"type": "relative", "range_km": 200.0, "phi_deg": 0.0, "eps_deg": 0.0,
+                                                  "v_close_mps": 0.0, "v_transverse_mps": [300.0, 0.0],
+                                                  "frame": "inertial"}}
+    tr = prop.propagate(_att_sc(30.0, [{"t_s": 0.0, "attitude": _fixed()},
+                                       {"t_s": 1.0, "rate_dps": 20.0, "attitude": {"type": "target", "id": "T"}}],
+                                [obj]))
+    i = tr.row("T")
+    for t in (20.0, 29.0):
+        k = int(np.flatnonzero(tr.t_s == t)[0])
+        los = tr.r_km[k, i] - tr.r_km[k, 0]
+        assert _nose_off_deg(tr.attitude("ship", t), los) < att.HOLD_TOL_DEG
+    tr = prop.propagate(_att_sc(10.0, [{"t_s": 0.0, "attitude": _fixed()},
+                                       {"t_s": 1.0, "rate_dps": 1.0, "attitude": _fixed(170.0)},
+                                       {"t_s": 5.0, "rate_dps": 1.0, "attitude": _fixed(0.0)}]))
+    ev = [e for e in tr.att_events if e["kind"] == "slew not finished"]
+    assert len(ev) == 1 and ev[0]["t_s"] == pytest.approx(5.0) and ev[0]["error_deg"] > 160.0
+    rel = {"id": "R", "class": "DEBRIS", "t_appear_s": 2.0,
+           "state": {"type": "relative", "range_km": 100.0, "phi_deg": 0.0, "eps_deg": 90.0, "v_close_mps": 0.0}}
+    tr = prop.propagate(_att_sc(3.0, [{"t_s": 0.0, "attitude": _fixed(90.0)}], [rel]))
+    k = int(np.flatnonzero(tr.t_s == 2.0)[0])
+    d = tr.r_km[k, tr.row("R")] - tr.r_km[k, 0]
+    assert np.allclose(d / 100.0, [1.0, 0.0, 0.0], atol=1e-6)        # ship +Z = ICRF +X after a 90 deg yaw
+
+
+def test_object_flies_waypoints_toward_the_ship():
+    """G2 bis: a KKV flies waypoints too (the ownship's limits); aimed at "ship", its nose follows the ship."""
+    k = {"id": "K", "class": "KKV",
+         "state": {"type": "relative", "range_km": 300.0, "phi_deg": 30.0, "eps_deg": 10.0, "v_close_mps": 5000.0,
+                   "frame": "inertial"},
+         "attitude": [{"t_s": 0.0, "attitude": _fixed()},
+                      {"t_s": 0.5, "rate_dps": 30.0, "attitude": {"type": "target", "id": "ship"}}]}
+    tr = prop.propagate(_att_sc(20.0, [{"t_s": 0.0, "attitude": {"type": "prograde"}}], [k]))
+    j = tr.row("K")
+    kk = int(np.flatnonzero(tr.t_s == 15.0)[0])
+    los = tr.r_km[kk, 0] - tr.r_km[kk, j]
+    assert "K" in tr.att_ids and _nose_off_deg(tr.attitude("K", 15.0), los) < att.HOLD_TOL_DEG

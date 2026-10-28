@@ -9,17 +9,15 @@ It describes the WORLD only (the radar is the mission file it cites); values of 
             "seed": int (default 1)},
    "central_body": "earth" | "moon" (a body of [sim.bodies]; default "earth"),
    "mission": path of the mission-preparation file (optional, relative to the scenario),
-   "ship": {"orbit": ORBIT, "attitude": ATTITUDE (default inertial identity)},
+   "ship": {"orbit": ORBIT, "attitude": [WAYPOINT, ...] (sim/attitude.py; default prograde, roll 0)},
    "objects": [OBJECT, ...], "groups": [GROUP, ...]}
 
   ORBIT     {"type": "state", "r_km": [x, y, z], "v_kms": [x, y, z]}   (ICRF axes, from the body centre)
           | {"type": "elements", "a_km", "e", "i_deg", "raan_deg", "argp_deg", "nu_deg"}
-  ATTITUDE  {"mode": "inertial", "q": [w, x, y, z]}                      q ship -> ICRF (Hamilton, scalar first, step 3.0)
-          | {"mode": "lvlh", "q": [w, x, y, z]}                          q ship -> local orbital frame (rtn of step 3.0)
-          | {"mode": "waypoints", "points": [{"t_s", "q"}, ...]}         joined within repointing.rate_max_dps and
-                                                                         repointing.accel_max_dps2 (step 4.5)
-          | {"mode": "point", "axis": [x, y, z] (ship axis), "target": object id | {"ra_deg", "dec_deg"}}
+  WAYPOINT  {"t_s", "rate_dps", "attitude": fixed in the orbital or inertial frame | prograde | retrograde | normal+ |
+             normal- | radial_out | radial_in | toward a target}            (format and axes: sim/attitude.py, pass S3a)
   OBJECT    {"id": str, "class": a class of the target library, "overrides": {class keys} (optional),
+             "attitude": [WAYPOINT, ...] (optional, classes SHIP and KKV; else the class's default attitude),
              "t_appear_s": >= 0 (default 0), "jammer": a jammer class (optional),
              "state": ORBIT | RELATIVE, "manoeuvres": [MANOEUVRE, ...] (optional)}
   RELATIVE  {"type": "relative", "range_km": > 0, "phi_deg", "eps_deg" (direction from the ship, in "frame": "ship"
@@ -45,8 +43,9 @@ from typing import Dict, List, Optional, Tuple
 from core import radar_model as rm
 from core.params import P
 
+from . import attitude as att
+
 FORMAT_VERSION = 1
-_ATT_MODES = ("inertial", "lvlh", "waypoints", "point")
 _MAN_TYPES = ("impulse", "burn", "singer", "pn")
 _FRAMES = ("rtn", "inertial")
 
@@ -70,10 +69,6 @@ def _num(x) -> bool:
 
 def _vec(x, n: int = 3) -> bool:
     return isinstance(x, (list, tuple)) and len(x) == n and all(_num(v) for v in x)
-
-
-def _quat(x) -> bool:
-    return _vec(x, 4) and sum(float(v) ** 2 for v in x) > 1e-12
 
 
 def _check_orbit(o, tag: str, err: List[str], relative_ok: bool) -> None:
@@ -166,28 +161,6 @@ def validate(sc: dict) -> List[str]:
         err.append("ship: a dict with an orbit is needed")
     else:
         _check_orbit(ship.get("orbit"), "ship.orbit", err, relative_ok=False)
-        att = ship.get("attitude", {"mode": "inertial"})
-        mode = att.get("mode") if isinstance(att, dict) else None
-        if mode not in _ATT_MODES:
-            err.append(f"ship.attitude.mode must be one of {', '.join(_ATT_MODES)}")
-        elif mode in ("inertial", "lvlh") and "q" in att and not _quat(att["q"]):
-            err.append(f"ship.attitude.q needs 4 numbers, not all zero")
-        elif mode == "waypoints":
-            pts = att.get("points")
-            if not isinstance(pts, list) or len(pts) < 1:
-                err.append("ship.attitude.points: at least one {t_s, q}")
-            else:
-                ts = [p.get("t_s") for p in pts if isinstance(p, dict)]
-                if len(ts) != len(pts) or not all(_num(x) for x in ts) or any(b <= a for a, b in zip(ts, ts[1:])):
-                    err.append("ship.attitude.points: t_s numbers, strictly increasing")
-                if not all(isinstance(p, dict) and _quat(p.get("q")) for p in pts):
-                    err.append("ship.attitude.points: each q needs 4 numbers")
-        elif mode == "point":
-            if not _vec(att.get("axis")):
-                err.append("ship.attitude.axis: 3 numbers (the ship axis that points)")
-            tg = att.get("target")
-            if not (isinstance(tg, str) or (isinstance(tg, dict) and _num(tg.get("ra_deg")) and _num(tg.get("dec_deg")))):
-                err.append("ship.attitude.target: an object id or {ra_deg, dec_deg}")
     ids = set()
     classes = set(rm.TARGETS)
     jams = set(jammer_classes())
@@ -214,6 +187,8 @@ def validate(sc: dict) -> List[str]:
             err.append(f"{tag}: t_appear_s must lie in [0, duration]")
         _check_orbit(o.get("state"), f"{tag}.state", err, relative_ok=True)
         _check_manoeuvres(o.get("manoeuvres", []), tag, err, duration)
+        if "attitude" in o and o.get("class") not in att.FLYING_CLASSES:
+            err.append(f"{tag}: only the classes {', '.join(att.FLYING_CLASSES)} fly waypoints (attitude)")
     for i, g in enumerate(sc.get("groups", [])):
         tag = f"groups[{i}]" + (f" ({g.get('id')})" if isinstance(g, dict) and g.get("id") else "")
         if not isinstance(g, dict):
@@ -232,10 +207,15 @@ def validate(sc: dict) -> List[str]:
             if not _num(g.get(k, 0.0)) or float(g.get(k, 0.0)) < 0.0:
                 err.append(f"{tag}: {k} must be >= 0")
         _check_manoeuvres(g.get("manoeuvres", []), tag, err, duration)
-    if isinstance(ship, dict) and isinstance(ship.get("attitude"), dict) and ship["attitude"].get("mode") == "point":
-        tg = ship["attitude"].get("target")
-        if isinstance(tg, str) and tg not in ids:
-            err.append(f"ship.attitude.target: object '{tg}' not found")
+    # waypoint attitudes, once every id is known (a target must exist at the waypoint's time)
+    appear = {o["id"]: float(o.get("t_appear_s", 0.0)) for o in sc.get("objects", [])
+              if isinstance(o, dict) and isinstance(o.get("id"), str) and _num(o.get("t_appear_s", 0.0))}
+    if isinstance(ship, dict) and "attitude" in ship:
+        att.validate(ship["attitude"], "ship.attitude", err, duration, appear, "ship")
+    for i, o in enumerate(sc.get("objects", [])):
+        if isinstance(o, dict) and "attitude" in o and o.get("class") in att.FLYING_CLASSES:
+            att.validate(o["attitude"], f"objects[{i}] ({o.get('id')}).attitude", err, duration,
+                         dict(appear, ship=0.0), o.get("id"))
     return err
 
 
@@ -248,13 +228,14 @@ def normalise(sc: dict) -> dict:
     m.setdefault("step_s", float(P.get("sim.step_s")))
     m.setdefault("seed", 1)
     s.setdefault("central_body", "earth")
-    s["ship"].setdefault("attitude", {"mode": "inertial", "q": [1.0, 0.0, 0.0, 0.0]})
-    if s["ship"]["attitude"]["mode"] in ("inertial", "lvlh"):
-        s["ship"]["attitude"].setdefault("q", [1.0, 0.0, 0.0, 0.0])
+    s["ship"].setdefault("attitude", copy.deepcopy(att.DEFAULT_SHIP))
+    att.normalise(s["ship"]["attitude"])
     for o in s.setdefault("objects", []) + s.setdefault("groups", []):
         o.setdefault("t_appear_s", 0.0)
         o.setdefault("overrides", {})
         o.setdefault("manoeuvres", [])
+        if "attitude" in o:
+            att.normalise(o["attitude"])
         for mn in o["manoeuvres"]:
             if mn["type"] in ("impulse", "burn"):
                 mn.setdefault("frame", "rtn")

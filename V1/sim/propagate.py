@@ -16,9 +16,10 @@ central body (ICRF axes, km, km/s, s):
     first step within start_range_km, until the range opens again (the miss distance is the closest approach over the
     step, relative motion linear within it), then ballistic;
   - an absolute state is given at the scenario epoch and propagated from t = 0, the object existing from t_appear_s;
-    a relative state is resolved at t_appear_s from the ship (frame "ship" needs the ship attitude: inertial and lvlh
-    modes here, waypoints and point come with the geometry, pass S3); a group draws its n objects around its reference
-    at t_appear_s (isotropic Gaussian, seeded);
+    a relative state is resolved at t_appear_s from the ship (frame "ship": the ship's attitude at that step); a group
+    draws its n objects around its reference at t_appear_s (isotropic Gaussian, seeded);
+  - attitudes flown by waypoints (pass S3a, sim/attitude.py): the ownship and the SHIP / KKV objects that have an
+    "attitude" list, advanced at every step and recorded at every step (attitude() interpolates by SLERP);
   - an object below the body's mean radius is marked impacted and stops.
 The truth is recorded every sim.log_step_s (the playback interpolates with a cubic on position and velocity); the
 .npz journal is pass S4 (D6).
@@ -36,6 +37,7 @@ from core import radar_model as rm
 from core import trackmodel as tm
 from core.params import P
 
+from . import attitude as att
 from . import scenario as scn
 
 LOG_STEP_S = float(P.get("sim.log_step_s"))      # P4: recording interval of the truth
@@ -91,22 +93,13 @@ def rtn_matrix(r: np.ndarray, v: np.ndarray) -> np.ndarray:
     return np.stack([x, y, z], axis=-1)
 
 
-def ship_attitude(sc: dict, r: np.ndarray, v: np.ndarray, t_s: float) -> np.ndarray:
-    """Matrix ship -> ICRF of the ship at t_s (modes inertial and lvlh; waypoints and point: pass S3)."""
-    att = sc["ship"]["attitude"]
-    if att["mode"] == "inertial":
-        return frames.quat_to_matrix(np.asarray(att["q"], float) / np.linalg.norm(att["q"]))
-    if att["mode"] == "lvlh":
-        return rtn_matrix(r, v) @ frames.quat_to_matrix(np.asarray(att["q"], float) / np.linalg.norm(att["q"]))
-    raise scn.ScenarioError(f"ship attitude '{att['mode']}' is computed with the geometry (pass S3): a relative state "
-                            f"in the ship frame at t = {t_s:g} s needs it; give the relative state in frame 'inertial'")
-
-
 @dataclass
 class Truth:
     """The propagated scenario: per row (0 = ship, then the objects, then the group members in order) its id, class,
     recorded states (t_s (n_log,), r_km and v_kms (n_log, n_rows, 3), NaN when the row does not exist), its appearance
-    time, impact time, PN start and miss distance (NaN when none)."""
+    time, impact time, PN start and miss distance (NaN when none). Attitudes flown by waypoints: att_ids (the rows),
+    att_q (n_steps + 1, n_att, 4) body -> ICRF quaternions at every step att_t_s (NaN before the body exists),
+    att_events (slews not finished, holds lost, targets missing)."""
     body: Body
     ids: List[str]
     classes: List[str]
@@ -118,6 +111,21 @@ class Truth:
     t_pn_start_s: np.ndarray
     miss_km: np.ndarray
     group_of: List[Optional[str]] = field(default_factory=list)
+    att_ids: List[str] = field(default_factory=list)
+    att_t_s: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    att_q: np.ndarray = field(default_factory=lambda: np.zeros((0, 0, 4)))
+    att_events: List[dict] = field(default_factory=list)
+
+    def attitude(self, oid: str, t_s: float) -> Optional[np.ndarray]:
+        """Body -> ICRF matrix of a body flying waypoints at t_s (SLERP between steps); None before it exists."""
+        j = self.att_ids.index(oid)
+        t = self.att_t_s
+        k = int(np.clip(np.searchsorted(t, t_s, side="right") - 1, 0, len(t) - 2))
+        q0, q1 = self.att_q[k, j], self.att_q[k + 1, j]
+        if not (np.isfinite(q0).all() and np.isfinite(q1).all()):
+            return None
+        u = float(np.clip((t_s - t[k]) / (t[k + 1] - t[k]), 0.0, 1.0))
+        return frames.quat_to_matrix(att.slerp(q0, q1, u))
 
     def exists(self) -> np.ndarray:
         return np.isfinite(self.r_km[..., 0])
@@ -204,6 +212,16 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
     pn_n = np.array([float(w.pn["n"]) if w.pn is not None else 0.0 for w in rows])
     a_max = np.array([w.a_max_kms2 for w in rows])
     burns = [(i, m) for i, w in enumerate(rows) for m in w.burns]
+    flyers = {0: att.Flyer(0, sc["ship"]["attitude"])}
+    flyers.update({i: att.Flyer(i, w.spec["attitude"]) for i, w in enumerate(rows) if i and "attitude" in w.spec
+                   and not w.group})
+    now = [0.0]                                           # time of the states in x (the targets are extrapolated)
+
+    def tpos(oid: str, t: float) -> Optional[np.ndarray]:
+        i = idx.get(oid)
+        if i is None or not active[i]:
+            return None
+        return x[i, :3] + x[i, 3:] * (t - now[0])
 
     def spawn(t: float) -> None:
         for i, w in enumerate(rows):
@@ -213,7 +231,7 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
                 st = w.spec["state"]
                 d = frames.unit(float(st["phi_deg"]), float(st["eps_deg"]))
                 rs, vs = x[0, :3], x[0, 3:]
-                m = ship_attitude(sc, rs, vs, t) if st["frame"] == "ship" else np.eye(3)
+                m = flyers[0].m if st["frame"] == "ship" else np.eye(3)
                 los = m @ d
                 ax1 = np.cross(los, [0.0, 0.0, 1.0])
                 if np.linalg.norm(ax1) < 1e-9:
@@ -233,6 +251,8 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
                 x[i, 3:] = x[ref, 3:] + 1e-3 * float(w.spec["vel_sigma_mps"]) * g_rng.standard_normal(3)
             active[i] = spawned[i] = True
             t_appear[i] = t
+            if i in flyers:
+                flyers[i].start(x[i, :3], x[i, 3:], tpos)
 
     def impulses(t: float) -> None:
         for i, w in enumerate(rows):
@@ -314,12 +334,28 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
     r_log = np.full((n_log, n, 3), np.nan)
     v_log = np.full((n_log, n, 3), np.nan)
 
+    att_rows = sorted(flyers)
+    att_q = np.full((n_steps + 1, len(att_rows), 4), np.nan)
+
+    def record_att(k: int) -> None:
+        for j, i in enumerate(att_rows):
+            if flyers[i].m is not None and active[i]:
+                att_q[k, j] = flyers[i].quat()
+
     def record(j: int, t: float) -> None:
         t_log[j] = t
         ex = active & (t_appear <= t + 1e-9)
         r_log[j, ex], v_log[j, ex] = x[ex, :3], x[ex, 3:]
 
+    for i in att_rows:
+        if spawned[i]:
+            flyers[i].start(x[i, :3], x[i, 3:], tpos)
     spawn(0.0)
+    for i in att_rows:                                    # an initial attitude aimed at an object spawned at t = 0
+        if flyers[i].events and flyers[i].events[-1]["kind"] == "target missing" and active[i]:
+            flyers[i].events.pop()
+            flyers[i].start(x[i, :3], x[i, 3:], tpos)
+    record_att(0)
     impulses(0.0)
     pn_update(0.0, x.copy())
     record(0, 0.0)
@@ -327,6 +363,10 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
     for k in range(n_steps):
         t0, t1 = k * dt, min((k + 1) * dt, duration)
         prev = x.copy()
+        now[0] = t0
+        for i in att_rows:                                # attitudes advanced on the states at the step start
+            if active[i] and flyers[i].m is not None:
+                flyers[i].step(t0, t1 - t0, x[i, :3], x[i, 3:], tpos)
         t = t0
         while e_ptr < len(events) and events[e_ptr] <= t0 + 1e-9:
             e_ptr += 1
@@ -350,6 +390,7 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
             a_sing[i] = f * a_sing[i] + s * math.sqrt(1.0 - f * f) * rngs[i].standard_normal(3)
         impacts(t1)
         pn_update(t1, prev)
+        record_att(k + 1)
         if (k + 1) % n_log_every == 0 or k == n_steps - 1:
             record(j_log, t1)
             j_log += 1
@@ -357,4 +398,6 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
             progress_cb(k, n_steps)
     return Truth(body=body, ids=[w.id for w in rows], classes=[w.cls for w in rows], t_s=t_log[:j_log],
                  r_km=r_log[:j_log], v_kms=v_log[:j_log], t_appear_s=t_appear, t_impact_s=t_impact,
-                 t_pn_start_s=t_pn, miss_km=miss, group_of=[w.group for w in rows])
+                 t_pn_start_s=t_pn, miss_km=miss, group_of=[w.group for w in rows],
+                 att_ids=[rows[i].id for i in att_rows], att_t_s=np.minimum(np.arange(n_steps + 1) * dt, duration),
+                 att_q=att_q, att_events=[dict(e, id=rows[i].id) for i in att_rows for e in flyers[i].events])
