@@ -28,9 +28,11 @@ body is (the truth is the scenario's, the radar gets only its navigation and its
 """
 from __future__ import annotations
 
+import json
 import math
+from functools import lru_cache
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -89,6 +91,13 @@ class Geometry:
     body_theta_deg: np.ndarray                # (n_t, 3)
     ship_shadow: np.ndarray                   # (n_t,) share of the solar disk hidden
     nose_rule: List[str] = field(default_factory=list)
+
+
+@lru_cache(maxsize=64)
+def _aspect_tables(cls: str, overrides_json: str) -> Tuple[np.ndarray, np.ndarray]:
+    """The class's aspect tables at S and Ku (computed once per class and overrides: 181 RCS each)."""
+    tgt = rm.target_for_sector({"id": "_", "target_type": cls, **json.loads(overrides_json)})
+    return tgt.aspect_table_db(F_S_GHZ), tgt.aspect_table_db(F_KU_GHZ)
 
 
 # ----------------------------------------------------------------------------- G4 states at any instant
@@ -165,8 +174,9 @@ def geometry(sc: dict, truth: Truth, times: Optional[np.ndarray] = None) -> Geom
     tabs, offs, rules, tumble = [], np.zeros(n_o), [], {}
     for j, i in enumerate(rows):
         cls, sp = truth.classes[i], specs[i]
+        ov = json.dumps(sp.get("overrides", {}), sort_keys=True)
         tgt = rm.target_for_sector({"id": truth.ids[i], "target_type": cls, **sp.get("overrides", {})})
-        tabs.append((tgt.aspect_table_db(F_S_GHZ), tgt.aspect_table_db(F_KU_GHZ)))
+        tabs.append(_aspect_tables(cls, ov))
         if "rcs_offset_db" in sp:
             offs[j] = float(sp["rcs_offset_db"])
         else:

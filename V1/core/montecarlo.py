@@ -32,7 +32,7 @@ Pass M1: the test targets of the search (blocks B and C) and the cumulative Pd o
   - Statistics (G1-G3): seed per sector, batches of `batch` targets up to n_max, stop from n_min when the Wilson
     half-width at ci_level is below ci_tol.
   - State (A3, per sector, on the positions within range): NOK when the upper bound of the interval is below the
-    sector's Pd; ALERTE when the analytic Pd is above the upper bound (model optimistic); else OK.
+    sector's Pd; ALERT when the analytic Pd is above the upper bound (model optimistic); else OK.
 Pass M2 (user, 27 October 2026, M2-1 to M2-9):
   - Eclipse (M2-6): the plan's mean eclipse loss is given back to the SNR and each echo is lost whole with the share
     of the common S slots of the final scheduler.
@@ -47,7 +47,7 @@ Pass M2 (user, 27 October 2026, M2-1 to M2-9):
     + services of its confirmation tasks + round trips + processing (step 4.3); per face and band the mean waits
     against Cobham, late updates and pauses against the synthetic timeline.
   - States (M2-8): NOK when the requirement is not met beyond the interval (P confirmation below confirm_p_min,
-    latency above its requirement); ALERTE when the analytic value is optimistic. The false alarms per revisit and the
+    latency above its requirement); ALERT when the analytic value is optimistic. The false alarms per revisit and the
     mean waits per class are information (user, 27 October 2026, after the trials: Poisson of the analytic mean, and
     waits of microseconds).
 Pass M3 (user, 27 October 2026, T1-T11; option A: the Kalman filter runs, D2 (b)):
@@ -64,9 +64,22 @@ Pass M3 (user, 27 October 2026, T1-T11; option A: the Kalman filter runs, D2 (b)
     the budget's look sized for that pointing.
   - Two populations per bracket: tracks started in the filter's steady state (loss per update and RMS accuracies of
     established tracks, against the analytic chain, p_loss_max and the bracket's requirements) and tracks born from
-    the hand-over (share established, looks and time to establish against the analytic initiation); NOK / ALERTE as
+    the hand-over (share established, looks and time to establish against the analytic initiation); NOK / ALERT as
     T10.
-To come: M4 verdict and load_ceiling; M5 tests at N3, snapshots, docs.
+Pass M4 (user, 29 October 2026, Q1-Q8):
+  - States OK / ALERT / NOK, the verdict's words (ALERT: model optimistic); the rows of the run go into the verdict
+    of step 5.3 with the source "MC" (core.validation.merge_montecarlo), the mission state recomputed with them.
+  - load_ceiling PROPOSED, never applied (A4): the drawn timelines played again with the load of ONE BAND multiplied
+    by g_b, the other at its specification (user, 29 October 2026, after the first trials: one common factor filled
+    the S search long before the Ku band where the confirmations and the track updates are, which were never put to
+    the test). S: more search dwells, hence more false alarms and detections sent to the confirmation; Ku: more
+    updates, initiations, burn-through and confirmations (the confirmation arrivals go as g_S x g_Ku). Per band the
+    largest g_b found by CEILING_BISECTIONS bisection steps between 1 and a full transmit time of its most loaded face
+    such that on every face and band the confirmation latency (95 %, upper bound of its interval) stays within each
+    sector's requirement and the late track updates within LATE_UPDATE_MAX (a late update is a miss); the band's
+    ceiling = g_b x the load of its most loaded face, at most 1; the proposal = the lower of the bands. Transmit time
+    only (energy, heat and compute keep the ceiling of the mission).
+To come: M5 tests at N3, snapshots, docs.
 """
 from __future__ import annotations
 
@@ -107,6 +120,8 @@ V_DRAW = str(P.get(_T + "v_draw"))
 BATCH = int(P.get(_T + "batch"))
 PD_LOOK_FLOOR = float(P.get(_T + "pd_look_floor"))
 N_SHIFTS = int(P.get("tool.scanorder.n_shifts"))
+LATE_UPDATE_MAX = float(P.get(_T + "late_update_max"))      # M4 (Q4)
+CEILING_BISECTIONS = int(P.get(_T + "ceiling_bisections"))  # M4 (Q3)
 K_MAX_LOOKS = 20000                       # safety bound on the looks of one test target (flagged if it cuts)
 
 
@@ -460,7 +475,7 @@ class ConfirmSpec:
         if hi < self.p_min:
             state, why = "NOK", f"P confirmation {p:.3f} (upper bound {hi:.3f}) below confirm_p_min {self.p_min:g}"
         elif self.success_analytic > hi:
-            state, why = "ALERTE", (f"analytic P confirmation {self.success_analytic:.3f} above the upper bound "
+            state, why = "ALERT", (f"analytic P confirmation {self.success_analytic:.3f} above the upper bound "
                                     f"{hi:.3f} (model optimistic)")
         else:
             state, why = "OK", ""
@@ -580,7 +595,7 @@ def sector_mc(sec: dict, plan: dict, index: int, seed: int = SEED, correlated: b
     elif ci_in[1] < pd_req:
         state, why = "NOK", f"Pd {pd_mc_in:.3f} (upper bound {ci_in[1]:.3f}) below the required {pd_req:g}"
     elif pd_an_in is not None and pd_an_in > ci_in[1]:
-        state, why = "ALERTE", f"analytic Pd {pd_an_in:.3f} above the upper bound {ci_in[1]:.3f} (model optimistic)"
+        state, why = "ALERT", f"analytic Pd {pd_an_in:.3f} above the upper bound {ci_in[1]:.3f} (model optimistic)"
     else:
         state, why = "OK", ""
     row_conf = None
@@ -650,7 +665,7 @@ def _greedy(tasks: List[tuple], lim: float, ratio: float) -> Tuple[List[float], 
 
 
 def _arrivals(rng: np.random.Generator, k: int, classes, mission: dict, out: dict,
-              t_end: float) -> Dict[str, List[Tuple[float, bool]]]:
+              t_end: float, g: float = 1.0) -> Dict[str, List[Tuple[float, bool]]]:
     """Confirmation arrivals of face k per sector over [0, t_end] as (time, true): false alarms drawn per search dwell
     (Poisson of the analytic mean per dwell, M2-3), true detections Poisson at new_targets_per_rr (+ objects_per_rr)
     x the face's share per revisit."""
@@ -664,36 +679,41 @@ def _arrivals(rng: np.random.Generator, k: int, classes, mission: dict, out: dic
         rr = float(sec["rr_target_s"])
         fa = float(t["false_alarms_per_rr_face"][k])
         n_dw = max(1, len(c.dwells) if c.dwells else int(round(c.count)))
-        step = rr / n_dw
+        step = rr / n_dw / g
         times = np.arange(rng.random() * step, t_end, step)
         counts = rng.poisson(fa / n_dw, len(times)) if fa > 0 else np.zeros(len(times), dtype=int)
         lst = [(float(x), False) for x, m in zip(times, counts) for _ in range(int(m))]
         n_new = float(sec.get("new_targets_per_rr", 1.0)) + float(sec.get("objects_per_rr", 0.0))
-        rate = n_new * float(t["p_share"][k]) / rr
+        rate = g * n_new * float(t["p_share"][k]) / rr
         if rate > 0:
             lst += [(float(x), True) for x in rng.uniform(0.0, t_end, rng.poisson(rate * t_end))]
         arr[c.sector] = sorted(lst)
     return arr
 
 
-def face_timeline(mission: dict, out: dict, k: int, rep: int, seed: int, scans) -> dict:
+def face_timeline(mission: dict, out: dict, k: int, rep: int, seed: int, scans,
+                  g: Optional[Dict[str, float]] = None) -> dict:
     """One drawn timeline of face k, both bands: the tasks of scheduler._classes (calibration, search dwells in scan
     order, periodic updates, Poisson initiations and burn-through), the confirmations from the drawn arrivals (after
     the processing of the detection). Counted window: after WARMUP_REVISITS longest revisits of the face, for
     HORIZON_REVISITS of them, at most horizon_max_s. Returns per band the waits per class, late updates, pauses; per
-    sector the false alarms counted and, per true detection, its (wait, service, counted) per band."""
+    sector the false alarms counted and, per true detection, its (wait, service, counted) per band. g: the load of
+    each band multiplied by g[band] (M4: more dwells, updates and initiations, same durations; the confirmation
+    arrivals go as g["S"] x g["Ku"])."""
+    gb = {"S": 1.0, "Ku": 1.0} if g is None else {"S": float(g.get("S", 1.0)), "Ku": float(g.get("Ku", 1.0))}
     rng = np.random.default_rng([int(seed), 1000 + k, int(rep)])
     classes = sch._classes(k, mission, out, scans)
     r_max = max([c.period for c in classes["S"] if c.kind == "search" and c.period] + [1.0])
     warm = WARMUP_REVISITS * r_max
     horizon = min(HORIZON_MAX_S, HORIZON_REVISITS * r_max)
     t_end = warm + horizon
-    arr = _arrivals(rng, k, classes, mission, out, t_end)
+    arr = _arrivals(rng, k, classes, mission, out, t_end, gb["S"] * gb["Ku"])
     res = {"S": {}, "Ku": {}, "confirm": {}, "window_s": horizon,
            "fa": {sid: sum(1 for x, true in lst if not true and x >= warm) for sid, lst in arr.items()}}
     proc = {sid: sch.compute.processing_s(out, sid) for sid in arr}
     for b in ("S", "Ku"):
         tasks, meta = [], []
+        g_b = gb[b]
 
         def add(rel, prio, dl, dur, lab, kind, tag=None):
             tasks.append((float(rel), prio, float(dl), float(dur)))
@@ -704,13 +724,13 @@ def face_timeline(mission: dict, out: dict, k: int, rep: int, seed: int, scans) 
             if c.kind == "cal":
                 add(0.0, c.prio, c.period * sch.CAL_MAX_DELAY_FRAC, c.s, c.label, c.kind)
             elif c.kind == "search" and c.dwells:
-                step = c.period / len(c.dwells)
+                step = c.period / len(c.dwells) / g_b
                 for j, t in enumerate(np.arange(rng.random() * step, t_end, step)):
                     add(t, c.prio, t + c.period, c.dwells[j % len(c.dwells)], c.label, c.kind)
             elif c.kind in ("search", "update"):
                 if c.count <= 0:
                     continue
-                step = c.period / c.count
+                step = c.period / c.count / g_b
                 for t in np.arange(rng.random() * step, t_end, step):
                     add(t, c.prio, t + (c.period if c.kind == "search" else sch.UPDATE_JITTER_FRAC * c.period),
                         c.s, c.label, c.kind)
@@ -719,7 +739,7 @@ def face_timeline(mission: dict, out: dict, k: int, rep: int, seed: int, scans) 
                     rel = t + proc.get(c.sector, 0.0)
                     add(rel, c.prio, rel + 1e9, c.s, c.label, c.kind, (c.sector, n, true, t >= warm))
             elif c.rate > 0:
-                for t in rng.uniform(0.0, t_end, rng.poisson(c.rate * t_end)):
+                for t in rng.uniform(0.0, t_end, rng.poisson(g_b * c.rate * t_end)):
                     add(t, c.prio, t + 1e9, c.s, c.label, c.kind)
         if not tasks:
             continue
@@ -810,7 +830,7 @@ def timelines(mission: dict, out: dict, seed: int = SEED, progress_cb=None,
             frac = late / n_upd if n_upd else 0.0
             bad = frac > 0.0 and not late_an
             fk[b] = {"classes": rows, "late_update_frac_mc": frac, "late_update_frac_analytic": late_an,
-                     "updates": n_upd, "recharge_pauses": pauses, "state": "ALERTE" if bad else "OK",
+                     "updates": n_upd, "recharge_pauses": pauses, "state": "ALERT" if bad else "OK",
                      "why": f"{100 * frac:.2f} % of the track updates late (none in the analytic timeline)" if bad else ""}
         faces[str(k)] = fk
     sectors = []
@@ -838,7 +858,7 @@ def timelines(mission: dict, out: dict, seed: int = SEED, progress_cb=None,
         elif qlo > req:
             st_l, why_l = "NOK", f"latency {q:.3g} s (95 %, lower bound {qlo:.3g}) above the {req:.3g} s required"
         elif a_lat is not None and a_lat < qlo:
-            st_l, why_l = "ALERTE", f"analytic latency {a_lat:.3g} s below the interval (model optimistic)"
+            st_l, why_l = "ALERT", f"analytic latency {a_lat:.3g} s below the interval (model optimistic)"
         else:
             st_l, why_l = "OK", ""
         sectors.append({"id": sid, "fa_per_rr_mc": fa_mc, "fa_ci": ci_fa, "fa_per_rr_analytic": an_fa,
@@ -847,6 +867,99 @@ def timelines(mission: dict, out: dict, seed: int = SEED, progress_cb=None,
                         "latency_required_s": req, "detections": int(len(x)), "latency_state": st_l,
                         "latency_why": why_l})
     return {"n_rep": N_REP, "faces": faces, "sectors": sectors}
+
+
+# ----------------------------------------------------------------------------- M4: load ceiling proposed
+def _face_runs(mission: dict, out: dict, seed: int, g: Dict[str, float], scans,
+               ex=None) -> Dict[Tuple[int, int], dict]:
+    keys = [(k, rep) for k in range(4) for rep in range(N_REP)]
+    if ex is None:
+        return {key: face_timeline(mission, out, key[0], key[1], seed, scans, g) for key in keys}
+    return dict(zip(keys, _gather(ex, [(_w_face, (k, rep, seed, g)) for k, rep in keys])))
+
+
+def holds(tl: dict) -> Tuple[bool, str]:
+    """(the timelines hold, the first reason why not): every confirmation latency at 95 % (upper bound of its
+    interval) within its requirement, every face and band within LATE_UPDATE_MAX late updates."""
+    for r in tl["sectors"]:
+        q, hi = r["latency_q95_mc_s"], r["latency_ci"][1]
+        if q is not None and (hi if hi is not None else q) > r["latency_required_s"]:
+            return False, (f"{r['id']}: confirmation latency {q:.3g} s (95 %, upper bound "
+                           f"{(hi if hi is not None else q):.3g}) above the {r['latency_required_s']:.3g} s required")
+    for k, fk in tl["faces"].items():
+        for b, fb in fk.items():
+            if fb["updates"] and fb["late_update_frac_mc"] > LATE_UPDATE_MAX:
+                return False, (f"F{int(k) + 1} {b}: {100 * fb['late_update_frac_mc']:.2f} % of the track updates late "
+                               f"(at most {100 * LATE_UPDATE_MAX:g} %)")
+    return True, ""
+
+
+def transmit_loads(out: dict) -> Dict[str, float]:
+    """Transmit-time load (load / capacity) of every face and band with a load, at the specification."""
+    res = {}
+    for k, fk in (out.get("scheduler") or {}).get("faces", {}).items():
+        for b in ("S", "Ku"):
+            fb = fk.get(b) or {}
+            cap, load = float(fb.get("capacity") or 0.0), float(fb.get("load") or 0.0)
+            if cap > 0.0 and load > 0.0:
+                res[f"F{int(k) + 1} {b}"] = load / cap
+    return res
+
+
+def propose_ceiling(mission: dict, out: dict, seed: int = SEED, base: Optional[dict] = None, ex=None,
+                    progress_cb=None) -> dict:
+    """M4 (A4, Q3-Q5, one factor per band): per band the largest load factor g_b the drawn timelines hold with the
+    other band at its specification, the band's ceiling it gives, and the proposal = the lower one (never applied).
+    base: the timelines at the specification drawn already."""
+    from . import margin
+    loads = transmit_loads(out)
+    current = margin.load_ceiling(mission)
+    res = {"current": current, "applied": False, "late_update_max": LATE_UPDATE_MAX,
+           "bisections": CEILING_BISECTIONS, "resource": "transmit time", "bands": {}}
+    if not loads:
+        return dict(res, proposed=None, why="no transmit-time load in the plan")
+    scans = mission_scans(mission, out) if ex is None else None
+
+    def ok_at(gs: Dict[str, float]) -> Tuple[bool, str]:
+        spec = all(v == 1.0 for v in gs.values())
+        tl = base if (spec and base is not None) else timelines(mission, out, seed, None,
+                                                                runs=_face_runs(mission, out, seed, gs, scans, ex))
+        return holds(tl)
+    ok, why = ok_at({"S": 1.0, "Ku": 1.0})
+    if not ok:
+        return dict(res, proposed=None, why=f"the drawn timelines do not hold at the specification: {why}")
+    for b in ("S", "Ku"):
+        lb = {f: u for f, u in loads.items() if f.endswith(" " + b)}
+        if not lb:
+            continue
+        binding = max(lb, key=lb.get)
+        u_max = lb[binding]
+        g_top = 1.0 / u_max
+        ok, why_top = ok_at({b: g_top})
+        if ok:
+            g_max, limited = g_top, "holds up to a full transmit time on the most loaded face"
+        else:
+            lo, hi, limited = 1.0, g_top, why_top
+            for i in range(CEILING_BISECTIONS):
+                mid = 0.5 * (lo + hi)
+                ok, why = ok_at({b: mid})
+                if ok:
+                    lo = mid
+                else:
+                    hi, limited = mid, why
+                if progress_cb:
+                    progress_cb(i + 1, CEILING_BISECTIONS, f"{b} load x{mid:.3g}")
+            g_max = lo
+            limited = f"above x{hi:.3g}: {limited}"
+        res["bands"][b] = {"proposed": min(1.0, g_max * u_max), "g_max": g_max, "binding": binding,
+                           "load_at_spec": u_max, "limited_by": limited,
+                           "faces": {f: min(1.0, g_max * u) for f, u in lb.items()}}
+    low = min(res["bands"], key=lambda b: res["bands"][b]["proposed"])
+    bd = res["bands"][low]
+    return dict(res, proposed=bd["proposed"], band=low, binding=bd["binding"], g_max=bd["g_max"],
+                limited_by=bd["limited_by"],
+                why=(f"{low} is the lower: its load holds x{bd['g_max']:.3g}, {bd['binding']} at "
+                     f"{100 * bd['proposed']:.1f} % of its transmit time (the mission's ceiling is {100 * current:.0f} %)"))
 
 
 # ----------------------------------------------------------------------------- tracks (M3: T1-T11)
@@ -1359,16 +1472,16 @@ def sector_tracks(mission: dict, out: dict, n: int, ho: Optional[np.ndarray], se
                 state = "NOK"
                 why.extend(bad)
             if state == "OK" and p_mc is not None and p_an < lo:
-                state = "ALERTE"
+                state = "ALERT"
                 why.append(f"analytic loss {p_an:.2e} below the interval (model optimistic)")
             if state == "OK" and i_an is not None and i_mean is not None and i_an < i_mean * (1.0 - CI_TOL):
-                state = "ALERTE"
+                state = "ALERT"
                 why.append(f"analytic initiation {i_an:.3g} look(s) below the drawn mean {i_mean:.1f}")
             # initiation losses per attempt against the analytic chain (return on 3.3, H5)
             ilo, ihi = wilson(ini["init_lost"], ok_ini + ini["init_lost"])
             il_an = at.get("init_loss_prob")
             if state == "OK" and il_an is not None and il_an < ilo:
-                state = "ALERTE"
+                state = "ALERT"
                 why.append(f"analytic initiation loss {il_an:.2e} below the interval [{ilo:.2e}, {ihi:.2e}]")
             rows.append({**row, "status": "OK", "tracks": TRACKS_PER_BRACKET, "updates": res["updates"],
                          "pd_update_mc": res["pd_update_mc"], "pointing_rms_hpbw": res["pointing_rms_hpbw"],
@@ -1425,7 +1538,7 @@ def track_chain(mission: dict, out: dict, rows: List[dict], trk_rows: List[dict]
         if lo > lim:
             state, why = "NOK", f"chain failure {fail:.2e} (lower bound {lo:.2e}) above {lim:g}"
         elif an is not None and an < lo:
-            state, why = "ALERTE", f"analytic chain failure {an:.2e} below the interval (model optimistic)"
+            state, why = "ALERT", f"analytic chain failure {an:.2e} below the interval (model optimistic)"
         else:
             state, why = "OK", ""
         res.append({"id": sid, "bracket": bi, "confirmation_mc": p_c, "initiation_mc": p_i, "failure_mc": fail,
@@ -1477,10 +1590,10 @@ def _w_sector(n: int, seed: int, truth_cfg: Optional[dict]):
     return sector_task(_W["mission"], _W["out"], n, seed, truth_cfg)
 
 
-def _w_face(k: int, rep: int, seed: int) -> dict:
+def _w_face(k: int, rep: int, seed: int, g: Optional[Dict[str, float]] = None) -> dict:
     if "scans" not in _W:
         _W["scans"] = mission_scans(_W["mission"], _W["out"])
-    return face_timeline(_W["mission"], _W["out"], k, rep, seed, _W["scans"])
+    return face_timeline(_W["mission"], _W["out"], k, rep, seed, _W["scans"], g)
 
 
 def _w_tracks(n: int, ho: Optional[np.ndarray], seed: int, truth_cfg: Optional[dict]) -> List[dict]:
@@ -1551,6 +1664,9 @@ def run(mission: dict, out: Optional[dict] = None, seed: int = SEED, progress_cb
                                                  for n in idx], progress_cb, lambda i: tsecs[idx[i]]["id"])
                         for r in rs]
         t_trk = time.perf_counter() - t_tl
+        t_c = time.perf_counter()
+        ceiling = propose_ceiling(mission, out, seed, base=tl, ex=ex, progress_cb=progress_cb)
+        t_ceil = time.perf_counter() - t_c
     finally:
         if ex is not None:
             ex.shutdown(wait=True)
@@ -1562,10 +1678,11 @@ def run(mission: dict, out: Optional[dict] = None, seed: int = SEED, progress_cb
     states += [c["state"] for fk in tl["faces"].values() for fb in fk.values() for c in fb["classes"]]
     states += [r.get("state") for r in trk_rows]
     states += [r.get("state") for r in chain]
-    state = "NOK" if "NOK" in states else ("ALERTE" if "ALERTE" in states else "OK")
-    return {"pass": "M3", "seed": int(seed), "ci_level": CI_LEVEL, "state": state, "sectors": rows,
-            "eclipse_share_s": rho, "timelines": tl, "tracks": trk_rows, "chain": chain,
-            "stage_s": {"plan": t_plan, "search_confirmation": t_sec, "timelines": t_line, "tracks": t_trk},
+    state = "NOK" if "NOK" in states else ("ALERT" if "ALERT" in states else "OK")
+    return {"pass": "M4", "seed": int(seed), "ci_level": CI_LEVEL, "state": state, "sectors": rows,
+            "eclipse_share_s": rho, "timelines": tl, "tracks": trk_rows, "chain": chain, "load_ceiling": ceiling,
+            "stage_s": {"plan": t_plan, "search_confirmation": t_sec, "timelines": t_line, "tracks": t_trk,
+                        "load_ceiling": t_ceil},
             "runtime_s": time.perf_counter() - t_start}
 
 
@@ -1651,6 +1768,15 @@ def report_lines(mc: dict) -> List[str]:
                          f"(confirmation {r['confirmation_mc']:.4f} x initiation {r['initiation_mc']:.4f}, bracket "
                          f"{r['bracket']}), analytic {(f'{a:.2e}' if a is not None else '-')}  {r['state']}"
                          + (f" -- {r['why']}" if r["why"] else ""))
+    c = mc.get("load_ceiling")
+    if c:
+        lines.append("  Load ceiling (transmit time, proposed, not applied): "
+                     + (f"{100 * c['proposed']:.1f} % (mission {100 * c['current']:.0f} %) -- {c['why']}"
+                        if c.get("proposed") is not None else f"none -- {c['why']}"))
+        for b, bd in (c.get("bands") or {}).items():
+            lines.append(f"  {'':<14}{b}: {100 * bd['proposed']:.1f} % (load x{bd['g_max']:.3g}, {bd['binding']} at "
+                         f"{100 * bd['load_at_spec']:.1f} % at the specification) -- limited by: {bd['limited_by']}")
+            lines.append(f"  {'':<14}   " + ", ".join(f"{f} {100 * u:.1f} %" for f, u in bd["faces"].items()))
     return lines
 
 

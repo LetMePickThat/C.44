@@ -1,0 +1,82 @@
+{
+ "meta": {
+  "name": "Lune - interception de OWNSHIP par SHIP_1 et 20 KKV",
+  "epoch_utc": "2050-01-01T00:00:00Z",
+  "duration_s": 960.0,
+  "step_s": 0.1,
+  "seed": 1
+ },
+ "central_body": "moon",
+ "ship": {
+  "orbit": {
+   "type": "elements",
+   "a_km": 1837.4,
+   "e": 0.0,
+   "i_deg": 30.0,
+   "raan_deg": 0.0,
+   "argp_deg": 0.0,
+   "nu_deg": 0.0
+  },
+  "attitude": [
+   {
+    "t_s": 0.0,
+    "attitude": {
+     "type": "prograde",
+     "roll_deg": 0.0
+    }
+   }
+  ]
+ },
+ "objects": [
+  {
+   "id": "SHIP_1",
+   "class": "SHIP",
+   "state": {
+    "type": "elements",
+    "a_km": 3287.4,
+    "e": 0.441078,
+    "i_deg": 30.0,
+    "raan_deg": 0.0,
+    "argp_deg": 45.8439,
+    "nu_deg": -50.6942
+   },
+   "attitude": [
+    {
+     "t_s": 0.0,
+     "attitude": {
+      "type": "target",
+      "id": "ship",
+      "roll_deg": 0.0
+     }
+    }
+   ]
+  }
+ ],
+ "groups": [
+  {
+   "id": "KKV",
+   "class": "KKV",
+   "n": 20,
+   "around": "SHIP_1",
+   "t_appear_s": 300.0,
+   "pos_sigma_m": 200.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 300.0,
+     "dv_mps": [
+      -3708.708,
+      2904.161,
+      1676.704
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 300.0
+    }
+   ]
+  }
+ ]
+}

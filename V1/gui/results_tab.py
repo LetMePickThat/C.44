@@ -6,7 +6,9 @@ coloured by result (achieved RR / target RR, or % energy), with WF / range / RR 
 verdict (step 5.3: state, limiting resource, constraints in alert or failed), per-sector
 summary table, waveforms by scan-angle bin, per-face totals, confirmation + active tracking (AT) budget (search +
 confirmation + AT per face, confirmation mode per sector, AT cost per range bracket, what to relax); JSON/CSV export. It shows the frozen copy of the mission
-that was optimised.
+that was optimised. Step 5.4 M4 (H3): a "Monte-Carlo" button runs core.montecarlo on demand in the background (the
+plan is computed again with its plans kept), adds its rows to the verdict (source MC), shows its report and the load
+ceiling it proposes (never applied).
 """
 from __future__ import annotations
 
@@ -26,6 +28,35 @@ from core import optimizer as mo
 from core import radar_model as rm
 from core import validation
 from gui.scene_view import SceneView, SectorDraw
+
+
+class MonteCarloWorker(QThread):
+    """core.montecarlo.run() of the mission on a background thread (step 5.4 M4, H3); cancel() stops it at its next
+    progress report."""
+    progress = pyqtSignal(str)
+    done = pyqtSignal(dict)
+    failed = pyqtSignal(str)
+
+    def __init__(self, mission: dict, parent=None):
+        super().__init__(parent)
+        self.mission, self.cancelled = mission, False
+
+    def cancel(self) -> None:
+        self.cancelled = True
+
+    def _cb(self, d, n, label) -> None:
+        if self.cancelled:
+            raise RuntimeError("Monte-Carlo cancelled")
+        self.progress.emit(f"{label} ({d}/{n})")
+
+    def run(self) -> None:
+        from core import montecarlo
+        try:
+            mc = montecarlo.run(self.mission, progress_cb=self._cb)
+        except Exception as exc:  # noqa: BLE001 -- surface any model error (or the cancellation) to the UI
+            self.failed.emit(str(exc))
+            return
+        self.done.emit(mc)
 
 
 class VerifyWorker(QThread):
@@ -159,14 +190,36 @@ class ResultsTab(QWidget):
         self.lbl_verdict.setWordWrap(True)
         v.addWidget(self.lbl_verdict)
         self.table_verdict = QTableWidget()
-        cols = ["state", "object", "constraint", "priority", "load %", "value", "limit", "note"]
+        cols = ["state", "source", "object", "constraint", "priority", "load %", "value", "limit", "analytic",
+                "MC interval", "note"]
         self.table_verdict.setColumnCount(len(cols))
         self.table_verdict.setHorizontalHeaderLabels(cols)
         self.table_verdict.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.table_verdict.horizontalHeader().setStretchLastSection(True)
         self.table_verdict.setToolTip("Resource: OK up to the load ceiling, ALERT up to 100 % (safety reserve in use), "
-                                      "NOK above. Requirement: OK up to 100 %, NOK above. Transient: ALERT above 100 %.")
+                                      "NOK above. Requirement: OK up to 100 %, NOK above. Transient: ALERT above 100 %. "
+                                      "Source MC (Monte-Carlo, on demand): NOK when the requirement is missed beyond the "
+                                      "interval, ALERT when the analytic value is optimistic.")
         v.addWidget(self.table_verdict)
+        # step 5.4 M4 (H3): the Monte-Carlo of the plan, on demand
+        h = QHBoxLayout()
+        self.btn_mc = QPushButton("Monte-Carlo")
+        self.btn_mc.setToolTip("Draw the plan (test targets, confirmations, timelines, tracks) and add the rows to the "
+                               "verdict; proposes a load ceiling for the transmit time. Several minutes.")
+        self.btn_mc.clicked.connect(self._run_montecarlo)
+        self.btn_mc_cancel = QPushButton("Cancel")
+        self.btn_mc_cancel.setEnabled(False)
+        self.btn_mc_cancel.clicked.connect(lambda: self._mc_worker.cancel() if self._mc_worker else None)
+        self.btn_mc_report = QPushButton("Monte-Carlo report")
+        self.btn_mc_report.setEnabled(bool(self.result.get("montecarlo")))
+        self.btn_mc_report.clicked.connect(self._show_mc_report)
+        self.lbl_mc = QLabel("")
+        self.lbl_mc.setWordWrap(True)
+        for w in (self.btn_mc, self.btn_mc_cancel, self.btn_mc_report):
+            h.addWidget(w)
+        h.addWidget(self.lbl_mc, 1)
+        v.addLayout(h)
+        self._mc_worker = None
         # step 5.3 (P2): the quantified relaxation advice, estimated; one of them verified on request
         self.table_advice = QTableWidget()
         cols = ["n", "constraint", "kind", "on", "change", "law / note", "verified"]
@@ -258,6 +311,47 @@ class ResultsTab(QWidget):
         self.btn_verify.setEnabled(True)
         self._fill_advice()
 
+    def _run_montecarlo(self) -> None:
+        self._mc_worker = MonteCarloWorker(self.mission, self)
+        self._mc_worker.progress.connect(lambda t: self.lbl_mc.setText(f"Monte-Carlo: {t}"))
+        self._mc_worker.done.connect(self._on_mc_done)
+        self._mc_worker.failed.connect(self._on_mc_failed)
+        self.btn_mc.setEnabled(False)
+        self.btn_mc_cancel.setEnabled(True)
+        self.lbl_mc.setText("Monte-Carlo: plan computed again with its plans kept...")
+        self._mc_worker.start()
+
+    def _on_mc_done(self, mc: dict) -> None:
+        from core import montecarlo
+        self.result["montecarlo"] = montecarlo._clean({k: v for k, v in mc.items()})
+        if self.result.get("verdict"):
+            self.result["verdict"] = validation.merge_montecarlo(self.mission, self.result["verdict"], mc)
+        self.btn_mc.setEnabled(True)
+        self.btn_mc_cancel.setEnabled(False)
+        self.btn_mc_report.setEnabled(True)
+        c = mc.get("load_ceiling") or {}
+        self.lbl_mc.setText(f"Monte-Carlo {mc['state']} ({mc['runtime_s']:.0f} s)"
+                            + (f"; load ceiling proposed {100 * c['proposed']:.1f} % (not applied)"
+                               if c.get("proposed") is not None else ""))
+        self.exported = False
+        self._fill_verdict()
+
+    def _on_mc_failed(self, msg: str) -> None:
+        self.btn_mc.setEnabled(True)
+        self.btn_mc_cancel.setEnabled(False)
+        self.lbl_mc.setText(f"Monte-Carlo: {msg}")
+
+    def _show_mc_report(self) -> None:
+        from core import montecarlo
+        mc = self.result.get("montecarlo")
+        if not mc:
+            return
+        box = QMessageBox(self)
+        box.setWindowTitle("Monte-Carlo report")
+        box.setText(f"Monte-Carlo {mc.get('state')} (seed {mc.get('seed')})")
+        box.setDetailedText("\n".join(montecarlo.report_lines(mc)))
+        box.exec_()
+
     def _fill_verdict(self) -> None:
         vd = self.result.get("verdict")
         if not vd:
@@ -274,6 +368,12 @@ class ResultsTab(QWidget):
         if vd.get("nok_priorities"):
             txt += "\nPriorities failed: " + ", ".join(vd["nok_priorities"])
         txt += f"\nSaturation at the specification: {sat.get('state_at_spec')} (mode {sat.get('mode')})"
+        m = vd.get("montecarlo")
+        if m:
+            c = m.get("load_ceiling") or {}
+            txt += (f"\nMonte-Carlo: {m.get('state')}"
+                    + (f"; load ceiling proposed {100 * c['proposed']:.1f} % of the transmit time (not applied)"
+                       if c.get("proposed") is not None else ""))
         self.lbl_verdict.setText(txt)
         colour = {"OK": "#2fa35a", "ALERT": "#e08a1e", "NOK": "#d6453d"}
         self.lbl_verdict.setStyleSheet(f"color: {colour.get(vd['state'], '#d6453d')}; font-weight: bold;")
@@ -284,10 +384,12 @@ class ResultsTab(QWidget):
         def num(x) -> str:
             return f"{x:.4g}" if isinstance(x, (int, float)) and not isinstance(x, bool) else ("-" if x is None else str(x))
         for i, r in enumerate(rows):
-            vals = [r["state"], r["object"], r["quantity"], r["priority"] or "-",
+            ci = r.get("ci")
+            vals = [r["state"], r.get("source", "model"), r["object"], r["quantity"], r["priority"] or "-",
                     "-" if r["load"] is None else f"{100 * r['load']:.1f}",
                     num(r["value"]) + (f" {r['unit']}" if r["unit"] and r["value"] is not None else ""),
-                    num(r["limit"]), r["note"]]
+                    num(r["limit"]), num(r.get("analytic")),
+                    f"[{num(ci[0])}, {num(ci[1])}]" if ci else "-", r["note"]]
             for col, val in enumerate(vals):
                 item = QTableWidgetItem(val)
                 if col == 0:

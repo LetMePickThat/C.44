@@ -452,6 +452,77 @@ def redundancy_text(d: dict) -> str:
             + (f"; {d['caveat']}" if d.get("caveat") else ""))
 
 
+# ----------------------------------------------------------------------------- step 5.4 M4: the Monte-Carlo rows
+def _mc_row(t: _Table, obj: str, quantity: str, analytic, mc, ci, limit, load, state: str, why: str,
+            priority: Optional[str]) -> None:
+    t.add("montecarlo", obj, quantity, "spec", mc, limit, load, priority, "5.4", note=why, state=state)
+    t.rows[-1].update(source="MC", analytic=analytic, mc=mc, ci=list(ci) if ci is not None else None)
+
+
+def montecarlo_rows(mission: dict, mc: dict, ceiling: float) -> List[dict]:
+    """The constraints of a Monte-Carlo run (core.montecarlo.run, step 5.4 M4, Q1): per search sector the cumulative
+    Pd and the confirmation, per sector the confirmation latency, per face and band the late track updates, per
+    tracking bracket the loss per update (initiation included in its state), the chain; each with its analytic value,
+    its drawn value and interval and the state of the run (OK / ALERT model optimistic / NOK by Monte-Carlo)."""
+    secs = {s["id"]: s for s in mission.get("sectors", [])}
+    t = _Table(ceiling)
+
+    def pr(sid: str, track: bool = False) -> Optional[str]:
+        s = secs.get(sid.split("/")[0])
+        return None if s is None else (_track_priority(s) if track else _search_priority(s))
+    for r in mc.get("sectors", []):
+        if r.get("status") != "OK" or r.get("pd_mc_in_range") is None:
+            continue
+        m = r["pd_mc_in_range"]
+        _mc_row(t, r["id"], "Pd cumulative (MC)", r["pd_analytic_in_range"], m, r["ci_in_range"], r["pd_required"],
+                _ratio(r["pd_required"], m), r["state"], r.get("why", ""), pr(r["id"]))
+        c = r.get("confirmation")
+        if c:
+            _mc_row(t, r["id"], f"P confirmation {c['mode']} (MC)", c["p_analytic"], c["p_mc"], c["ci"], c["p_min"],
+                    _ratio(c["p_min"], c["p_mc"]), c["state"], c.get("why", ""), pr(r["id"]))
+    tl = mc.get("timelines") or {}
+    for r in tl.get("sectors", []):
+        if r.get("latency_q95_mc_s") is None:
+            continue
+        _mc_row(t, r["id"], "confirmation latency 95 % (MC)", r["latency_q95_analytic_s"], r["latency_q95_mc_s"],
+                r["latency_ci"], r["latency_required_s"], _ratio(r["latency_q95_mc_s"], r["latency_required_s"]),
+                r["latency_state"], r.get("latency_why", ""), pr(r["id"]))
+    for k, fk in (tl.get("faces") or {}).items():
+        for b, fb in fk.items():
+            if fb.get("updates"):
+                _mc_row(t, f"F{int(k) + 1}", f"{b} late track updates (MC)", fb.get("late_update_frac_analytic"),
+                        fb["late_update_frac_mc"], None, None, None, fb["state"], fb.get("why", ""), None)
+    for r in mc.get("tracks", []):
+        if r.get("status") != "OK" or r.get("p_loss_mc") is None:
+            continue
+        _mc_row(t, r["id"], "track loss per update (MC)", r["p_loss_analytic"], r["p_loss_mc"], r["ci"],
+                r["p_loss_max"], _ratio(r["p_loss_mc"], r["p_loss_max"]), r["state"], r.get("why", ""),
+                pr(r["id"], track=True))
+    for r in mc.get("chain", []):
+        _mc_row(t, r["id"], "track chain failure (MC)", r["failure_analytic"], r["failure_mc"], r["ci"],
+                r["required"], _ratio(r["failure_mc"], r["required"]), r["state"], r.get("why", ""),
+                pr(r["id"], track=True))
+    return t.rows
+
+
+def merge_montecarlo(mission: dict, v: dict, mc: dict) -> dict:
+    """A copy of the verdict with the Monte-Carlo rows (source "MC") and its state recomputed with them (a NOK by
+    Monte-Carlo makes the mission NOK, A3); the proposed load ceiling and the run's summary in v["montecarlo"]. The
+    rows of the model keep source "model"."""
+    out = copy.deepcopy(v)
+    for r in out["constraints"]:
+        r.setdefault("source", "model")
+    out["constraints"] = [r for r in out["constraints"] if r.get("source") != "MC"]
+    out["constraints"] += montecarlo_rows(mission, mc, v["load_ceiling"])
+    out["counts"] = {s: sum(1 for r in out["constraints"] if r["state"] == s) for s in STATES}
+    if v["state"] != "INCOMPLETE":
+        out["state"] = "NOK" if out["counts"]["NOK"] else "ALERT" if out["counts"]["ALERT"] else "OK"
+    out["nok_priorities"] = sorted({r["priority"] for r in out["constraints"] if r["state"] == "NOK" and r["priority"]})
+    out["montecarlo"] = {"state": mc.get("state"), "pass": mc.get("pass"), "seed": mc.get("seed"),
+                         "runtime_s": mc.get("runtime_s"), "load_ceiling": mc.get("load_ceiling")}
+    return out
+
+
 def summary_lines(v: dict) -> List[str]:
     """The verdict as text: state, limiting resource, then every constraint in alert or failed."""
     lim = v.get("limiting")
@@ -462,6 +533,12 @@ def summary_lines(v: dict) -> List[str]:
     sat = v.get("saturation") or {}
     lines.append(f"saturation at the specification: {sat.get('state_at_spec')} (mode {sat.get('mode')})"
                  + (f", first shed beyond: {sat['first_shed']}" if sat.get("first_shed") else ""))
+    m = v.get("montecarlo")
+    if m:
+        c = m.get("load_ceiling") or {}
+        lines.append(f"Monte-Carlo (step 5.4, seed {m.get('seed')}, {m.get('runtime_s') or 0:.0f} s): {m.get('state')}; "
+                     + (f"load ceiling proposed {100 * c['proposed']:.1f} % (transmit time, not applied)"
+                        if c.get("proposed") is not None else f"no load ceiling proposed ({c.get('why', '-')})"))
     for r in sorted((r for r in v["constraints"] if r["state"] != "OK"), key=lambda r: (r["state"] != "NOK", r["id"])):
         load = "-" if r["load"] is None else f"{100 * r['load']:.1f} %"
         pr = f" [{r['priority']}]" if r["priority"] else ""

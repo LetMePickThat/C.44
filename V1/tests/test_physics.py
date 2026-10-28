@@ -3346,6 +3346,80 @@ def test_mc_greedy_matches_the_scheduler_rule():
     assert pauses == 1 and abs(d[1] - 1.5) < 1e-12
 
 
+def _mc_fake_timelines(lat_s: float, late: float) -> dict:
+    return {"sectors": [{"id": "A", "latency_q95_mc_s": lat_s, "latency_ci": [0.9 * lat_s, 1.1 * lat_s],
+                         "latency_required_s": 2.0}],
+            "faces": {"0": {"S": {"updates": 1000, "late_update_frac_mc": late}, "Ku": {"updates": 0}}}}
+
+
+def test_mc_rows_enter_the_verdict():
+    """Step 5.4 M4 (Q1, Q2): the rows of a Monte-Carlo run go into the verdict with the source MC, their analytic
+    value and interval; a NOK by Monte-Carlo makes the mission NOK; the model rows keep the source "model"; the run's
+    states are the verdict's words (OK / ALERT / NOK)."""
+    from core import montecarlo as mc_
+    mission = {"sectors": [{"id": "A", "target_type": "KKV"}]}
+    v = {"state": "OK", "load_ceiling": 0.8, "counts": {"OK": 1, "ALERT": 0, "NOK": 0}, "nok_priorities": [],
+         "constraints": [{"id": "F1.energy", "family": "face", "object": "F1", "quantity": "energy",
+                          "kind": "resource", "value": 0.5, "limit": 1.0, "unit": "", "load": 0.5, "state": "OK",
+                          "priority": None, "step": "5.2", "note": ""}]}
+    run = {"state": "NOK", "pass": "M4", "seed": 1, "runtime_s": 3.0,
+           "sectors": [{"id": "A", "status": "OK", "pd_mc_in_range": 0.85, "pd_analytic_in_range": 0.9,
+                        "ci_in_range": [0.83, 0.87], "pd_required": 0.9, "state": "NOK", "why": "Pd short",
+                        "confirmation": {"mode": "KU1+7", "p_analytic": 0.9995, "p_mc": 0.999, "ci": [0.998, 1.0],
+                                         "p_min": 0.9995, "state": "ALERT", "why": "optimistic"}}],
+           "timelines": _mc_fake_timelines(1.0, 0.0) | {"sectors": [{"id": "A", "latency_q95_mc_s": 1.0,
+                                                                     "latency_ci": [0.9, 1.1],
+                                                                     "latency_q95_analytic_s": 0.8,
+                                                                     "latency_required_s": 2.0,
+                                                                     "latency_state": "OK", "latency_why": ""}]},
+           "tracks": [], "chain": [], "load_ceiling": {"proposed": 0.7, "current": 0.8}}
+    run["timelines"]["faces"]["0"]["S"].update(state="OK", why="", late_update_frac_analytic=None)
+    out = val_.merge_montecarlo(mission, v, run)
+    mc_rows = [r for r in out["constraints"] if r["source"] == "MC"]
+    assert {r["quantity"] for r in mc_rows} == {"Pd cumulative (MC)", "P confirmation KU1+7 (MC)",
+                                                "confirmation latency 95 % (MC)", "S late track updates (MC)"}
+    pd = next(r for r in mc_rows if r["quantity"].startswith("Pd"))
+    assert pd["state"] == "NOK" and pd["analytic"] == 0.9 and pd["ci"] == [0.83, 0.87] and pd["priority"] == "P4_1"
+    assert out["state"] == "NOK" and out["counts"]["NOK"] == 1 and out["counts"]["ALERT"] == 1
+    assert out["constraints"][0]["source"] == "model" and v["constraints"][0].get("source") is None   # v untouched
+    assert out["montecarlo"]["load_ceiling"]["proposed"] == 0.7
+    assert len(val_.merge_montecarlo(mission, out, run)["constraints"]) == len(out["constraints"])  # no duplicates
+    assert "ALERTE" not in open(mc_.__file__, encoding="utf-8").read()
+
+
+def test_mc_load_ceiling_bisection(monkeypatch):
+    """Step 5.4 M4 (Q3-Q5, one factor per band): the timelines hold while the latency (upper bound) and the late
+    updates are within their limits; per band the ceiling is the band's most loaded face at the largest factor g_b
+    that holds (bisection between 1 and a full transmit time of that face, the other band at its specification);
+    the proposal is the lower band, never applied, at most 1; none when the specification fails."""
+    from core import montecarlo as mc_
+    assert mc_.holds(_mc_fake_timelines(1.0, 0.0))[0]
+    assert not mc_.holds(_mc_fake_timelines(1.9, 0.0))[0]           # upper bound 2.09 s > 2 s required
+    assert not mc_.holds(_mc_fake_timelines(1.0, 2.0 * mc_.LATE_UPDATE_MAX))[0]
+    out = {"scheduler": {"faces": {"0": {"S": {"load": 0.4, "capacity": 1.0}, "Ku": {"load": 0.1, "capacity": 0.9}},
+                                   "1": {"S": {"load": 0.2, "capacity": 1.0}}}}}
+    assert mc_.transmit_loads(out) == pytest.approx({"F1 S": 0.4, "F1 Ku": 0.1 / 0.9, "F2 S": 0.2})
+    seen = []
+    monkeypatch.setattr(mc_, "mission_scans", lambda m, o: None)
+    monkeypatch.setattr(mc_, "_face_runs", lambda m, o, seed, g, scans, ex=None: seen.append(dict(g)) or {"g": g})
+    # latency grows with the load factor of either band: 1 s at the specification, 2 s required (upper bound x1.1)
+    monkeypatch.setattr(mc_, "timelines",
+                        lambda m, o, seed, cb, runs: _mc_fake_timelines(max(runs["g"].values()), 0.0))
+    c = mc_.propose_ceiling({"global": {}}, out)
+    g_true = 2.0 / 1.1
+    s_, k_ = c["bands"]["S"], c["bands"]["Ku"]
+    assert g_true - 1.5 / 2 ** mc_.CEILING_BISECTIONS < s_["g_max"] <= g_true and s_["binding"] == "F1 S"
+    assert g_true - 8.0 / 2 ** mc_.CEILING_BISECTIONS < k_["g_max"] <= g_true and k_["binding"] == "F1 Ku"
+    assert s_["proposed"] == pytest.approx(0.4 * s_["g_max"]) and s_["faces"]["F2 S"] == pytest.approx(0.2 * s_["g_max"])
+    assert c["band"] == "Ku" and c["proposed"] == pytest.approx(k_["proposed"]) and not c["applied"]
+    assert all(len(g) == 1 for g in seen[1:])                         # one band loaded at a time
+    assert "latency" in c["limited_by"]
+    monkeypatch.setattr(mc_, "timelines", lambda m, o, seed, cb, runs: _mc_fake_timelines(0.1, 0.0))
+    assert mc_.propose_ceiling({"global": {}}, out)["proposed"] == pytest.approx(1.0)      # holds to a full face
+    c = mc_.propose_ceiling({"global": {}}, out, base=_mc_fake_timelines(3.0, 0.0))
+    assert c["proposed"] is None and "specification" in c["why"]
+
+
 def test_mc_confirmation_matches_the_analytic_success():
     """Step 5.4 M2-4: fed with the analytic detected-SNR quantiles and independent looks (T0 = 0), the drawn KU1+7 and
     KU7 successes fall in the 99.9 % interval of tracking.ConfirmStats (the same Gaussian errors, averaged)."""

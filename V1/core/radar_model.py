@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.34.0
+# Radar Performance Model - V6.35.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -10,6 +10,14 @@
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
 #
+# Changes V6.34.0 -> V6.35.0 (step 5.4, pass M4, user 29 October 2026, Q1-Q8)
+#   - Monte-Carlo states OK / ALERT / NOK (the verdict's words; ALERTE before); its rows go into the verdict with the
+#     source "MC" (core.validation.merge_montecarlo), the mission state recomputed with them;
+#   - load_ceiling proposed (never applied) from the drawn timelines with every load x g (bisection,
+#     tool.montecarlo.ceiling_bisections 6): latency at 95 % (upper bound) within requirement, late track updates
+#     within tool.montecarlo.late_update_max 1 % (D); transmit time only;
+#   - Results tab: "Monte-Carlo" button (background run, cancel, report), verdict columns source / analytic / interval;
+#   - KV/0 ALERT (drawn loss x2 the analytic, far below p_loss_max) kept as an ALERT (Q7 a).
 # Changes V6.33.0 -> V6.34.0 (decisions of the user after robustness test no. 1, 28 October 2026)
 #   - targets: a class is sized at its mean RCS - tool.targets.rcs_sizing_sigmas (2) x its spread rcs_spread_db,
 #     body and optics (Target.sizing_margin, decision 2); class key optics_in_detection, the KKV sized on its body
@@ -684,7 +692,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.34.0"
+MODEL_VERSION = "6.35.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

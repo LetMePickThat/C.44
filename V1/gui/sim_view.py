@@ -17,10 +17,14 @@ passes S6 and S7; framing V1-V5 and L1-L6 validated by the user on 29 October 20
      a body and follows it; Zoom + / - (and the wheel) at any time, playback included
      (each frame leaves MIN_IDLE_MS to the event loop);
   V4 ship view (ship frame): the ship model, faces, objects at their exact direction and at a log range scale from
-     tool.display.sim_ship_view_r[0] (nearest) to [1] (farthest), range rings, lines of sight coloured by owner face,
+     tool.display.sim_ship_view_r[0] (nearest) to [1] (farthest), or at 1:1 in km (option; the ship then shown by its
+     axes, the volumes at their true size), range rings of about constant size on screen whose round range values
+     follow the zoom, lines of sight coloured by owner face,
      grey when occulted or outside every face, orange when masked by the structure;
-  V5 the volumes of the linked mission at the current time (mission at t, sim/engine.py), redrawn when paused and
-     every 1 s of simulated time while playing;
+  V5 the volumes of the linked mission at the current time (the navigation at t, sim/engine.py): built once, then
+     turned with their frame at every frame (rebuilt past VOL_REBUILD_DEG of turn);
+  performance (user, 29 October 2026, measured): the dynamic actors are created once and their points updated in
+     place, labels by one vtkLabeledDataMapper each, one render per frame (the Qt repaint);
   L1 play / pause, step +/- (journal step), slider, speed x1 .. x100 000, reverse; time from the epoch and UTC;
   L2 tool.display.sim_fps frames per second: positions interpolated at each frame (Hermite), the face / aspect / RCS
      read from the geometry at the nearest recorded instant;
@@ -33,6 +37,7 @@ No RF here (F9): step 6.4 adds the looks and the tracks to the same player.
 """
 from __future__ import annotations
 
+import copy
 import math
 from functools import lru_cache
 import time
@@ -53,6 +58,7 @@ from core import optimizer as opt
 from core import radar_model as rm
 from core.params import P
 from gui import scene_view as sv
+from sim import attitude as att
 from sim import engine
 from sim import ephemeris as eph
 from sim import geometry as sgeo
@@ -63,8 +69,18 @@ TRAIL_S = float(P.get("tool.display.sim_trail_s"))
 FPS = int(P.get("tool.display.sim_fps"))
 SHIP_R0, SHIP_R1 = (float(x) for x in P.get("tool.display.sim_ship_view_r"))
 AUTO_MAX_CELLS = float(P.get("tool.display.sim_auto_max_cells"))
+MAX_VIEW_KM = float(P.get("tool.display.sim_max_view_km"))     # farthest zoom out (user)
+ARCBALL_RADIUS = float(P.get("tool.display.arcball_radius"))   # mouse rotation (user)
 SPEEDS = (1, 10, 100, 1000, 10000, 100000)     # x10 000 and x100 000: the Moon on its orbit (user)
-VOLUME_EVERY_S = 1.0                              # V5: mission volumes redrawn every this much simulated time
+VOL_REBUILD_DEG = 5.0                             # V5: a volume is turned in place, rebuilt past this turn of its frame
+RING_STEP_FRAC = 0.25                             # V4: range rings spaced this share of the visible half-height apart
+RING_COVER = 1.1                                  # ... out to this x the farthest corner of the 3D view
+RING_MIN_SIN_EL = 0.2                             # (a view almost in the rings' plane: at most 5 x the half-height)
+RING_MAX = 60                                     # rings at most
+DECADE_STEPS = (0.1, 0.2, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0)   # log scale: ring step in decades
+RING_POINTS = 121
+RING_LOG10_KM = (-300.0, 300.0)                   # log scale: rings over the whole view (user), within the floats
+TRAIL_SAMPLES = 25                                # L3: points of a trail in the global view
 CLASS_COLORS = {c: cgeo.SECTOR_PALETTE[i % len(cgeo.SECTOR_PALETTE)] for i, c in enumerate(sorted(rm.TARGETS))}
 SHIP_COLOR = "#ffffff"
 BG_COLOR = "#0b1020"                              # dark background of the 3D views
@@ -206,6 +222,77 @@ def _moon_matrix(moon_geo_km: np.ndarray) -> np.ndarray:
     return np.stack([x, np.cross(z, x), z], axis=1)
 
 
+def _nice(x: float) -> float:
+    """The 1-2-5 round value nearest to x in log (ring ranges)."""
+    e = math.floor(math.log10(x))
+    m = x / 10.0 ** e
+    best = min((1.0, 2.0, 5.0, 10.0), key=lambda c: abs(math.log10(m / c)))
+    return best * 10.0 ** e
+
+
+def _pairs(n: int) -> np.ndarray:
+    """Lines of segment j from point j to point n + j."""
+    return np.column_stack([np.full(n, 2), np.arange(n), n + np.arange(n)]).ravel()
+
+
+def _turn_x_to(u: np.ndarray) -> np.ndarray:
+    """A rotation that takes +X to the unit vector u."""
+    x = np.array([1.0, 0.0, 0.0])
+    c = float(x @ u)
+    if c > 1.0 - 1e-12:
+        return np.eye(3)
+    if c < -1.0 + 1e-12:
+        return np.diag([-1.0, -1.0, 1.0])
+    k = np.cross(x, u)
+    k = k / np.linalg.norm(k)
+    return att.expm(k * math.acos(c))
+
+
+class _Labels:
+    """Text labels at 3D points, always on top (vtkLabeledDataMapper): one actor, its points and texts updated in
+    place (pyvista's add_point_labels rebuilds its whole pipeline at each call)."""
+
+    def __init__(self, plotter, color: str, size: int):
+        from vtkmodules.vtkCommonCore import vtkPoints, vtkStringArray
+        from vtkmodules.vtkCommonDataModel import vtkPolyData
+        from vtkmodules.vtkRenderingCore import vtkActor2D
+        from vtkmodules.vtkRenderingLabel import vtkLabeledDataMapper
+        self.points, self.texts = vtkPoints(), vtkStringArray()
+        self.texts.SetName("labels")
+        self.poly = vtkPolyData()
+        self.poly.SetPoints(self.points)
+        self.poly.GetPointData().AddArray(self.texts)
+        self.mapper = vtkLabeledDataMapper()
+        self.mapper.SetInputData(self.poly)
+        self.mapper.SetLabelModeToLabelFieldData()
+        self.mapper.SetFieldDataName("labels")
+        tp = self.mapper.GetLabelTextProperty()
+        tp.SetColor(*(c / 255.0 for c in _rgb(color)))
+        tp.SetFontSize(size)
+        tp.SetShadow(False)
+        tp.SetBold(False)
+        tp.SetItalic(False)
+        tp.SetJustificationToLeft()
+        self.actor = vtkActor2D()
+        self.actor.SetMapper(self.mapper)
+        plotter.add_actor(self.actor, reset_camera=False, render=False)
+        self._last: List[str] = []
+
+    def set(self, pts: np.ndarray, texts: List[str]) -> None:
+        if list(texts) != self._last:
+            self.texts.SetNumberOfValues(len(texts))
+            for i, t in enumerate(texts):
+                self.texts.SetValue(i, f" {t}")
+            self._last = list(texts)
+        self.points.SetNumberOfPoints(len(pts))
+        for i, q in enumerate(pts):
+            self.points.SetPoint(i, float(q[0]), float(q[1]), float(q[2]))
+        self.points.Modified()
+        self.texts.Modified()
+        self.poly.Modified()
+        self.actor.SetVisibility(True)
+
+
 def _segments(a: np.ndarray, b: np.ndarray) -> pv.PolyData:
     pts = np.empty((2 * len(a), 3))
     pts[0::2], pts[1::2] = a, b
@@ -229,7 +316,7 @@ class SimView(QWidget):
         self.worker: Optional[SimWorker] = None
         self._queued: Optional[Callable] = None
         self._mission = None                      # (path, mission dict) of the linked mission
-        self._vol_t: Optional[float] = None
+        self._reset_dynamic()
         self._r_log = (1.0, 10.0)
         self.selected: Optional[str] = None
 
@@ -274,11 +361,19 @@ class SimView(QWidget):
                                   "to choose it; zoom with the wheel or the buttons, also while playing)")
         self.cb_volumes = QCheckBox("mission volumes")
         self.cb_volumes.setChecked(True)
+        self.cb_bodies = QCheckBox("celestial objects")
+        self.cb_bodies.setToolTip("Ship view: the Earth, the Moon and the Sun at their true directions (1:1: true "
+                                  "distances and sizes; log scale: the view's distance, their true apparent size)")
+        self.cb_bodies.toggled.connect(lambda _on: self._draw_frame())
+        self.cb_true = QCheckBox("1:1 scale")
+        self.cb_true.setToolTip("Ship view: true distances in km (off: log range scale from the nearest to the "
+                                "farthest object of the run)")
+        self.cb_true.toggled.connect(lambda _on: self._rebuild() if not self._global() else None)
         for cb in (self.cb_labels, self.cb_vectors, self.cb_trails):
             cb.toggled.connect(lambda _on: self._draw_frame())
         self.cb_centre.currentTextChanged.connect(lambda _t: self._apply_centre(reframe=True))
         self.cb_volumes.toggled.connect(lambda _on: self._draw_volumes(force=True))
-        for cb in (self.cb_labels, self.cb_vectors, self.cb_trails, self.cb_volumes):
+        for cb in (self.cb_labels, self.cb_vectors, self.cb_trails, self.cb_volumes, self.cb_true, self.cb_bodies):
             opts.addWidget(cb)
         opts.addWidget(QLabel("centre on"))
         opts.addWidget(self.cb_centre)
@@ -291,10 +386,12 @@ class SimView(QWidget):
         self.plotter = QtInteractor(self)
         self.plotter.setMinimumWidth(400)
         sv.lock_pivot(self.plotter)
+        sv.install_arcball(self.plotter, ARCBALL_RADIUS)   # left drag: virtual trackball (roll outside its circle)
         self.plotter.iren.interactor.AddObserver("LeftButtonPressEvent", self._on_click, 1.0)
         self.plotter.set_background(BG_COLOR)
         self.plotter.renderer.SetNearClippingPlaneTolerance(NEAR_TOL)
         self.plotter.add_axes(color=TEXT_COLOR)
+        self.plotter.renderer.GetActiveCamera().AddObserver("ModifiedEvent", lambda *_a: self._on_camera())
 
         # ---- L1 playback
         play = QHBoxLayout()
@@ -414,7 +511,10 @@ class SimView(QWidget):
         rng = g.range_km[np.isfinite(g.range_km)]
         self._r_log = (max(float(rng.min()), 1e-3), max(float(rng.max()), 1e-3)) if rng.size else (1.0, 10.0)
         self._mission = None
-        self._vol_t = None
+        self._navigation = engine.Navigation(sc, truth)
+        self._triad_rgb = np.array([_rgb(cgeo.COLORS[k]) for k in ("axis_x", "axis_y", "axis_z")], np.uint8)
+        self._row_rgb = np.array([_rgb(SHIP_COLOR if i == 0 else CLASS_COLORS.get(c, "#888888"))
+                                  for i, c in enumerate(truth.classes)], np.uint8)
         for cb, first in ((self.cb_object, [""]), (self.cb_centre, [CENTRAL])):
             cur = cb.currentText()
             cb.blockSignals(True)
@@ -443,7 +543,7 @@ class SimView(QWidget):
         self.slider.blockSignals(False)
         self._draw_frame()
         if not self._playing:
-            self._draw_volumes(force=True)
+            self._draw_volumes()
 
     def _on_slider(self, v: int) -> None:
         if self.sc is not None:
@@ -462,7 +562,7 @@ class SimView(QWidget):
             self._playing = False
             self.timer.stop()
             self.bt_play.setText("Play")
-            self._draw_volumes(force=True)
+            self._draw_volumes()
         elif self.sc is not None:
             if not self.cb_rev.isChecked() and self.t >= self.duration():
                 self.t = 0.0
@@ -529,7 +629,7 @@ class SimView(QWidget):
         p.clear()
         p.set_background(BG_COLOR)
         p.remove_all_lights()
-        self._vol_t = None
+        self._reset_dynamic()
         if self.truth is None:
             p.render()
             return
@@ -621,6 +721,34 @@ class SimView(QWidget):
     def _body_radius(self, b: str) -> float:
         return eph_sun_radius_km() if b == "sun" else float(scn.bodies()[b]["radius_km"])
 
+    def _max_camera_distance(self) -> Optional[float]:
+        """Camera distance at which the horizontal edge of the view stands for MAX_VIEW_KM (global view and ship
+        view at 1:1: km; ship view in log scale: its extended log law)."""
+        if self.truth is None:
+            return None
+        cam = self.plotter.camera
+        w, h = self.plotter.interactor.width(), self.plotter.interactor.height()
+        k = math.tan(math.radians(0.5 * cam.GetViewAngle())) * max(w / max(h, 1), 1.0)
+        edge = MAX_VIEW_KM if (self._global() or self.cb_true.isChecked()) else self._ring_radius(MAX_VIEW_KM)
+        return edge / k if k > 0 and edge > 0 else None
+
+    def _on_camera(self) -> None:
+        """Every camera change (wheel, buttons, follow): the zoom out held at MAX_VIEW_KM, then the range rings."""
+        if getattr(self, "_in_camera", False):
+            return
+        self._in_camera = True
+        try:
+            d_max = self._max_camera_distance()
+            cam = self.plotter.camera
+            if d_max is not None and cam.GetDistance() > d_max:
+                f = np.asarray(cam.GetFocalPoint())
+                u = np.asarray(cam.GetPosition()) - f
+                cam.SetPosition(*(f + u / np.linalg.norm(u) * d_max))
+                self.plotter.renderer.ResetCameraClippingRange()
+        finally:
+            self._in_camera = False
+        self._update_rings()
+
     def zoom(self, f: float) -> None:
         """Move the camera toward its focal point by f (as the wheel; the triad keeps its size on screen)."""
         self.plotter.camera.Dolly(f)
@@ -655,8 +783,7 @@ class SimView(QWidget):
                     p.reset_camera(render=False, bounds=getattr(self, "_home", None))
                     p._pivot = (0.0, 0.0, 0.0)
                 else:
-                    sv.set_default_camera(p)
-                    cam.position = tuple(np.asarray(cam.position) * max(1.0, SHIP_R1 / 1.5))
+                    self._ship_home()
                 p.render()
             return
         if reframe:
@@ -670,6 +797,8 @@ class SimView(QWidget):
                 d = d[np.isfinite(d) & (d > 1e-9)]
                 span = float(np.clip(d.max() if d.size else 0.0, FOLLOW_MIN_KM, 4.0 * self.truth.body.radius_km))
                 dist = 4.0 * span
+            elif self.cb_true.isChecked():
+                dist = max(1.0, 0.3 * float(np.linalg.norm(tgt))) if np.linalg.norm(tgt) > 0 else 0.3 * self._r_log[1]
             else:
                 dist = 1.5
             cam.SetFocalPoint(*tgt)
@@ -700,29 +829,111 @@ class SimView(QWidget):
         return out
 
     def _build_ship(self) -> None:
+        """V4: the ship model and its faces (log scale: unit sizes) or nothing but its axes (1:1, km: the model and
+        the face layer would be a 1 km symbol); the range rings are dynamic (_update_rings)."""
         p = self.plotter
-        sv.add_static_scene(p)
+        if not self.cb_true.isChecked():
+            sv.add_static_scene(p)
+            scene = cgeo.build_face_sectors(self.grid, -90.0, 90.0)
+            for k in range(4):
+                if scene.surfaces[k].n_points:
+                    p.add_mesh(scene.surfaces[k], color=cgeo.FACE_COLORS[k], opacity=0.15, culling="back",
+                               name=f"face_{k}", render=False)
         p.set_background(BG_COLOR)
         p.enable_lightkit()
         self._centre_pending = True
-        scene = cgeo.build_face_sectors(self.grid, -90.0, 90.0)
-        for k in range(4):
-            if scene.surfaces[k].n_points:
-                p.add_mesh(scene.surfaces[k], color=cgeo.FACE_COLORS[k], opacity=0.15, culling="back",
-                           name=f"face_{k}", render=False)
-        r_min, r_max = self._r_log
-        for e in range(int(math.floor(math.log10(r_min))), int(math.ceil(math.log10(r_max))) + 1):
-            rk = 10.0 ** e
-            if not r_min * 0.999 <= rk <= r_max * 1.001:
-                continue
-            rad = self._radius(np.array([rk]))[0]
-            ang = np.linspace(0.0, 2.0 * math.pi, 121)
-            ring = np.stack([rad * np.cos(ang), rad * np.sin(ang), np.zeros_like(ang)], axis=1)
-            p.add_mesh(pv.lines_from_points(ring), color="#4a5266", line_width=1, name=f"ring_{e}", render=False)
-            p.add_point_labels([[rad, 0.0, 0.0]], [f"{rk:g} km"], font_size=9, shape=None, show_points=False,
-                               text_color=MUTED_COLOR, name=f"ring_lbl_{e}", render=False)
+        self._ship_home()
+
+    def _ship_home(self) -> None:
+        """Default camera of the ship view: the iso view, out to the farthest object (SHIP_R1, or its range in km)."""
+        p = self.plotter
         sv.set_default_camera(p)
-        p.camera.position = tuple(np.asarray(p.camera.position) * max(1.0, SHIP_R1 / 1.5))      # objects out to SHIP_R1
+        k = (self._r_log[1] / 1.2) if self.cb_true.isChecked() else max(1.0, SHIP_R1 / 1.5)
+        pos = np.asarray(p.camera.position) * k
+        if self.truth is not None:
+            # the default camera on the side away from the central body (else it may stand inside it: celestial
+            # objects drawn, both scales)
+            r, _ = sgeo.states_at(self.truth, self.t)
+            dc = -(r[0] / np.linalg.norm(r[0])) @ self.truth.attitude("ship", self.t)
+            if pos @ dc > 0.0:
+                pos = pos - 2.0 * (pos @ dc) * dc
+        p.camera.position = tuple(pos)
+        p.renderer.ResetCameraClippingRange()
+
+    def _ship_r(self, rng_km: np.ndarray) -> np.ndarray:
+        """Radius drawn for ranges in the ship view: the range itself (1:1, km) or the log scale."""
+        return np.asarray(rng_km, float) if self.cb_true.isChecked() else self._radius(np.asarray(rng_km, float))
+
+    def _ship_range(self, r: float) -> Optional[float]:
+        """Range (km) drawn at radius r in the ship view (the inverse of _ship_r, the log law extended)."""
+        if self.cb_true.isChecked():
+            return r if r > 0 else None
+        a, b = (math.log10(x) for x in self._r_log)
+        if b - a < 1e-9:
+            return None
+        e = a + (r - SHIP_R0) / (SHIP_R1 - SHIP_R0) * (b - a)
+        # far zoomed out (or in) the extended log law leaves any meaning (and the floats, 1e308): no ring there
+        return 10.0 ** e if RING_LOG10_KM[0] <= e <= RING_LOG10_KM[1] else None
+
+    def _ring_radius(self, rng_km: float) -> float:
+        """Radius of a range ring: _ship_r without the bounds of the log scale (the inverse of _ship_range)."""
+        if self.cb_true.isChecked():
+            return float(rng_km)
+        a, b = (math.log10(x) for x in self._r_log)
+        if b - a < 1e-9:
+            return 0.5 * (SHIP_R0 + SHIP_R1)
+        return SHIP_R0 + (SHIP_R1 - SHIP_R0) * (math.log10(rng_km) - a) / (b - a)
+
+    def _update_rings(self) -> None:
+        """Range rings of the ship view, spaced RING_STEP_FRAC of the visible half-height apart around the ship and
+        out to the corners of the whole 3D view (partly drawn there, user 29 October 2026), so they stay at about the
+        same place on screen whatever the zoom; each carries the round range (1-2-5) of its radius at this zoom."""
+        if self.truth is None or self._global() or getattr(self, "_in_rings", False):
+            return
+        self._in_rings = True
+        try:
+            cam = self.plotter.camera
+            pos = np.asarray(cam.GetPosition())
+            d0 = float(np.linalg.norm(pos))
+            half = d0 * math.tan(math.radians(0.5 * cam.GetViewAngle()))
+            w, h = self.plotter.interactor.width(), self.plotter.interactor.height()
+            aspect = w / max(h, 1)
+            sin_el = abs(float(pos[2])) / max(d0, 1e-12)       # the rings lie in the ship's XY plane
+            cover = RING_COVER * max(half * math.hypot(1.0, aspect), half / max(sin_el, RING_MIN_SIN_EL))
+            step = RING_STEP_FRAC * half
+            n = min(RING_MAX, int(math.ceil(cover / step)))
+            ang = np.linspace(0.0, 2.0 * math.pi, RING_POINTS)
+            pts, lines, lab_p, lab_t, seen = [], [], [], [], set()
+            # always at the same place on screen (user, 29 October 2026): only the range they carry follows the zoom
+            # (1:1: round steps in km; log: the log law of the view extended beyond its nearest / farthest objects)
+            if self.cb_true.isChecked():
+                s1 = _nice(step)
+                values = [k * s1 for k in range(1, n + 1)]
+            else:
+                # equally spaced on screen (user): a constant step in decades, a round one (DECADE_STEPS), the ranges
+                # 10^(k x step) labelled to 3 figures
+                a, b = (math.log10(x) for x in self._r_log)
+                per = (b - a) / (SHIP_R1 - SHIP_R0) if b - a > 1e-9 else 1.0      # decades per unit of radius
+                dd = min(DECADE_STEPS, key=lambda c: abs(math.log(c / max(step * per, 1e-12))))
+                e_of = lambda r: a + (r - SHIP_R0) * per                          # noqa: E731
+                k0, k1 = math.ceil(e_of(0.5 * step) / dd), math.floor(e_of(cover) / dd)
+                values = [10.0 ** (k * dd) for k in range(k0, min(k1, k0 + RING_MAX - 1) + 1)
+                          if RING_LOG10_KM[0] <= k * dd <= RING_LOG10_KM[1]]
+            for nice in values:
+                if nice in seen or nice > MAX_VIEW_KM:
+                    continue
+                seen.add(nice)
+                rad = self._ring_radius(nice)
+                off = len(pts) * RING_POINTS
+                pts.append(np.stack([rad * np.cos(ang), rad * np.sin(ang), np.zeros_like(ang)], axis=1))
+                lines.append(np.r_[RING_POINTS, off + np.arange(RING_POINTS)])
+                lab_p.append([rad, 0.0, 0.0])
+                lab_t.append(f"{nice:g} km" if self.cb_true.isChecked() else f"{nice:.3g} km")
+            if pts:
+                self._poly(f"{DYN}rings", np.vstack(pts), lines=np.hstack(lines), color="#4a5266", line_width=1)
+                self._labels(f"{DYN}rings_lbl", np.array(lab_p), lab_t, MUTED_COLOR, 9)
+        finally:
+            self._in_rings = False
 
     def _radius(self, rng_km: np.ndarray) -> np.ndarray:
         """V4: log range scale from SHIP_R0 (nearest object of the run) to SHIP_R1 (farthest)."""
@@ -732,20 +943,81 @@ class SimView(QWidget):
         x = np.clip((np.log10(np.maximum(rng_km, 1e-6)) - a) / (b - a), 0.0, 1.0)
         return SHIP_R0 + (SHIP_R1 - SHIP_R0) * x
 
-    def _clear_dynamic(self, prefix: str = DYN) -> None:
-        sv.remove_actors(self.plotter, [k for k in list(self.plotter.actors) if k.startswith(prefix)])
+    # ------------------------------------------------------------------ dynamic layer (updated in place)
+    def _reset_dynamic(self) -> None:
+        """After plotter.clear(): forget the dynamic actors, labels and volumes (they were removed with it)."""
+        self._dyn: Dict[str, list] = {}               # name -> [topology key, mesh, actor]
+        self._lab: Dict[str, "_Labels"] = {}
+        self._vol: Optional[dict] = None
+        self._used: set = set()
+
+    def _poly(self, name: str, pts: np.ndarray, lines: Optional[np.ndarray] = None, rgb: Optional[np.ndarray] = None,
+              cell_rgb: Optional[np.ndarray] = None, **style) -> None:
+        """Show a dynamic polydata: its actor is created once and its points (and colours) updated in place; it is
+        rebuilt only when its topology (point count, lines) changes. Hidden when not drawn in a frame."""
+        self._used.add(name)
+        e = self._dyn.get(name)
+        if len(pts) == 0:
+            if e is not None:
+                e[2].SetVisibility(False)
+            return
+        key = (len(pts), None if lines is None else lines.tobytes(), rgb is not None, cell_rgb is not None)
+        if e is not None and e[0] == key:
+            mesh = e[1]
+            mesh.points = np.asarray(pts, float)
+            if rgb is not None:
+                mesh.point_data["rgb"] = rgb
+            if cell_rgb is not None:
+                mesh.cell_data["rgb"] = cell_rgb
+            mesh.Modified()
+            e[2].SetVisibility(True)
+            return
+        if e is not None:
+            self.plotter.remove_actor(e[2], render=False)
+        mesh = pv.PolyData(np.asarray(pts, float), lines=lines) if lines is not None else pv.PolyData(np.asarray(pts, float))
+        if rgb is not None:
+            mesh.point_data["rgb"] = rgb
+        if cell_rgb is not None:
+            mesh.cell_data["rgb"] = cell_rgb
+        kw = dict(style)
+        if rgb is not None or cell_rgb is not None:
+            kw.update(scalars="rgb", rgb=True, preference="point" if rgb is not None else "cell")
+        actor = self.plotter.add_mesh(mesh, name=name, render=False, **kw)
+        self._dyn[name] = [key, mesh, actor]
+
+    def _labels(self, name: str, pts: np.ndarray, texts: List[str], color: str, size: int = 10) -> None:
+        self._used.add(name)
+        lab = self._lab.get(name)
+        if lab is None:
+            lab = self._lab[name] = _Labels(self.plotter, color, size)
+        lab.set(np.asarray(pts, float), texts)
+
+    def _hide_unused(self) -> None:
+        for name, e in self._dyn.items():
+            if name not in self._used:
+                e[2].SetVisibility(False)
+        for name, lab in self._lab.items():
+            if name not in self._used:
+                lab.actor.SetVisibility(False)
+        self._used = set()
+
+    def _render(self) -> None:
+        """One render per frame: the Qt repaint renders the window (plotter.render() would render it a second
+        time)."""
+        self.plotter.update()
 
     def _draw_frame(self) -> None:
         self._update_time_label()
         if self.truth is None:
             return
-        self._clear_dynamic()
+        self._used = set()
         if self._global():
             self._frame_global()
         else:
             self._frame_ship()
+        self._hide_unused()
         self._show_info()
-        self.plotter.render()
+        self._render()
 
     def _update_time_label(self) -> None:
         if self.sc is None:
@@ -761,130 +1033,224 @@ class SimView(QWidget):
         self._apply_centre(reframe=getattr(self, "_centre_pending", False))
         self._centre_pending = False
         self._place_bodies()
-        cols = [SHIP_COLOR if i == 0 else CLASS_COLORS.get(tr.classes[i], "#888888") for i in range(len(tr.ids))]
         idx = np.flatnonzero(ex)
-        pts = pv.PolyData(r[idx])                      # one actor for every body point (cheap frames)
-        pts["rgb"] = np.array([_rgb(cols[i]) for i in idx], np.uint8)
-        p.add_mesh(pts, scalars="rgb", rgb=True, point_size=8, render_points_as_spheres=True,
-                   name=f"{DYN}pts", render=False)
+        rgb = self._row_rgb[idx]
+        self._poly(f"{DYN}pts", r[idx], rgb=rgb, point_size=8, render_points_as_spheres=True)
         if self.cb_labels.isChecked():
-            ids = [OWNSHIP if i == 0 else tr.ids[i] for i in np.flatnonzero(ex)]
-            p.add_point_labels(r[ex], ids, font_size=10, shape=None, show_points=False, text_color=TEXT_COLOR,
-                               always_visible=True, name=f"{DYN}labels", render=False)
-        if self.cb_trails.isChecked():
-            ts = np.linspace(max(0.0, self.t - TRAIL_S), self.t, 25)
-            past = np.array([sgeo.states_at(tr, float(t))[0] for t in ts])
-            for i in np.flatnonzero(ex):
-                line = _polyline(past[:, i])
-                if line is not None:
-                    p.add_mesh(line, color=cols[i], line_width=3, opacity=0.8, name=f"{DYN}trail_{i}", render=False)
-        if self.cb_vectors.isChecked() and ex.any():
-            p.add_mesh(_segments(r[ex], r[ex] + v[ex] * TRAIL_S), color=MUTED_COLOR, line_width=1,
-                       name=f"{DYN}vel", render=False)
-        # ship attitude triad, enlarged (V3)
+            self._labels(f"{DYN}labels", r[idx], [OWNSHIP if i == 0 else tr.ids[i] for i in idx], TEXT_COLOR)
+        if self.cb_trails.isChecked() and len(idx):
+            ts = np.linspace(max(0.0, self.t - TRAIL_S), self.t, TRAIL_SAMPLES)
+            past = np.array([sgeo.states_at(tr, float(t))[0] for t in ts])[:, idx]       # (samples, n, 3)
+            ok = np.isfinite(past[..., 0]).all(axis=0)
+            past = past[:, ok]
+            n = past.shape[1]
+            if n:
+                pts = past.transpose(1, 0, 2).reshape(-1, 3)
+                lines = np.hstack([np.r_[TRAIL_SAMPLES, j * TRAIL_SAMPLES + np.arange(TRAIL_SAMPLES)]
+                                   for j in range(n)])
+                self._poly(f"{DYN}trails", pts, lines=lines, rgb=np.repeat(rgb[ok], TRAIL_SAMPLES, axis=0),
+                           line_width=3, opacity=0.8)
+        if self.cb_vectors.isChecked() and len(idx):
+            a, b = r[idx], r[idx] + v[idx] * TRAIL_S
+            self._poly(f"{DYN}vel", np.r_[a, b], lines=_pairs(len(idx)), color=MUTED_COLOR, line_width=1)
+        # ship attitude triad, enlarged (V3), of constant size on screen
         m = tr.attitude("ship", self.t)
-        L = TRIAD_FRAC * p.camera.GetDistance()        # the triad keeps its size on screen at any zoom
-        for k, c in enumerate((cgeo.COLORS["axis_x"], cgeo.COLORS["axis_y"], cgeo.COLORS["axis_z"])):
-            p.add_mesh(pv.Line(tuple(r[0]), tuple(r[0] + L * m[:, k])), color=c, line_width=3,
-                       name=f"{DYN}triad_{k}", render=False)
-        # Sun direction from the central body
-        T = eph.centuries_tt(scn.epoch(self.sc), self.t)
-        moon, sun = eph.moon_icrf_km(T), eph.sun_icrf_km(T)
-        centre_geo = np.zeros(3) if tr.body.name == "earth" else moon
-        su = (sun - centre_geo) / np.linalg.norm(sun - centre_geo)
+        L = TRIAD_FRAC * p.camera.GetDistance()
+        tri = np.r_[np.repeat(r[0][None, :], 3, axis=0), r[0] + L * m.T]
+        self._poly(f"{DYN}triad", tri, lines=_pairs(3), cell_rgb=self._triad_rgb, line_width=3)
+        # Sun direction from the central body: an arrow built once, turned and scaled
+        su = self._bodies_at()["sun"]
+        su = su / np.linalg.norm(su)
         R = tr.body.radius_km
-        p.add_mesh(pv.Arrow(start=tuple(su * 1.1 * R), direction=tuple(su), scale=1.5 * R), color=SUN_COLOR,
-                   name=f"{DYN}sun", render=False)
-        p.add_point_labels([su * 2.7 * R], ["Sun"], font_size=10, shape=None, show_points=False,
-                           text_color=SUN_COLOR, name=f"{DYN}sun_lbl", render=False)
+        self._used.add(f"{DYN}sun")
+        a = self._dyn.get(f"{DYN}sun")
+        if a is None:
+            act = p.add_mesh(pv.Arrow(start=(0.0, 0.0, 0.0), direction=(1.0, 0.0, 0.0), scale=1.0), color=SUN_COLOR,
+                             name=f"{DYN}sun", render=False)
+            a = self._dyn[f"{DYN}sun"] = [None, None, act]
+        u = np.eye(4)
+        u[:3, :3] = 1.5 * R * _turn_x_to(su)
+        u[:3, 3] = 1.1 * R * su
+        a[2].user_matrix = u
+        a[2].SetVisibility(True)
+        self._labels(f"{DYN}sun_lbl", (su * 2.7 * R)[None, :], ["Sun"], SUN_COLOR)
 
     def _frame_ship(self) -> None:
-        p, tr, g = self.plotter, self.truth, self.g
+        tr, g = self.truth, self.g
         r, _v = sgeo.states_at(tr, self.t)
         m = tr.attitude("ship", self.t)
+        if self.cb_bodies.isChecked():
+            self._ship_bodies(r[0], m)
         rows = np.arange(1, len(tr.ids))
         ro = r[rows]
         ex = np.isfinite(ro[:, 0])
         if not ex.any():
             self._screen_pts = {}
+            self._update_rings()
             return
         los = ro[ex] - r[0]
         rng = np.linalg.norm(los, axis=1)
         d = (los / rng[:, None]) @ m
-        pos = d * self._radius(rng)[:, None]
+        pos = d * self._ship_r(rng)[:, None]
         face = opt.face_of(d[:, 0], d[:, 1], d[:, 2])[0]
         k = self._k()
         js = np.flatnonzero(ex)
         occ = g.occulted_by[k, js] >= 0
         msk = g.masked[k, js]
-        cols = []
-        for f, o, mk in zip(face, occ, msk):
-            cols.append(OCC_COLOR if (o or f < 0) else MASK_COLOR if mk else cgeo.FACE_COLORS[int(f)])
-        for c in set(cols):
-            sel = [i for i, x in enumerate(cols) if x == c]
-            p.add_mesh(_segments(np.zeros((len(sel), 3)), pos[sel]), color=c, line_width=1.5, opacity=0.7,
-                       name=f"{DYN}los_{c}", render=False)
-        for jj, j in enumerate(js):
-            c = CLASS_COLORS.get(g.classes[j], "#555555")
-            p.add_mesh(pv.PolyData(pos[jj][None, :]), color=c, point_size=9, render_points_as_spheres=True,
-                       name=f"{DYN}pt_{j}", render=False)
+        los_rgb = np.array([_rgb(OCC_COLOR if (o or f < 0) else MASK_COLOR if mk else cgeo.FACE_COLORS[int(f)])
+                            for f, o, mk in zip(face, occ, msk)], np.uint8)
+        n = len(js)
+        self._poly(f"{DYN}los", np.r_[np.zeros((n, 3)), pos], lines=_pairs(n), cell_rgb=los_rgb, line_width=1.5,
+                   opacity=0.7)
+        rgb = self._row_rgb[js + 1]
+        self._poly(f"{DYN}pts", pos, rgb=rgb, point_size=9, render_points_as_spheres=True)
         if self.cb_labels.isChecked():
-            p.add_point_labels(pos, [g.ids[j] for j in js], font_size=10, shape=None, show_points=False,
-                               text_color=TEXT_COLOR, always_visible=True, name=f"{DYN}labels", render=False)
+            self._labels(f"{DYN}labels", pos, [g.ids[j] for j in js], TEXT_COLOR)
         if self.cb_vectors.isChecked():
             nose = g.nose_ship[k, js]
             okn = np.isfinite(nose[:, 0])
             if okn.any():
-                p.add_mesh(_segments(pos[okn], pos[okn] + 0.15 * nose[okn]), color=TEXT_COLOR, line_width=2,
-                           name=f"{DYN}nose", render=False)
+                ln = TRIAD_FRAC * self.plotter.camera.GetDistance() if self.cb_true.isChecked() else 0.15
+                self._poly(f"{DYN}nose", np.r_[pos[okn], pos[okn] + ln * nose[okn]], lines=_pairs(int(okn.sum())),
+                           color=TEXT_COLOR, line_width=2)
         if self.cb_trails.isChecked():
             sel = (g.t_s >= self.t - TRAIL_S) & (g.t_s <= self.t)
-            for j in js:
+            pts, lines, cols, off = [], [], [], 0
+            for jj, j in enumerate(js):
                 dd, rr = g.dir_ship[sel, j], g.range_km[sel, j]
                 ok = np.isfinite(rr)
-                if ok.sum() >= 2:
-                    line = pv.lines_from_points(dd[ok] * self._radius(rr[ok])[:, None])
-                    p.add_mesh(line, color=CLASS_COLORS.get(g.classes[j], "#555555"), line_width=2, opacity=0.6,
-                               name=f"{DYN}trail_{j}", render=False)
+                c = int(ok.sum())
+                if c >= 2:
+                    pts.append(dd[ok] * self._ship_r(rr[ok])[:, None])
+                    lines.append(np.r_[c, off + np.arange(c)])
+                    cols.append(np.repeat(rgb[jj][None, :], c, axis=0))
+                    off += c
+            if pts:
+                self._poly(f"{DYN}trails", np.vstack(pts), lines=np.hstack(lines), rgb=np.vstack(cols), line_width=2,
+                           opacity=0.6)
         self._screen_pts = {g.ids[j]: pos[jj] for jj, j in enumerate(js)}
         self._apply_centre(reframe=getattr(self, "_centre_pending", False))
         self._centre_pending = False
+        if self.cb_true.isChecked():                  # 1:1: the ship's axes, of constant size on screen
+            L = TRIAD_FRAC * self.plotter.camera.GetDistance()
+            self._poly(f"{DYN}ship_axes", np.r_[np.zeros((3, 3)), L * np.eye(3)], lines=_pairs(3),
+                       cell_rgb=self._triad_rgb, line_width=3)
+            self._labels(f"{DYN}ship_axes_lbl", 1.05 * L * np.eye(3), ["X", "Y", "Z (nose)"], TEXT_COLOR)
+        self._update_rings()
+
+    def _ship_bodies(self, r_ship: np.ndarray, m_ship: np.ndarray) -> None:
+        """The Earth, the Moon and the Sun in the ship view (box "celestial objects", user 29 October 2026), at their
+        true directions from the ship, textured and turned as in the global view (body-fixed -> ship frame): at 1:1
+        at their true distance and size; in log scale at the view's distance of their range (the extended log law)
+        with their true apparent size seen from the ship (radius = drawn distance x R / range)."""
+        bodies = self._bodies_at()
+        mats = {"earth": _earth_matrix(scn.epoch(self.sc), self.t),
+                "moon": _moon_matrix(bodies["moon"] - bodies["earth"]), "sun": np.eye(3)}
+        pts, names = [], []
+        for b in ("earth", "moon", "sun"):
+            rel = bodies[b] - r_ship                                       # km, ICRF axes
+            rng = float(np.linalg.norm(rel))
+            rad_true = self._body_radius(b)
+            if rng <= rad_true:
+                continue
+            if self.cb_true.isChecked():
+                dist, size = rng, rad_true
+            else:
+                # log scale: the SURFACE at the view's distance of the altitude (the body stays out of the ship model,
+                # the rings read its altitude), the true apparent size kept: centre D, radius D R / range
+                k = rad_true / rng
+                surf = self._ring_radius(max(rng - rad_true, 1e-6))
+                dist = surf / (1.0 - k)
+                size = dist * k
+            centre = (rel / rng) @ m_ship * dist
+            name = f"{DYN}sbody_{b}"
+            self._used.add(name)
+            e = self._dyn.get(name)
+            if e is None:
+                tex = _texture(b)
+                act = self.plotter.add_mesh(_body_mesh(1.0), texture=tex, smooth_shading=True, culling="back",
+                                            color=None if tex is not None else (SUN_COLOR if b == "sun" else EARTH_COLOR),
+                                            lighting=(b != "sun"), ambient=0.12, name=name, render=False)
+                e = self._dyn[name] = [None, None, act]
+            u = np.eye(4)
+            u[:3, :3] = size * (m_ship.T @ mats[b])
+            u[:3, 3] = centre
+            e[2].user_matrix = u
+            e[2].SetVisibility(True)
+            pts.append(centre)
+            names.append(b.capitalize())
+        if pts and self.cb_labels.isChecked():
+            self._labels(f"{DYN}sbody_lbl", np.array(pts), names, MUTED_COLOR)
 
     # ------------------------------------------------------------------ V5 mission volumes
+    def _clear_volumes(self) -> None:
+        if self._vol:
+            for a in self._vol["actors"]:
+                self.plotter.remove_actor(a, render=False)
+        self._vol = None
+
     def _draw_volumes(self, force: bool = False) -> None:
-        if self.truth is None or self._global() or not self.sc.get("mission"):
-            self._clear_dynamic(VOL)
+        """V5: the mission's volumes at t. Built once from the navigation at t (the sectors resolved in the ship
+        frame); then each one only TURNED with the change of its frame (ship -> sector matrix at t against the one
+        it was built with), rebuilt when a frame has turned by more than VOL_REBUILD_DEG (the clipping by the faces
+        and the scan window is the ship's) or when asked (force)."""
+        if self.truth is None or self._global() or not self.sc.get("mission") or not self.cb_volumes.isChecked():
+            if self._vol:
+                self._clear_volumes()
+                self._render()
             return
-        if not self.cb_volumes.isChecked():
-            self._clear_dynamic(VOL)
-            self.plotter.render()
-            return
-        if not force and self._vol_t is not None and abs(self.t - self._vol_t) < VOLUME_EVERY_S:
-            return
-        self._vol_t = self.t
         try:
             if self._mission is None or self._mission[0] != self.sc["mission"]:
                 from core import mission as cm
                 self._mission = (self.sc["mission"], cm.load_mission(self.sc["mission"]))
-            mis, _alerts = engine.mission_at(self.sc, self.truth, self.t, self._mission[1])
-            res, _ = frames.resolve(mis)
+            nav = frames.parse_nav([self._navigation.message(self.t)])
+            mis = self._mission[1]
+            if self._vol is not None and not force:
+                turns, rebuild = [], False
+                for raw, m_ref, off_ref in self._vol["frames"]:
+                    m_t, off_t = frames.sector_matrix(raw, nav)
+                    rot = np.eye(3) if m_t is None else m_t.T @ m_ref
+                    rebuild |= (math.degrees(float(np.linalg.norm(att.rotvec(rot)))) > VOL_REBUILD_DEG
+                                or abs(off_t - off_ref) > VOL_REBUILD_DEG)
+                    turns.append(rot)
+                if not rebuild:
+                    for rot, acts in zip(turns, self._vol["per_sector"]):
+                        u = np.eye(4)
+                        u[:3, :3] = rot
+                        for a in acts:
+                            a.user_matrix = u
+                    return
+            m2 = copy.deepcopy(mis)
+            m2.setdefault("global", {})["nav"] = [self._navigation.message(self.t)]
+            m2["global"].pop("sky", None)
+            res, _ = frames.resolve(m2)
         except (OSError, ValueError, KeyError) as exc:
             self.status.setText(f"mission volumes: {exc}")
             return
-        self._clear_dynamic(VOL)
+        self._clear_volumes()
         gl = res.get("global", {})
         e0, e1 = float(gl.get("eps_min_deg", -90.0)), float(gl.get("eps_max_deg", 90.0))
-        for i, sec in enumerate(res.get("sectors", [])):
+        vol = {"actors": [], "frames": [], "per_sector": []}
+        for i, (raw, sec) in enumerate(zip(mis.get("sectors", []), res.get("sectors", []))):
             try:
-                poly, outline = cgeo.build_sector_overlay(self.grid, sec, e0, e1)
+                build = cgeo.build_sector_volume_km if self.cb_true.isChecked() else cgeo.build_sector_overlay
+                poly, outline = build(self.grid, sec, e0, e1)
             except (KeyError, TypeError, ValueError):
                 continue
             col = cgeo.sector_color(i)
+            acts = []
             if poly.n_points:
-                self.plotter.add_mesh(poly, color=col, opacity=0.35, culling="back", name=f"{VOL}{i}_s", render=False)
+                acts.append(self.plotter.add_mesh(poly, color=col, opacity=0.35 if not self.cb_true.isChecked() else 0.2,
+                                                  culling=None if self.cb_true.isChecked() else "back",
+                                                  name=f"{VOL}{i}_s", render=False))
             if outline.n_points:
-                self.plotter.add_mesh(outline, color=col, line_width=2, name=f"{VOL}{i}_o", render=False)
-        self.plotter.render()
+                acts.append(self.plotter.add_mesh(outline, color=col, line_width=2, name=f"{VOL}{i}_o", render=False))
+            m_ref, off_ref = frames.sector_matrix(raw, nav)
+            vol["frames"].append((raw, np.eye(3) if m_ref is None else m_ref, off_ref))
+            vol["per_sector"].append(acts)
+            vol["actors"] += acts
+        self._vol = vol
+        self._render()
 
     # ------------------------------------------------------------------ L5 information
     def _on_click(self, obj, _event) -> None:

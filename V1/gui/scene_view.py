@@ -33,6 +33,7 @@ from PyQt5.QtWidgets import (QCheckBox, QComboBox, QDoubleSpinBox, QHBoxLayout, 
 from pyvistaqt import QtInteractor
 
 from core import geometry as geo
+from core.params import P
 from gui.widgets import DecimalSpinBox
 
 KM_AXES_PREFIX = "km_axes_"
@@ -220,6 +221,92 @@ def set_icrf_axes(plotter, r_is: Optional[np.ndarray], length: float = 1.6) -> N
                                  shape=None, show_points=False, name=name + "_label", render=False)
 
 
+def _rotation(axis: np.ndarray, angle: float) -> np.ndarray:
+    k = axis / np.linalg.norm(axis)
+    kx = np.array([[0.0, -k[2], k[1]], [k[2], 0.0, -k[0]], [-k[1], k[0], 0.0]])
+    return np.eye(3) + math.sin(angle) * kx + (1.0 - math.cos(angle)) * (kx @ kx)
+
+
+_ARC: Dict[int, dict] = {}                    # per arcball style: its plotter, radius and drag state
+
+
+def _arc_ball(st: dict, x: float, y: float) -> np.ndarray:
+    w, h = st["plotter"].ren_win.GetSize()
+    r = max(st["radius"] * 0.5 * min(w, h), 1.0)
+    v = np.array([(x - 0.5 * w) / r, (y - 0.5 * h) / r, 0.0])
+    d2 = v[0] ** 2 + v[1] ** 2
+    if d2 < 1.0:
+        v[2] = math.sqrt(1.0 - d2)
+    else:
+        v[:2] /= math.sqrt(d2)
+    return v
+
+
+def _arc_move(style, _ev) -> None:
+    st = _ARC[id(style)]
+    if st["p"] is None:
+        style.OnMouseMove()
+        return
+    plotter = st["plotter"]
+    p1 = _arc_ball(st, *style.GetInteractor().GetEventPosition())
+    p0 = st["p"]
+    axis = np.cross(p0, p1)
+    s = float(np.linalg.norm(axis))
+    if s < 1e-9:
+        return
+    angle = math.atan2(s, float(p0 @ p1))
+    cam = plotter.renderer.GetActiveCamera()
+    f, pos = np.asarray(cam.GetFocalPoint()), np.asarray(cam.GetPosition())
+    back = pos - f
+    up = np.asarray(cam.GetViewUp())
+    z = back / np.linalg.norm(back)
+    y = up - (up @ z) * z
+    y /= np.linalg.norm(y)
+    x = np.cross(y, z)
+    rot = _rotation(axis[0] * x + axis[1] * y + axis[2] * z, -angle)   # screen x right, y up, z to the viewer
+    cam.SetPosition(*(f + rot @ back))                                  # the scene follows the hand
+    cam.SetViewUp(*(rot @ y))
+    cam.OrthogonalizeViewUp()
+    plotter.renderer.ResetCameraClippingRange()
+    st["p"] = p1
+    style.GetInteractor().Render()
+
+
+def install_arcball(plotter, radius_frac: float):
+    """Left-drag rotation by a virtual trackball (Shoemake arcball, user 29 October 2026): the press and the current
+    point are put on a sphere of radius radius_frac x the half-height of the view around its centre; inside it the
+    scene turns as a ball under the hand, outside (left / right of the centre, top / bottom) the points lie on its rim
+    and the drag turns the view about the line of sight (clockwise / counterclockwise). The camera turns about its
+    focal point (the pivot of lock_pivot). Built on pyvista's own trackball style (its capture of the release events
+    and the observers pyvista puts on the style stay valid: install it BEFORE adding them); Shift / Ctrl + left drag
+    keep VTK's pan / spin; the wheel, the right button and the interactor's observers (clicks) are unchanged."""
+    from pyvista.plotting.render_window_interactor import InteractorStyleTrackballCamera
+
+    class _Arcball(InteractorStyleTrackballCamera):
+        def _press(self, *a):
+            iren = self.GetInteractor()
+            if iren.GetShiftKey() or iren.GetControlKey():
+                super()._press(*a)
+                return
+            st = _ARC[id(self)]
+            st["p"] = _arc_ball(st, *iren.GetEventPosition())
+            self.StartRotate()
+
+        def _release(self, *a):
+            st = _ARC[id(self)]
+            if st["p"] is None:
+                super()._release(*a)
+                return
+            st["p"] = None
+            self.EndRotate()
+
+    style = _Arcball(plotter.iren)
+    _ARC[id(style)] = {"plotter": plotter, "radius": float(radius_frac), "p": None}
+    style.add_observer("MouseMoveEvent", _arc_move)
+    plotter.iren.style = style
+    return style
+
+
 def lock_pivot(plotter) -> None:
     """Keep the scene centred: the camera always turns about plotter._pivot (the scene centre set by
     set_default_camera / fit_camera_to_actors). VTK turns about the focal point, which shift + left-button pan
@@ -314,6 +401,7 @@ def set_km_axes(plotter, max_range_km: Optional[float]) -> None:
                                  shape=None, show_points=False, name=f"{KM_AXES_PREFIX}name_{tag}", render=False)
 
 
+ARCBALL_RADIUS = float(P.get("tool.display.arcball_radius"))   # mouse rotation of the 3D views (user)
 BACKGROUND_ACTOR = "background_sphere"
 
 
@@ -389,6 +477,7 @@ class SceneView(QWidget):
         v.addWidget(self.plotter.interactor)
         add_static_scene(self.plotter)
         lock_pivot(self.plotter)
+        install_arcball(self.plotter, ARCBALL_RADIUS)   # before the label drag: its release observer goes on the style
         set_default_camera(self.plotter)
 
         self._eps: Optional[tuple] = None             # eps window of the scene on screen

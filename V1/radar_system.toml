@@ -785,6 +785,8 @@ tracks_per_bracket = 2000       # M3 (T7): tracks drawn per active-tracking brac
 updates_per_track  = 200        # M3 (T7): updates per drawn track (D)
 batch           = 200           # test targets drawn per batch between two checks of the stopping rule
 pd_look_floor   = 1e-5          # looks whose mean Pd stays below this are not drawn (they cannot change the result)
+late_update_max = 0.01          # M4 (Q4): share of late track updates (a late update is a miss) the proposed load ceiling still holds (D, user, 29 Oct 2026)
+ceiling_bisections = 6          # M4 (Q3): bisection steps on the load factor g of the drawn timelines (D)
 
 [tool.robustness]             # robustness test (tools/robustness.py, user 28 Oct 2026): true targets around the class means
 seed             = 2026         # draws of the evaluation mission and of the true targets (distinct from tool.montecarlo.seed)
@@ -940,6 +942,8 @@ sim_trail_s = 60.0              # simulator playback: trail length behind each b
 sim_fps = 20                    # simulator playback: frames per second aimed at (S7, L2, D)
 sim_ship_view_r = [1.2, 3.0]    # simulator ship view: radii of the log range scale, nearest .. farthest object (S6, V4, D)
 sim_auto_max_cells = 2.0e6      # simulator: automatic re-propagation only below rows x steps (S6, V2, D)
+arcball_radius = 0.9            # 3D views (mission preparation, results, simulator), mouse rotation: radius of the virtual trackball, share of the half-height (outside: roll about the line of sight) (user, 29 Oct 2026, D)
+sim_max_view_km = 2.0e13       # simulator views: farthest zoom out, km (~130 000 AU; ship view in log scale: the range at the edge) (user, 29 Oct 2026)
 
 [tool.mission_defaults]       # values of a new mission / sector / AT bracket (operator inputs, not the radar)
 eps_min_deg = -90.0             # rear limit of the scan window (-90 = no limit)

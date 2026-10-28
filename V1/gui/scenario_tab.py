@@ -14,13 +14,14 @@ import json
 import os
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import QTimer, Qt, pyqtSignal
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QInputDialog, QFileDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
                              QListWidgetItem, QMessageBox, QPlainTextEdit, QPushButton, QSpinBox, QSplitter,
                              QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from core import radar_model as rm
+from core.params import P
 from gui.widgets import DecimalSpinBox
 from sim import attitude as att
 from sim import scenario as scn
@@ -29,6 +30,7 @@ from sim import scenario as scn
 Field = Tuple[str, str, str, dict]          # (key, label, kind, options)
 
 _BIG = 1e12
+TREE_MIN_W, FORM_MIN_W = 220, 340          # px: the narrowest the tree and the forms start at
 
 
 def _f(key: str, label: str, kind: str = "float", **opt) -> Field:
@@ -59,7 +61,7 @@ MANOEUVRE_FIELDS: Dict[str, List[Field]] = {
     "burn": [_f("t_s", "start (s)", min=0.0), _f("duration_s", "duration (s)", min=0.001),
              _f("accel_mps2", "acceleration (m/s2)", "vec3"), _f("frame", "frame", "choice", choices=("rtn", "inertial"))],
     "singer": [],
-    "pn": [_f("n", "navigation constant", min=0.1), _f("start_range_km", "start below range (km, or empty: time)", "json"),
+    "pn": [_f("n", "navigation constant", min=0.1, default=float(P.get("sim.pn_n"))), _f("start_range_km", "start below range (km, or empty: time)", "json"),
            _f("t_s", "start time (s, or empty: range)", "json")],
 }
 MANOEUVRE_DEFAULTS = {"impulse": {"type": "impulse", "t_s": 0.0, "dv_mps": [0.0, 0.0, 0.0], "frame": "rtn"},
@@ -137,7 +139,7 @@ class FormWidget(QWidget):
             lay.addRow(label, w)
 
     def _make(self, key: str, kind: str, opt: dict) -> QWidget:
-        v = self.data.get(key)
+        v = self.data.get(key, opt.get("default"))      # an absent key shows the value the model will use
         if kind == "float":
             w = DecimalSpinBox()
             w.setRange(float(opt.get("min", -_BIG)), float(opt.get("max", _BIG)))
@@ -463,12 +465,24 @@ class ScenarioTab(QWidget):
         split.addWidget(left)
         split.addWidget(middle)
         split.addWidget(self.preview)
-        split.setSizes([260, 460, 680])
+        split.setStretchFactor(0, 0)                   # the tree and the forms keep their width, the 3D takes the rest
+        split.setStretchFactor(1, 0)
+        split.setStretchFactor(2, 1)
+        self._split = split
+        QTimer.singleShot(0, self._fit_columns)
         lay = QVBoxLayout(self)
         lay.addLayout(top)
         lay.addWidget(split, 1)
         self._rebuild_tree()
         self._validate()
+
+    def _fit_columns(self) -> None:
+        """At start: the tree and the forms at the width they need, the rest of the window to the 3D view."""
+        left, middle = self._split.widget(0), self._split.widget(1)
+        w0 = max(left.sizeHint().width(), TREE_MIN_W)
+        w1 = max(middle.sizeHint().width(), FORM_MIN_W)
+        total = max(self._split.width(), w0 + w1 + 400)
+        self._split.setSizes([w0, w1, total - w0 - w1])
 
     # ------------------------------------------------------------------ files
     def _confirm_discard(self) -> bool:
@@ -670,8 +684,9 @@ class ScenarioTab(QWidget):
         meta = self.sc.setdefault("meta", {})
         f1 = FormWidget([_f("name", "name", "text"), _f("epoch_utc", "epoch (UTC, ISO 8601)", "text"),
                          _f("duration_s", "duration (s)", min=0.001), _f("step_s", "truth step (s, empty: default)",
-                                                                           min=0.0, dec=4),
-                         _f("seed", "seed", "int"),
+                                                                           min=0.0, dec=4,
+                                                                           default=float(P.get("sim.step_s"))),
+                         _f("seed", "seed", "int", default=1),
                          _f("nav_errors", "navigation errors (true / false)", "json"),
                          _f("log_nav", "store the 100 Hz navigation (true / false)", "json"),
                          _f("sun_type", "Sun type (sky)", "choice", choices=lambda: scn.sky_types("sun")),

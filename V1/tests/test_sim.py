@@ -654,12 +654,66 @@ def test_sim_view_offscreen(tmp_path):
     v.cb_view.setCurrentIndex(1)                         # ship view
     v.set_time(10.0)
     names = list(v.plotter.actors)
-    assert any(n.startswith(DYN + "los_") for n in names) and any(n.startswith(VOL) for n in names)
+    assert DYN + "los" in names and any(n.startswith(VOL) for n in names)
     v.cb_vectors.setChecked(True)
     assert DYN + "nose" in v.plotter.actors
     v.cb_centre.setCurrentText("K")                     # ship view centred on an object
     assert np.allclose(v.plotter.camera.GetFocalPoint(), v._screen_pts["K"], atol=1e-9)
     v.cb_centre.setCurrentText(CENTRAL)
+    # range rings of about constant size on screen, their values following the zoom
+    rings = v._lab[DYN + "rings_lbl"]
+    before = list(rings._last)
+    assert before and all(t.endswith(" km") for t in before)
+    v.zoom(4.0)                                          # (the default log view is at the farthest zoom out)
+    assert rings._last != before
+    from gui import sim_view as sv_
+    for z in (1.0, 1.7, 0.45, 2.9, 3.3):                # log scale: the rings equally spaced at any zoom
+        v.zoom(z)
+        pts = v._dyn[DYN + "rings"][1].points
+        rad = np.linalg.norm(pts[::sv_.RING_POINTS], axis=1)
+        assert len(rad) >= 3 and np.allclose(np.diff(rad), np.diff(rad)[0], rtol=1e-6)
+    v.zoom(1e-6)                                         # far zoomed out: no overflow of the extended log law
+    assert v._ship_range(1e6) is None
+    assert v.plotter.camera.GetDistance() <= v._max_camera_distance() * (1 + 1e-9)   # zoom out held at its maximum
+    from gui import sim_view as sv_
+    assert all(float(t.split()[0]) <= sv_.MAX_VIEW_KM for t in rings._last)
+    v.zoom(1e6)
+    # 1:1 scale: an object at its true range (km) from the ship
+    v.cb_true.setChecked(True)
+    v.set_time(10.0)
+    r, _ = geo.states_at(tr, 10.0)
+    assert np.linalg.norm(v._screen_pts["K"]) == pytest.approx(np.linalg.norm(r[tr.row("K")] - r[0]), rel=1e-9)
+    assert any(n.startswith(VOL) for n in v.plotter.actors) and DYN + "ship_axes" in v.plotter.actors
+    v.cb_bodies.setChecked(True)                         # celestial objects at 1:1: the Moon at its true range
+    u = v.plotter.actors[DYN + "sbody_moon"].user_matrix
+    T = eph.centuries_tt(scn.epoch(sc), 10.0)
+    assert np.linalg.norm(u[:3, 3]) == pytest.approx(np.linalg.norm(eph.moon_icrf_km(T) - r[0]), rel=1e-6)
+    v.cb_true.setChecked(False)
+    assert v.plotter.actors[DYN + "sbody_sun"].GetVisibility()
+    v.cb_bodies.setChecked(False)
+    assert not v.plotter.actors[DYN + "sbody_sun"].GetVisibility()
+    # mouse rotation by the virtual trackball: a vertical drag right of the centre (outside its circle) turns the view
+    # about the line of sight; a horizontal drag through the centre turns the scene about the screen's vertical
+    iren = v.plotter.iren.interactor
+    v.plotter.ren_win.SetSize(900, 700)                 # offscreen: the window has no size of its own
+    w, h = v.plotter.ren_win.GetSize()
+    assert w > 0 and h > 0
+    cam = v.plotter.camera
+
+    def drag(p0, p1):
+        iren.SetEventInformation(int(p0[0]), int(p0[1]), 0, 0)
+        iren.InvokeEvent("LeftButtonPressEvent")
+        for a in np.linspace(0.0, 1.0, 6)[1:]:
+            iren.SetEventInformation(int(p0[0] + a * (p1[0] - p0[0])), int(p0[1] + a * (p1[1] - p0[1])), 0, 0)
+            iren.InvokeEvent("MouseMoveEvent")
+        iren.InvokeEvent("LeftButtonReleaseEvent")
+    d0, up0 = np.array(cam.GetDirectionOfProjection()), np.array(cam.GetViewUp())
+    drag((0.5 * w + 0.49 * h, 0.4 * h), (0.5 * w + 0.49 * h, 0.6 * h))
+    d1, up1 = np.array(cam.GetDirectionOfProjection()), np.array(cam.GetViewUp())
+    assert np.allclose(d1, d0, atol=1e-6) and math.degrees(math.acos(np.clip(up0 @ up1, -1, 1))) > 5.0
+    drag((0.5 * w - 0.1 * h, 0.5 * h), (0.5 * w + 0.1 * h, 0.5 * h))
+    d2, up2 = np.array(cam.GetDirectionOfProjection()), np.array(cam.GetViewUp())
+    assert math.degrees(math.acos(np.clip(d1 @ d2, -1, 1))) > 5.0 and np.allclose(up2, up1, atol=1e-6)
     v.cb_object.setCurrentText("K")
     assert "range" in v.info.toPlainText() and "RCS S" in v.info.toPlainText()
     v.step(1)
@@ -712,3 +766,17 @@ def test_third_body_attraction(monkeypatch):
     without = prop.propagate(sc)
     drift = float(np.linalg.norm(with_tb.r_km[-1, 0] - without.r_km[-1, 0]))
     assert 1.0 < drift < 200.0
+
+
+def test_lunar_interception_scenario_loads():
+    """The lunar scenario (scenarios/lune_interception.json, user 29 October 2026): OWNSHIP in a low circular orbit,
+    SHIP_1 on an eccentric orbit whose periapsis is OWNSHIP's altitude, 20 KKV fired 600 s before the interception
+    with a 5000 m/s impulse and terminal guidance."""
+    sc = scn.load(os.path.join(os.path.dirname(__file__), "..", "scenarios", "lune_interception.json"))
+    assert sc["central_body"] == "moon" and sc["ship"]["orbit"]["e"] == 0.0
+    ship1 = sc["objects"][0]["state"]
+    assert ship1["a_km"] * (1.0 - ship1["e"]) == pytest.approx(sc["ship"]["orbit"]["a_km"], abs=0.01)
+    g = sc["groups"][0]
+    imp = next(m for m in g["manoeuvres"] if m["type"] == "impulse")
+    assert g["n"] == 20 and g["class"] == "KKV" and g["t_appear_s"] == 300.0
+    assert np.linalg.norm(imp["dv_mps"]) == pytest.approx(5000.0, abs=0.01)
