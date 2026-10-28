@@ -5,7 +5,11 @@ PROPAGATE -- the truth of a global scenario (roadmap step 6.2, pass S2; framing 
 28 October 2026). Every body of the scenario, the ship included, is integrated together in the inertial frame of the
 central body (ICRF axes, km, km/s, s):
   - forces: two bodies + J2 about the body's pole (Earth: the ICRF Z axis, precession left out; Moon: the IAU pole),
-    no drag (C1);
+    no drag (C1); plus the attraction of the other bodies (user, 29 October 2026, O1-O5: every body orbits its
+    reference and pulls the objects): the Sun and the Moon around the Earth, the Sun and the Earth around the Moon,
+    the differential term mu_b [(r_b - r) / |r_b - r|^3 - r_b / |r_b|^3] of a frame centred on the central body,
+    body positions from sim/ephemeris.py on a THIRD_BODY_STEP_S grid, cubic between its points; off with
+    sim.third_body = false;
   - RK4 at the fixed step meta.step_s, a step split only at the exact time of an event (impulse, burn start or end,
     appearance, PN start at a given time) (C2);
   - manoeuvres (C3-C5): impulse (dv at t_s), burn (constant acceleration over its duration), in the object's own rtn
@@ -38,9 +42,52 @@ from core import trackmodel as tm
 from core.params import P
 
 from . import attitude as att
+from . import ephemeris as eph
 from . import scenario as scn
 
 LOG_STEP_S = float(P.get("sim.log_step_s"))      # P4: recording interval of the truth
+THIRD_BODY = bool(P.get("sim.third_body"))       # O4: attraction of the other bodies
+SUN_MU = float(P.get("sim.sun_mu_km3_s2"))       # O2
+THIRD_BODY_STEP_S = 60.0                         # O3: grid of the body positions (cubic between: error << 1 m)
+
+
+class ThirdBodies:
+    """The other bodies seen from the central body over a run: positions on a grid, cubic (4-point Lagrange)
+    between its points, and their differential attraction on positions r (O1)."""
+
+    def __init__(self, central: str, epoch, duration_s: float):
+        b = scn.bodies()
+        other = "moon" if central == "earth" else "earth"
+        self.names = (other, "sun")
+        self.mu = np.array([float(b[other]["mu_km3_s2"]), SUN_MU])
+        self.t0 = -THIRD_BODY_STEP_S
+        n = int(math.ceil(duration_s / THIRD_BODY_STEP_S)) + 4
+        ts = self.t0 + THIRD_BODY_STEP_S * np.arange(n)
+        pos = np.empty((n, 2, 3))
+        for k, t in enumerate(ts):
+            T = eph.centuries_tt(epoch, float(t))
+            moon, sun = eph.moon_icrf_km(T), eph.sun_icrf_km(T)
+            centre = np.zeros(3) if central == "earth" else moon
+            pos[k] = (moon - centre if other == "moon" else -centre), sun - centre
+        self.pos = pos
+
+    def positions(self, t: float) -> np.ndarray:
+        """(2, 3) positions (km) of the other bodies at t, from the central body."""
+        x = (t - self.t0) / THIRD_BODY_STEP_S
+        k = int(np.clip(math.floor(x), 1, len(self.pos) - 3))
+        u = x - k
+        w = np.array([-u * (u - 1.0) * (u - 2.0) / 6.0, (u + 1.0) * (u - 1.0) * (u - 2.0) / 2.0,
+                      -(u + 1.0) * u * (u - 2.0) / 2.0, (u + 1.0) * u * (u - 1.0) / 6.0])
+        return np.einsum("k,kij->ij", w, self.pos[k - 1:k + 3])
+
+    def accel(self, r: np.ndarray, t: float) -> np.ndarray:
+        """Differential attraction (km/s2) of the other bodies on positions r (n, 3) at t."""
+        a = np.zeros_like(r)
+        for mu, rb in zip(self.mu, self.positions(t)):
+            d = rb - r
+            dn = np.linalg.norm(d, axis=1)
+            a += mu * (d / (dn ** 3)[:, None] - rb / float(np.linalg.norm(rb)) ** 3)
+        return a
 
 @dataclass
 class Body:
@@ -171,6 +218,7 @@ def _event_times(rows: List[_Row], groups: List[dict], duration: float) -> np.nd
 def propagate(sc: dict, progress_cb=None) -> Truth:
     """The truth of a normalised scenario (sim.scenario.load)."""
     body = Body.of(sc["central_body"])
+    third = ThirdBodies(body.name, scn.epoch(sc), float(sc["meta"]["duration_s"])) if THIRD_BODY else None
     duration, dt = float(sc["meta"]["duration_s"]), float(sc["meta"]["step_s"])
     seed = int(sc["meta"]["seed"])
     n_log_every = max(1, int(round(LOG_STEP_S / dt)))
@@ -261,10 +309,12 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
                     dv = 1e-3 * np.asarray(m["dv_mps"], float)
                     x[i, 3:] += (rtn_matrix(x[i, :3], x[i, 3:]) @ dv) if m["frame"] == "rtn" else dv
 
-    def accel(t0: float, xs: np.ndarray, act: np.ndarray) -> np.ndarray:
-        """d/dt of the active states xs (k, 6) during a sub-step that starts at t0 (burns decided at t0)."""
+    def accel(t0: float, tb: float, xs: np.ndarray, act: np.ndarray) -> np.ndarray:
+        """d/dt of the active states xs (k, 6) at tb, during a sub-step that starts at t0 (burns decided at t0)."""
         r, v = xs[:, :3], xs[:, 3:]
         a = body.accel(r) + a_sing[act]
+        if third is not None:
+            a = a + third.accel(r, tb)
         rows_act = np.flatnonzero(act)
         pos = {j: k for k, j in enumerate(rows_act)}
         for i, m in burns:
@@ -291,10 +341,10 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
     def rk4(t0: float, h: float) -> None:
         act = active.copy()
         y = x[act]
-        k1 = accel(t0, y, act)
-        k2 = accel(t0, y + 0.5 * h * k1, act)
-        k3 = accel(t0, y + 0.5 * h * k2, act)
-        k4 = accel(t0, y + h * k3, act)
+        k1 = accel(t0, t0, y, act)
+        k2 = accel(t0, t0 + 0.5 * h, y + 0.5 * h * k1, act)
+        k3 = accel(t0, t0 + 0.5 * h, y + 0.5 * h * k2, act)
+        k4 = accel(t0, t0 + h, y + h * k3, act)
         x[act] = y + h / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
 
     def pn_update(t: float, prev: np.ndarray) -> None:

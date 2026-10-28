@@ -7,28 +7,34 @@ passes S6 and S7; framing V1-V5 and L1-L6 validated by the user on 29 October 20
   V1 one plotter, a selector Global view / Ship view;
   V2 "Propagate" in a background thread (progress bar, cancelled by a newer request); "auto" re-propagates 1 s after
      every valid change while rows x steps stays below tool.display.sim_auto_max_cells;
-  V3 global view, true scale (km, ICRF axes from the central body): the body (Earth a plain sphere: its rotation is
-     not modelled; Moon textured), the trajectories over the whole run coloured by class (ship in black), the
-     direction of the Sun, optionally the other body at its true place, markers for appearances, manoeuvres,
-     proportional-navigation starts and impacts; the ship drawn as an enlarged triad showing its attitude;
+  V3 global view, true scale (km, ICRF axes from the central body): the Earth and the Moon in every scenario, at
+     their true places and turning (Earth: textured TEXTURE_DIR/earth.jpg, turned by its sidereal angle; Moon:
+     textured, near side toward the Earth) and the Moon's orbit over a sidereal month; the trajectories over the
+     whole run coloured by class (ship in black), the Sun (textured, at its true place and size, 1 AU away,
+     lighting the scene with parallel rays: day and night sides), markers for appearances, manoeuvres,
+     proportional-navigation starts and impacts; the ship drawn as a triad showing its attitude, of constant size
+     on screen; "centre on" (or a double-click on a body, OWNSHIP included, in either view) centres the view on
+     a body and follows it; Zoom + / - (and the wheel) at any time, playback included
+     (each frame leaves MIN_IDLE_MS to the event loop);
   V4 ship view (ship frame): the ship model, faces, objects at their exact direction and at a log range scale from
      tool.display.sim_ship_view_r[0] (nearest) to [1] (farthest), range rings, lines of sight coloured by owner face,
      grey when occulted or outside every face, orange when masked by the structure;
   V5 the volumes of the linked mission at the current time (mission at t, sim/engine.py), redrawn when paused and
      every 1 s of simulated time while playing;
-  L1 play / pause, step +/- (journal step), slider, speed x1 .. x1000, reverse; time from the epoch and UTC;
+  L1 play / pause, step +/- (journal step), slider, speed x1 .. x100 000, reverse; time from the epoch and UTC;
   L2 tool.display.sim_fps frames per second: positions interpolated at each frame (Hermite), the face / aspect / RCS
      read from the geometry at the nearest recorded instant;
   L3 trails of tool.display.sim_trail_s, labels, velocity vectors (global) and noses (ship view) on demand;
   L4 the events (appearances, manoeuvres, PN starts, impacts, attitude events, shadow) in a list: a click goes there;
   L5 information on the object clicked (or chosen in the list): state, range, range rate, face, theta, aspect,
-     RCS S and Ku, occultation, masking;
+     RCS S and Ku, occultation, masking; for OWNSHIP: state, altitude, nose, angular rate, shadow; dark background;
   L6 "Run" writes the journal (sim/run.py, background thread), "Open run..." replays a journal without recomputing.
 No RF here (F9): step 6.4 adds the looks and the tracks to the same player.
 """
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 import time
 from datetime import timedelta
 from typing import Callable, Dict, List, Optional, Tuple
@@ -57,15 +63,30 @@ TRAIL_S = float(P.get("tool.display.sim_trail_s"))
 FPS = int(P.get("tool.display.sim_fps"))
 SHIP_R0, SHIP_R1 = (float(x) for x in P.get("tool.display.sim_ship_view_r"))
 AUTO_MAX_CELLS = float(P.get("tool.display.sim_auto_max_cells"))
-SPEEDS = (1, 10, 100, 1000)
+SPEEDS = (1, 10, 100, 1000, 10000, 100000)     # x10 000 and x100 000: the Moon on its orbit (user)
 VOLUME_EVERY_S = 1.0                              # V5: mission volumes redrawn every this much simulated time
 CLASS_COLORS = {c: cgeo.SECTOR_PALETTE[i % len(cgeo.SECTOR_PALETTE)] for i, c in enumerate(sorted(rm.TARGETS))}
-SHIP_COLOR = "#111111"
+SHIP_COLOR = "#ffffff"
+BG_COLOR = "#0b1020"                              # dark background of the 3D views
+TEXT_COLOR = "#e6e6e6"
+MUTED_COLOR = "#9aa0aa"
 EARTH_COLOR = "#4a78b5"
 SUN_COLOR = "#e0a800"
 OCC_COLOR = "#a0a0a0"
 MASK_COLOR = "#e07b00"
+ZOOM_STEP = 1.5                                   # one press of Zoom + / Zoom -
+MIN_IDLE_MS = 15                                  # event-loop time kept between two frames (mouse live while playing)
+SIDEREAL_MONTH_S = 27.321661 * 86400.0            # the Moon's orbit drawn over one sidereal month
+FOLLOW_MIN_KM = 50.0                              # "follow the ship": framed span at least this
+TRIAD_FRAC = 0.03                                 # ship triad length, share of the camera distance
+TEXTURE_DIR = cgeo.MOON_TEXTURE_PATH.parent       # assets/textures: moon.jpg, earth.jpg (equirectangular, 2:1)
+NEAR_TOL = 1e-9                                   # near / far clipping ratio: the Sun at 1 AU, objects at a few km
+                                                  # (bodies drawn front faces only: no self-occlusion far away)
+BODY_NAMES = {"Earth": "earth", "Moon": "moon", "Sun": "sun"}   # the bodies the view can centre on
+OWNSHIP = "OWNSHIP"                               # the ship's name in the views (row "ship" of the truth)
+CENTRAL = "central body"
 DYN = "dyn_"                                      # prefix of the actors redrawn at every frame
+CLICK_PX = 15.0                                   # a click picks the body drawn within this (pixels)
 VOL = "vol_"                                      # prefix of the mission-volume actors
 
 
@@ -123,6 +144,66 @@ def cells(sc: dict) -> float:
 def _polyline(pts: np.ndarray) -> Optional[pv.PolyData]:
     pts = pts[np.isfinite(pts[:, 0])]
     return pv.lines_from_points(pts) if len(pts) >= 2 else None
+
+
+def eph_sun_radius_km() -> float:
+    return sgeo.SUN_RADIUS_KM
+
+
+def _rgb(hex_color: str) -> Tuple[int, int, int]:
+    h = hex_color.lstrip("#")
+    return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+
+
+@lru_cache(maxsize=4)
+def _texture(body: str) -> Optional[pv.Texture]:
+    """Equirectangular texture of a body (TEXTURE_DIR/<body>.jpg; the Moon falls back on the procedural one)."""
+    path = TEXTURE_DIR / f"{body}.jpg"
+    if path.exists():
+        tex = pv.Texture(str(path))
+    elif body == "moon":
+        tex = pv.Texture(cgeo.moon_texture())
+    else:
+        return None
+    tex.interpolate = True
+    tex.mipmap = True
+    return tex
+
+
+@lru_cache(maxsize=4)
+def _body_mesh(radius_km: float, n_lon: int = 180, n_lat: int = 90) -> pv.PolyData:
+    """Sphere in the body-fixed frame (Z the pole, X the prime meridian) with equirectangular texture coordinates:
+    u = (longitude + 180) / 360 (the map's left edge at -180 deg), v = (latitude + 90) / 180 (north at the top)."""
+    lon = np.radians(np.linspace(-180.0, 180.0, n_lon + 1))
+    lat = np.radians(np.linspace(-90.0, 90.0, n_lat + 1))
+    lo, la = np.meshgrid(lon, lat, indexing="ij")
+    pts = radius_km * np.stack([np.cos(la) * np.cos(lo), np.cos(la) * np.sin(lo), np.sin(la)], axis=-1).reshape(-1, 3)
+    uv = np.stack([(np.degrees(lo) + 180.0) / 360.0, (np.degrees(la) + 90.0) / 180.0], axis=-1).reshape(-1, 2)
+    i, j = np.meshgrid(np.arange(n_lon), np.arange(n_lat), indexing="ij")
+    a = (i * (n_lat + 1) + j).ravel()
+    quads = np.stack([np.full(a.size, 4), a, a + n_lat + 1, a + n_lat + 2, a + 1], axis=1).ravel()
+    mesh = pv.PolyData(pts, faces=quads)
+    mesh.active_texture_coordinates = uv
+    return mesh.compute_normals(auto_orient_normals=True)
+
+
+def _earth_matrix(epoch, t_s: float) -> np.ndarray:
+    """Earth-fixed -> ICRF: a turn by the Greenwich mean sidereal time about the pole (ICRF Z, as the propagation,
+    P2; IAU 1982 GMST, UT1 taken as UTC)."""
+    d = ((epoch - eph._J2000).total_seconds() + t_s) / 86400.0
+    th = math.radians((280.46061837 + 360.98564736629 * d) % 360.0)
+    c, s = math.cos(th), math.sin(th)
+    return np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+
+
+def _moon_matrix(moon_geo_km: np.ndarray) -> np.ndarray:
+    """Moon-fixed -> ICRF: Z the IAU pole of [sim.bodies], X (longitude 0) toward the Earth (synchronous rotation,
+    librations left out)."""
+    b = scn.bodies()["moon"]
+    z = frames.unit(float(b["pole_ra_deg"]), float(b["pole_dec_deg"]))
+    x = -moon_geo_km - (-moon_geo_km @ z) * z
+    x = x / np.linalg.norm(x)
+    return np.stack([x, np.cross(z, x), z], axis=1)
 
 
 def _segments(a: np.ndarray, b: np.ndarray) -> pv.PolyData:
@@ -187,23 +268,33 @@ class SimView(QWidget):
         self.cb_vectors = QCheckBox("vectors / noses")
         self.cb_trails = QCheckBox("trails")
         self.cb_trails.setChecked(True)
-        self.cb_other = QCheckBox("other body")
+        self.cb_centre = QComboBox()
+        self.cb_centre.addItem(CENTRAL)
+        self.cb_centre.setToolTip("The view is centred on this body and follows it (double-click a body in the view "
+                                  "to choose it; zoom with the wheel or the buttons, also while playing)")
         self.cb_volumes = QCheckBox("mission volumes")
         self.cb_volumes.setChecked(True)
         for cb in (self.cb_labels, self.cb_vectors, self.cb_trails):
             cb.toggled.connect(lambda _on: self._draw_frame())
-        self.cb_other.toggled.connect(lambda _on: self._draw_frame())
+        self.cb_centre.currentTextChanged.connect(lambda _t: self._apply_centre(reframe=True))
         self.cb_volumes.toggled.connect(lambda _on: self._draw_volumes(force=True))
-        for cb in (self.cb_labels, self.cb_vectors, self.cb_trails, self.cb_other, self.cb_volumes):
+        for cb in (self.cb_labels, self.cb_vectors, self.cb_trails, self.cb_volumes):
             opts.addWidget(cb)
+        opts.addWidget(QLabel("centre on"))
+        opts.addWidget(self.cb_centre)
+        for text, f in (("Zoom +", ZOOM_STEP), ("Zoom -", 1.0 / ZOOM_STEP)):
+            b = QPushButton(text)
+            b.clicked.connect(lambda _c, ff=f: self.zoom(ff))
+            opts.addWidget(b)
         opts.addStretch(1)
 
         self.plotter = QtInteractor(self)
         self.plotter.setMinimumWidth(400)
         sv.lock_pivot(self.plotter)
         self.plotter.iren.interactor.AddObserver("LeftButtonPressEvent", self._on_click, 1.0)
-        self.plotter.set_background("white")
-        self.plotter.add_axes()
+        self.plotter.set_background(BG_COLOR)
+        self.plotter.renderer.SetNearClippingPlaneTolerance(NEAR_TOL)
+        self.plotter.add_axes(color=TEXT_COLOR)
 
         # ---- L1 playback
         play = QHBoxLayout()
@@ -226,9 +317,10 @@ class SimView(QWidget):
         play.addWidget(self.slider, 1)
         play.addWidget(self.time_label)
         self.timer = QTimer(self)
-        self.timer.setInterval(int(1000 / max(FPS, 1)))
+        self.timer.setSingleShot(True)                # rescheduled by _tick: the event loop always gets its turn
         self.timer.timeout.connect(self._tick)
         self._wall = 0.0
+        self._playing = False
 
         # ---- L4 events, L5 information
         self.events = QListWidget()
@@ -323,13 +415,15 @@ class SimView(QWidget):
         self._r_log = (max(float(rng.min()), 1e-3), max(float(rng.max()), 1e-3)) if rng.size else (1.0, 10.0)
         self._mission = None
         self._vol_t = None
-        cur = self.cb_object.currentText()
-        self.cb_object.blockSignals(True)
-        self.cb_object.clear()
-        self.cb_object.addItems([""] + g.ids)
-        if cur in g.ids:
-            self.cb_object.setCurrentText(cur)
-        self.cb_object.blockSignals(False)
+        for cb, first in ((self.cb_object, [""]), (self.cb_centre, [CENTRAL])):
+            cur = cb.currentText()
+            cb.blockSignals(True)
+            cb.clear()
+            extra = list(BODY_NAMES) if cb is self.cb_centre else []
+            cb.addItems(first + [OWNSHIP] + g.ids + extra)
+            if cur in [OWNSHIP] + g.ids + extra:
+                cb.setCurrentText(cur)
+            cb.blockSignals(False)
         self._fill_events()
         self._enable_playback(True)
         self._rebuild()
@@ -348,7 +442,7 @@ class SimView(QWidget):
         self.slider.setValue(int(round(10000 * self.t / max(self.duration(), 1e-9))))
         self.slider.blockSignals(False)
         self._draw_frame()
-        if not self.timer.isActive():
+        if not self._playing:
             self._draw_volumes(force=True)
 
     def _on_slider(self, v: int) -> None:
@@ -364,18 +458,24 @@ class SimView(QWidget):
         self.set_time(float(tl[int(np.clip(i, 0, len(tl) - 1))]))
 
     def toggle_play(self) -> None:
-        if self.timer.isActive():
+        if self._playing:
+            self._playing = False
             self.timer.stop()
             self.bt_play.setText("Play")
             self._draw_volumes(force=True)
         elif self.sc is not None:
             if not self.cb_rev.isChecked() and self.t >= self.duration():
                 self.t = 0.0
+            self._playing = True
             self._wall = time.perf_counter()
-            self.timer.start()
+            self.timer.start(0)
             self.bt_play.setText("Pause")
 
     def _tick(self) -> None:
+        """One frame; the next is scheduled after it with at least MIN_IDLE_MS left to the event loop, so the mouse
+        (zoom, rotation) stays live during the playback whatever a frame costs."""
+        if not self._playing:
+            return
         now = time.perf_counter()
         dt = (now - self._wall) * SPEEDS[self.cb_speed.currentIndex()] * (-1.0 if self.cb_rev.isChecked() else 1.0)
         self._wall = now
@@ -384,6 +484,9 @@ class SimView(QWidget):
             self.toggle_play()
         self.set_time(t)
         self._draw_volumes()
+        if self._playing:
+            spent_ms = 1000.0 * (time.perf_counter() - now)
+            self.timer.start(int(max(MIN_IDLE_MS, 1000.0 / max(FPS, 1) - spent_ms)))
 
     def _k(self) -> int:
         """Index of the recorded instant nearest to t."""
@@ -424,7 +527,8 @@ class SimView(QWidget):
         """The static layer of the current view, then the frame."""
         p = self.plotter
         p.clear()
-        p.set_background("white")
+        p.set_background(BG_COLOR)
+        p.remove_all_lights()
         self._vol_t = None
         if self.truth is None:
             p.render()
@@ -439,19 +543,29 @@ class SimView(QWidget):
     def _build_global(self) -> None:
         p, tr = self.plotter, self.truth
         body = tr.body
-        sphere = pv.Sphere(radius=body.radius_km, theta_resolution=96, phi_resolution=96,
-                           texture_coordinates=(body.name == "moon"))
-        if body.name == "moon":
-            p.add_mesh(sphere, texture=sv._moon_texture(), name="body", render=False)
-        else:
-            p.add_mesh(sphere, color=EARTH_COLOR, smooth_shading=True, name="body", render=False)
+        for b in ("earth", "moon"):                    # both bodies in every scenario, placed at each frame
+            rad = float(scn.bodies()[b]["radius_km"])
+            tex = _texture(b)
+            p.add_mesh(_body_mesh(rad), texture=tex, color=None if tex is not None else EARTH_COLOR,
+                       smooth_shading=True, ambient=0.12, culling="back", name=f"body_{b}", render=False)
+        tex = _texture("sun")                          # unit sphere, scaled and placed by _place_bodies
+        p.add_mesh(_body_mesh(1.0), texture=tex, color=None if tex is not None else SUN_COLOR, lighting=False,
+                   culling="back", name="body_sun", render=False)
+        self._sun_light = pv.Light(light_type="scene light", intensity=1.0)
+        self._sun_light.positional = False
+        p.add_light(self._sun_light)
+        head = pv.Light(light_type="headlight", intensity=0.25)    # the night side stays readable
+        p.add_light(head)
+        orbit = self._moon_orbit()
+        p.add_mesh(pv.lines_from_points(orbit), color="#8a8a8a", line_width=1, opacity=0.6, name="moon_orbit",
+                   render=False)
         by_cls: Dict[str, List[pv.PolyData]] = {}
         for i in range(len(tr.ids)):
             line = _polyline(tr.r_km[:, i])
             if line is not None:
                 by_cls.setdefault(tr.classes[i] or "ship", []).append(line)
         for c, lines in by_cls.items():
-            p.add_mesh(pv.merge(lines), color=SHIP_COLOR if c == "ship" else CLASS_COLORS.get(c, "#555555"),
+            p.add_mesh(pv.merge(lines), color=SHIP_COLOR if c == "ship" else CLASS_COLORS.get(c, "#888888"),
                        line_width=3 if c == "ship" else 1.5, name=f"traj_{c}", render=False)
         pts, labels = [], []
         for t, text in self._marker_events():
@@ -461,11 +575,113 @@ class SimView(QWidget):
                 pts.append(r[tr.row(oid)])
                 labels.append(text)
         if pts:
-            p.add_point_labels(np.array(pts), labels, font_size=9, point_size=8, point_color="#333333",
-                               shape=None, text_color="#333333", name="markers", render=False)
+            p.add_point_labels(np.array(pts), labels, font_size=9, point_size=8, point_color=MUTED_COLOR,
+                               shape=None, text_color=MUTED_COLOR, name="markers", render=False)
         extent = max(float(np.nanmax(np.abs(tr.r_km))) if np.isfinite(tr.r_km).any() else 0.0, 2.0 * body.radius_km)
-        p.reset_camera(render=False, bounds=(-extent, extent, -extent, extent, -extent, extent))
+        self._home = (-extent, extent, -extent, extent, -extent, extent)
+        p.reset_camera(render=False, bounds=self._home)
         p._pivot = (0.0, 0.0, 0.0)
+        self._centre_pending = True
+
+    def _moon_orbit(self) -> np.ndarray:
+        """The Moon's path around the Earth over one sidereal month centred on the run (the Earth's around the Moon
+        when the Moon is the central body), km from the central body."""
+        mid = 0.5 * self.duration()
+        ts = mid + np.linspace(-0.5, 0.5, 361) * SIDEREAL_MONTH_S
+        ep = scn.epoch(self.sc)
+        pts = np.array([eph.moon_icrf_km(eph.centuries_tt(ep, float(t))) for t in ts])
+        return pts if self.truth.body.name == "earth" else -pts
+
+    def _place_bodies(self) -> None:
+        """V3: the Earth turned by its sidereal angle (pole on the ICRF Z axis as in the propagation, P2), the Moon
+        with its near side toward the Earth (synchronous rotation, IAU pole), at their true places at t."""
+        pos_b = self._bodies_at()
+        moon_geo = pos_b["moon"] - pos_b["earth"]
+        su = pos_b["sun"] / np.linalg.norm(pos_b["sun"])
+        for b, pos, m in (("earth", pos_b["earth"], _earth_matrix(scn.epoch(self.sc), self.t)),
+                          ("moon", pos_b["moon"], _moon_matrix(moon_geo)),
+                          ("sun", pos_b["sun"], eph_sun_radius_km() * np.eye(3))):
+            a = self.plotter.actors.get(f"body_{b}")
+            if a is not None:
+                u = np.eye(4)
+                u[:3, :3], u[:3, 3] = m, pos
+                a.user_matrix = u
+        light = getattr(self, "_sun_light", None)
+        if light is not None:                          # sunlight: parallel rays from the Sun's direction
+            light.position = tuple(pos_b["sun"])
+            light.focal_point = (0.0, 0.0, 0.0)
+
+    def _bodies_at(self) -> Dict[str, np.ndarray]:
+        """Earth, Moon and Sun at t, km from the central body (true places)."""
+        T = eph.centuries_tt(scn.epoch(self.sc), self.t)
+        moon, sun = eph.moon_icrf_km(T), eph.sun_icrf_km(T)
+        centre = np.zeros(3) if self.truth.body.name == "earth" else moon
+        return {"earth": -centre, "moon": moon - centre, "sun": sun - centre}
+
+    def _body_radius(self, b: str) -> float:
+        return eph_sun_radius_km() if b == "sun" else float(scn.bodies()[b]["radius_km"])
+
+    def zoom(self, f: float) -> None:
+        """Move the camera toward its focal point by f (as the wheel; the triad keeps its size on screen)."""
+        self.plotter.camera.Dolly(f)
+        self.plotter.renderer.ResetCameraClippingRange()
+        if not self._playing:
+            self._draw_frame()
+
+    def _target(self) -> Optional[np.ndarray]:
+        """Position (view coordinates) of the body the view is centred on at t; None: the default centre."""
+        name = self.cb_centre.currentText()
+        if self.truth is None or name in ("", CENTRAL):
+            return None
+        if not self._global():
+            return np.zeros(3) if name == OWNSHIP else getattr(self, "_screen_pts", {}).get(name)
+        if name in BODY_NAMES:
+            return self._bodies_at()[BODY_NAMES[name]]
+        r, _ = sgeo.states_at(self.truth, self.t)
+        i = 0 if name == OWNSHIP else (self.truth.row(name) if name in self.truth.ids else None)
+        return None if i is None or not np.isfinite(r[i, 0]) else r[i]
+
+    def _apply_centre(self, reframe: bool = False) -> None:
+        """Centre the camera on the chosen body (reframe: also a distance framing what is around it), or back to the
+        default view of the central body / the ship."""
+        if self.truth is None:
+            return
+        p = self.plotter
+        cam = p.camera
+        tgt = self._target()
+        if tgt is None:
+            if reframe:
+                if self._global():
+                    p.reset_camera(render=False, bounds=getattr(self, "_home", None))
+                    p._pivot = (0.0, 0.0, 0.0)
+                else:
+                    sv.set_default_camera(p)
+                    cam.position = tuple(np.asarray(cam.position) * max(1.0, SHIP_R1 / 1.5))
+                p.render()
+            return
+        if reframe:
+            view = np.asarray(cam.GetPosition()) - np.asarray(cam.GetFocalPoint())
+            view = view / max(np.linalg.norm(view), 1e-12)
+            if self._global() and self.cb_centre.currentText() in BODY_NAMES:
+                dist = 4.0 * self._body_radius(BODY_NAMES[self.cb_centre.currentText()])
+            elif self._global():
+                r, _ = sgeo.states_at(self.truth, self.t)
+                d = np.linalg.norm(r - tgt, axis=1)
+                d = d[np.isfinite(d) & (d > 1e-9)]
+                span = float(np.clip(d.max() if d.size else 0.0, FOLLOW_MIN_KM, 4.0 * self.truth.body.radius_km))
+                dist = 4.0 * span
+            else:
+                dist = 1.5
+            cam.SetFocalPoint(*tgt)
+            cam.SetPosition(*(tgt + dist * view))
+        else:                                          # follow: the camera keeps its offset from the body
+            off = tgt - np.asarray(cam.GetFocalPoint())
+            cam.SetFocalPoint(*tgt)
+            cam.SetPosition(*(np.asarray(cam.GetPosition()) + off))
+        p._pivot = tuple(tgt)
+        p.renderer.ResetCameraClippingRange()
+        if reframe:
+            p.render()
 
     def _marker_events(self) -> List[Tuple[float, str]]:
         out = []
@@ -486,6 +702,9 @@ class SimView(QWidget):
     def _build_ship(self) -> None:
         p = self.plotter
         sv.add_static_scene(p)
+        p.set_background(BG_COLOR)
+        p.enable_lightkit()
+        self._centre_pending = True
         scene = cgeo.build_face_sectors(self.grid, -90.0, 90.0)
         for k in range(4):
             if scene.surfaces[k].n_points:
@@ -499,9 +718,9 @@ class SimView(QWidget):
             rad = self._radius(np.array([rk]))[0]
             ang = np.linspace(0.0, 2.0 * math.pi, 121)
             ring = np.stack([rad * np.cos(ang), rad * np.sin(ang), np.zeros_like(ang)], axis=1)
-            p.add_mesh(pv.lines_from_points(ring), color="#bbbbbb", line_width=1, name=f"ring_{e}", render=False)
+            p.add_mesh(pv.lines_from_points(ring), color="#4a5266", line_width=1, name=f"ring_{e}", render=False)
             p.add_point_labels([[rad, 0.0, 0.0]], [f"{rk:g} km"], font_size=9, shape=None, show_points=False,
-                               text_color="#888888", name=f"ring_lbl_{e}", render=False)
+                               text_color=MUTED_COLOR, name=f"ring_lbl_{e}", render=False)
         sv.set_default_camera(p)
         p.camera.position = tuple(np.asarray(p.camera.position) * max(1.0, SHIP_R1 / 1.5))      # objects out to SHIP_R1
 
@@ -539,14 +758,18 @@ class SimView(QWidget):
         p, tr = self.plotter, self.truth
         r, v = sgeo.states_at(tr, self.t)
         ex = np.isfinite(r[:, 0])
-        extent = float(np.nanmax(np.abs(tr.r_km))) if np.isfinite(tr.r_km).any() else tr.body.radius_km
-        cols = [SHIP_COLOR if i == 0 else CLASS_COLORS.get(tr.classes[i], "#555555") for i in range(len(tr.ids))]
-        for i in np.flatnonzero(ex):
-            p.add_mesh(pv.PolyData(r[i][None, :]), color=cols[i], point_size=10 if i == 0 else 7,
-                       render_points_as_spheres=True, name=f"{DYN}pt_{i}", render=False)
+        self._apply_centre(reframe=getattr(self, "_centre_pending", False))
+        self._centre_pending = False
+        self._place_bodies()
+        cols = [SHIP_COLOR if i == 0 else CLASS_COLORS.get(tr.classes[i], "#888888") for i in range(len(tr.ids))]
+        idx = np.flatnonzero(ex)
+        pts = pv.PolyData(r[idx])                      # one actor for every body point (cheap frames)
+        pts["rgb"] = np.array([_rgb(cols[i]) for i in idx], np.uint8)
+        p.add_mesh(pts, scalars="rgb", rgb=True, point_size=8, render_points_as_spheres=True,
+                   name=f"{DYN}pts", render=False)
         if self.cb_labels.isChecked():
-            ids = [tr.ids[i] for i in np.flatnonzero(ex)]
-            p.add_point_labels(r[ex], ids, font_size=10, shape=None, show_points=False, text_color="#222222",
+            ids = [OWNSHIP if i == 0 else tr.ids[i] for i in np.flatnonzero(ex)]
+            p.add_point_labels(r[ex], ids, font_size=10, shape=None, show_points=False, text_color=TEXT_COLOR,
                                always_visible=True, name=f"{DYN}labels", render=False)
         if self.cb_trails.isChecked():
             ts = np.linspace(max(0.0, self.t - TRAIL_S), self.t, 25)
@@ -556,15 +779,15 @@ class SimView(QWidget):
                 if line is not None:
                     p.add_mesh(line, color=cols[i], line_width=3, opacity=0.8, name=f"{DYN}trail_{i}", render=False)
         if self.cb_vectors.isChecked() and ex.any():
-            p.add_mesh(_segments(r[ex], r[ex] + v[ex] * TRAIL_S), color="#444444", line_width=1,
+            p.add_mesh(_segments(r[ex], r[ex] + v[ex] * TRAIL_S), color=MUTED_COLOR, line_width=1,
                        name=f"{DYN}vel", render=False)
         # ship attitude triad, enlarged (V3)
         m = tr.attitude("ship", self.t)
-        L = 0.06 * extent
+        L = TRIAD_FRAC * p.camera.GetDistance()        # the triad keeps its size on screen at any zoom
         for k, c in enumerate((cgeo.COLORS["axis_x"], cgeo.COLORS["axis_y"], cgeo.COLORS["axis_z"])):
             p.add_mesh(pv.Line(tuple(r[0]), tuple(r[0] + L * m[:, k])), color=c, line_width=3,
                        name=f"{DYN}triad_{k}", render=False)
-        # Sun direction and the other body
+        # Sun direction from the central body
         T = eph.centuries_tt(scn.epoch(self.sc), self.t)
         moon, sun = eph.moon_icrf_km(T), eph.sun_icrf_km(T)
         centre_geo = np.zeros(3) if tr.body.name == "earth" else moon
@@ -574,15 +797,6 @@ class SimView(QWidget):
                    name=f"{DYN}sun", render=False)
         p.add_point_labels([su * 2.7 * R], ["Sun"], font_size=10, shape=None, show_points=False,
                            text_color=SUN_COLOR, name=f"{DYN}sun_lbl", render=False)
-        if self.cb_other.isChecked():
-            other = "moon" if tr.body.name == "earth" else "earth"
-            pos = moon if other == "moon" else -moon
-            rad = float(scn.bodies()[other]["radius_km"])
-            sph = pv.Sphere(radius=rad, center=tuple(pos), texture_coordinates=(other == "moon"))
-            if other == "moon":
-                p.add_mesh(sph, texture=sv._moon_texture(), name=f"{DYN}other", render=False)
-            else:
-                p.add_mesh(sph, color=EARTH_COLOR, name=f"{DYN}other", render=False)
 
     def _frame_ship(self) -> None:
         p, tr, g = self.plotter, self.truth, self.g
@@ -592,6 +806,7 @@ class SimView(QWidget):
         ro = r[rows]
         ex = np.isfinite(ro[:, 0])
         if not ex.any():
+            self._screen_pts = {}
             return
         los = ro[ex] - r[0]
         rng = np.linalg.norm(los, axis=1)
@@ -615,12 +830,12 @@ class SimView(QWidget):
                        name=f"{DYN}pt_{j}", render=False)
         if self.cb_labels.isChecked():
             p.add_point_labels(pos, [g.ids[j] for j in js], font_size=10, shape=None, show_points=False,
-                               text_color="#222222", always_visible=True, name=f"{DYN}labels", render=False)
+                               text_color=TEXT_COLOR, always_visible=True, name=f"{DYN}labels", render=False)
         if self.cb_vectors.isChecked():
             nose = g.nose_ship[k, js]
             okn = np.isfinite(nose[:, 0])
             if okn.any():
-                p.add_mesh(_segments(pos[okn], pos[okn] + 0.15 * nose[okn]), color="#333333", line_width=2,
+                p.add_mesh(_segments(pos[okn], pos[okn] + 0.15 * nose[okn]), color=TEXT_COLOR, line_width=2,
                            name=f"{DYN}nose", render=False)
         if self.cb_trails.isChecked():
             sel = (g.t_s >= self.t - TRAIL_S) & (g.t_s <= self.t)
@@ -632,6 +847,8 @@ class SimView(QWidget):
                     p.add_mesh(line, color=CLASS_COLORS.get(g.classes[j], "#555555"), line_width=2, opacity=0.6,
                                name=f"{DYN}trail_{j}", render=False)
         self._screen_pts = {g.ids[j]: pos[jj] for jj, j in enumerate(js)}
+        self._apply_centre(reframe=getattr(self, "_centre_pending", False))
+        self._centre_pending = False
 
     # ------------------------------------------------------------------ V5 mission volumes
     def _draw_volumes(self, force: bool = False) -> None:
@@ -671,15 +888,18 @@ class SimView(QWidget):
 
     # ------------------------------------------------------------------ L5 information
     def _on_click(self, obj, _event) -> None:
-        pts = getattr(self, "_screen_pts", None) if not self._global() else None
+        """L5: a click near a body shows its information; a double-click also centres the view on it (OWNSHIP
+        included)."""
         if self.truth is None:
             return
-        if pts is None:
+        if self._global():
             r, _ = sgeo.states_at(self.truth, self.t)
-            pts = {oid: r[i] for i, oid in enumerate(self.truth.ids) if i and np.isfinite(r[i, 0])}
+            pts = {(OWNSHIP if i == 0 else oid): r[i] for i, oid in enumerate(self.truth.ids) if np.isfinite(r[i, 0])}
+        else:
+            pts = dict(getattr(self, "_screen_pts", {}), **{OWNSHIP: np.zeros(3)})
         x, y = obj.GetEventPosition()
         ren = self.plotter.renderer
-        best, best_d = None, 15.0
+        best, best_d = None, CLICK_PX
         for oid, w in pts.items():
             ren.SetWorldPoint(float(w[0]), float(w[1]), float(w[2]), 1.0)
             ren.WorldToDisplay()
@@ -687,19 +907,29 @@ class SimView(QWidget):
             dd = math.hypot(dx - x, dy - y)
             if dd < best_d:
                 best, best_d = oid, dd
-        if best is not None:
-            self.cb_object.setCurrentText(best)
+        if best is None:
+            return
+        self.cb_object.setCurrentText(best)
+        if obj.GetRepeatCount() >= 1:                  # double-click
+            self.cb_centre.setCurrentText(best)
 
     def _select(self, oid: str) -> None:
         self.selected = oid or None
         self._show_info()
 
     def _show_info(self) -> None:
-        if self.truth is None or not self.selected or self.selected not in self.g.ids:
+        if self.truth is None or not self.selected:
+            self.info.setPlainText("")
+            return
+        if self.selected == OWNSHIP:
+            self._show_ship_info()
+            return
+        if self.selected not in self.g.ids:
             self.info.setPlainText("")
             return
         tr, g = self.truth, self.g
         i, j, k = tr.row(self.selected), g.ids.index(self.selected), self._k()
+
         r, v = sgeo.states_at(tr, self.t)
         if not np.isfinite(r[i, 0]):
             self.info.setPlainText(f"{self.selected} ({g.classes[j]}): does not exist at t = {self.t:.2f} s")
@@ -722,4 +952,20 @@ class SimView(QWidget):
                  f"masked by the structure: {'yes' if g.masked[k, j] else 'no'} "
                  f"({max(0.0, float(g.block_loss_db[k, j])):.2f} dB per pass)" if np.isfinite(g.block_loss_db[k, j]) else
                  f"occulted: {sgeo.BODIES[g.occulted_by[k, j]] if g.occulted_by[k, j] >= 0 else 'no'}"]
+        self.info.setPlainText("\n".join(lines))
+
+    def _show_ship_info(self) -> None:
+        tr, g = self.truth, self.g
+        r, v = sgeo.states_at(tr, self.t)
+        m = tr.attitude("ship", self.t)
+        w = engine.ship_rate_dps(tr, self.t)
+        k = self._k()
+        alt = float(np.linalg.norm(r[0])) - tr.body.radius_km
+        lines = [f"{OWNSHIP}   t = {self.t:.2f} s",
+                 f"position  {np.array2string(r[0], precision=3)} km (ICRF, from the {tr.body.name}), "
+                 f"altitude {alt:.1f} km",
+                 f"velocity  {np.array2string(v[0], precision=5)} km/s ({1e3 * float(np.linalg.norm(v[0])):.1f} m/s)",
+                 f"nose (Z) toward {np.array2string(m[:, 2], precision=4)} (ICRF)",
+                 f"angular rate {np.array2string(w, precision=3)} deg/s (ship frame), {float(np.linalg.norm(w)):.3f} deg/s",
+                 f"at the recorded {g.t_s[k]:.1f} s: solar disk hidden {100.0 * float(g.ship_shadow[k]):.0f} %"]
         self.info.setPlainText("\n".join(lines))

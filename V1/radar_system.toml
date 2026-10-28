@@ -988,6 +988,8 @@ vr_acc_mps = 5.0
 [sim]
 step_s = { value = 0.1, unit = "s", status = "V", source = "B2: fixed truth step of the propagation (user, 28 Oct 2026)", date = "2026-10-28" }
 pn_n   = { value = 4.0, unit = "-", status = "V", source = "C5: navigation constant of the KKV terminal guidance (proportional navigation, user, 28 Oct 2026)", date = "2026-10-28" }
+third_body = { value = true, unit = "-", status = "D", source = "O4: attraction of the other bodies (Sun and Moon around the Earth, Sun and Earth around the Moon) on the ship and the objects, in every scenario; false only to compare (user, 29 Oct 2026)", date = "2026-10-29" }
+sun_mu_km3_s2 = { value = 1.32712440018e11, unit = "km3/s2", status = "D", source = "O2: heliocentric gravitational constant (IAU 2009 / DE430)", date = "2026-10-29" }
 log_step_s = { value = 1.0, unit = "s", status = "D", source = "P4: recording interval of the truth (the playback interpolates a cubic on position and velocity; 0.1 s would weigh ~1.7 GB per hour for 1000 objects) (user, 28 Oct 2026)", date = "2026-10-28" }
 tai_utc_s = { value = 37.0, unit = "s", status = "D", source = "G8: TAI - UTC (leap seconds since 2017); kept constant over the scenarios (future leap seconds unknown); TT = UTC + this + 32.184 s for the ephemerides (user, 29 Oct 2026)", date = "2026-10-29" }
 sun_radius_km = { value = 695700.0, unit = "km", status = "D", source = "G8: nominal solar radius (IAU 2015 B3): apparent disk of the Sun, eclipse of the ship (user, 29 Oct 2026)", date = "2026-10-29" }

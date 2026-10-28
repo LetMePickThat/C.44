@@ -147,8 +147,10 @@ def _orbit_sc(duration: float, objects=None, groups=None, step: float = 1.0) -> 
 
 
 def _no_j2(monkeypatch):
+    """Pure two-body motion: no J2 and no attraction of the other bodies."""
     orig = prop.Body.of
     monkeypatch.setattr(prop.Body, "of", classmethod(lambda cls, n: dataclasses.replace(orig(n), j2=0.0)))
+    monkeypatch.setattr(prop, "THIRD_BODY", False)
 
 
 def test_two_body_period_and_energy(monkeypatch):
@@ -611,11 +613,12 @@ def test_waypoint_editor():
 
 
 def test_sim_view_offscreen(tmp_path):
-    """S6-S7: the view shows a propagated run in both views (trajectories, objects, lines of sight, the linked
-    mission's volumes), lists the events, plays and steps, informs on an object, computes in the background and
-    replays a journal."""
+    """S6-S7: the view shows a propagated run in both views (Earth, Moon and Sun at their places, trajectories,
+    objects, lines of sight, the linked mission's volumes), centres on a body (OWNSHIP or an object) and zooms,
+    lists the events, plays and steps, informs on an object and the ship, computes in the background and replays a
+    journal."""
     app = _qt()
-    from gui.sim_view import DYN, VOL, SimView
+    from gui.sim_view import CENTRAL, DYN, OWNSHIP, VOL, SimView
     objs = [{"id": "K", "class": "KKV", "t_appear_s": 2.0, "manoeuvres": [{"type": "pn", "start_range_km": 30.0}],
              "state": {"type": "relative", "range_km": 60.0, "phi_deg": 45.0, "eps_deg": 5.0, "v_close_mps": 4000.0}},
             {"id": "D", "class": "DEBRIS", "state": {"type": "relative", "range_km": 300.0, "phi_deg": 200.0,
@@ -627,7 +630,25 @@ def test_sim_view_offscreen(tmp_path):
     v = SimView()
     v.show_run(sc, tr, g, "test")
     names = list(v.plotter.actors)
-    assert any(n.startswith("traj_") for n in names) and any(n.startswith(DYN + "pt_") for n in names)
+    assert any(n.startswith("traj_") for n in names) and DYN + "pts" in names
+    assert {"body_earth", "body_moon", "body_sun", "moon_orbit"} <= set(names)
+    u = v.plotter.actors["body_moon"].user_matrix
+    assert np.linalg.norm(u[:3, 3]) == pytest.approx(np.linalg.norm(eph.moon_icrf_km(
+        eph.centuries_tt(scn.epoch(sc), v.t))), rel=1e-9)                # the Moon at its true place
+    T = eph.centuries_tt(scn.epoch(sc), v.t)
+    assert np.allclose(v.plotter.actors["body_sun"].user_matrix[:3, 3], eph.sun_icrf_km(T), rtol=1e-9)   # 1 AU
+    v.cb_centre.setCurrentText("Sun")
+    assert np.allclose(v.plotter.camera.GetFocalPoint(), eph.sun_icrf_km(T), rtol=1e-9)
+    v.cb_centre.setCurrentText(OWNSHIP)
+    r0 = geo.states_at(tr, v.t)[0][0]
+    assert np.allclose(v.plotter.camera.GetFocalPoint(), r0, atol=1e-3)
+    d0 = v.plotter.camera.GetDistance()
+    v.zoom(2.0)
+    assert v.plotter.camera.GetDistance() == pytest.approx(d0 / 2.0, rel=1e-6)
+    v.cb_centre.setCurrentText(CENTRAL)
+    assert np.allclose(v.plotter.camera.GetFocalPoint(), 0.0, atol=1e-6)
+    v.cb_object.setCurrentText(OWNSHIP)
+    assert "altitude" in v.info.toPlainText()
     texts = [v.events.item(i).text() for i in range(v.events.count())]
     assert any("K appears" in x for x in texts) and any("terminal guidance" in x for x in texts)
     v.cb_view.setCurrentIndex(1)                         # ship view
@@ -636,6 +657,9 @@ def test_sim_view_offscreen(tmp_path):
     assert any(n.startswith(DYN + "los_") for n in names) and any(n.startswith(VOL) for n in names)
     v.cb_vectors.setChecked(True)
     assert DYN + "nose" in v.plotter.actors
+    v.cb_centre.setCurrentText("K")                     # ship view centred on an object
+    assert np.allclose(v.plotter.camera.GetFocalPoint(), v._screen_pts["K"], atol=1e-9)
+    v.cb_centre.setCurrentText(CENTRAL)
     v.cb_object.setCurrentText("K")
     assert "range" in v.info.toPlainText() and "RCS S" in v.info.toPlainText()
     v.step(1)
@@ -657,3 +681,34 @@ def test_sim_view_offscreen(tmp_path):
     v.show_run(sc2, tr2, g2, "journal")
     assert v.g.ids == g.ids
     app.processEvents()
+
+
+# ----------------------------------------------------------------------------- the other bodies (O1-O5)
+def test_third_body_attraction(monkeypatch):
+    """O1-O3: the Moon and the Sun pull a low-orbit object by ~1e-6 m/s2 (tidal 2 mu r / d^3 along their line), the
+    differential term vanishes at the centre, the gridded positions match the ephemeris within 1 m; a high orbit
+    drifts by kilometres in a day under them, and the propagation without them is the old one."""
+    from datetime import datetime, timezone
+    ep = datetime(2050, 1, 1, tzinfo=timezone.utc)
+    tb = prop.ThirdBodies("earth", ep, 3600.0)
+    for t in (0.0, 1234.5, 3599.0):
+        T = eph.centuries_tt(ep, t)
+        assert np.allclose(tb.positions(t), [eph.moon_icrf_km(T), eph.sun_icrf_km(T)], atol=1e-3)
+    assert np.allclose(tb.accel(np.zeros((1, 3)), 0.0), 0.0, atol=1e-20)
+    rm_ = tb.positions(0.0)[0]
+    u = rm_ / np.linalg.norm(rm_)
+    moon_only = prop.ThirdBodies("earth", ep, 3600.0)
+    moon_only.mu = np.array([tb.mu[0], 0.0])
+    a_moon = float(np.linalg.norm(moon_only.accel(7000.0 * u[None, :], 0.0)[0]))
+    assert a_moon == pytest.approx(2.0 * tb.mu[0] * 7000.0 / np.linalg.norm(rm_) ** 3, rel=0.03)
+    a_all = 1e3 * float(np.linalg.norm(tb.accel(7000.0 * u[None, :], 0.0)[0]))
+    assert 1e-7 < a_all < 1e-5
+    geo_orbit = {"type": "elements", "a_km": 42164.0, "e": 0.0, "i_deg": 0.1, "raan_deg": 0.0, "argp_deg": 0.0,
+                 "nu_deg": 0.0}
+    sc = _orbit_sc(86400.0, step=10.0)
+    sc["ship"]["orbit"] = geo_orbit
+    with_tb = prop.propagate(sc)
+    monkeypatch.setattr(prop, "THIRD_BODY", False)
+    without = prop.propagate(sc)
+    drift = float(np.linalg.norm(with_tb.r_km[-1, 0] - without.r_km[-1, 0]))
+    assert 1.0 < drift < 200.0
