@@ -6,7 +6,9 @@ SCENARIO -- the format of a global scenario (roadmap step 6.1, pass S1; framing 
 It describes the WORLD only (the radar is the mission file it cites); values of the model live in [sim].
 
   {"meta": {"name": str, "epoch_utc": ISO 8601, "duration_s": > 0, "step_s": > 0 (default sim.step_s),
-            "seed": int (default 1)},
+            "seed": int (default 1), "nav_errors": bool (default false: the navigation is the truth),
+            "log_nav": bool (default false: the 100 Hz navigation is not stored in the journal),
+            "sun_type": a sun type of [sky.tb_k] (default "sun"), "earth_type": an earth type (default "earth")},
    "central_body": "earth" | "moon" (a body of [sim.bodies]; default "earth"),
    "mission": path of the mission-preparation file (optional, relative to the scenario),
    "ship": {"orbit": ORBIT, "attitude": [WAYPOINT, ...] (sim/attitude.py; default prograde, roll 0)},
@@ -59,6 +61,12 @@ def bodies() -> Dict[str, dict]:
         return {k: dict(v) for k, v in P.section("sim.bodies").items()}
     except KeyError:
         return {}
+
+
+def sky_types(body: str) -> List[str]:
+    """Body types of [sky.tb_k] for a body ("sun" -> sun, sun_quiet, sun_active)."""
+    return [p.path.split(".")[2] for p in P if p.path.startswith("sky.tb_k.")
+            and p.path.split(".")[2].split("_")[0] == body]
 
 
 def jammer_classes() -> List[str]:
@@ -153,6 +161,12 @@ def validate(sc: dict) -> List[str]:
             err.append("meta.step_s must be > 0")
         if "seed" in meta and not isinstance(meta["seed"], int):
             err.append("meta.seed must be an integer")
+        for k in ("nav_errors", "log_nav"):
+            if k in meta and not isinstance(meta[k], bool):
+                err.append(f"meta.{k} must be true or false")
+        for k, b in (("sun_type", "sun"), ("earth_type", "earth")):
+            if k in meta and meta[k] not in sky_types(b):
+                err.append(f"meta.{k} must be one of {', '.join(sky_types(b))} ([sky.tb_k])")
     body = sc.get("central_body", "earth")
     if not bodies():
         err.append(f"[sim.bodies] missing from {P.path}: the central bodies (mu, J2, radii) are needed")
@@ -233,6 +247,10 @@ def normalise(sc: dict) -> dict:
     m.setdefault("name", "scenario")
     m.setdefault("step_s", float(P.get("sim.step_s")))
     m.setdefault("seed", 1)
+    m.setdefault("nav_errors", False)
+    m.setdefault("log_nav", False)
+    m.setdefault("sun_type", "sun")
+    m.setdefault("earth_type", "earth")
     s.setdefault("central_body", "earth")
     s["ship"].setdefault("attitude", copy.deepcopy(att.DEFAULT_SHIP))
     att.normalise(s["ship"]["attitude"])

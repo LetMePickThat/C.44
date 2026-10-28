@@ -15,7 +15,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QColor
-from PyQt5.QtWidgets import (QComboBox, QFileDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
+from PyQt5.QtWidgets import (QApplication, QComboBox, QInputDialog, QFileDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
                              QListWidgetItem, QMessageBox, QPlainTextEdit, QPushButton, QSpinBox, QSplitter,
                              QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
@@ -305,7 +305,8 @@ class ScenarioTab(QWidget):
         self.modified = False
 
         top = QHBoxLayout()
-        for text, slot in (("New", self.new), ("Open...", self.open), ("Save", self.save), ("Save as...", self.save_as)):
+        for text, slot in (("New", self.new), ("Open...", self.open), ("Save", self.save), ("Save as...", self.save_as),
+                           ("Export mission at t...", self.export_mission)):
             b = QPushButton(text)
             b.clicked.connect(slot)
             top.addWidget(b)
@@ -409,6 +410,43 @@ class ScenarioTab(QWidget):
             return
         self.path, self.modified = path, False
         self._update_title()
+
+    def export_mission(self) -> None:
+        """Pass S4 (N9): the scenario's mission with the navigation and the sky at an instant t, for the mission
+        preparation (the scenario is propagated up to t)."""
+        if self.path is None or self.modified:
+            QMessageBox.information(self, "Scenario", "Save the scenario first.")
+            return
+        try:
+            sc = scn.load(self.path)
+        except scn.ScenarioError as exc:
+            QMessageBox.critical(self, "Scenario", str(exc))
+            return
+        if not sc.get("mission"):
+            QMessageBox.information(self, "Scenario", "The scenario names no mission file.")
+            return
+        dur = float(sc["meta"]["duration_s"])
+        t, ok = QInputDialog.getDouble(self, "Export mission at t", "t (s from the epoch):", 0.0, 0.0, dur, 3)
+        if not ok:
+            return
+        out, _ = QFileDialog.getSaveFileName(self, "Save the mission", self._dir(), "Mission (*.json)")
+        if not out:
+            return
+        from core import mission as cm
+        from sim import engine, propagate
+        try:
+            short = copy.deepcopy(sc)
+            short["meta"]["duration_s"] = max(t, float(sc["meta"]["step_s"]))
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            try:
+                m, alerts = engine.mission_at(sc, propagate.propagate(short), t)
+            finally:
+                QApplication.restoreOverrideCursor()
+            cm.save_mission_json(out if out.endswith(".json") else out + ".json", m)
+        except (scn.ScenarioError, OSError, ValueError) as exc:
+            QMessageBox.critical(self, "Scenario", str(exc))
+            return
+        QMessageBox.information(self, "Scenario", "Mission written." + ("\n\n" + "\n".join(alerts) if alerts else ""))
 
     def _dir(self) -> str:
         return os.path.dirname(self.path) if self.path else os.getcwd()
@@ -519,7 +557,11 @@ class ScenarioTab(QWidget):
         f1 = FormWidget([_f("name", "name", "text"), _f("epoch_utc", "epoch (UTC, ISO 8601)", "text"),
                          _f("duration_s", "duration (s)", min=0.001), _f("step_s", "truth step (s, empty: default)",
                                                                            min=0.0, dec=4),
-                         _f("seed", "seed", "int")], meta)
+                         _f("seed", "seed", "int"),
+                         _f("nav_errors", "navigation errors (true / false)", "json"),
+                         _f("log_nav", "store the 100 Hz navigation (true / false)", "json"),
+                         _f("sun_type", "Sun type (sky)", "choice", choices=lambda: scn.sky_types("sun")),
+                         _f("earth_type", "Earth type (sky)", "choice", choices=lambda: scn.sky_types("earth"))], meta)
         f1.changed.connect(self._changed)
         lay.addWidget(f1)
         holder = self.sc

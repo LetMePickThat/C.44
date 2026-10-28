@@ -469,3 +469,104 @@ def test_ephemerides_against_meeus():
     assert np.allclose(eph.precession_to_j2000(0.0), np.eye(3))
     m = eph.precession_to_j2000(0.5)
     assert np.allclose(m @ m.T, np.eye(3), atol=1e-12)
+
+
+# ----------------------------------------------------------------------------- navigation, sky, journal (pass S4)
+from core import sky as skym  # noqa: E402
+from sim import engine  # noqa: E402
+from sim import run as simrun  # noqa: E402
+
+MISSION = os.path.join(os.path.dirname(__file__), "missions", "mission_example.json")
+
+
+def test_navigation_without_errors_is_the_truth():
+    """N1: without errors the message at t is the truth (attitude, state), every 1 / nav_rate_hz; the angular rate is
+    the slew's (10 deg/s cruise about the ship's Y axis)."""
+    sc = _att_sc(10.0, [{"t_s": 0.0, "attitude": _fixed()},
+                        {"t_s": 1.0, "rate_dps": 10.0, "attitude": _fixed(60.0)}])
+    tr = prop.propagate(sc)
+    nav = engine.Navigation(sc, tr)
+    ts = nav.times(0.0, 1.0)
+    assert len(ts) == int(engine.NAV_RATE_HZ) + 1 and ts[1] == pytest.approx(1.0 / engine.NAV_RATE_HZ)
+    msg = nav.message(4.23)
+    assert frames.validate_nav([msg]) == []
+    m = frames.quat_to_matrix(msg["q_ship_to_icrf"])
+    assert att.angle_deg(m, tr.attitude("ship", 4.23)) < 1e-9
+    r, v = geo.states_at(tr, 4.23)
+    assert np.allclose(msg["r_km"], r[0], atol=1e-12) and np.allclose(msg["v_kms"], v[0], atol=1e-15)
+    w = np.array(msg["w_ship_dps"])
+    assert np.linalg.norm(w) == pytest.approx(10.0, rel=1e-3) and abs(abs(w[1]) - 10.0) < 0.01
+
+
+def test_navigation_errors_statistics_and_latency():
+    """N2-N3: with meta.nav_errors the attitude and rate errors are white with the sigmas of [repointing], the
+    position and velocity offsets constant over the run, the message stamped t describes t - nav_latency_s; the same
+    seed gives the same stream."""
+    sc = _att_sc(30.0, [{"t_s": 0.0, "attitude": {"type": "prograde"}}])
+    sc["meta"]["nav_errors"] = True
+    tr = prop.propagate(sc)
+    nav = engine.Navigation(sc, tr)
+    ts = nav.times(1.0, 21.0)
+    da, dw, dr = [], [], []
+    for t in ts:
+        m, w, r, _ = nav.state(float(t))
+        tt = float(t) - engine.NAV_LATENCY_S
+        da.append(att.rotvec(tr.attitude("ship", tt).T @ m))
+        dw.append(w - engine.ship_rate_dps(tr, tt))
+        dr.append(r - geo.states_at(tr, tt)[0][0])
+    da, dw, dr = np.array(da), np.array(dw), np.array(dr)
+    assert da.std(axis=0) == pytest.approx([engine.ATT_SIGMA_RAD] * 3, rel=0.1)
+    assert dw.std(axis=0) == pytest.approx([engine.RATE_SIGMA_DPS] * 3, rel=0.1)
+    assert np.allclose(dr, dr[0], atol=1e-12) and np.allclose(dr[0], nav.dr_km)
+    assert 0.0 < np.linalg.norm(nav.dr_km) * 1e3 < 5.0 * engine.POS_SIGMA_KM * 1e3
+    assert engine.Navigation(sc, tr).message(5.0) == nav.message(5.0)
+
+
+def test_sky_and_mission_at_t():
+    """N4-N9: the sky at t is a valid mission sky (Sun, Earth, Moon, galactic frame, the stand-off jammer at its range),
+    the Earth's angular radius and surface Doppler of a circular orbit; the mission at t passes the mission-preparation
+    checks with no sky / navigation alert."""
+    sh = {"id": "EW", "class": "SHIP", "jammer": "SOJ_SHIP",
+          "state": {"type": "relative", "range_km": 900.0, "phi_deg": 30.0, "eps_deg": 40.0, "v_close_mps": 0.0}}
+    sc = _orbit_sc(5.0, [sh])
+    sc["mission"] = MISSION
+    tr = prop.propagate(sc)
+    sky = engine.sky_at(sc, tr, 2.0)
+    assert skym.validate(sky) == []
+    b = {x["id"]: x for x in sky["bodies"]}
+    assert {"SUN", "EARTH"} <= set(b) and b["SUN"]["type"] == "sun" and b["EARTH"]["type"] == "earth"
+    assert b["EARTH"]["angular_radius_deg"] == pytest.approx(math.degrees(math.asin(6371.0 / 7000.0)), abs=0.05)
+    assert abs(b["EARTH"]["closing_mps"]) < 20.0
+    assert b["EARTH"]["closing_spread_mps"] == pytest.approx(7546.0 * 6371.0 / 7000.0, rel=0.01)
+    assert sky["jammers"][0]["id"] == "EW" and sky["jammers"][0]["range_km"] == pytest.approx(900.0, rel=1e-3)
+    m, alerts = engine.mission_at(sc, tr, 2.0)
+    assert frames.validate(m) == [] and not [a for a in alerts if "deg from" in a]
+    assert m["global"]["nav"][0]["central_body"] == "earth" and m["global"]["sky"] == sky
+
+
+def test_journal_roundtrip_and_summary(tmp_path):
+    """N10-N13: a run writes the journal and the summary next to the scenario; the journal reads back the scenario,
+    the truth (exactly), the geometry (float32) and the 100 Hz navigation; the summary agrees with the geometry."""
+    o = {"id": "K", "class": "KKV", "state": {"type": "relative", "range_km": 50.0, "phi_deg": 45.0, "eps_deg": 5.0,
+                                              "v_close_mps": 3000.0}}
+    sc = _orbit_sc(20.0, [o], step=0.1)
+    sc["meta"]["log_nav"] = True
+    path = str(tmp_path / "run1.json")
+    scn.save(sc, path)
+    s = simrun.run(path)
+    npz, js = engine.journal_paths(path)
+    assert os.path.exists(npz) and json.load(open(js, encoding="utf-8"))["name"] == s["name"]
+    sc2, tr, g, nav, meta = engine.load_journal(npz)
+    ref = prop.propagate(scn.load(path))
+    assert sc2["meta"]["name"] == sc["meta"]["name"] and meta["params_hash"] == engine.params_hash()
+    assert np.array_equal(tr.r_km, ref.r_km, equal_nan=True) and tr.ids == ref.ids and tr.att_ids == ref.att_ids
+    g_ref = geo.geometry(scn.load(path), ref)
+    assert np.allclose(g.range_km, g_ref.range_km, rtol=1e-6, equal_nan=True)
+    assert np.array_equal(g.face, g_ref.face) and g.ids == g_ref.ids
+    assert len(nav["t_s"]) == int(20.0 * engine.NAV_RATE_HZ) + 1
+    assert np.allclose(nav["r_km"][-1], ref.r_km[-1, 0])
+    k = g.ids.index("K")
+    ok = s["objects"][k]
+    assert ok["range_min_km"] == pytest.approx(float(np.nanmin(g.range_km[:, k])), abs=1e-3)   # summary in m
+    w = engine._weights(g.t_s)
+    assert sum(ok["time_per_face_s"].values()) + ok["time_no_face_s"] == pytest.approx(float(w[g.exists[:, k]].sum()))
