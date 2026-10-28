@@ -252,6 +252,32 @@ def face_frame(phi_deg: float) -> Tuple[Tuple[float, float, float], ...]:
             (-math.sin(t) * c, -math.sin(t) * s, math.cos(t)))
 
 
+def face_of(dx: np.ndarray, dy: np.ndarray, dz: np.ndarray):
+    """Owner face of unit directions (dx, dy, dz) of the ship frame (zone of minimal scan: boundaries = the
+    az = +/-45 deg meridian planes, cut by the scan-limit cone; the face with the largest w wins): (owner int8, -1 =
+    no face; w = cos(theta) of the owner, 0 when none; u, v in the owner's frame, NaN when none). One rule for the
+    sphere raster below and for the directions of the global simulator (step 6.3, G3)."""
+    dx, dy, dz = np.broadcast_arrays(*(np.asarray(a, float) for a in (dx, dy, dz)))
+    t = math.radians(rm.SECTOR_TILT_DEG)
+    sin_lim = math.sin(math.radians(rm.SECTOR_RADIUS_DEG))
+    owner = np.full(dx.shape, -1, dtype=np.int8)
+    w_own = np.zeros(dx.shape)
+    u_own = np.full(dx.shape, np.nan)
+    v_own = np.full(dx.shape, np.nan)
+    for k, pk in enumerate(FACE_PHI):
+        n, eu, ev = face_frame(pk)
+        w = dx * n[0] + dy * n[1] + dz * n[2]
+        u = dx * eu[0] + dy * eu[1]
+        v = dx * ev[0] + dy * ev[1] + dz * ev[2]
+        ok = (w > 0) & (np.abs(u) <= w * math.cos(t) - v * math.sin(t) + 1e-12) & \
+             (np.sqrt(u * u + v * v) <= sin_lim) & (w > w_own)
+        owner[ok] = k
+        w_own[ok] = w[ok]
+        u_own[ok] = u[ok]
+        v_own[ok] = v[ok]
+    return owner, w_own, u_own, v_own
+
+
 class Sphere:
     """Raster of the direction sphere (phi, eps), cell-centred, with for each direction its owner face (zone of
     minimal scan: boundaries = the az = +/-45 deg meridian planes, cut by the scan-limit cone), w = cos(theta) and
@@ -265,20 +291,7 @@ class Sphere:
         self.phi, self.eps = np.meshgrid(phi, eps, indexing="ij")
         self.d_omega = math.radians(360.0 / self.n_phi) * math.radians(180.0 / self.n_eps) * np.cos(np.radians(self.eps))
         p, e = np.radians(self.phi), np.radians(self.eps)
-        dx, dy, dz = np.cos(e) * np.cos(p), np.cos(e) * np.sin(p), np.sin(e)
-        t = math.radians(rm.SECTOR_TILT_DEG)
-        sin_lim = math.sin(math.radians(rm.SECTOR_RADIUS_DEG))
-        self.owner = -np.ones(self.phi.shape, dtype=np.int8)
-        self.w = np.zeros(self.phi.shape)
-        for k, pk in enumerate(FACE_PHI):
-            n, eu, ev = face_frame(pk)
-            w = dx * n[0] + dy * n[1] + dz * n[2]
-            u = dx * eu[0] + dy * eu[1]
-            v = dx * ev[0] + dy * ev[1] + dz * ev[2]
-            ok = (w > 0) & (np.abs(u) <= w * math.cos(t) - v * math.sin(t) + 1e-12) & \
-                 (np.sqrt(u * u + v * v) <= sin_lim) & (w > self.w)
-            self.owner[ok] = k
-            self.w[ok] = w[ok]
+        self.owner, self.w, _, _ = face_of(np.cos(e) * np.cos(p), np.cos(e) * np.sin(p), np.sin(e))
         self.theta = np.degrees(np.arccos(np.clip(self.w, 0.0, 1.0)))
         self.scan_zone = self.scanned(eps_min, eps_max)
         self.window = (eps_min, eps_max, res_deg)

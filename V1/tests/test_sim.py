@@ -343,3 +343,129 @@ def test_object_flies_waypoints_toward_the_ship():
     kk = int(np.flatnonzero(tr.t_s == 15.0)[0])
     los = tr.r_km[kk, 0] - tr.r_km[kk, j]
     assert "K" in tr.att_ids and _nose_off_deg(tr.attitude("K", 15.0), los) < att.HOLD_TOL_DEG
+
+
+# ----------------------------------------------------------------------------- geometry (pass S3b)
+from core import environment as env  # noqa: E402
+from core import optimizer as opt  # noqa: E402
+from core import frames  # noqa: E402
+from sim import ephemeris as eph  # noqa: E402
+from sim import geometry as geo  # noqa: E402
+
+
+def test_face_of_rule():
+    """G3: a face normal is owned by its face at theta 0; (u, v, w) rebuild the direction in the owner's frame; the
+    sphere raster of the tool uses the same rule."""
+    for k, pk in enumerate(opt.FACE_PHI):
+        n = np.array(opt.face_frame(pk)[0])
+        o, w, u, v = opt.face_of(n[0], n[1], n[2])
+        assert int(o) == k and float(w) == pytest.approx(1.0) and abs(float(u)) < 1e-12 and abs(float(v)) < 1e-12
+    d = np.random.default_rng(3).standard_normal((2000, 3))
+    d /= np.linalg.norm(d, axis=1, keepdims=True)
+    o, w, u, v = opt.face_of(d[:, 0], d[:, 1], d[:, 2])
+    for k, pk in enumerate(opt.FACE_PHI):
+        n, eu, ev = (np.array(a) for a in opt.face_frame(pk))
+        s = o == k
+        assert np.allclose(u[s, None] * eu + v[s, None] * ev + w[s, None] * n, d[s], atol=1e-12)
+    assert np.isnan(u[o < 0]).all() and (w[o < 0] == 0.0).all()
+    sp = opt.Sphere(res_deg=3.0)
+    p, e = np.radians(sp.phi), np.radians(sp.eps)
+    assert np.array_equal(sp.owner, opt.face_of(np.cos(e) * np.cos(p), np.cos(e) * np.sin(p), np.sin(e))[0])
+
+
+def test_hermite_states_between_records(monkeypatch):
+    """G4: the cubic Hermite between the 1-s records stays within 1 m of the truth at every 0.1-s step (ship in orbit,
+    KKV under proportional navigation)."""
+    o = {"id": "K", "class": "KKV", "manoeuvres": [{"type": "pn", "start_range_km": 200.0}],
+         "state": {"type": "relative", "range_km": 300.0, "phi_deg": 40.0, "eps_deg": 10.0, "v_close_mps": 8000.0,
+                   "v_transverse_mps": [200.0, 0.0], "frame": "inertial"}}
+    sc = _orbit_sc(40.0, [o], step=0.1)
+    tr = prop.propagate(sc)
+    monkeypatch.setattr(prop, "LOG_STEP_S", 0.1)
+    ref = prop.propagate(sc)
+    err = 0.0
+    for k, t in enumerate(ref.t_s):
+        r, _ = geo.states_at(tr, float(t))
+        ok = np.isfinite(ref.r_km[k, :, 0])
+        err = max(err, float(np.nanmax(np.linalg.norm(r[ok] - ref.r_km[k, ok], axis=1))))
+    assert err * 1e3 < 1.0
+
+
+def test_aspect_rcs_direction_and_structure():
+    """G5-G7: a KKV closing on the ship (nose on its relative velocity) is seen nose on, its RCS the class table at 0
+    deg plus its offset; its direction in the ship frame is the one it was placed at; the structure loss is the face's
+    blockage table; a GENERIC points its nose along its inertial velocity; a DEBRIS tumbles at its rotation rate; drawn
+    offsets are reproducible and within the truncation."""
+    objs = [{"id": "K", "class": "KKV", "rcs_offset_db": 1.5,
+             "state": {"type": "relative", "range_km": 500.0, "phi_deg": 45.0, "eps_deg": 5.0, "v_close_mps": 3000.0}},
+            {"id": "G", "class": "GENERIC",
+             "state": {"type": "relative", "range_km": 800.0, "phi_deg": 200.0, "eps_deg": 20.0, "v_close_mps": 500.0,
+                       "v_transverse_mps": [300.0, -100.0]}},
+            {"id": "D", "class": "DEBRIS",
+             "state": {"type": "relative", "range_km": 100.0, "phi_deg": 120.0, "eps_deg": -10.0, "v_close_mps": 0.0}}]
+    sc = _orbit_sc(40.0, objs, step=0.1)
+    tr = prop.propagate(sc)
+    g = geo.geometry(sc, tr, np.array([0.0, 4.0, 36.0]))
+    k, gi, d = (g.ids.index(x) for x in ("K", "G", "D"))
+    assert g.aspect_deg[0, k] < 1e-6 and g.range_rate_mps[0, k] == pytest.approx(-3000.0, abs=1.0)
+    tgt = rm.target_for_sector({"id": "K", "target_type": "KKV"})
+    assert g.rcs_s_dbsm[0, k] == pytest.approx(tgt.aspect_table_db(g.f_s_ghz)[0] + 1.5)
+    assert g.rcs_ku_dbsm[0, k] == pytest.approx(tgt.aspect_table_db(g.f_ku_ghz)[0] + 1.5)
+    assert np.allclose(g.dir_ship[0, k], frames.unit(45.0, 5.0), atol=1e-9) and g.range_km[0, k] == pytest.approx(500.0)
+    for j in (k, gi, d):
+        if g.face[0, j] >= 0:
+            f, _ = env.blockage(int(g.face[0, j]), g.dir_ship[0, j][None, :], "S")
+            assert g.block_f[0, j] == pytest.approx(float(f[0]))
+            assert g.masked[0, j] == (g.block_loss_db[0, j] > env.BLOCK_MASK_DB)
+    r, v = geo.states_at(tr, 4.0)
+    j = tr.row("G")
+    want = math.degrees(math.acos(float(v[j] @ (r[0] - r[j]) / np.linalg.norm(v[j]) / np.linalg.norm(r[0] - r[j]))))
+    assert g.aspect_deg[1, gi] == pytest.approx(want, abs=1e-6)
+    assert rm.TARGETS["DEBRIS"].rotation_dps == pytest.approx(10.0)
+    assert g.aspect_deg[2, d] == pytest.approx(g.aspect_deg[0, d], abs=0.5)     # one turn in 36 s
+    lim = geo.RCS_TRUNC_SIGMAS * np.array([rm.target_for_sector({"id": x, "target_type": c}).rcs_spread_db
+                                           for x, c in zip(g.ids, g.classes)])
+    assert g.rcs_offset_db[k] == 1.5 and (np.abs(g.rcs_offset_db) <= lim + 1e-12).all()
+    assert np.array_equal(geo.geometry(sc, tr, np.array([0.0])).rcs_offset_db, g.rcs_offset_db)
+
+
+def test_occultation_and_shadow():
+    """G7-G8: an object on the far side of the Earth is occulted by it, a near one is not; a ship behind the Earth
+    from the Sun is in the umbra (the whole solar disk hidden), on the Sun side it is lit."""
+    r0, v0 = prop.elements_to_state({"a_km": 7000.0, "e": 0.0, "i_deg": 51.6, "raan_deg": 30.0, "argp_deg": 0.0,
+                                     "nu_deg": 0.0}, MU)
+    objs = [{"id": "FAR", "class": "ST", "state": {"type": "state", "r_km": list(-r0), "v_kms": list(-v0)}},
+            {"id": "NEAR", "class": "ST", "state": {"type": "relative", "range_km": 100.0, "phi_deg": 0.0,
+                                                    "eps_deg": 0.0, "v_close_mps": 0.0}}]
+    sc = _orbit_sc(2.0, objs)
+    g = geo.geometry(sc, prop.propagate(sc))
+    assert g.occulted_by[0, g.ids.index("FAR")] == geo.BODIES.index("earth")
+    assert g.occulted_by[0, g.ids.index("NEAR")] == -1
+    T = eph.centuries_tt(scn.epoch(sc), 0.0)
+    su = eph.sun_icrf_km(T)
+    su /= np.linalg.norm(su)
+    side = np.cross(su, [0.0, 0.0, 1.0])
+    side /= np.linalg.norm(side)
+    vc = math.sqrt(MU / 7000.0)
+    for sign, want in ((-1.0, 1.0), (1.0, 0.0)):
+        s = _orbit_sc(2.0)
+        s["ship"]["orbit"] = {"type": "state", "r_km": list(sign * 7000.0 * su), "v_kms": list(vc * side)}
+        gg = geo.geometry(s, prop.propagate(s))
+        assert gg.ship_shadow[0] == pytest.approx(want)
+        assert gg.body_radius_deg[0, 0] == pytest.approx(0.27, abs=0.01)
+
+
+def test_ephemerides_against_meeus():
+    """G8: Meeus, examples 25.a (Sun, 1992 October 13.0 TD: longitude 199.90988 deg, R 0.99766 AU) and 47.a (Moon,
+    1992 April 12.0 TD: longitude 133.162655 deg, latitude -3.229126 deg, distance 368409.7 km); the precession
+    matrix is the identity at J2000 and a rotation."""
+    T = (2448908.5 - 2451545.0) / 36525.0
+    lon, lat, d = eph.sun_ecliptic(T)
+    assert lon == pytest.approx(199.90988, abs=2e-5) and d / eph.AU_KM == pytest.approx(0.99766, abs=1e-5)
+    T = (2448724.5 - 2451545.0) / 36525.0
+    lon, lat, d = eph.moon_ecliptic(T)
+    assert lon == pytest.approx(133.162655, abs=1e-4) and lat == pytest.approx(-3.229126, abs=3e-3)
+    assert d == pytest.approx(368409.7, abs=0.5)
+    assert np.allclose(eph.precession_to_j2000(0.0), np.eye(3))
+    m = eph.precession_to_j2000(0.5)
+    assert np.allclose(m @ m.T, np.eye(3), atol=1e-12)

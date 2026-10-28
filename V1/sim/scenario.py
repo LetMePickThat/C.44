@@ -19,6 +19,8 @@ It describes the WORLD only (the radar is the mission file it cites); values of 
   OBJECT    {"id": str, "class": a class of the target library, "overrides": {class keys} (optional),
              "attitude": [WAYPOINT, ...] (optional, classes SHIP and KKV; else the class's default attitude),
              "t_appear_s": >= 0 (default 0), "jammer": a jammer class (optional),
+             "rcs_offset_db": the object's RCS against its class mean (optional; else drawn once from the class
+             spread, sim/geometry.py G6),
              "state": ORBIT | RELATIVE, "manoeuvres": [MANOEUVRE, ...] (optional)}
   RELATIVE  {"type": "relative", "range_km": > 0, "phi_deg", "eps_deg" (direction from the ship, in "frame": "ship"
              (default) or "inertial"), "v_close_mps": closing speed, "v_transverse_mps": [a, b] (optional, along
@@ -29,7 +31,7 @@ It describes the WORLD only (the radar is the mission file it cites); values of 
           | {"type": "pn", "n": navigation constant (default sim.pn_n), "start_range_km" | "t_s"}
                                           terminal guidance toward the ship, bounded by the class's acceleration
   GROUP     {"id", "class", "n": >= 1, "around": an object id, "pos_sigma_m", "vel_sigma_mps", "t_appear_s",
-             "overrides", "manoeuvres"}   n objects drawn around the reference object at t_appear_s (decoys, debris)
+             "overrides", "manoeuvres", "rcs_offset_db"}   n objects drawn around the reference object at t_appear_s (decoys, debris)
 """
 from __future__ import annotations
 
@@ -181,6 +183,8 @@ def validate(sc: dict) -> List[str]:
             bad = [k for k in o["overrides"] if k not in rm.SECTOR_TARGET_KEYS + ("v_close_max_mps",)]
             if bad:
                 err.append(f"{tag}: overrides not known: {', '.join(bad)}")
+        if "rcs_offset_db" in o and not _num(o["rcs_offset_db"]):
+            err.append(f"{tag}: rcs_offset_db must be a number (dB)")
         if "jammer" in o and o["jammer"] not in jams:
             err.append(f"{tag}: jammer must be one of {', '.join(sorted(jams))}")
         if not _num(o.get("t_appear_s", 0.0)) or not (0.0 <= float(o.get("t_appear_s", 0.0)) <= max(duration, 0.0)):
@@ -203,6 +207,8 @@ def validate(sc: dict) -> List[str]:
             err.append(f"{tag}: n must be an integer >= 1")
         if g.get("around") not in {o.get("id") for o in sc.get("objects", []) if isinstance(o, dict)}:
             err.append(f"{tag}: around must name an object of 'objects'")
+        if "rcs_offset_db" in g and not _num(g["rcs_offset_db"]):
+            err.append(f"{tag}: rcs_offset_db must be a number (dB)")
         for k in ("pos_sigma_m", "vel_sigma_mps"):
             if not _num(g.get(k, 0.0)) or float(g.get(k, 0.0)) < 0.0:
                 err.append(f"{tag}: {k} must be >= 0")

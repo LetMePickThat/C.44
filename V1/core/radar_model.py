@@ -1471,6 +1471,14 @@ class Target:
         """Copolar RCS at f of the presentation of detection: body + seeker optics."""
         return self.body_rcs_m2(f_ghz) + self.optics_rcs_m2(f_ghz)
 
+    def aspect_table_db(self, f_ghz: float) -> np.ndarray:
+        """RCS (dB) of the class seen at 0..180 deg from its nose (1-deg grid): its table and seeker optics through the
+        frontal presentation at that offset (rcs_at), the class as it is (physical): the true targets of the
+        Monte-Carlo (step 5.4) and the objects of the global simulator (step 6.3, G6)."""
+        return np.array([10.0 * math.log10(max(dataclasses.replace(self.physical(), aspect_policy="frontal",
+                                                                   aspect_offset_deg=float(a)).rcs_at(f_ghz), 1e-30))
+                         for a in range(181)])
+
     def aspect_spread_db(self) -> float:
         """Spread (1 sigma, dB) of the body RCS over every presentation, solid-angle weighted (step 5.1, B): 0 for a
         class seen frontally (it aims at the ship) or without a table."""

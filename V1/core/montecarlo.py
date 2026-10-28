@@ -246,11 +246,8 @@ def bin_model(w, f: float, theta: float, tgt, sec: dict, pfa: float, spacing: Op
 # ----------------------------------------------------------------------------- truth draws (robustness, 28 Oct 2026)
 @functools.lru_cache(maxsize=64)
 def _aspect_table(tgt: "rm.Target", f_ghz: float) -> np.ndarray:
-    """RCS (dB) of the class seen at 0..180 deg from its nose (1-deg grid): the class's table and seeker optics through
-    the frontal presentation at that offset (radar_model.Target.rcs_at), the class as it is (Target.physical)."""
-    return np.array([10.0 * math.log10(max(dataclasses.replace(tgt.physical(), aspect_policy="frontal",
-                                                               aspect_offset_deg=float(a)).rcs_at(f_ghz), 1e-30))
-                     for a in range(181)])
+    """RCS (dB) of the class seen at 0..180 deg from its nose (radar_model.Target.aspect_table_db)."""
+    return tgt.aspect_table_db(f_ghz)
 
 
 def draw_truth(tgt: "rm.Target", f_s: float, f_ku: float, n: int, rng: np.random.Generator, cfg: dict,

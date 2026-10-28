@@ -985,6 +985,9 @@ vr_acc_mps = 5.0
 step_s = { value = 0.1, unit = "s", status = "V", source = "B2: fixed truth step of the propagation (user, 28 Oct 2026)", date = "2026-10-28" }
 pn_n   = { value = 4.0, unit = "-", status = "V", source = "C5: navigation constant of the KKV terminal guidance (proportional navigation, user, 28 Oct 2026)", date = "2026-10-28" }
 log_step_s = { value = 1.0, unit = "s", status = "D", source = "P4: recording interval of the truth (the playback interpolates a cubic on position and velocity; 0.1 s would weigh ~1.7 GB per hour for 1000 objects) (user, 28 Oct 2026)", date = "2026-10-28" }
+tai_utc_s = { value = 37.0, unit = "s", status = "D", source = "G8: TAI - UTC (leap seconds since 2017); kept constant over the scenarios (future leap seconds unknown); TT = UTC + this + 32.184 s for the ephemerides (user, 29 Oct 2026)", date = "2026-10-29" }
+sun_radius_km = { value = 695700.0, unit = "km", status = "D", source = "G8: nominal solar radius (IAU 2015 B3): apparent disk of the Sun, eclipse of the ship (user, 29 Oct 2026)", date = "2026-10-29" }
+rcs_trunc_sigmas = { value = 2.0, unit = "-", status = "D", source = "G6: the RCS offset of each object against its class mean (rcs_spread_db, 1 sigma) is drawn once and truncated at this, as tool.robustness.rcs_trunc_sigmas (user, 29 Oct 2026)", date = "2026-10-29" }
 
 [sim.bodies]
 earth = { value = { mu_km3_s2 = 398600.4418, j2 = 1.08262668e-3, r_eq_km = 6378.137, radius_km = 6371.0, pole_ra_deg = 0.0, pole_dec_deg = 90.0 }, unit = "km3/s2, -, km, km, deg, deg", status = "V", source = "C1: WGS 84 / EGM 2008 (mu, J2, equatorial radius); mean radius as sky.surface.earth; pole = ICRF Z, precession left out (P2) (user, 28 Oct 2026)", date = "2026-10-28" }
