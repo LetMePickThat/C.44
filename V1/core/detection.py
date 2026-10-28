@@ -231,21 +231,24 @@ def _look_shifts(q: float, floor_db_span: float = 60.0) -> np.ndarray:
 
 
 def required_snr_db(n: int, swerling: Fluctuation, pfa: float, p_target: float, losses_db: Sequence[float] = (0.0,),
-                    weights: Sequence[float] = (1.0,), q: float = 0.0, floor: float = 1e-3) -> float:
+                    weights: Sequence[float] = (1.0,), q: float = 0.0, floor: float = 1e-3, echo_loss: float = 0.0) -> float:
     """Mean total SNR (at the requirement range, before the position losses) meeting p_target: one look (q = 0) or
     cumulative over looks spaced q = v RR / R, Pd averaged over the position losses. The cumulative probability is
     solved by bisection on the SNR at R, all looks and phases at once; looks below `floor` do not count (and are left
     out before the interpolation: bit-identical, step 3.1 A2). Cached without bound (exact): the optimiser asks each
-    of its ~1e5 laws per mission about 15 times; a bounded cache was emptied by the 8 lattice spacings (step 3.1 A1)."""
+    of its ~1e5 laws per mission about 15 times; a bounded cache was emptied by the 8 lattice spacings (step 3.1 A1).
+    echo_loss: probability that an echo is lost whole (eclipse by the common transmit slots; return on 3.2 / 5.2 from
+    step 5.4): each look's Pd times (1 - echo_loss). Infinite when even a sure detection cannot meet p_target."""
     return _required_snr_db(n, swerling, pfa, p_target, tuple(float(x) for x in losses_db),
-                            tuple(float(x) for x in weights), float(q), float(floor))
+                            tuple(float(x) for x in weights), float(q), float(floor), float(echo_loss))
 
 
 @functools.lru_cache(maxsize=SNR_CACHE)   # was unbounded (step 3.1 A1); bounded at T3 (A1 of 25 October: far fewer laws)
-def _required_snr_db(n, swerling, pfa, p_target, losses_db, weights, q, floor) -> float:
+def _required_snr_db(n, swerling, pfa, p_target, losses_db, weights, q, floor, echo_loss=0.0) -> float:
     curve = mean_curve(n, swerling, pfa, losses_db, weights)
+    keep = 1.0 - echo_loss
     if q <= 0.0:
-        return _invert(curve, p_target)
+        return _invert(curve, p_target / keep) if p_target < keep else math.inf
     shifts = _look_shifts(round(q, 9))
     # a look whose SNR x - shift is at or below the last grid point before the (monotone) curve reaches `floor` has a
     # Pd below it, set to 0 below: the looks from the first such one of phase 0 on (shifts grow with k) are left out
@@ -256,11 +259,16 @@ def _required_snr_db(n, swerling, pfa, p_target, losses_db, weights, q, floor) -
     def p_cum(x: float) -> float:
         sh = shifts[:, :int(np.searchsorted(first, x - x_dead, side="left"))]
         pk = np.interp(x - sh, SNR_GRID_DB, curve, left=float(curve[0]), right=float(curve[-1]))
-        pk = np.where(pk < floor, 0.0, pk)
+        pk = np.where(pk < floor, 0.0, pk) * keep
         return float(np.mean(1.0 - np.prod(1.0 - pk, axis=1)))
 
-    # upper bound: the first look, at R (1 + phi q) <= R (1 + q), alone meets the target there
-    lo, hi = float(SNR_GRID_DB[0]), _invert(curve, p_target) + 40.0 * math.log10(1.0 + q)
+    # upper bound: the first look, at R (1 + phi q) <= R (1 + q), alone meets the target there (with an echo loss, the
+    # bound is raised until the cumulative probability meets it)
+    lo, hi = float(SNR_GRID_DB[0]), _invert(curve, min(p_target, 0.999999)) + 40.0 * math.log10(1.0 + q)
+    while echo_loss > 0.0 and p_cum(hi) < p_target:
+        if hi >= float(SNR_GRID_DB[-1]):
+            return math.inf
+        hi = min(hi + 3.0, float(SNR_GRID_DB[-1]))
     for _ in range(40):
         mid = 0.5 * (lo + hi)
         lo, hi = (mid, hi) if p_cum(mid) < p_target else (lo, mid)

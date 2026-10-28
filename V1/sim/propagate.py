@@ -1,0 +1,360 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+PROPAGATE -- the truth of a global scenario (roadmap step 6.2, pass S2; framing P1-P12 validated by the user on
+28 October 2026). Every body of the scenario, the ship included, is integrated together in the inertial frame of the
+central body (ICRF axes, km, km/s, s):
+  - forces: two bodies + J2 about the body's pole (Earth: the ICRF Z axis, precession left out; Moon: the IAU pole),
+    no drag (C1);
+  - RK4 at the fixed step meta.step_s, a step split only at the exact time of an event (impulse, burn start or end,
+    appearance, PN start at a given time) (C2);
+  - manoeuvres (C3-C5): impulse (dv at t_s), burn (constant acceleration over its duration), in the object's own rtn
+    frame (X radial, Y along track, Z = r x v, step 3.0) or in inertial axes; Singer (Gauss-Markov acceleration per
+    inertial axis, exact discretisation, the class's a_max and maneuver_tau with the Singer intensity of
+    core/trackmodel without the filter's floor; seed meta.seed + row); proportional navigation toward the ship,
+    a = N Vc (Omega x LOS), normal to the line of sight, bounded by the class's accel_max_mps2, from t_s or from the
+    first step within start_range_km, until the range opens again (the miss distance is the closest approach over the
+    step, relative motion linear within it), then ballistic;
+  - an absolute state is given at the scenario epoch and propagated from t = 0, the object existing from t_appear_s;
+    a relative state is resolved at t_appear_s from the ship (frame "ship" needs the ship attitude: inertial and lvlh
+    modes here, waypoints and point come with the geometry, pass S3); a group draws its n objects around its reference
+    at t_appear_s (isotropic Gaussian, seeded);
+  - an object below the body's mean radius is marked impacted and stops.
+The truth is recorded every sim.log_step_s (the playback interpolates with a cubic on position and velocity); the
+.npz journal is pass S4 (D6).
+"""
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+
+from core import frames
+from core import radar_model as rm
+from core import trackmodel as tm
+from core.params import P
+
+from . import scenario as scn
+
+LOG_STEP_S = float(P.get("sim.log_step_s"))      # P4: recording interval of the truth
+
+@dataclass
+class Body:
+    """The central body: mu (km3/s2), J2, equatorial and mean radii (km), unit pole (ICRF)."""
+    name: str
+    mu: float
+    j2: float
+    r_eq_km: float
+    radius_km: float
+    pole: np.ndarray
+
+    @classmethod
+    def of(cls, name: str) -> "Body":
+        b = scn.bodies()[name]
+        return cls(name, float(b["mu_km3_s2"]), float(b["j2"]), float(b["r_eq_km"]), float(b["radius_km"]),
+                   frames.unit(float(b["pole_ra_deg"]), float(b["pole_dec_deg"])))
+
+    def accel(self, r: np.ndarray) -> np.ndarray:
+        """Two-body + J2 acceleration (km/s2) of positions r (n, 3)."""
+        rn2 = np.einsum("ij,ij->i", r, r)
+        rn = np.sqrt(rn2)
+        a = -self.mu * r / (rn2 * rn)[:, None]
+        if self.j2:
+            z = r @ self.pole
+            k = 1.5 * self.j2 * self.mu * self.r_eq_km ** 2 / (rn2 * rn2 * rn)
+            a -= k[:, None] * ((1.0 - 5.0 * z * z / rn2)[:, None] * r + 2.0 * z[:, None] * self.pole)
+        return a
+
+
+def elements_to_state(o: dict, mu: float) -> Tuple[np.ndarray, np.ndarray]:
+    """(r km, v km/s) of Keplerian elements a, e, i, raan, argp, nu (closed orbit), ICRF axes."""
+    a, e = float(o["a_km"]), float(o["e"])
+    i, W, w, nu = (math.radians(float(o[k])) for k in ("i_deg", "raan_deg", "argp_deg", "nu_deg"))
+    p = a * (1.0 - e * e)
+    r_pf = p / (1.0 + e * math.cos(nu)) * np.array([math.cos(nu), math.sin(nu), 0.0])
+    v_pf = math.sqrt(mu / p) * np.array([-math.sin(nu), e + math.cos(nu), 0.0])
+    cW, sW, ci, si, cw, sw = math.cos(W), math.sin(W), math.cos(i), math.sin(i), math.cos(w), math.sin(w)
+    m = np.array([[cW * cw - sW * sw * ci, -cW * sw - sW * cw * ci, sW * si],
+                  [sW * cw + cW * sw * ci, -sW * sw + cW * cw * ci, -cW * si],
+                  [sw * si, cw * si, ci]])
+    return m @ r_pf, m @ v_pf
+
+
+def rtn_matrix(r: np.ndarray, v: np.ndarray) -> np.ndarray:
+    """Columns X radial, Y = Z x X, Z = r x v (step 3.0): v_icrf = M v_rtn; r, v (3,) or (n, 3) -> (3, 3) or (n, 3, 3)."""
+    x = r / np.linalg.norm(r, axis=-1, keepdims=True)
+    z = np.cross(r, v)
+    z = z / np.linalg.norm(z, axis=-1, keepdims=True)
+    y = np.cross(z, x)
+    return np.stack([x, y, z], axis=-1)
+
+
+def ship_attitude(sc: dict, r: np.ndarray, v: np.ndarray, t_s: float) -> np.ndarray:
+    """Matrix ship -> ICRF of the ship at t_s (modes inertial and lvlh; waypoints and point: pass S3)."""
+    att = sc["ship"]["attitude"]
+    if att["mode"] == "inertial":
+        return frames.quat_to_matrix(np.asarray(att["q"], float) / np.linalg.norm(att["q"]))
+    if att["mode"] == "lvlh":
+        return rtn_matrix(r, v) @ frames.quat_to_matrix(np.asarray(att["q"], float) / np.linalg.norm(att["q"]))
+    raise scn.ScenarioError(f"ship attitude '{att['mode']}' is computed with the geometry (pass S3): a relative state "
+                            f"in the ship frame at t = {t_s:g} s needs it; give the relative state in frame 'inertial'")
+
+
+@dataclass
+class Truth:
+    """The propagated scenario: per row (0 = ship, then the objects, then the group members in order) its id, class,
+    recorded states (t_s (n_log,), r_km and v_kms (n_log, n_rows, 3), NaN when the row does not exist), its appearance
+    time, impact time, PN start and miss distance (NaN when none)."""
+    body: Body
+    ids: List[str]
+    classes: List[str]
+    t_s: np.ndarray
+    r_km: np.ndarray
+    v_kms: np.ndarray
+    t_appear_s: np.ndarray
+    t_impact_s: np.ndarray
+    t_pn_start_s: np.ndarray
+    miss_km: np.ndarray
+    group_of: List[Optional[str]] = field(default_factory=list)
+
+    def exists(self) -> np.ndarray:
+        return np.isfinite(self.r_km[..., 0])
+
+    def row(self, oid: str) -> int:
+        return self.ids.index(oid)
+
+
+class _Row:
+    """Settings of one propagated row (manoeuvres, Singer, PN) and its spawn rule."""
+
+    def __init__(self, oid: str, cls: str, spec: dict, group: Optional[str] = None):
+        self.id, self.cls, self.spec, self.group = oid, cls, spec, group
+        self.t_appear = float(spec.get("t_appear_s", 0.0))
+        tgt = rm.target_for_sector({"id": oid, "target_type": cls, **spec.get("overrides", {})}) if cls else None
+        self.a_max_kms2 = (tgt.accel_max_mps2 * 1e-3) if tgt is not None else 0.0
+        ms = spec.get("manoeuvres", [])
+        self.impulses = [m for m in ms if m["type"] == "impulse"]
+        self.burns = [m for m in ms if m["type"] == "burn"]
+        self.pn = next((m for m in ms if m["type"] == "pn"), None)
+        sing = any(m["type"] == "singer" for m in ms)
+        self.singer: Optional[Tuple[float, float]] = None
+        if sing and tgt is not None and tgt.accel_max_mps2 > 0.0 and tgt.maneuver_tau_s > 0.0:
+            s2 = tgt.accel_max_mps2 ** 2 / 3.0 * (1.0 + 4.0 * tm.P_MAX - tm.P0)      # Singer intensity (A3), m/s2
+            self.singer = (math.sqrt(s2) * 1e-3, float(tgt.maneuver_tau_s))
+        self.relative = spec.get("state", {}).get("type") == "relative"
+
+
+def _event_times(rows: List[_Row], groups: List[dict], duration: float) -> np.ndarray:
+    ev = set()
+    for w in rows[1:]:
+        if w.relative or w.group:
+            ev.add(w.t_appear)
+        ev.update(float(m["t_s"]) for m in w.impulses)
+        for m in w.burns:
+            ev.update((float(m["t_s"]), float(m["t_s"]) + float(m["duration_s"])))
+        if w.pn is not None and "t_s" in w.pn:
+            ev.add(float(w.pn["t_s"]))
+    ev.update(float(g["t_appear_s"]) for g in groups)
+    return np.array(sorted(t for t in ev if 0.0 < t < duration))
+
+
+def propagate(sc: dict, progress_cb=None) -> Truth:
+    """The truth of a normalised scenario (sim.scenario.load)."""
+    body = Body.of(sc["central_body"])
+    duration, dt = float(sc["meta"]["duration_s"]), float(sc["meta"]["step_s"])
+    seed = int(sc["meta"]["seed"])
+    n_log_every = max(1, int(round(LOG_STEP_S / dt)))
+    rows = [_Row("ship", "", {})] + [_Row(o["id"], o["class"], o) for o in sc["objects"]]
+    groups = sc.get("groups", [])
+    for g in groups:
+        rows += [_Row(f"{g['id']}#{k}", g["class"], g, group=g["id"]) for k in range(int(g["n"]))]
+    n = len(rows)
+    idx = {w.id: i for i, w in enumerate(rows)}
+    x = np.full((n, 6), np.nan)
+    active = np.zeros(n, bool)
+    spawned = np.zeros(n, bool)
+    t_appear = np.array([w.t_appear for w in rows])
+    t_impact = np.full(n, np.nan)
+    t_pn = np.full(n, np.nan)
+    miss = np.full(n, np.nan)
+    pn_on = np.zeros(n, bool)
+    pn_done = np.zeros(n, bool)
+
+    def absolute(st: dict) -> np.ndarray:
+        if st["type"] == "state":
+            return np.concatenate([np.asarray(st["r_km"], float), np.asarray(st["v_kms"], float)])
+        r, v = elements_to_state(st, body.mu)
+        return np.concatenate([r, v])
+
+    x[0] = absolute(sc["ship"]["orbit"])
+    active[0] = spawned[0] = True
+    for i, w in enumerate(rows[1:], 1):
+        if not w.relative and not w.group:
+            x[i] = absolute(w.spec["state"])
+            active[i] = spawned[i] = True
+
+    # Singer states (km/s2 per inertial axis), one generator per row
+    sing = [i for i, w in enumerate(rows) if w.singer is not None]
+    rngs = {i: np.random.default_rng([seed, i]) for i in sing}
+    a_sing = np.zeros((n, 3))
+    for i in sing:
+        a_sing[i] = rows[i].singer[0] * rngs[i].standard_normal(3)
+    pn_n = np.array([float(w.pn["n"]) if w.pn is not None else 0.0 for w in rows])
+    a_max = np.array([w.a_max_kms2 for w in rows])
+    burns = [(i, m) for i, w in enumerate(rows) for m in w.burns]
+
+    def spawn(t: float) -> None:
+        for i, w in enumerate(rows):
+            if spawned[i] or w.t_appear > t + 1e-9 or not (w.relative or w.group):
+                continue
+            if w.relative:
+                st = w.spec["state"]
+                d = frames.unit(float(st["phi_deg"]), float(st["eps_deg"]))
+                rs, vs = x[0, :3], x[0, 3:]
+                m = ship_attitude(sc, rs, vs, t) if st["frame"] == "ship" else np.eye(3)
+                los = m @ d
+                ax1 = np.cross(los, [0.0, 0.0, 1.0])
+                if np.linalg.norm(ax1) < 1e-9:
+                    ax1 = np.cross(los, [1.0, 0.0, 0.0])
+                ax1 /= np.linalg.norm(ax1)
+                ax2 = np.cross(los, ax1)
+                vt = st["v_transverse_mps"]
+                x[i, :3] = rs + float(st["range_km"]) * los
+                x[i, 3:] = vs + 1e-3 * (-float(st["v_close_mps"]) * los + vt[0] * ax1 + vt[1] * ax2)
+            else:
+                ref = idx[w.spec["around"]]
+                if not active[ref]:
+                    raise scn.ScenarioError(f"group '{w.group}': its reference '{w.spec['around']}' does not exist "
+                                            f"at t = {t:g} s")
+                g_rng = np.random.default_rng([seed, 100000 + i])
+                x[i, :3] = x[ref, :3] + 1e-3 * float(w.spec["pos_sigma_m"]) * g_rng.standard_normal(3)
+                x[i, 3:] = x[ref, 3:] + 1e-3 * float(w.spec["vel_sigma_mps"]) * g_rng.standard_normal(3)
+            active[i] = spawned[i] = True
+            t_appear[i] = t
+
+    def impulses(t: float) -> None:
+        for i, w in enumerate(rows):
+            for m in w.impulses:
+                if abs(float(m["t_s"]) - t) < 1e-9 and active[i]:
+                    dv = 1e-3 * np.asarray(m["dv_mps"], float)
+                    x[i, 3:] += (rtn_matrix(x[i, :3], x[i, 3:]) @ dv) if m["frame"] == "rtn" else dv
+
+    def accel(t0: float, xs: np.ndarray, act: np.ndarray) -> np.ndarray:
+        """d/dt of the active states xs (k, 6) during a sub-step that starts at t0 (burns decided at t0)."""
+        r, v = xs[:, :3], xs[:, 3:]
+        a = body.accel(r) + a_sing[act]
+        rows_act = np.flatnonzero(act)
+        pos = {j: k for k, j in enumerate(rows_act)}
+        for i, m in burns:
+            if i in pos and float(m["t_s"]) - 1e-9 <= t0 < float(m["t_s"]) + float(m["duration_s"]) - 1e-9:
+                k = pos[i]
+                acc = 1e-3 * np.asarray(m["accel_mps2"], float)
+                a[k] += (rtn_matrix(r[k], v[k]) @ acc) if m["frame"] == "rtn" else acc
+        on = np.flatnonzero(pn_on[rows_act])
+        if len(on) and 0 in pos:
+            s = pos[0]
+            los = r[s] - r[on]                                        # object -> ship
+            vrel = v[s] - v[on]
+            rn2 = np.einsum("ij,ij->i", los, los)
+            rn = np.sqrt(rn2)
+            omega = np.cross(los, vrel) / rn2[:, None]
+            vc = -np.einsum("ij,ij->i", los, vrel) / rn
+            cmd = pn_n[rows_act[on]][:, None] * vc[:, None] * np.cross(omega, los / rn[:, None])
+            nm = np.linalg.norm(cmd, axis=1)
+            lim = a_max[rows_act[on]]
+            cmd *= np.where(nm > lim, lim / np.maximum(nm, 1e-300), 1.0)[:, None]
+            a[on] += cmd
+        return np.concatenate([v, a], axis=1)
+
+    def rk4(t0: float, h: float) -> None:
+        act = active.copy()
+        y = x[act]
+        k1 = accel(t0, y, act)
+        k2 = accel(t0, y + 0.5 * h * k1, act)
+        k3 = accel(t0, y + 0.5 * h * k2, act)
+        k4 = accel(t0, y + h * k3, act)
+        x[act] = y + h / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+
+    def pn_update(t: float, prev: np.ndarray) -> None:
+        """Start PN (time or range), end it when the range opens; miss = closest approach of the step (linear)."""
+        for i, w in enumerate(rows):
+            if w.pn is None or not active[i] or pn_done[i]:
+                continue
+            los = x[0, :3] - x[i, :3]
+            rng_km = float(np.linalg.norm(los))
+            if not pn_on[i]:
+                start = (t >= float(w.pn["t_s"]) - 1e-9) if "t_s" in w.pn else rng_km <= float(w.pn["start_range_km"])
+                if start:
+                    pn_on[i] = True
+                    t_pn[i] = t
+                continue
+            d0 = prev[0, :3] - prev[i, :3]
+            d1 = los
+            dd = d1 - d0
+            u = float(np.clip(-(d0 @ dd) / max(dd @ dd, 1e-300), 0.0, 1.0))
+            closest = float(np.linalg.norm(d0 + u * dd))
+            miss[i] = closest if not np.isfinite(miss[i]) else min(miss[i], closest)
+            if float(los @ (x[0, 3:] - x[i, 3:])) > 0.0:                 # range rate > 0: the range opens
+                pn_on[i] = False
+                pn_done[i] = True
+
+    def impacts(t: float) -> None:
+        r = np.linalg.norm(x[:, :3], axis=1)
+        hit = active & (r < body.radius_km)
+        if hit.any():
+            t_impact[hit] = t
+            active[hit] = False
+
+    events = _event_times(rows, groups, duration)
+    n_steps = int(math.ceil(duration / dt - 1e-9))
+    n_log = n_steps // n_log_every + 1 + (1 if n_steps % n_log_every else 0)
+    t_log = np.empty(n_log)
+    r_log = np.full((n_log, n, 3), np.nan)
+    v_log = np.full((n_log, n, 3), np.nan)
+
+    def record(j: int, t: float) -> None:
+        t_log[j] = t
+        ex = active & (t_appear <= t + 1e-9)
+        r_log[j, ex], v_log[j, ex] = x[ex, :3], x[ex, 3:]
+
+    spawn(0.0)
+    impulses(0.0)
+    pn_update(0.0, x.copy())
+    record(0, 0.0)
+    j_log, e_ptr = 1, 0
+    for k in range(n_steps):
+        t0, t1 = k * dt, min((k + 1) * dt, duration)
+        prev = x.copy()
+        t = t0
+        while e_ptr < len(events) and events[e_ptr] <= t0 + 1e-9:
+            e_ptr += 1
+        while True:                                       # sub-steps split at the events inside the step
+            t_end = events[e_ptr] if e_ptr < len(events) and events[e_ptr] < t1 - 1e-9 else t1
+            if t_end > t + 1e-12:
+                rk4(t, t_end - t)
+            t = t_end
+            if t >= t1 - 1e-12:
+                break
+            e_ptr += 1
+            spawn(t)
+            impulses(t)
+            impacts(t)
+        spawn(t1)
+        if e_ptr < len(events) and abs(events[e_ptr] - t1) < 1e-9:
+            impulses(t1)
+        for i in sing:                                    # Singer: exact Gauss-Markov update over the step
+            s, tau = rows[i].singer
+            f = math.exp(-(t1 - t0) / tau)
+            a_sing[i] = f * a_sing[i] + s * math.sqrt(1.0 - f * f) * rngs[i].standard_normal(3)
+        impacts(t1)
+        pn_update(t1, prev)
+        if (k + 1) % n_log_every == 0 or k == n_steps - 1:
+            record(j_log, t1)
+            j_log += 1
+        if progress_cb and k % 1000 == 0:
+            progress_cb(k, n_steps)
+    return Truth(body=body, ids=[w.id for w in rows], classes=[w.cls for w in rows], t_s=t_log[:j_log],
+                 r_km=r_log[:j_log], v_kms=v_log[:j_log], t_appear_s=t_appear, t_impact_s=t_impact,
+                 t_pn_start_s=t_pn, miss_km=miss, group_of=[w.group for w in rows])

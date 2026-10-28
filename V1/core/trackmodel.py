@@ -147,6 +147,29 @@ def steady(f: np.ndarray, q: np.ndarray, h: np.ndarray, r: np.ndarray) -> Tuple[
     return p, pf
 
 
+def steady_pd(f: np.ndarray, q: np.ndarray, h: np.ndarray, r: np.ndarray, pd: float) -> Tuple[np.ndarray, np.ndarray]:
+    """(predicted, filtered after a successful update) steady covariances when each look updates with probability pd
+    (return on 3.3 from step 5.4: the misses are left out of the plain Riccati): the modified Riccati equation of the
+    intermittent Kalman filter, P = F (pd Pf + (1 - pd) P) F' + Q (expected covariance). The predicted one holds the
+    misses (it points the next look: the angular zone); the filtered one is the track just after a measurement (the
+    range and radial-velocity accuracies, user 28 October 2026: a missed update does not count against them).
+    pd >= 1: the plain steady state. Infinite covariances when it diverges (pd below the critical rate)."""
+    p, pf = steady(f, q, h, r)
+    if pd >= 1.0:
+        return p, pf
+    for _ in range(5000):
+        pf = p - p @ h.T @ np.linalg.solve(h @ p @ h.T + r, h @ p)
+        nxt = f @ (pd * pf + (1.0 - pd) * p) @ f.T + q
+        if not np.all(np.isfinite(nxt)) or nxt[0, 0] > 1e30:
+            inf = np.full_like(p, np.inf)
+            return inf, inf
+        if np.allclose(nxt, p, rtol=1e-10, atol=0.0):
+            p = nxt
+            break
+        p = nxt
+    return p, p - p @ h.T @ np.linalg.solve(h @ p @ h.T + r, h @ p)
+
+
 _H_POS = np.array([[1.0, 0.0, 0.0]])
 _H_POS_VEL = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
 _H_VEL2 = np.array([[1.0, 0.0]])
@@ -167,21 +190,22 @@ def _bisect_max(ok, lo: float, hi: float, iters: int = 60) -> float:
 
 @functools.lru_cache(maxsize=8192)
 def allowed_measurement(t_s: float, sigma_m: float, tau_s: float, r_m: float, zone_sigma_rad: float,
-                        range_acc_m: Optional[float], vr_acc_mps: float) -> Dict[str, float]:
+                        range_acc_m: Optional[float], vr_acc_mps: float, pd: float = 1.0) -> Dict[str, float]:
     """Largest measurement errors meeting the bracket's requirements at period t_s and range r_m (A7, decoupled and
     prudent, see the module docstring): 'theta' rad (predicted angle <= zone sigma), 'r' m (filtered range), 'vr' m/s
-    (filtered radial velocity); 0 = not met even with a perfect measurement."""
+    (filtered radial velocity); 0 = not met even with a perfect measurement. pd: share of the looks that update (the
+    filter with its misses, steady_pd; return on 3.3 from step 5.4)."""
     f, q = singer(t_s, sigma_m, tau_s)
     lim = zone_sigma_rad * r_m
 
     def cross_ok(s):
-        p, _ = steady(f, q, _H_POS, np.array([[s * s]]))
+        p, _ = steady_pd(f, q, _H_POS, np.array([[s * s]]), pd)
         return math.sqrt(p[0, 0]) <= lim
 
     out = {"theta": _bisect_max(cross_ok, 1e-3 * lim, 1e3 * lim) / r_m}
     if range_acc_m is not None:
         def range_ok(s):
-            _, pf = steady(f, q, _H_POS, np.array([[s * s]]))
+            _, pf = steady_pd(f, q, _H_POS, np.array([[s * s]]), pd)
             return math.sqrt(pf[0, 0]) <= range_acc_m
         out["r"] = _bisect_max(range_ok, 1e-3 * range_acc_m, 1e3 * range_acc_m)
     else:
@@ -189,7 +213,7 @@ def allowed_measurement(t_s: float, sigma_m: float, tau_s: float, r_m: float, zo
     f2, q2 = f[1:, 1:], q[1:, 1:]
 
     def vel_ok(s):
-        _, pf = steady(f2, q2, _H_VEL2, np.array([[s * s]]))
+        _, pf = steady_pd(f2, q2, _H_VEL2, np.array([[s * s]]), pd)
         return math.sqrt(pf[0, 0]) <= vr_acc_mps
     out["vr"] = _bisect_max(vel_ok, 1e-3 * vr_acc_mps, 1e3 * vr_acc_mps)
     return out
@@ -208,13 +232,17 @@ class TrackState:
         # step 5.1: Pd of an update (bracket key pd_update) and the navigation's pointing error (mission acceleration)
         self.pd_update = PD_UPDATE if pd_update is None else float(pd_update)
         nav_deg = repoint.axis_sigma_deg() if nav_axis_deg is None else float(nav_axis_deg)
+        self.nav_rad = math.radians(nav_deg)
         self.t_s, self.r_m = float(t_s), float(r_km) * 1e3
         self.sigma_m, self.tau_s = manoeuvre(tgt)
         zone_sigma = math.radians(zone_deg / rm_zone_sigmas())
+        # return on 3.3 from step 5.4: the filter misses 1 - pd_update of its looks (steady_pd)
+        pd_f = self.pd_update
         al = allowed_measurement(round(self.t_s, 6), self.sigma_m, self.tau_s, round(self.r_m, 0),
-                                 zone_sigma, range_acc_m, vr_acc_mps)
+                                 zone_sigma, range_acc_m, vr_acc_mps, round(pd_f, 6))
         self.allowed = al
         # noise part each look must reach (floors taken out, E4-E6); 0 = requirement out of reach at any SNR
+        self.kappa = 1.0
         self.noise_theta = _less_floor(al["theta"], ANGLE_FLOOR_RAD)
         self.noise_r = math.inf if range_acc_m is None else _less_floor(al["r"], RANGE_FLOOR_M)
         self.noise_vr = _less_floor(al["vr"], VR_FLOOR_MPS)
@@ -223,9 +251,9 @@ class TrackState:
         self.f, self.q = f, q
         # the steady filter with the measurements at their allowed (worst) values: what points the next look
         s_c = max(al["theta"], 1e-12) * self.r_m
-        self.p_cross, self.pf_cross = steady(f, q, _H_POS, np.array([[s_c * s_c]]))
+        self.p_cross, self.pf_cross = steady_pd(f, q, _H_POS, np.array([[s_c * s_c]]), pd_f)
         s_r = al["r"] if math.isfinite(al["r"]) else 1e6
-        self.p_range, self.pf_range = steady(f, q, _H_POS_VEL, np.diag([s_r * s_r, max(al["vr"], 1e-9) ** 2]))
+        self.p_range, self.pf_range = steady_pd(f, q, _H_POS_VEL, np.diag([s_r * s_r, max(al["vr"], 1e-9) ** 2]), pd_f)
         hp = math.radians(rm.hpbw_deg(f_ku, theta_deg))
         self.hpbw_rad = hp
         # step 4.5: the navigation's per-axis pointing error adds to the filter's (C3)
@@ -235,6 +263,20 @@ class TrackState:
         self.a_bank_mps2 = min(ACCEL_BANK_SIGMAS * math.sqrt(max(self.p_cross[2, 2], self.p_range[2, 2])),
                                max(tgt.accel_max_mps2, FLOOR_MPS2))
         self.zone_sigma_rad, self.range_acc_m, self.vr_acc_mps = zone_sigma, range_acc_m, vr_acc_mps
+
+    def with_kappa(self, kappa: float) -> "TrackState":
+        """A copy whose looks must reach noise parts sqrt(kappa) smaller (return on 3.3 from step 5.4): with a fluctuating
+        SNR the measurement variance of the detected looks is kappa = E[SNR_ref / SNR | detection] times its value at
+        the look's mean SNR, so the noise part at the mean SNR is (allowed^2 - floor^2) / kappa."""
+        import copy
+        s = copy.copy(self)
+        s.kappa = max(1.0, float(kappa))
+        k = math.sqrt(s.kappa)
+        al = self.allowed
+        s.noise_theta = _less_floor(al["theta"], ANGLE_FLOOR_RAD) / k
+        s.noise_r = self.noise_r if not math.isfinite(self.noise_r) else _less_floor(al["r"], RANGE_FLOOR_M) / k
+        s.noise_vr = _less_floor(al["vr"], VR_FLOOR_MPS) / k
+        return s
 
     def pack(self) -> "rm.TrackingPack":
         return rm.TrackingPack(math.degrees(self.noise_theta), self.noise_vr,
@@ -274,6 +316,13 @@ def loss_per_update(pds: List[float]) -> Tuple[float, float]:
 
 
 # ----------------------------------------------------------------------------- C: initiation
+def _joseph(p: np.ndarray, h: np.ndarray, r: np.ndarray) -> np.ndarray:
+    """Covariance after a Kalman update in Joseph form (stays positive with a poor measurement on a tight prior)."""
+    k = p @ h.T @ np.linalg.inv(h @ p @ h.T + r)
+    a = np.eye(len(p)) - k @ h
+    return a @ p @ a.T + k @ r @ k.T
+
+
 def initiation(st: TrackState, tgt: "rm.Target", sigma_theta_conf_rad: float, sigma_r_conf_m: float,
                sigma_vr_conf_mps: float, zone_deg: float, range_acc_m: Optional[float], vr_acc_mps: float,
                n_max: int = 200) -> Tuple[int, float]:
@@ -286,11 +335,11 @@ def initiation(st: TrackState, tgt: "rm.Target", sigma_theta_conf_rad: float, si
     vt0 = INIT_VEL_SIGMA_FRAC * tgt.v_close_mps
     pc = np.diag([(sigma_theta_conf_rad * st.r_m) ** 2, vt0 ** 2, sa0 ** 2])
     pr = np.diag([sigma_r_conf_m ** 2, sigma_vr_conf_mps ** 2, sa0 ** 2])
-    # initiation looks measure at least as well as the confirmation hand-over (a steady track with little process
-    # noise may accept far worse single measurements: they would not settle a new track)
-    rc = np.array([[(min(max(st.allowed["theta"], 1e-12), sigma_theta_conf_rad) * st.r_m) ** 2]])
-    s_r = min(st.allowed["r"] if math.isfinite(st.allowed["r"]) else 1e6, sigma_r_conf_m)
-    rr = np.diag([s_r * s_r, min(max(st.allowed["vr"], 1e-9), sigma_vr_conf_mps) ** 2])
+    # the looks measure with the accuracy they are sized for (return on 3.3 from step 5.4: they were assumed to
+    # measure at least as well as the hand-over, which the drawn looks do not)
+    rc = np.array([[(max(st.allowed["theta"], 1e-12) * st.r_m) ** 2]])
+    s_r = st.allowed["r"] if math.isfinite(st.allowed["r"]) else sigma_r_conf_m     # no range requirement
+    rr = np.diag([s_r * s_r, max(st.allowed["vr"], 1e-9) ** 2])
     zone_lim = st.zone_sigma_rad * st.r_m * (1.0 + INIT_CONV_FRAC)
     r_lim = (math.inf if range_acc_m is None else range_acc_m) * (1.0 + INIT_CONV_FRAC)
     v_lim = vr_acc_mps * (1.0 + INIT_CONV_FRAC)
@@ -299,8 +348,8 @@ def initiation(st: TrackState, tgt: "rm.Target", sigma_theta_conf_rad: float, si
         pc = f @ pc @ f.T + q
         pr = f @ pr @ f.T + q
         pts.append(math.sqrt(pc[0, 0]) / st.r_m / st.hpbw_rad)
-        pc = pc - pc @ _H_POS.T @ np.linalg.solve(_H_POS @ pc @ _H_POS.T + rc, _H_POS @ pc)
-        pr = pr - pr @ _H_POS_VEL.T @ np.linalg.solve(_H_POS_VEL @ pr @ _H_POS_VEL.T + rr, _H_POS_VEL @ pr)
+        pc = _joseph(pc, _H_POS, rc)
+        pr = _joseph(pr, _H_POS_VEL, rr)
         nxt = f @ pc @ f.T + q
         if (math.sqrt(nxt[0, 0]) <= zone_lim and math.sqrt(pr[0, 0]) <= r_lim and math.sqrt(pr[1, 1]) <= v_lim):
             return n, float(np.mean(pts))
@@ -324,9 +373,9 @@ def fast_initiation(st: TrackState, tgt: "rm.Target", sigma_theta_conf_rad: floa
     vt0 = init_vt_sigma(tgt)                                   # lever C
     pc = np.diag([(sigma_theta_conf_rad * st.r_m) ** 2, vt0 ** 2, sa0 ** 2])
     pr = np.diag([sigma_r_conf_m ** 2, sigma_vr_conf_mps ** 2, sa0 ** 2])
-    rc = np.array([[(min(max(st.allowed["theta"], 1e-12), sigma_theta_conf_rad) * st.r_m) ** 2]])
-    s_r = min(st.allowed["r"] if math.isfinite(st.allowed["r"]) else 1e6, sigma_r_conf_m)
-    rr = np.diag([s_r * s_r, min(max(st.allowed["vr"], 1e-9), sigma_vr_conf_mps) ** 2])
+    rc = np.array([[(max(st.allowed["theta"], 1e-12) * st.r_m) ** 2]])          # the looks' own accuracy (as above)
+    s_r = st.allowed["r"] if math.isfinite(st.allowed["r"]) else sigma_r_conf_m     # no range requirement
+    rr = np.diag([s_r * s_r, max(st.allowed["vr"], 1e-9) ** 2])
     zone_lim = st.zone_sigma_rad * st.r_m * (1.0 + INIT_CONV_FRAC)
     r_lim = (math.inf if range_acc_m is None else range_acc_m) * (1.0 + INIT_CONV_FRAC)
     v_lim = vr_acc_mps * (1.0 + INIT_CONV_FRAC)
@@ -342,8 +391,8 @@ def fast_initiation(st: TrackState, tgt: "rm.Target", sigma_theta_conf_rad: floa
             first_pred = pc.copy()
         intervals.append(float(dts[k]))
         sig.append(math.hypot(math.sqrt(pc[0, 0]) / st.r_m, nav_rad) / st.hpbw_rad)
-        pc = pc - pc @ _H_POS.T @ np.linalg.solve(_H_POS @ pc @ _H_POS.T + rc, _H_POS @ pc)
-        pr = pr - pr @ _H_POS_VEL.T @ np.linalg.solve(_H_POS_VEL @ pr @ _H_POS_VEL.T + rr, _H_POS_VEL @ pr)
+        pc = _joseph(pc, _H_POS, rc)
+        pr = _joseph(pr, _H_POS_VEL, rr)
         nxt = st.f @ pc @ st.f.T + st.q
         if math.sqrt(nxt[0, 0]) <= zone_lim and math.sqrt(pr[0, 0]) <= r_lim and math.sqrt(pr[1, 1]) <= v_lim:
             break
@@ -434,7 +483,7 @@ def indices(a: "rm.Target", b: "rm.Target", f_ghz: float, snr_lin: float, n: int
     sb = (ib + 1.0 / snr) * math.sqrt(2.0 / n)
     out["fluctuation"] = abs(ia - ib) / math.sqrt(0.5 * (sa * sa + sb * sb)) if (sa + sb) > 0 else 0.0
     # RCS level (body + seeker optics)
-    la, lb = math.log(a.rcs_at(f_ghz)), math.log(b.rcs_at(f_ghz))
+    la, lb = math.log(a.physical().rcs_at(f_ghz)), math.log(b.physical().rcs_at(f_ghz))   # the classes as they are
     # step 5.1 (B): every presentation is possible (aspect spread of the table, none for a class seen frontally) and
     # objects of a class differ (rcs_spread_db): both systematic
     obj_r = k_db * 0.5 * (a.rcs_spread_db ** 2 + b.rcs_spread_db ** 2 + a.aspect_spread_db() ** 2

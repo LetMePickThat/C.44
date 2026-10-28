@@ -110,7 +110,7 @@ def load(path: Optional[str] = None) -> Params:
 
 # Values a derived file (core/cost_table.json) does NOT depend on: GUI, CLI and mission-prep settings
 _FINGERPRINT_SKIP = ("meta.", "tool.cli.", "tool.display.", "tool.mission_defaults.", "tool.redundancy.", "tool.confirmation.",
-                     "tool.frames.")
+                     "tool.frames.", "tool.robustness.", "sim.")
 
 
 def fingerprint(params: "Params") -> str:

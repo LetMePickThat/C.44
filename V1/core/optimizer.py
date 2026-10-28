@@ -855,9 +855,15 @@ def fa_per_rr(sec: dict) -> float:
 
 def search_criterion(sec: dict) -> tuple:
     """(v_close_max, revisit, requirement range) of the cumulative search criterion of a sector (step 2.3), plus its
-    own cumulative Pd when the sector sets "pd" (step 5.1; read by radar_model.solve_look)."""
+    own cumulative Pd when the sector sets "pd" (step 5.1) and the probability that an echo is eclipsed whole by the
+    common transmit slots (coupling "_eclipse_rho", return on 3.2 / 5.2 from step 5.4); read by
+    radar_model.solve_look."""
     c = (float(sec["v_close_max_mps"]), float(sec["rr_target_s"]), float(sec["range_km"]))
-    return c + (float(sec["pd"]),) if sec.get("pd") is not None else c
+    pd = float(sec["pd"]) if sec.get("pd") is not None else None
+    rho = float(sec.get("_eclipse_rho", 0.0))
+    if rho > 0.0:
+        return c + (pd, round(rho, 6))
+    return c + (pd,) if pd is not None else c
 
 
 def cells_per_position(sec: dict, w, f: float) -> float:
@@ -1448,8 +1454,7 @@ def _freq_ranges(sec: dict, sph: Sphere, m: np.ndarray, f: float, sky: Optional[
     if rm.band_for_frequency(f) is not rm.BAND_S:
         return None                                    # outside the (possibly redefined) S band
     pos, unscanned, sky_s, factor = search_positions(sec, sph, m, f, sky)
-    # step 5.2 (3): echoes eclipsed by the common transmit slots (the previous iteration's scheduler), as a loss
-    factor = factor * 10.0 ** (-float(sec.get("_eclipse_db", 0.0)) / 40.0)
+    # (the echoes eclipsed by the common transmit slots are lost whole in the cumulative criterion: search_criterion)
     P = np.array([pos[k] for k in range(4)])
     if P.sum() <= 0:
         return None
@@ -1804,7 +1809,7 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
         "rx_sll_held_up_to_deg": sll_held,
         "mismatch_db_per_pass_max": mismatch_max,
         "sky": sky_s,
-        "s_min_unsaturated_range_km": rm.min_unsaturated_range_km(f, 0.0, tgt.rcs_at(f)),
+        "s_min_unsaturated_range_km": rm.min_unsaturated_range_km(f, 0.0, tgt.physical().rcs_at(f)),
         "target": target_summary(tgt, f),
         "environment": environment_summary(sec, tgt, f, w_main, pfas[order[wf_set.index(main)]],
                                            max(cands, key=lambda w: rm.tx_beam_power_w(w) * rm.tx_gain_ratio(w)
@@ -1986,6 +1991,7 @@ def target_summary(tgt: "rm.Target", f: float) -> dict:
     """Target model of a sector at f (step 2.4): class, RCS (body + optics), fluctuation, T0, depolarisation,
     acceleration."""
     return {"type": tgt.target_type, "rcs_m2": tgt.rcs_at(f), "optics_rcs_m2": tgt.optics_rcs_m2(f),
+            "rcs_mean_m2": tgt.physical().rcs_at(f), "rcs_sizing_sigmas": tgt.rcs_sizing_sigmas,
             "swerling": tgt.swerling, "fluctuation": tgt.fluctuation(f) if tgt.swerling is None else f"SW{tgt.swerling}",
             "t0_s": tgt.t0_s(f), "depol_db": rm.lin_to_db(tgt.depol_lin(f)),
             "accel_max_mps2": tgt.accel_max_mps2}
@@ -2275,9 +2281,11 @@ def _energy_verdict(out: dict) -> None:
 def _couplings(mission: dict, out: dict) -> Dict[str, dict]:
     """Per sector, the coupling keys of the next pass (step 5.2): the eclipse of the common S slots when above
     scheduler.eclipse_flag_db (below, reported only, as before), and the Ku energy of confirming one false alarm when
-    the false alarms depend on the waveform (fa_mode 'pfa_cell'; with 'fa_rate' their number per revisit is fixed)."""
-    from . import scheduler
-    ecl = float((out.get("scheduler") or {}).get("eclipse_db", {}).get("S", 0.0))
+    the false alarms depend on the waveform (fa_mode 'pfa_cell'; with 'fa_rate' their number per revisit is fixed).
+    Return on 3.2 / 5.2 from step 5.4 (user, 28 October 2026): the eclipse is the probability that an echo is lost
+    whole, the share of the common S slots ("_eclipse_rho"), whatever its mean loss; scheduler.eclipse_flag_db only
+    flags it."""
+    rho = float((out.get("scheduler") or {}).get("slots", {}).get("S", 0.0))
     keys: Dict[str, dict] = {}
     trk = {t["id"]: t for t in out.get("tracking", {}).get("sectors", [])}
     p_ref = float(out["global"]["face_elec_avail_kW"]) * 1e3
@@ -2285,8 +2293,8 @@ def _couplings(mission: dict, out: dict) -> Dict[str, dict]:
         if r.get("status") != "OK":
             continue
         k: Dict[str, float] = {}
-        if ecl > scheduler.ECLIPSE_FLAG_DB:
-            k["_eclipse_db"] = round(ecl, 3)
+        if rho > 0.0:
+            k["_eclipse_rho"] = round(rho, 6)
         t = trk.get(r["id"])
         if rm.FA_MODE != "fa_rate" and t is not None:
             e_rr = sum(float(f.get("energy_fraction", 0.0)) for f in (t.get("confirmation") or {}).get("faces", {}).values())

@@ -620,3 +620,22 @@ step 5.3. 66 values differ, all additions (6 to 13 per mission); no value remove
 Every other number differs only by last-digit float noise between the laptop (previous refreeze) and the desktop
 (relative difference at most 5.7e-11, below the 1e-9 tolerance); rewritten by this refreeze. Cost table regenerated
 (fingerprint only). N3 34.3 min on the desktop: 241 passed; only the 9 snapshot tests failed before the refreeze.
+
+## 2026-10-28 -- step 5.4 (Monte-Carlo M1-M3), returns on 3.2, 3.3 and 5.2, prudent sizing RCS (radar_model V6.34.0)
+
+Causes, accumulated since the last refreeze (V6.27.0; the intermediate passes V6.28 to V6.33 were not refrozen):
+confirmation attempts and confirm_p_min 0.9995 from the track chain requirement (V6.32); accuracies at the
+fluctuating SNR (kappa), Kalman steady state with misses, correlated misses, the eclipse as a whole echo loss (V6.33);
+sizing RCS = class mean - 2 sigma of the class spread and the KKV sized on its body only, kappa applied as energy x
+kappa (V6.34; user decisions 1a, 2 and 4 after robustness test no. 1). 12232 values differ: shorter ranges against the
+classes (model case: WF-LRS range KKV -59.5 %, SHIP -29.2 %), more energy and Ku time per face; confirmation modes
+KU1+7 -> S2 (mission_example S01, mission_example_csv S01, mission_redundancy_demo A5_SHORT, mission_sky_demo MOON);
+no admissible confirmation mode left for A3_HIBAND, B5_LONG (mission_redundancy_demo), E_EARTH and E_KKV_SPJ
+(mission_environment: the KKV body at -2 sigma holds no Ku look against its jammer). Verdicts: mission_veille500 ALERT
+-> NOK, mission_redundancy_demo and mission_target_library OK -> NOK; mission_environment and mission_sky_demo stay
+NOK; the four others OK. The test missions are not representative (user): accepted.
+Three tests that the last N3 had not run since V6.32 / V6.33 brought up to date (the code was right):
+test_s2_gains_kept_per_touch_grid_are_exact (confirmation attempts K3), test_mc_batch_kalman_reaches_the_steady_covariance
+(updates drawn at pd_update, the steady state counts the misses), test_environment_mission_outputs (objects tested on
+E_JAMMED, E_KKV_SPJ no longer confirms). Cost table regenerated. N3 119.9 min on the laptop (on battery, with a sleep):
+267 passed; the 10 snapshot tests and the 3 tests above failed before the refreeze.

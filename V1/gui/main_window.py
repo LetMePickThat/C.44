@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-MAIN_WINDOW -- the application window: a tab widget holding the mission-preparation tab (permanent) and, once a
-calculation has run, a closable results tab. The mission is locked while the results tab is open, so the results
+MAIN_WINDOW -- the application window: a tab widget holding the mission-preparation tab (permanent), the scenario
+editor of the global simulator (permanent, phase 6) and, once a calculation has run, a closable results tab. The mission is locked while the results tab is open, so the results
 always describe the mission on screen; closing the tab (after an export prompt if the result was never exported)
 makes it editable again. The exact calculation (core.optimizer.run) runs on a background thread with a progress
 dialog and a cooperative cancel.
@@ -19,6 +19,7 @@ from core import optimizer as mo
 from core.params import P
 from gui.prep_tab import PrepTab
 from gui.results_tab import ResultsTab
+from gui.scenario_tab import ScenarioTab
 
 GRID_RES_DEG = P.get("tool.display.grid_res_deg")   # direction-sphere raster of the 3D views and the fast estimate (shared by both tabs)
 
@@ -67,8 +68,11 @@ class MainWindow(QMainWindow):
         self.prep = PrepTab(mission, self.grid)
         self.prep.run_requested.connect(self._run)
         self.tabs.addTab(self.prep, "Mission preparation")
-        for side in (QTabBar.LeftSide, QTabBar.RightSide):   # the preparation tab cannot be closed
-            self.tabs.tabBar().setTabButton(0, side, None)
+        self.scenario = ScenarioTab()                       # phase 6: scenario editor (passes S5-S7)
+        self.tabs.addTab(self.scenario, "Scenario")
+        for index in (0, 1):                                # the preparation and scenario tabs cannot be closed
+            for side in (QTabBar.LeftSide, QTabBar.RightSide):
+                self.tabs.tabBar().setTabButton(index, side, None)
 
     # ------------------------------------------------------------------ calculation
     def _run(self, mission: dict) -> None:

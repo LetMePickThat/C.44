@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.32.0
+# Radar Performance Model - V6.34.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,26 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.33.0 -> V6.34.0 (decisions of the user after robustness test no. 1, 28 October 2026)
+#   - targets: a class is sized at its mean RCS - tool.targets.rcs_sizing_sigmas (2) x its spread rcs_spread_db,
+#     body and optics (Target.sizing_margin, decision 2); class key optics_in_detection, the KKV sized on its body
+#     only (decision 1a); Target.physical() = the class as it is, for the true targets (montecarlo._aspect_table), the
+#     class recognition (trackmodel.indices) and the saturation checks; a sector without a class keeps its own RCS.
+#   - tracking: tool.tracking.kappa_mode "energy" (default): the update look keeps its waveform, energy and time x
+#     kappa, SNR gain snr_gain_db (read by montecarlo.track_look and _coast_pd); "resize" = the former exact sizing.
+#   - montecarlo: run(workers): sectors, face timelines and tracking sectors in worker processes, seeds per element,
+#     results identical to the sequential run (decision 4).
+#   - tools/robustness.py: new evaluation mission, one bracket 0-R per tracked class (decision 3).
+# Changes V6.32.0 -> V6.33.0 (returns on 3.2, 3.3 and 5.2 from the Monte-Carlo of 5.4, user, 28 October 2026)
+#   - montecarlo: hand-over SNR of a multi-attempt confirmation taken from the attempt that detected (was the last
+#     one, NaN: 0.2 % of the tracks born with a NaN covariance); accuracy_kappa, miss_chain_pds, draw_truth (true
+#     targets of the robustness test); eclipse read with the plan's rho; criterion A (b) never stricter than required.
+#   - tracking / trackmodel: accuracies at the fluctuating SNR (kappa fixed point, kappa_iter 4, rounded up to
+#     kappa_step_db 0.25 dB); Kalman steady state with misses (steady_pd, modified Riccati); correlated misses in the
+#     loss chain; initiation looks at their own accuracy, Joseph-form updates.
+#   - detection / optimizer: the eclipse is a whole echo loss of probability rho = share of the common S slots
+#     (required_snr_db(echo_loss), coupling _eclipse_rho; _eclipse_db removed, scheduler.eclipse_flag_db flags only).
 #
 # Changes V6.31.0 -> V6.32.0 (requirement of the user: the chain first detection > confirmation > established track
 #   fails at most tracking.p_track_fail_max = 1e-3; return on 3.2 and 3.3 from the Monte-Carlo of 5.4, 27 Oct 2026)
@@ -664,7 +684,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.32.0"
+MODEL_VERSION = "6.34.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -1256,7 +1276,10 @@ _TARGET_OPTICS = {"optics_diameter_m": 0.0, "optics_f_ratio": 1.0, "optics_retro
                   "aspect_policy": "",
                   # return on 3.3 from step 5.4 (lever C): 1-sigma transverse velocity at the track birth, per axis;
                   # 0 = tracking.init_vel_sigma_frac x v_close (a homing class aims at the ship: small)
-                  "init_vt_sigma_mps": 0.0}
+                  "init_vt_sigma_mps": 0.0,
+                  # decision 1a (28 October 2026): false = the class is sized on its body only (the seeker optics stay
+                  # in the true targets and the class recognition, Target.physical)
+                  "optics_in_detection": True}
 ASPECT_AZ_DEG = tuple(range(0, 360, 30))
 ASPECT_EL_DEG = tuple(range(-90, 91, 30))
 ASPECT_POLICIES = ("worst", "frontal", "mean")
@@ -1264,6 +1287,10 @@ ASPECT_POLICY: str = P.get("tool.targets.aspect_policy")
 if ASPECT_POLICY not in ASPECT_POLICIES:
     raise ValueError(f"{P.path}: tool.targets.aspect_policy '{ASPECT_POLICY}' must be one of {', '.join(ASPECT_POLICIES)}")
 DEFAULT_TARGET_TYPE: str = P.get("tool.targets.default_type")
+# decision 2 (28 October 2026): the sizing RCS lies this many sigmas of the class spread (rcs_spread_db) below its mean
+RCS_SIZING_SIGMAS: float = float(P.get("tool.targets.rcs_sizing_sigmas"))
+if RCS_SIZING_SIGMAS < 0:
+    raise ValueError(f"{P.path}: tool.targets.rcs_sizing_sigmas must be >= 0")
 TARGET_TYPES: Tuple[str, ...] = tuple(dict.fromkeys(p.path.split(".")[1] for p in P if p.path.startswith("targets.")))
 
 
@@ -1387,6 +1414,17 @@ class Target:
     optics_cone_deg: float = _DEF["optics_cone_deg"]
     aspect_policy: str = _DEF["aspect_policy"]
     init_vt_sigma_mps: float = _DEF["init_vt_sigma_mps"]     # return on 3.3 from step 5.4 (lever C)
+    optics_in_detection: bool = _DEF["optics_in_detection"]  # decision 1a (28 October 2026)
+    rcs_sizing_sigmas: float = RCS_SIZING_SIGMAS             # decision 2 (28 October 2026)
+
+    def physical(self) -> "Target":
+        """The class as it is (its mean RCS, seeker optics included): the true targets drawn around it, the class
+        recognition and the saturation checks; the target itself is the sizing one (decisions 1a and 2)."""
+        return dataclasses.replace(self, optics_in_detection=True, rcs_sizing_sigmas=0.0)
+
+    def sizing_margin(self) -> float:
+        """Factor of the sizing RCS against the class mean: -rcs_sizing_sigmas x rcs_spread_db (decision 2)."""
+        return db_to_lin(-self.rcs_sizing_sigmas * self.rcs_spread_db)
 
     def _ku(self, f_ghz: float) -> bool:
         band = band_for_frequency(f_ghz)
@@ -1410,22 +1448,24 @@ class Target:
                    self.optics_retro_eff * 4.0 * math.pi * a * a / lambda_m(f_ghz) ** 2)
 
     def _factors(self, f_ghz: float) -> Tuple[float, float]:
+        """(body factor, optics factor) of the presentation of detection; no optics for a class sized on its body."""
         b0 = self._frontal_body_m2(f_ghz)
-        ratio = round(self._frontal_optics_m2(f_ghz) / b0, 9) if b0 > 0 else 0.0
-        return _presentation(self.aspect_rcs_db, float(self.optics_cone_deg), round(abs(self.aspect_offset_deg), 6),
-                             self.policy(), ratio)
+        ratio = round(self._frontal_optics_m2(f_ghz) / b0, 9) if b0 > 0 and self.optics_in_detection else 0.0
+        fb, fo = _presentation(self.aspect_rcs_db, float(self.optics_cone_deg), round(abs(self.aspect_offset_deg), 6),
+                               self.policy(), ratio)
+        return fb, (fo if self.optics_in_detection else 0.0)
 
     def aspect_factor(self, f_ghz: float = 2.8) -> float:
         """Factor of the body RCS at the presentation of detection (step 3.3 F6, step 5.1 B)."""
         return self._factors(f_ghz)[0]
 
     def body_rcs_m2(self, f_ghz: float) -> float:
-        return self._frontal_body_m2(f_ghz) * self._factors(f_ghz)[0]
+        return self._frontal_body_m2(f_ghz) * self._factors(f_ghz)[0] * self.sizing_margin()
 
     def optics_rcs_m2(self, f_ghz: float) -> float:
         """The seeker optics' return at the presentation of detection: full within optics_cone_deg of the nose, none
         outside (step 5.1, B4)."""
-        return self._frontal_optics_m2(f_ghz) * self._factors(f_ghz)[1]
+        return self._frontal_optics_m2(f_ghz) * self._factors(f_ghz)[1] * self.sizing_margin()
 
     def rcs_at(self, f_ghz: float) -> float:
         """Copolar RCS at f of the presentation of detection: body + seeker optics."""
@@ -1466,7 +1506,7 @@ def _target_of_class(name: str) -> Target:
                   aspect_offset_deg=v["aspect_offset_deg"], aspect_rcs_db=v["aspect_rcs_db"],
                   rcs_spread_db=v["rcs_spread_db"], depol_spread_db=v["depol_spread_db"],
                   optics_cone_deg=v["optics_cone_deg"], aspect_policy=v["aspect_policy"],
-                  init_vt_sigma_mps=v["init_vt_sigma_mps"])
+                  init_vt_sigma_mps=v["init_vt_sigma_mps"], optics_in_detection=bool(v["optics_in_detection"]))
 
 
 TARGETS: Dict[str, Target] = {name: _target_of_class(name) for name in TARGET_TYPES}
@@ -1487,8 +1527,9 @@ def target_for_sector(sec: dict) -> Target:
     base = TARGETS[name or DEFAULT_TARGET_TYPE]
     kw: Dict[str, object] = {"name": str(sec.get("id", base.name)),
                              "v_close_mps": float(sec.get("v_close_max_mps", base.v_close_mps))}
-    if name is None:
-        kw.update(rcs_m2=float(sec["rcs_m2"]), rcs_ku_m2=None, swerling=int(sec.get("swerling", 1)))
+    if name is None:       # the sector's own RCS, taken as given (no class spread below it: decision 2)
+        kw.update(rcs_m2=float(sec["rcs_m2"]), rcs_ku_m2=None, swerling=int(sec.get("swerling", 1)),
+                  rcs_sizing_sigmas=0.0)
     else:
         if sec.get("rcs_m2") is not None:
             kw.update(rcs_m2=float(sec["rcs_m2"]), rcs_ku_m2=None)
@@ -2845,15 +2886,17 @@ def solve_look(b: SolveBase, t_sys_k: Optional[float] = None, pfa: Optional[floa
                                               tx_subaperture(wf), wf.doppler_window_db if b.ppb > 1 else None,
                                               grid_spacing_hpbw, pointing)
     k.pos_l, k.pos_w, k.pos_parts = pos_l, pos_w, pos_parts
-    if pd is None and cum is not None and len(cum) > 3:
+    if pd is None and cum is not None and len(cum) > 3 and cum[3] is not None:
         pd = cum[3]                                 # step 5.1: the sector's own cumulative Pd (search_criterion)
     pd_l = DETECT_PD if pd is None else float(pd)
     q = k.q = cum[0] * cum[1] / (cum[2] * 1e3) if (cum is not None and b.search) else 0.0
+    # return on 3.2 / 5.2 from step 5.4: the echoes eclipsed by the common transmit slots are lost whole
+    rho = float(cum[4]) if (cum is not None and len(cum) > 4 and b.search) else 0.0
     if b.track_snr is None:
         # exact law (step 2.3), n = coherent blocks integrated noncoherently, Pd averaged over the position
-        snr_db = detection.required_snr_db(b.n_blocks, b.fl, pfa_l, pd_l, q=q, floor=CUM_PD_FLOOR)
+        snr_db = detection.required_snr_db(b.n_blocks, b.fl, pfa_l, pd_l, q=q, floor=CUM_PD_FLOOR, echo_loss=rho)
         positions_db = detection.required_snr_db(b.n_blocks, b.fl, pfa_l, pd_l, pos_l, pos_w, q,
-                                                 CUM_PD_FLOOR) - snr_db
+                                                 CUM_PD_FLOOR, rho) - snr_db
         driver = ("Detect-CUM-" if q > 0 else "Detect-") + wf.integration[:4]
     else:
         snr_lin, dom = b.track_snr
@@ -2983,7 +3026,8 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
     print(f"Frequency {f_ghz} GHz | scan {theta_deg} deg | target {tgt.name} | "
           f"Pd {DETECT_PD}, Pfa {DETECT_PFA:g} | face electrical power {elec_mw} MW")
     if band is not None:
-        print("Target classes (class means; frontal copolar RCS, fluctuation, T0, depolarisation, LOS acceleration): "
+        print("Target classes (sizing RCS = class mean - rcs_sizing_sigmas x spread, then fluctuation, T0, "
+              "depolarisation, LOS acceleration): "
               + " | ".join(f"{n} {t.rcs_at(f_ghz):.4g} m2 {t.fluctuation(f_ghz)} T0 {t.t0_s(f_ghz):.2f} s "
                            f"{lin_to_db(t.depol_lin(f_ghz)):g} dB {t.accel_max_mps2:g} m/s2" for n, t in TARGETS.items()))
     if band is None:
@@ -3002,7 +3046,8 @@ def report(f_ghz: float, theta_deg: float, target_name: str, elec_mw: float) -> 
           f"{band.noise_ant_dbm + band.gain_to_adc_db - P.get(f'band.{band.name}.rx.adc_fullscale_dbm'):.1f} dBFS | "
           f"clipping {band.clip_ant_dbm:.1f} dBm at the element, {band.clip_headroom_db:.1f} dB above the noise | LNA P1dB "
           f"{band.lna_p1db_ant_dbm:.1f} dBm | limiter recovery {band.limiter_recovery_s * 1e9:.0f} ns | unsaturated beyond "
-          + ", ".join(f"{n} {min_unsaturated_range_km(f_ghz, 0.0, t.rcs_at(f_ghz)):.1f} km" for n, t in TARGETS.items()))
+          + ", ".join(f"{n} {min_unsaturated_range_km(f_ghz, 0.0, t.physical().rcs_at(f_ghz)):.1f} km"
+                      for n, t in TARGETS.items()))
     rx = rx_beam(band.name)
     print(f"Gain TX {lin_to_db(gain_lin(band.eta_illum_tx, f_ghz, theta_deg)):.2f} dBi | "
           f"RX {lin_to_db(gain_lin(rx.eta, f_ghz, theta_deg)):.2f} dBi (sidelobes {RX_SLL_DEFAULT_DB:g} dB, eta "

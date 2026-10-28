@@ -37,13 +37,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small C.44 radar -- design and modelling reference}
-\rhead{\small Model V6.27.0}
+\rhead{\small Model V6.34.0}
 \cfoot{\thepage}
 
 \title{\textbf{Space-borne four-face AESA radar}\\[4pt]
 \large Design and modelling reference of the mission-preparation tool}
 \author{C.44 project}
-\date{27 October 2026 -- radar model V6.27.0 (roadmap step 5.3 closed: P1 verdict, P2 advice, P3 redundancies)}
+\date{28 October 2026 -- radar model V6.34.0 (roadmap step 5.4 in progress: Monte-Carlo M1--M3, returns on steps 3.2, 3.3 and 5.2, robustness test, prudent sizing RCS)}
 
 \begin{document}
 \maketitle
@@ -640,6 +640,11 @@ $\phi$; the look SNR scales as $(R/R_k)^4$. The requirement is that the \emph{cu
 at the sector's required range (looks below $\Pd = 10^{-3}$ no longer count). Against a single look at $R$ this changes
 the required SNR by $+6.0\dB$ for $q=1$ and $-6.8\dB$ for $q=0.1$.
 
+\paragraph{Eclipse.} An echo that falls in a common transmit slot of the face is lost whole. With $\rho$ the share of
+those slots (from the scheduler of the previous pass of the global loop), each look's probability becomes
+$(1-\rho)\,P_{\mathrm{d},k}$ in the cumulative criterion, whatever the size of the eclipse (since 28 October 2026; it
+was a mean SNR loss counted only above \SI{0.5}{dB}, which the Monte-Carlo showed optimistic).
+
 \subsection{False-alarm policy}
 By default a sector tolerates a number of false alarms per revisit (\code{fa\_per\_rr} = 10); the $\Pfa$ per cell is
 that number divided by positions times independent cells, bounded to $[10^{-14}, 10^{-4}]$ and rounded to a twentieth
@@ -659,12 +664,14 @@ Class & $v$ (km/s) & $L$ (m) & $\omega$ (\si{\degree/s}) & $a_{\max}$ & RCS S / 
 \midrule
 ST (reference) & 5 & 10 & 0.1 & 0 & \num{1000} / \num{1000} & SW1/2 & \SI{-10}{dB} & 3.1 / 0.6\\
 GENERIC & 10 & 3 & 1 & 1\,g & 1 / 1 & SW1/2 & \SI{-10}{dB} & 1.0 / 0.20\\
-KKV & 25 & 1.5 & 1 & 10\,g & 1.27 / 13.8 & SW3/4 & \SI{-20}{dB} & 2.0 / 0.41\\
+KKV & 25 & 1.5 & 1 & 10\,g & 1.27 / 13.8$^\ast$ & SW3/4 & \SI{-20}{dB} & 2.0 / 0.41\\
 SHIP & 5 & 100 & 0.1 & 1\,g & 300 / 300 & SW1/2 & \SI{-6}{dB} & 0.31 / 0.06\\
 DEBRIS & 15 & 0.5 & 10 & 0 & 0.01 / 0.01 & SW1/2 & \SI{-3}{dB} & 0.61 / 0.12\\
 DECOY & 25 & 1.5 & 0.5 & 0 & 0.135 / 0.135 & SW0 & \SI{-20}{dB} & 4.1 / 0.82\\
 \bottomrule
 \end{tabular}}
+
+\smallskip{\footnotesize $^\ast$ body \SI{0.135}{m^2} + seeker optics within \ang{5} of the nose; class means (sizing RCS below).}
 \end{center}
 
 \paragraph{Frontal RCS and seeker optics.} The RCS is co-polar and frontal (the aspect of a closing target). The KKV
@@ -674,6 +681,14 @@ $\sigma_{\mathrm{opt}} = \max\bigl(\pi(2f)^2,\;\eta_r\,4\pi A^2/\lambda^2\bigr)$
 $f/D = 1$, $\eta_r = 0.1$: direct reflection on the concave primary, and the ``cat's eye'' retro-reflection of the
 focal assembly, in $1/\lambda^2$, hence mostly in Ku. The decoy mimics the body without the optics, which will help
 discrimination.
+
+\paragraph{Sizing RCS.} The table gives the class means; the plan is sized on a prudent value, the mean
+$-\,k\,\sigma$ of the class spread (\code{rcs\_spread\_db}, $k$ = \code{tool.targets.rcs\_sizing\_sigmas} = 2), on
+the body and the optics: in S, GENERIC \SI{0.1}{m^2}, SHIP \SI{75}{m^2}, DEBRIS \SI{0.001}{m^2}. The KKV is sized on
+its body alone (\SI{0.034}{m^2}): its optics return only within \ang{5} of its nose, so detection, confirmation and
+tracking do not count on them (user, 28 October 2026). The class as it is (mean RCS, optics included) serves the
+true targets of the Monte-Carlo, the class recognition and the saturation checks (the brightest return); a sector
+naming no class keeps its own RCS.
 
 \paragraph{Fluctuation.} The fluctuation of a look is a Gamma shape: the family (SW1/2: one degree of freedom per
 independent sample, SW3/4: two, SW0: steady) times $\min(n, 1 + T_{\mathrm{obs}}/T_0)$ independent samples over the
@@ -852,9 +867,18 @@ The cluster is sent as 7 successive looks, as a phase-only superposition of the 
 in the multibeam table, \SI{0.76}{dB}), or by a partition of the face into 2 or 4 Ku sub-apertures; the cheapest is
 kept. The echoes that cross the threshold have a random SNR, drawn by quantiles of the target's Gamma law; the angle
 error per axis is $K\,\mathrm{HPBW}/\sqrt{\mathrm{SNR}}$ (Cram\'er--Rao bound $\times 1.13$) plus a residual S/Ku
-alignment bias, averaged by Gauss--Hermite nodes. Each mode gets the smallest power margin that confirms a true target
-with probability at least 0.98, solved by bisection; the mode that minimises the load of the most loaded face is
-chosen, or the operator imposes one.
+alignment bias, averaged by Gauss--Hermite nodes; the S detection that triggers the confirmation has the SNR law of
+the \emph{first} detection of the cumulative criterion (often far out, on a strong fluctuation), not the design SNR.
+A confirmation hops over independent Ku frequencies and may be tried 2 or 3 times with the same angle error, the
+cluster shifted by $0, \pm(a+b)/3$ of its lattice from one attempt to the next; sequential clusters of 19 and 37
+beams are also available. Each mode gets the smallest power margin that confirms a true target with probability at
+least \code{confirm\_p\_min}, solved by bisection; the mode that minimises the load of the most loaded face is chosen,
+or the operator imposes one.
+
+\paragraph{Track chain requirement.} A true object must almost never be left without a track: the chain first
+detection $\to$ confirmation $\to$ established track fails at most $10^{-3}$ (\code{p\_track\_fail\_max}), shared
+half and half between the confirmation ($\code{confirm\_p\_min} = 0.9995$) and the initiation. The verdict carries
+this requirement; the Monte-Carlo draws the chain.
 
 The Ku frequency is chosen per sector on a \SI{10}{MHz} grid derived from the Ku band, the signal inside the band and
 outside the mission's Ku exclusions; the S fifth harmonic on the Ku channel of the same face is flagged as a scheduler
@@ -870,12 +894,30 @@ manoeuvre model ($\sigma_m^2 = a_{\max}^2/3\,(1 + 4p_{\max} - p_0)$ plus a floor
 exactly and solved by the discrete Riccati equation. The angular zone ($\sigma$ = zone / 4) applies to the predicted
 angle at the next update, the range and velocity accuracies to the filtered track; each requirement becomes the
 largest measurement error that meets it, measurement floors (\SI{0.05}{mrad}, \SI{0.05}{m}, \SI{0.01}{m/s}) taken out in
-quadrature, and the range accuracy pays the range--Doppler coupling residual $c\tau\sigma_{f_d}/2B$. The update look is
-pointed at the prediction: its pointing error enters its $\Pd$ as a loss law on the real Ku pattern; it banks over
-$\pm 3\sigma$ of the predicted radial velocity and acceleration; the cheaper of one pointed look and a 7-beam
-sequential cluster is kept. A Markov chain over consecutive misses (track lost after 3, the pointing error growing
-while coasting) gives the loss rate; initiation looks bring a confirmed target to the required accuracies; costs are
-averaged over 8 ranges of the bracket. When the operator's period cannot be held at some range, the longest tenable
+quadrature, and the range accuracy pays the range--Doppler coupling residual $c\tau\sigma_{f_d}/2B$. The steady filter counts its
+misses: with $P_u$ the update probability (\code{pd\_update}), the modified Riccati equation
+\[
+  P = F\bigl(P_u P_f + (1-P_u)\,P\bigr)F^{\mathsf T} + Q
+\]
+gives the predicted covariance that sets the allowed errors and the pointing law. The accuracies are held at a
+fluctuating SNR: the measurement variance of the looks that detect is $\kappa = \mathrm{E}[\mathrm{SNR}_{\mathrm{ref}}/
+\mathrm{SNR} \mid \text{detection}]$ times its value at the mean SNR (pointing, position losses and target fluctuation
+drawn as in the Monte-Carlo, each draw weighed by its exact $\Pd$), so the noise part each look must reach is
+$(\sigma_{\mathrm{allowed}}^2 - \sigma_{\mathrm{floor}}^2)/\kappa$; the look and $\kappa$ form a fixed point, $\kappa$
+rounded up to a \SI{0.25}{dB} grid. By default the look keeps its waveform and its energy is multiplied by $\kappa$
+(\code{kappa\_mode} = energy, computing time; prudent when detection, not accuracy, sized the look); the look sized
+again at each $\kappa$ remains available (\code{resize}). The update look is pointed at the prediction: its pointing error enters its $\Pd$
+as a loss law on the real Ku pattern; it banks over $\pm 3\sigma$ of the predicted radial velocity and acceleration;
+the cheaper of one pointed look and a 7-beam sequential cluster is kept. A Markov chain over consecutive misses (track
+lost after 3) gives the loss rate, the probability of each state being conditioned on the misses before it: the
+pointing errors of successive looks are drawn jointly (steady prediction, then coasting), since a large filter error
+misses several looks in a row. Initiation runs as fast as possible: each interval is the longest that keeps the
+predicted pointing error under 0.3 Ku beamwidth, the looks hop over the Ku frequencies spaced by at least $c/2L$
+(independent target draws) and are sized for $\Pd = 0.99$ at that pointing; after a miss a local re-search covers
+$3\sigma$ of the predicted error with at most 37 beams ($\Pd = 0.999$ per beam), its lattice shifted from one attempt
+to the next; the initiation is lost after 4 re-searches without a detection and started again. A class whose objects
+aim at the ship (KKV) carries its own prior transverse velocity (\SI{1000}{m/s} per axis). Costs are averaged over 8
+ranges of the bracket. When the operator's period cannot be held at some range, the longest tenable
 period is reported as an alert. A KKV is told from a decoy on the track looks through four indices (depolarisation,
 fluctuation, RCS level with the seeker optics, manoeuvre seen by the filter), Faraday uncertainty weakening the
 depolarisation index unless the transmit polarisation is switched. A post-LNA attenuator (\SI{30}{dB}) lowers the
@@ -1255,6 +1297,45 @@ threat values supplied (the sector's own, else those of its class); it does not 
 from them: for another assumption the operator edits the class or overrides the sector and computes again.
 
 %=====================================================================================================================
+\section{Monte-Carlo verification}\label{sec:mc}
+%=====================================================================================================================
+The analytic model of the mission preparation computes expectations; the Monte-Carlo (\code{core/montecarlo.py},
+roadmap step 5.4, on demand) plays the kept plan by random draws and is the final judge of the statistical budget.
+Nothing is solved again: the SNR of each look is read from the plan.
+\begin{itemize}
+  \item \textbf{Search} (M1): test targets drawn over the scan bins in proportion to their positions, closing at the
+        sector's speed with a random phase; a point fixed per target inside the transmit lattice cell, seen through
+        the frame-to-frame lattice shifts; range straddle per look; target power per look from the Gamma law of the
+        look (one draw within $T_0$); exact noncentral $\chi^2$ decision against the plan's threshold; eclipse drawn
+        whole per echo.
+  \item \textbf{Confirmation and timelines} (M2): angle error drawn from the SNR of the S look that detected; the
+        mode's Ku looks decided exactly, with frequency hopping and attempts; false alarms drawn per dwell; an event
+        file per face plays the scheduler's queues (latency, late updates, recharge pauses).
+  \item \textbf{Tracks} (M3): the Singer Kalman filter runs on a drawn truth, every update a drawn look (pointing
+        error = prediction $-$ truth + navigation, real Ku patterns, fluctuation, Ku eclipse), measurement errors from
+        the drawn SNR; a population started in the steady state gives the loss per update and the RMS accuracies, a
+        population born from the drawn confirmations gives the initiation (share established, looks, time).
+  \item \textbf{Parallel draws}: sectors, face timelines and tracking sectors run in worker processes, each with
+        its own seed, so the results equal the sequential run.
+  \item \textbf{States}: NOK when the requirement is missed beyond the confidence interval (Wilson, 95\,\%), ALERT
+        when the analytic value is optimistic, OK otherwise; the track chain of the requirement above.
+\end{itemize}
+On a test mission the Monte-Carlo found an analytic model optimistic by factors 4 to 10 on the track loss and the
+initiation (accuracies at the mean SNR, misses left out of the filter, independent misses, initiation looks assumed as
+accurate as the hand-over) and on the search under eclipse; the returns on steps 3.2, 3.3 and 5.2 described above
+make it prudent (28 October 2026). It also found a defect of its own (the hand-over SNR of a confirmation that
+succeeded at an earlier attempt), which had made 0.2\,\% of the initiations fail.
+
+\paragraph{Robustness test.} The plan is sized on the class means; real objects depart from them. A separate tool
+(\code{tools/robustness.py}, at most 20 minutes) draws \emph{true} targets around each class: RCS from the class spread
+(truncated at $\pm2\sigma$) and an aspect uniform over the sphere (a KKV within \ang{30} of its nose), closing speed over
+the sector's span, rotation (hence $T_0$) log-uniform within a factor 3, the other Swerling case of the class with
+probability 0.5, manoeuvre from 0 to the class's acceleration. They are played through search, confirmation and
+tracks on an evaluation mission never used to tune the model (one sector per class, one tracking bracket per tracked
+class, drawn once with its own seed and frozen); the report gives per class the chain with true targets and the share of failures per bin of each drawn
+parameter, so that the parameters that make the chain fail stand out.
+
+%=====================================================================================================================
 \section{Mission settings and target presentation}\label{sec:mission51}
 %=====================================================================================================================
 Roadmap step 5.1 turns operational settings into mission keys, each defaulting to the parameter file: the probability
@@ -1354,7 +1435,7 @@ before any refreeze. At model V6.27.0 the bench has 250 tests (12 of them compar
 \begin{center}
 \begin{tabularx}{\linewidth}{@{}lL@{}}
 \toprule
-Phase & Steps (status on 27 October 2026)\\
+Phase & Steps (status on 28 October 2026)\\
 \midrule
 0, foundations & single parameter file, test bench, review of every value --- done\\
 1, antenna and RF & real pattern; active mismatch, grating and gap lobes; TRMs and transmit chain; band; receive chain,
@@ -1366,7 +1447,7 @@ calibration --- done (degraded modes and TRM failures deferred to the end of the
 coolant, cold plate, junction, ship heat rejection --- done; 4.3 scheduler: priorities, queues, synthetic timeline,
 common slots, latency --- done; 4.3 bis scan order inside a volume --- done; 4.4 compute and data --- done; 4.5 re-pointing in flight --- done\\
 5, mission and validation & 5.1 richer mission model --- done; 5.2 global optimiser (power allocation, couplings,
-global loop, margin reuse, flight tables, reallocation and saturation) --- done; 5.3 validation engine (verdict and relaxation advice done); Monte-Carlo simulation; operator
+global loop, margin reuse, flight tables, reallocation and saturation) --- done; 5.3 validation engine (verdict, relaxation advice, redundancies) --- done; 5.4 Monte-Carlo (search, confirmation, timelines and tracks drawn; robustness test) --- in progress; operator
 interface; verification and documentation; end of development\\
 \bottomrule
 \end{tabularx}
@@ -1385,7 +1466,11 @@ Main provisional dispositions, each assigned to a later step:
   \item \textbf{Mission and validation (5.x)}: the presentation tables and the spreads are provisional values (D);
         Ku flight tables; other uses of the margin (longer search range, lower-priority volumes); overlap zones
         between faces; recalibration of the fast estimate on the track model;
-        the interface of the mission preparation is interim (a full HMI comes with the global simulation).
+        the interface of the mission preparation is interim (a full HMI comes with the global simulation); the
+        plans and flight tables hold for the navigation snapshot of the mission preparation only (a waveform only
+        for the scan bins populated at that attitude; budgets per face, sky and scheduler frozen; flight tables
+        re-select the frequency only): plans for every orientation of a volume, attitude-free tables and a fast
+        re-planning in flight are assigned to step 5.5/5.7 and to the global simulation.
   \item \textbf{Antenna}: element pattern and mutual coupling at tile edges not modelled (isotropic elements);
         couplings between faces are optimistic orders of magnitude needing an electromagnetic simulation.
   \item \textbf{End of development}: degraded modes (face, TRMs, power or Ku aperture lost) and TRM failures over a

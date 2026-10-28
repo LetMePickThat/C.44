@@ -1008,12 +1008,28 @@ def test_target_library_classes_and_derived_values():
     st = rm.TARGETS["ST"]
     assert st.t0_s(2.8) == pytest.approx(rm.lambda_m(2.8) / (2 * 10.0 * math.radians(0.1)), rel=1e-12)
     assert st.t0_s(14.0) == pytest.approx(st.t0_s(2.8) * 2.8 / 14.0, rel=1e-12)
-    kkv = rm.TARGETS["KKV"]
+    kkv = rm.TARGETS["KKV"].physical()
     a = math.pi * 0.3 ** 2 / 4
     assert kkv.optics_rcs_m2(2.8) == pytest.approx(max(math.pi * 0.6 ** 2, 0.1 * 4 * math.pi * a * a / rm.lambda_m(2.8) ** 2))
     assert kkv.rcs_at(2.8) == pytest.approx(1.27, abs=0.01) and kkv.rcs_at(14.0) == pytest.approx(13.8, abs=0.1)
-    assert rm.TARGETS["DECOY"].optics_rcs_m2(14.0) == 0.0 and rm.TARGETS["SHIP"].rcs_at(2.8) == 300.0
+    assert rm.TARGETS["DECOY"].optics_rcs_m2(14.0) == 0.0 and rm.TARGETS["SHIP"].physical().rcs_at(2.8) == 300.0
     assert rm.Target("x", 1.0, 1, 5000.0).target_type == rm.DEFAULT_TARGET_TYPE      # former form: default class
+
+
+def test_sizing_rcs_and_kkv_sized_on_its_body():
+    """Decisions 1a and 2 (user, 28 October 2026): a class is sized at its mean RCS - rcs_sizing_sigmas x its spread
+    (body and optics); the KKV on its body only; physical() gives the class as it is (true targets, recognition,
+    saturation); a sector without a class keeps its own RCS."""
+    k = rm.TARGETS["KKV"]
+    assert not k.optics_in_detection and k.optics_rcs_m2(14.0) == 0.0 and k.physical().optics_in_detection
+    m = 10 ** (-rm.RCS_SIZING_SIGMAS * k.rcs_spread_db / 10)
+    assert k.rcs_at(2.8) == pytest.approx(0.135 * m) and k.rcs_at(14.0) == pytest.approx(0.135 * m)
+    g = rm.TARGETS["GENERIC"]
+    assert g.rcs_at(2.8) == pytest.approx(g.physical().rcs_at(2.8) * 10 ** (-rm.RCS_SIZING_SIGMAS * g.rcs_spread_db / 10))
+    assert rm.TARGETS["ST"].rcs_at(2.8) == rm.TARGETS["ST"].physical().rcs_at(2.8)        # no spread
+    assert rm.target_for_sector({"id": "A", "rcs_m2": 50.0, "v_close_max_mps": 4000.0}).rcs_at(2.8) == 50.0
+    from core import montecarlo as mc_
+    assert mc_._aspect_table(k, 14.0)[0] == pytest.approx(10 * math.log10(k.physical().rcs_at(14.0)))
 
 
 def test_target_class_added_in_the_file_only(tmp_path):
@@ -1041,7 +1057,7 @@ def test_sector_target_resolution():
     o = rm.target_for_sector({"id": "C", "target_type": "KKV", "v_close_max_mps": 2e4, "rcs_m2": 0.5, "swerling": 2,
                               "optics_retro_eff": 1.0, "depol_db": -6.0})
     a = math.pi * 0.3 ** 2 / 4
-    assert o.rcs_at(2.8) == pytest.approx(0.5 + max(math.pi * 0.6 ** 2, 4 * math.pi * a * a / rm.lambda_m(2.8) ** 2))
+    assert o.physical().rcs_at(2.8) == pytest.approx(0.5 + max(math.pi * 0.6 ** 2, 4 * math.pi * a * a / rm.lambda_m(2.8) ** 2))
     assert o.swerling == 2 and o.optics_retro_eff == 1.0 and o.depol_ku_db == -6.0 and o.rcs_ku_m2 is None
     with pytest.raises(ValueError, match="unknown target_type"):
         rm.target_for_sector({"target_type": "NOPE", "v_close_max_mps": 1.0})
@@ -1257,12 +1273,14 @@ def test_environment_mission_outputs(runs):
     assert any(b.startswith("jammer") for b in by["E_JAMMED"]["sky"]["blinded_by"])
     assert any("burn-through" in f for f in by["E_KKV_SPJ"]["flags"])
     m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_environment.json"))
-    m["sectors"] = m["sectors"][1:2]                                   # E_KKV_SPJ alone, with and without objects
+    # E_JAMMED alone, with and without objects (E_KKV_SPJ has no Ku confirmation since the KKV is sized on its body
+    # at -2 sigma, decisions 1a and 2 of 28 October 2026: no Ku look holds against its jammer)
+    m["sectors"] = [s for s in m["sectors"] if s["id"] == "E_JAMMED"]
+    energy = lambda out: sum(f["confirm_energy"] for f in out["tracking"]["faces"].values())   # noqa: E731
     m["sectors"][0]["objects_per_rr"] = 0.0
-    t0 = mo.run(m, workers=1)["tracking"]["faces"]["1"]
+    e0 = energy(mo.run(m, workers=1))
     m["sectors"][0]["objects_per_rr"] = 5.0
-    t5 = mo.run(m, workers=1)["tracking"]["faces"]["1"]
-    assert t5["confirm_energy"] > t0["confirm_energy"]
+    assert energy(mo.run(m, workers=1)) > e0 > 0.0
 
 
 # ----------------------------------------------------------------------------- S frequency grid (step 3.1, A)
@@ -2033,8 +2051,11 @@ def test_s2_gains_kept_per_touch_grid_are_exact():
             for cx, cy, ku, kv in cl.beams:
                 miss = miss * (1.0 - trk.pd_single(trk._tx_gain(ex - cx, ey - cy, ku, kv) * cl.eirp * snr, fl))
             w = trk.GH_WEIGHTS[:, None] * trk.GH_WEIGHTS[None, :]
-            s17 = np.tensordot(p1 + (1.0 - p1) * (1.0 - miss), w, axes=([2, 3], [0, 1]))
-            l17 = np.tensordot(1.0 + (1.0 - p1) * cl.looks, w, axes=([2, 3], [0, 1]))
+            p17 = p1 + (1.0 - p1) * (1.0 - miss)
+            a = st.attempts                                   # K3: the Ku part tried again on the same estimate
+            s17 = np.tensordot(1.0 - (1.0 - p17) ** a, w, axes=([2, 3], [0, 1]))
+            l17 = np.tensordot((1.0 + (1.0 - p1) * cl.looks) * sum((1.0 - p17) ** k for k in range(a)), w,
+                               axes=([2, 3], [0, 1]))
             assert np.array_equal(got[0], (pt * s17).mean(axis=0)) and np.array_equal(got[1], (pt * l17).mean(axis=0))
 
 
@@ -2061,6 +2082,15 @@ def test_every_parameter_is_read_by_the_code():
     import core.montecarlo  # noqa: F401  (step 5.4, command line only until M4)
     spec = importlib.util.spec_from_file_location("gen_cost_table", os.path.join(tb.ROOT, "tools", "gen_cost_table.py"))
     spec.loader.exec_module(importlib.util.module_from_spec(spec))
+    spec = importlib.util.spec_from_file_location("robustness", os.path.join(tb.ROOT, "tools", "robustness.py"))
+    spec.loader.exec_module(importlib.util.module_from_spec(spec))   # robustness test (on demand)
+    import sim.propagate  # noqa: F401                               # phase 6: the truth (pass S2)
+    from sim import scenario as scn                                  # phase 6: [sim] is read when a scenario is
+    from gui.scenario_tab import new_scenario                        # validated and normalised
+    sc = new_scenario()
+    sc["objects"][0]["manoeuvres"] = [{"type": "pn", "start_range_km": 1.0}]
+    assert not scn.validate(sc)
+    scn.normalise(sc)
     unread = sorted(p.path for p in params.P if p.path not in params.P.read_keys and p.path != "meta.file_version")
     assert not unread, f"parameters read by no module: {unread}"
 
@@ -2572,13 +2602,14 @@ def test_aspect_policies_and_spreads():
     the RCS and depolarisation discrimination indices."""
     for name, t in rm.TARGETS.items():
         assert len(t.aspect_rcs_db) in (0, len(rm.ASPECT_EL_DEG))
-    k = rm.TARGETS["KKV"]
+    k = rm.TARGETS["KKV"].physical()
     assert k.policy() == "frontal" and k.optics_cone_deg == 5.0
     assert k.rcs_at(2.8) == pytest.approx(1.27, abs=0.01) and k.rcs_at(14.0) == pytest.approx(13.8, abs=0.1)
-    assert rm.TARGETS["SHIP"].rcs_at(2.8) == pytest.approx(300.0) and rm.TARGETS["SHIP"].policy() == "worst"
+    ship = rm.TARGETS["SHIP"].physical()
+    assert ship.rcs_at(2.8) == pytest.approx(300.0) and ship.policy() == "worst"
     worst = dataclasses.replace(k, aspect_policy="worst")
     assert worst.rcs_at(2.8) == pytest.approx(k._frontal_body_m2(2.8))           # the tail, outside the optics cone
-    mean = dataclasses.replace(rm.TARGETS["SHIP"], aspect_policy="mean")
+    mean = dataclasses.replace(ship, aspect_policy="mean")
     assert 10 * math.log10(mean.rcs_at(2.8) / 300.0) == pytest.approx(7.1, abs=0.2)
     assert rm.TARGETS["SHIP"].aspect_spread_db() > 2.0 and k.aspect_spread_db() == 0.0
     d = rm.TARGETS["DECOY"]
@@ -2653,18 +2684,18 @@ def test_mission_choice_relieves_the_most_loaded_face():
 
 
 def test_couplings_feed_back_only_what_moves_a_choice(monkeypatch):
-    """Couplings: the eclipse beyond scheduler.eclipse_flag_db only; the false-alarm cost only when the false alarms
-    depend on the waveform (fa_mode pfa_cell)."""
-    from core import scheduler as sch
-    out = {"global": {"face_elec_avail_kW": 1000.0}, "scheduler": {"eclipse_db": {"S": sch.ECLIPSE_FLAG_DB / 2}},
+    """Couplings: the eclipse as the probability of a whole echo loss, the share of the common S slots, whatever its
+    mean loss (return on 3.2 / 5.2 from step 5.4); the false-alarm cost only when the false alarms depend on the
+    waveform (fa_mode pfa_cell)."""
+    out = {"global": {"face_elec_avail_kW": 1000.0}, "scheduler": {"slots": {"S": 0.0}},
            "sectors": [{"id": "A", "status": "OK", "rr_target_s": 10.0}],
            "tracking": {"sectors": [{"id": "A", "false_alarms_per_rr": 9.0,
                                      "confirmation": {"faces": {"0": {"energy_fraction": 0.001}}}}]}}
     assert mo._couplings({}, out) == {"A": {}}
-    out["scheduler"]["eclipse_db"]["S"] = 2 * sch.ECLIPSE_FLAG_DB
+    out["scheduler"]["slots"]["S"] = 0.0238
     monkeypatch.setattr(rm, "FA_MODE", "pfa_cell")
     k = mo._couplings({}, out)["A"]
-    assert k["_eclipse_db"] == pytest.approx(2 * sch.ECLIPSE_FLAG_DB)
+    assert k["_eclipse_rho"] == pytest.approx(0.0238)
     assert k["_fa_energy_J"] == pytest.approx(0.001 * 1e6 * 10.0 / 10.0)
 
 
@@ -3332,8 +3363,8 @@ def test_mc_confirmation_matches_the_analytic_success():
 
 
 def test_mc_batch_kalman_reaches_the_steady_covariance():
-    """Step 5.4 M3: the batch Kalman of the Monte-Carlo, fed every period with the allowed angle measurement of a
-    bracket, settles to the steady predicted cross-range error of trackmodel.TrackState (RMS of the drawn errors within
+    """Step 5.4 M3: the batch Kalman of the Monte-Carlo, fed each period with probability pd_update with the allowed
+    angle measurement of a bracket, settles to the steady predicted cross-range error of trackmodel.TrackState (RMS of the drawn errors within
     5 %)."""
     from core import montecarlo as mc
     from core import trackmodel as tm
@@ -3352,7 +3383,9 @@ def test_mc_batch_kalman_reaches_the_steady_covariance():
         if k >= 200:
             err.append(truth[:, 0] - est[:, 0])
         z = truth[:, :1] + s_c * rng.standard_normal((n, 1))
-        est, cov = mc._kf_update(est, cov, z, np.full((n, 1), s_c ** 2), np.array([[1.0, 0.0, 0.0]]))
+        hit = rng.random(n) < st.pd_update               # the steady state counts the misses (return on 3.3, V6.33)
+        est[hit], cov[hit] = mc._kf_update(est[hit], cov[hit], z[hit], np.full((int(hit.sum()), 1), s_c ** 2),
+                                           np.array([[1.0, 0.0, 0.0]]))
     rms = float(np.sqrt(np.mean(np.square(err))))
     assert abs(rms / math.sqrt(st.p_cross[0, 0]) - 1.0) < 0.05
 
@@ -3404,3 +3437,34 @@ def test_initiation_research_cluster():
     ch = tm.init_chain([0.01, 0.1], [0.9, 0.8, 0.8], 0.001, [1.0, 7.0, 19.0])
     assert 0.1 * 0.2 * 0.2 <= ch["loss_prob"] < 2 * 0.1 * 0.2 * 0.2 + 1e-12   # a miss, then two failed re-searches
     assert ch["looks"] > 2.0 + 0.2 * 7 * 0.9
+
+
+from core import detection  # noqa: E402
+
+
+def test_echo_loss_in_the_cumulative_criterion():
+    """Return on 3.2 / 5.2 from step 5.4: an echo lost whole with probability rho multiplies each look's Pd by
+    1 - rho; the required SNR rises, and a single look cannot meet a Pd above 1 - rho."""
+    fl = detection.Fluct(1.0)
+    base = detection.required_snr_db(1, fl, 1e-6, 0.9, q=0.05, floor=1e-3)
+    ecl = detection.required_snr_db(1, fl, 1e-6, 0.9, q=0.05, floor=1e-3, echo_loss=0.0238)
+    assert ecl > base
+    assert detection.required_snr_db(1, fl, 1e-6, 0.99, echo_loss=0.02) == math.inf
+    assert detection.required_snr_db(1, fl, 1e-6, 0.9, echo_loss=0.0) == detection.required_snr_db(1, fl, 1e-6, 0.9)
+
+
+def test_intermittent_filter_and_kappa():
+    """Return on 3.3 from step 5.4: misses widen the steady prediction (pd < 1), pd = 1 is the plain Riccati; with_kappa
+    lowers the noise parts by sqrt(kappa) and leaves the filter (what the filter sees is the allowed error)."""
+    f, q = tm.singer(1.0, 10.0, 10.0)
+    r = np.array([[100.0]])
+    p1, pf1 = tm.steady(f, q, tm._H_POS, r)
+    p_a, pf_a = tm.steady_pd(f, q, tm._H_POS, r, 1.0)
+    assert np.allclose(p1, p_a) and np.allclose(pf1, pf_a)
+    p9, _ = tm.steady_pd(f, q, tm._H_POS, r, 0.9)
+    assert p9[0, 0] > p1[0, 0]
+    tgt = rm.TARGETS["KKV"]
+    st = tm.TrackState(tgt, 1.0, 200.0, 0.2, 10.0, 5.0, 13.8, 0.0)
+    s2 = st.with_kappa(4.0)
+    assert s2.kappa == 4.0 and s2.noise_theta == pytest.approx(st.noise_theta / 2.0)
+    assert s2.p_cross is st.p_cross and st.kappa == 1.0

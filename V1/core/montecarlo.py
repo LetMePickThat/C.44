@@ -71,9 +71,11 @@ To come: M4 verdict and load_ceiling; M5 tests at N3, snapshots, docs.
 from __future__ import annotations
 
 import dataclasses
+import functools
 import heapq
 import json
 import math
+import os
 import sys
 import time
 from dataclasses import dataclass, field
@@ -184,13 +186,15 @@ class BinModel:
         return detection.mean_curve(self.n, detection.Fluct(self.shape), self.pfa, self.pos_l, self.pos_w)
 
 
-def analytic_pcum(curve: np.ndarray, q: float, x_db: float, floor: float = rm.CUM_PD_FLOOR) -> float:
-    """Cumulative Pd of the analytic model at mean SNR x_db at the requirement range (detection._required_snr_db)."""
+def analytic_pcum(curve: np.ndarray, q: float, x_db: float, floor: float = rm.CUM_PD_FLOOR,
+                  echo_loss: float = 0.0) -> float:
+    """Cumulative Pd of the analytic model at mean SNR x_db at the requirement range (detection._required_snr_db),
+    each echo lost whole with probability echo_loss (the eclipse the plan holds)."""
     if q <= 0.0:
-        return float(np.interp(x_db, detection.SNR_GRID_DB, curve))
+        return float(np.interp(x_db, detection.SNR_GRID_DB, curve)) * (1.0 - echo_loss)
     sh = detection._look_shifts(round(q, 9))
     pk = np.interp(x_db - sh, detection.SNR_GRID_DB, curve, left=float(curve[0]), right=float(curve[-1]))
-    pk = np.where(pk < floor, 0.0, pk)
+    pk = np.where(pk < floor, 0.0, pk) * (1.0 - echo_loss)
     return float(np.mean(1.0 - np.prod(1.0 - pk, axis=1)))
 
 
@@ -239,15 +243,60 @@ def bin_model(w, f: float, theta: float, tgt, sec: dict, pfa: float, spacing: Op
 
 
 # ----------------------------------------------------------------------------- the draws
+# ----------------------------------------------------------------------------- truth draws (robustness, 28 Oct 2026)
+@functools.lru_cache(maxsize=64)
+def _aspect_table(tgt: "rm.Target", f_ghz: float) -> np.ndarray:
+    """RCS (dB) of the class seen at 0..180 deg from its nose (1-deg grid): the class's table and seeker optics through
+    the frontal presentation at that offset (radar_model.Target.rcs_at), the class as it is (Target.physical)."""
+    return np.array([10.0 * math.log10(max(dataclasses.replace(tgt.physical(), aspect_policy="frontal",
+                                                               aspect_offset_deg=float(a)).rcs_at(f_ghz), 1e-30))
+                     for a in range(181)])
+
+
+def draw_truth(tgt: "rm.Target", f_s: float, f_ku: float, n: int, rng: np.random.Generator, cfg: dict,
+               v_min: float, v_max: float) -> Dict[str, np.ndarray]:
+    """The true targets behind n draws (robustness test, user 28 October 2026): the plan is sized on the class means,
+    each true target departs from them. RCS: class spread (1 sigma rcs_spread_db, truncated at rcs_trunc_sigmas) and
+    aspect (cos uniform over the sphere; a class seen frontally: within frontal_cone_deg of the nose), against the RCS
+    the plan holds; closing speed uniform over the sector's span; rotation (coherence time) log-uniform over
+    1 / rot_factor .. rot_factor; the other Swerling case of the class with probability fluct_alt_p (look shapes x 2
+    or / 2, a steady class stays steady); manoeuvre: acceleration uniform 0 .. a_max of the class (process-noise
+    scale of the truth). Offsets in dB at S and Ku."""
+    sig = float(tgt.rcs_spread_db)
+    tr = float(cfg["rcs_trunc_sigmas"])
+    sp = np.clip(rng.standard_normal(n), -tr, tr) * sig
+    frontal = tgt.policy() == "frontal"
+    c_min = math.cos(math.radians(float(cfg["frontal_cone_deg"]))) if frontal else -1.0
+    asp = np.degrees(np.arccos(rng.uniform(c_min, 1.0, n)))
+    ref_s, ref_k = 10.0 * math.log10(tgt.rcs_at(f_s)), 10.0 * math.log10(tgt.rcs_at(f_ku))
+    tab_s, tab_k = _aspect_table(tgt, f_s), _aspect_table(tgt, f_ku)
+    grid = np.arange(181.0)
+    off_s = sp + np.interp(asp, grid, tab_s) - ref_s
+    off_k = sp + np.interp(asp, grid, tab_k) - ref_k
+    rot = float(cfg["rot_factor"])
+    rot_f = np.exp(rng.uniform(-math.log(rot), math.log(rot), n))
+    fl = tgt.fluct_s.upper().replace(" ", "")
+    alt = 2.0 if fl in ("SW1", "SW2", "SW1/2") else (0.5 if fl in ("SW3", "SW4", "SW3/4") else 1.0)
+    shape_f = np.where(rng.random(n) < float(cfg["fluct_alt_p"]), alt, 1.0)
+    sm, _ = trk.tm.manoeuvre(tgt)
+    sm_t = np.array([trk.tm.manoeuvre(dataclasses.replace(tgt, accel_max_mps2=float(a)))[0]
+                     for a in rng.uniform(0.0, 1.0, n) * tgt.accel_max_mps2])
+    return {"off_s_db": off_s, "off_ku_db": off_k, "aspect_deg": asp, "spread_db": sp,
+            "v_mps": rng.uniform(v_min, v_max, n), "t0_factor": 1.0 / rot_f, "shape_factor": shape_f,
+            "accel_scale": sm_t / sm if sm > 0 else np.ones(n)}
+
+
 def draw_targets(bm: BinModel, rng: np.random.Generator, n: int, rr_s: float, v_mps: np.ndarray,
-                 t0_s: float, correlated: bool = True, eclipse_rho: float = 0.0, with_snr: bool = False):
+                 t0_s: float, correlated: bool = True, eclipse_rho: float = 0.0, with_snr: bool = False,
+                 truth: Optional[Dict[str, np.ndarray]] = None):
     """(detected (bool, n), horizon cut) for n test targets of one bin: any look at R_bin (1 + (k + phi) q) detects;
     cut = looks that could still detect were left out by the K_MAX_LOOKS safety bound. Every look whose mean Pd stays
     above pd_look_floor is drawn, without a time bound, as the analytic criterion counts them (user, 27 October 2026:
     horizon_max_s cut the worst-range window of slow far targets; it bounds the scheduler timeline of M2 only).
     correlated False: every position loss drawn anew at each look (the analytic assumption, for the tests).
     eclipse_rho (M2-6): each echo is lost whole with this probability (the share of the common transmit slots).
-    with_snr: also the signal SNR (linear) of the first look that detects (NaN when none), for the confirmation."""
+    with_snr: also the signal SNR (linear) of the first look that detects (NaN when none), for the confirmation.
+    truth (robustness test): the true targets' RCS offsets at S (dB), coherence-time and look-shape factors."""
     q = v_mps * rr_s / (bm.r_bin_km * 1e3)                           # (n,)
     curve = bm.curve()
     # looks that can still detect: mean Pd above the floor (at the smallest q, the most looks)
@@ -256,7 +305,8 @@ def draw_targets(bm: BinModel, rng: np.random.Generator, n: int, rr_s: float, v_
     k_need = 1
     if q_min > 0:
         k_try = np.arange(1, K_MAX_LOOKS + 2)
-        pk = np.interp(bm.x_avail_db - 40.0 * np.log10(1.0 + (k_try - 1) * q_min), detection.SNR_GRID_DB, curve,
+        x_top = bm.x_avail_db + (float(truth["off_s_db"].max()) if truth is not None else 0.0)   # strongest target
+        pk = np.interp(x_top - 40.0 * np.log10(1.0 + (k_try - 1) * q_min), detection.SNR_GRID_DB, curve,
                        left=float(curve[0]), right=float(curve[-1]))
         alive = np.flatnonzero(pk >= PD_LOOK_FLOOR)
         k_need = int(alive.max()) + 1 if len(alive) else 1
@@ -264,6 +314,8 @@ def draw_targets(bm: BinModel, rng: np.random.Generator, n: int, rr_s: float, v_
     phi = rng.random(n)
     kk = np.arange(K)[None, :] + phi[:, None]                           # (n, K)
     snr_db = bm.x_avail_db - 40.0 * np.log10(1.0 + kk * q[:, None])
+    if truth is not None:
+        snr_db = snr_db + truth["off_s_db"][:, None]
     loss = np.zeros((n, K))
     # angular offsets: a point of the TX cell fixed per target, seen through the frame-to-frame lattice shifts
     if bm.tx_cell > 0.0 or bm.rx_cell > 0.0:
@@ -288,7 +340,12 @@ def draw_targets(bm: BinModel, rng: np.random.Generator, n: int, rr_s: float, v_
     loss += bm.doppler_samples[rng.integers(0, len(bm.doppler_samples), shape_nk)]
     loss += bm.velocity_samples[rng.integers(0, len(bm.velocity_samples), shape_nk)]
     lam = 10.0 ** ((snr_db - loss) / 10.0)                              # mean total SNR of each look
-    if math.isfinite(bm.shape) and bm.shape <= 1e4:                    # as detection.pd_curve (_STEADY_SHAPE)
+    if math.isfinite(bm.shape) and bm.shape <= 1e4 and truth is not None:
+        k_t = bm.shape * truth["shape_factor"][:, None]                  # (n, 1)
+        g = rng.gamma(np.broadcast_to(k_t, (n, K)), 1.0 / np.broadcast_to(k_t, (n, K)))
+        same = correlated & (rr_s < t0_s * truth["t0_factor"])            # per true target
+        lam = lam * np.where(same[:, None], g[:, :1], g)
+    elif math.isfinite(bm.shape) and bm.shape <= 1e4:                  # as detection.pd_curve (_STEADY_SHAPE)
         same = correlated and rr_s < t0_s
         g = rng.gamma(bm.shape, 1.0 / bm.shape, (n, 1) if same else (n, K))
         lam = lam * g
@@ -334,11 +391,12 @@ class ConfirmSpec:
     trip_s: float
     n_freqs: int = 1                        # K1: independent Ku frequencies the looks hop over
     attempts: int = 1                       # K3: confirmations of one detection at most
+    ku_gain: object = 1.0                   # true targets' Ku RCS against the plan's (robustness test)
 
     def _ku17(self, rng, ex, ey, m_db: float, cluster_only: bool, attempt: int = 0) -> np.ndarray:
         st, n = self.st, len(ex)
         sx, sy = trk.attempt_shift(attempt, rm.BEAM_SPACING_HPBW)          # K11: the cluster shifted per attempt
-        snr0 = st.snr_ku * rm.db_to_lin(m_db)
+        snr0 = st.snr_ku * rm.db_to_lin(m_db) * self.ku_gain             # ku_gain: true targets' Ku RCS (robustness)
         t1 = detection.threshold(1, rm.DETECT_PFA)
         shape = detection.shape_of(st.fl_ku, 1)
         looks = len(st.cl.beams) + 1
@@ -361,11 +419,13 @@ class ConfirmSpec:
         self.last_snr_ku = snr_hit
         return ok
 
-    def draw(self, snr_det: np.ndarray, rng: np.random.Generator) -> dict:
+    def draw(self, snr_det: np.ndarray, rng: np.random.Generator, ku_off_db: Optional[np.ndarray] = None) -> dict:
         """Success of the confirmation of each detection (signal SNR snr_det of the S look that detected): angle error
         per axis bias + K q / sqrt(SNR) x N(0, 1) in Ku beamwidths, the mode's looks decided exactly (single sample,
-        Pfa of the Ku looks, fluctuation of the class; one power draw for looks within T0)."""
+        Pfa of the Ku looks, fluctuation of the class; one power draw for looks within T0). ku_off_db: the true
+        targets' Ku RCS against the plan's (robustness test)."""
         st, n = self.st, len(snr_det)
+        self.ku_gain = 1.0 if ku_off_db is None else 10.0 ** (np.asarray(ku_off_db) / 10.0)
         sig = trk.K_ML_S * st.q / np.sqrt(np.maximum(snr_det, 1e-12))
         ex = st.bias_ku + sig * rng.standard_normal(n)
         ey = st.bias_ku + sig * rng.standard_normal(n)
@@ -378,7 +438,7 @@ class ConfirmSpec:
                 ok2 = self._ku17(rng, ex, ey, float(self.margin_db), self.mode == "KU7", a_)
                 snr_h = np.where(~ok & ok2, self.last_snr_ku, snr_h)
                 ok = ok | ok2
-            self.handover_snr = snr_h[ok]
+            self.last_snr_ku = snr_h                     # the SNR of the attempt that confirmed, not the last one
         else:                                   # S2: pointed S touch, then KU1+7 on the combined estimate
             mt, mk = (float(x) for x in self.margin_db)
             t_snr = st.touch_snr0 * rm.db_to_lin(mt)
@@ -396,6 +456,7 @@ class ConfirmSpec:
                 ok = ok | ok2
             self.last_snr_ku = snr_h
         self.handover_snr = self.last_snr_ku[ok]           # M3: hand-over accuracy of the confirmed detections
+        self.last_ok = ok
         k = int(ok.sum())
         lo, hi = wilson(k, n)
         p = k / n
@@ -437,10 +498,13 @@ def confirm_spec(sec: dict, plan: dict, t: dict, g: dict) -> Optional[ConfirmSpe
 
 # ----------------------------------------------------------------------------- one sector
 def sector_mc(sec: dict, plan: dict, index: int, seed: int = SEED, correlated: bool = True,
-              eclipse: Tuple[float, float] = (0.0, 0.0), confirm: Optional["ConfirmSpec"] = None) -> dict:
+              eclipse: Tuple[float, float] = (0.0, 0.0), confirm: Optional["ConfirmSpec"] = None,
+              truth_cfg: Optional[dict] = None, f_ku: Optional[float] = None) -> dict:
     """Cumulative Pd of the test targets of one search sector, by draws, against the analytic model (M1); eclipse =
-    (loss in dB the plan holds, share of the common S slots): the loss is given back and each echo is lost whole with
-    that share (M2-6); confirm: the confirmation of every detected test target in range is drawn (M2-4)."""
+    (probability of a whole echo loss the plan holds, share of the common S slots): each echo is lost whole with that
+    share (M2-6; since the return on 3.2 / 5.2 the plan holds the same law); confirm: the confirmation of every detected
+    test target in range is drawn (M2-4). truth_cfg (robustness test): every test target is a true target drawn
+    around the class (draw_truth), its parameters kept per target in "truth" for the sensitivity of the report."""
     t_start = time.perf_counter()
     f = float(plan["freq_ghz"])
     nb = len(plan["wf"])
@@ -453,7 +517,9 @@ def sector_mc(sec: dict, plan: dict, index: int, seed: int = SEED, correlated: b
     notes = set()
     for i in np.flatnonzero(weights > 0):
         reach = float(plan["range_km"][i]) * float(plan["pulse_scale"][i]) ** 0.25
-        models[int(i)] = bin_model(plan["wf"][i], f, float(theta[i]), tgt, sec, float(plan["pfa"][i]),
+        # the criterion the plan was sized on, its eclipse included (the SNR is read from the plan through it)
+        sec_p = dict(sec, _eclipse_rho=eclipse[0]) if eclipse[0] > 0.0 else sec
+        models[int(i)] = bin_model(plan["wf"][i], f, float(theta[i]), tgt, sec_p, float(plan["pfa"][i]),
                                    plan.get("beam_spacing_hpbw"), reach, bool(plan["short"][i]))
         notes.update(models[int(i)].notes)
     if mo.env.spj_density_w_hz(sec, f) is not None:
@@ -467,11 +533,10 @@ def sector_mc(sec: dict, plan: dict, index: int, seed: int = SEED, correlated: b
     p_w = weights / weights.sum()
     an = {}
     for i, bm in models.items():
-        an[i] = analytic_pcum(bm.curve(), vmax * rr / (bm.r_bin_km * 1e3), bm.x_avail_db)
+        an[i] = analytic_pcum(bm.curve(), vmax * rr / (bm.r_bin_km * 1e3), bm.x_avail_db, echo_loss=eclipse[0])
     if eclipse[0] > 0.0 or eclipse[1] > 0.0:
-        models = {i: dataclasses.replace(bm, x_avail_db=bm.x_avail_db + eclipse[0]) for i, bm in models.items()}
-        notes.add(f"eclipse drawn whole per echo ({100 * eclipse[1]:.2f} % of the time), the plan's mean "
-                  f"{eclipse[0]:.3f} dB given back")
+        notes.add(f"eclipse drawn whole per echo ({100 * eclipse[1]:.2f} % of the time), the plan holds "
+                  f"{100 * eclipse[0]:.2f} %")
     snr_det: List[np.ndarray] = []
     in_range = np.array([0.0 if (i not in models or models[i].short) else weights[i] for i in range(nb)])
     pd_an = float(sum(p_w[i] * an[i] for i in models))
@@ -480,13 +545,20 @@ def sector_mc(sec: dict, plan: dict, index: int, seed: int = SEED, correlated: b
     bins = np.array(sorted(models))
     probs = weights[bins] / weights[bins].sum()
     hits = tries = hits_in = tries_in = 0
+    rec: Dict[str, List[np.ndarray]] = {}                # robustness: per true target in range, its draw and outcome
+    ku_det: List[np.ndarray] = []
     while tries < N_MAX:
         nb_draw = min(BATCH, N_MAX - tries)
         pick = bins[rng.choice(len(bins), nb_draw, p=probs)]
         for i in np.unique(pick):
             m = int((pick == i).sum())
-            v = (np.full(m, vmax) if V_DRAW != "uniform" else rng.uniform(vmin, vmax, m))
-            det, cut, snr = draw_targets(models[int(i)], rng, m, rr, v, t0, correlated, eclipse[1], True)
+            tr = None
+            if truth_cfg is not None:
+                tr = draw_truth(tgt, f, float(f_ku or trk.KU_REF_GHZ), m, rng, truth_cfg, vmin, vmax)
+                v = tr["v_mps"]
+            else:
+                v = (np.full(m, vmax) if V_DRAW != "uniform" else rng.uniform(vmin, vmax, m))
+            det, cut, snr = draw_targets(models[int(i)], rng, m, rr, v, t0, correlated, eclipse[1], True, tr)
             if cut:
                 notes.add(f"looks beyond {K_MAX_LOOKS} left out (pessimistic)")
             hits += int(det.sum())
@@ -495,6 +567,11 @@ def sector_mc(sec: dict, plan: dict, index: int, seed: int = SEED, correlated: b
                 hits_in += int(det.sum())
                 tries_in += m
                 snr_det.append(snr[det])
+                if tr is not None:
+                    for key_, val in tr.items():
+                        rec.setdefault(key_, []).append(val)
+                    rec.setdefault("detected", []).append(det)
+                    ku_det.append(tr["off_ku_db"][det])
         lo, hi = wilson(hits_in, tries_in) if tries_in else wilson(hits, tries)
         if tries >= N_MIN and (hi - lo) / 2.0 < CI_TOL:
             break
@@ -511,12 +588,18 @@ def sector_mc(sec: dict, plan: dict, index: int, seed: int = SEED, correlated: b
         state, why = "OK", ""
     row_conf = None
     if confirm is not None and snr_det:
-        row_conf = confirm.draw(np.concatenate(snr_det), np.random.default_rng([int(seed), int(index), 1]))
+        row_conf = confirm.draw(np.concatenate(snr_det), np.random.default_rng([int(seed), int(index), 1]),
+                                np.concatenate(ku_det) if ku_det else None)
+        if rec:
+            ok = np.zeros(sum(len(x) for x in rec["detected"]), dtype=bool)
+            ok[np.flatnonzero(np.concatenate(rec["detected"]))] = confirm.last_ok
+            rec["confirmed"] = [ok]
     return {"id": sec["id"], "status": "OK", "pd_required": pd_req, "targets": tries, "targets_in_range": tries_in,
             "pd_mc": hits / tries, "ci": list(ci), "pd_mc_in_range": pd_mc_in, "ci_in_range": list(ci_in),
             "pd_analytic": pd_an, "pd_analytic_in_range": pd_an_in,
             "short_share": float(1.0 - in_range.sum() / weights.sum()), "state": state, "why": why,
             "v_draw": V_DRAW, "correlated": correlated, "notes": sorted(notes), "confirmation": row_conf,
+            "truth": {k: np.concatenate(v).tolist() for k, v in rec.items()} if rec else None,
             "runtime_s": time.perf_counter() - t_start}
 
 
@@ -662,18 +745,25 @@ def face_timeline(mission: dict, out: dict, k: int, rep: int, seed: int, scans) 
     return res
 
 
-def timelines(mission: dict, out: dict, seed: int = SEED, progress_cb=None) -> dict:
-    """N_REP drawn timelines of every face: per sector the false alarms per revisit and the confirmation latency of the
-    true detections (95 % quantile and its interval), per face and band the waits, late updates and pauses, against
-    the analytic scheduler of step 4.3 (M2-5, M2-7, M2-8)."""
+def mission_scans(mission: dict, out: dict) -> dict:
+    """The scan of every planned search sector (step 4.3 bis), as the drawn timelines play them."""
     from . import scanorder as so
     secs = {s["id"]: s for s in mission["sectors"]}
-    order = [s["id"] for s in mission["sectors"]]
     g = out.get("global", {})
     sph = mo._sphere(g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0))
     sky = mission.get("global", {}).get("sky")
-    scans = {r["id"]: so.sector_scan(secs[r["id"]], r, sph, sky) for r in out.get("sectors", [])
-             if r.get("status") == "OK" and r["id"] in secs}
+    return {r["id"]: so.sector_scan(secs[r["id"]], r, sph, sky) for r in out.get("sectors", [])
+            if r.get("status") == "OK" and r["id"] in secs}
+
+
+def timelines(mission: dict, out: dict, seed: int = SEED, progress_cb=None,
+              runs: Optional[Dict[Tuple[int, int], dict]] = None) -> dict:
+    """N_REP drawn timelines of every face: per sector the false alarms per revisit and the confirmation latency of the
+    true detections (95 % quantile and its interval), per face and band the waits, late updates and pauses, against
+    the analytic scheduler of step 4.3 (M2-5, M2-7, M2-8). runs: the timelines drawn already (face, rep), in parallel."""
+    secs = {s["id"]: s for s in mission["sectors"]}
+    order = [s["id"] for s in mission["sectors"]]
+    scans = mission_scans(mission, out) if runs is None else None
     tsec = {s["id"]: s for s in out.get("tracking", {}).get("sectors", [])}
     ssec = {s["id"]: s for s in out.get("scheduler", {}).get("sectors", [])}
     fa_by: Dict[str, Dict[int, List[float]]] = {}          # per sector and face: [false alarms, revisits counted]
@@ -683,7 +773,7 @@ def timelines(mission: dict, out: dict, seed: int = SEED, progress_cb=None) -> d
         per = {"S": {}, "Ku": {}}
         upd = {"S": [0, 0, 0], "Ku": [0, 0, 0]}
         for rep in range(N_REP):
-            r = face_timeline(mission, out, k, rep, seed, scans)
+            r = face_timeline(mission, out, k, rep, seed, scans) if runs is None else runs[(k, rep)]
             for sid, n in r["fa"].items():
                 e = fa_by.setdefault(sid, {}).setdefault(k, [0, 0.0])
                 e[0] += n
@@ -800,8 +890,9 @@ class TrackLook:
     snr_ref: float = 1.0
 
 
-def track_look(upd: dict, st, mc: dict) -> TrackLook:
-    """TrackLook of an update chosen by tracking._track_update (same parts as tracking._coast_pd)."""
+def track_look(upd: dict, st, mc: dict, pointing_hpbw: Optional[float] = None) -> TrackLook:
+    """TrackLook of an update chosen by tracking._track_update (same parts as tracking._coast_pd); pointing_hpbw: the
+    pointing law the look was sized on (None = the steady one of st), reference of its accuracies."""
     look = upd["look"]
     sp, j = look["space"], look["index"]
     d = sp.det[j]
@@ -829,12 +920,13 @@ def track_look(upd: dict, st, mc: dict) -> TrackLook:
         rx = rm._hex_cell_points(rm.RX_BEAM_SPACING_HPBW * rxb.hpbw)
         rx_cells = rm._beam_loss_db(rxb, np.hypot(rx[:, 0], rx[:, 1]))
     tl = TrackLook(n=b.n_blocks, shape=detection.shape_of(b.fl, b.n_blocks),
-                   threshold=detection.threshold(b.n_blocks, rm.DETECT_PFA), x_db=p0[2] + margin,
+                   threshold=detection.threshold(b.n_blocks, rm.DETECT_PFA),
+                   x_db=p0[2] + margin + look.get("snr_gain_db", 0.0),     # kappa approximation: energy x kappa
                    range_samples=rng_s, doppler_samples=dop_s, velocity_samples=vel_s, tx_beam=pat.tx, rx_beam=rxb,
                    hpbw_lamd=pat.tx.hpbw, cluster=cluster, rx_cell_samples=rx_cells)
     # reference SNR of the accuracies: the mean signal SNR the look gives at the steady pointing law (no fluctuation)
     rng = np.random.default_rng(0)
-    e = st.pointing_hpbw * rng.standard_normal((4000, 2))
+    e = (st.pointing_hpbw if pointing_hpbw is None else pointing_hpbw) * rng.standard_normal((4000, 2))
     tl.snr_ref = float(np.mean(10.0 ** ((tl.x_db - _track_loss(tl, e, rng)) / 10.0)))
     return tl
 
@@ -850,6 +942,55 @@ def _track_loss(tl: TrackLook, e: np.ndarray, rng: np.random.Generator) -> np.nd
     d = e[..., None, :] - tl.cluster                                      # (..., 7, 2)
     r = np.hypot(d[..., 0], d[..., 1]) * tl.hpbw_lamd
     return base + rm._beam_loss_db(tl.tx_beam, r).min(axis=-1) + draw(tl.rx_cell_samples)
+
+
+def accuracy_kappa(tl: TrackLook, pointing_hpbw: float, n: int = 4000) -> float:
+    """kappa = E[snr_ref / SNR | detection] of a look (return on 3.3 from step 5.4): the measurement variance of the
+    looks that detect, against its value at the look's mean SNR snr_ref, with the pointing error (Gaussian per axis,
+    pointing_hpbw), the position losses and the target fluctuation (Gamma of the look's shape) drawn as in
+    simulate_bracket; each draw weighed by its exact probability of detection. Fixed seed: the analytic budget is
+    deterministic."""
+    from scipy.stats import ncx2
+    rng = np.random.default_rng(12345)
+    e = max(float(pointing_hpbw), 0.0) * rng.standard_normal((n, 2))
+    lin = 10.0 ** ((tl.x_db - _track_loss(tl, e, rng)) / 10.0)
+    k = float(tl.shape)
+    g = rng.gamma(k, 1.0 / k, n) if math.isfinite(k) and k <= 1e4 else np.ones(n)
+    lam = np.maximum(lin * g, 1e-300)
+    w = ncx2.sf(2.0 * tl.threshold, 2 * tl.n, 2.0 * lam)
+    if w.sum() <= 0.0:
+        return 1.0
+    return max(1.0, float((w * tl.snr_ref / lam).sum() / w.sum()))
+
+
+def miss_chain_pds(tl: TrackLook, st, nav_rad: float, n_lost: int, t0_s: float, n: int = 4000) -> List[float]:
+    """Pd of the look in each state of the miss chain (k consecutive misses so far), CONDITIONED on those misses
+    (return on 3.3 from step 5.4): the predicted cross-range errors of the looks are drawn jointly, the first from the
+    steady prediction st.p_cross, each next one coasted from it (F x + w over the period), so a large filter error
+    gives misses in a row as in the draws; navigation per look; target power the same within T0 (period below T0),
+    else a new one. pds[k] = 1 - E[prod_{j<=k} miss_j] / E[prod_{j<k} miss_j]. Fixed seed (deterministic)."""
+    from scipy.stats import ncx2
+    rng = np.random.default_rng(54321)
+    f, q = st.f, st.q
+    lp = np.linalg.cholesky(st.p_cross + 1e-30 * np.eye(3))
+    lq = np.linalg.cholesky(q + 1e-30 * np.eye(3))
+    x = [np.einsum("ij,naj->nai", lp, rng.standard_normal((n, 2, 3)))]          # (n, axes, 3)
+    for _ in range(n_lost - 1):
+        x.append(np.einsum("ij,naj->nai", f, x[-1]) + np.einsum("ij,naj->nai", lq, rng.standard_normal((n, 2, 3))))
+    k = float(tl.shape)
+    fl = math.isfinite(k) and k <= 1e4
+    same = math.isfinite(t0_s) and st.t_s < t0_s
+    g = rng.gamma(k, 1.0 / k, n) if fl else np.ones(n)
+    miss = np.ones(n)
+    prods = [1.0]
+    for xk in x:
+        e = (xk[:, :, 0] / st.r_m + nav_rad * rng.standard_normal((n, 2))) / st.hpbw_rad
+        if fl and not same:
+            g = rng.gamma(k, 1.0 / k, n)
+        lam = np.maximum(10.0 ** ((tl.x_db - _track_loss(tl, e, rng)) / 10.0) * g, 1e-300)
+        miss = miss * (1.0 - ncx2.sf(2.0 * tl.threshold, 2 * tl.n, 2.0 * lam))
+        prods.append(float(miss.mean()))
+    return [1.0 - (prods[i + 1] / prods[i] if prods[i] > 0 else 1.0) for i in range(n_lost)]
 
 
 def _sqrtm(q: np.ndarray) -> np.ndarray:
@@ -870,7 +1011,7 @@ def _kf_update(x, p, z, r_diag, h):
 
 def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.random.Generator,
                      rho_ku: float, handover_snr: Optional[np.ndarray], steady_start: bool = False,
-                     snr_scaled: bool = True, refs: Optional[dict] = None) -> dict:
+                     snr_scaled: bool = True, refs: Optional[dict] = None, truth_cfg: Optional[dict] = None) -> dict:
     """Tracks of one bracket drawn with the Singer Kalman filter running (T1-T9), each at one of the bracket's ranges:
     truth on three axes, each look decided at the real pointing error with the drawn SNR, measurements from that SNR,
     loss after n_miss_lost consecutive misses. steady_start False: tracks born from the confirmation hand-over and
@@ -883,7 +1024,8 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
     Return on 3.3 (H10): the initiation looks hop over the bracket's independent Ku frequencies (one target power per
     frequency, renewed every T0), or wait T0 after a miss when only one is free; refs (A b): the accuracies the filter
     really holds in steady state per range (from the steady-start population), the initiation ending within
-    init_conv_frac of them."""
+    init_conv_frac of them. truth_cfg (robustness test): each track follows a true target drawn around the class
+    (draw_truth: Ku RCS, look shapes, coherence time, manoeuvre of the truth), kept per track in "truth"."""
     tm = trk.tm
     nav_deg = mc["st_kw"].get("nav_axis_deg")
     nav_rad = math.radians(trk.repoint.axis_sigma_deg() if nav_deg is None else float(nav_deg))
@@ -891,7 +1033,7 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
     h2 = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
     pick = rng.integers(0, len(states), n_tracks)
     tot = {"updates": 0, "losses": 0, "init_done": [], "init_time": [], "init_lost": 0, "inits": 0,
-           "err_angle2": 0.0, "err_r2": 0.0, "err_vr2": 0.0, "n_err": 0, "dt_min_s": None,
+           "err_angle2": 0.0, "err_r2": 0.0, "err_vr2": 0.0, "n_err": 0, "n_hit": 0, "dt_min_s": None,
            "hits": 0, "point2": 0.0, "i_looks": 0, "i_hits": 0, "i_point2": 0.0, "i_dt": [], "i_fail": [0, 0, 0],
            "i_mode": None, "refs": {}}
     req = (None, None, None)
@@ -900,12 +1042,14 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
         n = int((pick == si).sum())
         tl_upd = track_look(upd, st, mc)
         tl_init = tl_upd
+        st_init = st
         nf_state = None
         tot["i_mode"] = "update look (no initiation look found)"
         if not steady_start and mc.get("gr") is not None:
             iu, nf_state = trk.init_look(mc["gr"], mc["tgt"], st, rk, mc["ctx"], mc.get("r") or {})
             if iu is not None:
-                tl_init = track_look(iu, st, mc)
+                tl_init = track_look(iu, st, mc, max(tm.INIT_POINTING_MAX_HPBW, st.pointing_hpbw))
+                st_init = iu.get("state", st)            # the initiation look's noise parts (its kappa)
                 tot["i_mode"] = f"{iu['mode']} look, SNR {tl_init.x_db:.2f} dB (update look {tl_upd.x_db:.2f} dB)"
         tl_res = None                                    # lever D: one beam of a local re-search after a miss
         if not steady_start and mc.get("gr") is not None:
@@ -936,14 +1080,15 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
         zone_lim = st.zone_sigma_rad * r_m * (1.0 + tm.INIT_CONV_FRAC)
         r_lim = (math.inf if st.range_acc_m is None else st.range_acc_m) * (1.0 + tm.INIT_CONV_FRAC)
         v_lim = st.vr_acc_mps * (1.0 + tm.INIT_CONV_FRAC)
-        if refs and int(si) in refs:                     # A (b): the accuracies the filter really holds
-            ref = refs[int(si)]
-            zone_lim = ref[0] * (1.0 + tm.INIT_CONV_FRAC)
-            r_lim = ref[1] * (1.0 + tm.INIT_CONV_FRAC) if math.isfinite(r_lim) else r_lim
-            v_lim = ref[2] * (1.0 + tm.INIT_CONV_FRAC)
+        if refs and int(si) in refs:                     # A (b): the accuracies the filter really holds, when worse
+            ref = refs[int(si)]                          # than required (never stricter than the requirement)
+            zone_lim = max(zone_lim, ref[0] * (1.0 + tm.INIT_CONV_FRAC))
+            r_lim = max(r_lim, ref[1] * (1.0 + tm.INIT_CONV_FRAC)) if math.isfinite(r_lim) else r_lim
+            v_lim = max(v_lim, ref[2] * (1.0 + tm.INIT_CONV_FRAC))
         acc_ref = np.zeros(4)                            # steady start: sums of the accuracies the filter holds
         req = (st.zone_sigma_rad, st.range_acc_m, st.vr_acc_mps)
         noise_r = st.noise_r if math.isfinite(st.noise_r) else s_r0
+        noise_r_init = st_init.noise_r if math.isfinite(st_init.noise_r) else s_r0
 
         def priors(m):
             """Covariances of new tracks (cross, cross, range): hand-over, or the filter's steady state."""
@@ -972,6 +1117,12 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
         g_f = np.ones((n, n_f))                          # target power per Ku frequency (H1-H2)
         t_f = np.full((n, n_f), np.inf)
         ci = np.zeros(n, dtype=int)                      # frequency of the next initiation look
+        tr = draw_truth(tgt, mc["f_ku"], mc["f_ku"], n, rng, truth_cfg, 0.0, 0.0) if truth_cfg is not None else None
+        gain_t = 10.0 ** (tr["off_ku_db"] / 10.0) if tr is not None else np.ones(n)
+        shp_t = tr["shape_factor"] if tr is not None else np.ones(n)
+        t0_t = t0 * (tr["t0_factor"] if tr is not None else np.ones(n))
+        acc_t = tr["accel_scale"] if tr is not None else np.ones(n)
+        loss_t, upd_t = np.zeros(n), np.zeros(n)          # per track: losses and updates (steady), for the report
 
         def start(idx):
             """(Re)start the tracks idx: truth drawn from the prior around an estimate at 0."""
@@ -1005,7 +1156,8 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
             for kk in np.unique(k):
                 sel = k == kk
                 for ax in range(3):
-                    truth[ax][sel] = truth[ax][sel] @ fs[kk].T + rng.standard_normal((int(sel.sum()), 3)) @ sqs[kk].T
+                    truth[ax][sel] = (truth[ax][sel] @ fs[kk].T
+                                      + (rng.standard_normal((int(sel.sum()), 3)) @ sqs[kk].T) * acc_t[sel, None])
                     est[ax][sel] = est[ax][sel] @ fs[kk].T
                     cov[ax][sel] = fs[kk] @ cov[ax][sel] @ fs[kk].T + qs[kk]
             e = np.stack([(truth[a][:, 0] - est[a][:, 0]) / r_m + nav_rad * rng.standard_normal(n) for a in (0, 1)], -1) / hp
@@ -1016,11 +1168,11 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
             rows = np.arange(n)
             # each look draws with its OWN shape (a frequency-agile initiation train averages several independent
             # samples: far fewer deep fades than one pulse; fixed after the pd_init sweep, 27 October 2026)
-            shp = np.where(in_init, tl_init.shape, tl_upd.shape)
+            shp = np.where(in_init, tl_init.shape, tl_upd.shape) * shp_t
             fin = np.isfinite(shp) & (shp <= 1e4)
             if fin.any():
                 t_f += dt[:, None]
-                new = ~np.isfinite(t_f[rows, cur]) | (t_f[rows, cur] >= (t0 if math.isfinite(t0) else np.inf))
+                new = ~np.isfinite(t_f[rows, cur]) | (t_f[rows, cur] >= np.where(np.isfinite(t0_t), t0_t, np.inf))
                 k_ = np.where(fin, shp, 1.0)
                 draw = np.where(fin, rng.gamma(k_, 1.0 / k_), 1.0)
                 g_f[rows, cur] = np.where(new, draw, g_f[rows, cur])
@@ -1033,7 +1185,7 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
             for tl, sel in ((tl_upd, steady), (tl_init, in_init & ~res_sel)):
                 if not sel.any():
                     continue
-                lam[sel] = 10.0 ** ((tl.x_db - _track_loss(tl, e[sel], rng)) / 10.0) * g[sel]
+                lam[sel] = 10.0 ** ((tl.x_db - _track_loss(tl, e[sel], rng)) / 10.0) * g[sel] * gain_t[sel]
                 hit[sel] = 0.5 * rng.noncentral_chisquare(2 * tl.n, np.maximum(2.0 * lam[sel], 1e-300)) > tl.threshold
             if res_sel.any():
                 # lever D: rings of beams around the prediction covering RESEARCH_SIGMAS of its error, the beam that
@@ -1049,7 +1201,7 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
                 # a shifted re-search keeps one more beam on the estimate (the shifted lattice leaves it on a vertex)
                 d = np.concatenate([d, e[idx][:, None, :]], axis=1)
                 keep_c = np.any(shift != 0.0, axis=1)
-                lb = 10.0 ** ((tl_res.x_db - _track_loss(tl_res, d, rng)) / 10.0) * g[idx][:, None]
+                lb = 10.0 ** ((tl_res.x_db - _track_loss(tl_res, d, rng)) / 10.0) * (g * gain_t)[idx][:, None]
                 hb = 0.5 * rng.noncentral_chisquare(2 * tl_res.n, np.maximum(2.0 * lb, 1e-300)) > tl_res.threshold
                 hb[:, :-1] &= np.arange(len(off))[None, :] < nb[:, None]
                 hb[:, -1] &= keep_c
@@ -1071,9 +1223,13 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
             if tl_res is not None:
                 ref = np.where(res_sel, tl_res.snr_ref, ref)
             scale = np.sqrt(ref / np.maximum(lam, 1e-12)) if snr_scaled else np.ones(n)
-            s_th = np.sqrt((st.noise_theta * scale) ** 2 + tm.ANGLE_FLOOR_RAD ** 2) * r_m
-            s_rr = np.sqrt((noise_r * scale) ** 2 + tm.RANGE_FLOOR_M ** 2)
-            s_vv = np.sqrt((st.noise_vr * scale) ** 2 + tm.VR_FLOOR_MPS ** 2)
+            # noise parts at the reference SNR: the update look's, or the initiation look's (each at its own kappa)
+            n_th = np.where(in_init & ~res_sel, st_init.noise_theta, st.noise_theta)
+            n_rr = np.where(in_init & ~res_sel, noise_r_init, noise_r)
+            n_vv = np.where(in_init & ~res_sel, st_init.noise_vr, st.noise_vr)
+            s_th = np.sqrt((n_th * scale) ** 2 + tm.ANGLE_FLOOR_RAD ** 2) * r_m
+            s_rr = np.sqrt((n_rr * scale) ** 2 + tm.RANGE_FLOOR_M ** 2)
+            s_vv = np.sqrt((n_vv * scale) ** 2 + tm.VR_FLOOR_MPS ** 2)
             for a in (0, 1):
                 rd = np.where(hit, s_th ** 2, np.nan)[:, None]
                 z = truth[a][:, :1] + s_th[:, None] * rng.standard_normal((n, 1))
@@ -1081,8 +1237,11 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
             rd = np.where(hit[:, None], np.stack([s_rr ** 2, s_vv ** 2], -1), np.nan)
             z = truth[2][:, :2] + np.stack([s_rr, s_vv], -1) * rng.standard_normal((n, 2))
             est[2], cov[2] = _kf_update(est[2], cov[2], z, rd, h2)
-            tot["err_r2"] += float(((truth[2][:, 0] - est[2][:, 0]) ** 2)[steady].sum())
-            tot["err_vr2"] += float(((truth[2][:, 1] - est[2][:, 1]) ** 2)[steady].sum())
+            # range and radial velocity: the track just after a successful update (user, 28 October 2026)
+            upd_ok = steady & hit
+            tot["err_r2"] += float(((truth[2][:, 0] - est[2][:, 0]) ** 2)[upd_ok].sum())
+            tot["err_vr2"] += float(((truth[2][:, 1] - est[2][:, 1]) ** 2)[upd_ok].sum())
+            tot["n_hit"] += int(upd_ok.sum())
             tot["n_err"] += int(steady.sum())
             tot["updates"] += int(steady.sum())
             misses = np.where(hit, 0, misses + 1)
@@ -1103,6 +1262,8 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
             tot["init_time"].extend(init_t[done].tolist())
             in_init &= ~done
             lost = misses >= np.where(in_init, n_fail_init, tm.N_MISS_LOST)   # lever D in the initiation
+            upd_t += steady
+            loss_t += lost & ~in_init
             if lost.any():
                 tot["losses"] += int((lost & ~in_init).sum())
                 tot["init_lost"] += int((lost & in_init).sum())
@@ -1115,10 +1276,13 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
                 start(np.flatnonzero(lost))
         if steady_start and acc_ref[3] > 0:
             tot["refs"][int(si)] = tuple(acc_ref[:3] / acc_ref[3])
-    ne = max(tot["n_err"], 1)
+        if tr is not None:
+            for key_, val in list(tr.items()) + [("losses", loss_t), ("updates", upd_t)]:
+                tot.setdefault("truth", {}).setdefault(key_, []).extend(np.asarray(val).tolist())
+    ne, nh = max(tot["n_err"], 1), max(tot["n_hit"], 1)
     return {**tot, "pd_update_mc": tot["hits"] / ne, "pointing_rms_hpbw": math.sqrt(tot["point2"] / ne),
-            "rms_angle_rad": math.sqrt(tot["err_angle2"] / ne), "rms_r_m": math.sqrt(tot["err_r2"] / ne),
-            "rms_vr_mps": math.sqrt(tot["err_vr2"] / ne), "req_zone_rad": req[0], "req_r_m": req[1],
+            "rms_angle_rad": math.sqrt(tot["err_angle2"] / ne), "rms_r_m": math.sqrt(tot["err_r2"] / nh),
+            "rms_vr_mps": math.sqrt(tot["err_vr2"] / nh), "req_zone_rad": req[0], "req_r_m": req[1],
             "req_vr_mps": req[2]}
 
 
@@ -1143,13 +1307,23 @@ def bracket_objects(mission: dict, out: dict, sid: str) -> List[Optional[dict]]:
     return [b.get("_mc") for b in sb.get("at", [])]
 
 
-def tracks(mission: dict, out: dict, handover: Dict[str, np.ndarray], seed: int = SEED) -> List[dict]:
-    """M3 for every bracket of active tracking of the mission (T9-T10)."""
-    rho_ku = float((out.get("scheduler") or {}).get("slots", {}).get("Ku", 0.0))
+def tracks(mission: dict, out: dict, handover: Dict[str, np.ndarray], seed: int = SEED,
+           truth_cfg: Optional[dict] = None) -> List[dict]:
+    """M3 for every bracket of active tracking of the mission (T9-T10); truth_cfg: true targets (robustness)."""
     rows = []
     for n, t in enumerate(out.get("tracking", {}).get("sectors", [])):
-        if not t.get("at"):
-            continue
+        if t.get("at"):
+            rows += sector_tracks(mission, out, n, handover.get(t["id"]), seed, truth_cfg)
+    return rows
+
+
+def sector_tracks(mission: dict, out: dict, n: int, ho: Optional[np.ndarray], seed: int = SEED,
+                  truth_cfg: Optional[dict] = None) -> List[dict]:
+    """M3 for the brackets of the n-th tracking sector (ho: its drawn hand-over SNRs, None = analytic)."""
+    rho_ku = float((out.get("scheduler") or {}).get("slots", {}).get("Ku", 0.0))
+    rows = []
+    t = out["tracking"]["sectors"][n]
+    if t.get("at"):
         objs = bracket_objects(mission, out, t["id"])
         for bi, (at, mc) in enumerate(zip(t["at"], objs)):
             row = {"id": f"{t['id']}/{bi}", "r_min_km": at.get("r_min_km"), "r_max_km": at.get("r_max_km"),
@@ -1160,10 +1334,10 @@ def tracks(mission: dict, out: dict, handover: Dict[str, np.ndarray], seed: int 
             t_start = time.perf_counter()
             mc = dict(mc, proc_s=sch.compute.processing_s(out, t["id"]))
             rng = np.random.default_rng([int(seed), 2000 + n, bi])
-            ho = handover.get(t["id"])
-            res = simulate_bracket(mc["states"], mc, TRACKS_PER_BRACKET, UPDATES_PER_TRACK, rng, rho_ku, ho, True)
+            res = simulate_bracket(mc["states"], mc, TRACKS_PER_BRACKET, UPDATES_PER_TRACK, rng, rho_ku, ho, True,
+                                   truth_cfg=truth_cfg)
             ini = simulate_bracket(mc["states"], mc, TRACKS_PER_BRACKET, UPDATES_PER_TRACK, rng, rho_ku, ho, False,
-                                   refs=res["refs"])
+                                   refs=res["refs"], truth_cfg=truth_cfg)
             lo, hi = wilson(res["losses"], res["updates"])
             p_mc = res["losses"] / res["updates"] if res["updates"] else None
             p_an = float(at.get("p_loss_per_update", 0.0))
@@ -1214,7 +1388,8 @@ def tracks(mission: dict, out: dict, handover: Dict[str, np.ndarray], seed: int 
                          "init_loss_analytic": at.get("init_loss_prob"), "init_time_analytic_s": at.get("init_time_s"),
                          "init_freqs": at.get("init_freqs"), "init_mode": at.get("init_mode"),
                          "handover": "drawn (M2)" if ho is not None and len(ho) else "analytic",
-                         "state": state, "why": "; ".join(why), "runtime_s": time.perf_counter() - t_start})
+                         "state": state, "why": "; ".join(why), "truth": res.get("truth"),
+                         "runtime_s": time.perf_counter() - t_start})
     return rows
 
 
@@ -1261,41 +1436,127 @@ def track_chain(mission: dict, out: dict, rows: List[dict], trk_rows: List[dict]
     return res
 
 
-def plan_eclipse_db(out: dict) -> Dict[str, float]:
-    """Eclipse loss (dB) each sector's kept plan holds: the global optimiser's last coupling of the sector (step 5.2)."""
+def plan_eclipse_rho(out: dict) -> Dict[str, float]:
+    """Probability of a whole echo loss by the eclipse each sector's kept plan holds: the global optimiser's last
+    coupling of the sector (step 5.2; return on 3.2 / 5.2 from step 5.4)."""
     ecl: Dict[str, float] = {}
     for h in (out.get("global_opt") or {}).get("history", []):
         for sid, k in (h.get("couplings") or {}).items():
-            ecl[sid] = float(k.get("_eclipse_db", 0.0))
+            ecl[sid] = float(k.get("_eclipse_rho", 0.0))
     return ecl
 
 
-def run(mission: dict, out: Optional[dict] = None, seed: int = SEED, progress_cb=None) -> dict:
+def sector_task(mission: dict, out: dict, n: int, seed: int = SEED,
+                truth_cfg: Optional[dict] = None) -> Tuple[dict, Optional[np.ndarray]]:
+    """(row, drawn hand-over SNRs or None) of the n-th search sector: M1, M2-6 and its confirmation M2-4."""
+    sec = mission["sectors"][n]
+    plan = next((r.get("_plan") for r in out.get("sectors", []) if r["id"] == sec["id"]), None)
+    if not plan:
+        return {"id": sec["id"], "status": "NO_PLAN"}, None
+    t = next((x for x in out.get("tracking", {}).get("sectors", []) if x["id"] == sec["id"]), None)
+    spec = confirm_spec(sec, plan, t, mission.get("global", {})) if t is not None else None
+    f_ku = float(t["ku_freq_ghz"]) if t is not None and t.get("ku_freq_ghz") else None
+    rho = float((out.get("scheduler") or {}).get("slots", {}).get("S", 0.0))
+    row = sector_mc(sec, plan, n, seed, eclipse=(plan_eclipse_rho(out).get(sec["id"], 0.0), rho), confirm=spec,
+                    truth_cfg=truth_cfg, f_ku=f_ku)
+    return row, getattr(spec, "handover_snr", None) if spec is not None else None
+
+
+# parallel draws (decision 4, user 28 October 2026): sectors, face timelines and tracking sectors in worker processes,
+# each element with its own seed as in the sequential run, so the results are identical; the mission, the plans and the
+# module sizes (which tools/robustness.py changes) are handed once to every worker
+_W: Dict[str, object] = {}
+_SIZES = ("N_MIN", "N_MAX", "CI_TOL", "N_REP", "TRACKS_PER_BRACKET", "UPDATES_PER_TRACK")
+
+
+def _worker_init(mission: dict, out: dict, sizes: dict) -> None:
+    mo._mark_pool_worker()
+    globals().update(sizes)
+    _W.clear()
+    _W.update(mission=mission, out=out)
+
+
+def _w_sector(n: int, seed: int, truth_cfg: Optional[dict]):
+    return sector_task(_W["mission"], _W["out"], n, seed, truth_cfg)
+
+
+def _w_face(k: int, rep: int, seed: int) -> dict:
+    if "scans" not in _W:
+        _W["scans"] = mission_scans(_W["mission"], _W["out"])
+    return face_timeline(_W["mission"], _W["out"], k, rep, seed, _W["scans"])
+
+
+def _w_tracks(n: int, ho: Optional[np.ndarray], seed: int, truth_cfg: Optional[dict]) -> List[dict]:
+    return sector_tracks(_W["mission"], _W["out"], n, ho, seed, truth_cfg)
+
+
+def _gather(ex, jobs: list, progress_cb=None, label=None) -> list:
+    """The results of jobs [(fn, args)] in their order; progress as they complete."""
+    from concurrent.futures import as_completed
+    futs = {ex.submit(fn, *args): i for i, (fn, args) in enumerate(jobs)}
+    res: list = [None] * len(jobs)
+    for d, f in enumerate(as_completed(futs), 1):
+        res[futs[f]] = f.result()
+        if progress_cb:
+            progress_cb(d, len(jobs), label(futs[f]) if label else str(futs[f]))
+    return res
+
+
+def run(mission: dict, out: Optional[dict] = None, seed: int = SEED, progress_cb=None,
+        truth_cfg: Optional[dict] = None, workers: Optional[int] = None) -> dict:
     """Monte-Carlo of a mission: per search sector the cumulative Pd of the test targets with the eclipse drawn (M1,
     M2-6) and their confirmation (M2-4); the drawn timelines of the faces (false alarms, latencies, scheduler, M2).
-    out: a run kept with its plans (optimizer.run(keep_plans=True)); None = computed here."""
+    out: a run kept with its plans (optimizer.run(keep_plans=True)); None = computed here. workers: None = the
+    optimiser's max_workers, 1 = sequential (same results)."""
     t_start = time.perf_counter()
     if out is None or not any(r.get("_plan") for r in out.get("sectors", [])):
         out = mo.run(mission, keep_plans=True)
-    plans = {r["id"]: r.get("_plan") for r in out.get("sectors", [])}
-    tsec = {t["id"]: t for t in out.get("tracking", {}).get("sectors", [])}
-    ecl = plan_eclipse_db(out)
+    t_plan = time.perf_counter() - t_start
+    ids = [s["id"] for s in mission["sectors"]]
+    tsecs = out.get("tracking", {}).get("sectors", [])
     rho = float((out.get("scheduler") or {}).get("slots", {}).get("S", 0.0))
-    g = mission.get("global", {})
-    rows, handover = [], {}
-    for n, sec in enumerate(mission["sectors"]):
-        plan = plans.get(sec["id"])
-        if not plan:
-            rows.append({"id": sec["id"], "status": "NO_PLAN"})
-            continue
-        spec = confirm_spec(sec, plan, tsec[sec["id"]], g) if sec["id"] in tsec else None
-        rows.append(sector_mc(sec, plan, n, seed, eclipse=(ecl.get(sec["id"], 0.0), rho), confirm=spec))
-        if spec is not None and getattr(spec, "handover_snr", None) is not None:
-            handover[sec["id"]] = spec.handover_snr
-        if progress_cb:
-            progress_cb(n + 1, len(mission["sectors"]), sec["id"])
-    tl = timelines(mission, out, seed, progress_cb)
-    trk_rows = tracks(mission, out, handover, seed)
+    # automatic: sequential inside a worker or under the parallel test runner (their workers already fill the machine)
+    auto = 1 if (mo._IN_POOL_WORKER or os.environ.get("PYTEST_XDIST_WORKER")) else mo.MAX_WORKERS
+    n_w = auto if workers is None else int(workers)
+    ex = None
+    if n_w > 1:
+        from concurrent.futures import ProcessPoolExecutor
+        ex = ProcessPoolExecutor(max_workers=n_w, initializer=_worker_init,
+                                 initargs=(mission, out, {k: globals()[k] for k in _SIZES}))
+    try:
+        if ex is None:
+            got = []
+            for n in range(len(ids)):
+                got.append(sector_task(mission, out, n, seed, truth_cfg))
+                if progress_cb:
+                    progress_cb(n + 1, len(ids), ids[n])
+        else:
+            got = _gather(ex, [(_w_sector, (n, seed, truth_cfg)) for n in range(len(ids))], progress_cb,
+                          lambda i: ids[i])
+        rows = [r for r, _ in got]
+        handover = {ids[n]: h for n, (_, h) in enumerate(got) if h is not None}
+        t_sec = time.perf_counter() - t_start - t_plan
+        t0_ = time.perf_counter()
+        if ex is None:
+            tl = timelines(mission, out, seed, progress_cb)
+        else:
+            keys = [(k, rep) for k in range(4) for rep in range(N_REP)]
+            res = _gather(ex, [(_w_face, (k, rep, seed)) for k, rep in keys], progress_cb,
+                          lambda i: f"F{keys[i][0] + 1}/{keys[i][1]}")
+            tl = timelines(mission, out, seed, None, runs=dict(zip(keys, res)))
+        t_line = time.perf_counter() - t0_
+        t_tl = time.perf_counter()
+        if ex is None:
+            trk_rows = tracks(mission, out, handover, seed, truth_cfg)
+        else:
+            idx = [n for n, t in enumerate(tsecs) if t.get("at")]
+            trk_rows = [r for rs in _gather(ex, [(_w_tracks, (n, handover.get(tsecs[n]["id"]), seed, truth_cfg))
+                                                 for n in idx], progress_cb, lambda i: tsecs[idx[i]]["id"])
+                        for r in rs]
+        t_trk = time.perf_counter() - t_tl
+    finally:
+        if ex is not None:
+            ex.shutdown(wait=True)
     chain = track_chain(mission, out, rows, trk_rows)
     states = [r.get("state") for r in rows if r.get("status") == "OK"]
     states += [(r.get("confirmation") or {}).get("state") for r in rows]
@@ -1307,6 +1568,7 @@ def run(mission: dict, out: Optional[dict] = None, seed: int = SEED, progress_cb
     state = "NOK" if "NOK" in states else ("ALERTE" if "ALERTE" in states else "OK")
     return {"pass": "M3", "seed": int(seed), "ci_level": CI_LEVEL, "state": state, "sectors": rows,
             "eclipse_share_s": rho, "timelines": tl, "tracks": trk_rows, "chain": chain,
+            "stage_s": {"plan": t_plan, "search_confirmation": t_sec, "timelines": t_line, "tracks": t_trk},
             "runtime_s": time.perf_counter() - t_start}
 
 

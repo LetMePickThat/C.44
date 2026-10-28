@@ -40,13 +40,13 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small Radar C.44 -- référence de conception et de modélisation}
-\rhead{\small Modèle V6.27.0}
+\rhead{\small Modèle V6.34.0}
 \cfoot{\thepage}
 
 \title{\textbf{Radar AESA spatial à quatre faces}\\[4pt]
 \large Référence de conception et de modélisation de l'outil de préparation de mission}
 \author{Projet C.44}
-\date{27 octobre 2026 -- modèle radar V6.27.0 (étape 5.3 de la feuille de route fermée : P1 verdict, P2 conseil, P3 redondances)}
+\date{28 octobre 2026 -- modèle radar V6.34.0 (étape 5.4 de la feuille de route en cours : Monte-Carlo M1 à M3, retours sur les étapes 3.2, 3.3 et 5.2, test de robustesse, SER de dimensionnement prudente)}
 
 \begin{document}
 \maketitle
@@ -678,6 +678,11 @@ une phase uniforme $\phi$ ; le SNR d'une visée varie en $(R/R_k)^4$. L'exigence
 à la portée exigée du secteur (les visées sous $\Pd = 10^{-3}$ ne comptent plus). Par rapport à une seule visée à $R$,
 le SNR requis change de $+6,0\dB$ pour $q=1$ et de $-6,8\dB$ pour $q=0,1$.
 
+\paragraph{Éclipse.} Un écho qui tombe dans un créneau d'émission commun de la face est perdu en entier. Avec $\rho$ la
+part de ces créneaux (ordonnanceur de la passe précédente de la boucle globale), la probabilité de chaque visée devient
+$(1-\rho)\,P_{\mathrm{d},k}$ dans le critère cumulé, quelle que soit l'ampleur de l'éclipse (depuis le 28 octobre 2026 ;
+c'était une perte de SNR moyenne comptée seulement au-dessus de \SI{0.5}{dB}, que le Monte-Carlo a montrée optimiste).
+
 \subsection{Politique de fausses alarmes}
 Par défaut, un secteur tolère un nombre de fausses alarmes par revisite (\code{fa\_per\_rr} = 10) ; la $\Pfa$ par case
 est ce nombre divisé par les positions et les cases indépendantes, bornée à $[10^{-14}, 10^{-4}]$ et arrondie au
@@ -698,12 +703,14 @@ Classe & $v$ (km/s) & $L$ (m) & $\omega$ (\si{\degree/s}) & $a_{\max}$ & SER S /
 \midrule
 ST (référence) & 5 & 10 & 0,1 & 0 & \num{1000} / \num{1000} & SW1/2 & \SI{-10}{dB} & 3,1 / 0,6\\
 GENERIC & 10 & 3 & 1 & 1\,g & 1 / 1 & SW1/2 & \SI{-10}{dB} & 1,0 / 0,20\\
-KKV & 25 & 1,5 & 1 & 10\,g & 1,27 / 13,8 & SW3/4 & \SI{-20}{dB} & 2,0 / 0,41\\
+KKV & 25 & 1,5 & 1 & 10\,g & 1,27 / 13,8$^\ast$ & SW3/4 & \SI{-20}{dB} & 2,0 / 0,41\\
 SHIP & 5 & 100 & 0,1 & 1\,g & 300 / 300 & SW1/2 & \SI{-6}{dB} & 0,31 / 0,06\\
 DEBRIS & 15 & 0,5 & 10 & 0 & 0,01 / 0,01 & SW1/2 & \SI{-3}{dB} & 0,61 / 0,12\\
 DECOY & 25 & 1,5 & 0,5 & 0 & 0,135 / 0,135 & SW0 & \SI{-20}{dB} & 4,1 / 0,82\\
 \bottomrule
 \end{tabular}}
+
+\smallskip{\footnotesize $^\ast$ corps \SI{0.135}{m^2} + optique d'autodirecteur à \ang{5} près du nez ; moyennes de classe (SER de dimensionnement plus bas).}
 \end{center}
 
 \paragraph{SER frontale et optique d'autodirecteur.} La SER est copolaire et frontale (l'aspect d'une cible qui se
@@ -713,6 +720,15 @@ $\sigma_{\mathrm{opt}} = \max\bigl(\pi(2f)^2,\;\eta_r\,4\pi A^2/\lambda^2\bigr)$
 $D = \SI{0.3}{m}$, $f/D = 1$, $\eta_r = 0,1$ : réflexion directe sur le primaire concave, et rétroréflexion « \oe{}il de
 chat » de l'ensemble focal, en $1/\lambda^2$, donc surtout en Ku. Le leurre imite le corps sans l'optique, ce qui aide
 la discrimination.
+
+\paragraph{SER de dimensionnement.} Le tableau donne les moyennes de classe ; le plan est dimensionné sur une valeur
+prudente, la moyenne $-\,k\,\sigma$ de la dispersion de la classe (\code{rcs\_spread\_db}, $k$ =
+\code{tool.targets.rcs\_sizing\_sigmas} = 2), sur le corps et l'optique : en S, GENERIC \SI{0.1}{m^2}, SHIP
+\SI{75}{m^2}, DEBRIS \SI{0.001}{m^2}. Le KKV est dimensionné sur son corps seul (\SI{0.034}{m^2}) : son optique ne
+renvoie qu'à \ang{5} près de son nez, si bien que la détection, la confirmation et la poursuite ne comptent pas sur
+elle (utilisateur, 28 octobre 2026). La classe telle qu'elle est (SER moyenne, optique comprise) sert aux vraies cibles
+du Monte-Carlo, à la reconnaissance de classe et aux contrôles de saturation (l'écho le plus fort) ; un secteur qui ne
+nomme pas de classe garde sa propre SER.
 
 \paragraph{Fluctuation.} La fluctuation d'une visée est une forme de loi Gamma : la famille (SW1/2 : un degré de
 liberté par échantillon indépendant, SW3/4 : deux, SW0 : stable) fois $\min(n, 1 + T_{\mathrm{obs}}/T_0)$ échantillons
@@ -901,9 +917,18 @@ La grappe est émise en 7 visées successives, en superposition en phase seule d
 interpolée dans la table multifaisceau, \SI{0.76}{dB}), ou par une partition de la face en 2 ou 4 sous-ouvertures Ku ;
 la moins chère est gardée. Les échos qui franchissent le seuil ont un SNR aléatoire, tiré par quantiles de la loi Gamma
 de la cible ; l'erreur angulaire par axe vaut $K\,\mathrm{HPBW}/\sqrt{\mathrm{SNR}}$ (borne de Cramér--Rao $\times 1,13$)
-plus un biais résiduel d'alignement S/Ku, moyennée par des n\oe{}uds de Gauss--Hermite. Chaque mode reçoit la plus petite
-marge de puissance qui confirme une vraie cible avec une probabilité d'au moins 0,98, résolue par dichotomie ; le mode
-qui minimise la charge de la face la plus chargée est choisi, ou l'opérateur en impose un.
+plus un biais résiduel d'alignement S/Ku, moyennée par des n\oe{}uds de Gauss--Hermite ; la détection S qui déclenche la
+confirmation suit la loi de SNR de la \emph{première} détection du critère cumulé (souvent loin, sur une forte
+fluctuation), et non le SNR de conception. Une confirmation saute sur des fréquences Ku indépendantes et peut être
+tentée 2 ou 3 fois avec la même erreur d'angle, la grappe décalée de $0, \pm(a+b)/3$ de sa maille d'un essai à
+l'autre ; des grappes séquentielles de 19 et 37 faisceaux sont aussi disponibles. Chaque mode reçoit la plus petite
+marge de puissance qui confirme une vraie cible avec une probabilité d'au moins \code{confirm\_p\_min}, résolue par
+dichotomie ; le mode qui minimise la charge de la face la plus chargée est choisi, ou l'opérateur en impose un.
+
+\paragraph{Exigence de chaîne.} Un vrai objet ne doit presque jamais rester sans piste : la chaîne primo-détection
+$\to$ confirmation $\to$ piste établie échoue au plus $10^{-3}$ (\code{p\_track\_fail\_max}), partagé par moitié entre
+la confirmation ($\code{confirm\_p\_min} = 0,9995$) et l'initialisation. Le verdict porte cette exigence ; le
+Monte-Carlo tire la chaîne.
 
 La fréquence Ku est choisie par secteur sur une grille de \SI{10}{MHz} dérivée de la bande Ku, le signal dans la bande
 et hors des exclusions Ku de la mission ; la cinquième harmonique S sur le canal Ku de la même face est signalée comme
@@ -922,12 +947,31 @@ exactement et résolu par l'équation de Riccati discrète. La zone angulaire ($
 prédit à la mise à jour suivante, les précisions en distance et en vitesse à la piste filtrée ; chaque exigence devient
 la plus grande erreur de mesure qui la tient, les planchers de mesure (\SI{0.05}{mrad}, \SI{0.05}{m}, \SI{0.01}{m/s})
 retirés quadratiquement, et la précision en distance paie le résidu de couplage distance--Doppler
-$c\tau\sigma_{f_d}/2B$. La visée de mise à jour est pointée sur la prédiction : son erreur de pointage entre dans sa
-$\Pd$ comme une loi de perte sur le diagramme Ku réel ; elle couvre par des bancs $\pm 3\sigma$ de la vitesse radiale et
-de l'accélération prédites ; la moins chère d'une visée pointée et d'une grappe séquentielle de 7 faisceaux est gardée.
-Une chaîne de Markov sur les manques consécutifs (piste perdue après 3, l'erreur de pointage croissant pendant
-l'extrapolation) donne le taux de perte ; les visées d'initialisation amènent une cible confirmée aux précisions
-exigées ; les coûts sont moyennés sur 8 distances de la tranche. Quand la période de l'opérateur ne tient pas à une
+$c\tau\sigma_{f_d}/2B$. Le filtre en régime établi compte ses manques : avec $P_u$ la probabilité de mise à jour
+(\code{pd\_update}), l'équation de Riccati modifiée
+\[
+  P = F\bigl(P_u P_f + (1-P_u)\,P\bigr)F^{\mathsf T} + Q
+\]
+donne la covariance prédite qui fixe les erreurs admises et la loi de pointage. Les précisions sont tenues à SNR
+fluctuant : la variance de mesure des visées qui détectent vaut $\kappa = \mathrm{E}[\mathrm{SNR}_{\text{réf}}/
+\mathrm{SNR} \mid \text{détection}]$ fois sa valeur au SNR moyen (pointage, pertes de position et fluctuation tirés comme
+dans le Monte-Carlo, chaque tirage pondéré par sa $\Pd$ exacte), si bien que la part de bruit à atteindre par visée vaut
+$(\sigma_{\mathrm{admis}}^2 - \sigma_{\mathrm{plancher}}^2)/\kappa$ ; la visée et $\kappa$ forment un point fixe,
+$\kappa$ arrondi vers le haut sur une grille de \SI{0.25}{dB}. Par défaut la visée garde sa forme d'onde et son énergie
+est multipliée par $\kappa$ (\code{kappa\_mode} = energy, temps de calcul ; prudent quand la détection, et non la
+précision, a dimensionné la visée) ; la visée redimensionnée à chaque $\kappa$ reste disponible (\code{resize}). La visée de mise à jour est pointée sur la prédiction :
+son erreur de pointage entre dans sa $\Pd$ comme une loi de perte sur le diagramme Ku réel ; elle couvre par des bancs
+$\pm 3\sigma$ de la vitesse radiale et de l'accélération prédites ; la moins chère d'une visée pointée et d'une grappe
+séquentielle de 7 faisceaux est gardée. Une chaîne de Markov sur les manques consécutifs (piste perdue après 3) donne
+le taux de perte, la probabilité de chaque état étant conditionnée aux manques qui le précèdent : les erreurs de
+pointage des visées successives sont tirées ensemble (prédiction de régime établi, puis extrapolation), car une
+grande erreur du filtre fait manquer plusieurs visées de suite. L'initialisation va au plus vite : chaque intervalle est
+le plus long qui garde l'erreur de pointage prédite sous 0,3 lobe Ku, les visées sautent sur les fréquences Ku espacées
+d'au moins $c/2L$ (tirages de cible indépendants) et sont dimensionnées pour $\Pd = 0,99$ à ce pointage ; après un
+manque, une recherche locale couvre $3\sigma$ de l'erreur prédite avec au plus 37 faisceaux ($\Pd = 0,999$ par
+faisceau), sa maille décalée d'un essai à l'autre ; l'initialisation est perdue après 4 recherches sans détection, puis
+recommencée. Une classe dont les objets visent le vaisseau (KKV) porte sa propre vitesse transverse a priori
+(\SI{1000}{m/s} par axe). Les coûts sont moyennés sur 8 distances de la tranche. Quand la période de l'opérateur ne tient pas à une
 distance, la plus longue période tenable est donnée en alerte. Un KKV est distingué d'un leurre sur les visées de
 poursuite par quatre indices (dépolarisation, fluctuation, niveau de SER avec l'optique d'autodirecteur, man\oe{}uvre vue par
 le filtre), l'incertitude de Faraday affaiblissant l'indice de dépolarisation sauf si la polarisation d'émission est
@@ -1325,6 +1369,48 @@ valeurs de la menace données (celles du secteur, sinon celles de sa classe) ; i
 s'en écarter : pour une autre hypothèse, l'opérateur édite la classe ou surcharge le secteur et relance le calcul.
 
 %=====================================================================================================================
+\section{Vérification par Monte-Carlo}\label{sec:mc}
+%=====================================================================================================================
+Le modèle analytique de la préparation de mission calcule des espérances ; le Monte-Carlo (\code{core/montecarlo.py},
+étape 5.4, à la demande) joue le plan retenu par des tirages et arbitre en dernier le bilan statistique. Rien n'est
+résolu à nouveau : le SNR de chaque visée est lu dans le plan.
+\begin{itemize}
+  \item \textbf{Veille} (M1) : cibles test tirées sur les cases de dépointage au prorata de leurs pointages, se
+        rapprochant à la vitesse du secteur avec une phase aléatoire ; un point fixé par cible dans la cellule de la
+        grille d'émission, vu à travers les décalages de grille d'une trame à l'autre ; chevauchement en distance par
+        visée ; puissance de cible par visée selon la loi Gamma de la visée (un tirage dans $T_0$) ; décision exacte en
+        $\chi^2$ non centrée contre le seuil du plan ; éclipse tirée écho par écho.
+  \item \textbf{Confirmation et chronologies} (M2) : erreur d'angle tirée à partir du SNR de la visée S qui a détecté ;
+        visées Ku du mode décidées exactement, avec saut de fréquence et essais ; fausses alarmes tirées par visée ; un
+        fichier d'événements par face joue les files de l'ordonnanceur (latence, mises à jour en retard, pauses de
+        recharge).
+  \item \textbf{Pistes} (M3) : le filtre de Kalman de Singer tourne sur une vérité tirée, chaque mise à jour étant une
+        visée tirée (erreur de pointage = prédiction $-$ vérité + navigation, diagrammes Ku réels, fluctuation, éclipse
+        Ku), les erreurs de mesure venant du SNR tiré ; une population partie du régime établi donne la perte par mise à
+        jour et les précisions RMS, une population née des confirmations tirées donne l'initialisation (part établie,
+        visées, durée).
+  \item \textbf{Tirages parallèles} : secteurs, chronologies des faces et secteurs de poursuite dans des processus,
+        chacun avec sa graine, d'où des résultats égaux au calcul séquentiel.
+  \item \textbf{États} : NOK quand l'exigence est manquée au-delà de l'intervalle de confiance (Wilson, 95\,\%),
+        ALERTE quand la valeur analytique est optimiste, OK sinon ; la chaîne de l'exigence ci-dessus.
+\end{itemize}
+Sur une mission de test, le Monte-Carlo a trouvé le modèle analytique optimiste d'un facteur 4 à 10 sur la perte de
+piste et l'initialisation (précisions au SNR moyen, manques absents du filtre, manques indépendants, visées
+d'initialisation supposées aussi précises que la passation) et sur la veille avec éclipse ; les retours sur les étapes
+3.2, 3.3 et 5.2 décrits plus haut le rendent prudent (28 octobre 2026). Il a aussi trouvé un défaut qui lui était propre
+(le SNR de passation d'une confirmation réussie à un essai antérieur), qui faisait échouer 0,2\,\% des initialisations.
+
+\paragraph{Test de robustesse.} Le plan est dimensionné sur les moyennes de classe ; les objets réels s'en écartent. Un
+outil distinct (\code{tools/robustness.py}, au plus 20 minutes) tire de \emph{vraies} cibles autour de chaque classe :
+SER selon la dispersion de la classe (tronquée à $\pm2\sigma$) et un aspect uniforme sur la sphère (un KKV à
+\ang{30} près de son nez), vitesse de rapprochement sur l'étendue du secteur, rotation (donc $T_0$) log-uniforme dans un
+facteur 3, l'autre cas de Swerling de la classe avec une probabilité de 0,5, man\oe{}uvre de 0 à l'accélération de la
+classe. Elles sont jouées en veille, en confirmation et en poursuite sur une mission d'évaluation qui n'a jamais servi à
+régler le modèle (un secteur par classe, une tranche de poursuite par classe suivie, tirée une fois avec sa propre graine et gelée) ; le rapport donne par classe la
+chaîne avec de vraies cibles et la part des échecs par tranche de chaque paramètre tiré, pour faire ressortir les
+paramètres qui font échouer la chaîne.
+
+%=====================================================================================================================
 \section{Réglages de mission et présentation des cibles}\label{sec:mission51}
 %=====================================================================================================================
 L'étape 5.1 fait des réglages opérationnels des clés de mission, chacune par défaut à la valeur du fichier de
@@ -1434,7 +1520,7 @@ entier ; environ 35 minutes depuis la passe P7 de la 5.2 (table de saturation), 
 \begin{center}
 \begin{tabularx}{\linewidth}{@{}lL@{}}
 \toprule
-Phase & Étapes (état au 27 octobre 2026)\\
+Phase & Étapes (état au 28 octobre 2026)\\
 \midrule
 0, fondations & fichier de paramètres unique, banc de tests, revue de chaque valeur --- fait\\
 1, antenne et RF & diagramme réel ; désadaptation active, lobes de réseau et de jeu ; TRM et chaîne d'émission ; bande ;
@@ -1450,7 +1536,8 @@ pointages dans un volume --- fait ; 4.4 calcul et données --- fait ; 4.5 re-poi
 5, mission et validation & 5.1 modèle de mission enrichi --- fait ; 5.2 optimiseur global (répartition de la
 puissance, couplages, boucle globale, réemploi de la marge, tables pour le vol, réallocation et saturation) ---
 fait ; 5.3 moteur de
-validation (verdict et conseil faits) ; simulation Monte-Carlo ; interface opérateur ; vérification et documentation ; fin de développement\\
+validation (verdict, conseil, redondances) --- fait ; 5.4 Monte-Carlo (veille, confirmation, chronologies et pistes
+tirées ; test de robustesse) --- en cours ; interface opérateur ; vérification et documentation ; fin de développement\\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -1470,7 +1557,12 @@ Principales dispositions provisoires, chacune affectée à une étape ultérieur
   \item \textbf{Mission et validation (5.x)} : les tables de présentation et les dispersions sont des valeurs
         provisoires (D) ; tables pour le vol Ku ; autres usages de la marge (veille plus loin, volumes de moindre
         priorité) ; zones de recouvrement entre faces ; recalage de l'estimation rapide sur le modèle de piste ;
-        l'interface de préparation de mission est provisoire (une IHM complète vient avec la simulation globale).
+        l'interface de préparation de mission est provisoire (une IHM complète vient avec la simulation globale) ;
+        les plans et les tables pour le vol ne valent que pour l'instantané de navigation de la préparation de mission
+        (une forme d'onde seulement pour les cases de dépointage peuplées à cette attitude ; budgets par face, ciel et
+        ordonnanceur figés ; tables pour le vol limitées à la fréquence) : plans pour toute orientation d'un volume,
+        tables indépendantes de l'attitude et replanification rapide en vol sont affectés à l'étape 5.5 / 5.7 et à la
+        simulation globale.
   \item \textbf{Antenne} : diagramme élémentaire et couplage mutuel aux bords des tuiles (éléments isotropes) ; les
         couplages entre faces sont des ordres de grandeur optimistes à confirmer par une simulation électromagnétique.
   \item \textbf{Fin de développement} : modes dégradés (face, TRM, puissance ou ouverture Ku perdus) et pannes de TRM

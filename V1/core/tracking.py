@@ -75,6 +75,11 @@ CONFIRM_ATTEMPTS = int(P.get("confirmation.confirm_attempts"))   # K3: confirmat
 CONFIRM_ATTEMPTS_MAX = int(P.get("confirmation.confirm_attempts_max"))   # K9 (a): up to this for weak detections
 CONFIRM_MODES = ("KU1+7", "KU7", "S2")
 CLUSTER_N = 7                   # hexagonal cluster: centre + first ring, spacing rm.BEAM_SPACING_HPBW
+KAPPA_ITER = int(P.get("tool.tracking.kappa_iter"))     # return on 3.3 from 5.4: look / kappa fixed point
+KAPPA_STEP_DB = float(P.get("tool.tracking.kappa_step_db"))
+KAPPA_MODE = str(P.get("tool.tracking.kappa_mode"))     # decision 4: "energy" (approximation) or "resize" (exact)
+if KAPPA_MODE not in ("energy", "resize"):
+    raise ValueError(f"{P.path}: tool.tracking.kappa_mode must be 'energy' or 'resize'")
 INIT_LOSS_MAX = P.get("tracking.p_loss_max")   # return on 3.3 (H7): alert above this initiation loss
 KEEP_MC_OBJECTS = False         # step 5.4 (M3): sector_budget keeps the track states and update looks per bracket
 ANGLE_ZONE_SIGMAS = P.get("tracking.angle_zone_sigmas")     # angular zone opening = full width at +/-2 sigma
@@ -883,30 +888,73 @@ def _track_update(gr: dict, tgt: rm.Target, st: "tm.TrackState", r_km: float, ct
     keeps Pd at every coasted update). None when neither reaches r_km."""
     p_avg_max_w, sll, t_ku, r_min_sec, f_ku, spj, excl, clutter = ctx
     tgt_t = tm.track_target(tgt, st)
-    pack = _rounded_pack(st)
     v_span = round(st.v_span_mps, 1)
     sig = st.pointing_hpbw if pointing_hpbw is None else pointing_hpbw
     pt1 = ("gauss", float(f"{sig:.3g}"))
     clut = clutter(gr, r_km) if clutter is not None else None
     kw = dict(rx_sll_db=sll, t_sys_k=t_ku, r_min_km=r_min_sec, v_span_mps=v_span, f_ghz=f_ku, spj=spj, clutter=clut,
               excl=excl, pd=st.pd_update, bw_max_mhz=bw_max_mhz)
-    single = ku_look(gr["theta"], tgt_t, r_km, p_avg_max_w, pack, pointing=pt1, **kw)
-    cluster = ku_look(gr["theta"], tgt_t, r_km, p_avg_max_w, pack, pointing=("cluster", rm.BEAM_SPACING_HPBW), **kw)
-    opts = []
-    if single is not None:
-        opts.append((single["cost"], "single", single, 1.0))
-    if cluster is not None:
-        opts.append((cluster["cost"] * CLUSTER_N, "cluster", cluster, float(CLUSTER_N)))
-    if not opts:
+
+    def cheapest(s):
+        pack = _rounded_pack(s)
+        single = ku_look(gr["theta"], tgt_t, r_km, p_avg_max_w, pack, pointing=pt1, **kw)
+        cluster = ku_look(gr["theta"], tgt_t, r_km, p_avg_max_w, pack, pointing=("cluster", rm.BEAM_SPACING_HPBW), **kw)
+        opts = []
+        if single is not None:
+            opts.append((single["cost"], "single", single, 1.0))
+        if cluster is not None:
+            opts.append((cluster["cost"] * CLUSTER_N, "cluster", cluster, float(CLUSTER_N)))
+        return min(opts, key=lambda o: o[0])[1:] if opts else None
+
+    best = cheapest(st)
+    if best is None:
         return None
-    _, mode, look, mult = min(opts, key=lambda o: o[0])
-    if mode == "single" and pointing_hpbw is None:
-        pds = [_coast_pd(look, st.coast_pointing(k), tgt_t, f_ku, sll, v_span, spj, st.pd_update)
-               for k in range(tm.N_MISS_LOST)]
+    mode, look, mult = best
+    # return on 3.3 from step 5.4: the accuracies at a fluctuating SNR (kappa = E[SNR_ref / SNR | detection]), a fixed
+    # point between the look and the noise parts it must reach
+    # kappa rounded UP on a grid of KAPPA_STEP_DB (prudent by at most that step): the groups of a state then share
+    # their look space (one per accuracy pack) and the fixed point stops sooner (computing time, user 28 Oct 2026)
+    st_k, tl = st, None
+    look0 = look
+    for _ in range(KAPPA_ITER):
+        kap, tl = _accuracy_kappa({"look": look, "mode": mode}, st, tgt, f_ku, sll, sig)
+        kap = 10.0 ** (math.ceil(10.0 * math.log10(kap) / KAPPA_STEP_DB - 1e-9) * KAPPA_STEP_DB / 10.0)
+        if kap <= st_k.kappa * (1.0 + 1e-9):
+            break
+        st_k, tl = st.with_kappa(kap), None
+        if KAPPA_MODE == "energy":
+            # decision 4 (user, 28 October 2026): the same waveform, its energy x kappa (no new look space): the SNR
+            # rises by kappa, the noise share to reach falls by kappa (prudent when the detection, not the accuracy,
+            # sized the look)
+            sp_, j_ = look0["space"], look0["index"]
+            e, t, q = _look_scale(sp_, j_, look0["scale"] * kap)
+            look = dict(look0, energy_J=e, energy_rf_J=e - q, pae=(e - q) / e if e else 0.0, time_s=t,
+                        cost=max(e / p_avg_max_w, t), scale=look0["scale"] * kap, snr_gain_db=10.0 * math.log10(kap))
+            continue
+        best = cheapest(st_k)
+        if best is None:
+            return None
+        mode, look, mult = best
+    if pointing_hpbw is None:
+        # return on 3.3 from step 5.4: the misses of a track are correlated (a large filter error misses several
+        # looks in a row): the chain's Pd conditioned on the misses so far, drawn jointly (montecarlo.miss_chain_pds)
+        from . import montecarlo as _mc
+        if tl is None:
+            tl = _mc.track_look({"look": look, "mode": mode}, st, {"tgt": tgt, "f_ku": f_ku, "sll": sll}, sig)
+        pds = _mc.miss_chain_pds(tl, st, st.nav_rad, tm.N_MISS_LOST, tgt.t0_s(f_ku))
     else:
         pds = [st.pd_update] * tm.N_MISS_LOST
     p_loss, _ = tm.loss_per_update(pds)
-    return {"look": look, "mode": mode, "mult": mult, "p_loss": p_loss, "pds": pds}
+    return {"look": look, "mode": mode, "mult": mult, "p_loss": p_loss, "pds": pds, "state": st_k}
+
+
+def _accuracy_kappa(upd: dict, st: "tm.TrackState", tgt: rm.Target, f_ku: float, sll: float,
+                    pointing_hpbw: float) -> tuple:
+    """(kappa, TrackLook) of a chosen look at its pointing (montecarlo.accuracy_kappa, the same look parts as the
+    draws)."""
+    from . import montecarlo as _mc
+    tl = _mc.track_look(upd, st, {"tgt": tgt, "f_ku": f_ku, "sll": sll}, pointing_hpbw)
+    return _mc.accuracy_kappa(tl, pointing_hpbw), tl
 
 
 def _coast_pd(look: dict, sigma_hpbw: float, tgt_t: rm.Target, f_ku: float, sll: float, v_span: float,
@@ -923,7 +971,7 @@ def _coast_pd(look: dict, sigma_hpbw: float, tgt_t: rm.Target, f_ku: float, sll:
     if pk is None:
         return 0.0
     law = np.array([pk[4]])
-    return float(mo._pd_at(mo._curves(law), law, np.array([p0[2] + margin]))[0])
+    return float(mo._pd_at(mo._curves(law), law, np.array([p0[2] + margin + look.get("snr_gain_db", 0.0)]))[0])
 
 
 def init_hop_freqs(r: dict, f_ku: float, bw_mhz: float, length_m: Optional[float], excl) -> int:
@@ -1126,8 +1174,9 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
         flags.extend(mo.sky_flags(ku_sky, "Ku"))
     spj = env.spj_density_w_hz(sec, f_ku)                       # step 3.2 E1
     excl = exclusions_ku(sec)
-    r_sat_ku = rm.min_unsaturated_range_km(f_ku, 0.0, tgt.rcs_at(f_ku))
-    r_sat_att = rm.min_unsaturated_range_attenuated_km(f_ku, 0.0, tgt.rcs_at(f_ku))     # step 3.3, E3
+    rcs_sat = tgt.physical().rcs_at(f_ku)             # saturation: the class as it is, not its sizing RCS
+    r_sat_ku = rm.min_unsaturated_range_km(f_ku, 0.0, rcs_sat)
+    r_sat_att = rm.min_unsaturated_range_attenuated_km(f_ku, 0.0, rcs_sat)     # step 3.3, E3
     r_min_sec = mo.range_min_km(sec)          # shortest range of interest: Ku blind range limit (step 2.1)
     spacing = r.get("beam_spacing_hpbw")                 # the sector's search lattice (step 3.1, P5)
     angle_cells = rm.rx_beams_per_position(f_s, sll, spacing) * rm.RX_BEAM_SPACING_HPBW ** 2   # independent cells per position
@@ -1137,7 +1186,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                          f"interest ({r_min_sec:.0f} km, range_min_km): Ku looks only need a blind range below that")
         if b["r_min_km"] < r_sat_att:
             flags.append(f"AT {b['r_min_km']:.0f}-{b['r_max_km']:.0f} km: below {r_sat_att:.2f} km the Ku echo of "
-                         f"{tgt.rcs_at(f_ku):g} m2 clips the per-element ADCs even with the "
+                         f"{rcs_sat:g} m2 clips the per-element ADCs even with the "
                          f"{rm.ATTENUATOR_MAX_DB['Ku']:g} dB attenuator (step 3.3, E3)")
 
     # --- confirmation: per scan-angle group, true detections and false alarms per face (per refresh), with the Ku
@@ -1309,7 +1358,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                 if gr is main_gr:
                     p_loss.append(upd["p_loss"])
                     if KEEP_MC_OBJECTS:
-                        mc_states.append((rk, st, upd))
+                        mc_states.append((rk, upd.get("state", st), upd))   # the state at its kappa
                 if gr["pos"].sum() > pos_main:
                     wf_main, pos_main = look["wf"], float(gr["pos"].sum())
             unreachable += float(share.sum()) * (1.0 - ok_w)
@@ -1378,7 +1427,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                  "init_research_beams": init["research_beams_max"] if init else None,
                  "init_research_coverage": init["research_coverage_min"] if init else None,
                  "init_energy_J": init["energy_J"] if init else None,
-                 "attenuation_db": rm.attenuation_needed_db(f_ku, 0.0, tgt.rcs_at(f_ku), r_lo),
+                 "attenuation_db": rm.attenuation_needed_db(f_ku, 0.0, tgt.physical().rcs_at(f_ku), r_lo),
                  "deception_verification": deceptive, "tracks_face": tracks_face.tolist(),
                  "init_tk": (t_init if isinstance(t_init, np.ndarray) else np.zeros(4)).tolist()}
         if KEEP_MC_OBJECTS:                             # step 5.4 (M3): Python objects, not JSON

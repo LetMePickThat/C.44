@@ -583,6 +583,7 @@ rcs_spread_db  = { value = 3, unit = "dB", status = "D", source = "step 5.1 (B3)
 depol_spread_db = { value = 2, unit = "dB", status = "D", source = "step 5.1 (B3): depolarisation spread from one object to another, 1 sigma", date = "2026-10-25" }
 aspect_policy  = { value = "frontal", unit = "", status = "V", source = "step 5.1: a KKV that threatens the ship aims at it, nose and seeker toward the radar (user)", date = "2026-10-25" }
 optics_cone_deg = { value = 5.0, unit = "deg", status = "V", source = "step 5.1 (B4): the seeker optics return only within this half-angle of the nose", date = "2026-10-25" }
+optics_in_detection = { value = false, unit = "", status = "V", source = "decision 1a (user): the KKV is sized on its body only (detection, confirmation, tracking); its optics stay in the true targets and the class recognition", date = "2026-10-28" }
 [targets.KKV.band.S]
 rcs_m2      = { value = 0.135, unit = "m2", status = "V", source = "body, RCS 0.12-0.15 m2 (mid); the seeker optics are added (frontal total ~1.3 m2)", date = "2026-10-20" }
 fluctuation = { value = "SW3/4", unit = "", status = "V", source = "one dominant scatterer (the seeker mirror) in both bands (step 2.4, K)", date = "2026-10-22" }
@@ -785,6 +786,29 @@ updates_per_track  = 200        # M3 (T7): updates per drawn track (D)
 batch           = 200           # test targets drawn per batch between two checks of the stopping rule
 pd_look_floor   = 1e-5          # looks whose mean Pd stays below this are not drawn (they cannot change the result)
 
+[tool.robustness]             # robustness test (tools/robustness.py, user 28 Oct 2026): true targets around the class means
+seed             = 2026         # draws of the evaluation mission and of the true targets (distinct from tool.montecarlo.seed)
+budget_s         = 1200.0       # the test must last at most this (user): the sizes are cut when the last run says it would not
+n_targets        = 2000         # true test targets per search sector (tool.montecarlo.n_max of the test)
+tracks_per_bracket = 500        # true targets tracked per bracket (and as many started in the steady state)
+n_rep            = 5            # drawn timelines per face
+rcs_trunc_sigmas = 2.0          # class RCS spread (rcs_spread_db, 1 sigma) truncated at this
+frontal_cone_deg = 30.0         # a class seen frontally (KKV): nose within this of the radar
+rot_factor       = 3.0          # rotation rate (coherence time) log-uniform between 1 / x and x of the class
+fluct_alt_p      = 0.5          # probability that the true target is of the class's other Swerling case
+classes          = ["ST", "GENERIC", "KKV", "SHIP", "DEBRIS", "DECOY"]
+range_km         = { ST = [3000, 8000], GENERIC = [500, 3000], KKV = [300, 1000], SHIP = [1000, 4000], DEBRIS = [100, 400], DECOY = [300, 1000] }   # decision 3: DEBRIS 100-400 km; SHIP keeps its long ranges (use case)
+rr_s             = { ST = [60, 180], GENERIC = [20, 60], KKV = [10, 30], SHIP = [30, 120], DEBRIS = [10, 60], DECOY = [10, 30] }
+track_rr_s       = { GENERIC = [2, 4], KKV = [0.5, 0.9], SHIP = [2, 4] }   # classes with active tracking: one bracket 0-R (decision 3)
+v_close_min_frac = 0.2          # sector speed span: this x .. 1 x the class's closing speed
+box_az_deg       = [30, 90]
+box_el_deg       = [20, 50]
+el_span_deg      = [-30, 60]
+angle_zone_deg   = [0.3, 0.5]   # decision 3 (user, 28 Oct 2026)
+range_acc_m      = [20, 50]
+vr_acc_mps       = [5, 15]
+tracks_n         = [2, 5]
+
 [tool.scheduler]              # step 4.3
 horizon_max_s = 60.0            # B1: synthetic timeline over the longest revisit of a face, at most this
 seed          = 1               # B3: random arrivals drawn once (reproducible)
@@ -807,6 +831,10 @@ disc_n_max   = 200              # F1: most track looks counted for the discrimin
 separability_n_looks = 10       # F3: looks of the class separability matrix (indicator)
 gate_cells   = 100              # C5: independent cells of a Ku confirmation gate (false tracks)
 false_track_flag_per_s = 1e-3   # C5: false-track rate above which the sector is flagged
+kappa_iter   = 4                # return on 3.3 from 5.4: fixed-point steps between an update look and its kappa (accuracies at a fluctuating SNR)
+kappa_step_db = 0.25            # kappa rounded UP on this grid (dB): the groups of a track state share their look space; the fixed point stops when it no longer moves
+kappa_mode = "energy"            # decision 4 (user, 28 Oct 2026): "energy" = same waveform, energy x kappa (no new look
+                                 # space, computing time); "resize" = the look sized again at each kappa (exact, slow)
 
 [tool.confirmation]           # Ku look search space and statistics (core/tracking.py)
 ku_tau_s        = [5e-6, 10e-6, 20e-6, 50e-6, 100e-6, 200e-6, 400e-6, 800e-6, 1.5e-3]   # + tau_max (2.08 ms, from
@@ -888,9 +916,11 @@ surface_class_step_frac = 0.05  # requirement brought back to the surface (P4 Q9
                                 # the sector range (at most 1 / step classes)
 
 [tool.targets]                # target library (step 2.4)
-default_type = "GENERIC"
+default_type = "GENERIC"         # class completing a sector that names no target_type (its own rcs_m2 / swerling kept)
 aspect_policy = "worst"          # step 5.1 (user): RCS of detection = the worst presentation of the class table (a class
-                                 # may set its own: "frontal" = at its aspect_offset_deg, "mean" = solid-angle mean)         # class completing a sector that names no target_type (its own rcs_m2 / swerling kept)
+                                 # may set its own: "frontal" = at its aspect_offset_deg, "mean" = solid-angle mean)
+rcs_sizing_sigmas = 2.0          # decision 2 (user, 28 October 2026): sizing RCS = class mean - this many sigmas of the
+                                 # class spread rcs_spread_db (prudent value); the true targets are drawn around the mean
 
 [tool.frames]                 # frames of the volumes and navigation message (core/frames.py, step 3.0)
 q_norm_tol          = 1e-3      # attitude quaternion: |q| within 1 +/- this is normalised, beyond it is refused (B3)
@@ -948,3 +978,14 @@ rr_s = 2.0
 angle_zone_deg = 0.2
 range_acc_m = 10.0
 vr_acc_mps = 5.0
+
+# --- global scenario simulator (phase 6, steps 6.1-6.3, core-independent package sim/; framing validated by the user
+# on 28 October 2026). The navigation rate and the ship's slew limits are those of [repointing] (step 4.5).
+[sim]
+step_s = { value = 0.1, unit = "s", status = "V", source = "B2: fixed truth step of the propagation (user, 28 Oct 2026)", date = "2026-10-28" }
+pn_n   = { value = 4.0, unit = "-", status = "V", source = "C5: navigation constant of the KKV terminal guidance (proportional navigation, user, 28 Oct 2026)", date = "2026-10-28" }
+log_step_s = { value = 1.0, unit = "s", status = "D", source = "P4: recording interval of the truth (the playback interpolates a cubic on position and velocity; 0.1 s would weigh ~1.7 GB per hour for 1000 objects) (user, 28 Oct 2026)", date = "2026-10-28" }
+
+[sim.bodies]
+earth = { value = { mu_km3_s2 = 398600.4418, j2 = 1.08262668e-3, r_eq_km = 6378.137, radius_km = 6371.0, pole_ra_deg = 0.0, pole_dec_deg = 90.0 }, unit = "km3/s2, -, km, km, deg, deg", status = "V", source = "C1: WGS 84 / EGM 2008 (mu, J2, equatorial radius); mean radius as sky.surface.earth; pole = ICRF Z, precession left out (P2) (user, 28 Oct 2026)", date = "2026-10-28" }
+moon  = { value = { mu_km3_s2 = 4902.800066, j2 = 2.0330e-4, r_eq_km = 1738.1, radius_km = 1737.4, pole_ra_deg = 269.9949, pole_dec_deg = 66.5392 }, unit = "km3/s2, -, km, km, deg, deg", status = "V", source = "C1: usual lunar values (GRAIL); mean radius as sky.surface.moon; IAU pole, constant terms (P2) (user, 28 Oct 2026)", date = "2026-10-28" }
