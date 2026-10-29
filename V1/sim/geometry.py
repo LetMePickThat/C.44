@@ -45,7 +45,18 @@ from . import ephemeris as eph
 from . import scenario as scn
 from .propagate import Truth
 
-BODIES = ("sun", "earth", "moon")
+BODIES = ("sun", "earth", "moon")                         # always; the central body (and its planet) added per run
+
+
+def body_names(central: str) -> List[str]:
+    """The bodies of a run's geometry (user, 30 October 2026: any central body): the Sun, the Earth, the Moon, and
+    the central body and, for a moon, its planet when they are other ones (they hide the objects and the Sun; the
+    radar sky knows the Sun, the Earth and the Moon only)."""
+    out = list(BODIES)
+    for b in (central, eph._MOONS[central]["planet"] if central in eph._MOONS else None):
+        if b and b not in out:
+            out.append(b)
+    return out
 SUN_RADIUS_KM = float(P.get("sim.sun_radius_km"))
 RCS_TRUNC_SIGMAS = float(P.get("sim.rcs_trunc_sigmas"))
 F_S_GHZ = 0.5 * (rm.BAND_S.usable_lo_ghz + rm.BAND_S.usable_hi_ghz)
@@ -58,7 +69,8 @@ SEED_RCS, SEED_TUMBLE = 200000, 300000                     # generator streams p
 @dataclass
 class Geometry:
     """Per instant t_s (n_t,) and object (ids, n_o: the truth rows without the ship), arrays (n_t, n_o[, 3]); NaN, -1 or
-    False where the object does not exist. Bodies (BODIES) per instant (n_t, 3[, 3])."""
+    False where the object does not exist. Bodies (body_names: BODIES, then the central body and its planet when
+    others) per instant (n_t, n_b[, 3])."""
     t_s: np.ndarray
     ids: List[str]
     classes: List[str]
@@ -77,7 +89,7 @@ class Geometry:
     nose_ship: np.ndarray                     # (n_t, n_o, 3) unit nose (body Z) of each object, ship frame
     rcs_s_dbsm: np.ndarray
     rcs_ku_dbsm: np.ndarray
-    occulted_by: np.ndarray                   # int8 index into BODIES, -1 = clear
+    occulted_by: np.ndarray                   # int8 index into body_names, -1 = clear
     block_f: np.ndarray                       # blocked aperture fraction of the owner face
     block_loss_db: np.ndarray                 # per pass
     masked: np.ndarray                        # loss per pass above ship.block_mask_db
@@ -90,6 +102,7 @@ class Geometry:
     body_theta_deg: np.ndarray                # (n_t, 3)
     ship_shadow: np.ndarray                   # (n_t,) share of the solar disk hidden
     nose_rule: List[str] = field(default_factory=list)
+    body_names: List[str] = field(default_factory=lambda: list(BODIES))
 
 
 @lru_cache(maxsize=64)
@@ -167,7 +180,9 @@ def geometry(sc: dict, truth: Truth, times: Optional[np.ndarray] = None) -> Geom
     specs = _specs(sc, truth)
     rows = list(range(1, len(truth.ids)))
     n_t, n_o = len(t_all), len(rows)
-    radius = {b: (SUN_RADIUS_KM if b == "sun" else float(scn.bodies()[b]["radius_km"])) for b in BODIES}
+    names = body_names(truth.body.name)
+    nb = len(names)
+    radius = {b: (SUN_RADIUS_KM if b == "sun" else float(scn.bodies()[b]["radius_km"])) for b in names}
 
     # per object: class target, aspect tables, RCS offset, nose rule, tumble axis
     tabs, offs, rules, tumble = [], np.zeros(n_o), [], {}
@@ -214,13 +229,13 @@ def geometry(sc: dict, truth: Truth, times: Optional[np.ndarray] = None) -> Geom
     face = -np.ones(shp, np.int8)
     occ = -np.ones(shp, np.int8)
     masked = np.zeros(shp, bool)
-    b_ang = np.full(shp + (3,), np.nan)
+    b_ang = np.full(shp + (nb,), np.nan)
     ship_m = np.full((n_t, 3, 3), np.nan)
-    b_dir = np.full((n_t, 3, 3), np.nan)
-    b_rng = np.full((n_t, 3), np.nan)
-    b_rad = np.full((n_t, 3), np.nan)
-    b_face = -np.ones((n_t, 3), np.int8)
-    b_th = np.full((n_t, 3), np.nan)
+    b_dir = np.full((n_t, nb, 3), np.nan)
+    b_rng = np.full((n_t, nb), np.nan)
+    b_rad = np.full((n_t, nb), np.nan)
+    b_face = -np.ones((n_t, nb), np.int8)
+    b_th = np.full((n_t, nb), np.nan)
     shadow = np.zeros(n_t)
 
     for it, t in enumerate(t_all):
@@ -230,20 +245,20 @@ def geometry(sc: dict, truth: Truth, times: Optional[np.ndarray] = None) -> Geom
         ship_m[it] = m
         # bodies, ship-centred (ICRF axes)
         T = eph.centuries_tt(epoch, float(t))
-        moon_geo, sun_geo = eph.moon_icrf_km(T), eph.sun_icrf_km(T)
-        ship_geo = rs if truth.body.name == "earth" else moon_geo + rs
-        bpos = np.array([sun_geo - ship_geo, -ship_geo, moon_geo - ship_geo])
+        geo_at = {b: eph.body_icrf_km(b, T) for b in names}
+        ship_geo = geo_at[truth.body.name] + rs
+        bpos = np.array([geo_at[b] - ship_geo for b in names])
         bd = np.linalg.norm(bpos, axis=1)
         bu = bpos / bd[:, None]
         b_rng[it] = bd
-        b_rad[it] = np.degrees(np.arcsin(np.minimum(1.0, np.array([radius[b] for b in BODIES]) / bd)))
+        b_rad[it] = np.degrees(np.arcsin(np.minimum(1.0, np.array([radius[b] for b in names]) / bd)))
         b_dir[it] = bu @ m
         fo, w, _, _ = opt.face_of(b_dir[it, :, 0], b_dir[it, :, 1], b_dir[it, :, 2])
         b_face[it] = fo
         b_th[it] = np.where(fo >= 0, np.degrees(np.arccos(np.clip(w, 0.0, 1.0))), np.nan)
         rsun = math.radians(b_rad[it, 0])
         hid = sum(_disk_overlap(rsun, math.radians(b_rad[it, k]),
-                                math.radians(float(_angle_deg(bu[0], bu[k])))) for k in (1, 2))
+                                math.radians(float(_angle_deg(bu[0], bu[k])))) for k in range(1, nb))
         shadow[it] = min(1.0, hid / (math.pi * rsun * rsun))
 
         ro, vo = r[rows], v[rows]
@@ -290,12 +305,12 @@ def geometry(sc: dict, truth: Truth, times: Optional[np.ndarray] = None) -> Geom
         fr = a_e - k0
         out["rcs_s_dbsm"][it, e] = tab_s[e, k0] + fr * (tab_s[e, k0 + 1] - tab_s[e, k0]) + offs[e]
         out["rcs_ku_dbsm"][it, e] = tab_ku[e, k0] + fr * (tab_ku[e, k0 + 1] - tab_ku[e, k0]) + offs[e]
-        # G7 occultation by the Earth and the Moon (segment ship -> object against each sphere)
-        for k in (1, 2):
+        # G7 occultation by the bodies but the Sun (segment ship -> object against each sphere)
+        for k in range(1, nb):
             c = bpos[k]
             s = np.clip((los @ c) / (rng_km * rng_km), 0.0, 1.0)
             dmin = np.linalg.norm(los * s[:, None] - c, axis=1)
-            hit = ex & (dmin < radius[BODIES[k]]) & (occ[it] < 0)
+            hit = ex & (dmin < radius[names[k]]) & (occ[it] < 0)
             occ[it][hit] = k
         # G7 structure of the owner face
         for k in range(len(opt.FACE_PHI)):
@@ -313,4 +328,4 @@ def geometry(sc: dict, truth: Truth, times: Optional[np.ndarray] = None) -> Geom
                     f_s_ghz=F_S_GHZ, f_ku_ghz=F_KU_GHZ, rcs_offset_db=offs, exists=exists,
                     dir_ship=dir_ship, nose_ship=nose_sh, face=face, occulted_by=occ, masked=masked, body_angle_deg=b_ang,
                     ship_m=ship_m, body_dir_ship=b_dir, body_range_km=b_rng, body_radius_deg=b_rad, body_face=b_face,
-                    body_theta_deg=b_th, ship_shadow=shadow, nose_rule=rules, **out)
+                    body_theta_deg=b_th, ship_shadow=shadow, nose_rule=rules, body_names=names, **out)

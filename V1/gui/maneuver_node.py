@@ -313,8 +313,8 @@ class NodeTool:
             e = v._dyn.get(f"{NAME}{name}")
             if e is not None:
                 e[2].GetProperty().SetPointSize(2.0 * size)
-        v._labels(f"{NAME}handle_lbl", np.array(lab_p), lab_t, LABEL_COLOR, 8)
-        v._labels(f"{NAME}value_lbl", (q - (ring_px + 0.3 * px) * wpp * up)[None], [self._value_text()], LABEL_COLOR, 9)
+        v._labels(f"{NAME}handle_lbl", np.array(lab_p), lab_t, LABEL_COLOR, 12)
+        v._labels(f"{NAME}value_lbl", (q - (ring_px + 0.3 * px) * wpp * up)[None], [self._value_text()], LABEL_COLOR, 14)
         self._screen = dict(cx=cx, cy=cy, ring=ring_px, mark=mark_px, ends=ends)
 
     def _value_text(self) -> str:

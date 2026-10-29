@@ -64,6 +64,12 @@ TRACK_FRAME_K: float = P.get("tracking.track_frame_k")
 SKY_NAV_TOL_DEG: float = P.get(_T + "sky_nav_tol_deg")       # sky central body vs navigation: alert beyond
 LIMB_ALT_KM_DEFAULT: float = P.get(_T + "limb_alt_km")
 BODY_RADIUS_KM: Dict[str, float] = {k: float(v["radius_km"]) for k, v in P.section("sky.surface").items()}
+# the simulator's other bodies too (user, 30 October 2026: a scenario around any celestial body exports its mission):
+# the Sun, the planets, the major moons; their radar surface (clutter) is not modelled yet, the sky.surface types are
+BODY_RADIUS_KM.setdefault("sun", float(P.get("sim.sun_radius_km")))
+for _sec in ("sim.planets", "sim.moons"):
+    for _k, _v in P.section(_sec).items():
+        BODY_RADIUS_KM.setdefault(_k, float(dict(_v)["radius_km"]))
 
 
 # ----------------------------------------------------------------------------- rotations
@@ -168,8 +174,8 @@ def validate_nav(nav) -> List[str]:
         errs.append(f"{tag}: attitude_ref 'rtn' needs the orbit (central_body, r_km, v_kms)")
     if orbit and len(orbit) == 3:
         if n["central_body"] not in BODY_RADIUS_KM:
-            errs.append(f"{tag}: central_body '{n['central_body']}' is not a type of sky.surface "
-                        f"({', '.join(BODY_RADIUS_KM)})")
+            errs.append(f"{tag}: central_body '{n['central_body']}' is not a known body (sky.surface, sim.planets, "
+                        f"sim.moons: {', '.join(BODY_RADIUS_KM)})")
         elif not (_vec3(n["r_km"]) and _vec3(n["v_kms"])):
             errs.append(f"{tag}: r_km and v_kms must be vectors [x, y, z]")
         else:

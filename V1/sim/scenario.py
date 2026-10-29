@@ -9,7 +9,7 @@ It describes the WORLD only (the radar is the mission file it cites); values of 
             "seed": int (default 1), "nav_errors": bool (default false: the navigation is the truth),
             "log_nav": bool (default false: the 100 Hz navigation is not stored in the journal),
             "sun_type": a sun type of [sky.tb_k] (default "sun"), "earth_type": an earth type (default "earth")},
-   "central_body": "earth" | "moon" (a body of [sim.bodies]; default "earth"),
+   "central_body": any body of bodies(): "earth" (default), "moon", "sun", a planet, a major moon,
    "mission": path of the mission-preparation file (optional, relative to the scenario),
    "ship": {"name": the ship's name in the views (default "OWNSHIP"; no effect on the physics), "orbit": ORBIT,
             "attitude": [WAYPOINT, ...] (sim/attitude.py; default prograde, roll 0)},
@@ -69,13 +69,40 @@ _MAN_TYPES = ("impulse", "burn", "singer", "pn")
 _FRAMES = ("rtn", "pnr", "inertial")
 
 
+_BODIES: Optional[Dict[str, dict]] = None
+
+
 def bodies() -> Dict[str, dict]:
-    """Central bodies of the simulator ([sim.bodies]: mu, J2, equatorial radius, mean radius); empty when the section
-    is missing from the parameter file (validate() says so)."""
+    """The bodies a scenario can have as its central body (user, 30 October 2026: any celestial body): the Earth and
+    the Moon ([sim.bodies]), the Sun (sim.sun_*, its IAU pole), the planets ([sim.planets]) and the major moons
+    ([sim.moons]: J2 0, their pole their orbit's normal in 2050, the moons being locked on their planets); each mu,
+    J2, equatorial and mean radii, pole. Empty when [sim.bodies] is missing from the parameter file (validate()
+    says so)."""
+    global _BODIES
+    if _BODIES is not None:
+        return _BODIES
     try:
-        return {k: dict(v) for k, v in P.section("sim.bodies").items()}
+        out = {k: dict(v) for k, v in P.section("sim.bodies").items()}
     except KeyError:
         return {}
+    from sim import ephemeris as eph
+    rot = dict(P.get("sim.sun_rotation"))
+    out["sun"] = {"mu_km3_s2": float(P.get("sim.sun_mu_km3_s2")), "j2": float(P.get("sim.sun_j2")),
+                  "r_eq_km": float(P.get("sim.sun_radius_km")), "radius_km": float(P.get("sim.sun_radius_km")),
+                  "pole_ra_deg": float(rot["pole_ra_deg"]), "pole_dec_deg": float(rot["pole_dec_deg"])}
+    for k, v in P.section("sim.planets").items():
+        v = dict(v)
+        out[k] = {key: float(v[key]) for key in ("mu_km3_s2", "j2", "r_eq_km", "radius_km", "pole_ra_deg",
+                                                  "pole_dec_deg")}
+    T2050 = 0.5
+    for k, v in eph.moons().items():
+        pole = eph.orbit_pole(k, T2050)
+        out[k] = {"mu_km3_s2": float(v["mu_km3_s2"]), "j2": 0.0, "r_eq_km": float(v["radius_km"]),
+                  "radius_km": float(v["radius_km"]),
+                  "pole_ra_deg": math.degrees(math.atan2(pole[1], pole[0])) % 360.0,
+                  "pole_dec_deg": math.degrees(math.asin(max(-1.0, min(1.0, float(pole[2])))))}
+    _BODIES = out
+    return out
 
 
 def sky_types(body: str) -> List[str]:

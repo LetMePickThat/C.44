@@ -31,6 +31,12 @@ def std_icon(widget: QWidget, name: Optional[str]):
 
 # the attributions of the textures of the Earth, the Moon and the Sun (assets/textures), shown by File > About
 TEXTURE_ATTRIBUTIONS = ("Creative Commons Attribution 4.0 International", "NASA")
+MODEL_ATTRIBUTIONS = (                            # the moons' shape models (user, 29 October 2026)
+    "Phobos, Deimos: NASA/JPL-Caltech",
+    "Thomas, P., Joseph, J., and Ansty, T., Saturn Small Moon Shape Models V1.0. "
+    "urn:nasa:pds:saturn_satellite_shape_models::1.0. NASA Planetary Data System, 2018",
+    "Stooke, P., Small Body Shape Models. EAR-A-5-DDR-STOOKE-SHAPE-MODELS-V2.0. NASA Planetary Data System, 2002",
+    "Schenk, P. (2010) New Moons – First Global Topographic Maps of (Saturn's) Icy Moons")
 
 
 def show_about(parent: QWidget, tool: str) -> None:
@@ -42,6 +48,7 @@ def show_about(parent: QWidget, tool: str) -> None:
     from gui.sky import ATTRIBUTIONS as SKY
     box.setInformativeText("<p style='white-space:pre'>Textures of the Earth, the Moon and the Sun:<br>"
                            + "<br>".join(TEXTURE_ATTRIBUTIONS) + "<br><br>Sky:<br>" + "<br>".join(SKY)
+                           + "<br><br>3D models:<br>" + "<br>".join(MODEL_ATTRIBUTIONS)
                            + "</p>")                                             # lines kept whole
     box.setStandardButtons(QMessageBox.Ok)
     box.exec_()

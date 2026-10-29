@@ -44,7 +44,7 @@ def test_valid_scenario_and_defaults():
 
 @pytest.mark.parametrize("edit, words", [
     (lambda s: s["meta"].update(epoch_utc="yesterday"), "ISO 8601"),
-    (lambda s: s.update(central_body="mars"), "unknown"),
+    (lambda s: s.update(central_body="vulcan"), "unknown"),   # (any body of the simulator is valid, Mars too)
     (lambda s: s["objects"].append(copy.deepcopy(s["objects"][0])), "used twice"),
     (lambda s: s["objects"][0].update({"class": "XX"}), "class must be"),
     (lambda s: s["objects"][0]["state"].update(range_km=-1.0), "range_km must be > 0"),
@@ -933,16 +933,38 @@ def test_sim_view_offscreen(tmp_path):
     assert {"body_earth", "body_earth_atm", "body_moon", "body_sun"} <= set(names)
     # a celestial body selected: its orbit and those of the bodies orbiting it (user, 29 October 2026)
     from gui.sim_view import BODY_SEL
+    def orbits():                                       # the orbits drawn: one actor each (its part near t)
+        return sorted(n[len(DYN) + 6:-5] for n, e in v._dyn.items()
+                      if n.startswith(DYN + "orbit_") and n.endswith("_near") and e[2].GetVisibility())
     for name, n_orbits in (("Sun", 9), ("Earth", 2), ("Moon", 2)):   # (+ the central body's, the Earth's, always;
         #                                                                the Sun: the Earth and the eight planets)
         v.select(BODY_SEL + name)
-        e = v._dyn[DYN + "body_orbits"]
-        assert e[2].GetVisibility() and e[1].n_lines == n_orbits
+        assert len(orbits()) == n_orbits and "earth" in orbits()
     v.select(BODY_SEL + "Sun")                          # the Earth's orbit around the Sun passes through the Earth
-    d = np.linalg.norm(v._dyn[DYN + "body_orbits"][1].points - v._bodies_at()["earth"], axis=1)
-    assert d.min() < 1e-3 * np.linalg.norm(v._bodies_at()["sun"])
+    near = v._dyn[DYN + "orbit_earth_near"][1].points
+    assert np.linalg.norm(near - v._bodies_at()["earth"], axis=1).min() < 1.0     # (km: its part near t)
     v.select(None)                                      # nothing selected: the central body's orbit alone
-    assert v._dyn[DYN + "body_orbits"][2].GetVisibility() and v._dyn[DYN + "body_orbits"][1].n_lines == 1
+    assert orbits() == ["earth"]
+    from gui.sim_view import BODY_PARENT
+    v.cb_all_orbits.setChecked(True)                    # "all orbits": every body's, whatever the selection
+    assert len(orbits()) == len(BODY_PARENT)
+    v.cb_all_orbits.setChecked(False)
+    assert orbits() == ["earth"]
+    v.set_centre("Jupiter")                             # a click on a moon beside its planet: the planet (user)
+    cam = v.plotter.camera
+    f = np.asarray(cam.GetFocalPoint())
+    u = np.asarray(cam.GetPosition()) - f
+    cam.SetPosition(*(f + 5e8 * u / np.linalg.norm(u)))    # (far: Io a few px from Jupiter)
+    v.plotter.renderer.ResetCameraClippingRange()
+    io_xy = v.node._display(v._bodies_at()["io"])
+    assert v._body_under(*io_xy) == "Jupiter"
+    v.set_centre(CENTRAL)
+    assert v._sun_light.positional and np.allclose(v._sun_light.position, v._bodies_at()["sun"])   # the Sun's light
+    assert v._actor("body_jupiter").GetProperty().GetLighting() and not v._actor("body_sun").GetProperty().GetLighting()
+    body_names = v._lab.get(DYN + "planet_lbl")         # the bodies' names follow "labels", their dots stay
+    v.cb_labels.setChecked(False)
+    assert body_names is None or not body_names.actor.GetVisibility()
+    v.cb_labels.setChecked(True)
     assert DYN + "sun" not in names                                    # no Sun arrow (the Sun is drawn)
     atm = v.plotter.actors["body_earth_atm"].user_matrix                 # the halo on the Earth, a bit larger
     assert np.allclose(atm[:3, 3], v.plotter.actors["body_earth"].user_matrix[:3, 3])
@@ -1187,6 +1209,31 @@ def test_major_moons():
     if prop.MOONS_GRAVITY:
         tb = prop.ThirdBodies("earth", datetime(2050, 1, 1, tzinfo=timezone.utc), 600.0)
         assert tb.names[-len(eph.MOON_NAMES):] == eph.MOON_NAMES
+
+
+def test_any_central_body():
+    """Any celestial body as the scenario's central body (user, 30 October 2026): the others pull (the Earth among
+    them), a low orbit around Europa stays near circular under Jupiter's tide, the geometry adds the central body
+    and its planet as occulters, the mission exports with its navigation around it."""
+    for central, alt in (("europa", 100.0), ("jupiter", 2.0e5), ("sun", 1.0e8)):
+        R = scn.bodies()[central]["radius_km"]
+        sc = {"meta": {"name": central, "epoch_utc": "2050-01-01T00:00:00Z", "duration_s": 1200.0, "step_s": 1.0},
+              "central_body": central, "mission": os.path.abspath(MISSION),
+              "ship": {"orbit": {"type": "elements", "a_km": R + alt, "e": 0.0, "i_deg": 30.0, "raan_deg": 0.0,
+                                 "argp_deg": 0.0, "nu_deg": 0.0}}, "objects": [], "groups": []}
+        assert scn.validate(sc) == []
+        sc = scn.normalise(sc)
+        tr = prop.propagate(sc)
+        assert tr.body.name == central and "earth" in prop.ThirdBodies(central, scn.epoch(sc), 60.0).names
+        r = np.linalg.norm(tr.r_km[:, 0], axis=1)
+        assert np.all(np.abs(r - (R + alt)) < 1e-3 * (R + alt))
+        g = geo.geometry(sc, tr)
+        assert g.body_names[:3] == ["sun", "earth", "moon"] and (central == "sun" or central in g.body_names)
+        if central == "europa":
+            assert "jupiter" in g.body_names
+        m, _alerts = engine.mission_at(sc, tr, 600.0)
+        nav = m["global"]["nav"]
+        assert nav[0]["central_body"] == central and frames.validate_nav(nav) == []
 
 
 def test_identity_colours_match_the_symbology():

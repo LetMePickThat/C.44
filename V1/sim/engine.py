@@ -135,21 +135,26 @@ def sky_at(sc: dict, truth: Truth, t: float, g: Optional[geo.Geometry] = None) -
     """The mission sky at t, ship frame (core/sky.py format). g: the geometry at [t] when already computed."""
     g = geo.geometry(sc, truth, np.array([float(t)])) if g is None else g
     meta = sc["meta"]
+    # the radar sky knows the Sun, the Earth and the Moon (their types); another body (the central one, its planet:
+    # user, 30 October 2026) only hides the others and the objects, no noise, no clutter of its own yet
     types = {"sun": meta.get("sun_type", "sun"), "earth": meta.get("earth_type", "earth"), "moon": "moon"}
     r, v = geo.states_at(truth, float(t))
     T = eph.centuries_tt(scn.epoch(sc), float(t))
-    h = 30.0                                                      # s, central difference of the Moon's velocity
-    v_moon = (eph.moon_icrf_km(T + h / 3.15576e9) - eph.moon_icrf_km(T - h / 3.15576e9)) / (2.0 * h)
-    v_body = {"earth": np.zeros(3) if truth.body.name == "earth" else -v_moon,
-              "moon": v_moon if truth.body.name == "earth" else np.zeros(3)}
+    h = 30.0                                                      # s, central difference of the bodies' velocities
+    dT = h / 3.15576e9
+    central = truth.body.name
+    v_body = {b: ((eph.body_icrf_km(b, T + dT) - eph.body_icrf_km(central, T + dT))
+                  - (eph.body_icrf_km(b, T - dT) - eph.body_icrf_km(central, T - dT))) / (2.0 * h)
+              for b in ("earth", "moon")}                         # (km/s, from the central body: as the ship's)
     m = g.ship_m[0]
     bodies = []
-    for k, b in enumerate(geo.BODIES):
+    names = g.body_names
+    for k, b in enumerate(names):
         d, rad, rng = g.body_dir_ship[0, k], float(g.body_radius_deg[0, k]), float(g.body_range_km[0, k])
         hidden = any(float(g.body_range_km[0, j]) < rng
                      and math.degrees(math.acos(float(np.clip(d @ g.body_dir_ship[0, j], -1.0, 1.0)))) + rad
-                     <= float(g.body_radius_deg[0, j]) for j in range(len(geo.BODIES)) if j != k)
-        if hidden:
+                     <= float(g.body_radius_deg[0, j]) for j in range(len(names)) if j != k)
+        if hidden or b not in types:
             continue
         phi, eps = _phi_eps(d)
         item = {"id": b.upper(), "type": types[b], "phi_deg": phi, "eps_deg": eps,
@@ -258,6 +263,8 @@ def load_journal(path: str) -> Tuple[dict, Truth, geo.Geometry, Optional[Dict[st
         truth = Truth(body=Body.of(str(z["truth.body"])), **kw)
         gk = {}
         for f in dataclasses.fields(geo.Geometry):
+            if f"geo.{f.name}" not in z.files:              # (a field added since: its default)
+                continue
             a = z[f"geo.{f.name}"]
             if a.dtype.kind == "U":
                 gk[f.name] = json.loads(str(a))

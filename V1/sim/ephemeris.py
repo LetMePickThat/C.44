@@ -316,3 +316,26 @@ def satellite_planetocentric_km(name: str, T: float) -> np.ndarray:
 def satellite_icrf_km(name: str, T: float) -> np.ndarray:
     """Geocentric position of a moon (km, ICRF axes): its planet's + its own about it."""
     return planet_icrf_km(_MOONS[name]["planet"], T) + satellite_planetocentric_km(name, T)
+
+
+# ----------------------------------------------------------------------------- any body (user, 30 October 2026)
+def body_icrf_km(name: str, T: float) -> np.ndarray:
+    """Geocentric position (km, ICRF axes) of any body of the simulator: the Sun, the Earth (0), the Moon, a planet,
+    a major moon."""
+    if name == "earth":
+        return np.zeros(3)
+    if name == "sun":
+        return sun_icrf_km(T)
+    if name == "moon":
+        return moon_icrf_km(T)
+    if name in PLANET_ELEMENTS:
+        return planet_icrf_km(name, T)
+    return satellite_icrf_km(name, T)
+
+
+def orbit_pole(name: str, T: float) -> np.ndarray:
+    """A moon's orbit normal at T (ICRF; its pole: the moons are locked on their planets)."""
+    r0 = satellite_planetocentric_km(name, T)
+    r1 = satellite_planetocentric_km(name, T + 60.0 / 86400.0 / 36525.0)
+    n = np.cross(r0, r1 - r0)
+    return n / np.linalg.norm(n)

@@ -68,32 +68,29 @@ class ThirdBodies:
     between its points, and their differential attraction on positions r (O1)."""
 
     def __init__(self, central: str, epoch, duration_s: float):
+        # every body but the central one (user, 30 October 2026: any body can be the central one): the Earth, the
+        # Moon, the Sun, then the planets (sim.planets_gravity) and the major moons (sim.moons_gravity)
         b = scn.bodies()
-        other = "moon" if central == "earth" else "earth"
-        planets = list(eph.PLANETS) if PLANETS_GRAVITY else []
-        moons = list(eph.MOON_NAMES) if MOONS_GRAVITY else []
-        self.names = (other, "sun", *planets, *moons)
-        self.mu = np.array([float(b[other]["mu_km3_s2"]), SUN_MU] +
-                           [float(P.get(f"sim.planets.{p}")["mu_km3_s2"]) for p in planets] +
-                           [float(eph._MOONS[m]["mu_km3_s2"]) for m in moons])
+        names = [x for x in ("earth", "moon", "sun") if x != central]
+        names += [x for x in eph.PLANETS if PLANETS_GRAVITY and x != central]
+        names += [x for x in eph.MOON_NAMES if MOONS_GRAVITY and x != central]
+        self.names = tuple(names)
+        self.mu = np.array([SUN_MU if x == "sun" else float(b[x]["mu_km3_s2"]) for x in names])
         self.t0 = -THIRD_BODY_STEP_S
         n = int(math.ceil(duration_s / THIRD_BODY_STEP_S)) + 4
         ts = self.t0 + THIRD_BODY_STEP_S * np.arange(n)
-        pos = np.empty((n, 2 + len(planets) + len(moons), 3))
+        pos = np.empty((n, len(names), 3))
         for k, t in enumerate(ts):
             T = eph.centuries_tt(epoch, float(t))
-            moon, sun = eph.moon_icrf_km(T), eph.sun_icrf_km(T)
-            centre = np.zeros(3) if central == "earth" else moon
-            pos[k, :2] = (moon - centre if other == "moon" else -centre), sun - centre
-            at = {}
-            for j, p in enumerate(planets):             # (geocentric, then from the central body)
-                at[p] = eph.planet_icrf_km(p, T)
-                pos[k, 2 + j] = at[p] - centre
-            for j, m in enumerate(moons):
-                pl = eph._MOONS[m]["planet"]
-                if pl not in at:
-                    at[pl] = eph.planet_icrf_km(pl, T)
-                pos[k, 2 + len(planets) + j] = at[pl] + eph.satellite_planetocentric_km(m, T) - centre
+            at = {"earth": np.zeros(3), "sun": eph.sun_icrf_km(T)}           # geocentric, then from the central body
+            for x in list(names) + [central]:
+                if x not in at:
+                    if x in eph._MOONS and eph._MOONS[x]["planet"] not in at:
+                        at[eph._MOONS[x]["planet"]] = eph.planet_icrf_km(eph._MOONS[x]["planet"], T)
+                    at[x] = (at[eph._MOONS[x]["planet"]] + eph.satellite_planetocentric_km(x, T)
+                             if x in eph._MOONS else eph.body_icrf_km(x, T))
+            centre = at[central]
+            pos[k] = np.array([at[x] for x in names]) - centre
         self.pos = pos
         self._cache: Dict[float, np.ndarray] = {}          # the few instants of the current step (RK4 stages)
 
