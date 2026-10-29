@@ -303,7 +303,8 @@ class MarkedSlider(QSlider):
             p.drawLine(int(round(x)), 1, int(round(x)), h - 2)
 
     def mouseMoveEvent(self, event) -> None:
-        c = self._near(event.pos().x())
+        # no balloon while a button is held (the handle dragged over the marks, user 29 October 2026)
+        c = self._near(event.pos().x()) if event.buttons() == Qt.NoButton and not self.isSliderDown() else None
         if c is None:
             QToolTip.hideText()
         else:

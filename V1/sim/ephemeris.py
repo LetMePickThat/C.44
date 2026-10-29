@@ -8,6 +8,9 @@ J. Meeus, Astronomical Algorithms (2nd ed.), geocentric, geometric (no aberratio
     ~10 arcsec in longitude, ~0.1 km class in distance;
   - ecliptic and mean equinox OF DATE -> mean equator of date (mean obliquity, 22.2) -> J2000 / ICRF axes by the
     IAU 1976 precession (21.2-21.4); the frame bias ICRF - J2000 (~20 mas) is left out.
+Planets (user, 29 October 2026): Mercury to Pluto from the JPL approximate Keplerian elements (Standish, table
+2a / 2b, 3000 BC - AD 3000), heliocentric, ecliptic of J2000 -> ICRF, geocentric with the Sun above (within 0.1 %
+of the known distances of Mars and Jupiter at their close approaches).
 Time: the scenario epoch is UTC; TT = UTC + sim.tai_utc_s + 32.184 s (future leap seconds unknown: constant).
 """
 from __future__ import annotations
@@ -150,3 +153,73 @@ def moon_ecliptic(T: float):
 def moon_icrf_km(T: float) -> np.ndarray:
     """Geocentric position of the Moon (km, ICRF axes)."""
     return ecliptic_to_icrf(*moon_ecliptic(T), T)
+
+
+# ----------------------------------------------------------------------------- planets (user, 29 October 2026)
+# E. M. Standish, JPL "Keplerian Elements for Approximate Positions of the Major Planets", table 2a (3000 BC to
+# AD 3000; heliocentric, mean ecliptic and equinox of J2000): a (au), e, I, L, long. of perihelion, long. of node
+# (deg), each with its rate per Julian century; table 2b: the terms b, c, s, f added to the mean anomaly of Jupiter
+# to Neptune. Mercury to Neptune as read on ssd.jpl.nasa.gov/planets/approx_pos.html (29 October 2026); Pluto from
+# the former version of the same table (no longer published there: not checked against the source).
+PLANET_ELEMENTS = {
+    "mercury": ((0.38709843, 0.20563661, 7.00559432, 252.25166724, 77.45771895, 48.33961819),
+                (0.00000000, 0.00002123, -0.00590158, 149472.67486623, 0.15940013, -0.12214182)),
+    "venus": ((0.72332102, 0.00676399, 3.39777545, 181.97970850, 131.76755713, 76.67261496),
+              (-0.00000026, -0.00005107, 0.00043494, 58517.81560260, 0.05679648, -0.27274174)),
+    "mars": ((1.52371243, 0.09336511, 1.85181869, -4.56813164, -23.91744784, 49.71320984),
+             (0.00000097, 0.00009149, -0.00724757, 19140.29934243, 0.45223625, -0.26852431)),
+    "jupiter": ((5.20248019, 0.04853590, 1.29861416, 34.33479152, 14.27495244, 100.29282654),
+                (-0.00002864, 0.00018026, -0.00322699, 3034.90371757, 0.18199196, 0.13024619)),
+    "saturn": ((9.54149883, 0.05550825, 2.49424102, 50.07571329, 92.86136063, 113.63998702),
+               (-0.00003065, -0.00032044, 0.00451969, 1222.11494724, 0.54179478, -0.25015002)),
+    "uranus": ((19.18797948, 0.04685740, 0.77298127, 314.20276625, 172.43404441, 73.96250215),
+               (-0.00020455, -0.00001550, -0.00180155, 428.49512595, 0.09266985, 0.05739699)),
+    "neptune": ((30.06952752, 0.00895439, 1.77005520, 304.22289287, 46.68158724, 131.78635853),
+                (0.00006447, 0.00000818, 0.00022400, 218.46515314, 0.01009938, -0.00606302)),
+    "pluto": ((39.48686035, 0.24885238, 17.14104260, 238.96535011, 224.09702598, 110.30167986),
+              (0.00449751, 0.00006016, 0.00000501, 145.18042903, -0.00968827, -0.00809981)),
+}
+PLANET_M_TERMS = {                                # b (deg/Cy2), c, s (deg), f (deg/Cy)
+    "jupiter": (-0.00012452, 0.06064060, -0.35635438, 38.35125000),
+    "saturn": (0.00025899, -0.13434469, 0.87320147, 38.35125000),
+    "uranus": (0.00058331, -0.97731848, 0.17689245, 7.67025000),
+    "neptune": (-0.00041348, 0.68346318, -0.10162547, 7.67025000),
+    "pluto": (-0.01262724, 0.0, 0.0, 0.0),
+}
+PLANETS = tuple(PLANET_ELEMENTS)
+_EPS_J2000 = math.radians(23.43928)               # ecliptic of J2000 -> equator of J2000 (Standish)
+
+
+def _kepler(m: float, e: float) -> float:
+    """Eccentric anomaly (rad) of the mean anomaly m (rad)."""
+    E = m + e * math.sin(m)
+    for _ in range(30):
+        d = (E - e * math.sin(E) - m) / (1.0 - e * math.cos(E))
+        E -= d
+        if abs(d) < 1e-12:
+            break
+    return E
+
+
+def planet_helio_icrf_km(name: str, T: float) -> np.ndarray:
+    """Heliocentric position (km, ICRF axes) of a planet at T (Julian centuries from J2000; TT taken as TDB)."""
+    el, rate = PLANET_ELEMENTS[name]
+    a, e, inc, L, varpi, node = (x + r * T for x, r in zip(el, rate))
+    m = L - varpi
+    if name in PLANET_M_TERMS:
+        b, c, s, f = PLANET_M_TERMS[name]
+        m += b * T * T + c * math.cos(math.radians(f * T)) + s * math.sin(math.radians(f * T))
+    m = math.radians((m + 180.0) % 360.0 - 180.0)
+    E = _kepler(m, e)
+    xp, yp = a * (math.cos(E) - e), a * math.sqrt(1.0 - e * e) * math.sin(E)
+    w, O, i = math.radians(varpi - node), math.radians(node), math.radians(inc)
+    cw, sw, cO, sO, ci, si = math.cos(w), math.sin(w), math.cos(O), math.sin(O), math.cos(i), math.sin(i)
+    ecl = np.array([(cw * cO - sw * sO * ci) * xp + (-sw * cO - cw * sO * ci) * yp,
+                    (cw * sO + sw * cO * ci) * xp + (-sw * sO + cw * cO * ci) * yp,
+                    (sw * si) * xp + (cw * si) * yp])
+    return AU_KM * (_rx(_EPS_J2000) @ ecl)
+
+
+def planet_icrf_km(name: str, T: float) -> np.ndarray:
+    """Geocentric position of a planet (km, ICRF axes): heliocentric + the geocentric Sun."""
+    return planet_helio_icrf_km(name, T) + sun_icrf_km(T)

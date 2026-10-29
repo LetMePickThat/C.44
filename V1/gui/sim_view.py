@@ -116,6 +116,7 @@ SELECT_PX = 44                                    # px: the square around the se
 # multitracks (user, 29 October 2026): objects of one identity and class closer than this on screen (centre to
 # centre, x the UI size) drawn as one symbol with a doubled outline, their number under it in the frame's colour
 MULTITRACK_PX = float(P.get("tool.display.sim_multitrack_px"))
+MULTITRACK_OFF_KM = float(P.get("tool.display.sim_multitrack_off_km"))   # ... none when zoomed in under this (user)
 MT_COUNT_GAP_PX = 3.0                             # ... the number this far under the symbol (D)
 MT_SEL = "<multi>"                                # a multitrack's selection key: MT_SEL + its members' ids, "|"
 SELECT_COLOR = "#ffffff"
@@ -138,16 +139,34 @@ OCC_COLOR = "#a0a0a0"
 MASK_COLOR = "#e07b00"
 MIN_IDLE_MS = 15                                  # event-loop time kept between two frames (mouse live while playing)
 SIDEREAL_MONTH_S = 27.321661 * 86400.0            # the Moon's orbit drawn over one sidereal month
+SIDEREAL_YEAR_S = 365.256363 * 86400.0            # the Earth's orbit around the Sun drawn over one sidereal year
+# a celestial body selected shows its orbit and those of the bodies orbiting it (user, 29 October 2026; not for the
+# scenario's objects): its parent, its period
+BODY_PARENT = {"moon": ("earth", SIDEREAL_MONTH_S), "earth": ("sun", SIDEREAL_YEAR_S)}
+BODY_ORBIT_POINTS = 361
+BODY_ORBIT_COLOR = "#8a8a8a"
 PROJ_DASH_DEG = 4.0                               # the arc to the range projection dashed (user): one dash + gap
 PROJ_DASHES = (2, 90)                             # ... per this many degrees of arc, dashes per arc kept between (D)
 FOLLOW_MIN_KM = 50.0                              # "follow the ship": framed span at least this
 TRIAD_FRAC = 0.03                                 # ship triad length, share of the camera distance
 TEXTURE_DIR = cgeo.MOON_TEXTURE_PATH.parent       # assets/textures (equirectangular, 2:1)
 TEXTURE_FILES = {"earth": "earth2.jpg", "moon": "moon.jpg", "sun": "sun.jpg"}   # the Earth: earth2 (user, 29 October 2026)
+# the planets (user, 29 October 2026): positions sim/ephemeris.py, size, pole and rotation [sim.planets], textures
+# <name>.jpg (Saturn's rings saturn_rings.png); too small on screen, a dot and their name
+PLANET_NAMES = {"Mercury": "mercury", "Venus": "venus", "Mars": "mars", "Jupiter": "jupiter", "Saturn": "saturn",
+                "Uranus": "uranus", "Neptune": "neptune", "Pluto": "pluto"}
+PLANET_DATA = {k: dict(P.get(f"sim.planets.{k}")) for k in PLANET_NAMES.values()}
+PLANET_MARK_PX = float(P.get("tool.display.sim_planet_mark_px"))
+PLANET_DOT_PX = 5.0                               # ... the dot's size, px (D)
+PLANET_COLORS = {"mercury": "#a8a29a", "venus": "#e8d6a8", "mars": "#d2694a", "jupiter": "#d8b98c",
+                 "saturn": "#e3cf96", "uranus": "#9fd9e0", "neptune": "#5b7fe0", "pluto": "#c8b49a"}   # (D)
+SATURN_RINGS_KM = tuple(float(x) for x in P.get("tool.display.sim_saturn_rings_km"))
+BODY_PARENT.update({p: ("sun", SIDEREAL_YEAR_S * eph.PLANET_ELEMENTS[p][0][0] ** 1.5)    # (Kepler: P ~ a^1.5)
+                    for p in PLANET_NAMES.values()})
 NEAR_FRAC = 0.01                                  # near clipping plane at least this x the camera distance
 NEAR_TOL = 1e-9                                   # near / far clipping ratio: the Sun at 1 AU, objects at a few km
                                                   # (bodies drawn front faces only: no self-occlusion far away)
-BODY_NAMES = {"Earth": "earth", "Moon": "moon", "Sun": "sun"}   # the bodies the view can centre on
+BODY_NAMES = {"Earth": "earth", "Moon": "moon", "Sun": "sun", **PLANET_NAMES}   # the bodies the view can centre on
 OWNSHIP = "<ship>"                                # the ship's key in the views (row "ship" of the truth), apart
                                                   # from any object id; shown under its scenario name (own_name())
 CENTRAL = "central body"
@@ -301,6 +320,25 @@ def _body_mesh(radius_km: float, n_lon: int = 180, n_lat: int = 90) -> pv.PolyDa
     return mesh.compute_normals(auto_orient_normals=True)
 
 
+@lru_cache(maxsize=1)
+def _rings_mesh() -> pv.PolyData:
+    """Saturn's rings in its equatorial plane (km), the texture across them from the inner to the outer edge."""
+    ring = pv.Disc(inner=SATURN_RINGS_KM[0], outer=SATURN_RINGS_KM[1], r_res=1, c_res=180)
+    r = np.linalg.norm(ring.points[:, :2], axis=1)
+    ring.active_texture_coordinates = np.c_[(r - SATURN_RINGS_KM[0]) / (SATURN_RINGS_KM[1] - SATURN_RINGS_KM[0]),
+                                            np.full(len(r), 0.5)]
+    return ring
+
+
+def _rings_texture() -> Optional[pv.Texture]:
+    path = TEXTURE_DIR / "saturn_rings.png"
+    if not path.exists():
+        return None
+    tex = pv.Texture(str(path))
+    tex.interpolate = True
+    return tex
+
+
 def _earth_matrix(epoch, t_s: float) -> np.ndarray:
     """Earth-fixed -> ICRF: a turn by the Greenwich mean sidereal time about the pole (ICRF Z, as the propagation,
     P2; IAU 1982 GMST, UT1 taken as UTC)."""
@@ -314,12 +352,17 @@ SUN_ROTATION = dict(P.get("sim.sun_rotation"))     # IAU pole and prime meridian
 
 
 def _sun_matrix(epoch, t_s: float) -> np.ndarray:
-    """Sun-fixed -> ICRF (user, 29 October 2026: the bodies turn on themselves): Z the IAU pole, X the prime meridian
+    """Sun-fixed -> ICRF (user, 29 October 2026: the bodies turn on themselves)."""
+    return _iau_matrix(SUN_ROTATION, epoch, t_s)
+
+
+def _iau_matrix(rot: dict, epoch, t_s: float) -> np.ndarray:
+    """Body-fixed -> ICRF of a body with an IAU rotation (the Sun, the planets): Z the IAU pole, X the prime meridian
     W = w0 + rate x days from J2000 (IAU WGCCRE: R = Rz(ra0 + 90) Rx(90 - dec0) Rz(W))."""
     d = ((epoch - eph._J2000).total_seconds() + t_s) / 86400.0
-    a = math.radians(float(SUN_ROTATION["pole_ra_deg"]) + 90.0)
-    b = math.radians(90.0 - float(SUN_ROTATION["pole_dec_deg"]))
-    w = math.radians((float(SUN_ROTATION["w0_deg"]) + float(SUN_ROTATION["rate_deg_day"]) * d) % 360.0)
+    a = math.radians(float(rot["pole_ra_deg"]) + 90.0)
+    b = math.radians(90.0 - float(rot["pole_dec_deg"]))
+    w = math.radians((float(rot["w0_deg"]) + float(rot["rate_deg_day"]) * d) % 360.0)
 
     def rz(x):
         c, s = math.cos(x), math.sin(x)
@@ -351,6 +394,26 @@ def _nice(x: float) -> float:
 def _pairs(n: int) -> np.ndarray:
     """Lines of segment j from point j to point n + j."""
     return np.column_stack([np.full(n, 2), np.arange(n), n + np.arange(n)]).ravel()
+
+
+def _as_groups(rows) -> List[np.ndarray]:
+    """Rows (indices) as groups of one, or groups (arrays of indices) as given."""
+    return [np.atleast_1d(np.asarray(g, int)) for g in rows]
+
+
+def _group_mean(x: np.ndarray, groups: List[np.ndarray]) -> np.ndarray:
+    """x (..., n, 3) -> (..., n_groups, 3): each group the mean of its members where they exist (a multitrack's
+    path, user 29 October 2026), a group of one its member."""
+    out = np.empty(x.shape[:-2] + (len(groups), 3))
+    one = np.array([len(g) == 1 for g in groups], bool)
+    if one.any():
+        out[..., one, :] = x[..., np.array([g[0] for g, o in zip(groups, one) if o], int), :]
+    import warnings
+    for gi in np.flatnonzero(~one):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)      # (no member there yet: NaN)
+            out[..., gi, :] = np.nanmean(x[..., groups[gi], :], axis=-2)
+    return out
 
 
 def _polylines(pts: np.ndarray, ok: np.ndarray):
@@ -831,12 +894,6 @@ class SimView(QWidget):
                                       for i in range(1, len(tr.ids))]
         self._row_rgb = np.array([_rgb(SHIP_COLOR if i == 0 else IDENTITY_COLORS.get(c, "#888888"))
                                   for i, c in enumerate(self._row_ident)], np.uint8)
-        a = self.plotter.actors.get("markers")           # the events' places follow a change of classification
-        rows = getattr(self, "_marker_rows", None)
-        if a is not None and rows is not None and len(rows) == a.GetMapper().GetInput().GetNumberOfPoints():
-            mesh = pv.wrap(a.GetMapper().GetInput())
-            mesh.point_data["rgb"] = self._row_rgb[rows]
-            mesh.Modified()
 
     def _fill_lists(self, row: Optional[Dict[str, str]] = None) -> None:
         """The body the view is centred on kept (renamed by row), the default centre if it is no longer in the run."""
@@ -1086,45 +1143,79 @@ class SimView(QWidget):
         p.add_mesh(_body_mesh(1.0), texture=tex, color=None if tex is not None else SUN_COLOR, lighting=False,
                    culling="back", name="body_sun", render=False)
         _add_sun_halo(p, "body_sun_halo")
+        for name in PLANET_NAMES.values():             # unit spheres, scaled and placed by _place_bodies (unlit: one
+            tex = _texture(name)                        # light, the Sun's seen from the central body, would be wrong)
+            p.add_mesh(_body_mesh(1.0), texture=tex, color=None if tex is not None else PLANET_COLORS[name],
+                       lighting=False, culling="back", name=f"body_{name}", render=False)
+        tex = _rings_texture()
+        p.add_mesh(_rings_mesh(), texture=tex, color=None if tex is not None else PLANET_COLORS["saturn"],
+                   lighting=False, opacity=1.0 if tex is not None else 0.5, name="body_saturn_rings", render=False)
         self._sun_light = pv.Light(light_type="scene light", intensity=1.0)
         self._sun_light.positional = False
         p.add_light(self._sun_light)
         head = pv.Light(light_type="headlight", intensity=0.25)    # the night side stays readable
         p.add_light(head)
-        orbit = self._moon_orbit()
-        p.add_mesh(pv.lines_from_points(orbit), color="#8a8a8a", line_width=1, opacity=0.6, name="moon_orbit",
-                   render=False)
-        pts, labels, rows = [], [], []
-        for t, text in self._marker_events():
+        times, pts, labels, rows = [], [], [], []
+        for t, text in self._marker_events():         # the events' places, drawn at each frame (_draw_markers)
             r = sgeo.states_at(tr, t)[0]
             oid = text.split()[0]
             if oid in tr.ids and np.isfinite(r[tr.row(oid), 0]):
+                times.append(t)
                 pts.append(r[tr.row(oid)])
                 labels.append(text)
                 rows.append(tr.row(oid))
-        self._marker_rows = np.array(rows, int)
-        if pts:                                       # the events' places (labels at the UI size), each in its
-            mesh = pv.PolyData(np.array(pts, float))  # body's colour: its path's, its identity's (user)
-            mesh.point_data["rgb"] = self._row_rgb[self._marker_rows]
-            p.add_mesh(mesh, scalars="rgb", rgb=True, point_size=8, render_points_as_spheres=True, name="markers",
-                       render=False)
-            # their texts at the UI size: kept here (the plotter's list of labels to rescale holds weak references)
-            self._event_labels = _Labels(p, MUTED_COLOR, 9)
-            self._event_labels.set(np.array(pts, float), labels)
+        self._markers = (np.array(times, float), np.array(pts, float).reshape(-1, 3), labels, np.array(rows, int))
         extent = max(float(np.nanmax(np.abs(tr.r_km))) if np.isfinite(tr.r_km).any() else 0.0, 2.0 * body.radius_km)
         self._home = (-extent, extent, -extent, extent, -extent, extent)
         p.reset_camera(render=False, bounds=self._home)
         p._pivot = (0.0, 0.0, 0.0)
         self._centre_pending = True
 
-    def _moon_orbit(self) -> np.ndarray:
-        """The Moon's path around the Earth over one sidereal month centred on the run (the Earth's around the Moon
-        when the Moon is the central body), km from the central body."""
-        mid = 0.5 * self.duration()
-        ts = mid + np.linspace(-0.5, 0.5, 361) * SIDEREAL_MONTH_S
+    def _body_orbits(self) -> None:
+        """Global view: the celestial body selected (user, 29 October 2026): its orbit around its parent (the Moon
+        around the Earth, the Earth around the Sun; none for the Sun) and those of the bodies orbiting it, each over
+        one period centred on t, about its parent's place at t; the scenario's central body's orbit always (user,
+        29 October 2026: the Moon's in a lunar scenario)."""
+        sel = self.selected or ""
+        central = self.truth.body.name
+        shown = [central] if central in BODY_PARENT else []
+        if sel.startswith(BODY_SEL):
+            key = BODY_NAMES.get(sel[len(BODY_SEL):])
+            for b in ([key] if key in BODY_PARENT else []) + [b for b, (par, _p) in BODY_PARENT.items() if par == key]:
+                if b not in shown:
+                    shown.append(b)
+        if not shown:
+            return
+        now = self._bodies_at()
+        pts, lines = [], []
+        for b in shown:
+            rel = self._orbit_shape(b)                        # the body about its parent over the period
+            off = len(pts) * BODY_ORBIT_POINTS
+            pts.append(now[BODY_PARENT[b][0]] + rel)
+            lines.append(np.r_[BODY_ORBIT_POINTS, off + np.arange(BODY_ORBIT_POINTS)])
+        self._poly(f"{DYN}body_orbits", np.vstack(pts), lines=np.hstack(lines), color=BODY_ORBIT_COLOR, line_width=1,
+                   opacity=0.6)
+
+    def _orbit_shape(self, b: str) -> np.ndarray:
+        """The body b about its parent over one period centred on t (km), computed again when t has moved a
+        twentieth of the period (cached: the ephemeris at every frame would slow the playback)."""
+        parent, period = BODY_PARENT[b]
+        cache = getattr(self, "_orbit_cache", {})
+        self._orbit_cache = cache
+        hit = cache.get(b)
+        if hit is not None and hit[0] == id(self.truth) and abs(hit[1] - self.t) < period / 20.0:
+            return hit[2]
         ep = scn.epoch(self.sc)
-        pts = np.array([eph.moon_icrf_km(eph.centuries_tt(ep, float(t))) for t in ts])
-        return pts if self.truth.body.name == "earth" else -pts
+        out = np.empty((BODY_ORBIT_POINTS, 3))
+        for k, dt in enumerate(np.linspace(-0.5, 0.5, BODY_ORBIT_POINTS) * period):
+            T = eph.centuries_tt(ep, float(self.t + dt))
+            at = {"earth": np.zeros(3), "moon": eph.moon_icrf_km(T), "sun": eph.sun_icrf_km(T)}   # geocentric
+            for x in (b, parent):
+                if x in PLANET_DATA:
+                    at[x] = eph.planet_icrf_km(x, T)
+            out[k] = at[b] - at[parent]
+        cache[b] = (id(self.truth), self.t, out)
+        return out
 
     def _place_bodies(self) -> None:
         """V3: the Earth turned by its sidereal angle (pole on the ICRF Z axis as in the propagation, P2), the Moon
@@ -1146,6 +1237,20 @@ class SimView(QWidget):
         halo = self.plotter.actors.get("body_sun_halo")
         if halo is not None:
             _place_halo(self.plotter, halo, pos_b["sun"], eph_sun_radius_km())
+        ep = scn.epoch(self.sc)
+        drawn = {}
+        for name in PLANET_NAMES.values():
+            rad = float(PLANET_DATA[name]["radius_km"])
+            m = _iau_matrix(PLANET_DATA[name], ep, self.t)
+            for actor, k in ((f"body_{name}", rad), ("body_saturn_rings", 1.0) if name == "saturn" else (None, 0.0)):
+                a = self.plotter.actors.get(actor) if actor else None
+                if a is not None:
+                    u = np.eye(4)
+                    u[:3, :3], u[:3, 3] = k * m, pos_b[name]
+                    a.user_matrix = u
+            drawn[name] = (pos_b[name], rad)
+        self._planets_drawn = drawn
+        self._planet_marks()
         light = getattr(self, "_sun_light", None)
         if light is not None:                          # sunlight: parallel rays from the Sun's direction
             light.position = tuple(pos_b["sun"])
@@ -1156,10 +1261,54 @@ class SimView(QWidget):
         T = eph.centuries_tt(scn.epoch(self.sc), self.t)
         moon, sun = eph.moon_icrf_km(T), eph.sun_icrf_km(T)
         centre = np.zeros(3) if self.truth.body.name == "earth" else moon
-        return {"earth": -centre, "moon": moon - centre, "sun": sun - centre}
+        out = {"earth": -centre, "moon": moon - centre, "sun": sun - centre}
+        out.update({p: eph.planet_icrf_km(p, T) - centre for p in PLANET_NAMES.values()})
+        return out
 
     def _body_radius(self, b: str) -> float:
+        if b in PLANET_DATA:
+            return float(PLANET_DATA[b]["radius_km"])
         return eph_sun_radius_km() if b == "sun" else float(scn.bodies()[b]["radius_km"])
+
+    def _planet_marks(self) -> None:
+        """The planets as drawn (_planets_drawn: centre, radius, in the view's axes): those under PLANET_MARK_PX of
+        radius on screen hidden and drawn as a dot in their colour with their name (user, 29 October 2026), the
+        others as their textured sphere (and Saturn's rings). Each frame and each camera change."""
+        drawn = getattr(self, "_planets_drawn", {})
+        cam = self.plotter.camera
+        pos = np.asarray(cam.GetPosition())
+        h_px = max(self.plotter.ren_win.GetSize()[1], 1)
+        k = 2.0 * math.tan(math.radians(0.5 * cam.GetViewAngle())) / h_px          # world per px at unit distance
+        fwd = np.asarray(cam.GetDirectionOfProjection())
+        up = np.asarray(cam.GetViewUp(), float)
+        up = up - (up @ fwd) * fwd
+        up /= max(float(np.linalg.norm(up)), 1e-12)
+        right = np.cross(fwd, up)
+        dist = cam.GetDistance()
+        dirs, rgb, lab_p, lab_t = [], [], [], []
+        prefix = "" if self._global() else f"{DYN}sbody_"
+        for name, (c, rad) in drawn.items():
+            rel = np.asarray(c, float) - pos
+            d = float(np.linalg.norm(rel))
+            small = d <= rad or rad / max(d * k, 1e-300) < PLANET_MARK_PX
+            for actor in (f"{prefix}{name}" if prefix else f"body_{name}",) + (
+                    (f"{prefix}saturn_rings" if prefix else "body_saturn_rings",) if name == "saturn" else ()):
+                a = self.plotter.actors.get(actor)
+                if a is not None:
+                    a.SetVisibility(not small)
+            if small and d > rad:
+                u = rel / d
+                dirs.append(u)
+                rgb.append(_rgb(PLANET_COLORS[name]))
+                lab_p.append(pos + dist * u + 6.0 * k * dist * right)     # its name beside the dot
+                lab_t.append(next(n for n, key in PLANET_NAMES.items() if key == name))
+        self.sky.set_dots(np.array(dirs).reshape(-1, 3), np.array(rgb, np.uint8).reshape(-1, 3), PLANET_DOT_PX)
+        if lab_t:
+            self._labels(f"{DYN}planet_lbl", np.array(lab_p), lab_t, MUTED_COLOR, 9)
+        else:
+            lab = self._lab.get(f"{DYN}planet_lbl")
+            if lab is not None:
+                lab.actor.SetVisibility(False)
 
     def _clip(self) -> None:
         """Before every render: the near plane at NEAR_FRAC of the camera's distance to its focal point (at least),
@@ -1217,6 +1366,8 @@ class SimView(QWidget):
         self._place_symbols()                         # SYMBOL_PX on screen whatever the camera does
         self._place_scaled()                          # the axes and noses too (user)
         self.node.place()                             # the manoeuvre node too
+        if self.truth is not None:
+            self._planet_marks()                      # (a planet's dot or sphere, as the zoom makes it)
         self._update_rings()
         mt = getattr(self, "_mt_input", None)         # the multitracks formed again when the zoom changes them
         if mt is not None and self.truth is not None and not self._playing:
@@ -1495,16 +1646,18 @@ class SimView(QWidget):
         """Ship view, range projection "full": every body and path drawn in the plane of the rings."""
         return not self._global() and self.cb_proj.isChecked() and self.tg_proj_full.isChecked()
 
-    def _truth_lines(self, name: str, rows: np.ndarray, rgb: np.ndarray, t0: float, t1: float, **style) -> None:
+    def _truth_lines(self, name: str, rows, rgb: np.ndarray, t0: float, t1: float, **style) -> None:
         """Global view: the rows' paths over [t0, t1] in their colours, through the truth records on the run's grid
-        (_path_stride) between the interpolated states at t0 and t1; not drawn when empty."""
+        (_path_stride) between the interpolated states at t0 and t1; not drawn when empty. rows: indices, or groups
+        of indices (a multitrack: one path, its members' mean)."""
         if t1 <= t0 or not len(rows):
             return
         tr = self.truth
+        groups = _as_groups(rows)
         ks = np.arange(0, len(tr.t_s), self._path_stride)
         ks = ks[(tr.t_s[ks] > t0) & (tr.t_s[ks] < t1)]
-        pts = np.concatenate([sgeo.states_at(tr, t0)[0][rows][None], tr.r_km[ks][:, rows],
-                              sgeo.states_at(tr, t1)[0][rows][None]])
+        pts = _group_mean(np.concatenate([sgeo.states_at(tr, t0)[0][None], tr.r_km[ks],
+                                          sgeo.states_at(tr, t1)[0][None]]), groups)
         pl = _polylines(pts, np.isfinite(pts[..., 0]))
         if pl is not None:
             pts, lines, c, keep = pl
@@ -1522,12 +1675,12 @@ class SimView(QWidget):
         n = int(np.clip(math.ceil(dur / COAST_STEP_S), *COAST_STEPS))
         return prop.coast(self.truth.body, third[1] if third else None, r, v, self.t, dur, n)
 
-    def _ship_coast(self, r: np.ndarray, v: np.ndarray, rows: np.ndarray) -> np.ndarray:
+    def _ship_coast(self, r: np.ndarray, v: np.ndarray, rs: np.ndarray, vs: np.ndarray) -> np.ndarray:
         """Ship view: the rows' free falls from t as the ship view draws a body (as "planned trajectory" does, user
         29 October 2026): relative to OWNSHIP's own free fall at the same instant, in the ship's frame at that instant
         (its attitude of the run, held at the run's end beyond it), at 1:1. Without a
         manoeuvre it lies on the planned trajectory."""
-        path = self._coast(np.r_[r[:1], r[rows]], np.r_[v[:1], v[rows]])          # (n_pts, 1 + n, 3)
+        path = self._coast(np.r_[r[:1], rs], np.r_[v[:1], vs])                    # (n_pts, 1 + n, 3)
         ts = self.t + np.linspace(0.0, self.sp_orbit.value(), len(path))
         ms = np.array([self.truth.attitude("ship", float(min(t, self.duration()))) for t in ts])
         rel = np.einsum("kni,kij->knj", path[:, 1:] - path[:, :1], ms)           # ship frame at each instant
@@ -1544,12 +1697,20 @@ class SimView(QWidget):
             pts, lines, c, keep = pl
             self._poly(f"{DYN}vel", pts, lines=lines, rgb=np.repeat(rgb[keep], c, axis=0), line_width=2)
 
-    def _ship_lines(self, name: str, js: np.ndarray, rgb: np.ndarray, sel: np.ndarray, **style) -> None:
-        """Ship view: the objects' (columns js of the geometry) paths through the records sel, in their colours."""
+    def _ship_lines(self, name: str, js, rgb: np.ndarray, sel: np.ndarray, **style) -> None:
+        """Ship view: the objects' (columns js of the geometry, or groups of columns: a multitrack's mean) paths
+        through the records sel, in their colours."""
         g = self.g
-        rr = g.range_km[sel][:, js]                                        # (n_t, n)
+        groups = _as_groups(js)
+        if not groups:
+            return
+        cols = np.unique(np.concatenate(groups))
+        where = {c: k for k, c in enumerate(cols)}
+        rr = g.range_km[sel][:, cols]                                      # (n_t, n)
         ok = np.isfinite(rr)
-        pl = _polylines(g.dir_ship[sel][:, js] * np.where(ok, rr, 1.0)[..., None], ok)
+        pts = g.dir_ship[sel][:, cols] * np.where(ok, rr, np.nan)[..., None]
+        pts = _group_mean(pts, [np.array([where[c] for c in gr]) for gr in groups])
+        pl = _polylines(np.where(np.isfinite(pts), pts, 0.0), np.isfinite(pts[..., 0]))
         if pl is not None:
             pts, lines, c, keep = pl
             if self._full_projection():
@@ -1672,13 +1833,39 @@ class SimView(QWidget):
             return symbol_path("ownship", None)
         return symbol_path(self._row_ident[i], self.truth.classes[i])
 
-    def _draw_bodies(self, rows: np.ndarray, pts: np.ndarray, r: np.ndarray, v: np.ndarray, dot_px: int) -> None:
+    def _draw_markers(self) -> None:
+        """Global view: the places of the events still to come (user, 29 October 2026: a past event's mark goes),
+        each in its body's colour (its path's, its identity's), with its text at the UI size."""
+        mk = getattr(self, "_markers", None)
+        if mk is None or not len(mk[0]):
+            return
+        t, pts, labels, rows = mk
+        keep = t >= self.t - 1e-9
+        self._poly(f"{DYN}markers", pts[keep], rgb=self._row_rgb[rows[keep]], point_size=8,
+                   render_points_as_spheres=True)
+        self._labels(f"{DYN}markers_lbl", pts[keep], [x for x, k in zip(labels, keep) if k], MUTED_COLOR, 9)
+
+    def _path_groups(self, rows: np.ndarray, clusters: List[dict]) -> Tuple[List[np.ndarray], np.ndarray]:
+        """The rows as the paths draw them: each lone row, then each multitrack (its members, one path), with their
+        colours."""
+        lone = np.ones(len(rows), bool)
+        for c in clusters:
+            lone[c["k"]] = False
+        groups = [np.array([i]) for i in rows[lone]] + [rows[c["k"]] for c in clusters]
+        return groups, self._row_rgb[[g[0] for g in groups]].reshape(-1, 3)
+
+    def _frame_clusters(self, rows: np.ndarray, pts: np.ndarray) -> List[dict]:
+        return self._multitracks(rows, pts) if self.cb_symbols.isChecked() else []
+
+    def _draw_bodies(self, rows: np.ndarray, pts: np.ndarray, r: np.ndarray, v: np.ndarray, dot_px: int,
+                     clusters: Optional[List[dict]] = None) -> None:
         """The truth rows drawn at pts (the view's places): their symbols (or dots) and data boxes; with the
         symbols, the multitracks (user, 29 October 2026): one symbol, one box and their number for each group of
         objects of one identity and class within MULTITRACK_PX of one another on screen."""
         rows, pts = np.asarray(rows, int), np.asarray(pts, float)
         symbols = self.cb_symbols.isChecked()
-        clusters = self._multitracks(rows, pts) if symbols else []
+        if clusters is None:
+            clusters = self._frame_clusters(rows, pts)
         self._mt_input = (rows, pts) if symbols else None
         self._mt_sig = self._mt_signature(rows, clusters)
         lone = np.ones(len(rows), bool)
@@ -1711,9 +1898,11 @@ class SimView(QWidget):
 
     def _multitracks(self, rows: np.ndarray, pts: np.ndarray) -> List[dict]:
         """The groups (two or more) of objects of one identity and class linked on screen by distances under
-        MULTITRACK_PX x the UI size (one to the next: a chain is one group); OWNSHIP never: k (indices into rows),
-        q (their mean place), ident, cls."""
-        if len(rows) < 2:
+        MULTITRACK_PX x the UI size (one to the next: a chain is one group); OWNSHIP never; none when the view
+        shows less than MULTITRACK_OFF_KM in height at its focal point: k (indices into rows), q (their mean place),
+        ident, cls."""
+        cam = self.plotter.camera                     # zoomed in (the view's height at its focal point): none (user)
+        if len(rows) < 2 or 2.0 * cam.GetDistance() * math.tan(math.radians(0.5 * cam.GetViewAngle())) < MULTITRACK_OFF_KM:
             return []
         from scipy.sparse import coo_matrix
         from scipy.sparse.csgraph import connected_components
@@ -2069,22 +2258,28 @@ class SimView(QWidget):
         self._apply_centre(reframe=getattr(self, "_centre_pending", False))
         self._centre_pending = False
         self._place_bodies()
+        self._body_orbits()
         idx = np.flatnonzero(ex)
-        rgb = self._row_rgb[idx]
-        self._draw_bodies(idx, r[idx], r, v, 8)
+        clusters = self._frame_clusters(idx, r[idx])
+        self._draw_bodies(idx, r[idx], r, v, 8, clusters)
+        # the paths: one per lone body and one per multitrack (its members' mean, user 29 October 2026)
+        groups, rgb = self._path_groups(idx, clusters)
         if self.cb_trails.isChecked():
-            self._truth_lines(f"{DYN}trails", idx, rgb, max(0.0, self.t - self.sp_trail.value()), self.t,
+            self._truth_lines(f"{DYN}trails", groups, rgb, max(0.0, self.t - self.sp_trail.value()), self.t,
                               line_width=3, opacity=0.8)
         if self.cb_planned.isChecked():               # from t to the run's end, OWNSHIP's thicker
-            own = idx == 0
-            mine = idx == self.node.row()             # the body of the manoeuvre node: its live path (node.draw)
-            self._truth_lines(f"{DYN}planned", idx[~own & ~mine], rgb[~own & ~mine], self.t, self.duration(),
+            own = np.array([len(g) == 1 and g[0] == 0 for g in groups], bool)
+            mine = np.array([len(g) == 1 and g[0] == self.node.row() for g in groups], bool)   # its live path
+            keep = [k for k in range(len(groups)) if not own[k] and not mine[k]]
+            self._truth_lines(f"{DYN}planned", [groups[k] for k in keep], rgb[keep], self.t, self.duration(),
                               line_width=1.5)
-            self._truth_lines(f"{DYN}planned_ship", idx[own & ~mine], rgb[own & ~mine], self.t, self.duration(),
+            keep = [k for k in range(len(groups)) if own[k] and not mine[k]]
+            self._truth_lines(f"{DYN}planned_ship", [groups[k] for k in keep], rgb[keep], self.t, self.duration(),
                               line_width=3)
         self.node.draw()
-        if self.cb_orbit.isChecked() and len(idx):    # free fall from t under the local gravity
-            self._coast_lines(self._coast(r[idx], v[idx]), rgb)
+        self._draw_markers()
+        if self.cb_orbit.isChecked() and len(groups):     # free fall from t under the local gravity
+            self._coast_lines(self._coast(_group_mean(r, groups), _group_mean(v, groups)), rgb)
         # ship attitude triad, enlarged (V3), of constant size on screen ("ship axes" switch)
         if self.cb_axes.isChecked():
             m = tr.attitude("ship", self.t)
@@ -2096,8 +2291,11 @@ class SimView(QWidget):
         r, v = sgeo.states_at(tr, self.t)
         m = tr.attitude("ship", self.t)
         self.sky.set_rotation(m.T)                    # the sky in the ship's frame: it turns with the attitude
+        self._planets_drawn = {}
         if self.cb_bodies.isChecked():
             self._ship_bodies(r[0], m)
+        else:
+            self._planet_marks()                      # (no planet: no dot)
         rows = np.arange(1, len(tr.ids))
         ro = r[rows]
         ex = np.isfinite(ro[:, 0])
@@ -2121,30 +2319,40 @@ class SimView(QWidget):
         los_rgb = face_rgb[fi]
         los_rgb[np.asarray(msk, bool)] = _rgb(MASK_COLOR)
         los_rgb[np.asarray(occ, bool) | (np.asarray(face) < 0)] = _rgb(OCC_COLOR)
-        n = len(js)
         full = self._full_projection()
         if full:                                      # the copies in the plane stand for the objects
             pos = self._to_plane(pos)
-        self._poly(f"{DYN}los", np.r_[np.zeros((n, 3)), pos], lines=_pairs(n), cell_rgb=los_rgb, line_width=1.5,
-                   opacity=0.7)
-        rgb = self._row_rgb[js + 1]
-        self._draw_bodies(js + 1, pos, r, v, 9)
+        # one line of sight, projection copy and path per lone object and per multitrack (its centre), no nose for
+        # a multitrack's members (user, 29 October 2026)
+        clusters = self._frame_clusters(js + 1, pos)
+        lone = np.ones(len(js), bool)
+        for c in clusters:
+            lone[c["k"]] = False
+        cq = np.array([c["q"] for c in clusters]).reshape(-1, 3)
+        sight = np.r_[pos[lone], cq]
+        n = len(sight)
+        self._poly(f"{DYN}los", np.r_[np.zeros((n, 3)), sight], lines=_pairs(n),
+                   cell_rgb=np.r_[los_rgb[lone], los_rgb[[c["k"][0] for c in clusters]].reshape(-1, 3)],
+                   line_width=1.5, opacity=0.7)
+        self._draw_bodies(js + 1, pos, r, v, 9, clusters)
+        groups, rgb = self._path_groups(js + 1, clusters)
+        cols = [gr - 1 for gr in groups]              # (the geometry's columns)
         if self.cb_proj.isChecked() and not full:
-            self._range_projection(pos, rgb)
+            self._range_projection(sight, rgb)
         if self.cb_vectors.isChecked():
             nose = g.nose_ship[k, js]
-            okn = np.isfinite(nose[:, 0])
+            okn = np.isfinite(nose[:, 0]) & lone
             if okn.any():                             # constant on screen, whatever the zoom
                 self._scaled(f"{DYN}nose", pos[okn], nose[okn], color=TEXT_COLOR, line_width=2)
         if self.cb_trails.isChecked():                # every object's trail in one pass (one polyline each)
             sel = (g.t_s >= self.t - self.sp_trail.value()) & (g.t_s <= self.t)
-            self._ship_lines(f"{DYN}trails", js, rgb, sel, line_width=2, opacity=0.6)
+            self._ship_lines(f"{DYN}trails", cols, rgb, sel, line_width=2, opacity=0.6)
         if self.cb_planned.isChecked():               # the records from t to the run's end
-            mine = js + 1 == self.node.row()          # the body of the manoeuvre node: its live path (node.draw)
-            self._ship_lines(f"{DYN}planned", js[~mine], rgb[~mine], g.t_s >= self.t, line_width=1.5)
+            keep = [kk for kk, gr in enumerate(groups) if not (len(gr) == 1 and gr[0] == self.node.row())]
+            self._ship_lines(f"{DYN}planned", [cols[kk] for kk in keep], rgb[keep], g.t_s >= self.t, line_width=1.5)
         self.node.draw()
         if self.cb_orbit.isChecked():                 # the free falls relative to OWNSHIP's own (user)
-            self._coast_lines(self._ship_coast(r, v, rows[ex]), rgb)
+            self._coast_lines(self._ship_coast(r, v, _group_mean(r, groups), _group_mean(v, groups)), rgb)
         self._screen_pts = {g.ids[j]: pos[jj] for jj, j in enumerate(js)}
         self._apply_centre(reframe=getattr(self, "_centre_pending", False))
         self._centre_pending = False
@@ -2162,8 +2370,10 @@ class SimView(QWidget):
         self._ship_discs = {}                              # key: (centre, radius) as drawn, for the clicks
         mats = {"earth": _earth_matrix(scn.epoch(self.sc), self.t),
                 "moon": _moon_matrix(bodies["moon"] - bodies["earth"]), "sun": _sun_matrix(scn.epoch(self.sc), self.t)}
+        mats.update({p: _iau_matrix(PLANET_DATA[p], scn.epoch(self.sc), self.t) for p in PLANET_NAMES.values()})
         pts, names = [], []
-        for b in ("earth", "moon", "sun"):
+        self._planets_drawn = {}
+        for b in ("earth", "moon", "sun") + tuple(PLANET_NAMES.values()):
             rel = bodies[b] - r_ship                                       # km, ICRF axes
             rng = float(np.linalg.norm(rel))
             rad_true = self._body_radius(b)
@@ -2177,9 +2387,10 @@ class SimView(QWidget):
             e = self._dyn.get(name)
             if e is None:
                 tex = _texture(b)
+                col = SUN_COLOR if b == "sun" else PLANET_COLORS.get(b, EARTH_COLOR)
                 act = self.plotter.add_mesh(_body_mesh(1.0), texture=tex, smooth_shading=True, culling="back",
-                                            color=None if tex is not None else (SUN_COLOR if b == "sun" else EARTH_COLOR),
-                                            lighting=(b != "sun"), ambient=0.12, name=name, render=False)
+                                            color=None if tex is not None else col,
+                                            lighting=(b in ("earth", "moon")), ambient=0.12, name=name, render=False)
                 e = self._dyn[name] = [None, None, act]
             u = np.eye(4)
             u[:3, :3] = size * (m_ship.T @ mats[b])
@@ -2195,6 +2406,19 @@ class SimView(QWidget):
                 ua[:3, :3], ua[:3, 3] = size * np.eye(3), centre
                 h[2].user_matrix = ua
                 h[2].SetVisibility(True)
+            if b in PLANET_DATA:                                           # a dot when too small (_planet_marks)
+                self._planets_drawn[b] = (centre, size)
+                if b == "saturn":
+                    self._used.add(f"{DYN}sbody_saturn_rings")
+                    h = self._dyn.get(f"{DYN}sbody_saturn_rings")
+                    if h is None:
+                        tex = _rings_texture()
+                        h = self._dyn[f"{DYN}sbody_saturn_rings"] = [None, None, self.plotter.add_mesh(
+                            _rings_mesh(), texture=tex, color=None if tex is not None else PLANET_COLORS["saturn"],
+                            lighting=False, name=f"{DYN}sbody_saturn_rings", render=False)]
+                    ur = np.eye(4)
+                    ur[:3, :3], ur[:3, 3] = m_ship.T @ mats[b], centre
+                    h[2].user_matrix = ur
             if b == "sun":                                                 # its halo, at its true size too
                 self._used.add(name + "_halo")
                 h = self._dyn.get(name + "_halo")
@@ -2205,7 +2429,10 @@ class SimView(QWidget):
             pts.append(centre)
             names.append(b.capitalize())
         if pts and self.cb_labels.isChecked():
-            self._labels(f"{DYN}sbody_lbl", np.array(pts), names, MUTED_COLOR)
+            keep = [k for k, n in enumerate(names) if n.lower() not in PLANET_DATA]   # (the planets: _planet_marks)
+            if keep:
+                self._labels(f"{DYN}sbody_lbl", np.array(pts)[keep], [names[k] for k in keep], MUTED_COLOR)
+        self._planet_marks()
 
     # ------------------------------------------------------------------ V5 mission volumes
     def _clear_volumes(self) -> None:

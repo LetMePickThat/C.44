@@ -736,13 +736,28 @@ def test_multitracks():
     assert [(c["ident"], c["cls"], len(c["k"])) for c in cl] == [("hostile", "KKV", 4)]
     assert sv.DYN + "sym_multi_hostile_KKV.png" in v._dyn and v._lab[sv.DYN + "mt_n_hostile"]._last == ["4"]
     assert any(b.startswith("4 x KKV") for b in v._lab[sv.DYN + "labels"]._last)
+    assert v._dyn[sv.DYN + "planned"][1].n_lines == 2  # one path for the multitrack, one for F (not one per member)
+    v.tg_view.setChecked(True)                          # ship view: one line of sight per multitrack
+    v.set_time(5.0)
+    if v._mt_click:
+        assert v._dyn[sv.DYN + "los"][1].n_lines == 2
+    v.tg_view.setChecked(False)
+    v.set_time(5.0)
     key = next(iter(v._mt_click))
     v.select(key)
     assert v.info.toPlainText().startswith("name	4 x KKV") and "K3	" in v.info.toPlainText()
     v.select("K1")                                      # a member selected: the square around its multitrack
     assert np.allclose(v._sel_pt, v._mt_of["K1"])
+    c = cl[0]["q"]
+    cam = v.plotter.camera                              # zoomed in under MULTITRACK_OFF_KM: no multitrack, even with
+    cam.SetFocalPoint(*c)                               # the objects still within MULTITRACK_PX on screen
+    u = (np.asarray(cam.GetPosition()) - c) / np.linalg.norm(np.asarray(cam.GetPosition()) - c)
+    d = 0.4 * sv.MULTITRACK_OFF_KM / (2.0 * np.tan(np.radians(0.5 * cam.GetViewAngle())))
+    cam.SetPosition(*(c + d * u))
+    v.plotter.renderer.ResetCameraClippingRange()
+    xy, _ok = v._display_xy(np.array([geo.states_at(tr, 5.0)[0][tr.row(f"K{k}")] for k in range(2)]))
+    assert np.linalg.norm(xy[0] - xy[1]) < sv.MULTITRACK_PX and v._multitracks(*v._mt_input) == []
     c = cl[0]["q"]                                      # zoomed in close: the multitrack splits
-    cam = v.plotter.camera
     cam.SetFocalPoint(*c)
     cam.SetPosition(*(c + 0.05 * (np.asarray(cam.GetPosition()) - c) / np.linalg.norm(np.asarray(cam.GetPosition()) - c)))
     v.plotter.renderer.ResetCameraClippingRange()
@@ -791,6 +806,38 @@ def test_tree_and_view_selection():
     assert tab.tree.currentItem() is tab.n_ship and v.selected == OWNSHIP
     tab.tree.setCurrentItem(tab.n_obj.child(0))         # the tree -> the view
     assert v.selected == "A"
+    v.plotter.close()
+    app.processEvents()
+
+
+def test_event_marks_follow_the_classification():
+    """The events' marks on the paths are in their body's colour (its identity) and follow a change of
+    classification, which needs no propagation (user, 29 October 2026)."""
+    app = _qt()
+    from vtkmodules.util.numpy_support import vtk_to_numpy
+    from gui import sim_view as sv
+    o = {"id": "K", "class": "KKV", "identity": "hostile", "t_appear_s": 5.0,
+         "manoeuvres": [{"type": "impulse", "t_s": 10.0, "dv_mps": [1.0, 0.0, 0.0], "frame": "pnr"}],
+         "state": {"type": "relative", "range_km": 300.0, "phi_deg": 30.0, "eps_deg": 10.0, "v_close_mps": 0.0}}
+    sc = _orbit_sc(20.0, [o], step=0.1)
+    tr = prop.propagate(sc)
+    v = sv.SimView()
+    v.show_run(sc, tr, geo.geometry(sc, tr), "test")
+    def marks():
+        a = v._dyn[sv.DYN + "markers"][2]
+        if not a.GetVisibility():
+            return []
+        a.GetMapper().Update()                          # the data as drawn (the pipeline runs at the render)
+        return vtk_to_numpy(a.GetMapper().GetInput().GetPointData().GetArray("rgb")).tolist()
+    assert marks() == [list(sv._rgb(sv.IDENTITY_COLORS["hostile"]))] * 2      # appears, impulse
+    new = copy.deepcopy(sc)
+    new["objects"][0]["identity"] = "friendly"
+    v.set_scenario(new)
+    assert not v.debounce.isActive() and marks() == [list(sv._rgb(sv.IDENTITY_COLORS["friendly"]))] * 2
+    v.set_time(7.0)                                     # a past event's mark goes (user): the impulse's stays
+    assert len(marks()) == 1 and v._lab[sv.DYN + "markers_lbl"]._last == ["K impulse"]
+    v.set_time(12.0)
+    assert marks() == []
     v.plotter.close()
     app.processEvents()
 
@@ -848,10 +895,10 @@ def test_sim_view_offscreen(tmp_path):
     assert DYN + "planned" in names and DYN + "planned_ship" in names
     import gc                             # UI size: the events' texts follow it, their dots keep their size
     gc.collect()
-    tp = v._event_labels.mapper.GetLabelTextProperty()
-    f0, p0 = tp.GetFontSize(), v.plotter.actors["markers"].GetProperty().GetPointSize()
+    tp = v._lab[DYN + "markers_lbl"].mapper.GetLabelTextProperty()
+    f0, p0 = tp.GetFontSize(), v._dyn[DYN + "markers"][2].GetProperty().GetPointSize()
     v.set_ui_scale(1)
-    assert tp.GetFontSize() > f0 and v.plotter.actors["markers"].GetProperty().GetPointSize() == p0
+    assert tp.GetFontSize() > f0 and v._dyn[DYN + "markers"][2].GetProperty().GetPointSize() == p0
     v.set_ui_scale(-1)
     # the star background under the scene (its own renderer, layer 0), the constellations on demand
     assert v.sky.ren.GetLayer() == 0 and v.plotter.renderer.GetLayer() == 1 and v.sky.star_actors
@@ -883,7 +930,19 @@ def test_sim_view_offscreen(tmp_path):
     v.cb_orbit.setChecked(False)
     v.sp_trail.setValue(60.0)
     v.set_time(0.0)
-    assert {"body_earth", "body_earth_atm", "body_moon", "body_sun", "moon_orbit"} <= set(names)
+    assert {"body_earth", "body_earth_atm", "body_moon", "body_sun"} <= set(names)
+    # a celestial body selected: its orbit and those of the bodies orbiting it (user, 29 October 2026)
+    from gui.sim_view import BODY_SEL
+    for name, n_orbits in (("Sun", 9), ("Earth", 2), ("Moon", 2)):   # (+ the central body's, the Earth's, always;
+        #                                                                the Sun: the Earth and the eight planets)
+        v.select(BODY_SEL + name)
+        e = v._dyn[DYN + "body_orbits"]
+        assert e[2].GetVisibility() and e[1].n_lines == n_orbits
+    v.select(BODY_SEL + "Sun")                          # the Earth's orbit around the Sun passes through the Earth
+    d = np.linalg.norm(v._dyn[DYN + "body_orbits"][1].points - v._bodies_at()["earth"], axis=1)
+    assert d.min() < 1e-3 * np.linalg.norm(v._bodies_at()["sun"])
+    v.select(None)                                      # nothing selected: the central body's orbit alone
+    assert v._dyn[DYN + "body_orbits"][2].GetVisibility() and v._dyn[DYN + "body_orbits"][1].n_lines == 1
     assert DYN + "sun" not in names                                    # no Sun arrow (the Sun is drawn)
     atm = v.plotter.actors["body_earth_atm"].user_matrix                 # the halo on the Earth, a bit larger
     assert np.allclose(atm[:3, 3], v.plotter.actors["body_earth"].user_matrix[:3, 3])
@@ -1044,12 +1103,13 @@ def test_third_body_attraction(monkeypatch):
     tb = prop.ThirdBodies("earth", ep, 3600.0)
     for t in (0.0, 1234.5, 3599.0):
         T = eph.centuries_tt(ep, t)
-        assert np.allclose(tb.positions(t), [eph.moon_icrf_km(T), eph.sun_icrf_km(T)], atol=1e-3)
+        assert np.allclose(tb.positions(t), [eph.moon_icrf_km(T), eph.sun_icrf_km(T)] +
+                           ([eph.planet_icrf_km(p, T) for p in eph.PLANETS] if prop.PLANETS_GRAVITY else []), atol=1e-3)
     assert np.allclose(tb.accel(np.zeros((1, 3)), 0.0), 0.0, atol=1e-20)
     rm_ = tb.positions(0.0)[0]
     u = rm_ / np.linalg.norm(rm_)
     moon_only = prop.ThirdBodies("earth", ep, 3600.0)
-    moon_only.mu = np.array([tb.mu[0], 0.0])
+    moon_only.mu = np.r_[tb.mu[0], np.zeros(len(tb.mu) - 1)]
     a_moon = float(np.linalg.norm(moon_only.accel(7000.0 * u[None, :], 0.0)[0]))
     assert a_moon == pytest.approx(2.0 * tb.mu[0] * 7000.0 / np.linalg.norm(rm_) ** 3, rel=0.03)
     a_all = 1e3 * float(np.linalg.norm(tb.accel(7000.0 * u[None, :], 0.0)[0]))
@@ -1063,6 +1123,32 @@ def test_third_body_attraction(monkeypatch):
     without = prop.propagate(sc)
     drift = float(np.linalg.norm(with_tb.r_km[-1, 0] - without.r_km[-1, 0]))
     assert 1.0 < drift < 200.0
+
+
+def test_planets():
+    """The planets (user, 29 October 2026): JPL approximate elements within 0.2 % of the known distances at three
+    close approaches; each one pulls the objects (sim.planets_gravity), by far less than the Sun."""
+    from datetime import datetime, timezone
+
+    def T(y, m, d):
+        return eph.centuries_tt(datetime(y, m, d, tzinfo=timezone.utc), 0.0)
+    for name, date, km in (("mars", (2003, 8, 27), 55.76e6), ("mars", (2018, 7, 31), 57.59e6),
+                           ("jupiter", (2022, 9, 26), 591.0e6)):
+        assert np.linalg.norm(eph.planet_icrf_km(name, T(*date))) == pytest.approx(km, rel=2e-3)
+    for p in eph.PLANETS:                                # within their perihelion and aphelion
+        a, e = eph.PLANET_ELEMENTS[p][0][:2]
+        r = np.linalg.norm(eph.planet_helio_icrf_km(p, 0.5)) / eph.AU_KM
+        assert a * (1 - e) * 0.99 < r < a * (1 + e) * 1.01
+    ep = datetime(2050, 1, 1, tzinfo=timezone.utc)
+    tb = prop.ThirdBodies("earth", ep, 600.0)
+    if prop.PLANETS_GRAVITY:
+        assert tb.names[2:] == eph.PLANETS and len(tb.mu) == 2 + len(eph.PLANETS)
+        x = np.array([[7000.0, 0.0, 0.0]])
+        sun_only = prop.ThirdBodies("earth", ep, 600.0)
+        sun_only.mu = np.r_[0.0, tb.mu[1], np.zeros(len(eph.PLANETS))]
+        planets = prop.ThirdBodies("earth", ep, 600.0)
+        planets.mu = np.r_[0.0, 0.0, tb.mu[2:]]
+        assert 0.0 < np.linalg.norm(planets.accel(x, 0.0)) < 1e-4 * np.linalg.norm(sun_only.accel(x, 0.0))
 
 
 def test_identity_colours_match_the_symbology():

@@ -176,6 +176,23 @@ class Sky:
         p.SetLineWidth(1.0)
         return a
 
+    def set_dots(self, dirs: np.ndarray, rgb: np.ndarray, size_px: float) -> None:
+        """Dots at directions (n, 3) of the scene's axes as seen from its camera (the planets too small to draw,
+        user 29 October 2026): on the sky's sphere, under the scene (a body in front hides them), at size_px."""
+        a = getattr(self, "_dots", None)
+        if a is not None:
+            self.ren.RemoveActor(a)
+            self._dots = None
+        if not len(dirs):
+            return
+        mesh = pv.PolyData(SKY_RADIUS * np.asarray(dirs, float))
+        mesh.point_data["rgb"] = np.asarray(rgb, np.uint8)
+        a = _actor(mesh, True)
+        a.GetProperty().SetPointSize(float(size_px))
+        a.GetProperty().SetRenderPointsAsSpheres(True)
+        self.ren.AddActor(a)
+        self._dots = a
+
     def set_visible(self, stars_on: bool, lines_on: bool) -> None:
         """Skybox (stars_on) or the plain background; the constellation lines with the skybox only."""
         for a in self.star_actors:
