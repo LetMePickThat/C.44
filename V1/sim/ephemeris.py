@@ -223,3 +223,96 @@ def planet_helio_icrf_km(name: str, T: float) -> np.ndarray:
 def planet_icrf_km(name: str, T: float) -> np.ndarray:
     """Geocentric position of a planet (km, ICRF axes): heliocentric + the geocentric Sun."""
     return planet_helio_icrf_km(name, T) + sun_icrf_km(T)
+
+
+# ----------------------------------------------------------------------------- the major moons (user, 29 October 2026)
+# JPL mean elements ([sim.moons]): a precessing ellipse in a reference plane (the Laplace plane of a given pole, the
+# planet's equator, or the ecliptic of J2000), the node measured from that plane's ascending node on the ICRF
+# equator; the mean anomaly, the argument of periapsis and the node at their rates (_precession: how the table's
+# period and precessions read). Not an ephemeris: shape and orientation right, the phase drifts.
+def moons() -> dict:
+    """{name: elements} of [sim.moons] ({} without the section)."""
+    try:
+        return {k: dict(v) for k, v in P.section("sim.moons").items()}
+    except KeyError:
+        return {}
+
+
+_MOONS = moons()
+MOON_NAMES = tuple(_MOONS)
+
+
+def _plane(pole: np.ndarray) -> np.ndarray:
+    """Columns: the plane's ascending node on the ICRF equator, the third axis, its pole (plane -> ICRF)."""
+    n = np.cross([0.0, 0.0, 1.0], pole)
+    n = n / np.linalg.norm(n) if np.linalg.norm(n) > 1e-12 else np.array([1.0, 0.0, 0.0])
+    return np.column_stack([n, np.cross(pole, n), pole])
+
+
+def _radec(ra: float, dec: float) -> np.ndarray:
+    a, d = math.radians(ra), math.radians(dec)
+    return np.array([math.cos(d) * math.cos(a), math.cos(d) * math.sin(a), math.sin(d)])
+
+
+_PREC: dict = {}
+_PLANET_J2 = {"mars": 1.956e-3, "jupiter": 1.4696e-2, "saturn": 1.6291e-2, "uranus": 3.343e-3, "neptune": 3.411e-3}
+
+
+def _precession(name: str) -> tuple:
+    """deg/day of the mean anomaly, the argument of periapsis and the node. The node regresses (advances on a
+    retrograde orbit). The table's period is the sidereal one (the mean longitude's) for every system but Jupiter's,
+    whose period is the precessing ellipse's mean anomaly's (both checked against the known mean motions, 29 October
+    2026: to 1e-4 deg/day where the period has enough digits). The apsis advances, but for Jupiter the table gives
+    no sense (Io's and Europa's regress, forced by their resonance): the sense whose mean longitude rate is nearer the
+    Keplerian mean motion of a with the planet's J2 (_PLANET_J2, at its mean radius)."""
+    if name not in _PREC:
+        el = _MOONS[name]
+        inc = float(el["i_deg"])
+        n_rate = 0.0
+        if float(el["p_node_y"]) > 0:
+            n_rate = (-1.0 if math.cos(math.radians(inc)) > 0 else 1.0) * 360.0 / (365.25 * float(el["p_node_y"]))
+        w_abs = 360.0 / (365.25 * float(el["p_apsis_y"])) if float(el["p_apsis_y"]) > 0 else 0.0
+        p_rate = 360.0 / float(el["period_d"])
+        if el["planet"] != "jupiter":
+            _PREC[name] = (p_rate - w_abs - n_rate, w_abs, n_rate)          # P sidereal, the apsis advancing
+        else:
+            pl = P.get(f"sim.planets.{el['planet']}")
+            a = float(el["a_km"])
+            j2 = _PLANET_J2["jupiter"] * (float(pl["radius_km"]) / a) ** 2
+            n_kep = math.degrees(math.sqrt((float(pl["mu_km3_s2"]) + float(el["mu_km3_s2"])) / a ** 3)) * 86400.0
+            n_kep *= 1.0 + 1.5 * j2
+            w = min((w_abs, -w_abs), key=lambda x: (abs(p_rate + x + n_rate - n_kep), x < 0))
+            _PREC[name] = (p_rate, w, n_rate)                                # P the mean anomaly's
+    return _PREC[name]
+
+
+def satellite_planetocentric_km(name: str, T: float) -> np.ndarray:
+    """A moon's position from its planet (km, ICRF axes) at T (Julian centuries from J2000)."""
+    el = _MOONS[name]
+    d = T * 36525.0 - float(el["epoch_d"])
+    inc = float(el["i_deg"])
+    m_rate, w_rate, n_rate = _precession(name)
+    w, node = float(el["w_deg"]) + w_rate * d, float(el["node_deg"]) + n_rate * d
+    m = float(el["m_deg"]) + m_rate * d
+    e = float(el["e"])
+    E = _kepler(math.radians((m + 180.0) % 360.0 - 180.0), e)
+    a = float(el["a_km"])
+    xp, yp = a * (math.cos(E) - e), a * math.sqrt(1.0 - e * e) * math.sin(E)
+    w, O, i = math.radians(w), math.radians(node), math.radians(inc)
+    cw, sw, cO, sO, ci, si = math.cos(w), math.sin(w), math.cos(O), math.sin(O), math.cos(i), math.sin(i)
+    r = np.array([(cw * cO - sw * sO * ci) * xp + (-sw * cO - cw * sO * ci) * yp,
+                  (cw * sO + sw * cO * ci) * xp + (-sw * sO + cw * cO * ci) * yp,
+                  (sw * si) * xp + (cw * si) * yp])
+    if el["frame"] == "laplace":
+        pole = _radec(float(el["pole_ra_deg"]), float(el["pole_dec_deg"]))
+    elif el["frame"] == "equatorial":
+        pl = P.get(f"sim.planets.{el['planet']}")
+        pole = _radec(float(pl["pole_ra_deg"]), float(pl["pole_dec_deg"]))
+    else:
+        pole = _rx(_EPS_J2000) @ np.array([0.0, 0.0, 1.0])       # the ecliptic of J2000
+    return _plane(pole) @ r
+
+
+def satellite_icrf_km(name: str, T: float) -> np.ndarray:
+    """Geocentric position of a moon (km, ICRF axes): its planet's + its own about it."""
+    return planet_icrf_km(_MOONS[name]["planet"], T) + satellite_planetocentric_km(name, T)

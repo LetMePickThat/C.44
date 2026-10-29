@@ -8,7 +8,8 @@ central body (ICRF axes, km, km/s, s):
     no drag (C1); plus the attraction of the other bodies (user, 29 October 2026, O1-O5: every body orbits its
     reference and pulls the objects): the Sun and the Moon around the Earth, the Sun and the Earth around the Moon,
     the differential term mu_b [(r_b - r) / |r_b - r|^3 - r_b / |r_b|^3] of a frame centred on the central body
-    (and the planets, Mercury to Pluto, with sim.planets_gravity, user 29 October 2026),
+    (and the planets, Mercury to Pluto, with sim.planets_gravity, and the major moons, [sim.moons], with
+    sim.moons_gravity, user 29 October 2026),
     body positions from sim/ephemeris.py on a THIRD_BODY_STEP_S grid, cubic between its points; off with
     sim.third_body = false;
   - RK4 at the fixed step meta.step_s, a step split only at the exact time of an event (impulse, burn start or end,
@@ -55,6 +56,7 @@ SHIP_MANOEUVRE_CLASS = str(P.get("sim.ship_manoeuvre_class"))   # the ship's pn 
 SHIP_MANEUVER_TAU_S = float(P.get("sim.ship_maneuver_tau_s"))   # ... and this Singer time constant
 THIRD_BODY = bool(P.get("sim.third_body"))       # O4: attraction of the other bodies
 PLANETS_GRAVITY = bool(P.get("sim.planets_gravity"))   # ... the planets' too (user, 29 October 2026)
+MOONS_GRAVITY = bool(P.get("sim.moons_gravity"))       # ... and the major moons' (user, 29 October 2026)
 SUN_MU = float(P.get("sim.sun_mu_km3_s2"))       # O2
 _NO_BODIES, _NO_MU = np.zeros((0, 3)), np.zeros(0)  # no other body (sim.third_body false)
 BURN_SUBSTEPS = 20                                 # manoeuvre node preview: a burn in this many RK4 steps at least
@@ -69,20 +71,29 @@ class ThirdBodies:
         b = scn.bodies()
         other = "moon" if central == "earth" else "earth"
         planets = list(eph.PLANETS) if PLANETS_GRAVITY else []
-        self.names = (other, "sun", *planets)
+        moons = list(eph.MOON_NAMES) if MOONS_GRAVITY else []
+        self.names = (other, "sun", *planets, *moons)
         self.mu = np.array([float(b[other]["mu_km3_s2"]), SUN_MU] +
-                           [float(P.get(f"sim.planets.{p}")["mu_km3_s2"]) for p in planets])
+                           [float(P.get(f"sim.planets.{p}")["mu_km3_s2"]) for p in planets] +
+                           [float(eph._MOONS[m]["mu_km3_s2"]) for m in moons])
         self.t0 = -THIRD_BODY_STEP_S
         n = int(math.ceil(duration_s / THIRD_BODY_STEP_S)) + 4
         ts = self.t0 + THIRD_BODY_STEP_S * np.arange(n)
-        pos = np.empty((n, 2 + len(planets), 3))
+        pos = np.empty((n, 2 + len(planets) + len(moons), 3))
         for k, t in enumerate(ts):
             T = eph.centuries_tt(epoch, float(t))
             moon, sun = eph.moon_icrf_km(T), eph.sun_icrf_km(T)
             centre = np.zeros(3) if central == "earth" else moon
             pos[k, :2] = (moon - centre if other == "moon" else -centre), sun - centre
+            at = {}
             for j, p in enumerate(planets):             # (geocentric, then from the central body)
-                pos[k, 2 + j] = eph.planet_icrf_km(p, T) - centre
+                at[p] = eph.planet_icrf_km(p, T)
+                pos[k, 2 + j] = at[p] - centre
+            for j, m in enumerate(moons):
+                pl = eph._MOONS[m]["planet"]
+                if pl not in at:
+                    at[pl] = eph.planet_icrf_km(pl, T)
+                pos[k, 2 + len(planets) + j] = at[pl] + eph.satellite_planetocentric_km(m, T) - centre
         self.pos = pos
         self._cache: Dict[float, np.ndarray] = {}          # the few instants of the current step (RK4 stages)
 

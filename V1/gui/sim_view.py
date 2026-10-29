@@ -159,14 +159,38 @@ PLANET_DATA = {k: dict(P.get(f"sim.planets.{k}")) for k in PLANET_NAMES.values()
 PLANET_MARK_PX = float(P.get("tool.display.sim_planet_mark_px"))
 PLANET_DOT_PX = 5.0                               # ... the dot's size, px (D)
 PLANET_COLORS = {"mercury": "#a8a29a", "venus": "#e8d6a8", "mars": "#d2694a", "jupiter": "#d8b98c",
-                 "saturn": "#e3cf96", "uranus": "#9fd9e0", "neptune": "#5b7fe0", "pluto": "#c8b49a"}   # (D)
+                 "saturn": "#e3cf96", "uranus": "#9fd9e0", "neptune": "#5b7fe0", "pluto": "#c8b49a",
+                 "sun": "#e0a800", "earth": "#4a78b5", "moon": "#bfbfbf"}   # (D; the Sun, the Earth, the Moon too)
 SATURN_RINGS_KM = tuple(float(x) for x in P.get("tool.display.sim_saturn_rings_km"))
 BODY_PARENT.update({p: ("sun", SIDEREAL_YEAR_S * eph.PLANET_ELEMENTS[p][0][0] ** 1.5)    # (Kepler: P ~ a^1.5)
                     for p in PLANET_NAMES.values()})
+BODY_PARENT.update({m: (el["planet"], float(el["period_d"]) * 86400.0) for m, el in eph._MOONS.items()})
 NEAR_FRAC = 0.01                                  # near clipping plane at least this x the camera distance
 NEAR_TOL = 1e-9                                   # near / far clipping ratio: the Sun at 1 AU, objects at a few km
                                                   # (bodies drawn front faces only: no self-occlusion far away)
-BODY_NAMES = {"Earth": "earth", "Moon": "moon", "Sun": "sun", **PLANET_NAMES}   # the bodies the view can centre on
+# the major moons (user, 29 October 2026): positions sim/ephemeris.py ([sim.moons], JPL mean elements), spheres of
+# their mean radius in a colour of their own (Phobos: its shape model, assets/models/Phobos.obj, and its map); a
+# moon drawn as a dot only once it parts from its planet's on screen (MOON_PART_PX)
+MOON_NAMES = {n.capitalize(): n for n in eph.MOON_NAMES}
+MOON_DATA = {n: dict(eph._MOONS[n]) for n in eph.MOON_NAMES}
+MOON_PART_PX = 12.0                               # px: a moon's dot (and name) only this far from its planet's (D)
+MOON_COLOR = "#b4b0aa"                            # (D) and a few of their own:
+MOON_COLORS = {"io": "#e3cf6a", "europa": "#e6dfd0", "ganymede": "#a99d8f", "callisto": "#6f665c",
+               "titan": "#d9a45a", "enceladus": "#f2f2f2", "iapetus": "#8f7f6c", "triton": "#d3c4bb",
+               "charon": "#a39e98", "phobos": "#8a7d70", "deimos": "#a29484"}
+MODEL_DIR = cgeo.MOON_TEXTURE_PATH.parent.parent / "models"
+# the moons drawn by their shape model (assets/models/<Name>.obj, km): the model's axes taken as the body frame's
+# (IAU: X the long axis, toward the planet; Z the pole, the short axis), checked on each model, 29 October 2026
+SHAPE_MODELS = {"phobos": ("Phobos.obj", (2, 0, 1)),     # the model: Z long, Y short (Stickney at 49 deg W)
+                "deimos": ("Deimos.obj", (0, 1, 2))}     # the model in the IAU frame already
+TEXTURE_MAX_PX = 8192                                     # a map wider than this read at this width (the GPU)
+# the maps' longitudes (user's maps, checked on known features, 29 October 2026): (east longitude of the left edge,
+# 1: east to the right / -1: west to the right); the others: -180, east to the right (0 at the centre)
+MAP_LON = {**{n: (0.0, 1) for n in ("io", "europa", "mimas", "enceladus", "tethys", "dione", "rhea", "titan",
+                                    "iapetus")}}      # 0 to 360 E from the left: Pele, Loki; Herschel, Odysseus, Xanadu
+# (Ganymede, Callisto, Phobos: the default, checked on Galileo Regio and Osiris, Valhalla, Stickney)
+PLANET_COLORS.update({n: MOON_COLORS.get(n, MOON_COLOR) for n in MOON_DATA})   # (their dots)
+BODY_NAMES = {"Earth": "earth", "Moon": "moon", "Sun": "sun", **PLANET_NAMES, **MOON_NAMES}   # the bodies to centre on
 OWNSHIP = "<ship>"                                # the ship's key in the views (row "ship" of the truth), apart
                                                   # from any object id; shown under its scenario name (own_name())
 CENTRAL = "central body"
@@ -288,36 +312,92 @@ def _rgb(hex_color: str) -> Tuple[int, int, int]:
 
 
 @lru_cache(maxsize=4)
+def _has_texture(body: str) -> bool:
+    return (TEXTURE_DIR / TEXTURE_FILES.get(body, f"{body}.jpg")).exists() or body == "moon"
+
+
+@lru_cache(maxsize=None)
 def _texture(body: str) -> Optional[pv.Texture]:
     """Equirectangular texture of a body (TEXTURE_DIR/TEXTURE_FILES[body]; the Moon falls back on the procedural
-    one)."""
+    one), read once: in RGB (an indexed or transparent map would draw wrong), at most TEXTURE_MAX_PX wide; repeated
+    (a shape model's seam triangles reach past u = 1)."""
     path = TEXTURE_DIR / TEXTURE_FILES.get(body, f"{body}.jpg")
     if path.exists():
-        tex = pv.Texture(str(path))
+        from PIL import Image
+        Image.MAX_IMAGE_PIXELS = None
+        im = Image.open(path)
+        if im.width > TEXTURE_MAX_PX:
+            im.draft("RGB", (TEXTURE_MAX_PX, TEXTURE_MAX_PX // 2))      # (a JPEG decoded at a smaller scale)
+            if im.width > TEXTURE_MAX_PX:
+                im = im.resize((TEXTURE_MAX_PX, max(1, round(im.height * TEXTURE_MAX_PX / im.width))),
+                               Image.BILINEAR)
+        tex = pv.Texture(np.asarray(im.convert("RGB")))                  # (pyvista: the first row at the top)
     elif body == "moon":
         tex = pv.Texture(cgeo.moon_texture())
     else:
         return None
     tex.interpolate = True
     tex.mipmap = True
+    tex.repeat = True
     return tex
 
 
-@lru_cache(maxsize=4)
-def _body_mesh(radius_km: float, n_lon: int = 180, n_lat: int = 90) -> pv.PolyData:
+@lru_cache(maxsize=8)
+def _body_mesh(radius_km: float, n_lon: int = 180, n_lat: int = 90, lon_left: float = -180.0,
+               sense: int = 1) -> pv.PolyData:
     """Sphere in the body-fixed frame (Z the pole, X the prime meridian) with equirectangular texture coordinates:
-    u = (longitude + 180) / 360 (the map's left edge at -180 deg), v = (latitude + 90) / 180 (north at the top)."""
+    u = sense (longitude east - lon_left) / 360 (MAP_LON: the map's left edge at lon_left, east to the right for
+    sense 1, west for -1; by default -180, east to the right), v = (latitude + 90) / 180 (north at the top)."""
     lon = np.radians(np.linspace(-180.0, 180.0, n_lon + 1))
     lat = np.radians(np.linspace(-90.0, 90.0, n_lat + 1))
     lo, la = np.meshgrid(lon, lat, indexing="ij")
     pts = radius_km * np.stack([np.cos(la) * np.cos(lo), np.cos(la) * np.sin(lo), np.sin(la)], axis=-1).reshape(-1, 3)
-    uv = np.stack([(np.degrees(lo) + 180.0) / 360.0, (np.degrees(la) + 90.0) / 180.0], axis=-1).reshape(-1, 2)
+    uv = np.stack([sense * (np.degrees(lo) - lon_left) / 360.0, (np.degrees(la) + 90.0) / 180.0],
+                  axis=-1).reshape(-1, 2)                     # (continuous across the map's edge: texture repeat)
     i, j = np.meshgrid(np.arange(n_lon), np.arange(n_lat), indexing="ij")
     a = (i * (n_lat + 1) + j).ravel()
     quads = np.stack([np.full(a.size, 4), a, a + n_lat + 1, a + n_lat + 2, a + 1], axis=1).ravel()
     mesh = pv.PolyData(pts, faces=quads)
     mesh.active_texture_coordinates = uv
     return mesh.compute_normals(auto_orient_normals=True)
+
+
+def _phobos_mesh() -> Optional[pv.PolyData]:
+    return _shape_mesh("phobos")
+
+
+@lru_cache(maxsize=None)                          # (asked for every moon at every frame: all kept)
+def _shape_mesh(name: str) -> Optional[pv.PolyData]:
+    """A moon's shape model (km, SHAPE_MODELS) in its body frame (IAU: X its long axis, toward its planet; Z its pole,
+    the short axis), centred on its centroid, with an equirectangular mapping of its map computed from the shape
+    (planetocentric longitude east from X, latitude: the models' own coordinates do not make one map); the triangles
+    across the 180 deg meridian split there. None without a model (a sphere then)."""
+    if name not in SHAPE_MODELS or not (MODEL_DIR / SHAPE_MODELS[name][0]).exists():
+        return None
+    m = pv.read(str(MODEL_DIR / SHAPE_MODELS[name][0])).triangulate()
+    p = np.asarray(m.points, float)
+    p = (p - p.mean(axis=0))[:, list(SHAPE_MODELS[name][1])]
+    faces = m.faces.reshape(-1, 4)[:, 1:]
+    tri = p[faces].reshape(-1, 3)                            # one point per corner: each triangle its own UVs
+    d = tri / np.linalg.norm(tri, axis=1)[:, None]
+    lon = np.degrees(np.arctan2(d[:, 1], d[:, 0]))
+    left, sense = MAP_LON.get(name, (-180.0, 1))
+    u = ((sense * (lon - left) / 360.0) % 1.0).reshape(-1, 3)
+    v = (np.degrees(np.arcsin(np.clip(d[:, 2], -1.0, 1.0))) + 90.0) / 180.0
+    wrap = u.max(axis=1) - u.min(axis=1) > 0.5               # across the seam: its small u past 1 (texture repeat)
+    u[wrap] = np.where(u[wrap] < 0.5, u[wrap] + 1.0, u[wrap])
+    n = len(faces)
+    out = pv.PolyData(tri, faces=np.hstack([np.full((n, 1), 3), np.arange(3 * n).reshape(-1, 3)]).ravel())
+    out.active_texture_coordinates = np.c_[u.ravel(), v]
+    return out.compute_normals(split_vertices=False, auto_orient_normals=True)
+
+
+def _synchronous_matrix(rel: np.ndarray, vel: np.ndarray) -> np.ndarray:
+    """Body-fixed -> ICRF of a moon locked on its planet: X toward the planet, Z along its orbit's normal."""
+    x = -rel / np.linalg.norm(rel)
+    z = np.cross(rel, vel)
+    z = z / np.linalg.norm(z)
+    return np.column_stack([x, np.cross(z, x), z])
 
 
 @lru_cache(maxsize=1)
@@ -1132,6 +1212,7 @@ class SimView(QWidget):
 
     def _build_global(self) -> None:
         p, tr = self.plotter, self.truth
+        self._actor_cache = {}
         body = tr.body
         for b in ("earth", "moon"):                    # both bodies in every scenario, placed at each frame
             rad = float(scn.bodies()[b]["radius_km"])
@@ -1150,6 +1231,8 @@ class SimView(QWidget):
         tex = _rings_texture()
         p.add_mesh(_rings_mesh(), texture=tex, color=None if tex is not None else PLANET_COLORS["saturn"],
                    lighting=False, opacity=1.0 if tex is not None else 0.5, name="body_saturn_rings", render=False)
+        for name in MOON_DATA:                          # the moons: unit spheres, Phobos its shape (km)
+            self._add_moon_mesh(p, name, f"body_{name}")
         self._sun_light = pv.Light(light_type="scene light", intensity=1.0)
         self._sun_light.positional = False
         p.add_light(self._sun_light)
@@ -1213,6 +1296,8 @@ class SimView(QWidget):
             for x in (b, parent):
                 if x in PLANET_DATA:
                     at[x] = eph.planet_icrf_km(x, T)
+                elif x in MOON_DATA:
+                    at[x] = eph.satellite_icrf_km(x, T)
             out[k] = at[b] - at[parent]
         cache[b] = (id(self.truth), self.t, out)
         return out
@@ -1225,16 +1310,16 @@ class SimView(QWidget):
         for b, pos, m in (("earth", pos_b["earth"], _earth_matrix(scn.epoch(self.sc), self.t)),
                           ("moon", pos_b["moon"], _moon_matrix(moon_geo)),
                           ("sun", pos_b["sun"], eph_sun_radius_km() * _sun_matrix(scn.epoch(self.sc), self.t))):
-            a = self.plotter.actors.get(f"body_{b}")
+            a = self._actor(f"body_{b}")
             if a is not None:
                 u = np.eye(4)
                 u[:3, :3], u[:3, 3] = m, pos
                 a.user_matrix = u
-            if b == "earth" and "body_earth_atm" in self.plotter.actors:
+            if b == "earth" and self._actor("body_earth_atm") is not None:
                 u = np.eye(4)
                 u[:3, :3], u[:3, 3] = float(scn.bodies()["earth"]["radius_km"]) * np.eye(3), pos
-                self.plotter.actors["body_earth_atm"].user_matrix = u
-        halo = self.plotter.actors.get("body_sun_halo")
+                self._actor("body_earth_atm").user_matrix = u
+        halo = self._actor("body_sun_halo")
         if halo is not None:
             _place_halo(self.plotter, halo, pos_b["sun"], eph_sun_radius_km())
         ep = scn.epoch(self.sc)
@@ -1243,12 +1328,21 @@ class SimView(QWidget):
             rad = float(PLANET_DATA[name]["radius_km"])
             m = _iau_matrix(PLANET_DATA[name], ep, self.t)
             for actor, k in ((f"body_{name}", rad), ("body_saturn_rings", 1.0) if name == "saturn" else (None, 0.0)):
-                a = self.plotter.actors.get(actor) if actor else None
+                a = self._actor(actor) if actor else None
                 if a is not None:
                     u = np.eye(4)
                     u[:3, :3], u[:3, 3] = k * m, pos_b[name]
                     a.user_matrix = u
             drawn[name] = (pos_b[name], rad)
+        for name in ("sun", "earth", "moon"):          # a dot too when too small (user, 29 October 2026)
+            drawn[name] = (pos_b[name], self._body_radius(name))
+        for name in MOON_DATA:                          # the major moons
+            a = self._actor(f"body_{name}")
+            if a is not None:
+                u = np.eye(4)
+                u[:3, :3], u[:3, 3] = self._moon_matrix_of(name, True), pos_b[name]
+                a.user_matrix = u
+            drawn[name] = (pos_b[name], self._body_radius(name))
         self._planets_drawn = drawn
         self._planet_marks()
         light = getattr(self, "_sun_light", None)
@@ -1263,17 +1357,63 @@ class SimView(QWidget):
         centre = np.zeros(3) if self.truth.body.name == "earth" else moon
         out = {"earth": -centre, "moon": moon - centre, "sun": sun - centre}
         out.update({p: eph.planet_icrf_km(p, T) - centre for p in PLANET_NAMES.values()})
+        out.update({m: out[MOON_DATA[m]["planet"]] + eph.satellite_planetocentric_km(m, T) for m in MOON_DATA})
         return out
 
+    def _actor(self, name: str):
+        """An actor by its name (the dynamic ones, else the bodies', kept: plotter.actors rebuilds its whole dict at
+        each access, too slow for the fifty celestial bodies at every frame)."""
+        e = self._dyn.get(name)
+        if e is not None:
+            return e[2]
+        cache = self.__dict__.setdefault("_actor_cache", {})
+        if name not in cache:
+            cache[name] = self.plotter.actors.get(name)
+        return cache[name]
+
+    def _add_moon_mesh(self, p, name: str, actor: str):
+        """A moon's actor: its shape model (km, placed by its matrix alone), else a unit sphere (scaled by its
+        radius), in its colour; its map put on when it is first drawn as a sphere (_map_on: the maps are large)."""
+        mesh = _shape_mesh(name)
+        sphere = _body_mesh(1.0, 180, 90, *MAP_LON.get(name, (-180.0, 1)))
+        a = p.add_mesh(mesh if mesh is not None else sphere, color=MOON_COLORS.get(name, MOON_COLOR),
+                       lighting=False, culling=None if mesh is not None else "back", name=actor, render=False)
+        if _has_texture(name):
+            self.__dict__.setdefault("_maps_pending", {})[actor] = name
+        return a
+
+    def _map_on(self, actor_name: str, a) -> None:
+        """A moon's map, read and put on its actor the first time it is drawn as a sphere."""
+        pending = getattr(self, "_maps_pending", {})
+        name = pending.pop(actor_name, None)
+        if name is None or a is None:
+            return
+        tex = _texture(name)
+        if tex is not None:
+            a.texture = tex
+            a.GetProperty().SetColor(1.0, 1.0, 1.0)
+
+    def _moon_matrix_of(self, name: str, scaled: bool) -> np.ndarray:
+        """A moon's body-fixed -> ICRF matrix (locked on its planet), times its radius for a sphere."""
+        T = eph.centuries_tt(scn.epoch(self.sc), self.t)
+        rel = eph.satellite_planetocentric_km(name, T)
+        vel = eph.satellite_planetocentric_km(name, T + 60.0 / 86400.0 / 36525.0) - rel
+        m = _synchronous_matrix(rel, vel)
+        shape = _shape_mesh(name) is not None
+        return m if (shape or not scaled) else float(MOON_DATA[name]["radius_km"]) * m
+
     def _body_radius(self, b: str) -> float:
+        if b in MOON_DATA:
+            return float(MOON_DATA[b]["radius_km"])
         if b in PLANET_DATA:
             return float(PLANET_DATA[b]["radius_km"])
         return eph_sun_radius_km() if b == "sun" else float(scn.bodies()[b]["radius_km"])
 
-    def _planet_marks(self) -> None:
-        """The planets as drawn (_planets_drawn: centre, radius, in the view's axes): those under PLANET_MARK_PX of
-        radius on screen hidden and drawn as a dot in their colour with their name (user, 29 October 2026), the
-        others as their textured sphere (and Saturn's rings). Each frame and each camera change."""
+    def _planet_marks(self) -> set:
+        """The celestial bodies as drawn (_planets_drawn: centre, radius, in the view's axes; the planets, the Sun,
+        the Earth, the Moon): those under PLANET_MARK_PX of radius on screen hidden and drawn as a dot in their
+        colour with their name (user, 29 October 2026), the others as their textured sphere (and Saturn's rings, the
+        Earth's atmosphere, the Sun's halo). Each frame and each camera change; the set of the bodies marked."""
         drawn = getattr(self, "_planets_drawn", {})
         cam = self.plotter.camera
         pos = np.asarray(cam.GetPosition())
@@ -1285,23 +1425,43 @@ class SimView(QWidget):
         up /= max(float(np.linalg.norm(up)), 1e-12)
         right = np.cross(fwd, up)
         dist = cam.GetDistance()
-        dirs, rgb, lab_p, lab_t = [], [], [], []
+        dirs, rgb, lab_p, lab_t, marked = [], [], [], [], set()
         prefix = "" if self._global() else f"{DYN}sbody_"
+        extra = {"saturn": ("saturn_rings",), "earth": ("earth_atm",), "sun": ("sun_halo",)}
+        scr = {}
         for name, (c, rad) in drawn.items():
             rel = np.asarray(c, float) - pos
             d = float(np.linalg.norm(rel))
-            small = d <= rad or rad / max(d * k, 1e-300) < PLANET_MARK_PX
-            for actor in (f"{prefix}{name}" if prefix else f"body_{name}",) + (
-                    (f"{prefix}saturn_rings" if prefix else "body_saturn_rings",) if name == "saturn" else ()):
-                a = self.plotter.actors.get(actor)
+            scr[name] = (rel / max(d, 1e-300), d)
+        for name, (c, rad) in drawn.items():
+            rel = np.asarray(c, float) - pos
+            d = float(np.linalg.norm(rel))
+            small = d > rad and rad / max(d * k, 1e-300) < PLANET_MARK_PX      # (inside it: its sphere)
+            if small and name in MOON_DATA and MOON_DATA[name]["planet"] in scr:
+                up_, dp = scr[MOON_DATA[name]["planet"]]   # on its planet's dot: neither drawn nor named (user)
+                ang = math.acos(float(np.clip(up_ @ (rel / d), -1.0, 1.0)))
+                if ang / k < MOON_PART_PX:
+                    for actor in (f"{prefix}{name}" if prefix else f"body_{name}",):
+                        a = self._actor(actor)
+                        if a is not None:
+                            a.SetVisibility(False)
+                    marked.add(name)
+                    continue
+            for part in (name,) + tuple(x.split("_", 1)[1] for x in extra.get(name, ())):
+                key = name if part == name else f"{name}_{part}"
+                actor_name = f"{prefix}{key}" if prefix else f"body_{key}"
+                a = self._actor(actor_name)
                 if a is not None:
                     a.SetVisibility(not small)
-            if small and d > rad:
+                    if not small:
+                        self._map_on(actor_name, a)
+            if small:
+                marked.add(name)
                 u = rel / d
                 dirs.append(u)
                 rgb.append(_rgb(PLANET_COLORS[name]))
                 lab_p.append(pos + dist * u + 6.0 * k * dist * right)     # its name beside the dot
-                lab_t.append(next(n for n, key in PLANET_NAMES.items() if key == name))
+                lab_t.append(next(n for n, key in BODY_NAMES.items() if key == name))
         self.sky.set_dots(np.array(dirs).reshape(-1, 3), np.array(rgb, np.uint8).reshape(-1, 3), PLANET_DOT_PX)
         if lab_t:
             self._labels(f"{DYN}planet_lbl", np.array(lab_p), lab_t, MUTED_COLOR, 9)
@@ -1309,6 +1469,7 @@ class SimView(QWidget):
             lab = self._lab.get(f"{DYN}planet_lbl")
             if lab is not None:
                 lab.actor.SetVisibility(False)
+        return marked
 
     def _clip(self) -> None:
         """Before every render: the near plane at NEAR_FRAC of the camera's distance to its focal point (at least),
@@ -2371,9 +2532,10 @@ class SimView(QWidget):
         mats = {"earth": _earth_matrix(scn.epoch(self.sc), self.t),
                 "moon": _moon_matrix(bodies["moon"] - bodies["earth"]), "sun": _sun_matrix(scn.epoch(self.sc), self.t)}
         mats.update({p: _iau_matrix(PLANET_DATA[p], scn.epoch(self.sc), self.t) for p in PLANET_NAMES.values()})
+        mats.update({m: self._moon_matrix_of(m, False) for m in MOON_DATA})
         pts, names = [], []
         self._planets_drawn = {}
-        for b in ("earth", "moon", "sun") + tuple(PLANET_NAMES.values()):
+        for b in ("earth", "moon", "sun") + tuple(PLANET_NAMES.values()) + tuple(MOON_DATA):
             rel = bodies[b] - r_ship                                       # km, ICRF axes
             rng = float(np.linalg.norm(rel))
             rad_true = self._body_radius(b)
@@ -2385,6 +2547,8 @@ class SimView(QWidget):
             name = f"{DYN}sbody_{b}"
             self._used.add(name)
             e = self._dyn.get(name)
+            if e is None and b in MOON_DATA:
+                e = self._dyn[name] = [None, None, self._add_moon_mesh(self.plotter, b, name)]
             if e is None:
                 tex = _texture(b)
                 col = SUN_COLOR if b == "sun" else PLANET_COLORS.get(b, EARTH_COLOR)
@@ -2393,7 +2557,8 @@ class SimView(QWidget):
                                             lighting=(b in ("earth", "moon")), ambient=0.12, name=name, render=False)
                 e = self._dyn[name] = [None, None, act]
             u = np.eye(4)
-            u[:3, :3] = size * (m_ship.T @ mats[b])
+            shape = _shape_mesh(b) is not None                          # (a shape model: in km already)
+            u[:3, :3] = (1.0 if shape else size) * (m_ship.T @ mats[b])
             u[:3, 3] = centre
             e[2].user_matrix = u
             e[2].SetVisibility(True)
@@ -2406,8 +2571,8 @@ class SimView(QWidget):
                 ua[:3, :3], ua[:3, 3] = size * np.eye(3), centre
                 h[2].user_matrix = ua
                 h[2].SetVisibility(True)
-            if b in PLANET_DATA:                                           # a dot when too small (_planet_marks)
-                self._planets_drawn[b] = (centre, size)
+            self._planets_drawn[b] = (centre, size)                         # a dot when too small (_planet_marks)
+            if b in PLANET_DATA:
                 if b == "saturn":
                     self._used.add(f"{DYN}sbody_saturn_rings")
                     h = self._dyn.get(f"{DYN}sbody_saturn_rings")
@@ -2428,11 +2593,12 @@ class SimView(QWidget):
                 h[2].SetVisibility(True)
             pts.append(centre)
             names.append(b.capitalize())
-        if pts and self.cb_labels.isChecked():
-            keep = [k for k, n in enumerate(names) if n.lower() not in PLANET_DATA]   # (the planets: _planet_marks)
+        marked = self._planet_marks()
+        if pts and self.cb_labels.isChecked():          # (the planets and the bodies drawn as dots: _planet_marks)
+            keep = [k for k, n in enumerate(names) if n.lower() not in PLANET_DATA and n.lower() not in MOON_DATA
+                    and n.lower() not in marked]
             if keep:
                 self._labels(f"{DYN}sbody_lbl", np.array(pts)[keep], [names[k] for k in keep], MUTED_COLOR)
-        self._planet_marks()
 
     # ------------------------------------------------------------------ V5 mission volumes
     def _clear_volumes(self) -> None:

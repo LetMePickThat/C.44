@@ -1015,7 +1015,9 @@ def test_sim_view_offscreen(tmp_path):
     u = v.plotter.actors[DYN + "sbody_moon"].user_matrix
     T = eph.centuries_tt(scn.epoch(sc), 10.0)
     assert np.linalg.norm(u[:3, 3]) == pytest.approx(np.linalg.norm(eph.moon_icrf_km(T) - r[0]), rel=1e-6)
-    assert v.plotter.actors[DYN + "sbody_sun"].GetVisibility()
+    sun_dot = v._lab.get(DYN + "planet_lbl")             # its sphere, or its dot and name when under 3 px (user)
+    assert v.plotter.actors[DYN + "sbody_sun"].GetVisibility() or (
+        sun_dot is not None and sun_dot.actor.GetVisibility() and "Sun" in sun_dot._last)
     v.cb_bodies.setChecked(False)
     assert not v.plotter.actors[DYN + "sbody_sun"].GetVisibility()
     # mouse rotation by the virtual trackball: a vertical drag right of the centre (outside its circle) turns the view
@@ -1104,7 +1106,9 @@ def test_third_body_attraction(monkeypatch):
     for t in (0.0, 1234.5, 3599.0):
         T = eph.centuries_tt(ep, t)
         assert np.allclose(tb.positions(t), [eph.moon_icrf_km(T), eph.sun_icrf_km(T)] +
-                           ([eph.planet_icrf_km(p, T) for p in eph.PLANETS] if prop.PLANETS_GRAVITY else []), atol=1e-3)
+                           ([eph.planet_icrf_km(p, T) for p in eph.PLANETS] if prop.PLANETS_GRAVITY else []) +
+                           ([eph.satellite_icrf_km(m, T) for m in eph.MOON_NAMES] if prop.MOONS_GRAVITY else []),
+                           atol=1e-3)
     assert np.allclose(tb.accel(np.zeros((1, 3)), 0.0), 0.0, atol=1e-20)
     rm_ = tb.positions(0.0)[0]
     u = rm_ / np.linalg.norm(rm_)
@@ -1142,13 +1146,47 @@ def test_planets():
     ep = datetime(2050, 1, 1, tzinfo=timezone.utc)
     tb = prop.ThirdBodies("earth", ep, 600.0)
     if prop.PLANETS_GRAVITY:
-        assert tb.names[2:] == eph.PLANETS and len(tb.mu) == 2 + len(eph.PLANETS)
+        assert tb.names[2:2 + len(eph.PLANETS)] == eph.PLANETS
         x = np.array([[7000.0, 0.0, 0.0]])
         sun_only = prop.ThirdBodies("earth", ep, 600.0)
-        sun_only.mu = np.r_[0.0, tb.mu[1], np.zeros(len(eph.PLANETS))]
+        sun_only.mu = np.r_[0.0, tb.mu[1], np.zeros(len(tb.mu) - 2)]
         planets = prop.ThirdBodies("earth", ep, 600.0)
-        planets.mu = np.r_[0.0, 0.0, tb.mu[2:]]
+        planets.mu = np.r_[0.0, 0.0, tb.mu[2:]]               # (and the moons, sim.moons_gravity)
         assert 0.0 < np.linalg.norm(planets.accel(x, 0.0)) < 1e-4 * np.linalg.norm(sun_only.accel(x, 0.0))
+
+
+def test_major_moons():
+    """The major moons (user, 29 October 2026): JPL mean elements; their mean longitude rates read the table's period
+    right (Jupiter's: the mean anomaly's, the others: sidereal; Phobos, Deimos, Triton from their IAU synchronous
+    rotation) within 1e-3 deg/day of the known mean motions; the Laplace resonance of Io, Europa and Ganymede holds
+    near 180 deg; Phobos' shape model in its body frame (its long axis X), its X toward Mars; they pull the objects
+    (sim.moons_gravity)."""
+    known = {"io": 203.4890, "europa": 101.3747, "ganymede": 50.3176, "callisto": 21.5711, "mimas": 381.9945,
+             "enceladus": 262.7319, "titan": 22.5770, "phobos": 1128.8446, "triton": 61.2573, "ariel": 142.8356}
+    for n, lam in known.items():
+        assert sum(eph._precession(n)) == pytest.approx(lam, abs=1e-3)
+    from datetime import datetime, timezone
+    T = eph.centuries_tt(datetime(2050, 1, 1, tzinfo=timezone.utc), 0.0)
+    frame = eph._plane(eph._radec(268.1, 64.5))
+
+    def lon(n, t):
+        x = frame.T @ eph.satellite_planetocentric_km(n, t)
+        return np.radians(np.degrees(np.arctan2(x[1], x[0])))
+    z = np.mean([np.exp(1j * (lon("io", T + d) - 3 * lon("europa", T + d) + 2 * lon("ganymede", T + d)))
+                 for d in np.linspace(0, 7.155588 / 36525, 60)])
+    assert abs(np.degrees(np.angle(z)) % 360 - 180.0) < 20.0
+    for n in eph.MOON_NAMES:                             # within their periapsis and apoapsis
+        el = eph._MOONS[n]
+        r = np.linalg.norm(eph.satellite_planetocentric_km(n, T))
+        assert el["a_km"] * (1 - el["e"]) * 0.999 < r < el["a_km"] * (1 + el["e"]) * 1.001
+    from gui import sim_view as sv
+    mesh = sv._phobos_mesh()
+    if mesh is not None:
+        ext = np.ptp(mesh.points, axis=0)
+        assert ext[0] > ext[1] > ext[2] and 20.0 < ext[0] < 30.0      # long axis X, short Z (its pole)
+    if prop.MOONS_GRAVITY:
+        tb = prop.ThirdBodies("earth", datetime(2050, 1, 1, tzinfo=timezone.utc), 600.0)
+        assert tb.names[-len(eph.MOON_NAMES):] == eph.MOON_NAMES
 
 
 def test_identity_colours_match_the_symbology():
