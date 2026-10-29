@@ -62,18 +62,20 @@ ATT_DEFAULTS = {"fixed": {"type": "fixed", "frame": "orbital", "yaw_deg": 0.0, "
                 "target": {"type": "target", "id": "ship", "roll_deg": 0.0}}
 ATT_DEFAULTS.update({t: {"type": t, "roll_deg": 0.0} for t in ATT_DIRECTIONS})
 MANOEUVRE_FIELDS: Dict[str, List[Field]] = {
+    # pnr: prograde, normal, radial, the manoeuvre node's axes (user, 29 October 2026), first: a new manoeuvre's
     "impulse": [_f("t_s", "time (s)", min=0.0), _f("dv_mps", "delta-v (m/s)", "vec3"),
-                _f("frame", "frame", "choice", choices=("rtn", "inertial"))],
+                _f("frame", "frame", "choice", choices=("pnr", "rtn", "inertial"))],
     "burn": [_f("t_s", "start (s)", min=0.0), _f("duration_s", "duration (s)", min=0.001),
-             _f("accel_mps2", "acceleration (m/s2)", "vec3"), _f("frame", "frame", "choice", choices=("rtn", "inertial"))],
+             _f("accel_mps2", "acceleration (m/s2)", "vec3"),
+             _f("frame", "frame", "choice", choices=("pnr", "rtn", "inertial"))],
     "singer": [],
     "pn": [_f("n", "navigation constant", min=0.1, default=float(P.get("sim.pn_n"))), _f("start_range_km", "start below range (km, or empty: time)", "json"),
            _f("t_s", "start time (s, or empty: range)", "json"),
            _f("target", "target (ship, an object, <group>#k)", "text", default="ship")],
 }
-MANOEUVRE_DEFAULTS = {"impulse": {"type": "impulse", "t_s": 0.0, "dv_mps": [0.0, 0.0, 0.0], "frame": "rtn"},
+MANOEUVRE_DEFAULTS = {"impulse": {"type": "impulse", "t_s": 0.0, "dv_mps": [0.0, 0.0, 0.0], "frame": "pnr"},
                       "burn": {"type": "burn", "t_s": 0.0, "duration_s": 10.0, "accel_mps2": [0.0, 0.0, 0.0],
-                               "frame": "rtn"},
+                               "frame": "pnr"},
                       "singer": {"type": "singer"},
                       "pn": {"type": "pn", "start_range_km": 100.0}}
 # a new relative object 1000 km ahead along the nose (+Z; the default attitude is prograde: along the track); at
@@ -242,6 +244,29 @@ class FormWidget(QWidget):
             w.editingFinished.connect(lambda k=key, ww=w: self._set(k, ww.text().strip()))
         return w
 
+    def reload(self) -> None:
+        """The widgets show the dict's values again (changed from outside: the manoeuvre node), no signal sent."""
+        for key, (kind, w) in self.widgets.items():
+            v = self.data.get(key)
+            if v is None:
+                continue
+            w.blockSignals(True)
+            try:
+                if kind == "float":
+                    w.setValue(float(v))
+                elif kind == "int":
+                    w.setValue(int(v))
+                elif kind == "choice":
+                    w.setCurrentText(str(v))
+                elif kind.startswith("vec"):
+                    w.set_value(v)
+                elif kind == "json":
+                    w.setText(json.dumps(v))
+                else:
+                    w.setText(str(v))
+            finally:
+                w.blockSignals(False)
+
     def _set(self, key: str, value) -> None:
         if value is None or value == "":
             self.data.pop(key, None)
@@ -304,9 +329,15 @@ def _typed_form(title: str, types: Sequence[str], fields: Dict[str, List[Field]]
 class ManoeuvreList(QWidget):
     """The manoeuvres of an object or a group: a list, add buttons per type, the form of the one selected."""
 
-    def __init__(self, items: list, on_change: Callable[[], None], parent=None):
+    def __init__(self, items: list, on_change: Callable[[], None], parent=None,
+                 on_select: Optional[Callable[[Optional[dict]], None]] = None,
+                 on_values: Optional[Callable[[], None]] = None, default_t: Optional[Callable[[], float]] = None):
+        # on_select(m): the manoeuvre shown (None: none), its node in the 3D views; on_values(): its values changed
+        # in the box; default_t(): the time of a new impulse or burn (the playback time) (user, 29 October 2026)
         super().__init__(parent)
         self.items, self.on_change = items, on_change
+        self.on_select, self.on_values, self.default_t = on_select, on_values, default_t
+        self.form: Optional[FormWidget] = None
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         self.list = QListWidget()
@@ -348,7 +379,10 @@ class ManoeuvreList(QWidget):
             self._show(-1)
 
     def _add(self, t: str) -> None:
-        self.items.append(copy.deepcopy(MANOEUVRE_DEFAULTS[t]))
+        m = copy.deepcopy(MANOEUVRE_DEFAULTS[t])
+        if self.default_t is not None and "t_s" in m:
+            m["t_s"] = round(float(self.default_t()), 3)
+        self.items.append(m)
         self._refresh()
         self.on_change()
 
@@ -361,16 +395,31 @@ class ManoeuvreList(QWidget):
 
     def _show(self, i: int) -> None:
         _clear(self.form_area)
+        self.form = None
         if not (0 <= i < len(self.items)):
+            if self.on_select is not None:
+                self.on_select(None)
             return
         m = self.items[i]
         form = FormWidget(MANOEUVRE_FIELDS[m["type"]], m)
+        self.form = form
 
         def changed():
             self.list.item(i).setText(self._label(m))
             self.on_change()
+            if self.on_values is not None:
+                self.on_values()
         form.changed.connect(changed)
         self.form_area.addWidget(form)
+        if self.on_select is not None:
+            self.on_select(m)
+
+    def refresh(self) -> None:
+        """The manoeuvre shown changed from outside (its node): the box and its line in the list follow."""
+        i = self.list.currentRow()
+        if self.form is not None and 0 <= i < len(self.items):
+            self.form.reload()
+            self.list.item(i).setText(self._label(self.items[i]))
 
 
 class WaypointList(QWidget):
@@ -816,6 +865,8 @@ class ScenarioTab(QWidget):
 
     # ------------------------------------------------------------------ forms
     def _show(self, item: Optional[QTreeWidgetItem]) -> None:
+        if hasattr(self.preview, "edit_manoeuvre"):
+            self.preview.edit_manoeuvre(None)                  # no node until a manoeuvre is chosen again
         _clear(self.form_layout)
         if item is None:
             return
@@ -940,7 +991,41 @@ class ScenarioTab(QWidget):
         lay.addWidget(QLabel("Attitude (waypoints)"))
         lay.addWidget(WaypointList(ship.setdefault("attitude", copy.deepcopy(att.DEFAULT_SHIP)), self._changed,
                                    lambda: list(scn.object_ids(self.sc)), self._duration))
+        lay.addWidget(QLabel("Manoeuvres"))                    # as any object's (user, 29 October 2026)
+        lay.addWidget(self._manoeuvre_list("ship", ship))
         return box
+
+    def _manoeuvre_list(self, row_id: str, owner: dict) -> "ManoeuvreList":
+        """The manoeuvres of the ship, an object or a group (its first member), linked to the manoeuvre node of the
+        3D views (user, 29 October 2026): the manoeuvre chosen shows its node; the node's edits show in the box."""
+        ml = ManoeuvreList(owner.setdefault("manoeuvres", []), self._changed,
+                           default_t=lambda: float(getattr(self.preview, "t", 0.0)))
+
+        def on_edit(final: bool) -> None:
+            ml.refresh()
+            if final:
+                self._changed()
+            else:
+                self.modified = True
+                self._update_title()
+
+        def on_release() -> None:                              # a click in the view let the manoeuvre go
+            ml.list.blockSignals(True)
+            ml.list.setCurrentRow(-1)
+            ml.list.clearSelection()
+            ml.list.blockSignals(False)
+            ml._show(-1)
+
+        def on_select(m: Optional[dict]) -> None:
+            if hasattr(self.preview, "edit_manoeuvre"):
+                self.preview.edit_manoeuvre(row_id if m is not None else None, owner, m, on_edit, on_release)
+
+        ml.on_select = on_select
+        ml.on_values = lambda: self.preview.manoeuvre_values_changed() if hasattr(
+            self.preview, "manoeuvre_values_changed") else None
+        if ml.list.currentRow() >= 0:                          # (the list chose its last manoeuvre already)
+            on_select(ml.items[ml.list.currentRow()])
+        return ml
 
     def _duration(self) -> float:
         d = self.sc.get("meta", {}).get("duration_s")
@@ -1016,7 +1101,7 @@ class ScenarioTab(QWidget):
             lay.addWidget(_typed_form("initial state", ("relative", "elements", "state"), ORBIT_FIELDS, ORBIT_DEFAULTS,
                                       o, "state", "type", self._changed))
         lay.addWidget(QLabel("Manoeuvres"))
-        lay.addWidget(ManoeuvreList(o.setdefault("manoeuvres", []), self._changed))
+        lay.addWidget(self._manoeuvre_list(o.get("id", "") if kind == "objects" else f"{o.get('id', '')}#0", o))
         return box
 
     # ------------------------------------------------------------------ changes and validation

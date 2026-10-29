@@ -13,7 +13,8 @@ central body (ICRF axes, km, km/s, s):
   - RK4 at the fixed step meta.step_s, a step split only at the exact time of an event (impulse, burn start or end,
     appearance, PN start at a given time) (C2);
   - manoeuvres (C3-C5): impulse (dv at t_s), burn (constant acceleration over its duration), in the object's own rtn
-    frame (X radial, Y along track, Z = r x v, step 3.0) or in inertial axes; Singer (Gauss-Markov acceleration per
+    frame (X radial, Y along track, Z = r x v, step 3.0), its pnr frame (X prograde along v, Y normal along r x v,
+    Z radial in the orbit's plane, X x Y; the manoeuvre node's axes, user 29 October 2026) or in inertial axes; Singer (Gauss-Markov acceleration per
     inertial axis, exact discretisation, the class's a_max and maneuver_tau with the Singer intensity of
     core/trackmodel without the filter's floor; seed meta.seed + row); proportional navigation toward the ship,
     a = N Vc (Omega x LOS), normal to the line of sight, bounded by the class's accel_max_mps2, from t_s or from the
@@ -24,7 +25,9 @@ central body (ICRF axes, km, km/s, s):
     draws its n objects around its reference at t_appear_s (isotropic Gaussian, seeded);
   - attitudes flown by waypoints (pass S3a, sim/attitude.py): the ownship and the SHIP / KKV objects that have an
     "attitude" list, advanced at every step and recorded at every step (attitude() interpolates by SLERP);
-  - an object below the body's mean radius is marked impacted and stops.
+  - an object below the body's mean radius is marked impacted and stops; the ship below it (its own manoeuvres,
+    user 29 October 2026: the radar is lost) ends the run there, its last record at the impact (Truth.t_s ends
+    before meta.duration_s; nothing spawns after it).
 The truth is recorded every sim.log_step_s (the playback interpolates with a cubic on position and velocity); the
 .npz journal is pass S4 (D6).
 """
@@ -32,7 +35,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -47,9 +50,12 @@ from . import ephemeris as eph
 from . import scenario as scn
 
 LOG_STEP_S = float(P.get("sim.log_step_s"))      # P4: recording interval of the truth
+SHIP_MANOEUVRE_CLASS = str(P.get("sim.ship_manoeuvre_class"))   # the ship's pn / singer: this class's bounds
+SHIP_MANEUVER_TAU_S = float(P.get("sim.ship_maneuver_tau_s"))   # ... and this Singer time constant
 THIRD_BODY = bool(P.get("sim.third_body"))       # O4: attraction of the other bodies
 SUN_MU = float(P.get("sim.sun_mu_km3_s2"))       # O2
 _NO_BODIES, _NO_MU = np.zeros((0, 3)), np.zeros(0)  # no other body (sim.third_body false)
+BURN_SUBSTEPS = 20                                 # manoeuvre node preview: a burn in this many RK4 steps at least
 THIRD_BODY_STEP_S = 60.0                         # O3: grid of the body positions (cubic between: error << 1 m)
 
 
@@ -134,16 +140,7 @@ def coast(body: Body, third: Optional[ThirdBodies], r: np.ndarray, v: np.ndarray
     of the 3D views, the way the body would fly under the local gravity alone): the gravity of the run (two-body,
     J2, the other bodies when given), no burn, no guidance, no Singer acceleration; RK4 in n_steps equal steps.
     Positions (n_steps + 1, n, 3), NaN from where a path meets the central body's surface (and for NaN states)."""
-    zero = np.zeros_like(r)
-
-    def acc(t: float, rr: np.ndarray) -> np.ndarray:
-        if fast.USE_NUMBA:
-            tpos, tmu = (third.positions(t), third.mu) if third is not None else (_NO_BODIES, _NO_MU)
-            return fast.gravity(np.ascontiguousarray(rr), zero, body.mu, float(body.j2), body.r_eq_km, body.pole,
-                                tpos, tmu)
-        a = body.accel(rr)
-        return a + third.accel(rr, t) if third is not None else a
-
+    acc = _gravity(body, third)
     ok = np.isfinite(r[:, 0]) & np.isfinite(v[:, 0])
     out = np.full((n_steps + 1, len(r), 3), np.nan)
     if not ok.any():
@@ -165,6 +162,76 @@ def coast(body: Body, third: Optional[ThirdBodies], r: np.ndarray, v: np.ndarray
     return out
 
 
+def _gravity(body: Body, third: Optional[ThirdBodies]) -> Callable[[float, np.ndarray], np.ndarray]:
+    """The run's gravity (two bodies, J2, the other bodies when given) on positions (n, 3) at t, km/s2."""
+    def acc(t: float, rr: np.ndarray) -> np.ndarray:
+        if fast.USE_NUMBA:
+            tpos, tmu = (third.positions(t), third.mu) if third is not None else (_NO_BODIES, _NO_MU)
+            return fast.gravity(np.ascontiguousarray(rr), np.zeros_like(rr), body.mu, float(body.j2), body.r_eq_km,
+                                body.pole, tpos, tmu)
+        a = body.accel(rr)
+        return a + third.accel(rr, t) if third is not None else a
+    return acc
+
+
+def preview_path(body: Body, third: Optional[ThirdBodies], r0: np.ndarray, v0: np.ndarray, t0: float, t1: float,
+                 manoeuvres: List[dict], step_s: float):
+    """One body from its state r0, v0 (3,) at t0 to t1 under the run's gravity with its own impulses and burns (the
+    manoeuvre node's real-time preview, user 29 October 2026: no PN, no Singer, no other body's influence; the full
+    propagation follows): RK4 at step_s, split at every manoeuvre time, a burn in BURN_SUBSTEPS steps at least.
+    Returns (t (k,), r (k, 3), v (k, 3), pre): pre[j] the state (r, v) just before manoeuvre j (impulse: at t_s,
+    burn: at its start), None when it falls outside [t0, t1] or after the surface is met; the path stops at the
+    central body's surface."""
+    acc = _gravity(body, third)
+    ms = [m for m in manoeuvres if m.get("type") in ("impulse", "burn")]
+    mine = {id(m) for m in ms}                             # (by identity: two manoeuvres may be equal)
+    burns = [(float(m["t_s"]), float(m["t_s"]) + float(m["duration_s"]), m) for m in ms if m["type"] == "burn"]
+    ev = {t0, t1}
+    for m in ms:
+        ev.add(float(m["t_s"]))
+        if m["type"] == "burn":
+            ev.add(float(m["t_s"]) + float(m["duration_s"]))
+    ev = sorted(t for t in ev if t0 <= t <= t1)
+    pre: List[Optional[tuple]] = [None] * len(manoeuvres)
+    x, u = np.asarray(r0, float).copy(), np.asarray(v0, float).copy()
+    ts, rs, vs = [t0], [x.copy()], [u.copy()]
+
+    def force(t: float, rr: np.ndarray, vv: np.ndarray, run) -> np.ndarray:
+        a = acc(t, rr[None])[0]
+        for m in run:
+            a = a + frame_matrix(m["frame"], rr, vv) @ (1e-3 * np.asarray(m["accel_mps2"], float))
+        return a
+
+    for a, b in zip(ev[:-1], ev[1:]):
+        for j, m in enumerate(manoeuvres):                   # the manoeuvres at a: their state before, the impulses
+            if id(m) in mine and abs(float(m["t_s"]) - a) < 1e-9:
+                pre[j] = (x.copy(), u.copy())
+                if m["type"] == "impulse":
+                    u = u + frame_matrix(m["frame"], x, u) @ (1e-3 * np.asarray(m["dv_mps"], float))
+        running = [(b0, b1, m) for b0, b1, m in burns if b0 - 1e-9 <= a < b1 - 1e-9]
+        run = [m for _b0, _b1, m in running]
+        h = step_s if not run else min(step_s, min(b1 - b0 for b0, b1, _m in running) / BURN_SUBSTEPS)
+        n = max(1, int(math.ceil((b - a) / max(h, 1e-9) - 1e-9)))
+        h = (b - a) / n
+        for k in range(n):
+            t = a + k * h
+            k1v, k1a = u, force(t, x, u, run)
+            k2v, k2a = u + 0.5 * h * k1a, force(t + 0.5 * h, x + 0.5 * h * k1v, u + 0.5 * h * k1a, run)
+            k3v, k3a = u + 0.5 * h * k2a, force(t + 0.5 * h, x + 0.5 * h * k2v, u + 0.5 * h * k2a, run)
+            k4v, k4a = u + h * k3a, force(t + h, x + h * k3v, u + h * k3a, run)
+            x = x + h / 6.0 * (k1v + 2.0 * k2v + 2.0 * k3v + k4v)
+            u = u + h / 6.0 * (k1a + 2.0 * k2a + 2.0 * k3a + k4a)
+            ts.append(t + h)
+            rs.append(x.copy())
+            vs.append(u.copy())
+            if float(np.linalg.norm(x)) < body.radius_km:   # met the surface: the path stops there
+                return np.array(ts), np.array(rs), np.array(vs), pre
+    for j, m in enumerate(manoeuvres):                       # a manoeuvre at t1 exactly
+        if id(m) in mine and pre[j] is None and abs(float(m["t_s"]) - t1) < 1e-9:
+            pre[j] = (x.copy(), u.copy())
+    return np.array(ts), np.array(rs), np.array(vs), pre
+
+
 def elements_to_state(o: dict, mu: float) -> Tuple[np.ndarray, np.ndarray]:
     """(r km, v km/s) of Keplerian elements a, e, i, raan, argp, nu (closed orbit), ICRF axes."""
     a, e = float(o["a_km"]), float(o["e"])
@@ -177,6 +244,25 @@ def elements_to_state(o: dict, mu: float) -> Tuple[np.ndarray, np.ndarray]:
                   [sW * cw + cW * sw * ci, -sW * sw + cW * cw * ci, -cW * si],
                   [sw * si, cw * si, ci]])
     return m @ r_pf, m @ v_pf
+
+
+def pnr_matrix(r: np.ndarray, v: np.ndarray) -> np.ndarray:
+    """Columns X prograde (along v), Y normal (r x v), Z = X x Y radial (in the orbit's plane, outward, normal to v):
+    the manoeuvre node's axes (user, 29 October 2026); v_icrf = M v_pnr; r, v (3,) or (n, 3)."""
+    x = v / np.linalg.norm(v, axis=-1, keepdims=True)
+    y = np.cross(r, v)
+    y = y / np.linalg.norm(y, axis=-1, keepdims=True)
+    z = np.cross(x, y)
+    return np.stack([x, y, z], axis=-1)
+
+
+def frame_matrix(frame: str, r: np.ndarray, v: np.ndarray) -> np.ndarray:
+    """The matrix of a manoeuvre frame ("rtn", "pnr", "inertial") at the state r, v (3,) or (n, 3): v_icrf = M v."""
+    if frame == "rtn":
+        return rtn_matrix(r, v)
+    if frame == "pnr":
+        return pnr_matrix(r, v)
+    return np.broadcast_to(np.eye(3), np.shape(r)[:-1] + (3, 3)).copy()
 
 
 def rtn_matrix(r: np.ndarray, v: np.ndarray) -> np.ndarray:
@@ -233,10 +319,13 @@ class Truth:
 class _Row:
     """Settings of one propagated row (manoeuvres, Singer, PN) and its spawn rule."""
 
-    def __init__(self, oid: str, cls: str, spec: dict, group: Optional[str] = None):
+    def __init__(self, oid: str, cls: str, spec: dict, group: Optional[str] = None, bound_cls: Optional[str] = None):
+        # bound_cls: the class whose acceleration and Singer time bound the manoeuvres, when not the row's own (the
+        # ship: no class of its own, sim.ship_manoeuvre_class)
         self.id, self.cls, self.spec, self.group = oid, cls, spec, group
         self.t_appear = float(spec.get("t_appear_s", 0.0))
-        tgt = rm.target_for_sector({"id": oid, "target_type": cls, **spec.get("overrides", {})}) if cls else None
+        bound = bound_cls or cls
+        tgt = rm.target_for_sector({"id": oid, "target_type": bound, **spec.get("overrides", {})}) if bound else None
         self.a_max_kms2 = (tgt.accel_max_mps2 * 1e-3) if tgt is not None else 0.0
         ms = spec.get("manoeuvres", [])
         self.impulses = [m for m in ms if m["type"] == "impulse"]
@@ -250,9 +339,17 @@ class _Row:
         self.relative = spec.get("state", {}).get("type") == "relative"
 
 
+def _ship_row(sc: dict) -> _Row:
+    """The ship's row: its manoeuvres (user, 29 October 2026), bounded by the class sim.ship_manoeuvre_class with
+    the Singer time sim.ship_maneuver_tau_s; no class of its own."""
+    spec = {"manoeuvres": sc["ship"].get("manoeuvres", []),
+            "overrides": {"maneuver_tau_s": SHIP_MANEUVER_TAU_S}}
+    return _Row("ship", "", spec, bound_cls=SHIP_MANOEUVRE_CLASS)
+
+
 def _event_times(rows: List[_Row], groups: List[dict], duration: float) -> np.ndarray:
     ev = set()
-    for w in rows[1:]:
+    for w in rows:                                    # the ship's manoeuvres too (user, 29 October 2026)
         if w.relative or w.group:
             ev.add(w.t_appear)
         ev.update(float(m["t_s"]) for m in w.impulses)
@@ -271,7 +368,7 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
     duration, dt = float(sc["meta"]["duration_s"]), float(sc["meta"]["step_s"])
     seed = int(sc["meta"]["seed"])
     n_log_every = max(1, int(round(LOG_STEP_S / dt)))
-    rows = [_Row("ship", "", {})] + [_Row(o["id"], o["class"], o) for o in sc["objects"]]
+    rows = [_ship_row(sc)] + [_Row(o["id"], o["class"], o) for o in sc["objects"]]
     groups = sc.get("groups", [])
     for g in groups:
         rows += [_Row(f"{g['id']}#{k}", g["class"], g, group=g["id"]) for k in range(int(g["n"]))]
@@ -313,7 +410,7 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
     b_t0 = np.array([float(m["t_s"]) for _i, m in burns])
     b_t1 = b_t0 + np.array([float(m["duration_s"]) for _i, m in burns])
     b_acc = np.array([1e-3 * np.asarray(m["accel_mps2"], float) for _i, m in burns]).reshape(-1, 3)
-    b_rtn = np.array([m["frame"] == "rtn" for _i, m in burns], bool)
+    b_frame = np.array([m["frame"] for _i, m in burns], object)
     pn_rows = np.array([i for i, w in enumerate(rows) if w.pn is not None], int)
     pn_t = np.array([float(rows[i].pn["t_s"]) if "t_s" in rows[i].pn else np.nan for i in pn_rows])
     pn_r0 = np.array([float(rows[i].pn.get("start_range_km", np.nan)) for i in pn_rows])
@@ -382,7 +479,7 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
         for _t, i, m in imp[lo:hi]:
             if active[i]:
                 dv = 1e-3 * np.asarray(m["dv_mps"], float)
-                x[i, 3:] += (rtn_matrix(x[i, :3], x[i, 3:]) @ dv) if m["frame"] == "rtn" else dv
+                x[i, 3:] += frame_matrix(m["frame"], x[i, :3], x[i, 3:]) @ dv
 
     def accel(t0: float, tb: float, xs: np.ndarray, act: np.ndarray) -> np.ndarray:
         """d/dt of the active states xs (k, 6) at tb, during a sub-step that starts at t0 (burns decided at t0)."""
@@ -403,9 +500,11 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
             if run.any():
                 ks = pos[b_row[run]]
                 acc = b_acc[run].copy()
-                rt = b_rtn[run]
-                if rt.any():
-                    acc[rt] = np.einsum("nij,nj->ni", rtn_matrix(r[ks[rt]], v[ks[rt]]), acc[rt])
+                fr = b_frame[run]
+                for name in ("rtn", "pnr"):
+                    rt = fr == name
+                    if rt.any():
+                        acc[rt] = np.einsum("nij,nj->ni", frame_matrix(name, r[ks[rt]], v[ks[rt]]), acc[rt])
                 np.add.at(a, ks, acc)
         on = np.flatnonzero(pn_on[rows_act])
         if len(on):                                   # each guided row toward its target, when the target exists
@@ -474,12 +573,15 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
             pn_on[g[opens]] = False
             pn_done[g[opens]] = True
 
-    def impacts(t: float) -> None:
+    def impacts(t: float) -> bool:
+        """The rows below the surface at t marked impacted; True when the ship is (the run ends: it stays
+        active for its last record)."""
         r = np.linalg.norm(x[:, :3], axis=1)
         hit = active & (r < body.radius_km)
         if hit.any():
             t_impact[hit] = t
-            active[hit] = False
+            active[hit & (np.arange(n) > 0)] = False
+        return bool(hit[0])
 
     events = _event_times(rows, groups, duration)
     n_steps = int(math.ceil(duration / dt - 1e-9))
@@ -534,7 +636,12 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
             e_ptr += 1
             spawn(t)
             impulses(t)
-            impacts(t)
+            if impacts(t):
+                break
+        if np.isfinite(t_impact[0]):                      # the ship met the surface: the run ends there
+            record(j_log, t)
+            j_log += 1
+            break
         spawn(t1)
         if e_ptr < len(events) and abs(events[e_ptr] - t1) < 1e-9:
             impulses(t1)
@@ -542,11 +649,13 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
             s, tau = rows[i].singer
             f = math.exp(-(t1 - t0) / tau)
             a_sing[i] = f * a_sing[i] + s * math.sqrt(1.0 - f * f) * rngs[i].standard_normal(3)
-        impacts(t1)
+        ship_lost = impacts(t1)
         pn_update(t1, prev)
-        if (k + 1) % n_log_every == 0 or k == n_steps - 1:
+        if ship_lost or (k + 1) % n_log_every == 0 or k == n_steps - 1:
             record(j_log, t1)
             j_log += 1
+        if ship_lost:
+            break
         if progress_cb and k % 1000 == 0:
             progress_cb(k, n_steps)
     return Truth(body=body, ids=[w.id for w in rows], classes=[w.cls for w in rows], t_s=t_log[:j_log],

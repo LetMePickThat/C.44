@@ -948,6 +948,10 @@ sim_min_ring_km = 0.5           # simulator views: nearest zoom in, the innermos
 sim_max_view_km = 2.0e13     # simulator views: farthest zoom out, km (~130 000 AU) (user, 29 Oct 2026)
 sim_sun_halo_r = 3.0            # simulator views: the Sun's halo out to this x the solar radius, at its true size (user, 29 Oct 2026)
 sim_sun_halo_opacity = 0.4      # simulator views: the halo's opacity at the Sun's limb, falling linearly to 0 at its edge (user, 29 Oct 2026)
+sim_node_px = 120               # manoeuvre node: its size on screen, handles included, px at UI size 100 % (user, 29 Oct 2026)
+sim_node_dv_rate = 50.0         # manoeuvre node, impulse: delta-v rate of a handle pulled to its stop, m/s per s (square of the pull below) (user, 29 Oct 2026)
+sim_node_accel_rate = 1.0       # manoeuvre node, burn: acceleration rate of a handle pulled to its stop, m/s2 per s (user, 29 Oct 2026)
+sim_node_preview_step_s = 5.0   # manoeuvre node: RK4 step of the edited body's real-time path, s (5 s: well under 1 m from the full propagation over 900 s in low orbit) (D)
 
 [tool.mission_defaults]       # values of a new mission / sector / AT bracket (operator inputs, not the radar)
 eps_min_deg = -90.0             # rear limit of the scan window (-90 = no limit)
@@ -996,6 +1000,8 @@ vr_acc_mps = 5.0
 [sim]
 step_s = { value = 0.1, unit = "s", status = "V", source = "B2: fixed truth step of the propagation (user, 28 Oct 2026)", date = "2026-10-28" }
 pn_n   = { value = 4.0, unit = "-", status = "V", source = "C5: navigation constant of the KKV terminal guidance (proportional navigation, user, 28 Oct 2026)", date = "2026-10-28" }
+ship_manoeuvre_class = { value = "SHIP", unit = "-", status = "V", source = "OWNSHIP's manoeuvres (pn, singer): the maximum acceleration of this target class (1 g for SHIP) (user, 29 Oct 2026)", date = "2026-10-29" }
+ship_maneuver_tau_s  = { value = 20.0, unit = "s", status = "V", source = "OWNSHIP's Singer manoeuvre time constant (user, 29 Oct 2026; the class SHIP has 60 s)", date = "2026-10-29" }
 third_body = { value = true, unit = "-", status = "D", source = "O4: attraction of the other bodies (Sun and Moon around the Earth, Sun and Earth around the Moon) on the ship and the objects, in every scenario; false only to compare (user, 29 Oct 2026)", date = "2026-10-29" }
 sun_mu_km3_s2 = { value = 1.32712440018e11, unit = "km3/s2", status = "D", source = "O2: heliocentric gravitational constant (IAU 2009 / DE430)", date = "2026-10-29" }
 log_step_s = { value = 1.0, unit = "s", status = "D", source = "P4: recording interval of the truth (the playback interpolates a cubic on position and velocity; 0.1 s would weigh ~1.7 GB per hour for 1000 objects) (user, 28 Oct 2026)", date = "2026-10-28" }

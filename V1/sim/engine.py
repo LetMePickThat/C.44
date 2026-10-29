@@ -91,7 +91,7 @@ class Navigation:
         return int(round(t * NAV_RATE_HZ))
 
     def times(self, t0: float = 0.0, t1: Optional[float] = None) -> np.ndarray:
-        t1 = float(self.sc["meta"]["duration_s"]) if t1 is None else t1
+        t1 = min(float(self.sc["meta"]["duration_s"]), float(self.truth.t_s[-1])) if t1 is None else t1   # (ship lost)
         return np.arange(self.index(t0), self.index(t1) + 1) / NAV_RATE_HZ
 
     def state(self, t: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -320,7 +320,7 @@ def summary(sc: dict, truth: Truth, g: geo.Geometry, cpu_s: float = 0.0) -> dict
     for e in truth.att_events:
         kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
     return {"name": sc["meta"]["name"], "epoch_utc": sc["meta"]["epoch_utc"],
-            "duration_s": float(sc["meta"]["duration_s"]), "central_body": truth.body.name,
+            "duration_s": min(float(sc["meta"]["duration_s"]), float(truth.t_s[-1])), "central_body": truth.body.name,
             "model_version": rm.MODEL_VERSION, "params_hash": params_hash(), "cpu_s": round(cpu_s, 3),
             "objects_per_class": per_class, "impacts": [o["id"] for o in objs if o["t_impact_s"] is not None],
             "ship_shadow_periods_s": _periods(g.t_s, g.ship_shadow > 0.0),

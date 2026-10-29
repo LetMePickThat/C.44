@@ -679,6 +679,10 @@ class SimView(QWidget):
         # 29 October 2026)
         sv.install_arcball(self.plotter, ARCBALL_RADIUS, button="right")
         self.plotter.iren.interactor.AddObserver("LeftButtonPressEvent", self._on_click, 1.0)
+        # the manoeuvre node (user, 29 October 2026): its own presses before the click above
+        from gui.maneuver_node import NodeTool
+        self.node = NodeTool(self)
+        self.node.install(self.plotter.iren.interactor)
         self.plotter.set_background(BG_COLOR)
         self.plotter._ui_scale = self.ui_scale
         self.sky = gsky.Sky(self.plotter, BG_COLOR)        # the stars under the scene (their own renderer)
@@ -890,6 +894,7 @@ class SimView(QWidget):
         rng = g.range_km[np.isfinite(g.range_km)]
         self._r_far = max(float(rng.max()), 1e-3) if rng.size else 10.0
         self._navigation = engine.Navigation(sc, truth)
+        self.node.invalidate()                        # the node's preview from the new run
         self._triad_rgb = np.array([_rgb(cgeo.COLORS[k]) for k in ("axis_x", "axis_y", "axis_z")], np.uint8)
         self._colour_rows()
         self._fill_lists()
@@ -900,6 +905,15 @@ class SimView(QWidget):
 
     # ------------------------------------------------------------------ time
     def duration(self) -> float:
+        """The run's length: the scenario's, or up to the ship's impact when its manoeuvres crash it (the run ends
+        there, user 29 October 2026)."""
+        if not self.sc:
+            return 0.0
+        d = float(self.sc["meta"]["duration_s"])
+        return min(d, float(self.truth.t_s[-1])) if self.truth is not None and len(self.truth.t_s) else d
+
+    def scenario_duration(self) -> float:
+        """The scenario's length (the manoeuvre node's paths: beyond an impact the edit may avoid)."""
         return float(self.sc["meta"]["duration_s"]) if self.sc else 0.0
 
     def set_controls_visible(self, on: bool) -> None:
@@ -990,7 +1004,7 @@ class SimView(QWidget):
                 ev.append((float(tr.t_pn_start_s[i]), f"{oid} starts terminal guidance (PN)"))
             if np.isfinite(tr.t_impact_s[i]):
                 ev.append((float(tr.t_impact_s[i]), f"{oid} impacts the {tr.body.name}"))
-        for o in sc.get("objects", []) + sc.get("groups", []):
+        for o in [dict(sc.get("ship", {}), id="ship")] + sc.get("objects", []) + sc.get("groups", []):
             for m in o.get("manoeuvres", []):
                 if m["type"] in ("impulse", "burn"):
                     ev.append((float(m["t_s"]), f"{o['id']} {m['type']}"))
@@ -1186,7 +1200,23 @@ class SimView(QWidget):
             self._in_camera = False
         self._place_symbols()                         # SYMBOL_PX on screen whatever the camera does
         self._place_scaled()                          # the axes and noses too (user)
+        self.node.place()                             # the manoeuvre node too
         self._update_rings()
+
+    def edit_manoeuvre(self, row_id: Optional[str], owner: Optional[dict] = None, m: Optional[dict] = None,
+                       on_edit: Optional[Callable[[bool], None]] = None,
+                       on_release: Optional[Callable[[], None]] = None) -> None:
+        """The manoeuvre chosen in the editor (gui/maneuver_node.py): its node on the path of the body row_id;
+        on_release() when a click in the view lets it go; None: no node."""
+        self.node.set_target(row_id, owner, m, on_edit, on_release)
+        if self.truth is not None:
+            self._draw_frame()
+
+    def manoeuvre_values_changed(self) -> None:
+        """The editor's box changed the manoeuvre's values: the node and the planned trajectory follow at once."""
+        self.node.invalidate()
+        if self.truth is not None and self.node.row() is not None:
+            self._draw_frame()
 
     def zoom(self, f: float) -> None:
         """Move the camera toward its focal point by f (as the wheel; the triad keeps its size on screen)."""
@@ -1266,7 +1296,7 @@ class SimView(QWidget):
                 out.append((float(tr.t_pn_start_s[i]), f"{oid} PN"))
             if np.isfinite(tr.t_impact_s[i]):
                 out.append((max(float(tr.t_impact_s[i]) - 1e-6, 0.0), f"{oid} impact"))
-        for o in self.sc.get("objects", []):
+        for o in [dict(self.sc.get("ship", {}), id="ship")] + self.sc.get("objects", []):
             for m in o.get("manoeuvres", []):
                 if m["type"] in ("impulse", "burn"):
                     out.append((float(m["t_s"]), f"{o['id']} {m['type']}"))
@@ -1899,8 +1929,12 @@ class SimView(QWidget):
                               line_width=3, opacity=0.8)
         if self.cb_planned.isChecked():               # from t to the run's end, OWNSHIP's thicker
             own = idx == 0
-            self._truth_lines(f"{DYN}planned", idx[~own], rgb[~own], self.t, self.duration(), line_width=1.5)
-            self._truth_lines(f"{DYN}planned_ship", idx[own], rgb[own], self.t, self.duration(), line_width=3)
+            mine = idx == self.node.row()             # the body of the manoeuvre node: its live path (node.draw)
+            self._truth_lines(f"{DYN}planned", idx[~own & ~mine], rgb[~own & ~mine], self.t, self.duration(),
+                              line_width=1.5)
+            self._truth_lines(f"{DYN}planned_ship", idx[own & ~mine], rgb[own & ~mine], self.t, self.duration(),
+                              line_width=3)
+        self.node.draw()
         if self.cb_orbit.isChecked() and len(idx):    # free fall from t under the local gravity
             self._coast_lines(self._coast(r[idx], v[idx]), rgb)
         # ship attitude triad, enlarged (V3), of constant size on screen ("ship axes" switch)
@@ -1963,7 +1997,9 @@ class SimView(QWidget):
             sel = (g.t_s >= self.t - self.sp_trail.value()) & (g.t_s <= self.t)
             self._ship_lines(f"{DYN}trails", js, rgb, sel, line_width=2, opacity=0.6)
         if self.cb_planned.isChecked():               # the records from t to the run's end
-            self._ship_lines(f"{DYN}planned", js, rgb, g.t_s >= self.t, line_width=1.5)
+            mine = js + 1 == self.node.row()          # the body of the manoeuvre node: its live path (node.draw)
+            self._ship_lines(f"{DYN}planned", js[~mine], rgb[~mine], g.t_s >= self.t, line_width=1.5)
+        self.node.draw()
         if self.cb_orbit.isChecked():                 # the free falls relative to OWNSHIP's own (user)
             self._coast_lines(self._ship_coast(r, v, rows[ex]), rgb)
         self._screen_pts = {g.ids[j]: pos[jj] for jj, j in enumerate(js)}
@@ -2129,6 +2165,9 @@ class SimView(QWidget):
             if dd < best_d:
                 best, best_d = oid, dd
         double = obj.GetRepeatCount() >= 1
+        if self.node.target is not None and not self.node.owns("ship" if best == OWNSHIP else best):
+            self.node.release()                       # another body or nothing: the manoeuvre let go (user)
+            self._draw_frame()
         if best is not None:
             self._select(best)
             if double:

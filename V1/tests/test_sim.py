@@ -257,6 +257,69 @@ def test_pn_intercepts_the_ship():
     assert np.nanmin(d) > 5.0
 
 
+def test_pnr_frame_and_node_preview():
+    """The manoeuvre node (user, 29 October 2026): the pnr frame (X along v, Y along r x v, Z = X x Y) and the
+    one-body preview of an impulse and a burn, which keeps within a metre of the full propagation over 900 s."""
+    r, v = np.array([7000.0, 0.0, 0.0]), np.array([0.3, 7.5, 0.4])
+    m = prop.pnr_matrix(r, v)
+    assert np.allclose(m.T @ m, np.eye(3)) and np.allclose(m[:, 0], v / np.linalg.norm(v))
+    assert np.allclose(m[:, 1], np.cross(r, v) / np.linalg.norm(np.cross(r, v))) and m[:, 2] @ r > 0.0
+    man = [{"type": "impulse", "t_s": 100.0, "dv_mps": [50.0, 20.0, -30.0], "frame": "pnr"},
+           {"type": "burn", "t_s": 300.0, "duration_s": 40.0, "accel_mps2": [0.5, 0.0, 0.2], "frame": "pnr"}]
+    sc = _orbit_sc(900.0, step=0.1)
+    sc["ship"]["orbit"]["e"] = 0.05
+    sc["ship"]["manoeuvres"] = man
+    assert scn.validate(sc) == []
+    sc = scn.normalise(sc)
+    tr = prop.propagate(sc)
+    third = prop.ThirdBodies(tr.body.name, scn.epoch(sc), 900.0) if prop.THIRD_BODY else None
+    k = int(np.searchsorted(tr.t_s, 50.0))
+    ts, rr, _vv, pre = prop.preview_path(tr.body, third, tr.r_km[k, 0], tr.v_kms[k, 0], float(tr.t_s[k]), 900.0,
+                                         sc["ship"]["manoeuvres"], 5.0)
+    assert ts[-1] == pytest.approx(900.0) and np.linalg.norm(rr[-1] - tr.r_km[-1, 0]) < 1e-3
+    assert all(p is not None for p in pre)
+    r100 = geo.states_at(tr, 100.0 - 1e-6)[0][0]
+    assert np.linalg.norm(pre[0][0] - r100) < 1e-3       # the state just before the impulse
+
+
+def test_ship_manoeuvres():
+    """The ship takes manoeuvres as any object (user, 29 October 2026): an impulse changes its velocity from its
+    time on (before it, the path is the free one); its pn needs a target other than itself, bounded by the class
+    sim.ship_manoeuvre_class (1 g), and nulls the line of sight's turn."""
+    o = {"id": "T", "class": "SHIP", "state": {"type": "relative", "range_km": 50.0, "phi_deg": 0.0, "eps_deg": 90.0,
+                                               "v_close_mps": 800.0, "v_transverse_mps": [50.0, 0.0]}}
+
+    def run(man):
+        sc = _orbit_sc(60.0, [copy.deepcopy(o)], step=0.1)
+        sc["ship"]["manoeuvres"] = man
+        assert scn.validate(sc) == []
+        return prop.propagate(scn.normalise(sc))
+    free = run([])
+    imp = run([{"type": "impulse", "t_s": 10.0, "dv_mps": [0.0, 10.0, 0.0], "frame": "rtn"}])
+    k = np.searchsorted(imp.t_s, 9.95)
+    assert np.allclose(imp.r_km[:k, 0], free.r_km[:k, 0], atol=1e-9)
+    assert np.linalg.norm(imp.v_kms[-1, 0] - free.v_kms[-1, 0]) * 1e3 == pytest.approx(10.0, rel=0.01)
+    pn = run([{"type": "pn", "t_s": 0.0, "target": "T"}])
+
+    def turn(t):
+        u = (t.r_km[:, 1] - t.r_km[:, 0]) / np.linalg.norm(t.r_km[:, 1] - t.r_km[:, 0], axis=1)[:, None]
+        return np.degrees(np.arccos(np.clip(u[0] @ u[-1], -1.0, 1.0)))
+    assert turn(pn) < 0.1 * turn(free)
+    acc = np.linalg.norm(np.diff(pn.v_kms[:, 0] - free.v_kms[:, 0], axis=0), axis=1) / np.diff(pn.t_s) * 1e3
+    assert 0.0 < acc.max() <= 9.80665 * (1 + 1e-6)
+    # crashed by its own manoeuvre (user, 29 October 2026): the run ends at the ship's impact, nothing spawns after
+    crash = _orbit_sc(600.0, [dict(copy.deepcopy(o), id="LATE", t_appear_s=500.0)])
+    crash["ship"]["manoeuvres"] = [{"type": "impulse", "t_s": 10.0, "dv_mps": [-3000.0, 0.0, 0.0], "frame": "pnr"}]
+    tr = prop.propagate(scn.normalise(crash))
+    assert np.isfinite(tr.t_impact_s[0]) and tr.t_s[-1] == pytest.approx(tr.t_impact_s[0]) and tr.t_s[-1] < 500.0
+    assert np.isfinite(tr.r_km[-1, 0]).all() and not np.isfinite(tr.r_km[:, tr.row("LATE")]).any()
+    geo.geometry(scn.normalise(crash), tr)              # (the geometry of a run cut short)
+    sc = _orbit_sc(60.0, [copy.deepcopy(o)])
+    for bad in ({"type": "pn", "t_s": 0.0}, {"type": "pn", "t_s": 0.0, "target": "ship"}):
+        sc["ship"]["manoeuvres"] = [bad]
+        assert any("pn target" in e for e in scn.validate(sc))
+
+
 # ----------------------------------------------------------------------------- attitudes by waypoints (pass S3a)
 from sim import attitude as att  # noqa: E402
 
@@ -589,6 +652,67 @@ def _qt():
     return QApplication.instance() or QApplication([])
 
 
+def test_manoeuvre_node():
+    """The manoeuvre node (user, 29 October 2026): the impulse chosen in the box shows its node on its body's path;
+    a handle held pulled changes the delta-v along its axis, the box shows it; a time typed in the box moves the node;
+    the node dragged along the path changes the time; the body's planned trajectory follows at once."""
+    app = _qt()
+    from gui.scenario_tab import ManoeuvreList, ScenarioTab
+    from gui import maneuver_node as mn
+    tab = ScenarioTab()
+    k = {"id": "K", "class": "KKV", "manoeuvres": [{"type": "impulse", "t_s": 20.0, "dv_mps": [0.0, 0.0, 0.0],
+                                                    "frame": "pnr"}],
+         "state": {"type": "relative", "range_km": 300.0, "phi_deg": 40.0, "eps_deg": 10.0, "v_close_mps": 100.0}}
+    sc = _orbit_sc(60.0, [k], step=0.1)
+    tab._set_scenario(sc, None)
+    v = tab.preview
+    v.plotter.ren_win.SetSize(900, 700)
+    v.show_run(sc, prop.propagate(sc), geo.geometry(sc, prop.propagate(sc)), "test")
+    tab.tree.setCurrentItem(tab.n_obj.child(0))
+    ml = tab.form_holder.findChild(ManoeuvreList)
+    ml.list.setCurrentRow(0)
+    node, m = v.node, tab.sc["objects"][0]["manoeuvres"][0]
+    assert node.target["m"] is m and v.truth.ids[node.row()] == "K" and node._screen is not None
+    path0 = v._dyn[mn.NAME + "path"][1].points.copy()
+    e = next(x for x in node._screen["ends"] if x["axis"] == 0 and x["sign"] > 0)      # prograde +, to its stop
+    assert node._press(e["x"], e["y"])
+    stop = mn.PULL_F * mn.NODE_PX * v.ui_scale
+    node._move(e["x"] + e["sx"] * stop, e["y"] + e["sy"] * stop)
+    node._drag["last"] -= 0.5                           # held 0.5 s
+    node._tick()
+    node._release(0.0, 0.0)
+    assert m["dv_mps"][0] == pytest.approx(0.5 * mn.DV_RATE, rel=0.05) and abs(m["dv_mps"][1]) < 1e-9
+    assert np.allclose([b.value() for b in ml.form.widgets["dv_mps"][1].boxes], m["dv_mps"], atol=1e-3)
+    assert not np.allclose(v._dyn[mn.NAME + "path"][1].points[-1], path0[-1])
+    ml.form.widgets["t_s"][1].setValue(30.0)            # the box -> the node
+    c = node._preview()
+    assert m["t_s"] == 30.0 and c["node"] is not None
+    assert np.linalg.norm(c["node"][0] - geo.states_at(v.truth, 30.0)[0][v.truth.row("K")]) < 0.05
+    s = node._screen                                    # the node dragged along its path
+    assert node._press(s["cx"], s["cy"])
+    base = node._drag["base"]
+    j = len(base["t"]) // 2
+    node._move(*node._display(base["pts"][j]))
+    node._release(0.0, 0.0)
+    assert m["t_s"] == pytest.approx(float(base["t"][j]), abs=0.5)
+    assert scn.validate(tab.sc) == []
+
+    class _Click:                                       # a click in the view, far from every body: on nothing
+        def GetEventPosition(self):
+            return (1, 1)
+
+        def GetRepeatCount(self):
+            return 0
+    v._on_click(_Click(), None)
+    assert node.target is None and ml.list.currentRow() == -1 and ml.form is None
+    ml.list.setCurrentRow(0)                            # chosen again, then another element of the tree
+    assert node.target is not None
+    tab.tree.setCurrentItem(tab.n_ship)
+    assert node.target is None
+    v.plotter.close()
+    app.processEvents()
+
+
 def test_waypoint_editor():
     """W1-W3: the ship's waypoints are a list kept sorted by time (the first without a slew rate); an object of class
     KKV flies waypoints on demand (toward the ship by default) and goes back to its class attitude without them."""
@@ -895,6 +1019,7 @@ def test_no_propagation_for_non_physical_changes():
     new["meta"]["name"] = "other"
     assert _renaming(old, new) == {}
     new["objects"][0]["id"] = "RENAMED"
+    new["groups"][0]["around"] = "RENAMED"              # (the group drawn around it follows: a valid scenario)
     assert _renaming(old, new) == {old["objects"][0]["id"]: "RENAMED"}
     cls = copy.deepcopy(old)
     cls["objects"][0]["class"] = "DECOY" if old["objects"][0]["class"] != "DECOY" else "DEBRIS"

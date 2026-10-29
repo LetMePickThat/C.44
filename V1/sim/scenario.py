@@ -26,11 +26,14 @@ It describes the WORLD only (the radar is the mission file it cites); values of 
              "rcs_offset_db": the object's RCS against its class mean (optional; else drawn once from the class
              spread, sim/geometry.py G6),
              "state": ORBIT | RELATIVE, "manoeuvres": [MANOEUVRE, ...] (optional)}
+  (the ship also takes "manoeuvres": [MANOEUVRE, ...] (optional, user 29 October 2026): its pn needs a target
+   other than itself; pn and singer bounded by sim.ship_manoeuvre_class, Singer time sim.ship_maneuver_tau_s)
   RELATIVE  {"type": "relative", "range_km": > 0, "phi_deg", "eps_deg" (direction from the ship, in "frame": "ship"
              (default) or "inertial"), "v_close_mps": closing speed, "v_transverse_mps": [a, b] (optional, along
              the two axes normal to the line of sight; default 0)}            resolved at t_appear_s by the propagation
-  MANOEUVRE {"type": "impulse", "t_s", "dv_mps": [x, y, z], "frame": "rtn" | "inertial"}
-          | {"type": "burn", "t_s", "duration_s", "accel_mps2": [x, y, z], "frame": "rtn" | "inertial"}
+  MANOEUVRE {"type": "impulse", "t_s", "dv_mps": [x, y, z], "frame": "rtn" (default) | "pnr" | "inertial"}
+          | {"type": "burn", "t_s", "duration_s", "accel_mps2": [x, y, z], "frame": "rtn" | "pnr" | "inertial"}
+            (pnr: prograde, normal, radial, the manoeuvre node's axes, sim/propagate.py pnr_matrix)
           | {"type": "singer"}            random manoeuvre of the class (accel_max, maneuver_tau), seeded
           | {"type": "pn", "n": navigation constant (default sim.pn_n), "start_range_km" | "t_s",
              "target": "ship" (default) | an object id | a group member "<group>#<k>"}
@@ -63,7 +66,7 @@ COOPERATIVE = ("friendly",)                       # shared on the tactical data 
 DEFAULT_IDENTITY = "pending"
 DEFAULT_SHIP_NAME = "OWNSHIP"                     # the ship's name when the file gives none (user: renamable)
 _MAN_TYPES = ("impulse", "burn", "singer", "pn")
-_FRAMES = ("rtn", "inertial")
+_FRAMES = ("rtn", "pnr", "inertial")
 
 
 def bodies() -> Dict[str, dict]:
@@ -136,7 +139,7 @@ def _check_manoeuvres(ms, tag: str, err: List[str], duration: float) -> None:
             if not _num(m.get("t_s")) or not (0.0 <= float(m["t_s"]) <= duration):
                 err.append(f"{tg}: t_s must lie in [0, duration]")
             if m.get("frame", "rtn") not in _FRAMES:
-                err.append(f"{tg}: frame must be 'rtn' or 'inertial'")
+                err.append(f"{tg}: frame must be 'rtn', 'pnr' or 'inertial'")
         if t == "impulse" and not _vec(m.get("dv_mps")):
             err.append(f"{tg}: dv_mps needs 3 numbers")
         if t == "burn":
@@ -189,6 +192,7 @@ def validate(sc: dict) -> List[str]:
         err.append("ship: a dict with an orbit is needed")
     else:
         _check_orbit(ship.get("orbit"), "ship.orbit", err, relative_ok=False)
+        _check_manoeuvres(ship.get("manoeuvres", []), "ship", err, duration)
         name = ship.get("name", DEFAULT_SHIP_NAME)
         if not isinstance(name, str) or not name.strip():
             err.append("ship: its name must be a non-empty text")
@@ -252,6 +256,10 @@ def validate(sc: dict) -> List[str]:
     members = {f"{g['id']}#{k}" for g in sc.get("groups", []) if isinstance(g, dict) and isinstance(g.get("id"), str)
                and isinstance(g.get("n"), int) for k in range(g["n"])}
     targets = {"ship"} | {o.get("id") for o in sc.get("objects", []) if isinstance(o, dict)} | members
+    if isinstance(ship, dict):
+        for mn in ship.get("manoeuvres", []):
+            if isinstance(mn, dict) and mn.get("type") == "pn" and mn.get("target", "ship") not in targets - {"ship"}:
+                err.append("ship: pn target must be an object or a group member '<group>#<k>' (not the ship)")
     for kind in ("objects", "groups"):
         for i, o in enumerate(sc.get(kind, [])):
             if not isinstance(o, dict):
@@ -292,13 +300,15 @@ def normalise(sc: dict) -> dict:
     s["ship"].setdefault("name", DEFAULT_SHIP_NAME)
     s["ship"].setdefault("attitude", copy.deepcopy(att.DEFAULT_SHIP))
     att.normalise(s["ship"]["attitude"])
-    for o in s.setdefault("objects", []) + s.setdefault("groups", []):
-        o.setdefault("t_appear_s", 0.0)
-        o.setdefault("identity", DEFAULT_IDENTITY)
-        o.setdefault("overrides", {})
-        o.setdefault("manoeuvres", [])
-        if "attitude" in o:
-            att.normalise(o["attitude"])
+    s["ship"].setdefault("manoeuvres", [])
+    for o in [s["ship"]] + s.setdefault("objects", []) + s.setdefault("groups", []):
+        if o is not s["ship"]:
+            o.setdefault("t_appear_s", 0.0)
+            o.setdefault("identity", DEFAULT_IDENTITY)
+            o.setdefault("overrides", {})
+            o.setdefault("manoeuvres", [])
+            if "attitude" in o:
+                att.normalise(o["attitude"])
         for mn in o["manoeuvres"]:
             if mn["type"] in ("impulse", "burn"):
                 mn.setdefault("frame", "rtn")
