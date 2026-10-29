@@ -113,6 +113,11 @@ INFO_WIDEST = ("classif.\tsuspect", "frame\tICRF / earth", "pos x\t-1234567.890 
 SYMBOL_DIR = cgeo.MOON_TEXTURE_PATH.parent.parent / "symbols"   # assets/symbols: <classification>_<class>.png
 SYMBOL_PX = 28                                    # px: a symbol on screen in the 3D views (D, user 29 October 2026)
 SELECT_PX = 44                                    # px: the square around the selected body (D)
+# multitracks (user, 29 October 2026): objects of one identity and class closer than this on screen (centre to
+# centre, x the UI size) drawn as one symbol with a doubled outline, their number under it in the frame's colour
+MULTITRACK_PX = float(P.get("tool.display.sim_multitrack_px"))
+MT_COUNT_GAP_PX = 3.0                             # ... the number this far under the symbol (D)
+MT_SEL = "<multi>"                                # a multitrack's selection key: MT_SEL + its members' ids, "|"
 SELECT_COLOR = "#ffffff"
 # "UI size" of the view's options (user, 29 October 2026): the icons and texts of the 3D view (symbols, the
 # selection's square, labels: ids, range and azimuth marks, sectors, axes, events, bodies) x one of these
@@ -527,10 +532,10 @@ def _vec_lines(label: str, vec, unit: str, dec: int) -> List[str]:
     return [_kv(f"{label} {a}", f"{float(x):.{dec}f} {unit}".rstrip()) for a, x in zip("xyz", vec)]
 
 
-def symbol_path(identity: str, cls: Optional[str]) -> Optional[str]:
-    """The symbol of a classification / characterisation couple (tools/gen_symbols.py), "ownship" for the ship;
-    None when its file is missing."""
-    name = "ownship" if identity == "ownship" else f"{identity}_{cls}"
+def symbol_path(identity: str, cls: Optional[str], multi: bool = False) -> Optional[str]:
+    """The symbol of a classification / characterisation couple (tools/gen_symbols.py), "ownship" for the ship,
+    multi: its multitrack (doubled outline); None when its file is missing."""
+    name = "ownship" if identity == "ownship" else f"{'multi_' if multi else ''}{identity}_{cls}"
     path = SYMBOL_DIR / f"{name}.png"
     return str(path) if path.exists() else None
 
@@ -559,6 +564,7 @@ def _segments(a: np.ndarray, b: np.ndarray) -> pv.PolyData:
 class SimView(QWidget):
     """3D views (S6) and playback (S7) of the global simulator."""
     run_shown = pyqtSignal()                      # a run (propagation or journal) is shown
+    picked = pyqtSignal(str)                      # a body clicked in the view (OWNSHIP, an object id, a multitrack)
 
     def __init__(self, grid: Optional[cgeo.SphereGrid] = None, get_path: Callable[[], Optional[str]] = lambda: None,
                  parent=None):
@@ -825,6 +831,12 @@ class SimView(QWidget):
                                       for i in range(1, len(tr.ids))]
         self._row_rgb = np.array([_rgb(SHIP_COLOR if i == 0 else IDENTITY_COLORS.get(c, "#888888"))
                                   for i, c in enumerate(self._row_ident)], np.uint8)
+        a = self.plotter.actors.get("markers")           # the events' places follow a change of classification
+        rows = getattr(self, "_marker_rows", None)
+        if a is not None and rows is not None and len(rows) == a.GetMapper().GetInput().GetNumberOfPoints():
+            mesh = pv.wrap(a.GetMapper().GetInput())
+            mesh.point_data["rgb"] = self._row_rgb[rows]
+            mesh.Modified()
 
     def _fill_lists(self, row: Optional[Dict[str, str]] = None) -> None:
         """The body the view is centred on kept (renamed by row), the default centre if it is no longer in the run."""
@@ -1082,16 +1094,20 @@ class SimView(QWidget):
         orbit = self._moon_orbit()
         p.add_mesh(pv.lines_from_points(orbit), color="#8a8a8a", line_width=1, opacity=0.6, name="moon_orbit",
                    render=False)
-        pts, labels = [], []
+        pts, labels, rows = [], [], []
         for t, text in self._marker_events():
             r = sgeo.states_at(tr, t)[0]
             oid = text.split()[0]
             if oid in tr.ids and np.isfinite(r[tr.row(oid), 0]):
                 pts.append(r[tr.row(oid)])
                 labels.append(text)
-        if pts:                                       # the events' places (labels at the UI size)
-            p.add_mesh(pv.PolyData(np.array(pts, float)), color=MUTED_COLOR, point_size=8,
-                       render_points_as_spheres=True, name="markers", render=False)
+                rows.append(tr.row(oid))
+        self._marker_rows = np.array(rows, int)
+        if pts:                                       # the events' places (labels at the UI size), each in its
+            mesh = pv.PolyData(np.array(pts, float))  # body's colour: its path's, its identity's (user)
+            mesh.point_data["rgb"] = self._row_rgb[self._marker_rows]
+            p.add_mesh(mesh, scalars="rgb", rgb=True, point_size=8, render_points_as_spheres=True, name="markers",
+                       render=False)
             # their texts at the UI size: kept here (the plotter's list of labels to rescale holds weak references)
             self._event_labels = _Labels(p, MUTED_COLOR, 9)
             self._event_labels.set(np.array(pts, float), labels)
@@ -1202,6 +1218,21 @@ class SimView(QWidget):
         self._place_scaled()                          # the axes and noses too (user)
         self.node.place()                             # the manoeuvre node too
         self._update_rings()
+        mt = getattr(self, "_mt_input", None)         # the multitracks formed again when the zoom changes them
+        if mt is not None and self.truth is not None and not self._playing:
+            if self._mt_signature(mt[0], self._multitracks(*mt)) != getattr(self, "_mt_sig", ()):
+                self._redraw_soon()
+
+    def _redraw_soon(self) -> None:
+        """One frame drawn after the camera event (not within it)."""
+        if not getattr(self, "_redraw_pending", False):
+            self._redraw_pending = True
+
+            def go():
+                self._redraw_pending = False
+                if self.truth is not None and not self._playing and not getattr(self.plotter, "_closed", False):
+                    self._draw_frame()                # (not once the view is closed: its window is gone)
+            QTimer.singleShot(0, go)
 
     def edit_manoeuvre(self, row_id: Optional[str], owner: Optional[dict] = None, m: Optional[dict] = None,
                        on_edit: Optional[Callable[[bool], None]] = None,
@@ -1641,6 +1672,120 @@ class SimView(QWidget):
             return symbol_path("ownship", None)
         return symbol_path(self._row_ident[i], self.truth.classes[i])
 
+    def _draw_bodies(self, rows: np.ndarray, pts: np.ndarray, r: np.ndarray, v: np.ndarray, dot_px: int) -> None:
+        """The truth rows drawn at pts (the view's places): their symbols (or dots) and data boxes; with the
+        symbols, the multitracks (user, 29 October 2026): one symbol, one box and their number for each group of
+        objects of one identity and class within MULTITRACK_PX of one another on screen."""
+        rows, pts = np.asarray(rows, int), np.asarray(pts, float)
+        symbols = self.cb_symbols.isChecked()
+        clusters = self._multitracks(rows, pts) if symbols else []
+        self._mt_input = (rows, pts) if symbols else None
+        self._mt_sig = self._mt_signature(rows, clusters)
+        lone = np.ones(len(rows), bool)
+        for c in clusters:
+            lone[c["k"]] = False
+        tr = self.truth
+        self._mt_of = {tr.ids[rows[k]]: c["q"] for c in clusters for k in c["k"]}
+        self._mt_click = {MT_SEL + "|".join(tr.ids[rows[k]] for k in c["k"]): c["q"] for c in clusters}
+        cq = np.array([c["q"] for c in clusters]).reshape(-1, 3)
+        if symbols:
+            self._symbols(np.r_[pts[lone], cq], [self._row_symbol(i) for i in rows[lone]] +
+                          [symbol_path(c["ident"], c["cls"], multi=True) for c in clusters])
+            self._mt_counts(clusters)
+        else:
+            self._poly(f"{DYN}pts", pts, rgb=self._row_rgb[rows], point_size=dot_px, render_points_as_spheres=True)
+        if self.cb_labels.isChecked():
+            self._databox(f"{DYN}labels", np.r_[pts[lone], cq],
+                          self._box_texts(rows[lone], r, v) + [self._mt_box(c, rows, r, v) for c in clusters])
+
+    def _display_xy(self, pts: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Display pixels (n, 2) of world points (n, 3), and which lie in front of the camera."""
+        ren = self.plotter.renderer
+        w, h = self.plotter.ren_win.GetSize()
+        m4 = ren.GetActiveCamera().GetCompositeProjectionTransformMatrix(ren.GetTiledAspectRatio(), -1.0, 1.0)
+        mm = np.array([[m4.GetElement(i, j) for j in range(4)] for i in range(4)])
+        p = np.c_[np.asarray(pts, float), np.ones(len(pts))] @ mm.T
+        ok = p[:, 3] > 1e-12
+        wq = np.where(ok, p[:, 3], 1.0)
+        return np.c_[(p[:, 0] / wq + 1.0) * 0.5 * w, (p[:, 1] / wq + 1.0) * 0.5 * h], ok
+
+    def _multitracks(self, rows: np.ndarray, pts: np.ndarray) -> List[dict]:
+        """The groups (two or more) of objects of one identity and class linked on screen by distances under
+        MULTITRACK_PX x the UI size (one to the next: a chain is one group); OWNSHIP never: k (indices into rows),
+        q (their mean place), ident, cls."""
+        if len(rows) < 2:
+            return []
+        from scipy.sparse import coo_matrix
+        from scipy.sparse.csgraph import connected_components
+        from scipy.spatial import cKDTree
+        xy, ok = self._display_xy(pts)
+        tr = self.truth
+        keys: Dict[Tuple[str, str], List[int]] = {}
+        for k, i in enumerate(rows):
+            if i > 0 and ok[k]:
+                keys.setdefault((self._row_ident[i], tr.classes[i]), []).append(k)
+        out = []
+        lim = MULTITRACK_PX * self.ui_scale
+        for (ident, cls), ks in keys.items():
+            if len(ks) < 2:
+                continue
+            ks = np.array(ks)
+            pairs = cKDTree(xy[ks]).query_pairs(lim, output_type="ndarray")
+            if not len(pairs):
+                continue
+            g = coo_matrix((np.ones(len(pairs)), (pairs[:, 0], pairs[:, 1])), shape=(len(ks), len(ks)))
+            n, lab = connected_components(g, directed=False)
+            for c in range(n):
+                mem = ks[lab == c]
+                if len(mem) >= 2:
+                    out.append(dict(k=mem, q=pts[mem].mean(axis=0), ident=ident, cls=cls))
+        return out
+
+    @staticmethod
+    def _mt_signature(rows: np.ndarray, clusters: List[dict]) -> tuple:
+        return tuple(sorted(tuple(sorted(int(rows[k]) for k in c["k"])) for c in clusters))
+
+    def _mt_below(self, q: np.ndarray) -> np.ndarray:
+        """Under each multitrack's symbol (its number), at the UI size."""
+        cam = self.plotter.camera
+        fwd = np.asarray(cam.GetDirectionOfProjection())
+        up = np.asarray(cam.GetViewUp(), float)
+        up = up - (up @ fwd) * fwd
+        up /= max(float(np.linalg.norm(up)), 1e-12)
+        h_px = max(self.plotter.ren_win.GetSize()[1], 1)
+        wpp = 2.0 * math.tan(math.radians(0.5 * cam.GetViewAngle())) / h_px
+        depth = np.maximum((q - np.asarray(cam.GetPosition())) @ fwd, 1e-12)[:, None]
+        return q - depth * wpp * (0.5 * SYMBOL_PX * self.ui_scale + MT_COUNT_GAP_PX) * up
+
+    def _mt_counts(self, clusters: List[dict]) -> None:
+        """The number of objects under each multitrack's symbol, in its frame's colour (one label set per
+        identity); kept there by the camera changes (_place_symbols)."""
+        self._mt_lbl = {}
+        by: Dict[str, List[dict]] = {}
+        for c in clusters:
+            by.setdefault(c["ident"], []).append(c)
+        for ident, cs in by.items():
+            name = f"{DYN}mt_n_{ident}"
+            q = np.array([c["q"] for c in cs])
+            new = name not in self._lab
+            self._labels(name, self._mt_below(q), [str(len(c["k"])) for c in cs],
+                         IDENTITY_COLORS.get(ident, TEXT_COLOR), 10)
+            if new:
+                tp = self._lab[name].mapper.GetLabelTextProperty()
+                tp.SetJustificationToCentered()
+                tp.SetVerticalJustificationToTop()
+                tp.BoldOn()
+            self._mt_lbl[name] = q
+
+    def _mt_box(self, c: dict, rows: np.ndarray, r: np.ndarray, v: np.ndarray) -> str:
+        """A multitrack's data box: its number and class, its members' mean range and closing speed to OWNSHIP."""
+        i = rows[c["k"]]
+        rel, vrel = r[i] - r[0], v[i] - v[0]
+        rng = np.linalg.norm(rel, axis=1)
+        close = -1e3 * np.einsum("ij,ij->i", rel, vrel) / np.maximum(rng, 1e-12)
+        return "\n".join([f"{len(i)} x {c['cls']}", f"range {_dist_text(float(rng.mean()))}",
+                          f"Vc {float(close.mean()):+.0f} m/s"])
+
     def _symbols(self, pts: np.ndarray, paths: List[Optional[str]]) -> None:
         """The objects' symbols: square billboards facing the camera, SYMBOL_PX on screen, one textured mesh per
         symbol (all its objects at once: 1000+ objects); a row without a symbol file falls back on a white dot. Their
@@ -1704,6 +1849,10 @@ class SimView(QWidget):
             lab = self._lab.get(name)
             if lab is not None and lab.actor.GetVisibility() and len(q) == len(lab._last):
                 lab.set(self._box_anchor(q), lab._last)
+        for name, q in getattr(self, "_mt_lbl", {}).items():     # the multitracks' numbers under their symbols
+            lab = self._lab.get(name)
+            if lab is not None and lab.actor.GetVisibility() and len(q) == len(lab._last):
+                lab.set(self._mt_below(q), lab._last)
         e = self._dyn.get(f"{DYN}select")
         q = getattr(self, "_sel_pt", None)
         if e is not None and q is not None and e[2].GetVisibility():
@@ -1742,7 +1891,11 @@ class SimView(QWidget):
         """A square around the selected body where the view draws it (an object or OWNSHIP; none for the Earth, the
         Moon, the Sun), SELECT_PX on screen, kept facing the camera (_place_symbols)."""
         sel, q = self.selected, None
-        if sel and not sel.startswith(BODY_SEL):
+        if sel and sel.startswith(MT_SEL):                # a multitrack: its first member's
+            sel = sel[len(MT_SEL):].split("|")[0]
+        if sel and sel in getattr(self, "_mt_of", {}):    # absorbed in a multitrack: around it (user)
+            q = np.asarray(self._mt_of[sel], float)
+        elif sel and not sel.startswith(BODY_SEL):
             if self._global():
                 r = getattr(self, "_frame_r", None)
                 i = 0 if sel == OWNSHIP else (self.truth.row(sel) if sel in self.truth.ids else None)
@@ -1918,12 +2071,7 @@ class SimView(QWidget):
         self._place_bodies()
         idx = np.flatnonzero(ex)
         rgb = self._row_rgb[idx]
-        if self.cb_symbols.isChecked():
-            self._symbols(r[idx], [self._row_symbol(i) for i in idx])
-        else:
-            self._poly(f"{DYN}pts", r[idx], rgb=rgb, point_size=8, render_points_as_spheres=True)
-        if self.cb_labels.isChecked():
-            self._databox(f"{DYN}labels", r[idx], self._box_texts(idx, r, v))
+        self._draw_bodies(idx, r[idx], r, v, 8)
         if self.cb_trails.isChecked():
             self._truth_lines(f"{DYN}trails", idx, rgb, max(0.0, self.t - self.sp_trail.value()), self.t,
                               line_width=3, opacity=0.8)
@@ -1980,14 +2128,9 @@ class SimView(QWidget):
         self._poly(f"{DYN}los", np.r_[np.zeros((n, 3)), pos], lines=_pairs(n), cell_rgb=los_rgb, line_width=1.5,
                    opacity=0.7)
         rgb = self._row_rgb[js + 1]
-        if self.cb_symbols.isChecked():
-            self._symbols(pos, [self._row_symbol(j + 1) for j in js])
-        else:
-            self._poly(f"{DYN}pts", pos, rgb=rgb, point_size=9, render_points_as_spheres=True)
+        self._draw_bodies(js + 1, pos, r, v, 9)
         if self.cb_proj.isChecked() and not full:
             self._range_projection(pos, rgb)
-        if self.cb_labels.isChecked():
-            self._databox(f"{DYN}labels", pos, self._box_texts(js + 1, r, v))
         if self.cb_vectors.isChecked():
             nose = g.nose_ship[k, js]
             okn = np.isfinite(nose[:, 0])
@@ -2154,6 +2297,10 @@ class SimView(QWidget):
             pts = {(OWNSHIP if i == 0 else oid): r[i] for i, oid in enumerate(self.truth.ids) if np.isfinite(r[i, 0])}
         else:
             pts = dict(getattr(self, "_screen_pts", {}), **{OWNSHIP: np.zeros(3)})
+        for key, q in getattr(self, "_mt_click", {}).items():     # a multitrack: one target, its members not
+            for oid in key[len(MT_SEL):].split("|"):
+                pts.pop(oid, None)
+            pts[key] = q
         x, y = obj.GetEventPosition()
         ren = self.plotter.renderer
         best, best_d = None, CLICK_PX
@@ -2165,13 +2312,15 @@ class SimView(QWidget):
             if dd < best_d:
                 best, best_d = oid, dd
         double = obj.GetRepeatCount() >= 1
-        if self.node.target is not None and not self.node.owns("ship" if best == OWNSHIP else best):
+        members = best[len(MT_SEL):].split("|") if best and best.startswith(MT_SEL) else [best]
+        if self.node.target is not None and not any(self.node.owns("ship" if b == OWNSHIP else b) for b in members):
             self.node.release()                       # another body or nothing: the manoeuvre let go (user)
             self._draw_frame()
         if best is not None:
             self._select(best)
+            self.picked.emit(best)                    # the editor's tree follows (user, 29 October 2026)
             if double:
-                self.set_centre(best)
+                self.set_centre(members[0])           # (a multitrack: centred on its first member)
             return
         body = self._body_under(x, y)
         if body is not None:
@@ -2205,6 +2354,24 @@ class SimView(QWidget):
     def _select(self, oid: str) -> None:
         self.select(oid)
 
+    def _show_multitrack_info(self, ids: List[str]) -> None:
+        """A multitrack clicked (user, 29 October 2026): its number, identity and class, then each member and its
+        range to OWNSHIP (zoom in to tell them apart)."""
+        tr = self.truth
+        ids = [x for x in ids if x in tr.ids]
+        if not ids:
+            self._set_info("")
+            return
+        r, _v = sgeo.states_at(tr, self.t)
+        i0 = tr.row(ids[0])
+        ident, cls = self._row_ident[i0], tr.classes[i0]
+        lines = [_kv("name", f"{len(ids)} x {cls}"), _kv("charact.", cls), _kv("classif.", ident),
+                 _kv("t", f"{self.t:.2f} s"), _kv("members", "range")]
+        for oid in ids:
+            d = r[tr.row(oid)] - r[0]
+            lines.append(_kv(oid, _dist_text(float(np.linalg.norm(d))) if np.isfinite(d[0]) else "not there"))
+        self._set_info("\n".join(lines), symbol_path(ident, cls, multi=True))
+
     def _set_info(self, text: str, icon: Optional[str] = None) -> None:
         """The information on the selected body, in the Info box of the side column (empty: no body chosen); icon:
         the object's symbol, beside its name."""
@@ -2220,6 +2387,9 @@ class SimView(QWidget):
             return
         if self.selected.startswith(BODY_SEL):
             self._show_body_info(self.selected[len(BODY_SEL):])
+            return
+        if self.selected.startswith(MT_SEL):
+            self._show_multitrack_info(self.selected[len(MT_SEL):].split("|"))
             return
         if self.selected not in self.g.ids:
             self._set_info("")

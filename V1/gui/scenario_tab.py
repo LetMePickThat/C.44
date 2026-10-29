@@ -580,6 +580,7 @@ class ScenarioTab(QWidget):
             from gui.sim_view import SimView
             self.preview = SimView(grid, get_path=lambda: None if self.modified else self.path)
             self.scenario_changed.connect(self.preview.set_scenario)
+            self.preview.picked.connect(self._pick_from_view)
         else:
             self.preview = QLabel("3D preview and playback (not built)")
             self.preview.setAlignment(Qt.AlignCenter)
@@ -882,11 +883,36 @@ class ScenarioTab(QWidget):
         QTimer.singleShot(0, self._fit_form)
         self._select_in_view(kind, i)
 
+    def _pick_from_view(self, key: str) -> None:
+        """A body clicked in the 3D view chosen in the tree too (user, 29 October 2026): OWNSHIP, an object, the
+        group of a group member, a multitrack's first member's; the view keeps the body clicked (a group's member
+        stays the one clicked)."""
+        from gui.sim_view import MT_SEL, OWNSHIP
+        if key.startswith(MT_SEL):
+            key = key[len(MT_SEL):].split("|")[0]
+        item = None
+        if key == OWNSHIP:
+            item = self.n_ship
+        else:
+            objs = [o.get("id") for o in self.sc.get("objects", [])]
+            grps = [g.get("id") for g in self.sc.get("groups", [])]
+            if key in objs:
+                item = self.n_obj.child(objs.index(key))
+            elif "#" in key and key.rsplit("#", 1)[0] in grps:
+                item = self.n_grp.child(grps.index(key.rsplit("#", 1)[0]))
+        if item is None or item is self.tree.currentItem():
+            return
+        self._from_view = True
+        try:
+            self.tree.setCurrentItem(item)
+        finally:
+            self._from_view = False
+
     def _select_in_view(self, kind: str, i: int) -> None:
         """The unit chosen in the tree selected in the 3D view too, its Info shown (user, 29 October 2026): the ship,
         an object, a group by its first member; a heading of the tree changes nothing."""
-        if not hasattr(self.preview, "select"):
-            return
+        if not hasattr(self.preview, "select") or getattr(self, "_from_view", False):
+            return                                     # (chosen by a click in the view: it keeps what was clicked)
         from gui.sim_view import OWNSHIP
         if kind == "ship":
             self.preview.select(OWNSHIP)

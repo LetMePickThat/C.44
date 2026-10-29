@@ -705,10 +705,92 @@ def test_manoeuvre_node():
             return 0
     v._on_click(_Click(), None)
     assert node.target is None and ml.list.currentRow() == -1 and ml.form is None
+    v.plotter.camera.Azimuth(10.0)                      # a camera change after: no former node drawn (no error)
+    v._on_camera()
     ml.list.setCurrentRow(0)                            # chosen again, then another element of the tree
     assert node.target is not None
     tab.tree.setCurrentItem(tab.n_ship)
     assert node.target is None
+    v.plotter.close()
+    app.processEvents()
+
+
+def test_multitracks():
+    """Multitracks (user, 29 October 2026): objects of one identity and class within MULTITRACK_PX of one another on
+    screen are drawn as one symbol with a doubled outline, their number under it, one data box; another identity
+    stays apart; a zoom in splits them; a click on one shows its members in the Info box."""
+    app = _qt()
+    from gui import sim_view as sv
+    objs = [{"id": f"K{k}", "class": "KKV", "identity": "hostile",
+             "state": {"type": "relative", "range_km": 500.0 + 0.2 * k, "phi_deg": 30.0, "eps_deg": 10.0,
+                       "v_close_mps": 0.0}} for k in range(4)]
+    objs.append({"id": "F", "class": "KKV", "identity": "friendly",
+                 "state": {"type": "relative", "range_km": 500.3, "phi_deg": 30.0, "eps_deg": 10.0, "v_close_mps": 0.0}})
+    sc = _orbit_sc(20.0, objs, step=0.1)
+    tr = prop.propagate(sc)
+    v = sv.SimView()
+    v.plotter.ren_win.SetSize(900, 700)
+    v.show_run(sc, tr, geo.geometry(sc, tr), "test")
+    v.set_time(5.0)
+    cl = v._multitracks(*v._mt_input)
+    assert [(c["ident"], c["cls"], len(c["k"])) for c in cl] == [("hostile", "KKV", 4)]
+    assert sv.DYN + "sym_multi_hostile_KKV.png" in v._dyn and v._lab[sv.DYN + "mt_n_hostile"]._last == ["4"]
+    assert any(b.startswith("4 x KKV") for b in v._lab[sv.DYN + "labels"]._last)
+    key = next(iter(v._mt_click))
+    v.select(key)
+    assert v.info.toPlainText().startswith("name	4 x KKV") and "K3	" in v.info.toPlainText()
+    v.select("K1")                                      # a member selected: the square around its multitrack
+    assert np.allclose(v._sel_pt, v._mt_of["K1"])
+    c = cl[0]["q"]                                      # zoomed in close: the multitrack splits
+    cam = v.plotter.camera
+    cam.SetFocalPoint(*c)
+    cam.SetPosition(*(c + 0.05 * (np.asarray(cam.GetPosition()) - c) / np.linalg.norm(np.asarray(cam.GetPosition()) - c)))
+    v.plotter.renderer.ResetCameraClippingRange()
+    v._draw_frame()
+    assert v._multitracks(*v._mt_input) == [] and not v._mt_click
+    v.plotter.close()
+    app.processEvents()
+
+
+def test_tree_and_view_selection():
+    """The editor's tree and the 3D view choose the same body (user, 29 October 2026): a click on an object, on a
+    group's member or on OWNSHIP chooses it (its group) in the tree, the view keeping the member clicked; a choice
+    in the tree selects the body in the view."""
+    app = _qt()
+    from gui.scenario_tab import ScenarioTab
+    from gui.sim_view import OWNSHIP
+    tab = ScenarioTab()
+    objs = [{"id": "A", "class": "KKV", "state": {"type": "relative", "range_km": 300.0, "phi_deg": 30.0,
+                                                   "eps_deg": 10.0, "v_close_mps": 0.0}}]
+    grp = [{"id": "G", "class": "DECOY", "n": 3, "around": "A", "pos_sigma_m": 50000.0, "vel_sigma_mps": 0.0}]
+    sc = _orbit_sc(20.0, objs, grp, step=0.1)
+    tab._set_scenario(sc, None)
+    v = tab.preview
+    v.plotter.ren_win.SetSize(900, 700)
+    tr = prop.propagate(sc)
+    v.show_run(sc, tr, geo.geometry(sc, tr), "test")
+    v.cb_symbols.setChecked(False)                      # (no multitrack: every body its own target)
+    v.set_time(5.0)
+    r = geo.states_at(tr, 5.0)[0]
+
+    def click(oid):
+        xy = v._display_xy(r[tr.row(oid)][None])[0][0]
+
+        class _C:
+            def GetEventPosition(self):
+                return tuple(xy)
+
+            def GetRepeatCount(self):
+                return 0
+        v._on_click(_C(), None)
+    click("A")
+    assert tab.tree.currentItem() is tab.n_obj.child(0) and v.selected == "A"
+    click("G#2")
+    assert tab.tree.currentItem() is tab.n_grp.child(0) and v.selected == "G#2"   # the member clicked kept
+    click("ship")
+    assert tab.tree.currentItem() is tab.n_ship and v.selected == OWNSHIP
+    tab.tree.setCurrentItem(tab.n_obj.child(0))         # the tree -> the view
+    assert v.selected == "A"
     v.plotter.close()
     app.processEvents()
 

@@ -948,6 +948,7 @@ sim_min_ring_km = 0.5           # simulator views: nearest zoom in, the innermos
 sim_max_view_km = 2.0e13     # simulator views: farthest zoom out, km (~130 000 AU) (user, 29 Oct 2026)
 sim_sun_halo_r = 3.0            # simulator views: the Sun's halo out to this x the solar radius, at its true size (user, 29 Oct 2026)
 sim_sun_halo_opacity = 0.4      # simulator views: the halo's opacity at the Sun's limb, falling linearly to 0 at its edge (user, 29 Oct 2026)
+sim_multitrack_px = 20.0        # 3D views: objects of one identity and class closer than this on screen (px at UI size 100 %, centre to centre) drawn as one multitrack symbol (user, 29 Oct 2026)
 sim_node_px = 120               # manoeuvre node: its size on screen, handles included, px at UI size 100 % (user, 29 Oct 2026)
 sim_node_dv_rate = 50.0         # manoeuvre node, impulse: delta-v rate of a handle pulled to its stop, m/s per s (square of the pull below) (user, 29 Oct 2026)
 sim_node_accel_rate = 1.0       # manoeuvre node, burn: acceleration rate of a handle pulled to its stop, m/s2 per s (user, 29 Oct 2026)

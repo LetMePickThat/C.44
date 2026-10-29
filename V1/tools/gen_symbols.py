@@ -10,8 +10,10 @@ adapted to 3D on a dark background): the FRAME gives the identity (shape and col
   classes     ST satellite (body + two panels)   GENERIC dot   KKV filled arrowhead   DECOY hollow arrowhead
               SHIP pointed hull                  DEBRIS cross
 
-Writes into assets/symbols/: <identity>_<CLASS>.svg and .png (64 x 64, transparent), frame_<identity>.svg / .png,
-ownship.svg / .png and legend.png (every symbol on one sheet). The SVG files are the source; the PNG are drawn with
+  multitrack  several objects of one identity and class close together on screen (user, 29 October 2026): the
+              frame's outline doubled (a second one inside, MULTI_INNER of it), the glyph shrunk as much
+Writes into assets/symbols/: <identity>_<CLASS>.svg and .png (64 x 64, transparent), multi_<identity>_<CLASS>.svg /
+.png, frame_<identity>.svg / .png, ownship.svg / .png and legend.png (every symbol on one sheet). The SVG files are the source; the PNG are drawn with
 the same geometry by Pillow (4x supersampled). Run again whenever the symbology changes:
     python tools/gen_symbols.py
 """
@@ -30,6 +32,7 @@ SS = 4                         # supersampling of the PNG
 STROKE = 3.0                   # frame outline width (px at SIZE)
 GLYPH_COLOR = "#F2F2F2"
 FILL_ALPHA = 0.28              # frame fill: the identity colour at this opacity
+MULTI_INNER = 0.80             # multitrack: the inner outline and the glyph at this x the frame, about the centre
 
 IDENTITIES = {                 # name: (shape, colour, dashed)
     "friendly": ("circle", "#4FC3F7", False),
@@ -75,6 +78,10 @@ def frame_outline(shape: str) -> List[Pt]:
     if shape == "square":
         return [(8, 8), (56, 8), (56, 56), (8, 56)]
     return _quatrefoil()
+
+
+def _shrink(pts: List[Pt], k: float) -> List[Pt]:
+    return [(32 + k * (x - 32), 32 + k * (y - 32)) for x, y in pts]
 
 
 def glyph(cls: str):
@@ -126,8 +133,9 @@ def _path(pts: List[Pt], close: bool = True) -> str:
     return d + (" Z" if close else "")
 
 
-def svg(identity: str, cls: str) -> str:
+def svg(identity: str, cls: str, multi: bool = False) -> str:
     parts = []
+    gk = MULTI_INNER if multi else 1.0
     if identity == "ownship":
         for r in (27, 21):
             parts.append(f'<circle cx="32" cy="32" r="{r}" fill="none" stroke="{OWNSHIP_COLOR}" stroke-width="{STROKE}"/>')
@@ -136,15 +144,19 @@ def svg(identity: str, cls: str) -> str:
         dash = ' stroke-dasharray="6 4"' if dashed else ""
         parts.append(f'<path d="{_path(frame_outline(shape))}" fill="{col}" fill-opacity="{FILL_ALPHA}" '
                      f'stroke="{col}" stroke-width="{STROKE}" stroke-linejoin="round"{dash}/>')
+        if multi:                                      # the doubled outline of a multitrack
+            parts.append(f'<path d="{_path(_shrink(frame_outline(shape), MULTI_INNER))}" fill="none" '
+                         f'stroke="{col}" stroke-width="{STROKE}" stroke-linejoin="round"{dash}/>')
     if cls:
         for kind, pts, filled in glyph(cls):
+            pts = _shrink(pts, gk)
             if kind == "line":
                 parts.append(f'<path d="{_path(pts, False)}" fill="none" stroke="{GLYPH_COLOR}" stroke-width="3.5" '
                              f'stroke-linecap="round"/>')
             else:
                 parts.append(f'<path d="{_path(pts)}" fill="{GLYPH_COLOR if filled else "none"}" '
                              f'stroke="{GLYPH_COLOR}" stroke-width="2.5" stroke-linejoin="round"/>')
-    title = f"{identity} {cls}".strip()
+    title = f"{identity} {cls}{' multitrack' if multi else ''}".strip()
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{SIZE}" height="{SIZE}" viewBox="0 0 64 64">'
             f"<title>{title}</title>" + "".join(parts) + "</svg>\n")
 
@@ -155,7 +167,7 @@ def _rgba(hex_col: str, a: float = 1.0) -> Tuple[int, int, int, int]:
     return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), int(round(255 * a))
 
 
-def png(identity: str, cls: str) -> Image.Image:
+def png(identity: str, cls: str, multi: bool = False) -> Image.Image:
     k = SIZE * SS / 64.0
     img = Image.new("RGBA", (SIZE * SS, SIZE * SS), (0, 0, 0, 0))
     dr = ImageDraw.Draw(img)
@@ -171,11 +183,13 @@ def png(identity: str, cls: str) -> Image.Image:
         ImageDraw.Draw(layer).polygon(sc(out), fill=_rgba(col, FILL_ALPHA))
         img = Image.alpha_composite(img, layer)
         dr = ImageDraw.Draw(img)
-        for piece in (_dashes(out) if dashed else [out + [out[0]]]):
-            dr.line(sc(piece), fill=_rgba(col), width=w, joint="curve")
+        for o in [out] + ([_shrink(out, MULTI_INNER)] if multi else []):     # multitrack: doubled outline
+            for piece in (_dashes(o) if dashed else [o + [o[0]]]):
+                dr.line(sc(piece), fill=_rgba(col), width=w, joint="curve")
     if cls:
         g = _rgba(GLYPH_COLOR)
         for kind, pts, filled in glyph(cls):
+            pts = _shrink(pts, MULTI_INNER if multi else 1.0)
             if kind == "line":
                 dr.line(sc(pts), fill=g, width=int(round(3.5 * k)))
             elif filled:
@@ -186,10 +200,10 @@ def png(identity: str, cls: str) -> Image.Image:
 
 
 # ----------------------------------------------------------------------------- files
-def _write(name: str, identity: str, cls: str) -> None:
+def _write(name: str, identity: str, cls: str, multi: bool = False) -> None:
     with open(os.path.join(OUT, name + ".svg"), "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(svg(identity, cls))
-    png(identity, cls).save(os.path.join(OUT, name + ".png"))
+        fh.write(svg(identity, cls, multi))
+    png(identity, cls, multi).save(os.path.join(OUT, name + ".png"))
 
 
 def legend() -> Image.Image:
@@ -219,7 +233,8 @@ def main() -> int:
         n += 1
         for cls in CLASSES:
             _write(f"{ident}_{cls}", ident, cls)
-            n += 1
+            _write(f"multi_{ident}_{cls}", ident, cls, multi=True)
+            n += 2
     _write("ownship", "ownship", "")
     legend().save(os.path.join(OUT, "legend.png"))
     print(f"{n + 1} symbols (SVG + PNG) and legend.png in {os.path.normpath(OUT)}")

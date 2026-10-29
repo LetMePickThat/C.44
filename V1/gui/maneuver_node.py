@@ -80,6 +80,7 @@ class NodeTool:
         over); on_release() when the view lets the manoeuvre go (a click on another body or on nothing). None: no
         node."""
         self._stop_drag()
+        self._glyph = self._screen = None                # (a camera change must not draw the former node)
         self.target = (dict(row_id=row_id, owner=owner, m=m, on_edit=on_edit, on_release=on_release)
                        if row_id is not None and m is not None and m.get("type") in ("impulse", "burn") else None)
         self.invalidate()
@@ -241,7 +242,7 @@ class NodeTool:
 
     def place(self) -> None:
         """The node's glyph at NODE_PX on screen, facing the camera (each frame and each camera change)."""
-        if self._glyph is None:
+        if self._glyph is None or self.target is None:
             return
         v = self.v
         q, axes = self._glyph
