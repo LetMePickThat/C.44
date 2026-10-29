@@ -79,7 +79,8 @@ TRAIL_S = float(P.get("tool.display.sim_trail_s"))
 ORBIT_VECTOR_S = float(P.get("tool.display.sim_orbit_vector_s"))   # L3: the orbital vector at start, s
 FPS = int(P.get("tool.display.sim_fps"))
 AUTO_MAX_CELLS = float(P.get("tool.display.sim_auto_max_cells"))
-MAX_VIEW_KM = float(P.get("tool.display.sim_max_view_km"))     # farthest zoom out (user)
+MAX_VIEW_MARGIN = float(P.get("tool.display.sim_max_view_margin"))   # farthest zoom out: the solar system (user)
+FARTHEST_APHELION_KM = max(el[0] * (1.0 + el[1]) for el, _r in eph.PLANET_ELEMENTS.values()) * eph.AU_KM
 MIN_RING_KM = float(P.get("tool.display.sim_min_ring_km"))     # nearest zoom in: the innermost ring (user)
 ARCBALL_RADIUS = float(P.get("tool.display.arcball_radius"))   # mouse rotation (user)
 SPEEDS = (1, 10, 100, 1000, 10000, 100000)     # x10 000 and x100 000: the Moon on its orbit (user)
@@ -152,6 +153,7 @@ SIDEREAL_YEAR_S = 365.256363 * 86400.0            # the Earth's orbit around the
 # scenario's objects): its parent, its period
 BODY_PARENT = {"moon": ("earth", SIDEREAL_MONTH_S), "earth": ("sun", SIDEREAL_YEAR_S)}
 BODY_ORBIT_POINTS = 361
+FPS_FONT = 14                                     # pt: the frame-rate counter
 DATA_FONT = 15                                    # pt: the objects' data boxes and the celestial bodies' names,
 #                                                   one size (user, 30 October 2026), x the UI size
 BODY_AMBIENT = 0.12                               # global view: a body's night side, share of its lit colour
@@ -953,10 +955,11 @@ class SimView(QWidget):
                                           tip="Smaller icons and texts in the 3D view")
         self.bt_ui_plus = uc.tool_button("+", lambda: self.set_ui_scale(1), tip="Larger icons and texts in the 3D view")
         self.lb_ui = QLabel()
-        self.bt_recentre = uc.tool_button("Recentre", self.recentre, "SP_DialogResetButton",
-                                          tip="Back to the view's centre (the ship, the central body or the body "
-                                              "double-clicked) and level with the reference plane (ICRF XY, ship "
-                                              "view: the ship's XY plane); zoom and direction of view kept")
+        self.bt_recentre = QPushButton("Recenter view")      # a plain button (user, 30 October 2026)
+        self.bt_recentre.clicked.connect(lambda _c=False: self.recentre())
+        self.bt_recentre.setToolTip("Back to the view's centre (the ship, the central body or the body "
+                                    "double-clicked) and level with the reference plane (ICRF XY, ship view: the "
+                                    "ship's XY plane); zoom and direction of view kept")
 
         self.plotter = QtInteractor(self)
         self.plotter.setMinimumWidth(400)
@@ -975,6 +978,10 @@ class SimView(QWidget):
         self.sky.set_visible(self.tg_sky.isChecked(), self.cb_const.isChecked())   # plain at start (user)
         self.plotter.renderer.SetNearClippingPlaneTolerance(NEAR_TOL)
         self.plotter.renderer.AddObserver("StartEvent", lambda *_a: self._clip())
+        # a frame-rate counter at the top right (user, 30 October 2026): the renders of the last second
+        self._fps_times: List[float] = []
+        self._add_fps()
+        self.plotter.renderer.AddObserver("StartEvent", lambda *_a: self._fps_tick())
         self.plotter.add_axes(color=TEXT_COLOR)
         self.plotter.renderer.GetActiveCamera().AddObserver("ModifiedEvent", lambda *_a: self._on_camera())
         # user, 29 October 2026: the view's options under the Info box, in the side column (no longer in the
@@ -1333,6 +1340,7 @@ class SimView(QWidget):
         p.clear()
         p.set_background(BG_COLOR)
         p.remove_all_lights()
+        self._add_fps()                               # (the clear took it away)
         self._reset_dynamic()
         if self.truth is None:
             if not self._global() and self.mission is not None:     # D: the mission alone, before any propagation
@@ -1670,15 +1678,53 @@ class SimView(QWidget):
         finally:
             self._in_camera = False
 
+    def _add_fps(self) -> None:
+        """The frame-rate counter: a text at the view's top right corner."""
+        from vtkmodules.vtkRenderingCore import vtkTextActor
+        a = vtkTextActor()
+        a.SetInput("- fps")
+        tp = a.GetTextProperty()
+        tp.SetFontSize(FPS_FONT)
+        tp.SetColor(*pv.Color(MUTED_COLOR).float_rgb)
+        tp.SetJustificationToRight()
+        tp.SetVerticalJustificationToTop()
+        a.GetPositionCoordinate().SetCoordinateSystemToNormalizedViewport()
+        a.GetPositionCoordinate().SetValue(0.99, 0.985)
+        a.PickableOff()
+        self.plotter.renderer.AddViewProp(a)
+        self._fps_actor = a
+
+    def _fps_tick(self) -> None:
+        """Before each render: the renders per second over the last second ("-" with fewer than two: an idle view
+        draws only when something changes)."""
+        now = time.perf_counter()
+        ts = [t for t in self._fps_times if now - t <= 1.0] + [now]
+        self._fps_times = ts
+        a = getattr(self, "_fps_actor", None)
+        if a is not None:
+            a.SetInput(f"{(len(ts) - 1) / (ts[-1] - ts[0]):.0f} fps" if len(ts) >= 2 and ts[-1] > ts[0] else "- fps")
+
     def _max_camera_distance(self) -> Optional[float]:
         """Camera distance at which the half-height of the view (its smaller size on a landscape screen: the bound is
-        then reached in every direction, user 29 October 2026) stands for MAX_VIEW_KM (km)."""
+        then reached in every direction, user 29 October 2026) stands for _max_view_km()."""
         if self.truth is None:
             return None
         cam = self.plotter.camera
         w, h = self.plotter.ren_win.GetSize()
         k = math.tan(math.radians(0.5 * cam.GetViewAngle())) * min(w / max(h, 1), 1.0)
-        return MAX_VIEW_KM / k if k > 0 else None
+        return self._max_view_km() / k if k > 0 else None
+
+    def _max_view_km(self) -> float:
+        """The farthest zoom out (user, 30 October 2026: the whole solar system, not much more): MAX_VIEW_MARGIN x
+        (the focal point to the Sun + the farthest aphelion, Pluto's), km of half-height."""
+        T = eph.centuries_tt(scn.epoch(self.sc), self.t)
+        sun = eph.sun_icrf_km(T) - eph.body_icrf_km(self.truth.body.name, T)          # from the central body
+        if self._global():
+            focal = np.asarray(self.plotter.camera.GetFocalPoint())
+            to_sun = float(np.linalg.norm(sun - focal))
+        else:
+            to_sun = float(np.linalg.norm(sun))                 # (the ship view: about the ship)
+        return MAX_VIEW_MARGIN * (to_sun + FARTHEST_APHELION_KM)
 
     def _min_camera_distance(self) -> Optional[float]:
         """Camera distance at which the innermost range ring (RING_STEP_FRAC of the half-height) stands for
@@ -1691,7 +1737,7 @@ class SimView(QWidget):
         return MIN_RING_KM / k if k > 0 else None
 
     def _on_camera(self) -> None:
-        """Every camera change (wheel, buttons, follow): the zoom out held at MAX_VIEW_KM, then the range rings."""
+        """Every camera change (wheel, buttons, follow): the zoom out held at _max_view_km(), then the range rings."""
         if getattr(self, "_in_camera", False):
             return
         self._in_camera = True
@@ -1911,7 +1957,7 @@ class SimView(QWidget):
         p.renderer.ResetCameraClippingRange()
 
     def recentre(self) -> None:
-        """Back to the view's centre (button "Recentre"): the body double-clicked, else the ship (ship view)
+        """Back to the view's centre (button "Recenter view"): the body double-clicked, else the ship (ship view)
         or the central body (global view), the zoom and the direction of view kept (undoes a pan); and the view
         realigned with the reference plane, the equatorial plane of the central body (user, 29 October 2026): its
         roll undone, the body's north pole up on screen (ship view: that pole in the ship's frame at t)."""
@@ -2104,7 +2150,7 @@ class SimView(QWidget):
             values = [k * s1 for k in range(1, min(RING_MAX, int(math.ceil(cover / s1))) + 1)]
             self._ring_keep = keep
             for nice in values:
-                # (the zoom bounds hold MAX_VIEW_KM at the half-height: beyond, the corners keep their rings)
+                # (the zoom bounds hold _max_view_km() at the half-height: beyond, the corners keep their rings)
                 if nice in seen or nice < MIN_RING_KM:
                     continue
                 seen.add(nice)
