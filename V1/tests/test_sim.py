@@ -33,6 +33,10 @@ def test_valid_scenario_and_defaults():
     assert n["objects"][0]["manoeuvres"][0]["n"] == P.get("sim.pn_n")
     assert n["objects"][0]["state"]["frame"] == "ship" and n["objects"][0]["state"]["v_transverse_mps"] == [0.0, 0.0]
     assert n["groups"][0]["t_appear_s"] == 0.0
+    assert n["objects"][0]["identity"] == n["groups"][0]["identity"] == "pending"   # default identity
+    n["groups"][0]["identity"] = "hostile"
+    assert scn.identity_of(n, "x#0", n["groups"][0]["id"]) == "hostile"            # a member: its group's
+    assert scn.identity_of(n, n["objects"][0]["id"]) == "pending"
     assert sc["meta"].get("step_s") is None                 # normalise works on a copy
     b = scn.bodies()["earth"]
     assert b["mu_km3_s2"] == pytest.approx(398600.4418) and b["r_eq_km"] > b["radius_km"] > 0 and b["j2"] > 0
@@ -47,6 +51,8 @@ def test_valid_scenario_and_defaults():
     (lambda s: s["objects"][0]["manoeuvres"].append({"type": "pn"}), "either start_range_km or t_s"),
     (lambda s: s["objects"][0]["manoeuvres"].append({"type": "impulse", "t_s": 1e6, "dv_mps": [0, 0, 1]}), "t_s must lie"),
     (lambda s: s["groups"][0].update(n=0), "n must be an integer"),
+    (lambda s: s["objects"][0].update(identity="foe"), "identity must be"),
+    (lambda s: s["groups"][0].update(identity="ally"), "identity must be"),
     (lambda s: s["groups"][0].update(around="nobody"), "around must name"),
     (lambda s: s["ship"].update(attitude=[{"t_s": 0.0, "attitude": {"type": "target", "id": "ghost"}}]),
      "not an object"),
@@ -118,10 +124,9 @@ def test_scenario_editor_forms(tmp_path):
     assert [o["id"] for o in tab.sc["objects"]] == ["OBJ-1"]
     tab.sc["groups"][0]["around"] = "OBJ-1"
     p = str(tmp_path / "e.json")
-    tab._write(p)
+    scn.save(tab.sc, p)                               # (the window writes it in the single mission file)
     with open(p, encoding="utf-8") as fh:
         assert json.load(fh) == tab.sc
-    assert not tab.modified
     app.processEvents()
 
 
@@ -291,9 +296,11 @@ def test_attitude_conventions():
     assert np.allclose(nrm[:, 2], n) and abs(nrm[:, 0] @ n) < 1e-12 and np.allclose(nrm[:, 0], t)
 
 
-def test_slew_is_the_trapezoid():
+def test_slew_is_the_trapezoid(monkeypatch):
     """G1: a 60 deg slew at 10 deg/s with 15 deg/s2 lasts 60 / 10 + 10 / 15 = 6.67 s from t_s, the rate stays at most
-    rate_dps, then the attitude is held."""
+    rate_dps, then the attitude is held (the attitudes recorded every 0.1 s here: the record step, 1 s by default,
+    would hide the slew's timing)."""
+    monkeypatch.setattr(prop, "LOG_STEP_S", 0.1)
     tr = prop.propagate(_att_sc(12.0, [{"t_s": 0.0, "attitude": _fixed()},
                                        {"t_s": 1.0, "rate_dps": 10.0, "attitude": _fixed(60.0)}]))
     goal = att.euler(60.0, 0.0, 0.0)
@@ -624,42 +631,47 @@ def test_sim_view_offscreen(tmp_path):
             {"id": "D", "class": "DEBRIS", "state": {"type": "relative", "range_km": 300.0, "phi_deg": 200.0,
                                                      "eps_deg": -10.0, "v_close_mps": 0.0}}]
     sc = _orbit_sc(20.0, objs, step=0.1)
-    sc["mission"] = MISSION
     tr = prop.propagate(sc)
     g = geo.geometry(sc, tr)
     v = SimView()
+    from core import mission as cm
+    v.set_mission(cm.load_mission(MISSION))           # D: the mission being edited, drawn in the ship view
     v.show_run(sc, tr, g, "test")
     names = list(v.plotter.actors)
     assert any(n.startswith("traj_") for n in names) and DYN + "pts" in names
-    assert {"body_earth", "body_moon", "body_sun", "moon_orbit"} <= set(names)
+    assert {"body_earth", "body_earth_atm", "body_moon", "body_sun", "moon_orbit"} <= set(names)
+    assert DYN + "sun" not in names                                    # no Sun arrow (the Sun is drawn)
+    atm = v.plotter.actors["body_earth_atm"].user_matrix                 # the halo on the Earth, a bit larger
+    assert np.allclose(atm[:3, 3], v.plotter.actors["body_earth"].user_matrix[:3, 3])
     u = v.plotter.actors["body_moon"].user_matrix
     assert np.linalg.norm(u[:3, 3]) == pytest.approx(np.linalg.norm(eph.moon_icrf_km(
         eph.centuries_tt(scn.epoch(sc), v.t))), rel=1e-9)                # the Moon at its true place
     T = eph.centuries_tt(scn.epoch(sc), v.t)
     assert np.allclose(v.plotter.actors["body_sun"].user_matrix[:3, 3], eph.sun_icrf_km(T), rtol=1e-9)   # 1 AU
-    v.cb_centre.setCurrentText("Sun")
+    v.set_centre("Sun")
     assert np.allclose(v.plotter.camera.GetFocalPoint(), eph.sun_icrf_km(T), rtol=1e-9)
-    v.cb_centre.setCurrentText(OWNSHIP)
+    v.set_centre(OWNSHIP)
     r0 = geo.states_at(tr, v.t)[0][0]
     assert np.allclose(v.plotter.camera.GetFocalPoint(), r0, atol=1e-3)
     d0 = v.plotter.camera.GetDistance()
     v.zoom(2.0)
     assert v.plotter.camera.GetDistance() == pytest.approx(d0 / 2.0, rel=1e-6)
-    v.cb_centre.setCurrentText(CENTRAL)
+    v.set_centre(CENTRAL)
     assert np.allclose(v.plotter.camera.GetFocalPoint(), 0.0, atol=1e-6)
-    v.cb_object.setCurrentText(OWNSHIP)
+    v._select(OWNSHIP)
     assert "altitude" in v.info.toPlainText()
-    texts = [v.events.item(i).text() for i in range(v.events.count())]
+    texts = [x for _t, x in v.events]
     assert any("K appears" in x for x in texts) and any("terminal guidance" in x for x in texts)
-    v.cb_view.setCurrentIndex(1)                         # ship view
+    assert len(v.slider._marks) == len(v.events) and v.slider._clusters()        # L4: marks on the slider
+    v.tg_view.setChecked(True)                           # ship view
     v.set_time(10.0)
     names = list(v.plotter.actors)
     assert DYN + "los" in names and any(n.startswith(VOL) for n in names)
     v.cb_vectors.setChecked(True)
     assert DYN + "nose" in v.plotter.actors
-    v.cb_centre.setCurrentText("K")                     # ship view centred on an object
+    v.set_centre("K")                     # ship view centred on an object
     assert np.allclose(v.plotter.camera.GetFocalPoint(), v._screen_pts["K"], atol=1e-9)
-    v.cb_centre.setCurrentText(CENTRAL)
+    v.set_centre(CENTRAL)
     # range rings of about constant size on screen, their values following the zoom
     rings = v._lab[DYN + "rings_lbl"]
     before = list(rings._last)
@@ -725,7 +737,7 @@ def test_sim_view_offscreen(tmp_path):
     tilt = math.degrees(math.acos(np.clip(d0 @ d1, -1, 1)))
     roll = math.degrees(math.acos(np.clip(up0 @ up1, -1, 1)))
     assert roll > 5.0 and roll > 3.0 * tilt
-    # azimuth spokes every 45 deg in the rings' plane (not in PPI), from the ship's centre, labelled 0..315 deg
+    # azimuth spokes every 45 deg in the rings' plane, from the ship's centre, labelled 0..315 deg
     v._draw_frame()
     spk = v._dyn[DYN + "spokes"]
     assert spk[2].GetVisibility() and len(spk[1].points) == 16
@@ -734,15 +746,6 @@ def test_sim_view_offscreen(tmp_path):
     ang = np.degrees(np.arctan2(ends[:, 1], ends[:, 0])) % 360.0
     assert np.allclose(ang, np.arange(0.0, 360.0, 45.0), atol=1e-6)
     assert v._lab[DYN + "spokes_lbl"]._last == [f"{a}°" for a in range(0, 360, 45)]
-    # PPI rings: in the screen's plane through the ship, and still so after the view has turned
-    v.cb_ppi.setChecked(True)
-    v._draw_frame()
-    assert not v._dyn[DYN + "spokes"][2].GetVisibility()
-    for p0, p1 in (((0.5 * w, 0.5 * h), (0.6 * w, 0.55 * h)), ((0.9 * w, 0.3 * h), (0.9 * w, 0.7 * h))):
-        drag(p0, p1)
-        ring = v._dyn[DYN + "rings"][1].points
-        assert np.abs(ring @ np.array(cam.GetDirectionOfProjection())).max() < 1e-6 * np.abs(ring).max()
-    v.cb_ppi.setChecked(False)
     # the rotations turn about the ship's centre, the centre of the rings; "Recentre" undoes a pan
     assert np.allclose(cam.GetFocalPoint(), 0.0, atol=1e-9)
     ring = v._dyn[DYN + "rings"][1].points
@@ -762,7 +765,7 @@ def test_sim_view_offscreen(tmp_path):
     d2, up2 = np.array(cam.GetDirectionOfProjection()), np.array(cam.GetViewUp())
     roll = math.degrees(math.acos(np.clip(up1 @ up2, -1, 1)))      # (pixel rounding of the events: ~0.03 deg)
     assert math.degrees(math.acos(np.clip(d1 @ d2, -1, 1))) > 5.0 and roll < 0.5
-    v.cb_object.setCurrentText("K")
+    v._select("K")
     assert "range" in v.info.toPlainText() and "RCS S" in v.info.toPlainText()
     v.step(1)
     assert v.t == pytest.approx(11.0)
@@ -771,7 +774,7 @@ def test_sim_view_offscreen(tmp_path):
     v._tick()
     v.toggle_play()
     assert v.t > 11.0 and not v.timer.isActive()
-    v.cb_view.setCurrentIndex(0)
+    v.tg_view.setChecked(False)
     v.pending = scn.normalise(sc)
     v.propagate()
     v.worker.wait()
@@ -814,6 +817,51 @@ def test_third_body_attraction(monkeypatch):
     without = prop.propagate(sc)
     drift = float(np.linalg.norm(with_tb.r_km[-1, 0] - without.r_km[-1, 0]))
     assert 1.0 < drift < 200.0
+
+
+def test_identity_colours_match_the_symbology():
+    """The objects' colours by classification are the identity frames' colours of the symbology."""
+    import importlib.util
+    from gui.sim_view import IDENTITY_COLORS
+    spec = importlib.util.spec_from_file_location("gen_symbols", os.path.join(ROOT, "tools", "gen_symbols.py"))
+    sym = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sym)
+    assert set(IDENTITY_COLORS) == set(scn.IDENTITIES)
+    assert all(IDENTITY_COLORS[k].lower() == sym.IDENTITIES[k][1].lower() for k in IDENTITY_COLORS)
+
+
+def test_ship_name():
+    """The ship is named (default OWNSHIP), renamable without propagating; no object may take its name."""
+    from gui.sim_view import _renaming
+    sc = scn.normalise(_base())
+    assert sc["ship"]["name"] == scn.ship_name(sc) == "OWNSHIP"
+    new = copy.deepcopy(sc)
+    new["ship"]["name"] = "ALPHA"
+    assert scn.validate(new) == [] and _renaming(sc, new) == {}
+    new["objects"][0]["id"] = "ALPHA"
+    assert any("the ship's name" in e for e in scn.validate(new))
+    new["ship"]["name"] = " "
+    assert any("name must be" in e for e in scn.validate(new))
+
+
+def test_no_propagation_for_non_physical_changes():
+    """A renaming, a classification (identity) or the scenario's name: no propagation; a characterisation (class),
+    a value of the dynamics: propagation."""
+    from gui.sim_view import _renaming
+    old = scn.normalise(_base())
+    new = copy.deepcopy(old)
+    new["objects"][0]["identity"] = "hostile"
+    new["groups"][0]["identity"] = "friendly"
+    new["meta"]["name"] = "other"
+    assert _renaming(old, new) == {}
+    new["objects"][0]["id"] = "RENAMED"
+    assert _renaming(old, new) == {old["objects"][0]["id"]: "RENAMED"}
+    cls = copy.deepcopy(old)
+    cls["objects"][0]["class"] = "DECOY" if old["objects"][0]["class"] != "DECOY" else "DEBRIS"
+    assert _renaming(old, cls) is None
+    dyn = copy.deepcopy(old)
+    dyn["objects"][0]["t_appear_s"] = float(dyn["objects"][0]["t_appear_s"]) + 1.0
+    assert _renaming(old, dyn) is None
 
 
 def test_lunar_interception_scenario_loads():
@@ -860,32 +908,92 @@ def test_main_window_fits_the_screen(monkeypatch):
     win.close()
 
 
-def test_scenario_tab_compact_layout():
-    """R1-R6: the compact Scenario tab: one left column with the tabs Scenario (the tree over the form) and Events,
-    the file buttons and the validation in one line in the 3D view's first bar, the information as a box in the 3D
-    view; the classic layout is kept (tool.display.scenario_layout) for a rollback."""
+def test_scenario_tab_layout():
+    """R1-R6, B14: the Scenario tab: the options column (the form under the tree), the column of the information and
+    the 3D view; the view's controls in the playback bar, the events as marks on its slider; its files, main action and status handed to the window (menu, header,
+    status bar)."""
     app = _qt()
     from gui.scenario_tab import ScenarioTab
-    for mode in ("compact", "classic"):
-        tab = ScenarioTab(layout=mode)
-        assert tab.layout_mode == mode
-        if mode == "classic":
-            assert tab._split.count() == 3 and not tab.preview.compact
-            continue
-        assert [tab.left_tabs.tabText(i) for i in range(tab.left_tabs.count())] == ["Scenario", "Events"]
-        assert tab.left_tabs.widget(1) is tab.preview.events and tab._split.count() == 2
-        assert "valid" in tab.status.text()
-        tab.sc["objects"][0]["class"] = "NOPE"
-        tab._validate()
-        assert "problem" in tab.status.text() and tab.messages.count() >= 1
-        tab.sc["objects"][0]["class"] = "KKV"
-        tab._validate()
-        sc = scn.normalise(tab.sc)
-        tr = prop.propagate(sc)
-        tab.preview.show_run(sc, tr, geo.geometry(sc, tr), "test")
-        tab.preview.cb_object.setCurrentText("OWNSHIP")
-        box = tab.preview._info_actor
-        assert box.GetVisibility() and "altitude" in box.GetInput()
-        tab.preview.cb_object.setCurrentText("")
-        assert not box.GetVisibility()
+    from gui.scenario_tab import new_scenario as scn_tab_new
+    from gui.sim_view import OWNSHIP
+    tab = ScenarioTab()
+    assert not tab.loaded and tab.left_col.isHidden() and tab.preview.view_panel.isHidden()   # P1: the view alone
+    tab._set_scenario(scn_tab_new(), None)                                    # (New: after its properties dialog)
+    assert tab.loaded and not tab.left_col.isHidden() and not tab.preview.view_panel.isHidden()
+    assert [tab.tree.topLevelItem(i).text(0) for i in range(tab.tree.topLevelItemCount())] == [
+        "OWNSHIP", "Objects", "Groups"]                                        # the ship by its name (default)
+    assert tab._split.count() == 3 and tab._split.widget(0) is tab.left_col
+    assert tab._split.widget(1) is tab.preview.side_panel                         # the information: own column
+    assert tab.preview.side_panel.isAncestorOf(tab.preview.info)
+    assert tab.preview.view_panel.isAncestorOf(tab.preview.tg_view)            # the view's options under the Info
+    assert tab.preview.side_panel.isAncestorOf(tab.preview.view_panel)
+    assert tab.primary_action() is tab.preview.bt_prop and tab.preview.bt_prop.isHidden()   # small: automatic
+    assert [c[0] for c in tab.file_commands()] == ["New...", "Open...", "Save", "Save as...", "Scenario properties...",
+                                                   "Export mission at t...", "Record run...", "Open run..."]
+    assert tab.status in tab.status_widgets() and tab.preview.progress in tab.status_widgets()
+    assert not tab.preview.cb_true.isEnabled() and tab.preview.cb_true.isHidden()   # ship view only
+    assert tab.preview.view_panel.isAncestorOf(tab.preview.cb_labels)          # layers as switches, no menu
+    tab.preview.tg_view.setChecked(True)
+    assert tab.preview.cb_true.isEnabled() and not tab.preview.cb_true.isHidden()
+    tab.preview.tg_view.setChecked(False)
+    assert "valid" in tab.status.text()
+    tab.sc["objects"][0]["class"] = "NOPE"
+    tab._validate()
+    assert "problem" in tab.status.text() and tab.messages.count() >= 1
+    tab.sc["objects"][0]["class"] = "KKV"
+    tab._validate()
+    sc = scn.normalise(tab.sc)
+    tr = prop.propagate(sc)
+    tab.preview.show_run(sc, tr, geo.geometry(sc, tr), "test")
+    tab.preview._select(OWNSHIP)
+    assert "altitude" in tab.preview.info.toPlainText()
+    tab.preview._select("")
+    assert not tab.preview.info.toPlainText()
     app.processEvents()
+
+
+def test_document_formats(tmp_path):
+    """Phase 6 merge, step A: the single mission file (sections mission and scenario); a mission alone (JSON, CSV) and
+    a scenario naming its mission file open converted; saving writes the single format, read back identical."""
+    from sim import document as doc
+    d = doc.load(MISSION)                                                  # a mission alone
+    assert d.scenario is None and d.mission["sectors"] and doc.kind(json.load(open(MISSION, encoding="utf-8"))) == "mission"
+    csv_path = MISSION.replace(".json", ".csv")
+    assert doc.load(csv_path).scenario is None
+    sc = _orbit_sc(20.0)
+    sc_file = tmp_path / "s.json"
+    raw = {k: v for k, v in sc.items()}
+    raw["mission"] = os.path.relpath(MISSION, tmp_path)
+    sc_file.write_text(json.dumps(raw), encoding="utf-8")
+    d2 = doc.load(str(sc_file))                                            # a scenario: its mission embedded
+    assert d2.scenario is not None and "mission" not in d2.scenario
+    assert [s["id"] for s in d2.mission["sectors"]] == [s["id"] for s in d.mission["sectors"]]
+    out = tmp_path / "m.json"
+    doc.save(str(out), d2)
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["format_version"] == doc.FORMAT_VERSION and set(data) == {"format_version", "mission", "scenario"}
+    d3 = doc.load(str(out))
+    assert d3.mission == d2.mission and d3.scenario == d2.scenario
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps({"format_version": 99, "mission": {}}), encoding="utf-8")
+    with pytest.raises(doc.DocumentError):
+        doc.load(str(bad))
+
+
+def test_document_navigation_from_the_scenario():
+    """Step B: with a scenario, the mission computed carries the navigation of the scenario's ship at t_nav_s (its
+    orbit state at that instant); without one, the mission as typed."""
+    from sim import document as doc
+    from core import mission as cm
+    mission = cm.load_mission(MISSION)
+    m0, _ = doc.mission_for_calc(doc.Document(dict(mission, t_nav_s=5.0)))
+    assert "t_nav_s" not in m0 and m0.get("global", {}).get("nav") == mission.get("global", {}).get("nav")
+    sc = _orbit_sc(20.0)
+    d = doc.Document(dict(mission, t_nav_s=10.0), sc)
+    m, _alerts = doc.mission_for_calc(d)
+    nav = m["global"]["nav"][0]
+    tr = prop.propagate(sc)
+    r10 = geo.states_at(tr, 10.0)[0][0]
+    assert np.allclose(nav["r_km"], r10, atol=1e-3) and "t_nav_s" not in m
+    with pytest.raises(doc.DocumentError):
+        doc.mission_for_calc(doc.Document(dict(mission, t_nav_s=50.0), sc))

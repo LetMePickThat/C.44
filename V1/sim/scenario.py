@@ -11,14 +11,16 @@ It describes the WORLD only (the radar is the mission file it cites); values of 
             "sun_type": a sun type of [sky.tb_k] (default "sun"), "earth_type": an earth type (default "earth")},
    "central_body": "earth" | "moon" (a body of [sim.bodies]; default "earth"),
    "mission": path of the mission-preparation file (optional, relative to the scenario),
-   "ship": {"orbit": ORBIT, "attitude": [WAYPOINT, ...] (sim/attitude.py; default prograde, roll 0)},
+   "ship": {"name": the ship's name in the views (default "OWNSHIP"; no effect on the physics), "orbit": ORBIT,
+            "attitude": [WAYPOINT, ...] (sim/attitude.py; default prograde, roll 0)},
    "objects": [OBJECT, ...], "groups": [GROUP, ...]}
 
   ORBIT     {"type": "state", "r_km": [x, y, z], "v_kms": [x, y, z]}   (ICRF axes, from the body centre)
           | {"type": "elements", "a_km", "e", "i_deg", "raan_deg", "argp_deg", "nu_deg"}
   WAYPOINT  {"t_s", "rate_dps", "attitude": fixed in the orbital or inertial frame | prograde | retrograde | normal+ |
              normal- | radial_out | radial_in | toward a target}            (format and axes: sim/attitude.py, pass S3a)
-  OBJECT    {"id": str, "class": a class of the target library, "overrides": {class keys} (optional),
+  OBJECT    {"id": str, "class": a class of the target library, "identity": one of IDENTITIES (default "pending"),
+             "overrides": {class keys} (optional),
              "attitude": [WAYPOINT, ...] (optional, classes SHIP and KKV; else the class's default attitude),
              "t_appear_s": >= 0 (default 0), "jammer": a jammer class (optional),
              "rcs_offset_db": the object's RCS against its class mean (optional; else drawn once from the class
@@ -32,7 +34,7 @@ It describes the WORLD only (the radar is the mission file it cites); values of 
           | {"type": "singer"}            random manoeuvre of the class (accel_max, maneuver_tau), seeded
           | {"type": "pn", "n": navigation constant (default sim.pn_n), "start_range_km" | "t_s"}
                                           terminal guidance toward the ship, bounded by the class's acceleration
-  GROUP     {"id", "class", "n": >= 1, "around": an object id, "pos_sigma_m", "vel_sigma_mps", "t_appear_s",
+  GROUP     {"id", "class", "identity" (its members'), "n": >= 1, "around": an object id, "pos_sigma_m", "vel_sigma_mps", "t_appear_s",
              "overrides", "manoeuvres", "rcs_offset_db"}   n objects drawn around the reference object at t_appear_s (decoys, debris)
 """
 from __future__ import annotations
@@ -50,6 +52,14 @@ from core.params import P
 from . import attitude as att
 
 FORMAT_VERSION = 1
+# the identities an object can be given (user, 29 October 2026; default "pending"). For later (radar in the loop,
+# step 6.4): a "friendly" object is assumed cooperative and shared on the tactical data links, so OWNSHIP knows its
+# position and kinematics; the others (pending, unknown, neutral, suspect, hostile) are not cooperative, share
+# nothing and are known to OWNSHIP only through its own sensors (detection, tracking, classification)
+IDENTITIES = ("pending", "unknown", "neutral", "friendly", "suspect", "hostile")
+COOPERATIVE = ("friendly",)                       # shared on the tactical data links (step 6.4)
+DEFAULT_IDENTITY = "pending"
+DEFAULT_SHIP_NAME = "OWNSHIP"                     # the ship's name when the file gives none (user: renamable)
 _MAN_TYPES = ("impulse", "burn", "singer", "pn")
 _FRAMES = ("rtn", "inertial")
 
@@ -177,6 +187,9 @@ def validate(sc: dict) -> List[str]:
         err.append("ship: a dict with an orbit is needed")
     else:
         _check_orbit(ship.get("orbit"), "ship.orbit", err, relative_ok=False)
+        name = ship.get("name", DEFAULT_SHIP_NAME)
+        if not isinstance(name, str) or not name.strip():
+            err.append("ship: its name must be a non-empty text")
     ids = set()
     classes = set(rm.TARGETS)
     jams = set(jammer_classes())
@@ -191,8 +204,12 @@ def validate(sc: dict) -> List[str]:
         elif oid in ids:
             err.append(f"{tag}: id '{oid}' used twice")
         ids.add(oid)
+        if isinstance(ship, dict) and oid == ship_name(sc):
+            err.append(f"{tag}: id '{oid}' is the ship's name")
         if o.get("class") not in classes:
             err.append(f"{tag}: class must be one of {', '.join(sorted(classes))}")
+        if o.get("identity", DEFAULT_IDENTITY) not in IDENTITIES:
+            err.append(f"{tag}: identity must be one of {', '.join(IDENTITIES)}")
         if "overrides" in o:
             bad = [k for k in o["overrides"] if k not in rm.SECTOR_TARGET_KEYS + ("v_close_max_mps",)]
             if bad:
@@ -212,11 +229,13 @@ def validate(sc: dict) -> List[str]:
         if not isinstance(g, dict):
             err.append(f"{tag}: a dict is needed")
             continue
-        if not isinstance(g.get("id"), str) or g["id"] in ids:
-            err.append(f"{tag}: a unique id is needed")
+        if not isinstance(g.get("id"), str) or g["id"] in ids or (isinstance(ship, dict) and g.get("id") == ship_name(sc)):
+            err.append(f"{tag}: a unique id is needed (not the ship's name either)")
         ids.add(g.get("id"))
         if g.get("class") not in classes:
             err.append(f"{tag}: class must be one of {', '.join(sorted(classes))}")
+        if g.get("identity", DEFAULT_IDENTITY) not in IDENTITIES:
+            err.append(f"{tag}: identity must be one of {', '.join(IDENTITIES)}")
         if not isinstance(g.get("n"), int) or g["n"] < 1:
             err.append(f"{tag}: n must be an integer >= 1")
         if g.get("around") not in {o.get("id") for o in sc.get("objects", []) if isinstance(o, dict)}:
@@ -252,10 +271,12 @@ def normalise(sc: dict) -> dict:
     m.setdefault("sun_type", "sun")
     m.setdefault("earth_type", "earth")
     s.setdefault("central_body", "earth")
+    s["ship"].setdefault("name", DEFAULT_SHIP_NAME)
     s["ship"].setdefault("attitude", copy.deepcopy(att.DEFAULT_SHIP))
     att.normalise(s["ship"]["attitude"])
     for o in s.setdefault("objects", []) + s.setdefault("groups", []):
         o.setdefault("t_appear_s", 0.0)
+        o.setdefault("identity", DEFAULT_IDENTITY)
         o.setdefault("overrides", {})
         o.setdefault("manoeuvres", [])
         if "attitude" in o:
@@ -273,6 +294,19 @@ def normalise(sc: dict) -> dict:
         g.setdefault("pos_sigma_m", 0.0)
         g.setdefault("vel_sigma_mps", 0.0)
     return s
+
+
+def ship_name(sc: dict) -> str:
+    """The ship's name in the views (DEFAULT_SHIP_NAME when not given)."""
+    return (sc.get("ship") or {}).get("name") or DEFAULT_SHIP_NAME
+
+
+def identity_of(sc: dict, oid: str, group: Optional[str] = None) -> str:
+    """The identity of an object of the run (a group's member: its group's), the default when not given."""
+    for o in sc.get("groups", []) if group else sc.get("objects", []):
+        if o.get("id") == (group or oid):
+            return o.get("identity", DEFAULT_IDENTITY)
+    return DEFAULT_IDENTITY
 
 
 class ScenarioError(ValueError):

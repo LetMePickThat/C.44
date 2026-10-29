@@ -42,12 +42,14 @@ from core import trackmodel as tm
 from core.params import P
 
 from . import attitude as att
+from . import fast
 from . import ephemeris as eph
 from . import scenario as scn
 
 LOG_STEP_S = float(P.get("sim.log_step_s"))      # P4: recording interval of the truth
 THIRD_BODY = bool(P.get("sim.third_body"))       # O4: attraction of the other bodies
 SUN_MU = float(P.get("sim.sun_mu_km3_s2"))       # O2
+_NO_BODIES, _NO_MU = np.zeros((0, 3)), np.zeros(0)  # no other body (sim.third_body false)
 THIRD_BODY_STEP_S = 60.0                         # O3: grid of the body positions (cubic between: error << 1 m)
 
 
@@ -70,15 +72,24 @@ class ThirdBodies:
             centre = np.zeros(3) if central == "earth" else moon
             pos[k] = (moon - centre if other == "moon" else -centre), sun - centre
         self.pos = pos
+        self._cache: Dict[float, np.ndarray] = {}          # the few instants of the current step (RK4 stages)
 
     def positions(self, t: float) -> np.ndarray:
-        """(2, 3) positions (km) of the other bodies at t, from the central body."""
+        """(2, 3) positions (km) of the other bodies at t, from the central body (computed once per instant: the
+        RK4 stages share t0 + h / 2, and t0 + h is the next step's t0)."""
+        got = self._cache.get(t)
+        if got is not None:
+            return got
+        if len(self._cache) > 8:
+            self._cache.clear()
         x = (t - self.t0) / THIRD_BODY_STEP_S
         k = int(np.clip(math.floor(x), 1, len(self.pos) - 3))
         u = x - k
         w = np.array([-u * (u - 1.0) * (u - 2.0) / 6.0, (u + 1.0) * (u - 1.0) * (u - 2.0) / 2.0,
                       -(u + 1.0) * u * (u - 2.0) / 2.0, (u + 1.0) * u * (u - 1.0) / 6.0])
-        return np.einsum("k,kij->ij", w, self.pos[k - 1:k + 3])
+        out = np.einsum("k,kij->ij", w, self.pos[k - 1:k + 3])
+        self._cache[t] = out
+        return out
 
     def accel(self, r: np.ndarray, t: float) -> np.ndarray:
         """Differential attraction (km/s2) of the other bodies on positions r (n, 3) at t."""
@@ -145,7 +156,8 @@ class Truth:
     """The propagated scenario: per row (0 = ship, then the objects, then the group members in order) its id, class,
     recorded states (t_s (n_log,), r_km and v_kms (n_log, n_rows, 3), NaN when the row does not exist), its appearance
     time, impact time, PN start and miss distance (NaN when none). Attitudes flown by waypoints: att_ids (the rows),
-    att_q (n_steps + 1, n_att, 4) body -> ICRF quaternions at every step att_t_s (NaN before the body exists),
+    att_q (n_att_t, n_att, 4) body -> ICRF quaternions at the instants att_t_s (those of the record, sim.log_step_s,
+    user 29 October 2026: memory with many objects flying waypoints; NaN before the body exists),
     att_events (slews not finished, holds lost, targets missing)."""
     body: Body
     ids: List[str]
@@ -260,6 +272,14 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
     pn_n = np.array([float(w.pn["n"]) if w.pn is not None else 0.0 for w in rows])
     a_max = np.array([w.a_max_kms2 for w in rows])
     burns = [(i, m) for i, w in enumerate(rows) for m in w.burns]
+    b_row = np.array([i for i, _m in burns], int)
+    b_t0 = np.array([float(m["t_s"]) for _i, m in burns])
+    b_t1 = b_t0 + np.array([float(m["duration_s"]) for _i, m in burns])
+    b_acc = np.array([1e-3 * np.asarray(m["accel_mps2"], float) for _i, m in burns]).reshape(-1, 3)
+    b_rtn = np.array([m["frame"] == "rtn" for _i, m in burns], bool)
+    pn_rows = np.array([i for i, w in enumerate(rows) if w.pn is not None], int)
+    pn_t = np.array([float(rows[i].pn["t_s"]) if "t_s" in rows[i].pn else np.nan for i in pn_rows])
+    pn_r0 = np.array([float(rows[i].pn.get("start_range_km", np.nan)) for i in pn_rows])
     flyers = {0: att.Flyer(0, sc["ship"]["attitude"])}
     flyers.update({i: att.Flyer(i, w.spec["attitude"]) for i, w in enumerate(rows) if i and "attitude" in w.spec
                    and not w.group})
@@ -271,10 +291,19 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
             return None
         return x[i, :3] + x[i, 3:] * (t - now[0])
 
+    # rows appearing later (relative states, group members), spawned in row order once their time has come
+    pending = np.array([i for i, w in enumerate(rows) if (w.relative or w.group)], int)
+
     def spawn(t: float) -> None:
-        for i, w in enumerate(rows):
-            if spawned[i] or w.t_appear > t + 1e-9 or not (w.relative or w.group):
-                continue
+        nonlocal pending
+        if not len(pending):
+            return
+        due = t_appear[pending] <= t + 1e-9
+        if not due.any():
+            return
+        todo, pending = pending[due], pending[~due]
+        for i in todo.tolist():
+            w = rows[i]
             if w.relative:
                 st = w.spec["state"]
                 d = frames.unit(float(st["phi_deg"]), float(st["eps_deg"]))
@@ -302,29 +331,46 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
             if i in flyers:
                 flyers[i].start(x[i, :3], x[i, 3:], tpos)
 
+    # impulses sorted by time (row order kept at equal times), found by bisection
+    imp = sorted(((float(m["t_s"]), i, m) for i, w in enumerate(rows) for m in w.impulses), key=lambda e: e[0])
+    imp_t = np.array([e[0] for e in imp])
+
     def impulses(t: float) -> None:
-        for i, w in enumerate(rows):
-            for m in w.impulses:
-                if abs(float(m["t_s"]) - t) < 1e-9 and active[i]:
-                    dv = 1e-3 * np.asarray(m["dv_mps"], float)
-                    x[i, 3:] += (rtn_matrix(x[i, :3], x[i, 3:]) @ dv) if m["frame"] == "rtn" else dv
+        lo, hi = np.searchsorted(imp_t, t - 1e-9), np.searchsorted(imp_t, t + 1e-9, side="right")
+        for _t, i, m in imp[lo:hi]:
+            if active[i]:
+                dv = 1e-3 * np.asarray(m["dv_mps"], float)
+                x[i, 3:] += (rtn_matrix(x[i, :3], x[i, 3:]) @ dv) if m["frame"] == "rtn" else dv
 
     def accel(t0: float, tb: float, xs: np.ndarray, act: np.ndarray) -> np.ndarray:
         """d/dt of the active states xs (k, 6) at tb, during a sub-step that starts at t0 (burns decided at t0)."""
         r, v = xs[:, :3], xs[:, 3:]
-        a = body.accel(r) + a_sing[act]
-        if third is not None:
-            a = a + third.accel(r, tb)
+        if fast.USE_NUMBA:                            # compiled: gravity, J2, Singer and the other bodies at once
+            tpos, tmu = (third.positions(tb), third.mu) if third is not None else (_NO_BODIES, _NO_MU)
+            a = fast.gravity(np.ascontiguousarray(r), np.ascontiguousarray(a_sing[act]), body.mu, float(body.j2),
+                             body.r_eq_km, body.pole, tpos, tmu)
+        else:
+            a = body.accel(r) + a_sing[act]
+            if third is not None:
+                a = a + third.accel(r, tb)
         rows_act = np.flatnonzero(act)
-        pos = {j: k for k, j in enumerate(rows_act)}
-        for i, m in burns:
-            if i in pos and float(m["t_s"]) - 1e-9 <= t0 < float(m["t_s"]) + float(m["duration_s"]) - 1e-9:
-                k = pos[i]
-                acc = 1e-3 * np.asarray(m["accel_mps2"], float)
-                a[k] += (rtn_matrix(r[k], v[k]) @ acc) if m["frame"] == "rtn" else acc
+        if len(b_row):                                # the burns running at t0, on the active rows
+            pos = np.full(n, -1)
+            pos[rows_act] = np.arange(len(rows_act))
+            run = (b_t0 - 1e-9 <= t0) & (t0 < b_t1 - 1e-9) & (pos[b_row] >= 0)
+            if run.any():
+                ks = pos[b_row[run]]
+                acc = b_acc[run].copy()
+                rt = b_rtn[run]
+                if rt.any():
+                    acc[rt] = np.einsum("nij,nj->ni", rtn_matrix(r[ks[rt]], v[ks[rt]]), acc[rt])
+                np.add.at(a, ks, acc)
         on = np.flatnonzero(pn_on[rows_act])
-        if len(on) and 0 in pos:
-            s = pos[0]
+        if len(on) and act[0] and fast.USE_NUMBA:     # compiled PN command (the ship: row 0, first active row)
+            fast.pn_command(a, np.ascontiguousarray(r), np.ascontiguousarray(v), on, pn_n[rows_act[on]],
+                            a_max[rows_act[on]])
+        elif len(on) and act[0]:
+            s = 0                                     # the ship is row 0, first of the active rows
             los = r[s] - r[on]                                        # object -> ship
             vrel = v[s] - v[on]
             rn2 = np.einsum("ij,ij->i", los, los)
@@ -348,27 +394,38 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
         x[act] = y + h / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
 
     def pn_update(t: float, prev: np.ndarray) -> None:
-        """Start PN (time or range), end it when the range opens; miss = closest approach of the step (linear)."""
-        for i, w in enumerate(rows):
-            if w.pn is None or not active[i] or pn_done[i]:
-                continue
-            los = x[0, :3] - x[i, :3]
-            rng_km = float(np.linalg.norm(los))
-            if not pn_on[i]:
-                start = (t >= float(w.pn["t_s"]) - 1e-9) if "t_s" in w.pn else rng_km <= float(w.pn["start_range_km"])
-                if start:
-                    pn_on[i] = True
-                    t_pn[i] = t
-                continue
-            d0 = prev[0, :3] - prev[i, :3]
-            d1 = los
+        """Start PN (time or range), end it when the range opens; miss = closest approach of the step (linear); all
+        the guided rows at once."""
+        if not len(pn_rows):
+            return
+        sel = pn_rows[active[pn_rows] & ~pn_done[pn_rows]]
+        if not len(sel):
+            return
+        was_on = pn_on[sel]
+        k_t = np.searchsorted(pn_rows, sel)
+        if fast.USE_NUMBA:                            # compiled: the same steps row by row
+            fast.pn_step(x, prev, sel, was_on, t, pn_t[k_t], pn_r0[k_t], pn_on, pn_done, t_pn, miss)
+            return
+        los = x[0, :3] - x[sel, :3]
+        off = sel[~was_on]
+        if len(off):                                  # not guided yet: start at its time or within its range
+            ko = k_t[~was_on]
+            rng_km = np.sqrt(np.einsum("ij,ij->i", los[~was_on], los[~was_on]))
+            start = np.where(np.isfinite(pn_t[ko]), t >= pn_t[ko] - 1e-9, rng_km <= pn_r0[ko])
+            pn_on[off[start]] = True
+            t_pn[off[start]] = t
+        g = sel[was_on]
+        if len(g):                                    # guided: the step's closest approach, the end when it opens
+            d0 = prev[0, :3] - prev[g, :3]
+            d1 = los[was_on]
             dd = d1 - d0
-            u = float(np.clip(-(d0 @ dd) / max(dd @ dd, 1e-300), 0.0, 1.0))
-            closest = float(np.linalg.norm(d0 + u * dd))
-            miss[i] = closest if not np.isfinite(miss[i]) else min(miss[i], closest)
-            if float(los @ (x[0, 3:] - x[i, 3:])) > 0.0:                 # range rate > 0: the range opens
-                pn_on[i] = False
-                pn_done[i] = True
+            u = np.clip(-np.einsum("ij,ij->i", d0, dd) / np.maximum(np.einsum("ij,ij->i", dd, dd), 1e-300), 0.0, 1.0)
+            c = d0 + u[:, None] * dd
+            closest = np.sqrt(np.einsum("ij,ij->i", c, c))
+            miss[g] = np.where(np.isfinite(miss[g]), np.minimum(miss[g], closest), closest)
+            opens = np.einsum("ij,ij->i", d1, x[0, 3:] - x[g, 3:]) > 0.0      # range rate > 0: the range opens
+            pn_on[g[opens]] = False
+            pn_done[g[opens]] = True
 
     def impacts(t: float) -> None:
         r = np.linalg.norm(x[:, :3], axis=1)
@@ -385,17 +442,18 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
     v_log = np.full((n_log, n, 3), np.nan)
 
     att_rows = sorted(flyers)
-    att_q = np.full((n_steps + 1, len(att_rows), 4), np.nan)
+    att_q = np.full((n_log, len(att_rows), 4), np.nan)    # at the recorded instants (sim.log_step_s)
 
-    def record_att(k: int) -> None:
-        for j, i in enumerate(att_rows):
+    def record_att(j: int) -> None:
+        for jj, i in enumerate(att_rows):
             if flyers[i].m is not None and active[i]:
-                att_q[k, j] = flyers[i].quat()
+                att_q[j, jj] = flyers[i].quat()
 
     def record(j: int, t: float) -> None:
         t_log[j] = t
         ex = active & (t_appear <= t + 1e-9)
         r_log[j, ex], v_log[j, ex] = x[ex, :3], x[ex, 3:]
+        record_att(j)
 
     for i in att_rows:
         if spawned[i]:
@@ -405,7 +463,6 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
         if flyers[i].events and flyers[i].events[-1]["kind"] == "target missing" and active[i]:
             flyers[i].events.pop()
             flyers[i].start(x[i, :3], x[i, 3:], tpos)
-    record_att(0)
     impulses(0.0)
     pn_update(0.0, x.copy())
     record(0, 0.0)
@@ -440,7 +497,6 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
             a_sing[i] = f * a_sing[i] + s * math.sqrt(1.0 - f * f) * rngs[i].standard_normal(3)
         impacts(t1)
         pn_update(t1, prev)
-        record_att(k + 1)
         if (k + 1) % n_log_every == 0 or k == n_steps - 1:
             record(j_log, t1)
             j_log += 1
@@ -449,5 +505,5 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
     return Truth(body=body, ids=[w.id for w in rows], classes=[w.cls for w in rows], t_s=t_log[:j_log],
                  r_km=r_log[:j_log], v_kms=v_log[:j_log], t_appear_s=t_appear, t_impact_s=t_impact,
                  t_pn_start_s=t_pn, miss_km=miss, group_of=[w.group for w in rows],
-                 att_ids=[rows[i].id for i in att_rows], att_t_s=np.minimum(np.arange(n_steps + 1) * dt, duration),
-                 att_q=att_q, att_events=[dict(e, id=rows[i].id) for i in att_rows for e in flyers[i].events])
+                 att_ids=[rows[i].id for i in att_rows], att_t_s=t_log[:j_log].copy(),
+                 att_q=att_q[:j_log], att_events=[dict(e, id=rows[i].id) for i in att_rows for e in flyers[i].events])

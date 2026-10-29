@@ -3,7 +3,7 @@
 """
 PREP_TAB -- mission-preparation tab: watch-sector form (incl. confirmation mode and active-tracking range brackets) +
 real-time 3D view + fast cost estimate (per-face gauges) +
-alerts (incl. redundant watch volumes, core/redundancy.py) + mission-prep validation. "Run calculation" hands a frozen
+alerts (incl. redundant watch volumes, core/redundancy.py) + mission-prep validation. "Calculate" hands a frozen
 copy of the mission to the main window, which runs the optimiser and opens the results tab; while a results tab is
 open the mission is locked (set_locked), so the results always describe the mission on screen.
 """
@@ -14,11 +14,12 @@ from typing import Dict, List, Optional
 
 import numpy as np
 from PyQt5.QtCore import QThread, Qt, QTimer, pyqtSignal
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QKeySequence
 from PyQt5.QtWidgets import (
     QApplication,
     QAbstractItemView, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView,
-    QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSpinBox,
+    QLabel, QLineEdit, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea,
+    QShortcut, QSpinBox,
     QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
@@ -33,6 +34,7 @@ from core import redundancy as red
 from core import repoint
 from core import tracking as trk
 from core import trackmodel as tm
+from gui import controls as uc
 from gui.scene_view import SceneView, SectorDraw
 from gui.widgets import DecimalSpinBox
 
@@ -157,7 +159,7 @@ class PrepTab(QWidget):
         v.addWidget(self._build_sector_form_group())
         v.addWidget(self._build_gauges_group())
         v.addWidget(self._build_alerts_group())
-        v.addWidget(self._build_actions_group())
+        self._build_actions()
         v.addStretch(1)
 
         # no horizontal scrolling: the panel is always at least as wide as its content. No maximum: the splitter
@@ -172,10 +174,10 @@ class PrepTab(QWidget):
         else:                                    # a screen too narrow (e.g. 1920 px): the panel scrolls sideways
             panel.setMinimumWidth(min(min_w, max(avail - PANEL_VIEW_MIN_W, 320)))
 
-        splitter.addWidget(panel)
+        splitter.insertWidget(0, panel)          # (user, 29 October 2026) the panel on the left of the 3D view
         splitter.setChildrenCollapsible(False)
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 2)
+        splitter.setStretchFactor(0, 0)           # the panel at its width, the 3D view takes the rest
+        splitter.setStretchFactor(1, 1)
 
     def set_locked(self, locked: bool) -> None:
         """Read-only mission while a results tab is open: every editing control is disabled (selecting a sector,
@@ -449,22 +451,37 @@ class PrepTab(QWidget):
         self.list_sectors.setSelectionMode(QAbstractItemView.SingleSelection)
         self.list_sectors.currentRowChanged.connect(self._on_select_sector)
         self.list_sectors.itemChanged.connect(self._on_sector_check_changed)
-        self.list_sectors.setToolTip("Tick / untick a sector to show / hide its volume in the 3D view")
+        self.list_sectors.setToolTip("Tick / untick a sector to show / hide its volume in the 3D view; right-click: "
+                                     "duplicate or delete it (Del key)")
+        # B14 (user, 29 October 2026): "+" over the list adds a sector; right-click and the Del key on a sector
+        add = QMenu(self)
+        add.addAction("Box sector", lambda: self._add_sector("box"))
+        add.addAction("Cap sector", lambda: self._add_sector("cap"))
+        self.btn_add_sector = uc.menu_button("+", add, tip="Add a watch sector", arrow=False)
+        self._edit_widgets.append(self.btn_add_sector)
+        head = QHBoxLayout()
+        head.addStretch(1)
+        head.addWidget(self.btn_add_sector)
+        v.addLayout(head)
         v.addWidget(self.list_sectors)
-        row = QHBoxLayout()
-        btn_add_box = QPushButton("+ Box")
-        btn_add_cap = QPushButton("+ Cap")
-        btn_dup = QPushButton("Duplicate")
-        btn_del = QPushButton("Delete")
-        btn_add_box.clicked.connect(lambda: self._add_sector("box"))
-        btn_add_cap.clicked.connect(lambda: self._add_sector("cap"))
-        btn_dup.clicked.connect(self._duplicate_sector)
-        btn_del.clicked.connect(self._delete_sector)
-        for b in (btn_add_box, btn_add_cap, btn_dup, btn_del):
-            row.addWidget(b)
-            self._edit_widgets.append(b)
-        v.addLayout(row)
+        self.list_sectors.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.list_sectors.customContextMenuRequested.connect(self._sector_menu)
+        delete = QShortcut(QKeySequence.Delete, self.list_sectors, activated=self._delete_sector_unlocked)
+        delete.setContext(Qt.WidgetShortcut)
         return box
+
+    def _sector_menu(self, pos) -> None:
+        """Right-click on a sector: duplicate or delete it (the mission unlocked)."""
+        if self.locked or self.list_sectors.itemAt(pos) is None:
+            return
+        menu = QMenu(self)
+        menu.addAction("Duplicate", self._duplicate_sector)
+        menu.addAction("Delete", self._delete_sector)
+        menu.exec_(self.list_sectors.viewport().mapToGlobal(pos))
+
+    def _delete_sector_unlocked(self) -> None:
+        if not self.locked:
+            self._delete_sector()
 
     def _build_sector_form_group(self) -> QGroupBox:
         box = QGroupBox("Selected sector")
@@ -694,7 +711,7 @@ class PrepTab(QWidget):
             v.addWidget(row_box)
             self.gauges[k] = {"energy": pb_e, "time": pb_t, "kw": lbl_kw, "margin": lbl_margin}
         note = QLabel("Fast estimate (precomputed table + one Ku look per face for active tracking): indicative "
-                       "while editing. The exact budget (incl. confirmation) comes from 'Run calculation'.")
+                       "while editing. The exact budget (incl. confirmation) comes from 'Calculate'.")
         note.setWordWrap(True)
         note.setStyleSheet("color: gray; font-size: 11px;")
         v.addWidget(note)
@@ -709,30 +726,19 @@ class PrepTab(QWidget):
         v.addWidget(self.list_alerts)
         return box
 
-    def _build_actions_group(self) -> QGroupBox:
-        box = QGroupBox("Import / export / calculation")
-        v = QVBoxLayout(box)
-        row1 = QHBoxLayout()
-        b_imp = QPushButton("Import JSON/CSV")
-        b_exp_j = QPushButton("Export JSON")
-        b_exp_c = QPushButton("Export CSV")
-        b_imp.clicked.connect(self._on_import)
-        b_exp_j.clicked.connect(lambda: self._on_export("json"))
-        b_exp_c.clicked.connect(lambda: self._on_export("csv"))
-        for b in (b_imp, b_exp_j, b_exp_c):
-            row1.addWidget(b)
-        v.addLayout(row1)
+    def _build_actions(self) -> None:
+        """B14 (user, 29 October 2026): "Calculate", the mode's main action, in the window's header (it validates
+        first: no separate "Validate"); import and export in the window's menu (file_commands)."""
+        self.b_run = uc.tool_button("Calculate", self._on_run, "SP_MediaPlay",
+                                    tip="Validate the mission preparation, run the exact calculation and open the "
+                                        "results")
+        self._edit_widgets.append(self.b_run)
 
-        b_validate = QPushButton("Validate mission prep")
-        b_validate.clicked.connect(self._on_validate)
-        v.addWidget(b_validate)
-
-        b_run = QPushButton("Run calculation")
-        b_run.setStyleSheet("font-weight: bold;")
-        b_run.clicked.connect(self._on_run)
-        v.addWidget(b_run)
-        self._edit_widgets += [b_imp, b_run]
-        return box
+    def file_commands(self) -> list:
+        """(text, slot, icon, edits the mission) of the mission in the window's menu."""
+        return [("Import JSON/CSV...", self._on_import, "SP_DialogOpenButton", True),
+                ("Export JSON...", lambda: self._on_export("json"), "SP_DialogSaveButton", False),
+                ("Export CSV...", lambda: self._on_export("csv"), "SP_DialogSaveButton", False)]
 
     @staticmethod
     def _spin(lo: float, hi: float, step: float, value: float) -> QDoubleSpinBox:
@@ -1200,7 +1206,7 @@ class PrepTab(QWidget):
                 self.list_alerts.addItem(alert)
         except ValueError:
             pass
-        for sec in sectors:   # confirmation / AT inputs (also checked by 'Validate mission prep')
+        for sec in sectors:   # confirmation / AT inputs (also checked by 'Calculate')
             for err in md.validate_tracking(sec, str(sec.get("id", "?"))):
                 self.list_alerts.addItem(err)
         masks = {}
@@ -1392,10 +1398,18 @@ class PrepTab(QWidget):
         if not path:
             return
         try:
-            self.mission = md.load_mission(path)
+            mission = md.load_mission(path)
         except Exception as exc:  # noqa: BLE001
             QMessageBox.critical(self, "Import", f"Import failed: {exc}")
             return
+        self.set_mission(mission)
+
+    def set_mission(self, mission: dict) -> None:
+        """Show and edit this mission (an import, the file given to the tool at start)."""
+        self.mission = mission
+        self.mission.setdefault("global", dict(md.GLOBAL_DEFAULTS))
+        self.mission.setdefault("sectors", [])
+        self._hidden_sectors = set()
         self.sb_eps_min.setValue(self.mission["global"].get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"]))
         self.sb_eps_max.setValue(self.mission["global"].get("eps_max_deg", md.GLOBAL_DEFAULTS["eps_max_deg"]))
         self.sb_elec.setValue(self._cap_value())
@@ -1425,10 +1439,6 @@ class PrepTab(QWidget):
         if errs:
             QMessageBox.warning(self, "Invalid mission preparation", "\n".join(f"- {e}" for e in errs))
         return not errs
-
-    def _on_validate(self) -> None:
-        if self._check_mission():
-            QMessageBox.information(self, "Mission preparation", "Mission preparation is valid.")
 
     def _on_run(self) -> None:
         if self._check_mission():

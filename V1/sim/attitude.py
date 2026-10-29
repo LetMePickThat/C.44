@@ -39,6 +39,8 @@ import numpy as np
 from core import frames
 from core.params import P
 
+from . import fast
+
 TYPES = ("fixed", "prograde", "retrograde", "normal+", "normal-", "radial_out", "radial_in", "target")
 FIXED_FRAMES = ("orbital", "inertial")
 FLYING_CLASSES = ("SHIP", "KKV")                    # object classes that may fly waypoints (user)
@@ -57,6 +59,20 @@ def rot_x(a: float) -> np.ndarray:
 def rot_y(a: float) -> np.ndarray:
     c, s = math.cos(a), math.sin(a)
     return np.array([[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]])
+
+
+def cross3(a, b) -> np.ndarray:
+    """a x b of two 3-vectors (np.cross costs ~20 us on 3 components: the attitudes call it at every step; speed of
+    the propagation, user, 29 October 2026)."""
+    a0, a1, a2 = float(a[0]), float(a[1]), float(a[2])
+    b0, b1, b2 = float(b[0]), float(b[1]), float(b[2])
+    return np.array([a1 * b2 - a2 * b1, a2 * b0 - a0 * b2, a0 * b1 - a1 * b0])
+
+
+def norm3(a) -> float:
+    """|a| of a 3-vector (as cross3: np.linalg.norm is slow on 3 components)."""
+    a0, a1, a2 = float(a[0]), float(a[1]), float(a[2])
+    return math.sqrt(a0 * a0 + a1 * a1 + a2 * a2)
 
 
 def rot_z(a: float) -> np.ndarray:
@@ -86,7 +102,7 @@ def rotvec(m: np.ndarray) -> np.ndarray:
 
 def expm(w: np.ndarray) -> np.ndarray:
     """Rotation matrix of a rotation vector (Rodrigues)."""
-    a = float(np.linalg.norm(w))
+    a = norm3(w)
     if a < 1e-12:
         return np.eye(3)
     k = w / a
@@ -96,7 +112,7 @@ def expm(w: np.ndarray) -> np.ndarray:
 
 def angle_deg(a: np.ndarray, b: np.ndarray) -> float:
     """Angle between two attitudes (deg)."""
-    return math.degrees(float(np.linalg.norm(rotvec(a @ b.T))))
+    return math.degrees(norm3(rotvec(a @ b.T)))
 
 
 def slerp(q0: np.ndarray, q1: np.ndarray, u: float) -> np.ndarray:
@@ -105,7 +121,7 @@ def slerp(q0: np.ndarray, q1: np.ndarray, u: float) -> np.ndarray:
         q1, d = -q1, -d
     if d > 0.9995:
         q = q0 + u * (q1 - q0)
-        return q / np.linalg.norm(q)
+        return q / math.sqrt(float(q @ q))
     th = math.acos(d)
     return (math.sin((1.0 - u) * th) * q0 + math.sin(u * th) * q1) / math.sin(th)
 
@@ -113,10 +129,10 @@ def slerp(q0: np.ndarray, q1: np.ndarray, u: float) -> np.ndarray:
 # ----------------------------------------------------------------------------- reference and target attitudes
 def orbital_axes(r: np.ndarray, v: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """(R, T, N) unit vectors: radial, along track N x R, orbit normal r x v."""
-    rr = r / np.linalg.norm(r)
-    n = np.cross(r, v)
-    n = n / np.linalg.norm(n)
-    return rr, np.cross(n, rr), n
+    rr = r / norm3(r)
+    n = cross3(r, v)
+    n = n / norm3(n)
+    return rr, cross3(n, rr), n
 
 
 def orbital_reference(r: np.ndarray, v: np.ndarray) -> np.ndarray:
@@ -128,13 +144,15 @@ def orbital_reference(r: np.ndarray, v: np.ndarray) -> np.ndarray:
 def pointing(d: np.ndarray, r: np.ndarray, v: np.ndarray, roll_deg: float) -> np.ndarray:
     """Body -> ICRF matrix with Z along d, X in the orbital plane (N x Z; along the velocity when d is along N), then
     roll_deg about Z."""
+    if fast.USE_NUMBA:
+        return fast.pointing(np.asarray(d, float), np.asarray(r, float), np.asarray(v, float), math.radians(roll_deg))
     rr, t, n = orbital_axes(r, v)
-    z = d / np.linalg.norm(d)
-    x = np.cross(n, z)
-    if np.linalg.norm(x) < 1e-6:
+    z = d / norm3(d)
+    x = cross3(n, z)
+    if norm3(x) < 1e-6:
         x = t - (t @ z) * z
-    x = x / np.linalg.norm(x)
-    return np.stack([x, np.cross(z, x), z], axis=1) @ rot_z(-math.radians(roll_deg))
+    x = x / norm3(x)
+    return np.stack([x, cross3(z, x), z], axis=1) @ rot_z(-math.radians(roll_deg))
 
 
 def target_attitude(att: dict, r: np.ndarray, v: np.ndarray, target_pos: Optional[np.ndarray]) -> Optional[np.ndarray]:
@@ -251,27 +269,35 @@ class Flyer:
             self.events.append({"t_s": t0, "kind": "target missing", "waypoint": self.k})
             self.w = np.zeros(3)
             return
-        w_goal = rotvec(g1 @ g0.T) / dt                               # the attitude's own rate, fed forward
-        e = rotvec(g0 @ self.m.T)
-        phi = float(np.linalg.norm(e))
-        self._err_deg = math.degrees(phi)
         a_max = math.radians(ACCEL_MAX_DPS2)
         cap = math.radians(RATE_MAX_DPS if self.reached or self.k == 0 else float(self.wps[self.k]["rate_dps"]))
+        if fast.USE_NUMBA:                                            # compiled (sim/fast.slew): the same steps
+            self.m, self.w, phi, err = fast.slew(g0, g1, self.m, self.w, dt, a_max, cap, math.radians(RATE_MAX_DPS))
+            self._err_deg = math.degrees(phi)
+            self._hold(t0, dt, err)
+            return
+        w_goal = rotvec(g1 @ g0.T) / dt                               # the attitude's own rate, fed forward
+        e = rotvec(g0 @ self.m.T)
+        phi = norm3(e)
+        self._err_deg = math.degrees(phi)
         # the slew rate that still stops on the attitude after this step: w^2 = 2 a (phi - w dt / 2) (discrete time)
         h = 0.5 * a_max * dt
         sl = min(cap, -h + math.sqrt(h * h + 2.0 * a_max * phi), phi / dt) if phi > 0.0 else 0.0
         w_des = w_goal + (e / phi * sl if phi > 0.0 else 0.0)
-        nd = float(np.linalg.norm(w_des))
+        nd = norm3(w_des)
         w_cap = math.radians(RATE_MAX_DPS)
         if nd > w_cap:
             w_des *= w_cap / nd
         dw = w_des - self.w
-        ndw = float(np.linalg.norm(dw))
+        ndw = norm3(dw)
         if ndw > a_max * dt:
             dw *= a_max * dt / ndw
         self.w = self.w + dw
         self.m = expm(self.w * dt) @ self.m
-        err = angle_deg(g1, self.m)
+        self._hold(t0, dt, angle_deg(g1, self.m))
+
+    def _hold(self, t0: float, dt: float, err: float) -> None:
+        """The slew's state after a step: reached, hold lost, hold recovered (logged)."""
         if not self.reached and err < REACHED_TOL_DEG:
             self.reached = True
         elif self.reached and err > HOLD_TOL_DEG and not self.lost:

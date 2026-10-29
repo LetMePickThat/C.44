@@ -90,6 +90,8 @@ class FlowLayout(QLayout):
         x, y, line = r.x(), r.y(), 0
         sp = self.spacing()
         for it in self._items:
+            if it.isEmpty():                      # a hidden widget takes no room
+                continue
             hint = it.sizeHint()
             nx = x + hint.width() + sp
             if nx - sp > r.right() and line > 0:

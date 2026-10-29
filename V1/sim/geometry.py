@@ -41,7 +41,6 @@ from core import optimizer as opt
 from core import radar_model as rm
 from core.params import P
 
-from . import attitude as att
 from . import ephemeris as eph
 from . import scenario as scn
 from .propagate import Truth
@@ -192,6 +191,19 @@ def geometry(sc: dict, truth: Truth, times: Optional[np.ndarray] = None) -> Geom
             n0 = _unit(n0 - (n0 @ a) * a)
             tumble[j] = (a, n0, math.radians(tgt.rotation_dps))
     grid = np.arange(181.0)
+    # per rule, the objects (columns) concerned; tumble axes and rates as arrays (speed with 1000+ objects, user,
+    # 29 October 2026: every instant handles all the objects at once)
+    rule_cols = {r: np.array([j for j, x in enumerate(rules) if x == r], int)
+                 for r in ("waypoints", "relative", "inertial", "tumble")}
+    tum = rule_cols["tumble"]
+    tum_a = np.array([tumble[j][0] for j in tum]).reshape(-1, 3)
+    tum_n0 = np.array([tumble[j][1] for j in tum]).reshape(-1, 3)
+    tum_b = np.cross(tum_a, tum_n0) if len(tum) else np.zeros((0, 3))     # n0 normal to a: Rodrigues in the plane
+    tum_om = np.array([tumble[j][2] for j in tum])
+    tum_t0 = np.array([truth.t_appear_s[rows[j]] for j in tum])
+    tab_s = np.array([tb[0] for tb in tabs]).reshape(n_o, len(grid))      # (also with no object at all)
+    tab_ku = np.array([tb[1] for tb in tabs]).reshape(n_o, len(grid))
+    fly_ids = [truth.ids[rows[j]] for j in rule_cols["waypoints"]]
 
     shp = (n_t, n_o)
     out = {k: np.full(shp, np.nan) for k in ("range_km", "range_rate_mps", "theta_deg", "u", "v", "aspect_deg",
@@ -251,32 +263,33 @@ def geometry(sc: dict, truth: Truth, times: Optional[np.ndarray] = None) -> Geom
         face[it] = fo
         out["theta_deg"][it] = np.where(fo >= 0, np.degrees(np.arccos(np.clip(w, 0.0, 1.0))), np.nan)
         out["u"][it], out["v"][it] = np.where(fo >= 0, uu, np.nan), np.where(fo >= 0, vv, np.nan)
-        # G5 noses (ICRF) and G6 aspect / RCS
-        nose = np.full((n_o, 3), np.nan)
-        for j, i in enumerate(rows):
-            if not ex[j]:
-                continue
-            rule = rules[j]
-            if rule == "waypoints":
-                mo = truth.attitude(truth.ids[i], float(t))
+        # G5 noses (ICRF) and G6 aspect / RCS, all the objects at once (by nose rule)
+        nose = -lu.copy()                                      # default rule: nose on the ship
+        cols = rule_cols["relative"]
+        nose[cols] = vo[cols] - vs
+        cols = rule_cols["inertial"]
+        nose[cols] = vo[cols]
+        if len(tum):
+            ang = tum_om * (float(t) - tum_t0)
+            nose[tum] = tum_n0 * np.cos(ang)[:, None] + tum_b * np.sin(ang)[:, None]
+        for j, oid in zip(rule_cols["waypoints"], fly_ids):
+            if ex[j]:
+                mo = truth.attitude(oid, float(t))
                 nose[j] = mo[:, 2] if mo is not None else -lu[j]
-            elif rule == "relative":
-                nose[j] = vo[j] - vs
-            elif rule == "inertial":
-                nose[j] = vo[j]
-            elif rule == "tumble":
-                a, n0, om = tumble[j]
-                nose[j] = att.expm(a * om * (float(t) - truth.t_appear_s[i])) @ n0
-            else:
-                nose[j] = -lu[j]
-            if not np.linalg.norm(nose[j]) > 1e-12:              # no velocity: nose on the ship
-                nose[j] = -lu[j]
+        with np.errstate(invalid="ignore"):
+            weak = ~(np.linalg.norm(nose, axis=1) > 1e-12)       # no velocity: nose on the ship
+        nose[weak] = -lu[weak]
+        nose[~ex] = np.nan
         asp = _angle_deg(_unit(nose), -lu)
         nose_sh[it] = _unit(nose) @ m
         out["aspect_deg"][it] = asp
-        for j in np.flatnonzero(ex):
-            out["rcs_s_dbsm"][it, j] = np.interp(asp[j], grid, tabs[j][0]) + offs[j]
-            out["rcs_ku_dbsm"][it, j] = np.interp(asp[j], grid, tabs[j][1]) + offs[j]
+        # the tables on the 1-degree grid 0..180: linear interpolation as np.interp, every object at once
+        e = np.flatnonzero(ex)
+        a_e = np.clip(asp[e], 0.0, grid[-1])
+        k0 = np.minimum(np.floor(a_e).astype(int), len(grid) - 2)
+        fr = a_e - k0
+        out["rcs_s_dbsm"][it, e] = tab_s[e, k0] + fr * (tab_s[e, k0 + 1] - tab_s[e, k0]) + offs[e]
+        out["rcs_ku_dbsm"][it, e] = tab_ku[e, k0] + fr * (tab_ku[e, k0 + 1] - tab_ku[e, k0]) + offs[e]
         # G7 occultation by the Earth and the Moon (segment ship -> object against each sphere)
         for k in (1, 2):
             c = bpos[k]

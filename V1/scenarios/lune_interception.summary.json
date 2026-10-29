@@ -4,8 +4,8 @@
  "duration_s": 960.0,
  "central_body": "moon",
  "model_version": "6.35.0",
- "params_hash": "ccb01d28291dd302",
- "cpu_s": 6.137,
+ "params_hash": "34927d192edafaee",
+ "cpu_s": 7.369,
  "objects_per_class": {
   "SHIP": 1,
   "KKV": 20
@@ -53,7 +53,7 @@
    "t_s": 899.3000000000001,
    "kind": "hold lost (rate or acceleration limit)",
    "waypoint": 0,
-   "error_deg": 0.10329114838580504,
+   "error_deg": 0.10329114838580879,
    "id": "SHIP_1"
   },
   {
@@ -66,7 +66,7 @@
    "t_s": 906.3000000000001,
    "kind": "hold lost (rate or acceleration limit)",
    "waypoint": 0,
-   "error_deg": 0.18250909154645056,
+   "error_deg": 0.1825090915464026,
    "id": "SHIP_1"
   },
   {

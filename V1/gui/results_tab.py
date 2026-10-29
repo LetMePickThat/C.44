@@ -19,7 +19,7 @@ from PyQt5.QtCore import QThread, Qt, pyqtSignal
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
     QAbstractItemView, QComboBox, QFileDialog, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QMessageBox,
-    QPushButton, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QScrollArea, QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from core import frames
@@ -27,6 +27,7 @@ from core import geometry as geo
 from core import optimizer as mo
 from core import radar_model as rm
 from core import validation
+from gui import controls as uc
 from gui.scene_view import SceneView, SectorDraw
 
 
@@ -147,19 +148,15 @@ class ResultsTab(QWidget):
             banner.setWordWrap(True)
             banner.setStyleSheet("background: #d6453d; color: white; font-weight: bold; padding: 6px;")
             lv.addWidget(banner)
-        top = QHBoxLayout()
-        top.addWidget(QLabel("Colour sectors by:"))
-        self.cb_metric = QComboBox()
+        self.cb_metric = QComboBox()                   # B14: in the panel over the 3D view
         self.cb_metric.addItems(["Achieved RR / target RR", "Energy % of this sector (worst face)",
                                  "Energy % of the face total (most loaded face)"])
         self.cb_metric.currentIndexChanged.connect(lambda _i: self._update_scene())
-        top.addWidget(self.cb_metric)
-        top.addStretch(1)
-        lv.addLayout(top)
         self.view = SceneView(self.grid, face_opacity=0.18, sector_opacity=0.55)
-        self.view.set_navigation(frames.parse_nav(mission.get("global", {}).get("nav")).r_si)
+        self.view.set_navigation(frames.parse_nav(self.mission.get("global", {}).get("nav")).r_si)
         self.view.show_all_sectors.connect(lambda: self._set_all_sectors_visible(True))
         self.view.hide_all_sectors.connect(lambda: self._set_all_sectors_visible(False))
+        self.view.display_bar.overlay.row.insertWidget(0, uc.labelled("Colour by", self.cb_metric))
         lv.addWidget(self.view)
         splitter.addWidget(left)
 
@@ -175,7 +172,6 @@ class ResultsTab(QWidget):
         v.addWidget(self._build_face_table_group())
         v.addWidget(self._build_tracking_group())
         v.addWidget(self._build_warnings_group())
-        v.addWidget(self._build_export_group())
         v.addStretch(1)
         splitter.addWidget(panel)
         splitter.setChildrenCollapsible(False)
@@ -203,16 +199,15 @@ class ResultsTab(QWidget):
         v.addWidget(self.table_verdict)
         # step 5.4 M4 (H3): the Monte-Carlo of the plan, on demand
         h = QHBoxLayout()
-        self.btn_mc = QPushButton("Monte-Carlo")
-        self.btn_mc.setToolTip("Draw the plan (test targets, confirmations, timelines, tracks) and add the rows to the "
-                               "verdict; proposes a load ceiling for the transmit time. Several minutes.")
-        self.btn_mc.clicked.connect(self._run_montecarlo)
-        self.btn_mc_cancel = QPushButton("Cancel")
+        self.btn_mc = uc.tool_button("Monte-Carlo", self._run_montecarlo, "SP_MediaPlay",
+                                     tip="Draw the plan (test targets, confirmations, timelines, tracks) and add the "
+                                         "rows to the verdict; proposes a load ceiling for the transmit time. Several "
+                                         "minutes.")
+        self.btn_mc_cancel = uc.tool_button("Cancel", lambda: self._mc_worker.cancel() if self._mc_worker else None,
+                                            "SP_DialogCancelButton")
         self.btn_mc_cancel.setEnabled(False)
-        self.btn_mc_cancel.clicked.connect(lambda: self._mc_worker.cancel() if self._mc_worker else None)
-        self.btn_mc_report = QPushButton("Monte-Carlo report")
+        self.btn_mc_report = uc.tool_button("Report", self._show_mc_report, "SP_FileDialogDetailedView")
         self.btn_mc_report.setEnabled(bool(self.result.get("montecarlo")))
-        self.btn_mc_report.clicked.connect(self._show_mc_report)
         self.lbl_mc = QLabel("")
         self.lbl_mc.setWordWrap(True)
         for w in (self.btn_mc, self.btn_mc_cancel, self.btn_mc_report):
@@ -233,8 +228,9 @@ class ResultsTab(QWidget):
                                      "the change and bisects for the smallest relaxation that holds (several minutes)")
         v.addWidget(self.table_advice)
         h = QHBoxLayout()
-        self.btn_verify = QPushButton("Verify the selected advice")
-        self.btn_verify.clicked.connect(self._verify_advice)
+        self.btn_verify = uc.tool_button("Verify the selected advice", self._verify_advice, "SP_DialogApplyButton",
+                                         tip="Recompute the mission with the advice selected in the table and bisect "
+                                             "for the smallest relaxation that holds (several minutes)")
         self.lbl_verify = QLabel("")
         self.lbl_verify.setWordWrap(True)
         h.addWidget(self.btn_verify)
@@ -480,16 +476,10 @@ class ResultsTab(QWidget):
         v.addWidget(self.lbl_warnings)
         return box
 
-    def _build_export_group(self) -> QGroupBox:
-        box = QGroupBox("Export")
-        h = QHBoxLayout(box)
-        b_json = QPushButton("Export JSON (full result)")
-        b_csv = QPushButton("Export CSV (summary)")
-        b_json.clicked.connect(self.export_json)
-        b_csv.clicked.connect(self._export_csv)
-        h.addWidget(b_json)
-        h.addWidget(b_csv)
-        return box
+    def file_commands(self) -> list:
+        """(text, slot, icon) of the results in the window's menu (B14)."""
+        return [("Export JSON (full result)...", self.export_json, "SP_DialogSaveButton"),
+                ("Export CSV (summary)...", self._export_csv, "SP_DialogSaveButton")]
 
     # ------------------------------------------------------------------ 3D scene
     def _sector_energy(self, r: dict) -> float:

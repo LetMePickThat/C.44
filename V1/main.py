@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-MAIN -- entry point: opens the main window (gui/main_window.py) on an empty mission, or on the mission file given on
-the command line. The mission-preparation tab imports / exports missions itself; a results tab opens once a
-calculation finishes.
+MAIN -- entry point of the mission-preparation tool: opens the main window (gui/main_window.py) on an empty mission,
+or on the mission file given on the command line; the window imports / exports missions itself; the results open
+once a calculation finishes. The scenario is a separate tool: scenario_tool.py.
 Usage: python main.py [mission.json | mission.csv]   (--new, kept for old shortcuts, is the same as no argument)
 Without a terminal: double-click "Radar mission prep.bat" (installs the packages on first start, then runs this file
 with pythonw, i.e. without a console window).
@@ -88,13 +88,8 @@ def main() -> int:
     prefer_high_performance_gpu()
     app = QApplication(sys.argv)
     arg = sys.argv[1] if len(sys.argv) > 1 else None
-    mission = md.empty_mission()
-    if arg and arg != "--new":
-        try:
-            mission = md.load_mission(arg)
-        except Exception as exc:  # noqa: BLE001 -- bad path / file: say so and start on an empty mission
-            QMessageBox.critical(None, "Open", f"Could not open {arg}: {exc}")
-    win = MainWindow(mission)
+    path = arg if arg and arg != "--new" else None     # a single mission file, or a former mission / scenario file
+    win = MainWindow(md.empty_mission(), path)
     win.show_default()                     # tool.display.window_size, or maximised on a smaller screen
     return app.exec_()
 

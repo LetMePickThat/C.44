@@ -3,9 +3,9 @@
 """
 SCENARIO_TAB -- the scenario editor of the global simulator (roadmap phase 6, pass S5; block F validated by the user on
 28 October 2026): a tree of the scenario (time and body, ship, objects, groups), a form per element generated from a
-field description, validation at every change (sim.scenario.validate, messages listed under the forms), JSON load and
-save, attitude waypoints edited by a list (W1-W3). On the right the 3D views and the playback (gui/sim_view.py, passes
-S6 and S7).
+field description, validation at every change (sim.scenario.validate, one line in the window's status bar), JSON load
+and save (the window's menu), attitude waypoints edited by a list (W1-W3). On the right the 3D views and the
+playback (gui/sim_view.py, passes S6 and S7).
 """
 from __future__ import annotations
 
@@ -14,14 +14,15 @@ import json
 import os
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
-from PyQt5.QtCore import QTimer, Qt, pyqtSignal
-from PyQt5.QtGui import QColor
+from PyQt5.QtCore import QEvent, QTimer, Qt, pyqtSignal
+from PyQt5.QtGui import QColor, QKeySequence
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QInputDialog, QFileDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
-                             QListWidgetItem, QMessageBox, QPlainTextEdit, QPushButton, QScrollArea, QSpinBox, QSplitter, QTabWidget,
+                             QListWidgetItem, QMenu, QMessageBox, QDialog, QDialogButtonBox, QPushButton, QShortcut, QScrollArea, QSpinBox, QSplitter,
                              QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from core import radar_model as rm
 from core.params import P
+from gui import controls as uc
 from gui.widgets import DecimalSpinBox
 from sim import attitude as att
 from sim import scenario as scn
@@ -30,8 +31,10 @@ from sim import scenario as scn
 Field = Tuple[str, str, str, dict]          # (key, label, kind, options)
 
 _BIG = 1e12
-COMPACT_TREE_H = 220                       # px: the tree at the top of the compact column
-TREE_MIN_W, FORM_MIN_W = 220, 340          # px: the narrowest the tree and the forms start at
+COMPACT_TREE_H = 120                       # px: least height of the tree over the options (compact column)
+TREE_MAX_SHARE = 0.5                       # the tree at most this share of the column
+FORM_MIN_W = 340                           # px: the narrowest the forms start at
+SCENARIO_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scenarios")
 
 
 def _f(key: str, label: str, kind: str = "float", **opt) -> Field:
@@ -160,6 +163,10 @@ class FormWidget(QWidget):
             w.addItems(choices)
             if v in choices:
                 w.setCurrentIndex(choices.index(v))
+            elif choices and v is not None:
+                # a value the list does not offer (e.g. the default target "ship" in the ship's own waypoints): the
+                # choice shown is stored, so what is shown is what is validated (user, 29 October 2026)
+                self.data[key] = choices[0]
             w.currentTextChanged.connect(lambda x, k=key: self._set(k, x if x else None))
         elif kind.startswith("vec"):
             w = VecEdit(int(kind[3:]), int(opt.get("dec", 3)))
@@ -220,7 +227,9 @@ def _typed_form(title: str, types: Sequence[str], fields: Dict[str, List[Field]]
     def retype(t: str):
         if holder.get(key, {}).get(type_key) != t:
             holder[key] = copy.deepcopy(defaults[t])
+            build()                                  # first: the form may settle a default (a choice offered)
             on_change()
+            return
         build()
 
     if holder.get(key, {}).get(type_key) not in types:
@@ -384,6 +393,7 @@ class WaypointList(QWidget):
         if not (0 <= i < len(self.items)):
             return
         w = self.items[i]
+        before = copy.deepcopy(w)
         fields = [_f("t_s", "time (s, start of the slew)", min=0.0)]
         if i > 0:
             fields.append(_f("rate_dps", "slew rate (deg/s)", min=0.001, max=att.RATE_MAX_DPS))
@@ -406,131 +416,140 @@ class WaypointList(QWidget):
         self.form_area.addWidget(form)
         self.form_area.addWidget(_typed_form("attitude", att.TYPES, att_fields, ATT_DEFAULTS, w, "attitude", "type",
                                              changed))
+        if w != before:                              # the form settled a value not offered (a target): validated
+            changed()
 
 
 # ----------------------------------------------------------------------------- the tab
 class ScenarioTab(QWidget):
-    """Scenario editor: tree, forms, validation messages, JSON files."""
+    """Scenario editor: tree, forms, validation messages, JSON files (the separate scenario tool)."""
     scenario_changed = pyqtSignal(dict)           # the scenario on screen, after each valid change (for S6 / S7)
+    title_changed = pyqtSignal(str)               # the file name (with " *" when modified)
 
-    def __init__(self, grid=None, view: bool = True, parent=None, layout: Optional[str] = None):
+    def __init__(self, grid=None, view: bool = True, parent=None):
         super().__init__(parent)
         self.sc: dict = new_scenario()
         self.path: Optional[str] = None
         self.modified = False
-        # R1-R6 (user, 29 October 2026): "compact" re-organises the tab, "classic" keeps the former one (rollback,
-        # tool.display.scenario_layout); without the 3D view (tests of the editor) always classic
-        self.layout_mode = (layout or str(P.get("tool.display.scenario_layout"))) if view else "classic"
-        compact = self.layout_mode == "compact"
-
-        top = QHBoxLayout()
-        file_buttons = []
-        for text, slot in (("New", self.new), ("Open...", self.open), ("Save", self.save), ("Save as...", self.save_as),
-                           ("Export mission at t...", self.export_mission)):
-            b = QPushButton(text)
-            b.clicked.connect(slot)
-            file_buttons.append(b)
-            if not compact:
-                top.addWidget(b)
-        top.addStretch(1)
-        self.file_label = QLabel()
-        if not compact:
-            top.addWidget(self.file_label)
-
+        self._mission_cache: Optional[tuple] = None   # (path, mtime, mission) of the mission file drawn
+        # R1-R6, B14 (user, 29 October 2026): one column (the form of the element chosen over the tree), the 3D
+        # view for the rest; "+" over the tree adds an object or a group, right-click and the Del key on an element
+        # duplicate or delete it; the files in the window's menu (file_commands), the file name and the validation
+        # in its status bar (status_widgets)
         self.tree = QTreeWidget()
         self.tree.setHeaderHidden(True)
         self.tree.currentItemChanged.connect(lambda cur, _prev: self._show(cur))
-        tree_buttons = QHBoxLayout()
-        for text, slot in (("+ object", self.add_object), ("+ group", self.add_group), ("Duplicate", self.duplicate),
-                           ("Delete", self.delete)):
-            b = QPushButton(text)
-            b.clicked.connect(slot)
-            tree_buttons.addWidget(b)
-        left = QWidget()
-        ll = QVBoxLayout(left)
-        ll.setContentsMargins(0, 0, 0, 0)
-        ll.addWidget(self.tree, 1)
-        ll.addLayout(tree_buttons)
+        self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self._element_menu)
+        delete = QShortcut(QKeySequence.Delete, self.tree, activated=self.delete)
+        delete.setContext(Qt.WidgetShortcut)
+        add = QMenu(self)
+        add.addAction("Object", self.add_object)
+        add.addAction("Group", self.add_group)
+        tree_box = QWidget()
+        tl = QVBoxLayout(tree_box)
+        tl.setContentsMargins(0, 0, 0, 0)
+        tl.setSpacing(0)
+        head = QHBoxLayout()
+        head.addWidget(QLabel("Elements"))
+        head.addStretch(1)
+        head.addWidget(uc.menu_button("+", add, tip="Add an object or a group", arrow=False))
+        tl.addLayout(head)
+        tl.addWidget(self.tree, 1)
+        self.file_label = QLabel()
+        self.status = QPushButton("")                          # R4: the validation in one line
+        self.status.setFlat(True)
+        self.status.clicked.connect(self._show_problems)
+        self.messages = QListWidget()                          # the validation's messages (status: tooltip, click)
 
         self.form_holder = QWidget()
         self.form_layout = QVBoxLayout(self.form_holder)
         self.form_layout.setContentsMargins(4, 0, 4, 0)
-        self.messages = QListWidget()
-        self.messages.setMaximumHeight(140)
-        middle = QWidget()
-        ml = QVBoxLayout(middle)
-        ml.setContentsMargins(0, 0, 0, 0)
-        ml.addWidget(self.form_holder, 1)
-        ml.addWidget(QLabel("Validation"))
-        ml.addWidget(self.messages)
 
         if view:                                   # passes S6 / S7: 3D views and playback
             from gui.sim_view import SimView
-            self.preview = SimView(grid, get_path=lambda: None if self.modified else self.path, layout=self.layout_mode)
+            self.preview = SimView(grid, get_path=lambda: None if self.modified else self.path)
             self.scenario_changed.connect(self.preview.set_scenario)
         else:
             self.preview = QLabel("3D preview and playback (not built)")
             self.preview.setAlignment(Qt.AlignCenter)
 
-        if compact:
-            self._build_compact(left, middle, file_buttons)
-            self._rebuild_tree()
-            self._validate()
-            return
-
-        split = QSplitter(Qt.Horizontal)
-        split.addWidget(left)
-        split.addWidget(middle)
-        split.addWidget(self.preview)
-        split.setStretchFactor(0, 0)                   # the tree and the forms keep their width, the 3D takes the rest
-        split.setStretchFactor(1, 0)
-        split.setStretchFactor(2, 1)
-        self._split = split
-        QTimer.singleShot(0, self._fit_columns)
-        lay = QVBoxLayout(self)
-        lay.addLayout(top)
-        lay.addWidget(split, 1)
-        self._rebuild_tree()
-        self._validate()
-
-    def _build_compact(self, left: QWidget, middle: QWidget, file_buttons: list) -> None:
-        """R1-R6: one left column (tabs "Scenario": the tree over the form of the element chosen, which scrolls,
-        and "Events": the events of the run), the 3D view for the rest; the file buttons, the validation in one line
-        and the file name in the 3D view's first bar; the information as a box in the 3D view (SimView)."""
-        v = self.preview
-        for i, b in enumerate(file_buttons):                   # R5: one bar for the files, the run and the view
-            v.top_bar.insertWidget(i, b)
-        self.status = QPushButton("")                          # R4: the validation in one line
-        self.status.setFlat(True)
-        self.status.clicked.connect(self._show_problems)
-        v.top_bar.addWidget(self.status)
-        v.top_bar.addWidget(self.file_label)
-        self.messages.hide()                                   # (kept filled: the classic layout and the tests)
-        self._classic_middle = middle                          # keeps the classic column (and the messages) alive
         form_scroll = QScrollArea()
         form_scroll.setWidgetResizable(True)
         form_scroll.setFrameShape(QScrollArea.NoFrame)
         form_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)   # the fields narrow with the column
         form_scroll.setWidget(self.form_holder)
-        col = QSplitter(Qt.Vertical)                           # R1: the tree over the form
-        col.addWidget(left)
-        col.addWidget(form_scroll)
-        col.setStretchFactor(0, 0)
-        col.setStretchFactor(1, 1)
-        col.setSizes([COMPACT_TREE_H, 800])
-        self.left_tabs = QTabWidget()                          # R2: the events in a tab of the column
-        self.left_tabs.addTab(col, "Scenario")
-        self.left_tabs.addTab(v.events, "Events")
+        # (user, 29 October 2026, replaces B6) the tree on top, the options of the element chosen in it under it:
+        # the tree at the height of its rows, the options take the rest
+        split_col = QSplitter(Qt.Vertical)
+        split_col.addWidget(tree_box)
+        split_col.addWidget(form_scroll)
+        split_col.setStretchFactor(0, 0)
+        split_col.setStretchFactor(1, 1)
+        split_col.setSizes([COMPACT_TREE_H, 800])
+        self._col_split = split_col
+        split_col.installEventFilter(self)                     # B9: the fit again when the column changes height
+        self.tree.itemExpanded.connect(lambda _it: self._fit_form())
+        self.tree.itemCollapsed.connect(lambda _it: self._fit_form())
+        self.left_col = split_col
         split = QSplitter(Qt.Horizontal)
-        split.addWidget(self.left_tabs)
-        split.addWidget(v)
-        split.setStretchFactor(0, 0)
-        split.setStretchFactor(1, 1)
+        split.addWidget(self.left_col)
+        # (user, 29 October 2026) the information in a column right of the options column
+        self.side_col = getattr(self.preview, "side_panel", None)
+        if self.side_col is not None:
+            split.addWidget(self.side_col)
+        split.addWidget(self.preview)
+        for i in range(split.count()):
+            split.setStretchFactor(i, 1 if split.widget(i) is self.preview else 0)
         self._split = split
         QTimer.singleShot(0, self._fit_columns)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(4, 4, 4, 4)
         lay.addWidget(split, 1)
+        self.loaded = False                       # P1: the 3D view alone until a file is created or opened
+        self._rebuild_tree()
+        self._validate()
+        self._set_loaded(False)
+
+    def _set_loaded(self, on: bool) -> None:
+        """P1 (user, 29 October 2026): before a file is created or opened, the 3D view alone (no editor, no
+        controls, no playback, no status); after, everything."""
+        self.loaded = on
+        self.left_col.setVisible(on)
+        for w in (self.file_label, self.status):
+            w.setVisible(on)
+        if hasattr(self.preview, "set_controls_visible"):
+            self.preview.set_controls_visible(on)
+
+    def _element_menu(self, pos) -> None:
+        """Right-click on an object or a group: duplicate or delete it."""
+        it = self.tree.itemAt(pos)
+        if it is None or it.data(0, Qt.UserRole)[1] < 0:
+            return
+        self.tree.setCurrentItem(it)
+        menu = QMenu(self)
+        menu.addAction("Duplicate", self.duplicate)
+        menu.addAction("Delete", self.delete)
+        menu.exec_(self.tree.viewport().mapToGlobal(pos))
+
+    def primary_action(self) -> Optional[QWidget]:
+        """The mode's main action for the window's header: "Propagate", shown only for a scenario too large for
+        the automatic propagation."""
+        return getattr(self.preview, "bt_prop", None)
+
+    def file_commands(self) -> list:
+        """(text, slot, icon) of the scenario in the window's menu (before a file is created or opened, only New
+        and Open are enabled: needs_file)."""
+        own = [("New...", self.new, "SP_FileIcon"), ("Open...", self.open, "SP_DialogOpenButton"),
+               ("Save", self.save, "SP_DialogSaveButton"), ("Save as...", self.save_as, "SP_DialogSaveButton"),
+               ("Scenario properties...", lambda: self.edit_properties(), "SP_FileDialogDetailedView"),
+               ("Export mission at t...", self.export_mission, "SP_ArrowRight")]
+        return own + (self.preview.file_commands() if hasattr(self.preview, "file_commands") else [])
+
+    def status_widgets(self) -> list:
+        """The file name and the validation, then the propagation's state, for the window's status bar."""
+        own = [self.file_label, self.status]
+        return own + (self.preview.status_widgets() if hasattr(self.preview, "status_widgets") else [])
 
     def _show_problems(self) -> None:
         err = [self.messages.item(i).text() for i in range(self.messages.count())]
@@ -538,17 +557,16 @@ class ScenarioTab(QWidget):
             QMessageBox.information(self, "Scenario", f"{len(err)} problem(s):\n\n" + "\n".join(err))
 
     def _fit_columns(self) -> None:
-        """At start: the tree and the forms at the width they need, the rest of the window to the 3D view."""
-        if self.layout_mode == "compact":
-            w0 = max(self.left_tabs.sizeHint().width(), self.form_holder.sizeHint().width() + 24, FORM_MIN_W)
+        """At start: the column at the width the forms need, the rest of the window to the 3D view."""
+        w0 = max(self.left_col.sizeHint().width(), self.form_holder.sizeHint().width() + 24, FORM_MIN_W)
+        if self.side_col is None:
             total = max(self._split.width(), w0 + 400)
             self._split.setSizes([w0, total - w0])
-            return
-        left, middle = self._split.widget(0), self._split.widget(1)
-        w0 = max(left.sizeHint().width(), TREE_MIN_W)
-        w1 = max(middle.sizeHint().width(), FORM_MIN_W)
-        total = max(self._split.width(), w0 + w1 + 400)
-        self._split.setSizes([w0, w1, total - w0 - w1])
+        else:
+            from gui.sim_view import SIDE_PANEL_W
+            total = max(self._split.width(), w0 + SIDE_PANEL_W + 400)
+            self._split.setSizes([w0, SIDE_PANEL_W, total - w0 - SIDE_PANEL_W])
+        self._fit_form()
 
     # ------------------------------------------------------------------ files
     def _confirm_discard(self) -> bool:
@@ -558,15 +576,21 @@ class ScenarioTab(QWidget):
                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes
 
     def new(self) -> None:
-        if self._confirm_discard():
-            self._set_scenario(new_scenario(), None)
+        """P1: a new file, its properties asked first (Cancel: no file created)."""
+        if not self._confirm_discard():
+            return
+        sc = new_scenario()
+        if self.edit_properties(sc, "New scenario"):
+            self._set_scenario(sc, None)
 
     def open(self) -> None:
         if not self._confirm_discard():
             return
         path, _ = QFileDialog.getOpenFileName(self, "Open a scenario", self._dir(), "Scenario (*.json)")
-        if not path:
-            return
+        if path:
+            self.open_path(path)
+
+    def open_path(self, path: str) -> None:
         try:
             with open(path, encoding="utf-8") as fh:
                 sc = json.load(fh)
@@ -643,10 +667,12 @@ class ScenarioTab(QWidget):
         QMessageBox.information(self, "Scenario", "Mission written." + ("\n\n" + "\n".join(alerts) if alerts else ""))
 
     def _dir(self) -> str:
-        return os.path.dirname(self.path) if self.path else os.getcwd()
+        """The file dialogs' folder: the current file's, else the tool's scenarios folder (user, 29 October 2026)."""
+        return os.path.dirname(self.path) if self.path else SCENARIO_DIR
 
     def _set_scenario(self, sc: dict, path: Optional[str]) -> None:
         self.sc, self.path, self.modified = sc, path, False
+        self._set_loaded(True)
         self._rebuild_tree()
         self._validate()
         self._update_title()
@@ -654,20 +680,19 @@ class ScenarioTab(QWidget):
     def _update_title(self) -> None:
         name = os.path.basename(self.path) if self.path else "(not saved)"
         self.file_label.setText(name + (" *" if self.modified else ""))
+        self.title_changed.emit(self.file_label.text())
 
     # ------------------------------------------------------------------ tree
     def _rebuild_tree(self, select: Optional[Tuple[str, int]] = None) -> None:
         self.tree.blockSignals(True)
         self.tree.clear()
-        self.n_meta = QTreeWidgetItem(["Time and body"])
-        self.n_meta.setData(0, Qt.UserRole, ("meta", -1))
-        self.n_ship = QTreeWidgetItem(["Ship"])
+        self.n_ship = QTreeWidgetItem([scn.ship_name(self.sc)])      # the ship by its name (user: OWNSHIP)
         self.n_ship.setData(0, Qt.UserRole, ("ship", -1))
         self.n_obj = QTreeWidgetItem(["Objects"])
         self.n_obj.setData(0, Qt.UserRole, ("objects", -1))
         self.n_grp = QTreeWidgetItem(["Groups"])
         self.n_grp.setData(0, Qt.UserRole, ("groups", -1))
-        self.tree.addTopLevelItems([self.n_meta, self.n_ship, self.n_obj, self.n_grp])
+        self.tree.addTopLevelItems([self.n_ship, self.n_obj, self.n_grp])     # (the properties: a dialog, P1)
         found = None
         for kind, parent in (("objects", self.n_obj), ("groups", self.n_grp)):
             for i, o in enumerate(self.sc.get(kind, [])):
@@ -678,7 +703,7 @@ class ScenarioTab(QWidget):
                     found = it
         self.tree.expandAll()
         self.tree.blockSignals(False)
-        self.tree.setCurrentItem(found or self.n_meta)
+        self.tree.setCurrentItem(found or self.n_ship)
 
     @staticmethod
     def _item_label(kind: str, o: dict) -> str:
@@ -688,7 +713,7 @@ class ScenarioTab(QWidget):
 
     def _selected(self) -> Tuple[str, int]:
         it = self.tree.currentItem()
-        return it.data(0, Qt.UserRole) if it is not None else ("meta", -1)
+        return it.data(0, Qt.UserRole) if it is not None else ("ship", -1)
 
     def _unique_id(self, base: str) -> str:
         used = set(scn.object_ids(self.sc))
@@ -725,7 +750,7 @@ class ScenarioTab(QWidget):
         kind, i = self._selected()
         if kind in ("objects", "groups") and i >= 0:
             del self.sc[kind][i]
-            self._changed(rebuild=(kind, max(0, i - 1)) if self.sc[kind] else ("meta", -1))
+            self._changed(rebuild=(kind, max(0, i - 1)) if self.sc[kind] else ("ship", -1))
 
     # ------------------------------------------------------------------ forms
     def _show(self, item: Optional[QTreeWidgetItem]) -> None:
@@ -733,21 +758,81 @@ class ScenarioTab(QWidget):
         if item is None:
             return
         kind, i = item.data(0, Qt.UserRole)
-        if kind == "meta":
-            w = self._meta_form()
-        elif kind == "ship":
+        if kind == "ship":
             w = self._ship_form()
         elif kind in ("objects", "groups") and i >= 0:
             w = self._object_form(kind, i)
         else:
-            w = QLabel("Select an element, or add one with the buttons below the tree.")
+            w = QLabel("Select an element in the tree above, or add one with '+'.")
         self.form_layout.addWidget(w)
         self.form_layout.addStretch(1)
+        QTimer.singleShot(0, self._fit_form)
 
-    def _meta_form(self) -> QWidget:
+    def eventFilter(self, obj, ev) -> bool:
+        if obj is getattr(self, "_col_split", None) and ev.type() == QEvent.Resize:
+            QTimer.singleShot(0, self._fit_form)
+        return super().eventFilter(obj, ev)
+
+    def _tree_need(self) -> int:
+        """px: the height the tree shows all its rows in, with its header (at least COMPACT_TREE_H)."""
+        t = self.tree
+        rows, stack = 0, [t.topLevelItem(i) for i in range(t.topLevelItemCount())]
+        while stack:
+            it = stack.pop()
+            rows += 1
+            if it.isExpanded():
+                stack.extend(it.child(j) for j in range(it.childCount()))
+        row_h = t.sizeHintForRow(0) if t.topLevelItemCount() else 0
+        row_h = row_h if row_h > 0 else t.fontMetrics().height() + 4
+        buttons = self._col_split.widget(0).sizeHint().height() - t.sizeHint().height()
+        return max(rows * row_h + 2 * t.frameWidth() + 4 + max(buttons, 0), COMPACT_TREE_H)
+
+    def _fit_form(self) -> None:
+        """B9 (user, 29 October 2026): the tree on top at the height of its rows (at most TREE_MAX_SHARE of the
+        column, it scrolls beyond), the options of the element chosen under it take the rest (they scroll when
+        taller)."""
+        split = getattr(self, "_col_split", None)
+        if split is None:
+            return
+        total = sum(split.sizes())
+        if total <= 0:
+            return
+        h = min(self._tree_need(), int(TREE_MAX_SHARE * total))
+        split.setSizes([h, total - h])
+
+    def edit_properties(self, sc: Optional[dict] = None, title: str = "Scenario properties") -> bool:
+        """P1 (user, 29 October 2026): the properties valid for the whole file (name, epoch, duration, truth step,
+        seed, navigation errors and log, sky types, central body, mission file) in a dialog, opened when a file is
+        created and from the menu; OK applies them (to sc, the scenario shown by default), Cancel leaves them."""
+        target = self.sc if sc is None else sc
+        work = {"meta": copy.deepcopy(target.get("meta", {})), "central_body": target.get("central_body"),
+                "mission": target.get("mission")}
+        work = {k: v for k, v in work.items() if v is not None}
+        dlg = QDialog(self)
+        dlg.setWindowTitle(title)
+        lay = QVBoxLayout(dlg)
+        lay.addWidget(self._meta_form(work))
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(dlg.accept)
+        buttons.rejected.connect(dlg.reject)
+        lay.addWidget(buttons)
+        if dlg.exec_() != QDialog.Accepted:
+            return False
+        target["meta"] = work["meta"]
+        for key in ("central_body", "mission"):
+            if work.get(key) not in (None, ""):
+                target[key] = work[key]
+            else:
+                target.pop(key, None)
+        if sc is None:
+            self._changed()
+            self._show(self.tree.currentItem())         # a form showing the duration (waypoints) follows it
+        return True
+
+    def _meta_form(self, holder: dict) -> QWidget:
         box = QWidget()
         lay = QVBoxLayout(box)
-        meta = self.sc.setdefault("meta", {})
+        meta = holder.setdefault("meta", {})
         f1 = FormWidget([_f("name", "name", "text"), _f("epoch_utc", "epoch (UTC, ISO 8601)", "text"),
                          _f("duration_s", "duration (s)", min=0.001), _f("step_s", "truth step (s, empty: default)",
                                                                            min=0.0, dec=4,
@@ -757,13 +842,10 @@ class ScenarioTab(QWidget):
                          _f("log_nav", "store the 100 Hz navigation (true / false)", "json"),
                          _f("sun_type", "Sun type (sky)", "choice", choices=lambda: scn.sky_types("sun")),
                          _f("earth_type", "Earth type (sky)", "choice", choices=lambda: scn.sky_types("earth"))], meta)
-        f1.changed.connect(self._changed)
         lay.addWidget(f1)
-        holder = self.sc
         f2 = FormWidget([_f("central_body", "central body", "choice",
                             choices=lambda: list(scn.bodies()) or ["earth", "moon"]),
                          _f("mission", "mission file (relative to the scenario)", "text")], holder)
-        f2.changed.connect(self._changed)
         lay.addWidget(f2)
         return box
 
@@ -771,6 +853,13 @@ class ScenarioTab(QWidget):
         box = QWidget()
         lay = QVBoxLayout(box)
         ship = self.sc.setdefault("ship", {})
+        name = FormWidget([_f("name", "name", "text", default=scn.DEFAULT_SHIP_NAME)], ship)   # renamable (user)
+
+        def renamed():
+            self.n_ship.setText(0, scn.ship_name(self.sc))
+            self._changed()
+        name.changed.connect(renamed)
+        lay.addWidget(name)
         lay.addWidget(_typed_form("orbit", ("elements", "state"), ORBIT_FIELDS, ORBIT_DEFAULTS, ship, "orbit", "type",
                                   self._changed))
         lay.addWidget(QLabel("Attitude (waypoints)"))
@@ -816,7 +905,9 @@ class ScenarioTab(QWidget):
         box = QWidget()
         lay = QVBoxLayout(box)
         classes = sorted(rm.TARGETS)
-        fields = [_f("id", "id", "text"), _f("class", "class", "choice", choices=classes),
+        # terms (user, 29 October 2026): "characterisation" for the class, "classification" for the identity
+        fields = [_f("id", "id", "text"), _f("class", "characterisation", "choice", choices=classes),
+                  _f("identity", "classification", "choice", choices=scn.IDENTITIES, default=scn.DEFAULT_IDENTITY),
                   _f("t_appear_s", "appears at (s)", min=0.0)]
         if kind == "objects":
             fields.append(_f("jammer", "jammer", "choice", choices=[""] + sorted(scn.jammer_classes())))
@@ -859,19 +950,43 @@ class ScenarioTab(QWidget):
                 parent.child(i).setText(0, self._item_label(kind, self.sc[kind][i]))
         self._validate()
 
+    def _push_mission(self) -> None:
+        """The mission file the scenario names (relative to the scenario), its volumes drawn in the ship view; read
+        again when it changes on disk."""
+        if not hasattr(self.preview, "set_mission"):
+            return
+        ref = self.sc.get("mission")
+        if not ref:
+            self._mission_cache = None
+            self.preview.set_mission(None)
+            return
+        path = os.path.normpath(os.path.join(self._dir(), ref))
+        try:
+            mtime = os.path.getmtime(path)
+            if self._mission_cache is None or self._mission_cache[:2] != (path, mtime):
+                from core import mission as cm
+                self._mission_cache = (path, mtime, cm.load_mission(path))
+        except (OSError, ValueError) as exc:
+            self._mission_cache = None
+            self.preview.set_mission(None)
+            self.status.setToolTip(f"mission file: {exc}")
+            return
+        self.preview.set_mission(self._mission_cache[2])
+
     def _validate(self) -> None:
         err = scn.validate(self.sc)
         self.messages.clear()
-        st = getattr(self, "status", None)
-        if st is not None:                                     # R4: compact layout
-            st.setText("\u2714 Scenario valid" if not err else f"\u2716 {len(err)} problem(s)")
-            st.setStyleSheet(f"color: {'darkgreen' if not err else 'darkred'}; font-weight: bold;")
-            st.setToolTip("\n".join(err) if err else "")
+        st = self.status                                       # R4: the validation in one line
+        st.setText("Scenario valid" if not err else f"{len(err)} problem(s)")     # no symbols in the UI (user)
+        st.setStyleSheet(f"color: {'darkgreen' if not err else 'darkred'}; font-weight: bold;")
+        st.setToolTip("\n".join(err) if err else "")
         if not err:
             it = QListWidgetItem("Scenario valid")
             it.setForeground(QColor("darkgreen"))
             self.messages.addItem(it)
-            self.scenario_changed.emit(scn.normalise(self.sc))
+            if self.loaded:
+                self.scenario_changed.emit(scn.normalise(self.sc))
+                self._push_mission()
             return
         for e in err:
             it = QListWidgetItem(e)

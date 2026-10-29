@@ -1,0 +1,466 @@
+{
+ "meta": {
+  "name": "Charge 1000 objets (mesures de performance)",
+  "epoch_utc": "2050-01-01T00:00:00Z",
+  "duration_s": 600.0,
+  "step_s": 0.1,
+  "seed": 1
+ },
+ "central_body": "moon",
+ "ship": {
+  "orbit": {
+   "type": "elements",
+   "a_km": 1837.4,
+   "e": 0.0,
+   "i_deg": 30.0,
+   "raan_deg": 0.0,
+   "argp_deg": 0.0,
+   "nu_deg": 0.0
+  },
+  "attitude": [
+   {
+    "t_s": 0.0,
+    "attitude": {
+     "type": "prograde",
+     "roll_deg": 0.0
+    }
+   }
+  ]
+ },
+ "objects": [
+  {
+   "id": "SHIP_1",
+   "class": "SHIP",
+   "state": {
+    "type": "relative",
+    "range_km": 300.0,
+    "phi_deg": 0.0,
+    "eps_deg": 80.0,
+    "v_close_mps": 500.0
+   },
+   "attitude": [
+    {
+     "t_s": 0.0,
+     "attitude": {
+      "type": "target",
+      "id": "ship",
+      "roll_deg": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "SHIP_2",
+   "class": "SHIP",
+   "state": {
+    "type": "relative",
+    "range_km": 400.0,
+    "phi_deg": 36.0,
+    "eps_deg": 78.0,
+    "v_close_mps": 500.0
+   },
+   "attitude": [
+    {
+     "t_s": 0.0,
+     "attitude": {
+      "type": "target",
+      "id": "ship",
+      "roll_deg": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "SHIP_3",
+   "class": "SHIP",
+   "state": {
+    "type": "relative",
+    "range_km": 500.0,
+    "phi_deg": 72.0,
+    "eps_deg": 76.0,
+    "v_close_mps": 500.0
+   },
+   "attitude": [
+    {
+     "t_s": 0.0,
+     "attitude": {
+      "type": "target",
+      "id": "ship",
+      "roll_deg": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "SHIP_4",
+   "class": "SHIP",
+   "state": {
+    "type": "relative",
+    "range_km": 600.0,
+    "phi_deg": 108.0,
+    "eps_deg": 74.0,
+    "v_close_mps": 500.0
+   },
+   "attitude": [
+    {
+     "t_s": 0.0,
+     "attitude": {
+      "type": "target",
+      "id": "ship",
+      "roll_deg": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "SHIP_5",
+   "class": "SHIP",
+   "state": {
+    "type": "relative",
+    "range_km": 700.0,
+    "phi_deg": 144.0,
+    "eps_deg": 72.0,
+    "v_close_mps": 500.0
+   },
+   "attitude": [
+    {
+     "t_s": 0.0,
+     "attitude": {
+      "type": "target",
+      "id": "ship",
+      "roll_deg": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "SHIP_6",
+   "class": "SHIP",
+   "state": {
+    "type": "relative",
+    "range_km": 800.0,
+    "phi_deg": 180.0,
+    "eps_deg": 70.0,
+    "v_close_mps": 500.0
+   },
+   "attitude": [
+    {
+     "t_s": 0.0,
+     "attitude": {
+      "type": "target",
+      "id": "ship",
+      "roll_deg": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "SHIP_7",
+   "class": "SHIP",
+   "state": {
+    "type": "relative",
+    "range_km": 900.0,
+    "phi_deg": 216.0,
+    "eps_deg": 68.0,
+    "v_close_mps": 500.0
+   },
+   "attitude": [
+    {
+     "t_s": 0.0,
+     "attitude": {
+      "type": "target",
+      "id": "ship",
+      "roll_deg": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "SHIP_8",
+   "class": "SHIP",
+   "state": {
+    "type": "relative",
+    "range_km": 1000.0,
+    "phi_deg": 252.0,
+    "eps_deg": 66.0,
+    "v_close_mps": 500.0
+   },
+   "attitude": [
+    {
+     "t_s": 0.0,
+     "attitude": {
+      "type": "target",
+      "id": "ship",
+      "roll_deg": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "SHIP_9",
+   "class": "SHIP",
+   "state": {
+    "type": "relative",
+    "range_km": 1100.0,
+    "phi_deg": 288.0,
+    "eps_deg": 64.0,
+    "v_close_mps": 500.0
+   },
+   "attitude": [
+    {
+     "t_s": 0.0,
+     "attitude": {
+      "type": "target",
+      "id": "ship",
+      "roll_deg": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "SHIP_10",
+   "class": "SHIP",
+   "state": {
+    "type": "relative",
+    "range_km": 1200.0,
+    "phi_deg": 324.0,
+    "eps_deg": 62.0,
+    "v_close_mps": 500.0
+   },
+   "attitude": [
+    {
+     "t_s": 0.0,
+     "attitude": {
+      "type": "target",
+      "id": "ship",
+      "roll_deg": 0.0
+     }
+    }
+   ]
+  }
+ ],
+ "groups": [
+  {
+   "id": "KKV_1",
+   "class": "KKV",
+   "n": 20,
+   "around": "SHIP_1",
+   "t_appear_s": 60.0,
+   "pos_sigma_m": 200.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "pn",
+     "t_s": 60.0
+    }
+   ]
+  },
+  {
+   "id": "KKV_2",
+   "class": "KKV",
+   "n": 20,
+   "around": "SHIP_2",
+   "t_appear_s": 60.0,
+   "pos_sigma_m": 200.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "pn",
+     "t_s": 60.0
+    }
+   ]
+  },
+  {
+   "id": "KKV_3",
+   "class": "KKV",
+   "n": 20,
+   "around": "SHIP_3",
+   "t_appear_s": 60.0,
+   "pos_sigma_m": 200.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "pn",
+     "t_s": 60.0
+    }
+   ]
+  },
+  {
+   "id": "KKV_4",
+   "class": "KKV",
+   "n": 20,
+   "around": "SHIP_4",
+   "t_appear_s": 60.0,
+   "pos_sigma_m": 200.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "pn",
+     "t_s": 60.0
+    }
+   ]
+  },
+  {
+   "id": "KKV_5",
+   "class": "KKV",
+   "n": 20,
+   "around": "SHIP_5",
+   "t_appear_s": 60.0,
+   "pos_sigma_m": 200.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "pn",
+     "t_s": 60.0
+    }
+   ]
+  },
+  {
+   "id": "KKV_6",
+   "class": "KKV",
+   "n": 20,
+   "around": "SHIP_6",
+   "t_appear_s": 60.0,
+   "pos_sigma_m": 200.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "pn",
+     "t_s": 60.0
+    }
+   ]
+  },
+  {
+   "id": "KKV_7",
+   "class": "KKV",
+   "n": 20,
+   "around": "SHIP_7",
+   "t_appear_s": 60.0,
+   "pos_sigma_m": 200.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "pn",
+     "t_s": 60.0
+    }
+   ]
+  },
+  {
+   "id": "KKV_8",
+   "class": "KKV",
+   "n": 20,
+   "around": "SHIP_8",
+   "t_appear_s": 60.0,
+   "pos_sigma_m": 200.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "pn",
+     "t_s": 60.0
+    }
+   ]
+  },
+  {
+   "id": "KKV_9",
+   "class": "KKV",
+   "n": 20,
+   "around": "SHIP_9",
+   "t_appear_s": 60.0,
+   "pos_sigma_m": 200.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "pn",
+     "t_s": 60.0
+    }
+   ]
+  },
+  {
+   "id": "KKV_10",
+   "class": "KKV",
+   "n": 20,
+   "around": "SHIP_10",
+   "t_appear_s": 60.0,
+   "pos_sigma_m": 200.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "pn",
+     "t_s": 60.0
+    }
+   ]
+  },
+  {
+   "id": "DECOY_1",
+   "class": "DECOY",
+   "n": 100,
+   "around": "SHIP_1",
+   "t_appear_s": 60.0,
+   "pos_sigma_m": 2000.0,
+   "vel_sigma_mps": 50.0
+  },
+  {
+   "id": "DECOY_2",
+   "class": "DECOY",
+   "n": 100,
+   "around": "SHIP_2",
+   "t_appear_s": 60.0,
+   "pos_sigma_m": 2000.0,
+   "vel_sigma_mps": 50.0
+  },
+  {
+   "id": "DECOY_3",
+   "class": "DECOY",
+   "n": 100,
+   "around": "SHIP_3",
+   "t_appear_s": 60.0,
+   "pos_sigma_m": 2000.0,
+   "vel_sigma_mps": 50.0
+  },
+  {
+   "id": "DECOY_4",
+   "class": "DECOY",
+   "n": 100,
+   "around": "SHIP_4",
+   "t_appear_s": 60.0,
+   "pos_sigma_m": 2000.0,
+   "vel_sigma_mps": 50.0
+  },
+  {
+   "id": "DEBRIS_5",
+   "class": "DEBRIS",
+   "n": 100,
+   "around": "SHIP_5",
+   "t_appear_s": 0.0,
+   "pos_sigma_m": 2000.0,
+   "vel_sigma_mps": 50.0
+  },
+  {
+   "id": "DEBRIS_6",
+   "class": "DEBRIS",
+   "n": 100,
+   "around": "SHIP_6",
+   "t_appear_s": 0.0,
+   "pos_sigma_m": 2000.0,
+   "vel_sigma_mps": 50.0
+  },
+  {
+   "id": "DEBRIS_7",
+   "class": "DEBRIS",
+   "n": 100,
+   "around": "SHIP_7",
+   "t_appear_s": 0.0,
+   "pos_sigma_m": 2000.0,
+   "vel_sigma_mps": 50.0
+  },
+  {
+   "id": "DEBRIS_8",
+   "class": "DEBRIS",
+   "n": 100,
+   "around": "SHIP_8",
+   "t_appear_s": 0.0,
+   "pos_sigma_m": 2000.0,
+   "vel_sigma_mps": 50.0
+  }
+ ]
+}

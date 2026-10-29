@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SCENE_VIEW -- the 3D coverage view shared by the mission-preparation and results tabs: a display bar (one check
-box per face responsibility zone, show/hide every watch volume, 1:1 scale and its graduated km axes) above a
-PyVista plotter holding the static ship scene, the face layer and the watch-sector overlays.
+SCENE_VIEW -- the 3D coverage view shared by the mission-preparation and results tabs: the display controls (one
+check box per face responsibility zone, show/hide every watch volume, 1:1 scale and its graduated km axes) in a
+panel over the view (its "Layers" menu, B14), and a PyVista plotter holding the static ship scene, the face layer and the watch-sector overlays.
 
 The owning tab only says WHAT to draw (set_scene: eps window + one SectorDraw per sector) and which sectors are
 hidden (set_hidden); the view builds the meshes (unit-sphere caps, or true-size volumes in km in 1:1 scale),
@@ -28,13 +28,13 @@ from typing import Dict, Iterable, List, Optional, Set
 import numpy as np
 import pyvista as pv
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import (QCheckBox, QComboBox, QDoubleSpinBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout,
-                             QWidget)
+from PyQt5.QtWidgets import QCheckBox, QComboBox, QVBoxLayout, QWidget
 from pyvistaqt import QtInteractor
 
 from core import geometry as geo
 from core.params import P
-from gui.widgets import DecimalSpinBox, FlowLayout
+from gui import controls as uc
+from gui.widgets import DecimalSpinBox
 
 KM_AXES_PREFIX = "km_axes_"
 KM_AXES_LINES = [f"{KM_AXES_PREFIX}{a}" for a in ("X", "Y", "Z")]   # the 3D axis meshes (labels are 2D actors)
@@ -56,62 +56,55 @@ class DisplayBar(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        h = FlowLayout(self)                     # wraps on a narrow window (the window fits a small screen)
-        h.setContentsMargins(4, 2, 4, 2)
-        h.addWidget(QLabel("Responsibility zones:"))
+        # B14 (user, 29 October 2026): the controls in a panel over the 3D view (install): the frame, and the
+        # "Layers" menu of the faces' zones, the volumes and the scale
         self.cb_faces = []
         for k in range(4):
             cb = QCheckBox(geo.FACE_NAMES[k])
             cb.setChecked(True)
             cb.setStyleSheet(f"color: {geo.FACE_COLORS[k]}; font-weight: bold;")
             cb.toggled.connect(self.faces_changed)
-            h.addWidget(cb)
             self.cb_faces.append(cb)
-        h.addSpacing(16)
-        h.addWidget(QLabel("Mission volumes:"))
-        b_all, b_none = QPushButton("Show all"), QPushButton("Hide all")
-        b_all.clicked.connect(self.show_all_sectors)
-        b_none.clicked.connect(self.hide_all_sectors)
-        h.addWidget(b_all)
-        h.addWidget(b_none)
-        h.addSpacing(16)
         self.cb_true_scale = QCheckBox("Scale 1:1")
         self.cb_true_scale.setToolTip("Draw each watch volume at its true size (1 unit = 1 km), from the radar out to "
                                       "its required range, and zoom to fit them all. Untick to return to the "
                                       "default view of the unit sphere.")
         self.cb_true_scale.toggled.connect(self.scale_changed)
-        h.addWidget(self.cb_true_scale)
         self.cb_background = QCheckBox("Background")
         self.cb_background.setEnabled(False)   # only meaningful in 1:1 scale
         self.cb_background.setToolTip("Show a background sphere the size of the Moon (1:1 scale only), at its "
                                       "true distance: Moon radius + the altitude box, along -Z.")
         self.cb_background.toggled.connect(self.background_changed)
         self.cb_true_scale.toggled.connect(self.cb_background.setEnabled)
-        h.addWidget(self.cb_background)
-        h.addWidget(QLabel("Altitude (km):"))
         self.sb_altitude = DecimalSpinBox()
         self.sb_altitude.setRange(0.0, 1.0e7)
         self.sb_altitude.setDecimals(1)
         self.sb_altitude.setValue(100.0)
         self.sb_altitude.setMaximumWidth(90)
         self.sb_altitude.valueChanged.connect(self.altitude_changed)
-        h.addWidget(self.sb_altitude)
         self.cb_scale_axes = QCheckBox("Scale axes")
         self.cb_scale_axes.setChecked(True)
         self.cb_scale_axes.setEnabled(False)   # only meaningful in 1:1 scale
         self.cb_scale_axes.setToolTip("Show / hide the X, Y, Z axes graduated in km (1:1 scale only)")
         self.cb_scale_axes.toggled.connect(self.scale_axes_changed)
         self.cb_true_scale.toggled.connect(self.cb_scale_axes.setEnabled)
-        h.addWidget(self.cb_scale_axes)
-        h.addSpacing(16)
-        h.addWidget(QLabel("View:"))
         self.cb_view_frame = QComboBox()
         self.cb_view_frame.addItems(["ship", "ICRF"])
         self.cb_view_frame.setToolTip("Ship: the ship frame. ICRF: the camera in the inertial frame of the mission "
                                       "navigation (attitude), with the ICRF axes; the ship appears with its attitude")
         self.cb_view_frame.currentTextChanged.connect(self.view_frame_changed)
-        h.addWidget(self.cb_view_frame)
-        h.addStretch(1)
+
+    def install(self, host: QWidget, view: QWidget) -> uc.Overlay:
+        """The panel over the view (top right corner): the frame and the "Layers" menu."""
+        menu, _acts = uc.layers_menu(host, [
+            ("Responsibility zones", self.cb_faces),
+            ("Mission volumes", [("Show all", self.show_all_sectors.emit), ("Hide all", self.hide_all_sectors.emit)]),
+            ("Scale", [self.cb_true_scale, self.cb_background, self.cb_scale_axes,
+                       uc.labelled("Altitude (km)", self.sb_altitude)])])
+        self.overlay = uc.Overlay(host, view, "top_right", "light")
+        self.overlay.add(uc.labelled("Frame", self.cb_view_frame))
+        self.overlay.add(uc.menu_button("Layers", menu, "SP_FileDialogListView"))
+        return self.overlay
 
     def face_visible(self, k: int) -> bool:
         return self.cb_faces[k].isChecked()
@@ -470,12 +463,12 @@ class SceneView(QWidget):
         self.display_bar.background_changed.connect(lambda _on: self._update_background())
         self.display_bar.altitude_changed.connect(lambda _v: self._update_background())
         self.display_bar.view_frame_changed.connect(lambda _f: self._apply_view_frame())
-        v.addWidget(self.display_bar)
         self.plotter = QtInteractor(self)
         self.plotter.setMinimumWidth(500)
         self.plotter.interactor.setToolTip("Drag a label to reposition it (a line keeps it linked to its volume); "
                                            "double-click a moved label to snap it back.")
         v.addWidget(self.plotter.interactor)
+        self.display_bar.install(self, self.plotter.interactor)
         add_static_scene(self.plotter)
         lock_pivot(self.plotter)
         install_arcball(self.plotter, ARCBALL_RADIUS)   # before the label drag: its release observer goes on the style
