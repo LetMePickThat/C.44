@@ -128,6 +128,43 @@ class Body:
         return a
 
 
+def coast(body: Body, third: Optional[ThirdBodies], r: np.ndarray, v: np.ndarray, t0: float, duration_s: float,
+          n_steps: int) -> np.ndarray:
+    """Free fall of the states r, v (n, 3) at t0 over duration_s (user, 29 October 2026: the orbital velocity vector
+    of the 3D views, the way the body would fly under the local gravity alone): the gravity of the run (two-body,
+    J2, the other bodies when given), no burn, no guidance, no Singer acceleration; RK4 in n_steps equal steps.
+    Positions (n_steps + 1, n, 3), NaN from where a path meets the central body's surface (and for NaN states)."""
+    zero = np.zeros_like(r)
+
+    def acc(t: float, rr: np.ndarray) -> np.ndarray:
+        if fast.USE_NUMBA:
+            tpos, tmu = (third.positions(t), third.mu) if third is not None else (_NO_BODIES, _NO_MU)
+            return fast.gravity(np.ascontiguousarray(rr), zero, body.mu, float(body.j2), body.r_eq_km, body.pole,
+                                tpos, tmu)
+        a = body.accel(rr)
+        return a + third.accel(rr, t) if third is not None else a
+
+    ok = np.isfinite(r[:, 0]) & np.isfinite(v[:, 0])
+    out = np.full((n_steps + 1, len(r), 3), np.nan)
+    if not ok.any():
+        return out
+    x, u = r[ok].astype(float), v[ok].astype(float)
+    out[0, ok] = x
+    h = duration_s / max(n_steps, 1)
+    for k in range(n_steps):
+        t = t0 + k * h
+        k1v, k1a = u, acc(t, x)
+        k2v, k2a = u + 0.5 * h * k1a, acc(t + 0.5 * h, x + 0.5 * h * k1v)
+        k3v, k3a = u + 0.5 * h * k2a, acc(t + 0.5 * h, x + 0.5 * h * k2v)
+        k4v, k4a = u + h * k3a, acc(t + h, x + h * k3v)
+        x = x + h / 6.0 * (k1v + 2.0 * k2v + 2.0 * k3v + k4v)
+        u = u + h / 6.0 * (k1a + 2.0 * k2a + 2.0 * k3a + k4a)
+        out[k + 1, ok] = x
+    below = np.linalg.norm(out, axis=2) < body.radius_km                  # under the surface (NaN: False)
+    out[np.maximum.accumulate(below, axis=0)] = np.nan
+    return out
+
+
 def elements_to_state(o: dict, mu: float) -> Tuple[np.ndarray, np.ndarray]:
     """(r km, v km/s) of Keplerian elements a, e, i, raan, argp, nu (closed orbit), ICRF axes."""
     a, e = float(o["a_km"]), float(o["e"])

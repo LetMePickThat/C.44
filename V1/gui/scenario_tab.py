@@ -33,7 +33,8 @@ Field = Tuple[str, str, str, dict]          # (key, label, kind, options)
 _BIG = 1e12
 COMPACT_TREE_H = 120                       # px: least height of the tree over the options (compact column)
 TREE_MAX_SHARE = 0.5                       # the tree at most this share of the column
-FORM_MIN_W = 340                           # px: the narrowest the forms start at
+FORM_MIN_W = 280                           # px: the narrowest the forms start at
+SPIN_MAX_W = 110                           # px: a number field at most (a bound of 1e12 asked for 13 digits, 180 px)
 SCENARIO_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scenarios")
 
 
@@ -151,6 +152,7 @@ class FormWidget(QWidget):
             w.setRange(float(opt.get("min", -_BIG)), float(opt.get("max", _BIG)))
             w.setDecimals(int(opt.get("dec", 3)))
             w.setValue(float(v) if isinstance(v, (int, float)) else 0.0)
+            w.setMaximumWidth(SPIN_MAX_W)              # the column at its true need (user, 29 October 2026)
             w.valueChanged.connect(lambda x, k=key: self._set(k, float(x)))
         elif kind == "int":
             w = QSpinBox()
@@ -557,15 +559,16 @@ class ScenarioTab(QWidget):
             QMessageBox.information(self, "Scenario", f"{len(err)} problem(s):\n\n" + "\n".join(err))
 
     def _fit_columns(self) -> None:
-        """At start: the column at the width the forms need, the rest of the window to the 3D view."""
-        w0 = max(self.left_col.sizeHint().width(), self.form_holder.sizeHint().width() + 24, FORM_MIN_W)
+        """At start (and when a file is opened): the column at the width the forms need, the Info column at the
+        width of its widest rows, the rest of the window to the 3D view (user, 29 October 2026)."""
+        w0 = max(self.left_col.sizeHint().width(), self.form_holder.minimumSizeHint().width() + 24, FORM_MIN_W)
         if self.side_col is None:
             total = max(self._split.width(), w0 + 400)
             self._split.setSizes([w0, total - w0])
         else:
-            from gui.sim_view import SIDE_PANEL_W
-            total = max(self._split.width(), w0 + SIDE_PANEL_W + 400)
-            self._split.setSizes([w0, SIDE_PANEL_W, total - w0 - SIDE_PANEL_W])
+            side = self.preview.side_width()              # fits the longest Info line (no wrapping)
+            total = max(self._split.width(), w0 + side + 400)
+            self._split.setSizes([w0, side, total - w0 - side])
         self._fit_form()
 
     # ------------------------------------------------------------------ files
@@ -767,6 +770,19 @@ class ScenarioTab(QWidget):
         self.form_layout.addWidget(w)
         self.form_layout.addStretch(1)
         QTimer.singleShot(0, self._fit_form)
+        self._select_in_view(kind, i)
+
+    def _select_in_view(self, kind: str, i: int) -> None:
+        """The unit chosen in the tree selected in the 3D view too, its Info shown (user, 29 October 2026): the ship,
+        an object, a group by its first member; a heading of the tree changes nothing."""
+        if not hasattr(self.preview, "select"):
+            return
+        from gui.sim_view import OWNSHIP
+        if kind == "ship":
+            self.preview.select(OWNSHIP)
+        elif kind in ("objects", "groups") and 0 <= i < len(self.sc.get(kind, [])):
+            oid = self.sc[kind][i].get("id")
+            self.preview.select(f"{oid}#0" if kind == "groups" else oid)
 
     def eventFilter(self, obj, ev) -> bool:
         if obj is getattr(self, "_col_split", None) and ev.type() == QEvent.Resize:

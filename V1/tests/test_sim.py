@@ -486,6 +486,7 @@ from sim import engine  # noqa: E402
 from sim import run as simrun  # noqa: E402
 
 MISSION = os.path.join(os.path.dirname(__file__), "missions", "mission_example.json")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def test_navigation_without_errors_is_the_truth():
@@ -638,7 +639,36 @@ def test_sim_view_offscreen(tmp_path):
     v.set_mission(cm.load_mission(MISSION))           # D: the mission being edited, drawn in the ship view
     v.show_run(sc, tr, g, "test")
     names = list(v.plotter.actors)
-    assert any(n.startswith("traj_") for n in names) and DYN + "pts" in names
+    assert DYN + "planned" in names and DYN + "planned_ship" in names
+    # the star background under the scene (its own renderer, layer 0), the constellations on demand
+    assert v.sky.ren.GetLayer() == 0 and v.plotter.renderer.GetLayer() == 1 and v.sky.star_actors
+    assert v.sky.star_actors[0].GetVisibility() and not v.sky.line_actor.GetVisibility()
+    v.cb_const.setChecked(True)
+    assert v.sky.line_actor.GetVisibility()
+    v.tg_sky.setChecked(False)                                         # plain background
+    assert not v.sky.star_actors[0].GetVisibility() and not v.sky.line_actor.GetVisibility()
+    v.tg_sky.setChecked(True)
+    v.cb_const.setChecked(False)
+    assert any(n.startswith(DYN + "sym_") for n in names)              # the objects drawn by their symbols
+    # the planned trajectories from t to the run's end, the trails of their chosen duration, the orbital vectors
+    v.set_time(10.0)
+    pl = v._dyn[DYN + "planned_ship"][1]
+    assert np.allclose(pl.points[0], geo.states_at(tr, 10.0)[0][0]) and np.allclose(
+        pl.points[-1], geo.states_at(tr, v.duration())[0][0])
+    v.sp_trail.setValue(5.0)
+    tl = v._dyn[DYN + "trails"][1]
+    assert np.allclose(tl.points[0], geo.states_at(tr, 5.0)[0][0])     # OWNSHIP's trail starts 5 s back
+    v.cb_planned.setChecked(False)
+    assert not v.plotter.actors[DYN + "planned"].GetVisibility()
+    v.cb_orbit.setChecked(True)
+    v.sp_orbit.setValue(5.0)
+    vel = v._dyn[DYN + "vel"][1].points                 # OWNSHIP's free fall (no manoeuvre here): its run path
+    assert np.allclose(vel[0], geo.states_at(tr, 10.0)[0][0])
+    assert np.linalg.norm(vel[v._dyn[DYN + "vel"][1].lines[0] - 1] - geo.states_at(tr, 15.0)[0][0]) < 1e-3
+    v.cb_planned.setChecked(True)
+    v.cb_orbit.setChecked(False)
+    v.sp_trail.setValue(60.0)
+    v.set_time(0.0)
     assert {"body_earth", "body_earth_atm", "body_moon", "body_sun", "moon_orbit"} <= set(names)
     assert DYN + "sun" not in names                                    # no Sun arrow (the Sun is drawn)
     atm = v.plotter.actors["body_earth_atm"].user_matrix                 # the halo on the Earth, a bit larger
@@ -664,14 +694,32 @@ def test_sim_view_offscreen(tmp_path):
     assert any("K appears" in x for x in texts) and any("terminal guidance" in x for x in texts)
     assert len(v.slider._marks) == len(v.events) and v.slider._clusters()        # L4: marks on the slider
     v.tg_view.setChecked(True)                           # ship view
+    assert not v.tg_sky.isChecked()                      # plain background by default in the ship view
     v.set_time(10.0)
     names = list(v.plotter.actors)
     assert DYN + "los" in names and any(n.startswith(VOL) for n in names)
     v.cb_vectors.setChecked(True)
     assert DYN + "nose" in v.plotter.actors
+    v.select("K")                         # as the scenario tool's tree does: the square around it, its Info
+    assert np.allclose(v._dyn[DYN + "select"][1].points.mean(axis=0), v._screen_pts["K"], atol=1e-9)
+    assert v.info.toPlainText().startswith("name	K")
+    v.select(None)
+    assert not v.plotter.actors[DYN + "select"].GetVisibility()
+    cam = v.plotter.camera                # the axes keep their size on screen through a zoom (no new frame)
+    if v.cb_true.isChecked() and v.cb_axes.isChecked():
+        L0 = np.linalg.norm(v._dyn[DYN + "ship_axes"][1].points[3])
+        v.zoom(2.0)
+        assert np.linalg.norm(v._dyn[DYN + "ship_axes"][1].points[3]) == pytest.approx(L0 / 2.0, rel=1e-6)
+    cam.Roll(30.0)                        # Recentre: back to the centre, level with the central body's equator
+    v.recentre()
+    fwd, up = np.array(cam.GetDirectionOfProjection()), np.array(cam.GetViewUp())
+    pole = np.asarray(tr.body.pole) @ tr.attitude("ship", v.t)                  # ship view: the ship's frame
+    assert np.allclose(cam.GetFocalPoint(), 0.0, atol=1e-9) and abs(up @ np.cross(fwd, pole)) < 1e-9
+    assert abs(fwd @ pole) < 1e-9 and up @ pole == pytest.approx(1.0)     # on a vessel: level with the equator
     v.set_centre("K")                     # ship view centred on an object
     assert np.allclose(v.plotter.camera.GetFocalPoint(), v._screen_pts["K"], atol=1e-9)
     v.set_centre(CENTRAL)
+    v.cb_true.setChecked(False)           # log scale (the ship view opens at 1:1, P25)
     # range rings of about constant size on screen, their values following the zoom
     rings = v._lab[DYN + "rings_lbl"]
     before = list(rings._last)
@@ -724,13 +772,16 @@ def test_sim_view_offscreen(tmp_path):
     assert w > 0 and h > 0
     cam = v.plotter.camera
 
-    def drag(p0, p1):
+    def drag(p0, p1, button="Right"):                   # the scenario tool turns the view by the right button
         iren.SetEventInformation(int(p0[0]), int(p0[1]), 0, 0)
-        iren.InvokeEvent("LeftButtonPressEvent")
+        iren.InvokeEvent(f"{button}ButtonPressEvent")
         for a in np.linspace(0.0, 1.0, 6)[1:]:
             iren.SetEventInformation(int(p0[0] + a * (p1[0] - p0[0])), int(p0[1] + a * (p1[1] - p0[1])), 0, 0)
             iren.InvokeEvent("MouseMoveEvent")
-        iren.InvokeEvent("LeftButtonReleaseEvent")
+        iren.InvokeEvent(f"{button}ButtonReleaseEvent")
+    p_left = np.array(cam.GetPosition())
+    drag((0.3 * w, 0.5 * h), (0.6 * w, 0.5 * h), "Left")    # a plain left drag leaves the camera alone
+    assert np.allclose(cam.GetPosition(), p_left)
     d0, up0 = np.array(cam.GetDirectionOfProjection()), np.array(cam.GetViewUp())
     drag((0.97 * w, 0.4 * h), (0.97 * w, 0.6 * h))      # far right of the centre: mostly a roll
     d1, up1 = np.array(cam.GetDirectionOfProjection()), np.array(cam.GetViewUp())

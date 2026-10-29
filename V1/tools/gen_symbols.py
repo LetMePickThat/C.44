@@ -6,7 +6,7 @@ adapted to 3D on a dark background): the FRAME gives the identity (shape and col
 
   identities  friendly  circle, cyan          hostile  diamond, red        suspect  diamond dashed, orange
               neutral   square, green         unknown  quatrefoil, yellow  pending  quatrefoil dashed, yellow
-              OWNSHIP   double circle, white  (pending: the default identity of every class, user 29 October 2026)
+              OWNSHIP   double circle, friendly blue (pending: the default identity of every class, user 29 October 2026)
   classes     ST satellite (body + two panels)   GENERIC dot   KKV filled arrowhead   DECOY hollow arrowhead
               SHIP pointed hull                  DEBRIS cross
 
@@ -39,6 +39,7 @@ IDENTITIES = {                 # name: (shape, colour, dashed)
     "unknown": ("quatrefoil", "#FFE24D", False),
     "pending": ("quatrefoil", "#FFE24D", True),
 }
+OWNSHIP_COLOR = IDENTITIES["friendly"][1]         # OWNSHIP is friendly (user, 29 October 2026): its blue
 CLASSES = ("ST", "GENERIC", "KKV", "DECOY", "SHIP", "DEBRIS")
 Pt = Tuple[float, float]
 
@@ -129,7 +130,7 @@ def svg(identity: str, cls: str) -> str:
     parts = []
     if identity == "ownship":
         for r in (27, 21):
-            parts.append(f'<circle cx="32" cy="32" r="{r}" fill="none" stroke="#FFFFFF" stroke-width="{STROKE}"/>')
+            parts.append(f'<circle cx="32" cy="32" r="{r}" fill="none" stroke="{OWNSHIP_COLOR}" stroke-width="{STROKE}"/>')
     else:
         shape, col, dashed = IDENTITIES[identity]
         dash = ' stroke-dasharray="6 4"' if dashed else ""
@@ -162,7 +163,7 @@ def png(identity: str, cls: str) -> Image.Image:
     w = int(round(STROKE * k))
     if identity == "ownship":
         for r in (27, 21):
-            dr.line(sc(_circle(32, 32, r) + [_circle(32, 32, r)[0]]), fill=_rgba("#FFFFFF"), width=w, joint="curve")
+            dr.line(sc(_circle(32, 32, r) + [_circle(32, 32, r)[0]]), fill=_rgba(OWNSHIP_COLOR), width=w, joint="curve")
     else:
         shape, col, dashed = IDENTITIES[identity]
         out = frame_outline(shape)

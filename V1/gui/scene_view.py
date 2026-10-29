@@ -265,16 +265,21 @@ def _arc_move(style, _ev) -> None:
     style.GetInteractor().Render()
 
 
-def install_arcball(plotter, radius_frac: float):
-    """Left-drag rotation by a virtual trackball (Bell's trackball, user 29 October 2026): the press and the current
+def install_arcball(plotter, radius_frac: float, button: str = "left"):
+    """Left-drag (button "right": right-drag) rotation by a virtual trackball (Bell's trackball, user 29 October 2026): the press and the current
     point are put on a sphere of radius radius_frac x the half-height of the view around its centre, prolonged by a
     hyperbolic sheet that meets it smoothly; near the centre the scene turns as a ball under the hand, and the farther
     from it (left / right, top / bottom) the more a drag along the edge turns the view about the line of sight
     (clockwise / counterclockwise), progressively. The camera turns about its
     focal point (the pivot of lock_pivot). Built on pyvista's own trackball style (its capture of the release events
     and the observers pyvista puts on the style stay valid: install it BEFORE adding them); Shift / Ctrl + left drag
-    keep VTK's pan / spin; the wheel, the right button and the interactor's observers (clicks) are unchanged."""
+    keep VTK's pan / spin; the wheel, the right button and the interactor's observers (clicks) are unchanged.
+    button "right" (the scenario tool, user 29 October 2026: the left button already picks and centres): the right
+    drag turns the view (no more right-drag zoom: the wheel zooms), a plain left drag does nothing to the camera
+    (Shift / Ctrl + left drag still pan / spin)."""
     from pyvista.plotting.render_window_interactor import InteractorStyleTrackballCamera
+
+    right = button == "right"
 
     class _Arcball(InteractorStyleTrackballCamera):
         def _press(self, *a):
@@ -282,20 +287,35 @@ def install_arcball(plotter, radius_frac: float):
             if iren.GetShiftKey() or iren.GetControlKey():
                 super()._press(*a)
                 return
-            st = _ARC[id(self)]
-            st["p"] = _arc_ball(st, *iren.GetEventPosition())
-            self.StartRotate()
+            if not right:
+                self._start()
 
         def _release(self, *a):
             st = _ARC[id(self)]
             if st["p"] is None:
-                super()._release(*a)
+                if not right or st["vtk"]:
+                    super()._release(*a)
                 return
-            st["p"] = None
-            self.EndRotate()
+            if not right:
+                self._end()
+
+        def _start(self):
+            st = _ARC[id(self)]
+            st["p"] = _arc_ball(st, *self.GetInteractor().GetEventPosition())
+            self.StartRotate()
+
+        def _end(self):
+            st = _ARC[id(self)]
+            if st["p"] is not None:
+                st["p"] = None
+                self.EndRotate()
 
     style = _Arcball(plotter.iren)
-    _ARC[id(style)] = {"plotter": plotter, "radius": float(radius_frac), "p": None}
+    _ARC[id(style)] = {"plotter": plotter, "radius": float(radius_frac), "p": None, "vtk": True}
+    if right:
+        # observers on the style's right-button events replace VTK's own (the right-drag zoom)
+        style.add_observer("RightButtonPressEvent", lambda *_a: style._start())
+        style.add_observer("RightButtonReleaseEvent", lambda *_a: style._end())
     style.add_observer("MouseMoveEvent", _arc_move)
     plotter.iren.style = style
     return style

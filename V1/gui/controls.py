@@ -10,9 +10,10 @@ from __future__ import annotations
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from PyQt5.QtCore import QEvent, QObject, QRect, QSize, Qt
-from PyQt5.QtGui import QColor, QPainter, QPalette, QPen
-from PyQt5.QtWidgets import (QCheckBox, QFrame, QHBoxLayout, QLabel, QMenu, QMessageBox, QSlider, QStyle,
-                             QStyleOptionSlider, QToolButton, QToolTip, QWidget, QWidgetAction)
+from PyQt5.QtGui import QColor, QIcon, QPainter, QPalette, QPen
+from PyQt5.QtWidgets import (QCheckBox, QFrame, QHBoxLayout, QHeaderView, QLabel, QMenu, QMessageBox, QSlider,
+                             QStyle, QStyleOptionSlider, QTableWidget, QTableWidgetItem, QToolButton, QToolTip,
+                             QWidget, QWidgetAction)
 
 OVERLAY_GAP = 8                                   # px between an overlay and the view's edges
 OVERLAY_STYLES = {                                # (background, edge, text) of an overlay on a dark / light view
@@ -38,8 +39,10 @@ def show_about(parent: QWidget, tool: str) -> None:
     box.setWindowTitle("About")
     box.setTextFormat(Qt.RichText)
     box.setText(f"<b>{tool}</b>")
+    from gui.sky import ATTRIBUTIONS as SKY
     box.setInformativeText("<p style='white-space:pre'>Textures of the Earth, the Moon and the Sun:<br>"
-                           + "<br>".join(TEXTURE_ATTRIBUTIONS) + "</p>")         # lines kept whole
+                           + "<br>".join(TEXTURE_ATTRIBUTIONS) + "<br><br>Sky:<br>" + "<br>".join(SKY)
+                           + "</p>")                                             # lines kept whole
     box.setStandardButtons(QMessageBox.Ok)
     box.exec_()
 
@@ -171,6 +174,73 @@ class Toggle(QCheckBox):
         p.setPen(text)
         p.drawText(QRect(x0 + self.TRACK_W + self.GAP, 0, self.width(), h), Qt.AlignVCenter | Qt.AlignLeft,
                    self.text())
+
+
+class InfoTable(QTableWidget):
+    """The Info box (user, 29 October 2026): one piece of information per row, its label and its value in two
+    columns, in the window's font; no wrapping, no horizontal scroll. Filled as text: one line per row, label and
+    value separated by a tab (setPlainText / toPlainText, as the plain text box it replaces)."""
+
+    PLACEHOLDER_COLOR = "#8a8f99"
+
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(0, 2, parent)
+        self._text, self._placeholder = "", ""
+        self.horizontalHeader().hide()
+        self.verticalHeader().hide()
+        self.setShowGrid(False)
+        self.setWordWrap(False)
+        self.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.setSelectionMode(QTableWidget.NoSelection)
+        self.setFocusPolicy(Qt.NoFocus)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.horizontalHeader().setStretchLastSection(True)
+        row = self.fontMetrics().height() + 4                     # rows as tight as a text line
+        self.verticalHeader().setMinimumSectionSize(row)
+        self.verticalHeader().setDefaultSectionSize(row)
+        self.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+        self.setStyleSheet("QTableWidget::item {padding: 0 4px}")
+
+    def setPlaceholderText(self, text: str) -> None:
+        self._placeholder = text
+        if not self._text:
+            self.setPlainText("")
+
+    def toPlainText(self) -> str:
+        return self._text
+
+    def setPlainText(self, text: str) -> None:
+        self._text = text
+        rows = [ln.split("\t", 1) for ln in text.splitlines()] if text else [["", self._placeholder]]
+        self.setRowCount(len(rows))
+        for i, r in enumerate(rows):
+            for j, t in enumerate((r + [""])[:2]):
+                it = QTableWidgetItem(t)
+                if not text:
+                    it.setForeground(QColor(self.PLACEHOLDER_COLOR))
+                self.setItem(i, j, it)
+
+    def set_icon(self, path: Optional[str], px: int = 32) -> None:
+        """An icon (the object's symbol) beside the value of the first row; None: no icon."""
+        if self.rowCount() == 0 or self.item(0, 1) is None:
+            return
+        if path:
+            self.setIconSize(QSize(px, px))
+            self.item(0, 1).setIcon(QIcon(path))
+            self.setRowHeight(0, max(px + 4, self.verticalHeader().defaultSectionSize()))
+        else:
+            self.item(0, 1).setIcon(QIcon())
+            self.setRowHeight(0, self.verticalHeader().defaultSectionSize())
+
+    def needed_width(self, lines: Sequence[str]) -> int:
+        """px: the box's width that shows these lines (label TAB value) whole, with its scroll bar."""
+        fm = self.fontMetrics()
+        pairs = [(ln.split("\t", 1) + [""])[:2] for ln in lines]
+        lab = max([fm.horizontalAdvance(a) for a, _ in pairs] + [0])
+        val = max([fm.horizontalAdvance(b) for _, b in pairs] + [0])
+        pad = 2 * self.style().pixelMetric(QStyle.PM_FocusFrameHMargin) + 12      # cell paddings
+        return lab + val + 2 * pad + 2 * self.frameWidth() + self.verticalScrollBar().sizeHint().width() + 4
 
 
 class MarkedSlider(QSlider):
