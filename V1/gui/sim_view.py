@@ -104,7 +104,7 @@ OWNSHIP_IDENTITY = "friendly"                     # OWNSHIP is friendly (user): 
 SHIP_COLOR = IDENTITY_COLORS[OWNSHIP_IDENTITY]    # its point, trajectory and trail
 KM_PER_MODEL_UNIT = 1e-3 / cgeo._M                # 1:1: the model's scene units to km (its true size)
 OPTION_COLUMNS = 2                                # the view's switches: two columns per section (user)
-BG_COLOR = "#0b1020"                              # dark background of the 3D views
+BG_COLOR = "#000000"                              # background of the 3D views: the black of space (user, 29 October 2026)
 TEXT_COLOR = "#e6e6e6"
 # the widest Info lines of an object or the ship (side_width: the column fits them and the bodies' facts)
 INFO_WIDEST = ("classif.\tsuspect", "frame\tICRF / earth", "pos x\t-1234567.890 km", "vel x\t-12.34567 km/s",
