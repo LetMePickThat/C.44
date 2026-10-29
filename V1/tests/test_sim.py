@@ -640,6 +640,13 @@ def test_sim_view_offscreen(tmp_path):
     v.show_run(sc, tr, g, "test")
     names = list(v.plotter.actors)
     assert DYN + "planned" in names and DYN + "planned_ship" in names
+    import gc                             # UI size: the events' texts follow it, their dots keep their size
+    gc.collect()
+    tp = v._event_labels.mapper.GetLabelTextProperty()
+    f0, p0 = tp.GetFontSize(), v.plotter.actors["markers"].GetProperty().GetPointSize()
+    v.set_ui_scale(1)
+    assert tp.GetFontSize() > f0 and v.plotter.actors["markers"].GetProperty().GetPointSize() == p0
+    v.set_ui_scale(-1)
     # the star background under the scene (its own renderer, layer 0), the constellations on demand
     assert v.sky.ren.GetLayer() == 0 and v.plotter.renderer.GetLayer() == 1 and v.sky.star_actors
     assert v.sky.star_actors[0].GetVisibility() and not v.sky.line_actor.GetVisibility()
@@ -700,6 +707,19 @@ def test_sim_view_offscreen(tmp_path):
     assert DYN + "los" in names and any(n.startswith(VOL) for n in names)
     v.cb_vectors.setChecked(True)
     assert DYN + "nose" in v.plotter.actors
+    box = v._lab[DYN + "labels"]._last    # the data boxes: name, altitude, orbital speed (+ range, Vc, CPA)
+    kb = [b for b in box if b.startswith("K\n")]
+    assert kb and kb[0].startswith("K\nalt ") and "\nVc " in kb[0] and "\ndCPA " in kb[0]
+    t_c, d_c, _ok = v._cpa_all()          # the boxes' closest approach agrees with the Info box's finer one
+    fine = v._cpa(tr.row("K"), v.g.ids.index("K"))
+    assert t_c[v.g.ids.index("K")] == pytest.approx(fine[0], abs=0.05)
+    k_part = np.array(v._screen_pts["K"])  # range projection "full": the copies only, in the rings' plane
+    v.tg_proj_full.setChecked(True)
+    k_full = np.array(v._screen_pts["K"])
+    assert abs(k_full[2]) < 1e-9 and np.linalg.norm(k_full) == pytest.approx(np.linalg.norm(k_part), rel=1e-9)
+    assert not v.plotter.actors[DYN + "proj_arcs"].GetVisibility()
+    v.tg_proj_full.setChecked(False)
+    assert v.plotter.actors[DYN + "proj_arcs"].GetVisibility()
     v.select("K")                         # as the scenario tool's tree does: the square around it, its Info
     assert np.allclose(v._dyn[DYN + "select"][1].points.mean(axis=0), v._screen_pts["K"], atol=1e-9)
     assert v.info.toPlainText().startswith("name	K")
@@ -732,6 +752,10 @@ def test_sim_view_offscreen(tmp_path):
     app.processEvents()
     assert v.plotter.camera.GetDistance() == pytest.approx(d_log, rel=1e-9) and rings._last != before
     assert np.linalg.norm(v._screen_pts["K"]) > np.linalg.norm(k_pos) * 1.05      # K drawn farther (fewer decades)
+    dd0 = v._ring_keep["log"]              # a small zoom keeps the rings' step (no reorganisation)
+    v.zoom(1.3)
+    assert v._ring_keep["log"] == dd0
+    v.zoom(1.0 / 1.3)
     n_many = 0
     for z in (1.0, 1.7, 0.45, 2.9, 3.3, 0.2):           # the rings equally spaced at any zoom, filling the view
         v.zoom(z)
@@ -916,17 +940,31 @@ def test_no_propagation_for_non_physical_changes():
 
 
 def test_lunar_interception_scenario_loads():
-    """The lunar scenario (scenarios/lune_interception.json, user 29 October 2026): OWNSHIP in a low circular orbit,
-    SHIP_1 on an eccentric orbit whose periapsis is OWNSHIP's altitude, 20 KKV fired 600 s before the interception
-    with a 5000 m/s impulse and terminal guidance."""
+    """The lunar scenario (scenarios/lune_interception.json, user 29 October 2026): OWNSHIP in a low circular orbit;
+    SHIP_1 on an orbit at 20 deg of OWNSHIP's plane, passing it near 900 s; 20 KKV fired by SHIP_1 at 300 s with a
+    5000 m/s impulse and terminal guidance on OWNSHIP; OWNSHIP's answer 15 s later, 15 friendly KKV launched around
+    it at 6500 m/s with terminal guidance on SHIP_1 (pn target). Every KKV reaches its target (miss < 1 m)."""
     sc = scn.load(os.path.join(os.path.dirname(__file__), "..", "scenarios", "lune_interception.json"))
     assert sc["central_body"] == "moon" and sc["ship"]["orbit"]["e"] == 0.0
-    ship1 = sc["objects"][0]["state"]
-    assert ship1["a_km"] * (1.0 - ship1["e"]) == pytest.approx(sc["ship"]["orbit"]["a_km"], abs=0.01)
-    g = sc["groups"][0]
-    imp = next(m for m in g["manoeuvres"] if m["type"] == "impulse")
-    assert g["n"] == 20 and g["class"] == "KKV" and g["t_appear_s"] == 300.0
-    assert np.linalg.norm(imp["dv_mps"]) == pytest.approx(5000.0, abs=0.01)
+    tr = prop.propagate(sc)
+    i1 = tr.row("SHIP_1")
+    h0, h1 = np.cross(tr.r_km[0, 0], tr.v_kms[0, 0]), np.cross(tr.r_km[0, i1], tr.v_kms[0, i1])
+    assert math.degrees(math.acos(h0 @ h1 / np.linalg.norm(h0) / np.linalg.norm(h1))) == pytest.approx(20.0, abs=0.01)
+    assert np.nanmin(np.linalg.norm(tr.r_km[:, i1] - tr.r_km[:, 0], axis=1)) < 0.1     # the pass near 900 s
+    g1, g2 = sc["groups"]
+    imp1 = next(m for m in g1["manoeuvres"] if m["type"] == "impulse")
+    imp2 = next(m for m in g2["manoeuvres"] if m["type"] == "impulse")
+    assert g1["n"] == 20 and g1["class"] == "KKV" and g1["t_appear_s"] == 300.0
+    assert np.linalg.norm(imp1["dv_mps"]) == pytest.approx(5000.0, abs=0.01)
+    assert g2["n"] == 15 and g2["around"] == "ship" and g2["identity"] == "friendly" and g2["t_appear_s"] == 315.0
+    assert np.linalg.norm(imp2["dv_mps"]) == pytest.approx(6500.0, abs=0.01)
+    assert next(m for m in g2["manoeuvres"] if m["type"] == "pn")["target"] == "SHIP_1"
+    for grp in ("KKV#", "KKV_OS#"):
+        rows = [i for i, x in enumerate(tr.ids) if x.startswith(grp)]
+        assert np.isfinite(tr.miss_km[rows]).all() and tr.miss_km[rows].max() < 1e-3
+    bad = copy.deepcopy(sc)                              # a pn target must exist and not be the row itself
+    next(m for m in bad["groups"][1]["manoeuvres"] if m["type"] == "pn")["target"] = "KKV_OS#3"
+    assert any("pn target" in e for e in scn.validate(bad))
 
 
 def test_main_window_fits_the_screen(monkeypatch):

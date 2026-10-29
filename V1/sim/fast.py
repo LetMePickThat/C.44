@@ -170,13 +170,15 @@ def slew(g0, g1, m, w, dt, a_max, cap, w_cap):
 
 
 @_jit
-def pn_command(a, r, v, on, gain, lim):
-    """Adds, in place, the proportional-navigation command to the rows on (indices into r, v, a; the ship row 0):
-    a = N Vc (Omega x LOS), normal to the line of sight, bounded by lim (km/s2) (sim/propagate)."""
+def pn_command(a, r, v, on, tg, gain, lim):
+    """Adds, in place, the proportional-navigation command to the rows on (indices into r, v, a) toward their
+    targets tg (same indexing; the ship by default): a = N Vc (Omega x LOS), normal to the line of sight, bounded by
+    lim (km/s2) (sim/propagate)."""
     for q in range(on.shape[0]):
         i = on[q]
-        lx, ly, lz = r[0, 0] - r[i, 0], r[0, 1] - r[i, 1], r[0, 2] - r[i, 2]          # object -> ship
-        wx, wy, wz = v[0, 0] - v[i, 0], v[0, 1] - v[i, 1], v[0, 2] - v[i, 2]
+        s = tg[q]
+        lx, ly, lz = r[s, 0] - r[i, 0], r[s, 1] - r[i, 1], r[s, 2] - r[i, 2]          # object -> target
+        wx, wy, wz = v[s, 0] - v[i, 0], v[s, 1] - v[i, 1], v[s, 2] - v[i, 2]
         rn2 = lx * lx + ly * ly + lz * lz
         rn = math.sqrt(rn2)
         ox, oy, oz = (ly * wz - lz * wy) / rn2, (lz * wx - lx * wz) / rn2, (lx * wy - ly * wx) / rn2
@@ -192,14 +194,15 @@ def pn_command(a, r, v, on, gain, lim):
 
 
 @_jit
-def pn_step(x, prev, sel, was_on, t, pn_t, pn_r0, pn_on, pn_done, t_pn, miss):
-    """The per-step update of the guided rows sel (row indices; was_on: guided before this step; pn_t / pn_r0 their
-    start time or range, NaN when not used): start at the time or within the range; when guided, the step's
-    closest approach (relative motion linear within it) and the end when the range opens (arrays updated in
-    place)."""
+def pn_step(x, prev, sel, tg, was_on, t, pn_t, pn_r0, pn_on, pn_done, t_pn, miss):
+    """The per-step update of the guided rows sel (row indices; tg: their targets' rows, the ship by default;
+    was_on: guided before this step; pn_t / pn_r0 their start time or range, NaN when not used): start at the
+    time or within the range of the target; when guided, the step's closest approach to it (relative motion
+    linear within it) and the end when the range opens (arrays updated in place)."""
     for q in range(sel.shape[0]):
         i = sel[q]
-        lx, ly, lz = x[0, 0] - x[i, 0], x[0, 1] - x[i, 1], x[0, 2] - x[i, 2]
+        s = tg[q]
+        lx, ly, lz = x[s, 0] - x[i, 0], x[s, 1] - x[i, 1], x[s, 2] - x[i, 2]
         if not was_on[q]:
             if not math.isnan(pn_t[q]):
                 start = t >= pn_t[q] - 1e-9
@@ -209,13 +212,13 @@ def pn_step(x, prev, sel, was_on, t, pn_t, pn_r0, pn_on, pn_done, t_pn, miss):
                 pn_on[i] = True
                 t_pn[i] = t
             continue
-        d0x, d0y, d0z = prev[0, 0] - prev[i, 0], prev[0, 1] - prev[i, 1], prev[0, 2] - prev[i, 2]
+        d0x, d0y, d0z = prev[s, 0] - prev[i, 0], prev[s, 1] - prev[i, 1], prev[s, 2] - prev[i, 2]
         ddx, ddy, ddz = lx - d0x, ly - d0y, lz - d0z
         u = -(d0x * ddx + d0y * ddy + d0z * ddz) / max(ddx * ddx + ddy * ddy + ddz * ddz, 1e-300)
         u = min(max(u, 0.0), 1.0)
         cx, cy, cz = d0x + u * ddx, d0y + u * ddy, d0z + u * ddz
         closest = math.sqrt(cx * cx + cy * cy + cz * cz)
         miss[i] = closest if math.isnan(miss[i]) else min(miss[i], closest)
-        if lx * (x[0, 3] - x[i, 3]) + ly * (x[0, 4] - x[i, 4]) + lz * (x[0, 5] - x[i, 5]) > 0.0:
+        if lx * (x[s, 3] - x[i, 3]) + ly * (x[s, 4] - x[i, 4]) + lz * (x[s, 5] - x[i, 5]) > 0.0:
             pn_on[i] = False
             pn_done[i] = True

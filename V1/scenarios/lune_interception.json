@@ -1,6 +1,6 @@
 {
  "meta": {
-  "name": "Lune - interception de OWNSHIP par SHIP_1 et 20 KKV",
+  "name": "Lune - SHIP_1 (plan a 20 deg de celui de OWNSHIP) tire 20 KKV sur OWNSHIP a 300 s ; OWNSHIP riposte a 315 s avec 15 KKV sur SHIP_1",
   "epoch_utc": "2050-01-01T00:00:00Z",
   "duration_s": 960.0,
   "step_s": 0.1,
@@ -32,13 +32,17 @@
    "id": "SHIP_1",
    "class": "SHIP",
    "state": {
-    "type": "elements",
-    "a_km": 3287.4,
-    "e": 0.441078,
-    "i_deg": 30.0,
-    "raan_deg": 0.0,
-    "argp_deg": 45.8439,
-    "nu_deg": -50.6942
+    "type": "state",
+    "r_km": [
+     1992.876071971,
+     180.586286292,
+     -528.218536805
+    ],
+    "v_kms": [
+     -0.252305237059,
+     1.233106575229,
+     1.289300531029
+    ]
    },
    "attitude": [
     {
@@ -66,15 +70,42 @@
      "type": "impulse",
      "t_s": 300.0,
      "dv_mps": [
-      -3708.708,
-      2904.161,
-      1676.704
+      -1120.097,
+      -1514.146,
+      4631.711
      ],
      "frame": "inertial"
     },
     {
      "type": "pn",
      "t_s": 300.0
+    }
+   ]
+  },
+  {
+   "id": "KKV_OS",
+   "class": "KKV",
+   "identity": "friendly",
+   "n": 15,
+   "around": "ship",
+   "t_appear_s": 315.0,
+   "pos_sigma_m": 500.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 315.0,
+     "dv_mps": [
+      1458.482,
+      1968.99,
+      -6020.458
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 315.0,
+     "target": "SHIP_1"
     }
    ]
   }

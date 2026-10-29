@@ -32,9 +32,11 @@ It describes the WORLD only (the radar is the mission file it cites); values of 
   MANOEUVRE {"type": "impulse", "t_s", "dv_mps": [x, y, z], "frame": "rtn" | "inertial"}
           | {"type": "burn", "t_s", "duration_s", "accel_mps2": [x, y, z], "frame": "rtn" | "inertial"}
           | {"type": "singer"}            random manoeuvre of the class (accel_max, maneuver_tau), seeded
-          | {"type": "pn", "n": navigation constant (default sim.pn_n), "start_range_km" | "t_s"}
-                                          terminal guidance toward the ship, bounded by the class's acceleration
-  GROUP     {"id", "class", "identity" (its members'), "n": >= 1, "around": an object id, "pos_sigma_m", "vel_sigma_mps", "t_appear_s",
+          | {"type": "pn", "n": navigation constant (default sim.pn_n), "start_range_km" | "t_s",
+             "target": "ship" (default) | an object id | a group member "<group>#<k>"}
+                                          terminal guidance toward the target, bounded by the class's acceleration
+  GROUP     {"id", "class", "identity" (its members'), "n": >= 1, "around": an object id or "ship", "pos_sigma_m",
+             "vel_sigma_mps", "t_appear_s",
              "overrides", "manoeuvres", "rcs_offset_db"}   n objects drawn around the reference object at t_appear_s (decoys, debris)
 """
 from __future__ import annotations
@@ -238,14 +240,30 @@ def validate(sc: dict) -> List[str]:
             err.append(f"{tag}: identity must be one of {', '.join(IDENTITIES)}")
         if not isinstance(g.get("n"), int) or g["n"] < 1:
             err.append(f"{tag}: n must be an integer >= 1")
-        if g.get("around") not in {o.get("id") for o in sc.get("objects", []) if isinstance(o, dict)}:
-            err.append(f"{tag}: around must name an object of 'objects'")
+        if g.get("around") not in {o.get("id") for o in sc.get("objects", []) if isinstance(o, dict)} | {"ship"}:
+            err.append(f"{tag}: around must name an object of 'objects' or 'ship'")
         if "rcs_offset_db" in g and not _num(g["rcs_offset_db"]):
             err.append(f"{tag}: rcs_offset_db must be a number (dB)")
         for k in ("pos_sigma_m", "vel_sigma_mps"):
             if not _num(g.get(k, 0.0)) or float(g.get(k, 0.0)) < 0.0:
                 err.append(f"{tag}: {k} must be >= 0")
         _check_manoeuvres(g.get("manoeuvres", []), tag, err, duration)
+    # the guidance targets, once every id is known: the ship, an object or a group member, not the row itself
+    members = {f"{g['id']}#{k}" for g in sc.get("groups", []) if isinstance(g, dict) and isinstance(g.get("id"), str)
+               and isinstance(g.get("n"), int) for k in range(g["n"])}
+    targets = {"ship"} | {o.get("id") for o in sc.get("objects", []) if isinstance(o, dict)} | members
+    for kind in ("objects", "groups"):
+        for i, o in enumerate(sc.get(kind, [])):
+            if not isinstance(o, dict):
+                continue
+            for mn in o.get("manoeuvres", []):
+                if isinstance(mn, dict) and mn.get("type") == "pn" and "target" in mn:
+                    tgt = mn["target"]
+                    own = {o.get("id")} if kind == "objects" else {f"{o.get('id')}#{k}" for k in range(o.get("n", 0))
+                                                                  if isinstance(o.get("n"), int)}
+                    if tgt not in targets or tgt in own:
+                        err.append(f"{kind}[{i}] ({o.get('id')}): pn target must be 'ship', an object or a group "
+                                   f"member '<group>#<k>' other than itself")
     # waypoint attitudes, once every id is known (a target must exist at the waypoint's time)
     appear = {o["id"]: float(o.get("t_appear_s", 0.0)) for o in sc.get("objects", [])
               if isinstance(o, dict) and isinstance(o.get("id"), str) and _num(o.get("t_appear_s", 0.0))}

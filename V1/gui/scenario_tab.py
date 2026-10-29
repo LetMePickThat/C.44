@@ -67,7 +67,8 @@ MANOEUVRE_FIELDS: Dict[str, List[Field]] = {
              _f("accel_mps2", "acceleration (m/s2)", "vec3"), _f("frame", "frame", "choice", choices=("rtn", "inertial"))],
     "singer": [],
     "pn": [_f("n", "navigation constant", min=0.1, default=float(P.get("sim.pn_n"))), _f("start_range_km", "start below range (km, or empty: time)", "json"),
-           _f("t_s", "start time (s, or empty: range)", "json")],
+           _f("t_s", "start time (s, or empty: range)", "json"),
+           _f("target", "target (ship, an object, <group>#k)", "text", default="ship")],
 }
 MANOEUVRE_DEFAULTS = {"impulse": {"type": "impulse", "t_s": 0.0, "dv_mps": [0.0, 0.0, 0.0], "frame": "rtn"},
                       "burn": {"type": "burn", "t_s": 0.0, "duration_s": 10.0, "accel_mps2": [0.0, 0.0, 0.0],
@@ -274,7 +275,7 @@ class ManoeuvreList(QWidget):
             return f"burn at {m.get('t_s', 0):g} s for {m.get('duration_s', 0):g} s, {m.get('accel_mps2')} m/s2"
         if t == "pn":
             start = (f"below {m['start_range_km']:g} km" if "start_range_km" in m else f"at {m.get('t_s', 0):g} s")
-            return f"terminal guidance (PN) {start}"
+            return f"terminal guidance (PN) {start} toward {m.get('target', 'ship')}"
         return "random manoeuvre (Singer, class)"
 
     def _refresh(self, select: Optional[int] = None) -> None:
@@ -929,7 +930,7 @@ class ScenarioTab(QWidget):
             fields.append(_f("jammer", "jammer", "choice", choices=[""] + sorted(scn.jammer_classes())))
         else:
             fields += [_f("n", "count", "int", min=1),
-                       _f("around", "around object", "choice", choices=[x["id"] for x in self.sc.get("objects", [])]),
+                       _f("around", "around", "choice", choices=["ship"] + [x["id"] for x in self.sc.get("objects", [])]),
                        _f("pos_sigma_m", "position spread (m, 1 sigma)", min=0.0),
                        _f("vel_sigma_mps", "velocity spread (m/s, 1 sigma)", min=0.0)]
         fields.append(_f("overrides", "class overrides (JSON)", "json"))

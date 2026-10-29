@@ -99,6 +99,7 @@ RING_LABEL_C, RING_LABEL_S = math.cos(math.radians(22.5)), math.sin(math.radians
 SPOKE_STEP_DEG = 45.0                             # ship view: azimuth spokes every this
 SPOKE_LABEL_FRAC = 0.9                            # ... labelled at this x the visible half-height
 RING_MAX = 60                                     # rings at most
+RING_HYST = 2.0                                   # the rings' step kept while within this factor of the ideal one (D)
 DECADE_STEPS = (0.1, 0.2, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0)   # log scale: ring step in decades
 RING_POINTS = 121
 RING_LOG10_KM = (-300.0, 300.0)                   # log scale: rings over the whole view (user), within the floats
@@ -126,6 +127,7 @@ SELECT_COLOR = "#ffffff"
 # selection's square, labels: ids, range and azimuth marks, sectors, axes, events, bodies) x one of these
 UI_SCALES = (0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0)
 UI_SCALE_START = 1.0                              # (D)
+BOX_GAP = 0.15                                    # data box: its gap to the symbol, share of the symbol's size (D)
 CPA_REFINE_ITER = 40                              # golden-section steps refining the closest approach between records
 MUTED_COLOR = "#9aa0aa"
 EARTH_COLOR = "#4a78b5"
@@ -408,7 +410,9 @@ class _Labels:
     """Text labels at 3D points, always on top (vtkLabeledDataMapper): one actor, its points and texts updated in
     place (pyvista's add_point_labels rebuilds its whole pipeline at each call)."""
 
-    def __init__(self, plotter, color: str, size: int):
+    def __init__(self, plotter, color: str, size: int, box: bool = False):
+        # box: a data box (several lines, its top-left corner at the point, user 29 October 2026)
+        self.box = box
         # the view's "UI size" (plotter._ui_scale) applies to every label of the plotter (rescale)
         self.base_size = size
         if not hasattr(plotter, "_ui_labels"):
@@ -435,6 +439,8 @@ class _Labels:
         tp.SetBold(False)
         tp.SetItalic(False)
         tp.SetJustificationToLeft()
+        if box:
+            tp.SetVerticalJustificationToTop()
         self.actor = vtkActor2D()
         self.actor.SetMapper(self.mapper)
         plotter.add_actor(self.actor, reset_camera=False, render=False)
@@ -451,7 +457,7 @@ class _Labels:
         if list(texts) != self._last:
             self.texts.SetNumberOfValues(len(texts))
             for i, t in enumerate(texts):
-                self.texts.SetValue(i, f" {t}")
+                self.texts.SetValue(i, t if self.box else f" {t}")
             self._last = list(texts)
         self.points.SetNumberOfPoints(len(pts))
         for i, q in enumerate(pts):
@@ -479,6 +485,11 @@ def celestial_info() -> dict:
 def _kv(label: str, value: str) -> str:
     """One row of the Info box (controls.InfoTable): its label, a tab, its value."""
     return f"{label}\t{value}"
+
+
+def _dist_text(d: float) -> str:
+    """A distance (km) in km, or in m below 1 km (to 0.1 mm below 1 m)."""
+    return f"{d:.3f} km" if d >= 1.0 else f"{1e3 * d:.1f} m" if d >= 1e-3 else f"{1e3 * d:.4f} m"
 
 
 def body_info_lines(name: str) -> List[str]:
@@ -600,6 +611,13 @@ class SimView(QWidget):
                                 "the ship (read on the rings), linked to the object by the arc of the sphere of that "
                                 "range around the ship")
         self.cb_proj.toggled.connect(lambda _on: self._draw_frame())
+        # partial: the objects and their copies in the plane, linked by the dashed arcs; full (user, 29 October
+        # 2026): the copies only, a 2D view in the plane of the rings (the objects, their arcs not drawn)
+        self.tg_proj_full = uc.Toggle("full", False, off_text="partial",
+                                      tip="Range projection: the objects and their copies (partial), or the copies "
+                                          "only, every body and path in the plane of the rings (full)")
+        self.cb_proj.toggled.connect(self.tg_proj_full.setEnabled)
+        self.tg_proj_full.toggled.connect(lambda _on: self._draw_frame())
         # D: the faces' responsibility zones (ship view), one switch for the four (user, 29 October 2026)
         self.cb_zones = uc.Toggle("responsibility zones", True)
         self.cb_zones.toggled.connect(lambda _on: (self._show_faces(), self._render()))
@@ -626,7 +644,8 @@ class SimView(QWidget):
         self.tg_view.toggled.connect(lambda _on: self.tg_sky.setChecked(self._sky_of[self._global()]))
         self._common = (self.tg_sky, self.cb_const, self.cb_labels, self.cb_symbols, self.cb_planned, _row(self.cb_trails, self.sp_trail),
                         _row(self.cb_orbit, self.sp_orbit), self.cb_axes)
-        self._ship_only = (self.cb_vectors, self.cb_volumes, self.cb_zones, self.cb_true, self.cb_bodies, self.cb_proj)
+        self._ship_only = (self.cb_vectors, self.cb_volumes, self.cb_zones, self.cb_true, self.cb_bodies,
+                           _row(self.cb_proj, self.tg_proj_full))
         # UI size (user, 29 October 2026): the icons and texts of the 3D view, - / +
         self.ui_scale = UI_SCALE_START
         self.bt_ui_minus = uc.tool_button("-", lambda: self.set_ui_scale(-1),
@@ -1042,7 +1061,9 @@ class SimView(QWidget):
         if pts:                                       # the events' places (labels at the UI size)
             p.add_mesh(pv.PolyData(np.array(pts, float)), color=MUTED_COLOR, point_size=8,
                        render_points_as_spheres=True, name="markers", render=False)
-            _Labels(p, MUTED_COLOR, 9).set(np.array(pts, float), labels)
+            # their texts at the UI size: kept here (the plotter's list of labels to rescale holds weak references)
+            self._event_labels = _Labels(p, MUTED_COLOR, 9)
+            self._event_labels.set(np.array(pts, float), labels)
         extent = max(float(np.nanmax(np.abs(tr.r_km))) if np.isfinite(tr.r_km).any() else 0.0, 2.0 * body.radius_km)
         self._home = (-extent, extent, -extent, extent, -extent, extent)
         p.reset_camera(render=False, bounds=self._home)
@@ -1482,14 +1503,10 @@ class SimView(QWidget):
         its drawn range from the ship (the nearest point of the ring of that radius: its direction projected on the
         plane), linked to the object by the arc of the sphere of that radius around the ship (every point of it at
         the same range); log scale and 1:1 alike."""
-        _h, e1, e2, _c = self._ring_frame()
-        nrm = np.cross(e1, e2)
         rad = np.linalg.norm(pos, axis=1)
         u = pos / np.maximum(rad, 1e-300)[:, None]
-        p = u - (u @ nrm)[:, None] * nrm[None, :]
-        pn = np.linalg.norm(p, axis=1)
-        p = np.where((pn > 1e-9)[:, None], p / np.maximum(pn, 1e-300)[:, None], e1[None, :])   # on the axis: e1
-        proj = p * rad[:, None]
+        proj = self._to_plane(pos)
+        p = proj / np.maximum(rad, 1e-300)[:, None]
         self._poly(f"{DYN}proj_pts", proj, rgb=rgb, point_size=7, render_points_as_spheres=True, opacity=0.8)
         th = np.arccos(np.clip(np.sum(u * p, axis=1), -1.0, 1.0))
         # dashed (user, 29 October 2026: not to be taken for a trajectory or a trail): k dashes per arc, each over
@@ -1508,6 +1525,23 @@ class SimView(QWidget):
         lines = np.column_stack([np.full(nd, 3), 3 * np.arange(nd)[:, None] + np.arange(3)]).ravel()
         self._poly(f"{DYN}proj_arcs", arc.reshape(-1, 3), lines=lines, rgb=np.repeat(rgb[arc_of], 3, axis=0),
                    line_width=1.5, opacity=0.8)
+
+    def _to_plane(self, pts: np.ndarray) -> np.ndarray:
+        """Points of the ship view moved into the plane of the range rings at the same drawn range (the nearest
+        point of the ring of that radius: the direction projected on the plane; on the plane's axis, toward e1)."""
+        _h, e1, e2, _c = self._ring_frame()
+        nrm = np.cross(e1, e2)
+        pts = np.asarray(pts, float)
+        rad = np.linalg.norm(pts, axis=-1)
+        u = pts / np.maximum(rad, 1e-300)[..., None]
+        p = u - (u @ nrm)[..., None] * nrm
+        pn = np.linalg.norm(p, axis=-1)
+        p = np.where((pn > 1e-9)[..., None], p / np.maximum(pn, 1e-300)[..., None], e1)
+        return p * rad[..., None]
+
+    def _full_projection(self) -> bool:
+        """Ship view, range projection "full": every body and path drawn in the plane of the rings."""
+        return not self._global() and self.cb_proj.isChecked() and self.tg_proj_full.isChecked()
 
     def _truth_lines(self, name: str, rows: np.ndarray, rgb: np.ndarray, t0: float, t1: float, **style) -> None:
         """Global view: the rows' paths over [t0, t1] in their colours, through the truth records on the run's grid
@@ -1551,6 +1585,8 @@ class SimView(QWidget):
         return np.where(ok[..., None], rel / np.where(ok, rng, 1.0)[..., None] * rad[..., None], np.nan)
 
     def _coast_lines(self, path: np.ndarray, rgb: np.ndarray) -> None:
+        if self._full_projection():
+            path = self._to_plane(path)
         pl = _polylines(path, np.isfinite(path[..., 0]))
         if pl is not None:
             pts, lines, c, keep = pl
@@ -1564,6 +1600,8 @@ class SimView(QWidget):
         pl = _polylines(g.dir_ship[sel][:, js] * self._ship_r(np.where(ok, rr, 1.0))[..., None], ok)
         if pl is not None:
             pts, lines, c, keep = pl
+            if self._full_projection():
+                pts = self._to_plane(pts)
             self._poly(name, pts, lines=lines, rgb=np.repeat(rgb[keep], c, axis=0), **style)
 
     def _ring_frame(self):
@@ -1598,23 +1636,33 @@ class SimView(QWidget):
         try:
             half, e1, e2, cover = self._ring_frame()
             step = RING_STEP_FRAC * half
-            n = min(RING_MAX, int(math.ceil(cover / step)))
             ang = np.linspace(0.0, 2.0 * math.pi, RING_POINTS)
             pts, lines, lab_p, lab_t, seen = [], [], [], [], set()
             # always at the same place on screen (user, 29 October 2026): only the range they carry follows the zoom
             # (1:1: round steps in km; log: the log law of the view extended beyond its nearest / farthest objects)
+            # the step kept while it stays within RING_HYST of the ideal one (user, 29 October 2026: a slight camera
+            # move near a rounding threshold redrew every ring); only the outer rings come and go with the view
+            keep = getattr(self, "_ring_keep", {})
             if self.cb_true.isChecked():
-                s1 = _nice(step)
-                values = [k * s1 for k in range(1, n + 1)]
+                s1 = keep.get("true")
+                if s1 is None or not 1.0 / RING_HYST <= s1 / step <= RING_HYST:
+                    s1 = _nice(step)
+                keep["true"] = s1
+                values = [k * s1 for k in range(1, min(RING_MAX, int(math.ceil(cover / s1))) + 1)]
             else:
                 # equally spaced on screen (user): a constant step in decades, a round one (DECADE_STEPS), the ranges
                 # 10^(k x step) labelled to 3 figures
                 per = self._span() / (0.75 * self._log_h())                       # decades per unit of radius
-                dd = min(DECADE_STEPS, key=lambda c: abs(math.log(c / max(step * per, 1e-12))))
+                ideal = max(step * per, 1e-12)
+                dd = keep.get("log")
+                if dd is None or not 1.0 / RING_HYST <= dd / ideal <= RING_HYST:
+                    dd = min(DECADE_STEPS, key=lambda c: abs(math.log(c / ideal)))
+                keep["log"] = dd
                 e_of = self._log_e
                 k0, k1 = math.ceil(e_of(0.5 * step) / dd), math.floor(e_of(cover) / dd)
                 values = [10.0 ** (k * dd) for k in range(k0, min(k1, k0 + RING_MAX - 1) + 1)
                           if RING_LOG10_KM[0] <= k * dd <= RING_LOG10_KM[1]]
+            self._ring_keep = keep
             for nice in values:
                 # (the zoom bounds hold MAX_VIEW_KM at the half-height: beyond, the corners keep their rings)
                 if nice in seen or nice < MIN_RING_KM:
@@ -1662,6 +1710,7 @@ class SimView(QWidget):
         self._model: Optional[dict] = None
         self._used: set = set()
         self._sym_pts: Dict[str, np.ndarray] = {}     # the shown symbols' centres (_place_symbols)
+        self._box_pts: Dict[str, np.ndarray] = {}     # the data boxes' bodies (_place_symbols)
 
     def _poly(self, name: str, pts: np.ndarray, lines: Optional[np.ndarray] = None, rgb: Optional[np.ndarray] = None,
               cell_rgb: Optional[np.ndarray] = None, **style) -> None:
@@ -1762,6 +1811,10 @@ class SimView(QWidget):
             if e is not None and e[2].GetVisibility() and e[0] == len(q):
                 e[1].points = self._sym_corners(q)
                 e[1].Modified()
+        for name, q in self._box_pts.items():         # the data boxes beside their symbols
+            lab = self._lab.get(name)
+            if lab is not None and lab.actor.GetVisibility() and len(q) == len(lab._last):
+                lab.set(self._box_anchor(q), lab._last)
         e = self._dyn.get(f"{DYN}select")
         q = getattr(self, "_sel_pt", None)
         if e is not None and q is not None and e[2].GetVisibility():
@@ -1819,12 +1872,93 @@ class SimView(QWidget):
         self.selected = oid or None
         self._draw_frame()
 
-    def _labels(self, name: str, pts: np.ndarray, texts: List[str], color: str, size: int = 10) -> None:
+    def _labels(self, name: str, pts: np.ndarray, texts: List[str], color: str, size: int = 10,
+                box: bool = False) -> None:
         self._used.add(name)
         lab = self._lab.get(name)
         if lab is None:
-            lab = self._lab[name] = _Labels(self.plotter, color, size)
+            lab = self._lab[name] = _Labels(self.plotter, color, size, box)
         lab.set(np.asarray(pts, float), texts)
+
+    def _box_anchor(self, q: np.ndarray) -> np.ndarray:
+        """The top-left corner of each body's data box: right of its symbol (BOX_GAP apart), level with its top, at
+        the UI size; the box never covers the symbol."""
+        cam = self.plotter.camera
+        fwd = np.asarray(cam.GetDirectionOfProjection())
+        up = np.asarray(cam.GetViewUp(), float)
+        up = up - (up @ fwd) * fwd
+        up /= np.linalg.norm(up)
+        right = np.cross(fwd, up)
+        h_px = max(self.plotter.ren_win.GetSize()[1], 1)
+        k = math.tan(math.radians(0.5 * cam.GetViewAngle())) / h_px * SYMBOL_PX * self.ui_scale
+        half = np.maximum((q - np.asarray(cam.GetPosition())) @ fwd, 1e-12)[:, None] * k   # half a symbol, world
+        return q + (1.0 + 2.0 * BOX_GAP) * half * right + half * up
+
+    def _databox(self, name: str, pts: np.ndarray, texts: List[str]) -> None:
+        """The bodies' data boxes (user, 29 October 2026), beside their symbols, kept there by the camera changes
+        (_place_symbols)."""
+        pts = np.asarray(pts, float)
+        self._box_pts[name] = pts
+        self._labels(name, self._box_anchor(pts), texts, TEXT_COLOR, box=True)
+
+    def _box_texts(self, rows: np.ndarray, r: np.ndarray, v: np.ndarray) -> List[str]:
+        """The data box of each truth row (0: OWNSHIP): its name, altitude and orbital speed; for an object also its
+        range, closing speed, time to and range of its closest approach to OWNSHIP (_cpa_all)."""
+        tr = self.truth
+        alt = np.linalg.norm(r[rows], axis=1) - tr.body.radius_km
+        spd = np.linalg.norm(v[rows], axis=1)
+        rel, vrel = r[rows] - r[0], v[rows] - v[0]
+        rng = np.linalg.norm(rel, axis=1)
+        close = -1e3 * np.einsum("ij,ij->i", rel, vrel) / np.maximum(rng, 1e-12)        # m/s, > 0 closing
+        t_c, d_c, reached = self._cpa_all()
+        out = []
+        for n, i in enumerate(rows):
+            lines = [self.own_name() if i == 0 else tr.ids[i], f"alt {alt[n]:.1f} km", f"v {spd[n]:.3f} km/s"]
+            if i:
+                lines += [f"rng {_dist_text(rng[n])}", f"Vc {close[n]:+.0f} m/s"]
+                tc, dc, ok = t_c[i - 1], d_c[i - 1], reached[i - 1]
+                if np.isfinite(tc):
+                    if not ok:                        # still closing at the run's end
+                        lines += [f"CPA > {tc - self.t:.0f} s", f"dCPA < {_dist_text(dc)}"]
+                    else:
+                        lines += ["CPA receding" if tc <= self.t + 1e-6 else f"CPA {tc - self.t:.1f} s",
+                                  f"dCPA {_dist_text(dc)}"]
+            out.append("\n".join(lines))
+        return out
+
+    def _cpa_all(self):
+        """The closest approach to OWNSHIP of every object (geometry column j = truth row j + 1) from t on, all at
+        once (the data boxes, 1000+ objects): (time s, range km, reached in the run) arrays, NaN without a future
+        record. The record of the smallest future range, refined by the relative motion at that record (straight
+        line, within its two neighbours); cached per record index of t."""
+        g, tr = self.g, self.truth
+        k0 = int(np.searchsorted(g.t_s, self.t - 1e-9))
+        c = getattr(self, "_cpa_all_cache", None)
+        if c is not None and c[0] is g and c[1] == k0:
+            t_c, d_c, reached = c[2]
+        else:
+            n = g.range_km.shape[1]
+            t_c, d_c, reached = np.full(n, np.nan), np.full(n, np.nan), np.ones(n, bool)
+            rr = g.range_km[k0:]
+            if len(rr):
+                ok = np.isfinite(rr)
+                has = ok.any(axis=0)
+                ia = k0 + np.argmin(np.where(ok, rr, np.inf), axis=0)
+                kt = np.clip(np.searchsorted(tr.t_s, g.t_s[ia] - 1e-9), 0, len(tr.t_s) - 1)
+                rows = np.arange(n) + 1
+                rel = tr.r_km[kt, rows] - tr.r_km[kt, 0]
+                vrel = tr.v_kms[kt, rows] - tr.v_kms[kt, 0]
+                dt = -np.einsum("ij,ij->i", rel, vrel) / np.maximum(np.einsum("ij,ij->i", vrel, vrel), 1e-30)
+                last = len(g.t_s) - 1
+                lo = g.t_s[np.maximum(ia - 1, 0)] - g.t_s[ia]
+                hi = g.t_s[np.minimum(ia + 1, last)] - g.t_s[ia]
+                dt = np.clip(np.nan_to_num(dt), lo, hi)
+                t_c = np.where(has, g.t_s[ia] + dt, np.nan)
+                d_c = np.where(has, np.linalg.norm(rel + vrel * dt[:, None], axis=1), np.nan)
+                rate = np.nan_to_num(g.range_rate_mps[ia, np.arange(n)], nan=1.0)
+                reached = ~((ia == last) & (rate < 0))
+            self._cpa_all_cache = (g, k0, (t_c, d_c, reached))
+        return np.where(np.isfinite(t_c), np.maximum(t_c, self.t), np.nan), d_c, reached
 
     def _hide_unused(self) -> None:
         for name, e in self._dyn.items():
@@ -1900,7 +2034,7 @@ class SimView(QWidget):
         else:
             self._poly(f"{DYN}pts", r[idx], rgb=rgb, point_size=8, render_points_as_spheres=True)
         if self.cb_labels.isChecked():
-            self._labels(f"{DYN}labels", r[idx], [self.own_name() if i == 0 else tr.ids[i] for i in idx], TEXT_COLOR)
+            self._databox(f"{DYN}labels", r[idx], self._box_texts(idx, r, v))
         if self.cb_trails.isChecked():
             self._truth_lines(f"{DYN}trails", idx, rgb, max(0.0, self.t - self.sp_trail.value()), self.t,
                               line_width=3, opacity=0.8)
@@ -1947,6 +2081,9 @@ class SimView(QWidget):
         los_rgb[np.asarray(msk, bool)] = _rgb(MASK_COLOR)
         los_rgb[np.asarray(occ, bool) | (np.asarray(face) < 0)] = _rgb(OCC_COLOR)
         n = len(js)
+        full = self._full_projection()
+        if full:                                      # the copies in the plane stand for the objects
+            pos = self._to_plane(pos)
         self._poly(f"{DYN}los", np.r_[np.zeros((n, 3)), pos], lines=_pairs(n), cell_rgb=los_rgb, line_width=1.5,
                    opacity=0.7)
         rgb = self._row_rgb[js + 1]
@@ -1954,10 +2091,10 @@ class SimView(QWidget):
             self._symbols(pos, [self._row_symbol(j + 1) for j in js])
         else:
             self._poly(f"{DYN}pts", pos, rgb=rgb, point_size=9, render_points_as_spheres=True)
-        if self.cb_proj.isChecked():
+        if self.cb_proj.isChecked() and not full:
             self._range_projection(pos, rgb)
         if self.cb_labels.isChecked():
-            self._labels(f"{DYN}labels", pos, [g.ids[j] for j in js], TEXT_COLOR)
+            self._databox(f"{DYN}labels", pos, self._box_texts(js + 1, r, v))
         if self.cb_vectors.isChecked():
             nose = g.nose_ship[k, js]
             okn = np.isfinite(nose[:, 0])
@@ -2281,7 +2418,7 @@ class SimView(QWidget):
         if c is None:
             return []
         t_cpa, d, reached = c
-        dist = f"{d:.3f} km" if d >= 1.0 else f"{1e3 * d:.1f} m" if d >= 1e-3 else f"{1e3 * d:.4f} m"
+        dist = _dist_text(d)
         if not reached:                               # still closing at the run's end
             return [_kv("CPA in", f"> {t_cpa - self.t:.1f} s (after the end)"), _kv("CPA range", f"< {dist}")]
         return [_kv("CPA in", f"{t_cpa - self.t:.1f} s" if t_cpa > self.t + 1e-6 else "now (receding)"),

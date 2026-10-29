@@ -317,6 +317,11 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
     pn_rows = np.array([i for i, w in enumerate(rows) if w.pn is not None], int)
     pn_t = np.array([float(rows[i].pn["t_s"]) if "t_s" in rows[i].pn else np.nan for i in pn_rows])
     pn_r0 = np.array([float(rows[i].pn.get("start_range_km", np.nan)) for i in pn_rows])
+    # each guided row's target (user, 29 October 2026: OWNSHIP's own KKV toward SHIP_1): "target" of its pn
+    # manoeuvre, the ship (row 0) by default
+    pn_tgt = np.zeros(n, int)
+    for i in pn_rows:
+        pn_tgt[i] = idx[rows[i].pn.get("target", "ship")]
     flyers = {0: att.Flyer(0, sc["ship"]["attitude"])}
     flyers.update({i: att.Flyer(i, w.spec["attitude"]) for i, w in enumerate(rows) if i and "attitude" in w.spec
                    and not w.group})
@@ -403,13 +408,17 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
                     acc[rt] = np.einsum("nij,nj->ni", rtn_matrix(r[ks[rt]], v[ks[rt]]), acc[rt])
                 np.add.at(a, ks, acc)
         on = np.flatnonzero(pn_on[rows_act])
-        if len(on) and act[0] and fast.USE_NUMBA:     # compiled PN command (the ship: row 0, first active row)
-            fast.pn_command(a, np.ascontiguousarray(r), np.ascontiguousarray(v), on, pn_n[rows_act[on]],
+        if len(on):                                   # each guided row toward its target, when the target exists
+            where = np.full(n, -1)
+            where[rows_act] = np.arange(len(rows_act))
+            tg = where[pn_tgt[rows_act[on]]]
+            on, tg = on[tg >= 0], tg[tg >= 0]
+        if len(on) and fast.USE_NUMBA:                # compiled PN command
+            fast.pn_command(a, np.ascontiguousarray(r), np.ascontiguousarray(v), on, tg, pn_n[rows_act[on]],
                             a_max[rows_act[on]])
-        elif len(on) and act[0]:
-            s = 0                                     # the ship is row 0, first of the active rows
-            los = r[s] - r[on]                                        # object -> ship
-            vrel = v[s] - v[on]
+        elif len(on):
+            los = r[tg] - r[on]                                       # object -> target
+            vrel = v[tg] - v[on]
             rn2 = np.einsum("ij,ij->i", los, los)
             rn = np.sqrt(rn2)
             omega = np.cross(los, vrel) / rn2[:, None]
@@ -435,15 +444,16 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
         the guided rows at once."""
         if not len(pn_rows):
             return
-        sel = pn_rows[active[pn_rows] & ~pn_done[pn_rows]]
+        sel = pn_rows[active[pn_rows] & ~pn_done[pn_rows] & active[pn_tgt[pn_rows]]]   # (the target exists)
         if not len(sel):
             return
         was_on = pn_on[sel]
         k_t = np.searchsorted(pn_rows, sel)
+        tg = pn_tgt[sel]
         if fast.USE_NUMBA:                            # compiled: the same steps row by row
-            fast.pn_step(x, prev, sel, was_on, t, pn_t[k_t], pn_r0[k_t], pn_on, pn_done, t_pn, miss)
+            fast.pn_step(x, prev, sel, tg, was_on, t, pn_t[k_t], pn_r0[k_t], pn_on, pn_done, t_pn, miss)
             return
-        los = x[0, :3] - x[sel, :3]
+        los = x[tg, :3] - x[sel, :3]
         off = sel[~was_on]
         if len(off):                                  # not guided yet: start at its time or within its range
             ko = k_t[~was_on]
@@ -453,14 +463,14 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
             t_pn[off[start]] = t
         g = sel[was_on]
         if len(g):                                    # guided: the step's closest approach, the end when it opens
-            d0 = prev[0, :3] - prev[g, :3]
+            d0 = prev[pn_tgt[g], :3] - prev[g, :3]
             d1 = los[was_on]
             dd = d1 - d0
             u = np.clip(-np.einsum("ij,ij->i", d0, dd) / np.maximum(np.einsum("ij,ij->i", dd, dd), 1e-300), 0.0, 1.0)
             c = d0 + u[:, None] * dd
             closest = np.sqrt(np.einsum("ij,ij->i", c, c))
             miss[g] = np.where(np.isfinite(miss[g]), np.minimum(miss[g], closest), closest)
-            opens = np.einsum("ij,ij->i", d1, x[0, 3:] - x[g, 3:]) > 0.0      # range rate > 0: the range opens
+            opens = np.einsum("ij,ij->i", d1, x[pn_tgt[g], 3:] - x[g, 3:]) > 0.0   # range rate > 0: it opens
             pn_on[g[opens]] = False
             pn_done[g[opens]] = True
 
