@@ -118,7 +118,7 @@ def test_scenario_editor_forms(tmp_path):
     tab.tree.setCurrentItem(tab.n_ship)
     tab.form_holder.findChildren(QComboBox)[0].setCurrentText("state")
     assert tab.sc["ship"]["orbit"]["type"] == "state"
-    assert len(tab.form_holder.findChildren(FormWidget)) == 3      # orbit, waypoint time, waypoint attitude
+    assert len(tab.form_holder.findChildren(FormWidget)) == 4      # name, orbit, waypoint time, waypoint attitude
     tab.tree.setCurrentItem(tab.n_obj.child(0))
     tab.delete()
     assert [o["id"] for o in tab.sc["objects"]] == ["OBJ-1"]
@@ -610,7 +610,7 @@ def test_waypoint_editor():
     assert scn.validate(tab.sc) == []
     tab.add_object()                                    # KKV-1
     tab.tree.setCurrentItem(tab.n_obj.child(0))
-    cb = [c for c in tab.form_holder.findChildren(QCheckBox) if "waypoints" in c.text()][0]
+    cb = [c for c in tab.form_holder.findChildren(QCheckBox) if "waypoints" in c.accessibleName()][0]
     cb.setChecked(True)
     o = tab.sc["objects"][0]
     assert o["attitude"][0]["attitude"] == {"type": "target", "id": "ship", "roll_deg": 0.0}
@@ -649,12 +649,13 @@ def test_sim_view_offscreen(tmp_path):
     v.set_ui_scale(-1)
     # the star background under the scene (its own renderer, layer 0), the constellations on demand
     assert v.sky.ren.GetLayer() == 0 and v.plotter.renderer.GetLayer() == 1 and v.sky.star_actors
+    assert not v.sky.star_actors[0].GetVisibility()                    # plain background at start (user)
+    v.tg_sky.setChecked(True)
     assert v.sky.star_actors[0].GetVisibility() and not v.sky.line_actor.GetVisibility()
     v.cb_const.setChecked(True)
     assert v.sky.line_actor.GetVisibility()
     v.tg_sky.setChecked(False)                                         # plain background
     assert not v.sky.star_actors[0].GetVisibility() and not v.sky.line_actor.GetVisibility()
-    v.tg_sky.setChecked(True)
     v.cb_const.setChecked(False)
     assert any(n.startswith(DYN + "sym_") for n in names)              # the objects drawn by their symbols
     # the planned trajectories from t to the run's end, the trails of their chosen duration, the orbital vectors
@@ -701,7 +702,7 @@ def test_sim_view_offscreen(tmp_path):
     assert any("K appears" in x for x in texts) and any("terminal guidance" in x for x in texts)
     assert len(v.slider._marks) == len(v.events) and v.slider._clusters()        # L4: marks on the slider
     v.tg_view.setChecked(True)                           # ship view
-    assert not v.tg_sky.isChecked()                      # plain background by default in the ship view
+    assert not v.tg_sky.isChecked()                      # plain at start, one setting for both views
     v.set_time(10.0)
     names = list(v.plotter.actors)
     assert DYN + "los" in names and any(n.startswith(VOL) for n in names)
@@ -726,7 +727,7 @@ def test_sim_view_offscreen(tmp_path):
     v.select(None)
     assert not v.plotter.actors[DYN + "select"].GetVisibility()
     cam = v.plotter.camera                # the axes keep their size on screen through a zoom (no new frame)
-    if v.cb_true.isChecked() and v.cb_axes.isChecked():
+    if v.cb_axes.isChecked():
         L0 = np.linalg.norm(v._dyn[DYN + "ship_axes"][1].points[3])
         v.zoom(2.0)
         assert np.linalg.norm(v._dyn[DYN + "ship_axes"][1].points[3]) == pytest.approx(L0 / 2.0, rel=1e-6)
@@ -739,43 +740,8 @@ def test_sim_view_offscreen(tmp_path):
     v.set_centre("K")                     # ship view centred on an object
     assert np.allclose(v.plotter.camera.GetFocalPoint(), v._screen_pts["K"], atol=1e-9)
     v.set_centre(CENTRAL)
-    v.cb_true.setChecked(False)           # log scale (the ship view opens at 1:1, P25)
-    # range rings of about constant size on screen, their values following the zoom
-    rings = v._lab[DYN + "rings_lbl"]
-    before = list(rings._last)
-    assert before and all(t.endswith(" km") for t in before)
     from gui import sim_view as sv_
-    # log scale, range zoom: the camera keeps its distance, the scale follows the zoom (values, objects)
-    d_log = v.plotter.camera.GetDistance()
-    k_pos = np.array(v._screen_pts["K"])
-    v.zoom(4.0)
-    app.processEvents()
-    assert v.plotter.camera.GetDistance() == pytest.approx(d_log, rel=1e-9) and rings._last != before
-    assert np.linalg.norm(v._screen_pts["K"]) > np.linalg.norm(k_pos) * 1.05      # K drawn farther (fewer decades)
-    dd0 = v._ring_keep["log"]              # a small zoom keeps the rings' step (no reorganisation)
-    v.zoom(1.3)
-    assert v._ring_keep["log"] == dd0
-    v.zoom(1.0 / 1.3)
-    n_many = 0
-    for z in (1.0, 1.7, 0.45, 2.9, 3.3, 0.2):           # the rings equally spaced at any zoom, filling the view
-        v.zoom(z)
-        pts = v._dyn[DYN + "rings"][1].points
-        rad = np.linalg.norm(pts[::sv_.RING_POINTS], axis=1)
-        n_many += len(rad) >= 3
-        assert len(rad) >= 3 and np.allclose(np.diff(rad), np.diff(rad)[0], rtol=1e-6)
-        assert min(float(t.split()[0]) for t in rings._last) >= sv_.MIN_RING_KM
-    v.zoom(1e-6)                                         # far zoomed out: the view's farthest ring at MAX_VIEW_KM
-    assert v._ship_range(1e6) is None
-    half, _, _, cover = v._ring_frame()
-    assert v._ship_range(cover) == pytest.approx(sv_.MAX_VIEW_KM, rel=1e-6)
-    assert max(float(t.split()[0]) for t in rings._last) <= sv_.MAX_VIEW_KM * (1 + 1e-9)
-    assert len(v._dyn[DYN + "rings"][1].points) >= 3 * sv_.RING_POINTS
-    v.zoom(1e9)                                          # far zoomed in: the half-height at the smallest span
-    assert v._log_span == pytest.approx(sv_.LOG_SPAN_MIN)
-    assert min(float(t.split()[0]) for t in rings._last) >= sv_.MIN_RING_KM
-    assert v.plotter.camera.GetDistance() == pytest.approx(d_log, rel=1e-9)
-    # 1:1 scale: an object at its true range (km) from the ship
-    v.cb_true.setChecked(True)
+    # 1:1 scale (the only one, user 29 October 2026): an object at its true range (km) from the ship
     v.set_time(10.0)
     r, _ = geo.states_at(tr, 10.0)
     assert np.linalg.norm(v._screen_pts["K"]) == pytest.approx(np.linalg.norm(r[tr.row("K")] - r[0]), rel=1e-9)
@@ -784,7 +750,6 @@ def test_sim_view_offscreen(tmp_path):
     u = v.plotter.actors[DYN + "sbody_moon"].user_matrix
     T = eph.centuries_tt(scn.epoch(sc), 10.0)
     assert np.linalg.norm(u[:3, 3]) == pytest.approx(np.linalg.norm(eph.moon_icrf_km(T) - r[0]), rel=1e-6)
-    v.cb_true.setChecked(False)
     assert v.plotter.actors[DYN + "sbody_sun"].GetVisibility()
     v.cb_bodies.setChecked(False)
     assert not v.plotter.actors[DYN + "sbody_sun"].GetVisibility()
@@ -1020,10 +985,10 @@ def test_scenario_tab_layout():
     assert [c[0] for c in tab.file_commands()] == ["New...", "Open...", "Save", "Save as...", "Scenario properties...",
                                                    "Export mission at t...", "Record run...", "Open run..."]
     assert tab.status in tab.status_widgets() and tab.preview.progress in tab.status_widgets()
-    assert not tab.preview.cb_true.isEnabled() and tab.preview.cb_true.isHidden()   # ship view only
+    assert not tab.preview.cb_vectors.isEnabled() and tab.preview.cb_vectors.isHidden()   # ship view only
     assert tab.preview.view_panel.isAncestorOf(tab.preview.cb_labels)          # layers as switches, no menu
     tab.preview.tg_view.setChecked(True)
-    assert tab.preview.cb_true.isEnabled() and not tab.preview.cb_true.isHidden()
+    assert tab.preview.cb_vectors.isEnabled() and not tab.preview.cb_vectors.isHidden()
     tab.preview.tg_view.setChecked(False)
     assert "valid" in tab.status.text()
     tab.sc["objects"][0]["class"] = "NOPE"

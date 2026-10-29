@@ -14,16 +14,16 @@ import json
 import os
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
-from PyQt5.QtCore import QEvent, QTimer, Qt, pyqtSignal
+from PyQt5.QtCore import QEvent, QSize, QTimer, Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QKeySequence
-from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QInputDialog, QFileDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
-                             QListWidgetItem, QMenu, QMessageBox, QDialog, QDialogButtonBox, QPushButton, QShortcut, QScrollArea, QSpinBox, QSplitter,
+from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QInputDialog, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
+                             QListWidgetItem, QMenu, QMessageBox, QDialog, QDialogButtonBox, QPushButton, QShortcut, QScrollArea, QSizePolicy, QSpinBox, QSplitter,
                              QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from core import radar_model as rm
 from core.params import P
 from gui import controls as uc
-from gui.widgets import DecimalSpinBox
+from gui.widgets import DecimalSpinBox, FlowLayout
 from sim import attitude as att
 from sim import scenario as scn
 
@@ -34,7 +34,8 @@ _BIG = 1e12
 COMPACT_TREE_H = 120                       # px: least height of the tree over the options (compact column)
 TREE_MAX_SHARE = 0.5                       # the tree at most this share of the column
 FORM_MIN_W = 280                           # px: the narrowest the forms start at
-SPIN_MAX_W = 110                           # px: a number field at most (a bound of 1e12 asked for 13 digits, 180 px)
+SPIN_MAX_W = 110                           # px: a number field's wish (a bound of 1e12 asked for 13 digits, 180 px)
+FIELD_MIN_W = 48                           # px: the narrowest a field shrinks to with the column (it is never cut)
 SCENARIO_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scenarios")
 
 
@@ -96,6 +97,62 @@ def new_scenario() -> dict:
 
 
 # ----------------------------------------------------------------------------- generic form
+# (user, 29 October 2026) the fields always end at the column's edge, never cut by it: each one shrinks with the
+# column down to FIELD_MIN_W and grows when the column is widened; the labels wrap, the button rows flow
+class _Narrow:
+    """Mixin of a field: its minimum width at FIELD_MIN_W at most (the column, not the content, sets its width)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        pol = self.sizePolicy()                    # a spin box's "Minimum" kept it at its hint: shrinkable now
+        pol.setHorizontalPolicy(QSizePolicy.Preferred)
+        self.setSizePolicy(pol)
+
+    def minimumSizeHint(self) -> QSize:
+        s = super().minimumSizeHint()
+        return QSize(min(s.width(), FIELD_MIN_W), s.height())
+
+
+class _Spin(_Narrow, DecimalSpinBox):
+    def sizeHint(self) -> QSize:                   # the column's width at its true need (user, 29 October 2026)
+        s = super().sizeHint()
+        return QSize(min(s.width(), SPIN_MAX_W), s.height())
+
+
+class _IntSpin(_Narrow, QSpinBox):
+    pass
+
+
+class _Combo(_Narrow, QComboBox):
+    pass
+
+
+class _WrapLabel(QLabel):
+    """A label on one line when the column allows it, on several (at the words) when it is narrower."""
+
+    def __init__(self, text: str, parent=None):
+        super().__init__(text, parent)
+        self.setWordWrap(True)
+
+    def sizeHint(self) -> QSize:
+        m = self.contentsMargins()
+        fm = self.fontMetrics()
+        return QSize(fm.horizontalAdvance(self.text()) + m.left() + m.right() + 2, fm.height() + m.top() + m.bottom())
+
+    def minimumSizeHint(self) -> QSize:
+        fm = self.fontMetrics()
+        word = max((fm.horizontalAdvance(x) for x in self.text().split()), default=0)
+        return QSize(word + 2, fm.height())
+
+
+def _button_row(buttons: Sequence[QPushButton]) -> FlowLayout:
+    """Buttons side by side, on more lines when the column is narrower than the row."""
+    row = FlowLayout()
+    for b in buttons:
+        row.addWidget(b)
+    return row
+
+
 def _clear(layout) -> None:
     """Empty a layout: each widget detached at once (no stale children until the deferred delete), then deleted."""
     while layout.count():
@@ -115,7 +172,7 @@ class VecEdit(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         self.boxes = []
         for _ in range(n):
-            b = DecimalSpinBox()
+            b = _Spin()
             b.setRange(-_BIG, _BIG)
             b.setDecimals(decimals)
             b.valueChanged.connect(lambda _v: self.changed.emit())
@@ -140,28 +197,30 @@ class FormWidget(QWidget):
         super().__init__(parent)
         self.data = data
         self.widgets: Dict[str, Tuple[str, QWidget]] = {}
-        lay = QFormLayout(self)
-        for key, label, kind, opt in fields:
+        # a grid, not a QFormLayout: that one keeps each label on one line, whatever the column's width
+        lay = QGridLayout(self)
+        lay.setColumnStretch(1, 1)                 # the fields to the column's edge
+        for row, (key, label, kind, opt) in enumerate(fields):
             w = self._make(key, kind, opt)
             self.widgets[key] = (kind, w)
-            lay.addRow(label, w)
+            lay.addWidget(_WrapLabel(label), row, 0)
+            lay.addWidget(w, row, 1)
 
     def _make(self, key: str, kind: str, opt: dict) -> QWidget:
         v = self.data.get(key, opt.get("default"))      # an absent key shows the value the model will use
         if kind == "float":
-            w = DecimalSpinBox()
+            w = _Spin()
             w.setRange(float(opt.get("min", -_BIG)), float(opt.get("max", _BIG)))
             w.setDecimals(int(opt.get("dec", 3)))
             w.setValue(float(v) if isinstance(v, (int, float)) else 0.0)
-            w.setMaximumWidth(SPIN_MAX_W)              # the column at its true need (user, 29 October 2026)
             w.valueChanged.connect(lambda x, k=key: self._set(k, float(x)))
         elif kind == "int":
-            w = QSpinBox()
+            w = _IntSpin()
             w.setRange(int(opt.get("min", 0)), int(opt.get("max", 10 ** 9)))
             w.setValue(int(v) if isinstance(v, int) else int(opt.get("min", 0)))
             w.valueChanged.connect(lambda x, k=key: self._set(k, int(x)))
         elif kind == "choice":
-            w = QComboBox()
+            w = _Combo()
             choices = list(opt["choices"]() if callable(opt["choices"]) else opt["choices"])
             w.addItems(choices)
             if v in choices:
@@ -211,7 +270,7 @@ def _typed_form(title: str, types: Sequence[str], fields: Dict[str, List[Field]]
     lay.setContentsMargins(0, 0, 0, 0)
     row = QHBoxLayout()
     row.addWidget(QLabel(title))
-    combo = QComboBox()
+    combo = _Combo()
     combo.addItems(list(types))
     cur = holder.get(key, {}).get(type_key)
     if cur in types:
@@ -252,15 +311,14 @@ class ManoeuvreList(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         self.list = QListWidget()
         lay.addWidget(self.list)
-        row = QHBoxLayout()
+        buttons = []
         for t in MANOEUVRE_FIELDS:
             b = QPushButton(f"+ {t}")
             b.clicked.connect(lambda _c, tt=t: self._add(tt))
-            row.addWidget(b)
+            buttons.append(b)
         rm_b = QPushButton("Remove")
         rm_b.clicked.connect(self._remove)
-        row.addWidget(rm_b)
-        lay.addLayout(row)
+        lay.addLayout(_button_row(buttons + [rm_b]))
         self.form_area = QVBoxLayout()
         lay.addLayout(self.form_area)
         self.list.currentRowChanged.connect(self._show)
@@ -328,12 +386,12 @@ class WaypointList(QWidget):
         self.list = QListWidget()
         self.list.setMaximumHeight(120)
         lay.addWidget(self.list)
-        row = QHBoxLayout()
+        buttons = []
         for text, slot in (("+ point", self._add), ("Remove", self._remove)):
             b = QPushButton(text)
             b.clicked.connect(slot)
-            row.addWidget(b)
-        lay.addLayout(row)
+            buttons.append(b)
+        lay.addLayout(_button_row(buttons))
         self.form_area = QVBoxLayout()
         lay.addLayout(self.form_area)
         self.list.currentRowChanged.connect(self._show)
@@ -893,9 +951,16 @@ class ScenarioTab(QWidget):
         box = QWidget()
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
-        cb = QCheckBox("flies attitude waypoints (else the class's default attitude)")
+        text = "flies attitude waypoints (else the class's default attitude)"
+        cb = QCheckBox()                             # the text in a label beside it, that wraps (and toggles it)
+        cb.setAccessibleName(text)
         cb.setChecked("attitude" in o)
-        lay.addWidget(cb)
+        lab = _WrapLabel(text)
+        lab.mousePressEvent = lambda _ev: cb.toggle()
+        row = QHBoxLayout()
+        row.addWidget(cb, 0, Qt.AlignTop)
+        row.addWidget(lab, 1)
+        lay.addLayout(row)
         area = QVBoxLayout()
         lay.addLayout(area)
 
