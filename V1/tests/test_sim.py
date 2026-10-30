@@ -736,12 +736,14 @@ def test_multitracks():
     assert [(c["ident"], c["cls"], len(c["k"])) for c in cl] == [("hostile", "KKV", 4)]
     assert sv.DYN + "sym_multi_hostile_KKV.png" in v._dyn and v._lab[sv.DYN + "mt_n_hostile"]._last == ["4"]
     assert any(b.startswith("4 x KKV") for b in v._lab[sv.DYN + "labels"]._last)
-    assert v._dyn[sv.DYN + "planned"][1].n_lines == 2  # one path for the multitrack, one for F (not one per member)
-    v.tg_view.setChecked(True)                          # ship view: one line of sight per multitrack
+    assert len(v._screen_src[sv.DYN + "planned"][1]) == 2   # one path for the multitrack, one for F (not one per
+    # member; the path's counts: it is drawn dashed)
+    v.cb_los.setChecked(True)                   # (off by default, user 30 October 2026)
+    v.set_view("ship")                          # ship view: one line of sight per multitrack
     v.set_time(5.0)
     if v._mt_click:
         assert v._dyn[sv.DYN + "los"][1].n_lines == 2
-    v.tg_view.setChecked(False)
+    v.set_view("global")
     v.set_time(5.0)
     key = next(iter(v._mt_click))
     v.select(key)
@@ -988,7 +990,10 @@ def test_sim_view_offscreen(tmp_path):
     texts = [x for _t, x in v.events]
     assert any("K appears" in x for x in texts) and any("terminal guidance" in x for x in texts)
     assert len(v.slider._marks) == len(v.events) and v.slider._clusters()        # L4: marks on the slider
-    v.tg_view.setChecked(True)                           # ship view
+    assert not v.cb_los.isChecked()              # array lines off by default (user, 30 October 2026)
+    v.cb_los.setChecked(True)
+    v.cb_axes.setChecked(True)
+    v.set_view("ship")                           # ship view
     assert not v.tg_sky.isChecked()                      # plain at start, one setting for both views
     v.set_time(10.0)
     names = list(v.plotter.actors)
@@ -1009,7 +1014,10 @@ def test_sim_view_offscreen(tmp_path):
     v.tg_proj_full.setChecked(False)
     assert v.plotter.actors[DYN + "proj_arcs"].GetVisibility()
     v.select("K")                         # as the scenario tool's tree does: the square around it, its Info
-    assert np.allclose(v._dyn[DYN + "select"][1].points.mean(axis=0), v._screen_pts["K"], atol=1e-9)
+    sq, cam = v._dyn[DYN + "select"][1].points.mean(axis=0), np.asarray(v.plotter.camera.GetPosition())
+    q = v._screen_pts["K"]                    # on its line of sight (drawn nearer by the model's radius, 30 Oct 2026)
+    assert np.allclose((sq - cam) / np.linalg.norm(sq - cam), (q - cam) / np.linalg.norm(q - cam), atol=1e-9)
+    assert abs(np.linalg.norm(q - sq) - v._model_r_km) < 1e-6
     assert v.info.toPlainText().startswith("name	K")
     v.select(None)
     assert not v.plotter.actors[DYN + "select"].GetVisibility()
@@ -1103,7 +1111,7 @@ def test_sim_view_offscreen(tmp_path):
     v._tick()
     v.toggle_play()
     assert v.t > 11.0 and not v.timer.isActive()
-    v.tg_view.setChecked(False)
+    v.set_view("global")
     v.pending = scn.normalise(sc)
     v.propagate()
     v.worker.wait()
@@ -1357,7 +1365,7 @@ def test_scenario_tab_layout():
     assert tab._split.count() == 3 and tab._split.widget(0) is tab.left_col
     assert tab._split.widget(1) is tab.preview.side_panel                         # the information: own column
     assert tab.preview.side_panel.isAncestorOf(tab.preview.info)
-    assert tab.preview.view_panel.isAncestorOf(tab.preview.tg_view)            # the view's options under the Info
+    assert tab.preview.view_panel.isAncestorOf(tab.preview.view_buttons["ship"])            # the view's options under the Info
     assert tab.preview.side_panel.isAncestorOf(tab.preview.view_panel)
     assert tab.primary_action() is tab.preview.bt_prop and tab.preview.bt_prop.isHidden()   # small: automatic
     assert [c[0] for c in tab.file_commands()] == ["New...", "Open...", "Save", "Save as...", "Scenario properties...",
@@ -1365,9 +1373,9 @@ def test_scenario_tab_layout():
     assert tab.status in tab.status_widgets() and tab.preview.progress in tab.status_widgets()
     assert not tab.preview.cb_vectors.isEnabled() and tab.preview.cb_vectors.isHidden()   # ship view only
     assert tab.preview.view_panel.isAncestorOf(tab.preview.cb_labels)          # layers as switches, no menu
-    tab.preview.tg_view.setChecked(True)
+    tab.preview.set_view("ship")
     assert tab.preview.cb_vectors.isEnabled() and not tab.preview.cb_vectors.isHidden()
-    tab.preview.tg_view.setChecked(False)
+    tab.preview.set_view("global")
     assert "valid" in tab.status.text()
     tab.sc["objects"][0]["class"] = "NOPE"
     tab._validate()

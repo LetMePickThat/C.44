@@ -183,12 +183,12 @@ class NodeTool:
         out = np.empty_like(r)
         for k, t in enumerate(ts):
             rs = sgeo.states_at(tr, float(t))[0][0]
-            out[k] = (r[k] - rs) @ tr.attitude("ship", float(min(t, dur)))
+            out[k] = (r[k] - rs) @ self.v._view_axes(float(min(t, dur)))
         return out
 
     def _view_path(self, c: dict) -> np.ndarray:
-        if c["view"] is None or c["view"][0] != self.v._global():
-            c["view"] = (self.v._global(), self._to_view(c["ts"], c["r"]))
+        if c["view"] is None or c["view"][0] != self.v.view_mode:
+            c["view"] = (self.v.view_mode, self._to_view(c["ts"], c["r"]))
         return c["view"][1]
 
     # ------------------------------------------------------------------ drawing
@@ -234,7 +234,7 @@ class NodeTool:
             q = rn
         else:
             tr = v.truth
-            mm = tr.attitude("ship", float(min(tn, v.duration())))
+            mm = v._view_axes(float(min(tn, v.duration())))
             q = (rn - sgeo.states_at(tr, tn)[0][0]) @ mm
             axes = axes @ mm
         self._glyph = (np.asarray(q, float), axes)
