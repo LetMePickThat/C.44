@@ -102,17 +102,17 @@ def test_scenario_editor_forms(tmp_path):
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PyQt5.QtWidgets import QApplication, QComboBox
     app = QApplication.instance() or QApplication([])
-    from gui.scenario_tab import FormWidget, ManoeuvreList, ScenarioTab
+    from gui.scenario_tab import ActionList, FormWidget, ScenarioTab
     tab = ScenarioTab(view=False)
     assert tab.messages.item(0).text() == "Scenario valid"
     tab.add_object()
     tab.add_group()
     assert [o["id"] for o in tab.sc["objects"]] == ["KKV-1", "OBJ-1"] and tab.sc["groups"][0]["id"] == "GRP-1"
     tab.tree.setCurrentItem(tab.n_obj.child(0))
-    ml = tab.form_holder.findChild(ManoeuvreList)
+    ml = tab.form_holder.findChild(ActionList)
     for t in ("impulse", "burn", "singer", "pn"):
-        ml._add(t)
-    ml.list.setCurrentRow(0)
+        ml._add_manoeuvre(t)
+    ml.select(1)                                      # (the random manoeuvre first, the impulse next)
     ml._remove()
     assert [m["type"] for m in tab.sc["objects"][0]["manoeuvres"]] == ["burn", "singer", "pn"]
     tab.tree.setCurrentItem(tab.n_ship)
@@ -657,7 +657,7 @@ def test_manoeuvre_node():
     a handle held pulled changes the delta-v along its axis, the box shows it; a time typed in the box moves the node;
     the node dragged along the path changes the time; the body's planned trajectory follows at once."""
     app = _qt()
-    from gui.scenario_tab import ManoeuvreList, ScenarioTab
+    from gui.scenario_tab import ActionList, ScenarioTab
     from gui import maneuver_node as mn
     tab = ScenarioTab()
     k = {"id": "K", "class": "KKV", "manoeuvres": [{"type": "impulse", "t_s": 20.0, "dv_mps": [0.0, 0.0, 0.0],
@@ -669,8 +669,8 @@ def test_manoeuvre_node():
     v.plotter.ren_win.SetSize(900, 700)
     v.show_run(sc, prop.propagate(sc), geo.geometry(sc, prop.propagate(sc)), "test")
     tab.tree.setCurrentItem(tab.n_obj.child(0))
-    ml = tab.form_holder.findChild(ManoeuvreList)
-    ml.list.setCurrentRow(0)
+    ml = tab.form_holder.findChild(ActionList)
+    ml.select(0)
     node, m = v.node, tab.sc["objects"][0]["manoeuvres"][0]
     assert node.target["m"] is m and v.truth.ids[node.row()] == "K" and node._screen is not None
     path0 = v._dyn[mn.NAME + "path"][1].points.copy()
@@ -704,10 +704,10 @@ def test_manoeuvre_node():
         def GetRepeatCount(self):
             return 0
     v._on_click(_Click(), None)
-    assert node.target is None and ml.list.currentRow() == -1 and ml.form is None
+    assert node.target is None and ml.table.currentRow() == -1 and ml.form is None
     v.plotter.camera.Azimuth(10.0)                      # a camera change after: no former node drawn (no error)
     v._on_camera()
-    ml.list.setCurrentRow(0)                            # chosen again, then another element of the tree
+    ml.select(0)                                        # chosen again, then another element of the tree
     assert node.target is not None
     tab.tree.setCurrentItem(tab.n_ship)
     assert node.target is None
@@ -844,17 +844,28 @@ def test_event_marks_follow_the_classification():
     app.processEvents()
 
 
-def test_waypoint_editor():
-    """W1-W3: the ship's waypoints are a list kept sorted by time (the first without a slew rate); an object of class
-    KKV flies waypoints on demand (toward the ship by default) and goes back to its class attitude without them."""
+def test_equatorial_orbit():
+    """A new central body puts the ship on a circular orbit in its equatorial plane, at 1.5 equatorial radii."""
+    for name, b in scn.bodies().items():
+        o = scn.equatorial_orbit(name)
+        r, v = prop.elements_to_state(o, b["mu_km3_s2"])
+        ra, dec = np.radians(b["pole_ra_deg"]), np.radians(b["pole_dec_deg"])
+        pole = np.array([np.cos(dec) * np.cos(ra), np.cos(dec) * np.sin(ra), np.sin(dec)])
+        assert np.linalg.norm(r) == pytest.approx(1.5 * b["r_eq_km"])
+        assert np.cross(r, v) / np.linalg.norm(np.cross(r, v)) == pytest.approx(pole, abs=1e-9)
+
+
+def test_action_list():
+    """W1-W3: the attitude waypoints and the manoeuvres read as one chronological list (time, type, parameters), the
+    waypoints sorted by time in the scenario (the first without a slew rate); an object of class KKV flies waypoints
+    on demand (toward the ship by default) and goes back to its class attitude without them."""
     app = _qt()
-    from PyQt5.QtWidgets import QCheckBox
-    from gui.scenario_tab import FormWidget, ScenarioTab, WaypointList
+    from gui.scenario_tab import ActionList, FormWidget, ScenarioTab
     tab = ScenarioTab(view=False)
     tab.tree.setCurrentItem(tab.n_ship)
-    wl = tab.form_holder.findChild(WaypointList)
-    wl._add()
-    wl._add()
+    wl = tab.form_holder.findChild(ActionList)
+    wl._add_attitude()
+    wl._add_attitude()
     assert [w["t_s"] for w in tab.sc["ship"]["attitude"]] == [0.0, 10.0, 20.0]
     form = wl.form_area.itemAt(0).widget()
     assert isinstance(form, FormWidget)
@@ -863,15 +874,31 @@ def test_waypoint_editor():
     assert ts == [0.0, 5.0, 10.0] and "rate_dps" not in tab.sc["ship"]["attitude"][0]
     assert all("rate_dps" in w for w in tab.sc["ship"]["attitude"][1:])
     assert scn.validate(tab.sc) == []
+    wl._add_manoeuvre("impulse")                         # at the playback time, 0 here
+    wl.form.widgets["t_s"][1].setValue(7.0)              # placed between the waypoints, still selected
+    wl._add_manoeuvre("singer")
+    wl._add_manoeuvre("pn")
+    cell = lambda r, c: wl.table.item(r, c).text()       # noqa: E731
+    assert [cell(r, 0) for r in range(wl.table.rowCount())] == ["-", "0", "5", "7", "10", "-"]
+    assert [cell(r, 1) for r in range(wl.table.rowCount())] == ["Random (Singer)", "Attitude", "Attitude", "Impulse",
+                                                                "Attitude", "Guidance (PN)"]
+    assert cell(2, 2) == "prograde, 5 deg/s" and cell(5, 2) == "below 100 km, toward ship"
+    wl.select(3)
+    wl.form.widgets["t_s"][1].setValue(20.0)             # the line follows its time, the form stays
+    assert wl.table.currentRow() == 4 and wl.current["type"] == "impulse" and wl.form is not None
+    for r in (5, 4, 3, 2, 1, 0, 0):                      # all removed but the ship's initial attitude
+        wl.select(r)
+        wl._remove()
+    assert [w["t_s"] for w in tab.sc["ship"]["attitude"]] == [0.0] and tab.sc["ship"]["manoeuvres"] == []
     tab.add_object()                                    # KKV-1
     tab.tree.setCurrentItem(tab.n_obj.child(0))
-    cb = [c for c in tab.form_holder.findChildren(QCheckBox) if "waypoints" in c.accessibleName()][0]
-    cb.setChecked(True)
+    wl = tab.form_holder.findChild(ActionList)
     o = tab.sc["objects"][0]
-    assert o["attitude"][0]["attitude"] == {"type": "target", "id": "ship", "roll_deg": 0.0}
+    wl._add_attitude()
+    assert o["attitude"][0] == {"t_s": 0.0, "attitude": {"type": "target", "id": "ship", "roll_deg": 0.0}}
     assert scn.validate(tab.sc) == []
-    cb.setChecked(False)
-    assert "attitude" not in o
+    wl._remove()
+    assert "attitude" not in o and scn.validate(tab.sc) == []
     app.processEvents()
 
 

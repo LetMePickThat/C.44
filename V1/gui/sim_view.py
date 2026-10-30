@@ -196,6 +196,11 @@ BODY_PARENT.update({p: ("sun", SIDEREAL_YEAR_S * eph.PLANET_ELEMENTS[p][0][0] **
 BODY_PARENT.update({m: (el["planet"], float(el["period_d"]) * 86400.0) for m, el in eph._MOONS.items()})
 NEAR_FRAC = 0.01                                  # near clipping plane at least this x the camera distance
 NEAR_TOL = 1e-15                                  # near / far clipping ratio: Pluto's orbit drawn, the ship at 50 m
+# logarithmic depth (user, 30 October 2026): no near plane serves both the ship at 50 m and Saturn at 60 000 km (a linear
+# depth buffer told neither its rings from the planet nor a path from a body); bounds in km, 1 mm to beyond Pluto
+LOG_DEPTH_NEAR_KM, LOG_DEPTH_FAR_KM = 1e-6, 1e11
+LOG_DEPTH_GLSL = (f"gl_FragDepth = clamp(log(1.0 / (gl_FragCoord.w * {LOG_DEPTH_NEAR_KM:e})) / "
+                  f"{math.log(LOG_DEPTH_FAR_KM / LOG_DEPTH_NEAR_KM):f}, 0.0, 1.0);\n")
                                                   # (bodies drawn front faces only: no self-occlusion far away)
 # the major moons (user, 29 October 2026): positions sim/ephemeris.py ([sim.moons], JPL mean elements), spheres of
 # their mean radius in a colour of their own (Phobos: its shape model, assets/models/Phobos.obj, and its map); a
@@ -1295,6 +1300,7 @@ class SimView(QWidget):
     def show_run(self, sc: dict, truth, g: sgeo.Geometry, label: str = "") -> None:
         """Display a propagated run (from the worker or a journal)."""
         self.sc, self.truth, self.g = sc, truth, g
+        self._mt_input = None                          # (rows of the former run: fewer objects now, until the next frame)
         self._cpa_cache = {}                          # the closest approaches of the run shown
         # global view: the paths through every n-th truth record, n fixed for the run (no shimmer while playing)
         self._path_stride = max(1, math.ceil(len(truth.t_s) / PATH_MAX_PTS))
@@ -1848,6 +1854,7 @@ class SimView(QWidget):
         all precision: the rings and lines showed through the hull (user, 29 October 2026)."""
         ren = self.plotter.renderer
         cam = ren.GetActiveCamera()
+        self._log_depth()
         self._in_camera = True                        # a clipping change only: no zoom bound, no ring update
         try:
             ren.ResetCameraClippingRange()
@@ -1856,6 +1863,21 @@ class SimView(QWidget):
             cam.SetClippingRange(near, max(far, 1.01 * near))
         finally:
             self._in_camera = False
+
+    def _log_depth(self) -> None:
+        """Every actor of the scene writes a logarithmic depth (LOG_DEPTH_*): a relative precision of 3e-6 at any
+        distance. All of them or none: two depth laws do not compare. Only the actors new since the last render."""
+        ren = self.plotter.renderer
+        stamp = ren.GetViewProps().GetMTime()
+        if stamp == getattr(self, "_depth_stamp", None):
+            return
+        self._depth_stamp = stamp
+        actors = ren.GetActors()
+        actors.InitTraversal()
+        for _ in range(actors.GetNumberOfItems()):
+            sp = actors.GetNextActor().GetShaderProperty()
+            if sp.GetNumberOfShaderReplacements() == 0:
+                sp.AddFragmentShaderReplacement("//VTK::Depth::Impl", True, LOG_DEPTH_GLSL, False)
 
     def _add_fps(self) -> None:
         """The frame-rate counter: a text at the view's top right corner."""

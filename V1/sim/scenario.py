@@ -105,6 +105,16 @@ def bodies() -> Dict[str, dict]:
     return out
 
 
+def equatorial_orbit(body: str) -> dict:
+    """The circular prograde orbit in a body's equatorial plane, at sim.new_body_orbit_radii equatorial radii: the
+    ship's orbit when the central body changes (user, 30 October 2026). The ascending node on the ICRF equator lies at
+    90 deg east of the pole's right ascension, the inclination is the pole's angle from the ICRF Z axis."""
+    b = bodies()[body]
+    return {"type": "elements", "a_km": float(P.get("sim.new_body_orbit_radii")) * b["r_eq_km"], "e": 0.0,
+            "i_deg": 90.0 - b["pole_dec_deg"], "raan_deg": (b["pole_ra_deg"] + 90.0) % 360.0, "argp_deg": 0.0,
+            "nu_deg": 0.0}
+
+
 def sky_types(body: str) -> List[str]:
     """Body types of [sky.tb_k] for a body ("sun" -> sun, sun_quiet, sun_active)."""
     return [p.path.split(".")[2] for p in P if p.path.startswith("sky.tb_k.")

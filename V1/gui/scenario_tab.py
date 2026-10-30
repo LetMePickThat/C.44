@@ -4,7 +4,7 @@
 SCENARIO_TAB -- the scenario editor of the global simulator (roadmap phase 6, pass S5; block F validated by the user on
 28 October 2026): a tree of the scenario (time and body, ship, objects, groups), a form per element generated from a
 field description, validation at every change (sim.scenario.validate, one line in the window's status bar), JSON load
-and save (the window's menu), attitude waypoints edited by a list (W1-W3). On the right the 3D views and the
+and save (the window's menu), attitude waypoints and manoeuvres in one chronological list. On the right the 3D views and the
 playback (gui/sim_view.py, passes S6 and S7).
 """
 from __future__ import annotations
@@ -16,9 +16,9 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from PyQt5.QtCore import QEvent, QSize, QTimer, Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QKeySequence
-from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QInputDialog, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
+from PyQt5.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QInputDialog, QFileDialog, QGridLayout, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget,
                              QListWidgetItem, QMenu, QMessageBox, QDialog, QDialogButtonBox, QPushButton, QShortcut, QScrollArea, QSizePolicy, QSpinBox, QSplitter,
-                             QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
+                             QTableWidget, QTableWidgetItem, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from core import radar_model as rm
 from core.params import P
@@ -55,7 +55,7 @@ ORBIT_FIELDS: Dict[str, List[Field]] = {
                  _f("v_close_mps", "closing speed (m/s)", min=-_BIG),
                  _f("v_transverse_mps", "transverse velocity (m/s)", "vec2")],
 }
-# attitude by waypoints (pass S3a, sim/attitude.py), edited by WaypointList (W1-W3)
+# attitude by waypoints (pass S3a, sim/attitude.py), edited in ActionList
 _ROLL = _f("roll_deg", "roll (deg)", min=-360.0, max=360.0)
 ATT_DIRECTIONS = ("prograde", "retrograde", "normal+", "normal-", "radial_out", "radial_in")
 ATT_DEFAULTS = {"fixed": {"type": "fixed", "frame": "orbital", "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
@@ -78,6 +78,8 @@ MANOEUVRE_DEFAULTS = {"impulse": {"type": "impulse", "t_s": 0.0, "dv_mps": [0.0,
                                "frame": "pnr"},
                       "singer": {"type": "singer"},
                       "pn": {"type": "pn", "start_range_km": 100.0}}
+ACTION_NAMES = {"attitude": "Attitude", "impulse": "Impulse", "burn": "Burn", "singer": "Random (Singer)",
+                "pn": "Guidance (PN)"}
 # a new relative object 1000 km ahead along the nose (+Z; the default attitude is prograde: along the track); at
 # phi = eps = 0 (+X = toward the central body in the orbital reference) it started below the surface (user, 29 Oct 2026)
 ORBIT_DEFAULTS = {"elements": {"type": "elements", "a_km": 7000.0, "e": 0.0, "i_deg": 51.6, "raan_deg": 0.0,
@@ -326,186 +328,220 @@ def _typed_form(title: str, types: Sequence[str], fields: Dict[str, List[Field]]
     return box
 
 
-class ManoeuvreList(QWidget):
-    """The manoeuvres of an object or a group: a list, add buttons per type, the form of the one selected."""
+def _num(x) -> Optional[float]:
+    return float(x) if isinstance(x, (int, float)) and not isinstance(x, bool) else None
 
-    def __init__(self, items: list, on_change: Callable[[], None], parent=None,
-                 on_select: Optional[Callable[[Optional[dict]], None]] = None,
-                 on_values: Optional[Callable[[], None]] = None, default_t: Optional[Callable[[], float]] = None):
-        # on_select(m): the manoeuvre shown (None: none), its node in the 3D views; on_values(): its values changed
-        # in the box; default_t(): the time of a new impulse or burn (the playback time) (user, 29 October 2026)
+
+def _action_time(item: dict) -> Optional[float]:
+    """The time of an action, None when it has none: a random manoeuvre, a guidance started by a range."""
+    if item.get("type") == "singer" or _num(item.get("start_range_km")) is not None:
+        return None
+    return _num(item.get("t_s"))
+
+
+def _action_key(row: Tuple[str, dict]) -> Tuple[int, float]:
+    """Chronological order: the random manoeuvre (the whole run) first, the guidance started by a range (no time known
+    beforehand) last."""
+    t = _action_time(row[1])
+    if t is not None:
+        return 1, t
+    return (0, 0.0) if row[1].get("type") == "singer" else (2, _num(row[1].get("start_range_km")) or 0.0)
+
+
+def _vec(v) -> str:
+    return ", ".join(f"{x:g}" for x in v) if isinstance(v, (list, tuple)) else str(v)
+
+
+def _action_cells(kind: str, item: dict) -> Tuple[str, str, str]:
+    """The three columns of an action's line: time, type, parameters."""
+    t = _action_time(item)
+    time = "-" if t is None else f"{t:.3f}".rstrip("0").rstrip(".")
+    if kind == "attitude":
+        a = item.get("attitude", {})
+        what = a.get("type", "?")
+        if what == "fixed":
+            what = (f"fixed {a.get('frame', 'orbital')}, yaw {a.get('yaw_deg', 0):g}, pitch {a.get('pitch_deg', 0):g}, "
+                    f"roll {a.get('roll_deg', 0):g} deg")
+        else:
+            what = f"toward {a.get('id')}" if what == "target" else what
+            what += f", roll {a['roll_deg']:g} deg" if a.get("roll_deg") else ""
+        return time, ACTION_NAMES[kind], what + (f", {item['rate_dps']:g} deg/s" if "rate_dps" in item else "")
+    m = item.get("type")
+    if m == "impulse":
+        what = f"dv ({_vec(item.get('dv_mps'))}) m/s, {item.get('frame', 'rtn')}"
+    elif m == "burn":
+        what = (f"{item.get('duration_s', 0):g} s at ({_vec(item.get('accel_mps2'))}) m/s2, "
+                f"{item.get('frame', 'rtn')}")
+    elif m == "pn":
+        r = _num(item.get("start_range_km"))
+        what = ("" if r is None else f"below {r:g} km, ") + f"toward {item.get('target', 'ship')}"
+    else:
+        what = "whole run, the class's bounds"
+    return time, ACTION_NAMES[m], what
+
+
+class ActionList(QWidget):
+    """What a ship, an object or a group does, as one chronological list (user, 30 October 2026): the attitude
+    waypoints and the manoeuvres, one line each (time, type, parameters), the add buttons below, then the form of the
+    line selected. The two stay in their own lists of the scenario; a waypoint list stays sorted by time, its first
+    point without a slew rate. A body with optional waypoints goes back to its class's attitude without any."""
+
+    def __init__(self, owner: dict, on_change: Callable[[], None], targets: Callable[[], List[str]] = list,
+                 duration: Callable[[], float] = float, parent=None, flies: bool = False,
+                 optional_attitude: bool = True, default_t: Optional[Callable[[], float]] = None):
+        # flies: attitude actions offered; on_select(m): the manoeuvre shown (None: none), its node in the 3D views;
+        # on_values(): its values changed in the box; default_t(): the time of a new impulse or burn (the playback time)
         super().__init__(parent)
-        self.items, self.on_change = items, on_change
-        self.on_select, self.on_values, self.default_t = on_select, on_values, default_t
+        self.owner, self.on_change, self.targets, self.duration = owner, on_change, targets, duration
+        self.optional_attitude, self.default_t = optional_attitude, default_t
+        self.manoeuvres = owner.setdefault("manoeuvres", [])
+        self.on_select: Optional[Callable[[Optional[dict]], None]] = None
+        self.on_values: Optional[Callable[[], None]] = None
         self.form: Optional[FormWidget] = None
+        self.current: Optional[dict] = None
+        self.rows: List[Tuple[str, dict]] = []
+        self._filling = False
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
-        self.list = QListWidget()
-        lay.addWidget(self.list)
+        self.table = QTableWidget(0, 3)
+        self.table.setHorizontalHeaderLabels(("Time (s)", "Action", "Parameters"))
+        self.table.verticalHeader().hide()
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        head = self.table.horizontalHeader()
+        head.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        head.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        head.setSectionResizeMode(2, QHeaderView.Stretch)
+        head.setHighlightSections(False)
+        head.sectionResized.connect(lambda *_a: self.table.resizeRowsToContents())   # the parameters wrap
+        lay.addWidget(self.table)
         buttons = []
+        if flies:
+            b = QPushButton("+ attitude")
+            b.clicked.connect(self._add_attitude)
+            buttons.append(b)
         for t in MANOEUVRE_FIELDS:
             b = QPushButton(f"+ {t}")
-            b.clicked.connect(lambda _c, tt=t: self._add(tt))
+            b.clicked.connect(lambda _c, tt=t: self._add_manoeuvre(tt))
             buttons.append(b)
         rm_b = QPushButton("Remove")
         rm_b.clicked.connect(self._remove)
         lay.addLayout(_button_row(buttons + [rm_b]))
         self.form_area = QVBoxLayout()
         lay.addLayout(self.form_area)
-        self.list.currentRowChanged.connect(self._show)
+        self.table.selectionModel().currentRowChanged.connect(lambda cur, _prev: self._on_row(cur.row()))
         self._refresh()
 
-    @staticmethod
-    def _label(m: dict) -> str:
-        t = m.get("type")
-        if t == "impulse":
-            return f"impulse at {m.get('t_s', 0):g} s, dv {m.get('dv_mps')} m/s ({m.get('frame', 'rtn')})"
-        if t == "burn":
-            return f"burn at {m.get('t_s', 0):g} s for {m.get('duration_s', 0):g} s, {m.get('accel_mps2')} m/s2"
-        if t == "pn":
-            start = (f"below {m['start_range_km']:g} km" if "start_range_km" in m else f"at {m.get('t_s', 0):g} s")
-            return f"terminal guidance (PN) {start} toward {m.get('target', 'ship')}"
-        return "random manoeuvre (Singer, class)"
+    def _on_row(self, i: int) -> None:
+        if not self._filling:
+            self._show(i)
 
-    def _refresh(self, select: Optional[int] = None) -> None:
-        self.list.blockSignals(True)
-        self.list.clear()
-        for m in self.items:
-            self.list.addItem(self._label(m))
-        self.list.blockSignals(False)
-        if self.items:
-            self.list.setCurrentRow(len(self.items) - 1 if select is None else select)
-        else:
+    def _set_row(self, r: int) -> None:
+        for c, text in enumerate(_action_cells(*self.rows[r])):
+            cell = QTableWidgetItem(text)
+            cell.setToolTip(text)
+            self.table.setItem(r, c, cell)
+        self.table.resizeRowToContents(r)
+
+    def _fill(self, keep: Optional[dict] = None) -> None:
+        """Write the lines in chronological order, the line of keep selected, no form rebuilt."""
+        self._filling = True
+        self.table.setCurrentItem(None)
+        self.rows = sorted([("attitude", w) for w in self.owner.get("attitude", [])]
+                           + [("manoeuvre", m) for m in self.manoeuvres], key=_action_key)
+        self.table.setRowCount(len(self.rows))
+        for r in range(len(self.rows)):
+            self._set_row(r)
+        if keep is not None:
+            self.select(self._row_of(keep))
+        self._filling = False
+
+    def _row_of(self, item: dict) -> int:
+        return next(r for r, (_k, x) in enumerate(self.rows) if x is item)
+
+    def select(self, r: int) -> None:
+        self.table.setCurrentCell(r, 0)
+
+    def _refresh(self, item: Optional[dict] = None) -> None:
+        """Write the lines and show item (none: the last line)."""
+        self._fill()
+        if not self.rows:
             self._show(-1)
+        else:
+            self.select(len(self.rows) - 1 if item is None else self._row_of(item))
 
-    def _add(self, t: str) -> None:
+    def _add_attitude(self) -> None:
+        wps = self.owner.get("attitude")
+        if wps:
+            w = {"t_s": min(float(wps[-1].get("t_s", 0.0)) + 10.0, self.duration()),
+                 "attitude": copy.deepcopy(ATT_DEFAULTS["prograde"]), "rate_dps": min(5.0, att.RATE_MAX_DPS)}
+            wps.append(w)
+        else:                                        # the first one is the initial attitude
+            w = {"t_s": 0.0, "attitude": copy.deepcopy(ATT_DEFAULTS["target"])}
+            self.owner["attitude"] = [w]
+        self._refresh(w)
+        self.on_change()
+
+    def _add_manoeuvre(self, t: str) -> None:
         m = copy.deepcopy(MANOEUVRE_DEFAULTS[t])
         if self.default_t is not None and "t_s" in m:
             m["t_s"] = round(float(self.default_t()), 3)
-        self.items.append(m)
-        self._refresh()
+        self.manoeuvres.append(m)
+        self._refresh(m)
         self.on_change()
 
     def _remove(self) -> None:
-        i = self.list.currentRow()
-        if 0 <= i < len(self.items):
-            del self.items[i]
-            self._refresh()
-            self.on_change()
+        x = self.current
+        if x is None:
+            return
+        wps = self.owner.get("attitude", [])
+        if not any(w is x for w in wps):
+            self.manoeuvres[:] = [m for m in self.manoeuvres if m is not x]
+        elif len(wps) > 1:
+            wps[:] = [w for w in wps if w is not x]
+            wps[0].pop("rate_dps", None)
+            wps[0]["t_s"] = 0.0
+        elif self.optional_attitude:
+            del self.owner["attitude"]
+        else:
+            return                                   # the ship keeps its initial attitude
+        self._refresh()
+        self.on_change()
 
     def _show(self, i: int) -> None:
         _clear(self.form_area)
-        self.form = None
-        if not (0 <= i < len(self.items)):
-            if self.on_select is not None:
-                self.on_select(None)
-            return
-        m = self.items[i]
+        self.form, self.current = None, None
+        m = None
+        if 0 <= i < len(self.rows):
+            kind, self.current = self.rows[i]
+            if kind == "attitude":
+                self._waypoint_form(self.current)
+            else:
+                m = self.current
+                self._manoeuvre_form(m)
+        if self.on_select is not None:
+            self.on_select(m)
+
+    def _manoeuvre_form(self, m: dict) -> None:
         form = FormWidget(MANOEUVRE_FIELDS[m["type"]], m)
         self.form = form
 
         def changed():
-            self.list.item(i).setText(self._label(m))
+            self._fill(keep=m)
             self.on_change()
             if self.on_values is not None:
                 self.on_values()
         form.changed.connect(changed)
         self.form_area.addWidget(form)
-        if self.on_select is not None:
-            self.on_select(m)
 
-    def refresh(self) -> None:
-        """The manoeuvre shown changed from outside (its node): the box and its line in the list follow."""
-        i = self.list.currentRow()
-        if self.form is not None and 0 <= i < len(self.items):
-            self.form.reload()
-            self.list.item(i).setText(self._label(self.items[i]))
-
-
-class WaypointList(QWidget):
-    """Attitude waypoints of the ship or of a SHIP / KKV object (W1): a list kept sorted by time, add / remove, the
-    form of the point selected (time, slew rate except on the first point, attitude by type)."""
-
-    def __init__(self, items: list, on_change: Callable[[], None], targets: Callable[[], List[str]],
-                 duration: Callable[[], float], parent=None):
-        super().__init__(parent)
-        self.items, self.on_change, self.targets, self.duration = items, on_change, targets, duration
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(0, 0, 0, 0)
-        self.list = QListWidget()
-        self.list.setMaximumHeight(120)
-        lay.addWidget(self.list)
-        buttons = []
-        for text, slot in (("+ point", self._add), ("Remove", self._remove)):
-            b = QPushButton(text)
-            b.clicked.connect(slot)
-            buttons.append(b)
-        lay.addLayout(_button_row(buttons))
-        self.form_area = QVBoxLayout()
-        lay.addLayout(self.form_area)
-        self.list.currentRowChanged.connect(self._show)
-        self._refresh()
-
-    @staticmethod
-    def label(w: dict, first: bool) -> str:
-        a = w.get("attitude", {})
-        t = a.get("type", "?")
-        what = (f"fixed {a.get('frame', 'orbital')} ({a.get('yaw_deg', 0):g}, {a.get('pitch_deg', 0):g}, "
-                f"{a.get('roll_deg', 0):g})" if t == "fixed" else
-                f"toward {a.get('id')}" if t == "target" else t)
-        rate = "" if first else f", {w.get('rate_dps', 0):g} deg/s"
-        return f"t {w.get('t_s', 0):g} s: {what}{rate}"
-
-    def _refresh(self, select: Optional[int] = None) -> None:
-        self.list.blockSignals(True)
-        self.list.clear()
-        for i, w in enumerate(self.items):
-            self.list.addItem(self.label(w, i == 0))
-        self.list.blockSignals(False)
-        if self.items:
-            self.list.setCurrentRow(len(self.items) - 1 if select is None else select)
-        else:
-            self._show(-1)
-
-    def _add(self) -> None:
-        t = min(float(self.items[-1].get("t_s", 0.0)) + 10.0, self.duration()) if self.items else 0.0
-        w = {"t_s": t, "attitude": copy.deepcopy(ATT_DEFAULTS["prograde"])}
-        if self.items:
-            w["rate_dps"] = min(5.0, att.RATE_MAX_DPS)
-        self.items.append(w)
-        self._refresh()
-        self.on_change()
-
-    def _remove(self) -> None:
-        i = self.list.currentRow()
-        if 0 <= i < len(self.items):
-            del self.items[i]
-            if self.items:
-                self.items[0].pop("rate_dps", None)
-                self.items[0]["t_s"] = 0.0
-            self._refresh()
-            self.on_change()
-
-    def _sort(self, w: dict) -> None:
-        """Keep the points sorted by time; the first carries no slew rate, the others need one."""
-        order = sorted(self.items, key=lambda x: float(x.get("t_s", 0.0)))
-        if any(a is not b for a, b in zip(order, self.items)):
-            self.items[:] = order
-            for i, x in enumerate(self.items):
-                if i == 0:
-                    x.pop("rate_dps", None)
-                else:
-                    x.setdefault("rate_dps", min(5.0, att.RATE_MAX_DPS))
-            self._refresh(select=next(i for i, x in enumerate(self.items) if x is w))
-
-    def _show(self, i: int) -> None:
-        _clear(self.form_area)
-        if not (0 <= i < len(self.items)):
-            return
-        w = self.items[i]
+    def _waypoint_form(self, w: dict) -> None:
+        wps = self.owner["attitude"]
         before = copy.deepcopy(w)
         fields = [_f("t_s", "time (s, start of the slew)", min=0.0)]
-        if i > 0:
+        if w is not wps[0]:
             fields.append(_f("rate_dps", "slew rate (deg/s)", min=0.001, max=att.RATE_MAX_DPS))
         form = FormWidget(fields, w)
         att_fields: Dict[str, List[Field]] = {
@@ -516,18 +552,39 @@ class WaypointList(QWidget):
         att_fields.update({t: [_ROLL] for t in ATT_DIRECTIONS})
 
         def changed():
-            k = next(j for j, x in enumerate(self.items) if x is w)
-            item = self.list.item(k)
-            if item is not None:
-                item.setText(self.label(w, k == 0))
+            first = wps[0]
+            wps.sort(key=lambda x: float(x.get("t_s", 0.0)))
+            for i, x in enumerate(wps):
+                if i == 0:
+                    x.pop("rate_dps", None)
+                else:
+                    x.setdefault("rate_dps", min(5.0, att.RATE_MAX_DPS))
+            if wps[0] is first:
+                self._fill(keep=w)
+            else:                                    # the first point has no slew rate field
+                self._refresh(w)
             self.on_change()
-            self._sort(w)
         form.changed.connect(changed)
         self.form_area.addWidget(form)
         self.form_area.addWidget(_typed_form("attitude", att.TYPES, att_fields, ATT_DEFAULTS, w, "attitude", "type",
                                              changed))
         if w != before:                              # the form settled a value not offered (a target): validated
-            changed()
+            self._set_row(self._row_of(w))
+            self.on_change()
+
+    def refresh(self) -> None:
+        """The manoeuvre shown changed from outside (its node): the box and the lines follow."""
+        if self.form is not None:
+            self.form.reload()
+            self._fill(keep=self.current)
+
+    def release(self) -> None:
+        """No line selected any more (a click in the view let the manoeuvre go)."""
+        self._filling = True
+        self.table.setCurrentItem(None)
+        self.table.clearSelection()
+        self._filling = False
+        self._show(-1)
 
 
 # ----------------------------------------------------------------------------- the tab
@@ -968,6 +1025,7 @@ class ScenarioTab(QWidget):
         buttons.accepted.connect(dlg.accept)
         buttons.rejected.connect(dlg.reject)
         lay.addWidget(buttons)
+        body0 = target.get("central_body", "earth")
         if dlg.exec_() != QDialog.Accepted:
             return False
         target["meta"] = work["meta"]
@@ -976,6 +1034,9 @@ class ScenarioTab(QWidget):
                 target[key] = work[key]
             else:
                 target.pop(key, None)
+        body = target.get("central_body", "earth")
+        if body != body0 and body in scn.bodies():      # OWNSHIP placed around its new body (user, 30 October 2026)
+            target.setdefault("ship", {})["orbit"] = scn.equatorial_orbit(body)
         if sc is None:
             self._changed()
             self._show(self.tree.currentItem())         # a form showing the duration (waypoints) follows it
@@ -1014,18 +1075,19 @@ class ScenarioTab(QWidget):
         lay.addWidget(name)
         lay.addWidget(_typed_form("orbit", ("elements", "state"), ORBIT_FIELDS, ORBIT_DEFAULTS, ship, "orbit", "type",
                                   self._changed))
-        lay.addWidget(QLabel("Attitude (waypoints)"))
-        lay.addWidget(WaypointList(ship.setdefault("attitude", copy.deepcopy(att.DEFAULT_SHIP)), self._changed,
-                                   lambda: list(scn.object_ids(self.sc)), self._duration))
-        lay.addWidget(QLabel("Manoeuvres"))                    # as any object's (user, 29 October 2026)
-        lay.addWidget(self._manoeuvre_list("ship", ship))
+        ship.setdefault("attitude", copy.deepcopy(att.DEFAULT_SHIP))
+        lay.addWidget(QLabel("Actions"))                       # manoeuvres as any object's (user, 29 October 2026)
+        lay.addWidget(self._action_list("ship", ship, lambda: list(scn.object_ids(self.sc)), optional_attitude=False))
         return box
 
-    def _manoeuvre_list(self, row_id: str, owner: dict) -> "ManoeuvreList":
-        """The manoeuvres of the ship, an object or a group (its first member), linked to the manoeuvre node of the
-        3D views (user, 29 October 2026): the manoeuvre chosen shows its node; the node's edits show in the box."""
-        ml = ManoeuvreList(owner.setdefault("manoeuvres", []), self._changed,
-                           default_t=lambda: float(getattr(self.preview, "t", 0.0)))
+    def _action_list(self, row_id: str, owner: dict, targets: Optional[Callable[[], List[str]]] = None,
+                     optional_attitude: bool = True) -> "ActionList":
+        """The actions of the ship, an object or a group (its first member), linked to the manoeuvre node of the 3D
+        views (user, 29 October 2026): the manoeuvre chosen shows its node; the node's edits show in the box. targets:
+        what the body can aim at when it flies waypoints (None: it does not)."""
+        ml = ActionList(owner, self._changed, targets or list, self._duration, flies=targets is not None,
+                        optional_attitude=optional_attitude,
+                        default_t=lambda: float(getattr(self.preview, "t", 0.0)))
 
         def on_edit(final: bool) -> None:
             ml.refresh()
@@ -1035,63 +1097,20 @@ class ScenarioTab(QWidget):
                 self.modified = True
                 self._update_title()
 
-        def on_release() -> None:                              # a click in the view let the manoeuvre go
-            ml.list.blockSignals(True)
-            ml.list.setCurrentRow(-1)
-            ml.list.clearSelection()
-            ml.list.blockSignals(False)
-            ml._show(-1)
-
         def on_select(m: Optional[dict]) -> None:
             if hasattr(self.preview, "edit_manoeuvre"):
-                self.preview.edit_manoeuvre(row_id if m is not None else None, owner, m, on_edit, on_release)
+                self.preview.edit_manoeuvre(row_id if m is not None else None, owner, m, on_edit, ml.release)
 
         ml.on_select = on_select
         ml.on_values = lambda: self.preview.manoeuvre_values_changed() if hasattr(
             self.preview, "manoeuvre_values_changed") else None
-        if ml.list.currentRow() >= 0:                          # (the list chose its last manoeuvre already)
-            on_select(ml.items[ml.list.currentRow()])
+        if ml.current in ml.manoeuvres:                        # (the list chose its last line already)
+            on_select(ml.current)
         return ml
 
     def _duration(self) -> float:
         d = self.sc.get("meta", {}).get("duration_s")
         return float(d) if isinstance(d, (int, float)) and d > 0 else 1e9
-
-    def _waypoints_box(self, o: dict) -> QWidget:
-        """The waypoints of a SHIP / KKV object: none = the class's default attitude (sim/geometry.py G5)."""
-        box = QWidget()
-        lay = QVBoxLayout(box)
-        lay.setContentsMargins(0, 0, 0, 0)
-        text = "flies attitude waypoints (else the class's default attitude)"
-        cb = QCheckBox()                             # the text in a label beside it, that wraps (and toggles it)
-        cb.setAccessibleName(text)
-        cb.setChecked("attitude" in o)
-        lab = _WrapLabel(text)
-        lab.mousePressEvent = lambda _ev: cb.toggle()
-        row = QHBoxLayout()
-        row.addWidget(cb, 0, Qt.AlignTop)
-        row.addWidget(lab, 1)
-        lay.addLayout(row)
-        area = QVBoxLayout()
-        lay.addLayout(area)
-
-        def build():
-            _clear(area)
-            if "attitude" in o:
-                area.addWidget(WaypointList(o["attitude"], self._changed,
-                                            lambda: ["ship"] + [x for x in scn.object_ids(self.sc) if x != o.get("id")],
-                                            self._duration))
-
-        def toggle(on: bool):
-            if on and "attitude" not in o:
-                o["attitude"] = [{"t_s": 0.0, "attitude": copy.deepcopy(ATT_DEFAULTS["target"])}]
-            elif not on:
-                o.pop("attitude", None)
-            build()
-            self._changed()
-        cb.toggled.connect(toggle)
-        build()
-        return box
 
     def _object_form(self, kind: str, i: int) -> QWidget:
         o = self.sc[kind][i]
@@ -1118,16 +1137,17 @@ class ScenarioTab(QWidget):
                 o.pop("attitude", None)
             self._changed(relabel=(kind, i))
             if o.get("class") != cls0:
-                self._show(self.tree.currentItem())      # the waypoints box follows the class
+                self._show(self.tree.currentItem())      # the attitude actions follow the class
         form.changed.connect(changed)
         lay.addWidget(form)
-        if kind == "objects" and o.get("class") in att.FLYING_CLASSES:
-            lay.addWidget(self._waypoints_box(o))
         if kind == "objects":
             lay.addWidget(_typed_form("initial state", ("relative", "elements", "state"), ORBIT_FIELDS, ORBIT_DEFAULTS,
                                       o, "state", "type", self._changed))
-        lay.addWidget(QLabel("Manoeuvres"))
-        lay.addWidget(self._manoeuvre_list(o.get("id", "") if kind == "objects" else f"{o.get('id', '')}#0", o))
+        targets = None
+        if kind == "objects" and o.get("class") in att.FLYING_CLASSES:     # none: the class's default attitude (G5)
+            targets = lambda: ["ship"] + [x for x in scn.object_ids(self.sc) if x != o.get("id")]  # noqa: E731
+        lay.addWidget(QLabel("Actions"))
+        lay.addWidget(self._action_list(o.get("id", "") if kind == "objects" else f"{o.get('id', '')}#0", o, targets))
         return box
 
     # ------------------------------------------------------------------ changes and validation
