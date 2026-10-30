@@ -1,0 +1,2 @@
+[N3] [##############################] 100.0 % | item 14/14: - | elapsed 98.4 min, left ~0.0 min
+done: self-test 0.1 min, cost table 2.1 min, case model 0.2 min, case mission_example 1.6 min, case mission_example_csv 0.9 min, case mission_veille500 1.4 min, case mission_redundancy_demo 3.5 min, case mission_synthetic_mix 7.9 min, case mission_sky_demo 8.0 min, case mission_target_library 14.6 min, case mission_environment 13.8 min, case mission_frames 7.4 min, impact report 0.0 min, test suite 36.9 min

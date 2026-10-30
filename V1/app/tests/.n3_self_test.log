@@ -1,0 +1,58 @@
+[PASS] Albersheim steady N=1 = 13.11 dB (13.11)
+[PASS] Shnidman SW0 N=1 within 0.3 dB of Albersheim (13.12)
+[PASS] Shnidman SW1 N=1 within 0.5 dB of exact 21.14 dB (21.35 vs 21.14)
+[PASS] Shnidman steady N=8 within 0.5 dB of Albersheim (total energy) (15.08 vs 14.71)
+[PASS] Shnidman steady N=24 within 0.5 dB of Albersheim (total energy) (16.46 vs 16.25)
+[PASS] Shnidman steady N=128 within 0.5 dB of Albersheim (total energy) (19.11 vs 19.21)
+[PASS] Coherent SW1 requirement independent of N (regression of V5.4.0 double count) 
+[PASS] SW1 penalty about 8 dB over steady at N=1 (8.22)
+[PASS] S scan limit 75 deg at 2.8 GHz, 70 deg at 2.88 GHz 
+[PASS] S core band has no edge loss; edges 1 dB; a 10 MHz signal averages the law; nothing outside the band 
+[PASS] Search positions at 2.8 GHz in (u, v), spacing 1.4 HPBW_TX (real pattern), about 1664 (3016 at 1.04) (1664)
+[PASS] Exact detection laws: SW1 one sample = closed form at Pfa 1e-6 and 1e-12; SW1 = SW2 on one sample 
+[PASS] TX beam of the uniform octagon 1.035 lambda / D_env (rectangular 0.886 replaced, step 1.1) (1.0358)
+[PASS] RX weighting reaches each sidelobe option on the real octagon 
+[PASS] Active mismatch: 0 at the WAIM match angle, 0.13 dB per pass at broadside, grating-lobe term 0.76 dB at 2.9 GHz / 75 deg with 0.5 mm gaps (1.8 dB with the WAIM term) 
+[PASS] Angle CRLB x margin = 1.13 x 0.436 TX beamwidths / sqrt(SNR) (0.4954)
+[PASS] Chain efficiency 0.945 and 1.784 MW electrical for TX at 2 MW (always-on 106.9 kW, step 4.1) 
+[PASS] PAE: S 0.80 at d_ref, edges -1 % on 20 us, duty derating -2.75 % at d = 0.65; Ku 0.65 
+[PASS] tau_max from the buffer: S 2.0 ms, Ku 2.08 ms 
+[PASS] S 2.8 GHz: WF-LRS playable 
+[PASS] Ku 14.0 GHz: nothing playable (no Ku waveform in catalogue, no search in Ku) 
+[PASS] 5.0 GHz (out of band): nothing playable 
+[PASS] S 2.8 GHz at 80 deg scan: nothing playable 
+[PASS] Policy rejects SEARCH in Ku 
+[PASS] Policy rejects TRACK in S 
+[PASS] RCS scaling R ~ sigma^0.25 (same speed) 
+[PASS] Step 2.2 processing terms: CA-CFAR 0.04 dB (1024 cells), range straddle 0.05 dB (x4 grid, -25 dB), Doppler straddle 0.07 dB (x4 padding) (0.039, 0.054, 0.074)
+[PASS] ADC noise figure derived from the converter: 20.0 dB (13 ENOB, +10 dBm, 250 Msps) (19.98 dB)
+[PASS] S-band T_sys from the receive-chain cascade, hand calculation (0.1 %), cold sky 144.5 K (144.5 vs 144.5 K)
+[PASS] Range Taylor weighting nbar 5: -25 / -30 / -35 dB -> loss 0.41 / 0.68 / 0.93 dB, broadening 1.18 / 1.27 / 1.34 
+[PASS] Velocity-mismatch loss: 0 at n_c = 0, about 10 log(2 n_c) for large n_c; WF-LRS is NLFM 
+[PASS] Dual-pol GLRT loss 0.47 dB on one coherent sample (exact law, SW1, Pfa 1e-8), track looks 0.05 dB 
+[PASS] ADC noise at about -56.4 dBFS, clipping about 53.4 dB above the noise (S) (-56.4 dBFS, headroom 53.4 dB)
+[PASS] Radar equation matches an independent hand derivation (0.5 %) (8942.0 vs 8951.7 km)
+[PASS] Benchmark WF-LRS on ST at 2.8 GHz in [5000, 9000] km (8942 km)
+[PASS] Grid loss at spacing 0.92 reproduces the 1.41 dB of the notes (1.416 dB)
+[PASS] Closed-form grid loss matches Monte-Carlo over the hexagonal cell (0.1 dB) (3.26 vs 3.28 dB)
+[PASS] Positions x cell area = sector area (u, v) 
+[PASS] Sector uv area = 2.0006 (disc R=sin75 cut by the az=+/-45 planes, array tilt 25 deg) (2.0006)
+[PASS] Mission rear limit eps_min = -20 deg: ~1439 positions at 1.4 HPBW (2607 at 1.04) (1439)
+[PASS] Default eps window (-90, +90) leaves the sector unchanged 
+[PASS] uv count at small scan ~ angular count (cone 15 deg, 1 %) 
+[PASS] Single-pulse coherent span is tau, not PRI 
+[PASS] WF-LRS dwell = (N-1)*PRI + tau 
+[PASS] Partition sub-apertures: 2450 / 1225 S TRMs, lattice cell x1.85 (half) / x3.43 (quadrant) (1.852, 3.430)
+[PASS] The two halves are the same beam rotated by 90 deg (octagon x <-> y symmetric): one cut evaluated 
+[PASS] Time multiplex: one beam's range but for the buffer droop of 2 tau back to back, 2 positions per dwell 
+[PASS] Half aperture: P / 2 and G / 2 per beam (R^4 / 4 but for the grid loss of the widened beam) (range ratio 0.7115)
+[PASS] Ku waveform above 200 MHz instantaneous bandwidth is refused 
+[PASS] solve() rejects a pulse exceeding the TRM buffer 
+[PASS] solve() rejects scan above limit 
+[PASS] solve() rejects S waveform at a Ku frequency 
+[PASS] Synthetic Ku TRACK waveform playable at 14.0 GHz 
+[PASS] Synthetic Ku TRACK waveform not playable at 80 deg 
+[PASS] Synthetic Ku TRACK solve returns a finite positive range (5021 km)
+[PASS] Reallocation defaults: mode in NONE / PRIO_SEARCH / PRIO_TRACK, 0 < load ceiling <= 1, floors > 0 
+
+ALL TESTS PASSED

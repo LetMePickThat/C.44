@@ -1,0 +1,16 @@
+{
+ "self-test": 4.019572496414185,
+ "cost table": 126.7451388835907,
+ "case model": 12.0231773853302,
+ "case mission_example": 98.0883936882019,
+ "case mission_example_csv": 54.05573081970215,
+ "case mission_veille500": 84.08215498924255,
+ "case mission_redundancy_demo": 210.15438079833984,
+ "case mission_synthetic_mix": 476.3342876434326,
+ "case mission_sky_demo": 477.1040127277374,
+ "case mission_target_library": 878.9289970397949,
+ "case mission_environment": 825.1785719394684,
+ "case mission_frames": 441.9166901111603,
+ "impact report": 2.020678758621216,
+ "test suite": 2213.117171764374
+}

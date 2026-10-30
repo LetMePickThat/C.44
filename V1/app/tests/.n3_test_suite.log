@@ -1,0 +1,913 @@
+bringing up nodes...
+bringing up nodes...
+
+........F........F..[gw5] node down: Not properly terminated
+F...F.......................................FF.F.FFFFF.F................ [ 27%]
+........................................................................ [ 49%]
+........................................................................ [ 71%]
+........................................................................ [ 92%]
+............F............                                                [100%]Exception ignored in atexit callback <function _stop_workers at 0x000001DDB8936520>:
+Traceback (most recent call last):
+  File "C:\Users\MAIN_PC\Documents\TLW\RADARv6\V1\gui\sim_view.py", line 271, in _stop_workers
+Exception ignored in atexit callback <function _stop_workers at 0x0000026100F714E0>:
+Traceback (most recent call last):
+  File "C:\Users\MAIN_PC\Documents\TLW\RADARv6\V1\gui\sim_view.py", line 271, in _stop_workers
+    w.wait()
+    w.wait()
+RuntimeError: wrapped C/C++ object of type SimWorker has been deleted
+RuntimeError: wrapped C/C++ object of type SimWorker has been deleted
+Exception ignored in atexit callback <function _stop_workers at 0x000002711F723380>:
+Traceback (most recent call last):
+  File "C:\Users\MAIN_PC\Documents\TLW\RADARv6\V1\gui\sim_view.py", line 271, in _stop_workers
+    w.wait()
+RuntimeError: wrapped C/C++ object of type SimWorker has been deleted
+
+================================== FAILURES ===================================
+____________________________ test_equatorial_orbit ____________________________
+[gw1] win32 -- Python 3.13.14 C:\Users\MAIN_PC\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe
+
+    def test_equatorial_orbit():
+        """A new central body puts the ship on a circular orbit in its equatorial plane, at 1.5 equatorial radii."""
+        for name, b in scn.bodies().items():
+            o = scn.equatorial_orbit(name)
+            r, v = prop.elements_to_state(o, b["mu_km3_s2"])
+            ra, dec = np.radians(b["pole_ra_deg"]), np.radians(b["pole_dec_deg"])
+            pole = np.array([np.cos(dec) * np.cos(ra), np.cos(dec) * np.sin(ra), np.sin(dec)])
+            assert np.linalg.norm(r) == pytest.approx(1.5 * b["r_eq_km"])
+>           assert np.cross(r, v) / np.linalg.norm(np.cross(r, v)) == pytest.approx(pole, abs=1e-9)
+E           assert array([nan, nan, nan]) == approx([-0.05...42 ± 1.0e-09])
+E             
+E             comparison failed. Mismatched elements: 3 / 3:
+E             Max absolute difference: -inf
+E             Max relative difference: -inf
+E             Index | Obtained | Expected                       
+E             (0,)  | nan      | -0.059078942439209026 ± 1.0e-09
+E             (1,)  | nan      | -0.45714509379974283 ± 1.0e-09 
+E             (2,)  | nan      | 0.8874277670746442 ± 1.0e-09
+
+tests\test_sim.py:857: AssertionError
+___________________________ test_sim_view_offscreen ___________________________
+[gw3] win32 -- Python 3.13.14 C:\Users\MAIN_PC\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe
+
+tmp_path = WindowsPath('C:/Users/MAIN_PC/AppData/Local/Temp/pytest-of-MAIN_PC/pytest-331/popen-gw3/test_sim_view_offscreen0')
+
+    def test_sim_view_offscreen(tmp_path):
+        """S6-S7: the view shows a propagated run in both views (Earth, Moon and Sun at their places, trajectories,
+        objects, lines of sight, the linked mission's volumes), centres on a body (OWNSHIP or an object) and zooms,
+        lists the events, plays and steps, informs on an object and the ship, computes in the background and replays a
+        journal."""
+        app = _qt()
+        from gui.sim_view import CENTRAL, DYN, OWNSHIP, VIEW_COLORS, VIEW_PROFILES, VOL, SimView
+        objs = [{"id": "K", "class": "KKV", "t_appear_s": 2.0, "manoeuvres": [{"type": "pn", "start_range_km": 30.0}],
+                 "state": {"type": "relative", "range_km": 60.0, "phi_deg": 45.0, "eps_deg": 5.0, "v_close_mps": 4000.0}},
+                {"id": "D", "class": "DEBRIS", "state": {"type": "relative", "range_km": 300.0, "phi_deg": 200.0,
+                                                         "eps_deg": -10.0, "v_close_mps": 0.0}}]
+        sc = _orbit_sc(20.0, objs, step=0.1)
+        tr = prop.propagate(sc)
+        g = geo.geometry(sc, tr)
+        v = SimView()
+        from core import mission as cm
+        v.set_mission(cm.load_mission(MISSION))           # D: the mission being edited, drawn in the ship view
+        v.show_run(sc, tr, g, "test")
+        names = list(v.plotter.actors)
+        assert DYN + "planned" in names and DYN + "planned_ship" in names
+        import gc                             # UI size: the events' texts follow it, their dots keep their size
+        gc.collect()
+        tp = v._lab[DYN + "markers_lbl"].mapper.GetLabelTextProperty()
+        f0, p0 = tp.GetFontSize(), v._dyn[DYN + "markers"][2].GetProperty().GetPointSize()
+        v.set_ui_scale(1)
+        assert tp.GetFontSize() > f0 and v._dyn[DYN + "markers"][2].GetProperty().GetPointSize() == p0
+        v.set_ui_scale(-1)
+        v.cb_events.setChecked(False)                       # "events" off: neither the marks nor their texts
+        assert not v._dyn[DYN + "markers"][2].GetVisibility() and not v._lab[DYN + "markers_lbl"].actor.GetVisibility()
+        v.cb_events.setChecked(True)
+        assert v._dyn[DYN + "markers"][2].GetVisibility() and v._lab[DYN + "markers_lbl"].actor.GetVisibility()
+        # the star background under the scene (its own renderer, layer 0), the constellations on demand
+        assert v.sky.ren.GetLayer() == 0 and v.plotter.renderer.GetLayer() == 1 and v.sky.star_actors
+        assert v.sky.star_actors[0].GetVisibility() and not v.sky.line_actor.GetVisibility()   # the global profile (user)
+        v.cb_const.setChecked(True)
+        assert v.sky.line_actor.GetVisibility()
+        v.tg_sky.setChecked(False)                                         # plain background
+        assert not v.sky.star_actors[0].GetVisibility() and not v.sky.line_actor.GetVisibility()
+        v.cb_const.setChecked(False)
+        assert any(n.startswith(DYN + "sym_") for n in names)              # the objects drawn by their symbols
+        # the planned trajectories from t to the run's end, the trails of their chosen duration, the orbital vectors
+        v.set_time(10.0)
+        pl = v._dyn[DYN + "planned_ship"][1]
+        assert np.allclose(pl.points[0], geo.states_at(tr, 10.0)[0][0]) and np.allclose(
+            pl.points[-1], geo.states_at(tr, v.duration())[0][0])
+        v.cb_trails.setChecked(True)                        # (off in the global profile, user 30 October 2026)
+        v.sp_trail.setValue(5.0)
+        tl = v._dyn[DYN + "trails"][1]
+        assert np.allclose(tl.points[0], geo.states_at(tr, 5.0)[0][0])     # OWNSHIP's trail starts 5 s back
+        v.cb_planned.setChecked(False)
+        assert not v.plotter.actors[DYN + "planned"].GetVisibility()
+        v.cb_orbit.setChecked(True)
+        v.sp_orbit.setValue(5.0)
+        vel = v._dyn[DYN + "vel"][1].points                 # OWNSHIP's free fall (no manoeuvre here): its run path
+        assert np.allclose(vel[0], geo.states_at(tr, 10.0)[0][0])
+        assert np.linalg.norm(vel[v._dyn[DYN + "vel"][1].lines[0] - 1] - geo.states_at(tr, 15.0)[0][0]) < 1e-3
+        v.cb_planned.setChecked(True)
+        v.cb_orbit.setChecked(False)
+        v.sp_trail.setValue(60.0)
+        v.set_time(0.0)
+        assert {"body_earth", "body_earth_atm", "body_moon", "body_sun"} <= set(names)
+        # a celestial body selected: its orbit and those of the bodies orbiting it (user, 29 October 2026)
+        from gui.sim_view import BODY_SEL
+        def orbits():                                       # the orbits drawn: one actor each (its part near t)
+            return sorted(n[len(DYN) + 6:-5] for n, e in v._dyn.items()
+                          if n.startswith(DYN + "orbit_") and n.endswith("_near") and e[2].GetVisibility())
+        v.cb_all_orbits.setChecked(False)                   # (on in the global profile, user 30 October 2026)
+        for name, n_orbits in (("Sun", 9), ("Earth", 2), ("Moon", 2)):   # (+ the central body's, the Earth's, always;
+            #                                                                the Sun: the Earth and the eight planets)
+            v.select(BODY_SEL + name)
+            assert len(orbits()) == n_orbits and "earth" in orbits()
+        v.select(BODY_SEL + "Sun")                          # the Earth's orbit around the Sun passes through the Earth
+        near = v._dyn[DYN + "orbit_earth_near"][1].points
+        assert np.linalg.norm(near - v._bodies_at()["earth"], axis=1).min() < 1.0     # (km: its part near t)
+        v.select(None)                                      # nothing selected: the central body's orbit alone
+        assert orbits() == ["earth"]
+        from gui.sim_view import BODY_PARENT
+        v.cb_all_orbits.setChecked(True)                    # "all orbits": every body's, whatever the selection
+        assert len(orbits()) == len(BODY_PARENT)
+        v.cb_all_orbits.setChecked(False)
+        assert orbits() == ["earth"]
+        v.set_centre("Jupiter")                             # a click on a moon beside its planet: the planet (user)
+        cam = v.plotter.camera
+        f = np.asarray(cam.GetFocalPoint())
+        u = np.asarray(cam.GetPosition()) - f
+        cam.SetPosition(*(f + 5e8 * u / np.linalg.norm(u)))    # (far: Io a few px from Jupiter)
+        v.plotter.renderer.ResetCameraClippingRange()
+        io_xy = v.node._display(v._bodies_at()["io"])
+        assert v._body_under(*io_xy) == "Jupiter"
+        v.set_centre(CENTRAL)
+        assert v._sun_light.positional and np.allclose(v._sun_light.position, v._bodies_at()["sun"])   # the Sun's light
+        assert v._actor("body_jupiter").GetProperty().GetLighting() and not v._actor("body_sun").GetProperty().GetLighting()
+        body_names = v._lab.get(DYN + "planet_lbl")         # the bodies' names follow "celestial labels", their dots stay
+        v.cb_celestial_labels.setChecked(False)
+        assert body_names is None or not body_names.actor.GetVisibility()
+        v.cb_celestial_labels.setChecked(True)
+        assert DYN + "sun" not in names                                    # no Sun arrow (the Sun is drawn)
+        atm = v.plotter.actors["body_earth_atm"].user_matrix                 # the halo on the Earth, a bit larger
+        assert np.allclose(atm[:3, 3], v.plotter.actors["body_earth"].user_matrix[:3, 3])
+        u = v.plotter.actors["body_moon"].user_matrix
+        assert np.linalg.norm(u[:3, 3]) == pytest.approx(np.linalg.norm(eph.moon_icrf_km(
+            eph.centuries_tt(scn.epoch(sc), v.t))), rel=1e-9)                # the Moon at its true place
+        T = eph.centuries_tt(scn.epoch(sc), v.t)
+        assert np.allclose(v.plotter.actors["body_sun"].user_matrix[:3, 3], eph.sun_icrf_km(T), rtol=1e-9)   # 1 AU
+        v.set_centre("Sun")
+        assert np.allclose(v.plotter.camera.GetFocalPoint(), eph.sun_icrf_km(T), rtol=1e-9)
+        v.set_centre(OWNSHIP)
+        r0 = geo.states_at(tr, v.t)[0][0]
+        assert np.allclose(v.plotter.camera.GetFocalPoint(), r0, atol=1e-3)
+        d0 = v.plotter.camera.GetDistance()
+        v.zoom(2.0)
+        assert v.plotter.camera.GetDistance() == pytest.approx(d0 / 2.0, rel=1e-6)
+        v.set_centre(CENTRAL)
+        assert np.allclose(v.plotter.camera.GetFocalPoint(), 0.0, atol=1e-6)
+        v._select(OWNSHIP)
+        assert "altitude" in v.info.toPlainText()
+        texts = [x for _t, x in v.events]
+        assert any("K appears" in x for x in texts) and any("terminal guidance" in x for x in texts)
+        assert len(v.slider._marks) == len(v.events) and v.slider._clusters()        # L4: marks on the slider
+        assert not v.cb_los.isChecked()              # array lines off by default (user, 30 October 2026)
+        v.set_view("ship")                           # ship view
+        assert v.tg_sky.isChecked() and v.cb_bodies.isChecked()     # the ship profile (user, 30 October 2026)
+        v.cb_los.setChecked(True)
+        v.cb_axes.setChecked(True)
+        v.set_view("orbital")                                # each view its own settings (user, 30 October 2026)
+        assert not v.cb_los.isChecked() and v.sp_orbit.isEnabled()
+        assert v.cb_los._on_color.name() == VIEW_COLORS["orbital"]
+        v.sp_trail.setValue(30.0)
+        v.set_view("ship")
+        assert v.cb_los.isChecked() and v.cb_axes.isChecked() and v.sp_trail.value() == VIEW_PROFILES["ship"]["trail_s"]
+        v.set_view("orbital")
+        assert v.sp_trail.value() == 30.0 and not v.cb_los.isChecked()
+        v.set_time(10.0)                                     # Recenter, orbital view: the ship, from the zenith, 0 deg up
+        v.set_centre("K")
+        v.plotter.camera.Roll(30.0)
+        d_o = v.plotter.camera.GetDistance()
+        v.recentre()
+        assert v.centre == CENTRAL and np.allclose(v.plotter.camera.GetFocalPoint(), 0.0, atol=1e-9)
+        assert np.allclose(v.plotter.camera.GetPosition(), [0.0, 0.0, d_o], rtol=1e-9)
+        assert np.allclose(v.plotter.camera.GetViewUp(), [1.0, 0.0, 0.0], atol=1e-9)
+        v.set_view("ship")
+        v.set_time(10.0)
+        names = list(v.plotter.actors)
+        assert DYN + "los" in names and any(n.startswith(VOL) for n in names)
+        v.cb_vectors.setChecked(True)
+        assert DYN + "nose" in v.plotter.actors
+        box = v._lab[DYN + "labels"]._last    # the data boxes: name, altitude, orbital speed (+ range, Vc, CPA)
+        kb = [b for b in box if b.startswith("K\n")]
+        assert kb and kb[0].startswith("K\nalt ") and "\nVc " in kb[0] and "\ndCPA " in kb[0]
+        v.tg_object_full.setChecked(False)                  # partial: the id, the range and the closing speed only
+        kb = [b for b in v._lab[DYN + "labels"]._last if b.startswith("K\n")]
+        assert kb and kb[0].split("\n")[1].startswith("rng ") and kb[0].split("\n")[2].startswith("Vc ")
+        assert kb[0].count("\n") == 2
+        v.tg_object_full.setChecked(True)
+        t_c, d_c, _ok = v._cpa_all()          # the boxes' closest approach agrees with the Info box's finer one
+        fine = v._cpa(tr.row("K"), v.g.ids.index("K"))
+        assert t_c[v.g.ids.index("K")] == pytest.approx(fine[0], abs=0.05)
+        k_part = np.array(v._screen_pts["K"])  # range projection "full": the copies only, in the rings' plane
+        v.tg_proj_full.setChecked(True)
+        k_full = np.array(v._screen_pts["K"])
+        assert abs(k_full[2]) < 1e-9 and np.linalg.norm(k_full) == pytest.approx(np.linalg.norm(k_part), rel=1e-9)
+        assert not v.plotter.actors[DYN + "proj_arcs"].GetVisibility()
+        v.tg_proj_full.setChecked(False)
+        assert v.plotter.actors[DYN + "proj_arcs"].GetVisibility()
+        v.select("K")                         # as the scenario tool's tree does: the square around it, its Info
+        sq, cam = v._dyn[DYN + "select"][1].points.mean(axis=0), np.asarray(v.plotter.camera.GetPosition())
+        q = v._screen_pts["K"]                    # on its line of sight (drawn nearer by the model's radius, 30 Oct 2026)
+        assert np.allclose((sq - cam) / np.linalg.norm(sq - cam), (q - cam) / np.linalg.norm(q - cam), atol=1e-9)
+        assert abs(np.linalg.norm(q - sq) - v._model_r_km) < 1e-6
+        assert v.info.toPlainText().startswith("name	K")
+        v.select(None)
+        assert not v.plotter.actors[DYN + "select"].GetVisibility()
+        cam = v.plotter.camera                # the axes keep their size on screen through a zoom (no new frame)
+        if v.cb_axes.isChecked():
+            L0 = np.linalg.norm(v._dyn[DYN + "ship_axes"][1].points[3])
+            v.zoom(2.0)
+            assert np.linalg.norm(v._dyn[DYN + "ship_axes"][1].points[3]) == pytest.approx(L0 / 2.0, rel=1e-6)
+        v.set_centre("K")                     # Recentre, ship view: back to the view at start, zoom and roll undone
+        v.zoom(2.0)
+        cam.Roll(30.0)
+        v.recentre()
+        assert v.centre == CENTRAL and np.allclose(cam.GetFocalPoint(), 0.0, atol=1e-9)
+        p_home, up_home = np.array(cam.GetPosition()), np.array(cam.GetViewUp())
+        assert np.allclose(up_home, [0.0, 0.0, 1.0], atol=1e-9)
+        v._ship_home()
+        assert np.allclose(cam.GetPosition(), p_home, rtol=1e-9)
+        v.set_centre("K")                   # ship view centred on an object
+        assert np.allclose(v.plotter.camera.GetFocalPoint(), v._screen_pts["K"], atol=1e-9)
+        v.set_centre(CENTRAL)
+        from gui import sim_view as sv_
+        # 1:1 scale (the only one, user 29 October 2026): an object at its true range (km) from the ship
+        v.set_time(10.0)
+        r, _ = geo.states_at(tr, 10.0)
+        assert np.linalg.norm(v._screen_pts["K"]) == pytest.approx(np.linalg.norm(r[tr.row("K")] - r[0]), rel=1e-9)
+        assert any(n.startswith(VOL) for n in v.plotter.actors) and DYN + "ship_axes" in v.plotter.actors
+        v.cb_bodies.setChecked(True)                         # celestial objects at 1:1: the Moon at its true range
+        u = v.plotter.actors[DYN + "sbody_moon"].user_matrix
+        T = eph.centuries_tt(scn.epoch(sc), 10.0)
+        assert np.linalg.norm(u[:3, 3]) == pytest.approx(np.linalg.norm(eph.moon_icrf_km(T) - r[0]), rel=1e-6)
+        sun_dot = v._lab.get(DYN + "planet_lbl")             # its sphere, or its dot and name when under 3 px (user)
+        assert v.plotter.actors[DYN + "sbody_sun"].GetVisibility() or (
+            sun_dot is not None and sun_dot.actor.GetVisibility() and "Sun" in sun_dot._last)
+        v.cb_bodies.setChecked(False)
+        assert not v.plotter.actors[DYN + "sbody_sun"].GetVisibility()
+        # mouse rotation as a turntable: azimuth about the ship's Z, elevation about the screen's horizontal, one rate and
+        # no roll wherever the drag starts
+        iren =v.plotter.iren.interactor
+        v.plotter.ren_win.SetSize(900, 700)                 # offscreen: the window has no size of its own
+        w, h = v.plotter.ren_win.GetSize()
+        assert w > 0 and h > 0
+        cam = v.plotter.camera
+    
+        def drag(p0, p1, button="Right"):                   # the scenario tool turns the view by the right button
+            iren.SetEventInformation(int(p0[0]), int(p0[1]), 0, 0)
+            iren.InvokeEvent(f"{button}ButtonPressEvent")
+            for a in np.linspace(0.0, 1.0, 6)[1:]:
+                iren.SetEventInformation(int(p0[0] + a * (p1[0] - p0[0])), int(p0[1] + a * (p1[1] - p0[1])), 0, 0)
+                iren.InvokeEvent("MouseMoveEvent")
+            iren.InvokeEvent(f"{button}ButtonReleaseEvent")
+        p_left = np.array(cam.GetPosition())
+        drag((0.3 * w, 0.5 * h), (0.6 * w, 0.5 * h), "Left")    # a plain left drag leaves the camera alone
+        assert np.allclose(cam.GetPosition(), p_left)
+        def look():                                         # the line of sight, the screen's horizontal
+            fwd = np.array(cam.GetDirectionOfProjection())
+            return fwd, np.cross(fwd, cam.GetViewUp())
+    
+        def angle(a, b):
+            return math.degrees(math.acos(np.clip(a @ b, -1, 1)))
+        d0, s0 = look()
+        drag((0.97 * w, 0.4 * h), (0.97 * w, 0.6 * h))      # at the edge of the view: elevation only, the usual rate
+        d1, s1 = look()
+        px = int(0.6 * h) - int(0.4 * h)
+        assert angle(d0, d1) == pytest.approx(sv_.TURN_DEG_PX * px, abs=0.3)        # (a pixel of rounding)
+>       assert angle(s0, s1) < 1e-6 and abs(s1[2]) < 1e-9
+E       assert (22.85358842515925 < 1e-06)
+E        +  where 22.85358842515925 = <function test_sim_view_offscreen.<locals>.angle at 0x000001DDDEA0A5C0>(array([ 0.78150918, -0.48826859,  0.        ]), array([ 0.84808348, -0.52986264,  0.        ]))
+
+tests\test_sim.py:1140: AssertionError
+______________________________ tests/test_sim.py ______________________________
+[gw5] win32 -- Python 3.13.14 C:\Users\MAIN_PC\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe
+worker 'gw5' crashed while running 'tests/test_sim.py::test_event_marks_follow_the_classification'
+___________________ test_aspect_rcs_direction_and_structure ___________________
+[gw2] win32 -- Python 3.13.14 C:\Users\MAIN_PC\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe
+
+    def test_aspect_rcs_direction_and_structure():
+        """G5-G7: a KKV closing on the ship (nose on its relative velocity) is seen nose on, its RCS the class table at 0
+        deg plus its offset; its direction in the ship frame is the one it was placed at; the structure loss is the face's
+        blockage table; a GENERIC points its nose along its inertial velocity; a DEBRIS tumbles at its rotation rate; drawn
+        offsets are reproducible and within the truncation."""
+        objs = [{"id": "K", "class": "KKV", "rcs_offset_db": 1.5,
+                 "state": {"type": "relative", "range_km": 500.0, "phi_deg": 45.0, "eps_deg": 5.0, "v_close_mps": 3000.0}},
+                {"id": "G", "class": "GENERIC",
+                 "state": {"type": "relative", "range_km": 800.0, "phi_deg": 200.0, "eps_deg": 20.0, "v_close_mps": 500.0,
+                           "v_transverse_mps": [300.0, -100.0]}},
+                {"id": "D", "class": "DEBRIS",
+                 "state": {"type": "relative", "range_km": 100.0, "phi_deg": 120.0, "eps_deg": -10.0, "v_close_mps": 0.0}}]
+        sc = _orbit_sc(40.0, objs, step=0.1)
+        tr = prop.propagate(sc)
+        g = geo.geometry(sc, tr, np.array([0.0, 4.0, 36.0]))
+        k, gi, d = (g.ids.index(x) for x in ("K", "G", "D"))
+        assert g.aspect_deg[0, k] < 0.01 and g.range_rate_mps[0, k] == pytest.approx(-3000.0, abs=1.0)
+        tgt = rm.target_for_sector({"id": "K", "target_type": "KKV"})
+>       assert g.rcs_s_dbsm[0, k] == pytest.approx(tgt.aspect_table_db(g.f_s_ghz)[0] + 1.5)
+E       assert np.float64(2.52436804516569) == 2.524245652616781 ± 2.5e-06
+E         
+E         comparison failed
+E         Obtained: 2.52436804516569
+E         Expected: 2.524245652616781 ± 2.5e-06
+
+tests\test_sim.py:484: AssertionError
+________________ test_outputs_match_snapshot[mission_example] _________________
+[gw2] win32 -- Python 3.13.14 C:\Users\MAIN_PC\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe
+
+case = 'mission_example'
+
+    @pytest.mark.parametrize("case", tb.case_names())
+    def test_outputs_match_snapshot(case):
+        if not os.path.exists(tb.snapshot_path(case)):
+            pytest.fail(f"no snapshot for '{case}': run python tests/update_snapshots.py {case}")
+        diffs = tb.differences(tb.load_snapshot(case), tb.compute_case(case))
+>       assert not diffs, f"{len(diffs)} output value(s) of '{case}' changed:\n{tb.format_differences(diffs)}"
+E       AssertionError: 844 output value(s) of 'mission_example' changed:
+E         /fast_estimate/S01/0/avg_power_kw : 539.2300388653197 -> 541.5670114898197
+E         /fast_estimate/S01/0/energy_fraction : 0.3023233866324216 -> 0.30363362795316257
+E         /fast_estimate/S01/0/energy_j_per_refresh : 10784600.777306395 -> 10831340.229796395
+E         /fast_estimate/S01/0/time_fraction_min : 0.044018778682883244 -> 0.04420955195835263
+E         /fast_estimate/S02/1/avg_power_kw : 224.47170259456493 -> 225.44270987952305
+E         /fast_estimate/S02/1/energy_fraction : 0.1258517523881572 -> 0.12639615494305015
+E         /fast_estimate/S02/1/energy_j_per_refresh : 1122358.5129728247 -> 1127213.5493976153
+E         /fast_estimate/S02/1/time_fraction_min : 0.018324220619964485 -> 0.018403486520777394
+E         /fast_estimate/S03/0/avg_power_kw : 531.3066647339676 -> 533.5245551908204
+E         /fast_estimate/S03/0/energy_fraction : 0.29788108719007844 -> 0.29912456419574823
+E         /fast_estimate/S03/0/energy_j_per_refresh : 63756799.76807612 -> 64022946.622898445
+E         /fast_estimate/S03/0/time_fraction_min : 0.0433719726313443 -> 0.04355302491353636
+E         /fast_estimate/S03/1/avg_power_kw : 531.3066647339675 -> 533.5245551908205
+E         /fast_estimate/S03/1/energy_fraction : 0.2978810871900784 -> 0.2991245641957483
+E         /fast_estimate/S03/1/energy_j_per_refresh : 63756799.76807611 -> 64022946.62289845
+E         /fast_estimate/S03/1/time_fraction_min : 0.04337197263134429 -> 0.04355302491353637
+E         /fast_estimate/S03/2/avg_power_kw : 531.3066647339675 -> 533.5245551908204
+E         /fast_estimate/S03/2/energy_fraction : 0.2978810871900784 -> 0.29912456419574823
+E         /fast_estimate/S03/2/energy_j_per_refresh : 63756799.76807611 -> 64022946.622898445
+E         /fast_estimate/S03/2/time_fraction_min : 0.04337197263134429 -> 0.04355302491353636
+E         /fast_estimate/S03/3/avg_power_kw : 531.3066647339675 -> 533.5245551908204
+E         /fast_estimate/S03/3/energy_fraction : 0.2978810871900784 -> 0.29912456419574823
+E         /fast_estimate/S03/3/energy_j_per_refresh : 63756799.76807611 -> 64022946.62289844
+E         /fast_estimate/S03/3/time_fraction_min : 0.04337197263134429 -> 0.04355302491353636
+E         /run/compute/faces/0/bands/Ku/beams_mean : 0.00275900021363807 -> 0.003067392524941764
+E         /run/compute/faces/0/bands/Ku/bits_per_s : 1081528083.7461233 -> 1202417869.7771714
+E         /run/compute/faces/0/bands/Ku/open_windows_mean : 0.00275900021363807 -> 0.003067392524941764
+E         /run/compute/faces/0/bands/Ku/ops_per_s/banks : 61540730.14092552 -> 68419558.17205904
+E         /run/compute/faces/0/bands/Ku/ops_per_s/beamforming : 169259145106.26834 -> 188178396620.12735
+E         /run/compute/faces/0/bands/Ku/ops_per_s/cfar : 4809437.298537254 -> 5347020.977304111
+E         /run/compute/faces/0/bands/Ku/ops_per_s/compression : 29725460.74598215 -> 33048078.66340984
+E         /run/compute/faces/0/bands/Ku/ops_per_s/repointing : 7.493247919525188 -> 8.330819454913662
+E         /run/compute/faces/0/bands/Ku/ops_total_per_s : 169355220741.94702 -> 188285211286.27094
+E         /run/compute/faces/0/bits_per_s : 1292122103525.9023 -> 1292242993311.9333
+E         /run/compute/faces/0/bus_draw_MW_actual : 0.08492004735847042 -> 0.0851166088838467
+E         /run/compute/faces/0/face_heat_kW_actual : 69.69985750563067 -> 69.71323603582235
+E         /run/compute/faces/0/load : 9.781967437435877e-07 -> 9.829292491719198e-07
+E         /run/compute/faces/0/memory/traffic_TB_per_s : 0.16227651717178768 -> 0.16229178259119723
+E         /run/compute/faces/0/non_tx_kW_actual : 66.88010373391172 -> 66.88010392925611
+E         /run/compute/faces/0/ops_total_per_s : 3912780655226.1797 -> 3931710645770.5034
+E         ... and 804 more
+E       assert not [('/fast_estimate/S01/0/avg_power_kw', 539.2300388653197, 541.5670114898197), ('/fast_estimate/S01/0/energy_fraction',...259456493, 225.44270987952305), ('/fast_estimate/S02/1/energy_fraction', 0.1258517523881572, 0.12639615494305015), ...]
+
+tests\test_snapshots.py:18: AssertionError
+______________ test_outputs_match_snapshot[mission_environment] _______________
+[gw2] win32 -- Python 3.13.14 C:\Users\MAIN_PC\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe
+
+case = 'mission_environment'
+
+    @pytest.mark.parametrize("case", tb.case_names())
+    def test_outputs_match_snapshot(case):
+        if not os.path.exists(tb.snapshot_path(case)):
+            pytest.fail(f"no snapshot for '{case}': run python tests/update_snapshots.py {case}")
+        diffs = tb.differences(tb.load_snapshot(case), tb.compute_case(case))
+>       assert not diffs, f"{len(diffs)} output value(s) of '{case}' changed:\n{tb.format_differences(diffs)}"
+E       AssertionError: 973 output value(s) of 'mission_environment' changed:
+E         /fast_estimate/E_EARTH/0/avg_power_kw : 1683.7637508640246 -> 1683.9810871013283
+E         /fast_estimate/E_EARTH/0/energy_fraction : 0.9440148410894836 -> 0.944136692289461
+E         /fast_estimate/E_EARTH/0/energy_j_per_refresh : 202051650.10368294 -> 202077730.45215937
+E         /fast_estimate/E_EARTH/0/time_fraction_min : 0.13745010211134895 -> 0.1374678438450064
+E         /fast_estimate/E_JAMMED/0/avg_power_kw : 222.9564836951154 -> 223.92287473296884
+E         /fast_estimate/E_JAMMED/0/energy_fraction : 0.12500223348870018 -> 0.12554404790985124
+E         /fast_estimate/E_JAMMED/0/energy_j_per_refresh : 13377389.021706924 -> 13435372.48397813
+E         /fast_estimate/E_JAMMED/0/time_fraction_min : 0.01820052928123391 -> 0.018279418345548477
+E         /fast_estimate/E_JAMMED/2/avg_power_kw : 2391.293643023966 -> 2401.6603908405746
+E         /fast_estimate/E_JAMMED/2/energy_fraction : 1.3406968093113814 -> 1.3465090046313537
+E         /fast_estimate/E_JAMMED/2/energy_j_per_refresh : 143477618.58143795 -> 144099623.45043448
+E         /fast_estimate/E_JAMMED/2/time_fraction_min : 0.19520764432848703 -> 0.19605390945637344
+E         /fast_estimate/E_JAMMED/3/avg_power_kw : 3391.771281683079 -> 3406.475200313016
+E         /fast_estimate/E_JAMMED/3/energy_fraction : 1.9016221401885376 -> 1.9098660030236354
+E         /fast_estimate/E_JAMMED/3/energy_j_per_refresh : 203506276.90098473 -> 204388512.01878098
+E         /fast_estimate/E_JAMMED/3/time_fraction_min : 0.27687928830065955 -> 0.27807960818881766
+E         /fast_estimate/E_KKV_SPJ/1/avg_power_kw : 321.68052054169704 -> 323.0722351519571
+E         /fast_estimate/E_KKV_SPJ/1/energy_fraction : 0.18035260904323627 -> 0.18113288433184038
+E         /fast_estimate/E_KKV_SPJ/1/energy_j_per_refresh : 6433610.410833941 -> 6461444.703039141
+E         /fast_estimate/E_KKV_SPJ/1/time_fraction_min : 0.026259634329934452 -> 0.02637324368587405
+E         /run/compute/faces/0/bands/Ku/beams_mean : 0.0017432603298913982 -> 0.0019381164519322004
+E         /run/compute/faces/0/bands/Ku/bits_per_s : 1366716098.6348562 -> 1519483298.314845
+E         /run/compute/faces/0/bands/Ku/open_windows_mean : 0.0017432603298913982 -> 0.0019381164519322004
+E         /run/compute/faces/0/bands/Ku/ops_per_s/banks : 245451054.44870886 -> 272886796.4320538
+E         /run/compute/faces/0/bands/Ku/ops_per_s/beamforming : 213891069436.35498 -> 237799136186.27325
+E         /run/compute/faces/0/bands/Ku/ops_per_s/cfar : 19175863.62880538 -> 21319280.971254203
+E         /run/compute/faces/0/bands/Ku/ops_per_s/compression : 39775745.77065617 -> 44221752.73774739
+E         /run/compute/faces/0/bands/Ku/ops_per_s/nulling : 176964951.6546253 -> 196745533.83462965
+E         /run/compute/faces/0/bands/Ku/ops_per_s/repointing : 4.3581508247284955 -> 4.845291129830501
+E         /run/compute/faces/0/bands/Ku/ops_total_per_s : 214372437056.2159 -> 238334309555.09424
+E         /run/compute/faces/0/bands/S/beams_mean : 34.546551822463826 -> 37.24464134513561
+E         /run/compute/faces/0/bands/S/beams_peak : 42.14616125712436 -> 37.46325445077722
+E         /run/compute/faces/0/bands/S/bits_per_s : 442532770063199.3 -> 173399825404532.62
+E         /run/compute/faces/0/bands/S/buffer_peak_GB : 333.8846557656478 -> 255.52397124922032
+E         /run/compute/faces/0/bands/S/face_input_peak_tbps : 78.4 -> 58.8
+E         /run/compute/faces/0/bands/S/link_trsa_peak_tbps : 0.4 -> 0.3
+E         /run/compute/faces/0/bands/S/open_windows_mean : 5.64566055712243 -> 2.9828634137890973
+E         /run/compute/faces/0/bands/S/ops_per_s/banks : 1.870845718674959e+17 -> 8.295578351538963e+16
+E         /run/compute/faces/0/bands/S/ops_per_s/beamforming : 676971804704572.8 -> 541298248115054.6
+E         /run/compute/faces/0/bands/S/ops_per_s/cfar : 3653995691606433.5 -> 1620711261991355.2
+E         ... and 933 more
+E       assert not [('/fast_estimate/E_EARTH/0/avg_power_kw', 1683.7637508640246, 1683.9810871013283), ('/fast_estimate/E_EARTH/0/energy_...154, 223.92287473296884), ('/fast_estimate/E_JAMMED/0/energy_fraction', 0.12500223348870018, 0.12554404790985124), ...]
+
+tests\test_snapshots.py:18: AssertionError
+______________ test_outputs_match_snapshot[mission_example_csv] _______________
+[gw2] win32 -- Python 3.13.14 C:\Users\MAIN_PC\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe
+
+case = 'mission_example_csv'
+
+    @pytest.mark.parametrize("case", tb.case_names())
+    def test_outputs_match_snapshot(case):
+        if not os.path.exists(tb.snapshot_path(case)):
+            pytest.fail(f"no snapshot for '{case}': run python tests/update_snapshots.py {case}")
+        diffs = tb.differences(tb.load_snapshot(case), tb.compute_case(case))
+>       assert not diffs, f"{len(diffs)} output value(s) of '{case}' changed:\n{tb.format_differences(diffs)}"
+E       AssertionError: 371 output value(s) of 'mission_example_csv' changed:
+E         /fast_estimate/S01/0/avg_power_kw : 539.2300388653197 -> 541.5670114898197
+E         /fast_estimate/S01/0/energy_fraction : -5.045191231898575 -> -5.0670566194781035
+E         /fast_estimate/S01/0/energy_j_per_refresh : 10784600.777306395 -> 10831340.229796395
+E         /fast_estimate/S01/0/time_fraction_min : 0.044018778682883244 -> 0.04420955195835263
+E         /fast_estimate/S02/1/avg_power_kw : 224.47170259456493 -> 225.44270987952305
+E         /fast_estimate/S02/1/energy_fraction : -2.1002217682874713 -> -2.109306791537454
+E         /fast_estimate/S02/1/energy_j_per_refresh : 1122358.5129728247 -> 1127213.5493976153
+E         /fast_estimate/S02/1/time_fraction_min : 0.018324220619964485 -> 0.018403486520777394
+E         /run/compute/faces/0/bands/Ku/beams_mean : 1.2542050219579207e-05 -> 1.394396089598425e-05
+E         /run/compute/faces/0/bands/Ku/bits_per_s : 4916483.6860750485 -> 5466032.671225825
+E         /run/compute/faces/0/bands/Ku/open_windows_mean : 1.2542050219579207e-05 -> 1.394396089598425e-05
+E         /run/compute/faces/0/bands/Ku/ops_per_s/banks : 20067.28035132673 -> 22310.337433574798
+E         /run/compute/faces/0/bands/Ku/ops_per_s/beamforming : 769429696.8707452 -> 855434113.0468417
+E         /run/compute/faces/0/bands/Ku/ops_per_s/cfar : 3135.5125548948017 -> 3485.990223996062
+E         /run/compute/faces/0/bands/Ku/ops_per_s/compression : 109206.5203962344 -> 121413.2795939872
+E         /run/compute/faces/0/bands/Ku/ops_per_s/repointing : 0.6271025109789603 -> 0.6971980447992124
+E         /run/compute/faces/0/bands/Ku/ops_total_per_s : 769562106.8111502 -> 855581323.3512913
+E         /run/compute/faces/0/bits_per_s : 936492916483.686 -> 936493466032.6713
+E         /run/compute/faces/0/bus_draw_MW_actual : 0.07501355392081815 -> 0.07501662632929862
+E         /run/compute/faces/0/face_heat_kW_actual : 67.74965333291405 -> 67.75321984085845
+E         /run/compute/faces/0/load : 7.350402759789308e-07 -> 7.350617808087445e-07
+E         /run/compute/faces/0/memory/traffic_TB_per_s : 0.11765828559737192 -> 0.11765835499195039
+E         /run/compute/faces/0/ops_total_per_s : 2940157662115.664 -> 2940243681332.204
+E         /run/compute/faces/0/power_kW/ops : 2.940157662115664e-05 -> 2.9402436813322042e-05
+E         /run/compute/faces/0/power_kW/transport : 4.68246458241843e-05 -> 4.682467330163356e-05
+E         /run/compute/faces/1/bands/Ku/beams_mean : 0.023913628991262953 -> 0.026586618750314175
+E         /run/compute/faces/1/bands/Ku/bits_per_s : 74993140516.60062 -> 83375636400.98526
+E         /run/compute/faces/1/bands/Ku/open_windows_mean : 0.023913628991262953 -> 0.026586618750314175
+E         /run/compute/faces/1/bands/Ku/ops_per_s/banks : 48975112174.10652 -> 54449395200.64343
+E         /run/compute/faces/1/bands/Ku/ops_per_s/beamforming : 11736426490847.996 -> 13048287096754.191
+E         /run/compute/faces/1/bands/Ku/ops_per_s/cfar : 7652361277.2041445 -> 8507718000.100536
+E         /run/compute/faces/1/bands/Ku/ops_per_s/compression : 2421673025.0186825 -> 2692359970.86076
+E         /run/compute/faces/1/bands/Ku/ops_per_s/repointing : 119.56814495631475 -> 132.93309375157088
+E         /run/compute/faces/1/bands/Ku/ops_total_per_s : 11795475637443.895 -> 13113936570058.729
+E         /run/compute/faces/1/bits_per_s : 1178865140516.6006 -> 1187247636400.9854
+E         /run/compute/faces/1/bus_draw_MW_actual : 0.08243370349798737 -> 0.08266284685443331
+E         /run/compute/faces/1/capacity_ops_per_s : 3.9999941056742973e+18 -> 3.999994063761818e+18
+E         /run/compute/faces/1/face_heat_kW_actual : 69.63461776511534 -> 69.65709542938458
+E         /run/compute/faces/1/load : 3.4361061570626968e-06 -> 3.76572191538975e-06
+E         /run/compute/faces/1/memory/traffic_TB_per_s : 0.14784940904754035 -> 0.14890791299212464
+E         ... and 331 more
+E       assert not [('/fast_estimate/S01/0/avg_power_kw', 539.2300388653197, 541.5670114898197), ('/fast_estimate/S01/0/energy_fraction',...259456493, 225.44270987952305), ('/fast_estimate/S02/1/energy_fraction', -2.1002217682874713, -2.109306791537454), ...]
+
+tests\test_snapshots.py:18: AssertionError
+________________ test_outputs_match_snapshot[mission_sky_demo] ________________
+[gw2] win32 -- Python 3.13.14 C:\Users\MAIN_PC\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe
+
+case = 'mission_sky_demo'
+
+    @pytest.mark.parametrize("case", tb.case_names())
+    def test_outputs_match_snapshot(case):
+        if not os.path.exists(tb.snapshot_path(case)):
+            pytest.fail(f"no snapshot for '{case}': run python tests/update_snapshots.py {case}")
+        diffs = tb.differences(tb.load_snapshot(case), tb.compute_case(case))
+>       assert not diffs, f"{len(diffs)} output value(s) of '{case}' changed:\n{tb.format_differences(diffs)}"
+E       AssertionError: 603 output value(s) of 'mission_sky_demo' changed:
+E         /fast_estimate/EARTH/2/avg_power_kw : 2109.4755583670526 -> 2115.138061357075
+E         /fast_estimate/EARTH/2/energy_fraction : 1.1826933754763083 -> 1.1858681004681912
+E         /fast_estimate/EARTH/2/energy_j_per_refresh : 42189511.16734105 -> 42302761.2271415
+E         /fast_estimate/EARTH/2/time_fraction_min : 0.1722020863973104 -> 0.17266433153935307
+E         /fast_estimate/EARTH/3/avg_power_kw : 318.78653207870934 -> 319.3433289647211
+E         /fast_estimate/EARTH/3/energy_fraction : 0.17873007259321458 -> 0.17904224496513893
+E         /fast_estimate/EARTH/3/energy_j_per_refresh : 6375730.641574186 -> 6386866.579294422
+E         /fast_estimate/EARTH/3/time_fraction_min : 0.02602339037377219 -> 0.02606884318079356
+E         /fast_estimate/MOON/1/at_avg_power_kw : 0.005357755025679716 -> 0.005798635667504459
+E         /fast_estimate/MOON/1/at_ku_time_fraction : 2.7905205623856497e-07 -> 3.102436118506557e-07
+E         /fast_estimate/MOON/1/avg_power_kw : 377.990866447505 -> 379.62997280534074
+E         /fast_estimate/MOON/1/energy_fraction : 0.2119234290081436 -> 0.21284240634515242
+E         /fast_estimate/MOON/1/energy_j_per_refresh : 3779855.086924793 -> 3796241.741696732
+E         /fast_estimate/MOON/1/time_fraction_min : 0.03085595989326362 -> 0.0309897285036468
+E         /fast_estimate/SUN/0/avg_power_kw : 322.7592234165992 -> 324.15833664725113
+E         /fast_estimate/SUN/0/energy_fraction : 0.18095739194256583 -> 0.18174181532347203
+E         /fast_estimate/SUN/0/energy_j_per_refresh : 6455184.468331984 -> 6483166.732945023
+E         /fast_estimate/SUN/0/time_fraction_min : 0.02634769170747749 -> 0.026461905032428665
+E         /fast_estimate/SUN/1/avg_power_kw : 322.7592234165992 -> 324.15833664725113
+E         /fast_estimate/SUN/1/energy_fraction : 0.18095739194256583 -> 0.18174181532347203
+E         /fast_estimate/SUN/1/energy_j_per_refresh : 6455184.468331984 -> 6483166.732945023
+E         /fast_estimate/SUN/1/time_fraction_min : 0.02634769170747749 -> 0.026461905032428665
+E         /run/compute/faces/0/bands/Ku/beams_mean : 0.07818794910755743 -> 0.08692755058427512
+E         /run/compute/faces/0/bands/Ku/bits_per_s : 61299352100.32503 -> 68151199658.07169
+E         /run/compute/faces/0/bands/Ku/open_windows_mean : 0.07818794910755743 -> 0.08692755058427512
+E         /run/compute/faces/0/bands/Ku/ops_per_s/banks : 9507654611.478983 -> 10570390151.047853
+E         /run/compute/faces/0/bands/Ku/ops_per_s/beamforming : 9593348603700.867 -> 10665662746488.22
+E         /run/compute/faces/0/bands/Ku/ops_per_s/cfar : 742785516.5217956 -> 825811730.5506136
+E         /run/compute/faces/0/bands/Ku/ops_per_s/compression : 1784004335.270426 -> 1983414693.2726817
+E         /run/compute/faces/0/bands/Ku/ops_per_s/repointing : 195.4698727688936 -> 217.3188764606878
+E         /run/compute/faces/0/bands/Ku/ops_total_per_s : 9605383048359.607 -> 10679042363280.41
+E         /run/compute/faces/0/bits_per_s : 150087352100.325 -> 156939199658.0717
+E         /run/compute/faces/0/bus_draw_MW_actual : 0.08770985260108306 -> 0.088030433083508
+E         /run/compute/faces/0/capacity_ops_per_s : 3.9999992495632394e+18 -> 3.9999992153040015e+18
+E         /run/compute/faces/0/face_heat_kW_actual : 70.49840238874808 -> 70.5557740011929
+E         /run/compute/faces/0/load : 2.44598241397777e-06 -> 2.714397316313369e-06
+E         /run/compute/faces/0/memory/traffic_TB_per_s : 0.01887531145074942 -> 0.01974053199694447
+E         /run/compute/faces/0/non_tx_kW_actual : 66.8801053436458 -> 66.88011642283132
+E         /run/compute/faces/0/ops_total_per_s : 9783927820355.96 -> 10857587135276.764
+E         /run/compute/faces/0/power_kW/ops : 9.783927820355962e-05 -> 0.00010857587135276763
+E         ... and 563 more
+E       assert not [('/fast_estimate/EARTH/2/avg_power_kw', 2109.4755583670526, 2115.138061357075), ('/fast_estimate/EARTH/2/energy_fract...7870934, 319.3433289647211), ('/fast_estimate/EARTH/3/energy_fraction', 0.17873007259321458, 0.17904224496513893), ...]
+
+tests\test_snapshots.py:18: AssertionError
+_______________ test_outputs_match_snapshot[mission_veille500] ________________
+[gw3] win32 -- Python 3.13.14 C:\Users\MAIN_PC\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe
+
+case = 'mission_veille500'
+
+    @pytest.mark.parametrize("case", tb.case_names())
+    def test_outputs_match_snapshot(case):
+        if not os.path.exists(tb.snapshot_path(case)):
+            pytest.fail(f"no snapshot for '{case}': run python tests/update_snapshots.py {case}")
+        diffs = tb.differences(tb.load_snapshot(case), tb.compute_case(case))
+>       assert not diffs, f"{len(diffs)} output value(s) of '{case}' changed:\n{tb.format_differences(diffs)}"
+E       AssertionError: 898 output value(s) of 'mission_veille500' changed:
+E         /fast_estimate/CONE_D1/0/avg_power_kw : 50.513600968942434 -> 50.732593591631435
+E         /fast_estimate/CONE_D1/0/energy_fraction : 0.028320831213454904 -> 0.02844361107838634
+E         /fast_estimate/CONE_D1/0/energy_j_per_refresh : 6061632.116273092 -> 6087911.230995772
+E         /fast_estimate/CONE_D1/0/time_fraction_min : 0.004123559262770811 -> 0.00414143621156175
+E         /fast_estimate/CONE_D2/1/avg_power_kw : 50.51360096894243 -> 50.732593591631435
+E         /fast_estimate/CONE_D2/1/energy_fraction : 0.0283208312134549 -> 0.02844361107838634
+E         /fast_estimate/CONE_D2/1/energy_j_per_refresh : 6061632.116273091 -> 6087911.230995772
+E         /fast_estimate/CONE_D2/1/time_fraction_min : 0.00412355926277081 -> 0.00414143621156175
+E         /fast_estimate/CONE_D3/2/avg_power_kw : 50.51360096894243 -> 50.732593591631435
+E         /fast_estimate/CONE_D3/2/energy_fraction : 0.0283208312134549 -> 0.02844361107838634
+E         /fast_estimate/CONE_D3/2/energy_j_per_refresh : 6061632.116273091 -> 6087911.230995772
+E         /fast_estimate/CONE_D3/2/time_fraction_min : 0.00412355926277081 -> 0.00414143621156175
+E         /fast_estimate/CONE_D4/3/avg_power_kw : 50.513600968942434 -> 50.73259359163143
+E         /fast_estimate/CONE_D4/3/energy_fraction : 0.028320831213454904 -> 0.028443611078386333
+E         /fast_estimate/CONE_D4/3/energy_j_per_refresh : 6061632.116273092 -> 6087911.2309957715
+E         /fast_estimate/CONE_D4/3/time_fraction_min : 0.004123559262770811 -> 0.004141436211561749
+E         /fast_estimate/VEILLE_KV/0/avg_power_kw : 988.5704773703709 -> 992.3496016592595
+E         /fast_estimate/VEILLE_KV/0/energy_fraction : 0.5542494911306057 -> 0.5563682856546012
+E         /fast_estimate/VEILLE_KV/0/energy_j_per_refresh : 19771409.54740742 -> 19846992.03318519
+E         /fast_estimate/VEILLE_KV/0/time_fraction_min : 0.08069963080574456 -> 0.08100813074769467
+E         /fast_estimate/VEILLE_KV/1/avg_power_kw : 988.5704773703709 -> 992.3496016592595
+E         /fast_estimate/VEILLE_KV/1/energy_fraction : 0.5542494911306057 -> 0.5563682856546012
+E         /fast_estimate/VEILLE_KV/1/energy_j_per_refresh : 19771409.54740742 -> 19846992.03318519
+E         /fast_estimate/VEILLE_KV/1/time_fraction_min : 0.08069963080574456 -> 0.08100813074769467
+E         /fast_estimate/VEILLE_KV/2/avg_power_kw : 988.5704773703709 -> 992.3496016592595
+E         /fast_estimate/VEILLE_KV/2/energy_fraction : 0.5542494911306057 -> 0.5563682856546012
+E         /fast_estimate/VEILLE_KV/2/energy_j_per_refresh : 19771409.54740742 -> 19846992.03318519
+E         /fast_estimate/VEILLE_KV/2/time_fraction_min : 0.08069963080574456 -> 0.08100813074769467
+E         /fast_estimate/VEILLE_KV/3/avg_power_kw : 988.5704773703709 -> 992.3496016592595
+E         /fast_estimate/VEILLE_KV/3/energy_fraction : 0.5542494911306057 -> 0.5563682856546012
+E         /fast_estimate/VEILLE_KV/3/energy_j_per_refresh : 19771409.54740742 -> 19846992.03318519
+E         /fast_estimate/VEILLE_KV/3/time_fraction_min : 0.08069963080574456 -> 0.08100813074769467
+E         /run/compute/faces/0/bands/Ku/beams_mean : 0.05691470026290464 -> 0.06327644531622952
+E         /run/compute/faces/0/bands/Ku/bits_per_s : 27842921475.087013 -> 30955115111.2836
+E         /run/compute/faces/0/bands/Ku/open_windows_mean : 0.05691470026290464 -> 0.06327644531622952
+E         /run/compute/faces/0/bands/Ku/ops_per_s/banks : 10742064619.182774 -> 11942778602.352491
+E         /run/compute/faces/0/bands/Ku/ops_per_s/beamforming : 4357417210851.117 -> 4844475514915.883
+E         /run/compute/faces/0/bands/Ku/ops_per_s/cfar : 839223798.3736541 -> 933029578.3087884
+E         /run/compute/faces/0/bands/Ku/ops_per_s/compression : 796166837.8450491 -> 885159847.0128983
+E         /run/compute/faces/0/bands/Ku/ops_per_s/repointing : 142.2867506572616 -> 158.19111329057378
+E         ... and 858 more
+E       assert not [('/fast_estimate/CONE_D1/0/avg_power_kw', 50.513600968942434, 50.732593591631435), ('/fast_estimate/CONE_D1/0/energy_...94243, 50.732593591631435), ('/fast_estimate/CONE_D2/1/energy_fraction', 0.0283208312134549, 0.02844361107838634), ...]
+
+tests\test_snapshots.py:18: AssertionError
+_____________ test_outputs_match_snapshot[mission_synthetic_mix] ______________
+[gw2] win32 -- Python 3.13.14 C:\Users\MAIN_PC\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe
+
+case = 'mission_synthetic_mix'
+
+    @pytest.mark.parametrize("case", tb.case_names())
+    def test_outputs_match_snapshot(case):
+        if not os.path.exists(tb.snapshot_path(case)):
+            pytest.fail(f"no snapshot for '{case}': run python tests/update_snapshots.py {case}")
+        diffs = tb.differences(tb.load_snapshot(case), tb.compute_case(case))
+>       assert not diffs, f"{len(diffs)} output value(s) of '{case}' changed:\n{tb.format_differences(diffs)}"
+E       AssertionError: 1079 output value(s) of 'mission_synthetic_mix' changed:
+E         /fast_estimate/FWD/0/avg_power_kw : 38.30637731863794 -> 38.472445780232285
+E         /fast_estimate/FWD/0/energy_fraction : 0.021476759241675886 -> 0.02156986677668578
+E         /fast_estimate/FWD/0/energy_j_per_refresh : 4596765.278236553 -> 4616693.493627874
+E         /fast_estimate/FWD/0/time_fraction_min : 0.00312705120968473 -> 0.0031406078187944724
+E         /fast_estimate/FWD/1/avg_power_kw : 18.678093677341316 -> 18.759069249812057
+E         /fast_estimate/FWD/1/energy_fraction : 0.010472014037374171 -> 0.010517413602567846
+E         /fast_estimate/FWD/1/energy_j_per_refresh : 2241371.241280958 -> 2251088.309977447
+E         /fast_estimate/FWD/1/time_fraction_min : 0.0015247423410074544 -> 0.0015313525918213926
+E         /fast_estimate/FWD/2/avg_power_kw : 7.414858421325068 -> 7.44700453153512
+E         /fast_estimate/FWD/2/energy_fraction : 0.0041571962757342195 -> 0.004175219234778216
+E         /fast_estimate/FWD/2/energy_j_per_refresh : 889783.0105590081 -> 893640.5437842144
+E         /fast_estimate/FWD/2/time_fraction_min : 0.0006052945650061281 -> 0.0006079187372681731
+E         /fast_estimate/FWD/3/avg_power_kw : 18.678093677341312 -> 18.75906924981206
+E         /fast_estimate/FWD/3/energy_fraction : 0.010472014037374168 -> 0.010517413602567848
+E         /fast_estimate/FWD/3/energy_j_per_refresh : 2241371.2412809576 -> 2251088.3099774476
+E         /fast_estimate/FWD/3/time_fraction_min : 0.001524742341007454 -> 0.001531352591821393
+E         /fast_estimate/KV/0/at_avg_power_kw : 0.020365676341412457 -> 0.021773129769534216
+E         /fast_estimate/KV/0/at_ku_time_fraction : 8.908369656509494e-07 -> 9.904119020622845e-07
+E         /fast_estimate/KV/0/avg_power_kw : 696.5502849876924 -> 699.5519898021348
+E         /fast_estimate/KV/0/energy_fraction : 0.39052616868374007 -> 0.3922090971182959
+E         /fast_estimate/KV/0/energy_j_per_refresh : 13930598.386227017 -> 13990604.333447307
+E         /fast_estimate/KV/0/time_fraction_min : 0.056859585249906204 -> 0.0571045074834584
+E         /fast_estimate/KV/1/at_avg_power_kw : 0.01699970480201527 -> 0.01815986434205375
+E         /fast_estimate/KV/1/at_ku_time_fraction : 7.343141759923754e-07 -> 8.163934903896558e-07
+E         /fast_estimate/KV/1/avg_power_kw : 565.194256176838 -> 567.6341433149893
+E         /fast_estimate/KV/1/energy_fraction : 0.31688042081656304 -> 0.31824836193527173
+E         /fast_estimate/KV/1/energy_j_per_refresh : 11303545.129440721 -> 11352319.669012943
+E         /fast_estimate/KV/1/time_fraction_min : 0.04613691889567641 -> 0.04633599864903243
+E         /fast_estimate/KV/3/at_avg_power_kw : 0.003538749009765351 -> 0.0038053554166243408
+E         /fast_estimate/KV/3/at_ku_time_fraction : 1.6874650184788616e-07 -> 1.876084517209031e-07
+E         /fast_estimate/KV/3/avg_power_kw : 131.35620158832464 -> 131.9180385771348
+E         /fast_estimate/KV/3/energy_fraction : 0.07364584473616839 -> 0.07396084287972485
+E         /fast_estimate/KV/3/energy_j_per_refresh : 2627053.2567862975 -> 2638284.664434364
+E         /fast_estimate/KV/3/time_fraction_min : 0.010722666354229785 -> 0.010768508834425976
+E         /fast_estimate/SHIPW/2/avg_power_kw : 3.513999979189807 -> 3.529083607579799
+E         /fast_estimate/SHIPW/2/energy_fraction : 0.0019701505809476276 -> 0.0019786073309223935
+E         /fast_estimate/SHIPW/2/energy_j_per_refresh : 210839.99875138843 -> 211745.01645478792
+E         /fast_estimate/SHIPW/2/time_fraction_min : 0.0002868571411583516 -> 0.00028808845776161625
+E         /fast_estimate/SHIPW/3/avg_power_kw : 0.8072102237233745 -> 0.8106832799512304
+E         /fast_estimate/SHIPW/3/energy_fraction : 0.00045256849761909744 -> 0.00045451569277717813
+E         ... and 1039 more
+E       assert not [('/fast_estimate/FWD/0/avg_power_kw', 38.30637731863794, 38.472445780232285), ('/fast_estimate/FWD/0/energy_fraction'...341316, 18.759069249812057), ('/fast_estimate/FWD/1/energy_fraction', 0.010472014037374171, 0.010517413602567846), ...]
+
+tests\test_snapshots.py:18: AssertionError
+_________________ test_outputs_match_snapshot[mission_frames] _________________
+[gw3] win32 -- Python 3.13.14 C:\Users\MAIN_PC\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe
+
+case = 'mission_frames'
+
+    @pytest.mark.parametrize("case", tb.case_names())
+    def test_outputs_match_snapshot(case):
+        if not os.path.exists(tb.snapshot_path(case)):
+            pytest.fail(f"no snapshot for '{case}': run python tests/update_snapshots.py {case}")
+        diffs = tb.differences(tb.load_snapshot(case), tb.compute_case(case))
+>       assert not diffs, f"{len(diffs)} output value(s) of '{case}' changed:\n{tb.format_differences(diffs)}"
+E       AssertionError: 1199 output value(s) of 'mission_frames' changed:
+E         /fast_estimate/AXIS/1/avg_power_kw : 650.7663352461426 -> 654.4097631276056
+E         /fast_estimate/AXIS/1/energy_fraction : 0.3648570520885293 -> 0.36689976739866437
+E         /fast_estimate/AXIS/1/energy_j_per_refresh : 13015326.704922851 -> 13088195.262552112
+E         /fast_estimate/AXIS/1/time_fraction_min : 0.053123782469072865 -> 0.053421205153273935
+E         /fast_estimate/AXIS/2/avg_power_kw : 650.7663352461425 -> 654.4097631276056
+E         /fast_estimate/AXIS/2/energy_fraction : 0.36485705208852925 -> 0.36689976739866437
+E         /fast_estimate/AXIS/2/energy_j_per_refresh : 13015326.70492285 -> 13088195.262552112
+E         /fast_estimate/AXIS/2/time_fraction_min : 0.05312378246907286 -> 0.053421205153273935
+E         /fast_estimate/HORIZON/0/avg_power_kw : 476.3496783684524 -> 476.920061478519
+E         /fast_estimate/HORIZON/0/energy_fraction : 0.2670690384546329 -> 0.26738882804550246
+E         /fast_estimate/HORIZON/0/energy_j_per_refresh : 9526993.567369048 -> 9538401.22957038
+E         /fast_estimate/HORIZON/0/time_fraction_min : 0.03888568803007775 -> 0.0389322499166138
+E         /fast_estimate/HORIZON/1/avg_power_kw : 263.9051701754536 -> 264.7185876085668
+E         /fast_estimate/HORIZON/1/energy_fraction : 0.14796042328267997 -> 0.14841647189904061
+E         /fast_estimate/HORIZON/1/energy_j_per_refresh : 5278103.403509072 -> 5294371.752171336
+E         /fast_estimate/HORIZON/1/time_fraction_min : 0.02154327919799621 -> 0.021609680621107494
+E         /fast_estimate/HORIZON/3/avg_power_kw : 263.9051701754536 -> 264.7185876085668
+E         /fast_estimate/HORIZON/3/energy_fraction : 0.14796042328267997 -> 0.14841647189904061
+E         /fast_estimate/HORIZON/3/energy_j_per_refresh : 5278103.403509072 -> 5294371.752171336
+E         /fast_estimate/HORIZON/3/time_fraction_min : 0.02154327919799621 -> 0.021609680621107494
+E         /fast_estimate/ORBIT/0/avg_power_kw : 664.2615183475651 -> 664.4994478311247
+E         /fast_estimate/ORBIT/0/energy_fraction : 0.37242322823671253 -> 0.3725566251954592
+E         /fast_estimate/ORBIT/0/energy_j_per_refresh : 13285230.366951302 -> 13289988.956622496
+E         /fast_estimate/ORBIT/0/time_fraction_min : 0.05422543006918899 -> 0.05424485288417346
+E         /fast_estimate/ORBIT/2/avg_power_kw : 664.2615183475652 -> 664.4994478311247
+E         /fast_estimate/ORBIT/2/energy_fraction : 0.3724232282367126 -> 0.3725566251954592
+E         /fast_estimate/ORBIT/2/energy_j_per_refresh : 13285230.366951304 -> 13289988.956622494
+E         /fast_estimate/ORBIT/2/time_fraction_min : 0.054225430069189 -> 0.05424485288417346
+E         /fast_estimate/PROT/0/avg_power_kw : 2.0824437707046393 -> 2.091281175353567
+E         /fast_estimate/PROT/0/energy_fraction : 0.0011675377999263517 -> 0.0011724925574693977
+E         /fast_estimate/PROT/0/energy_j_per_refresh : 41648.875414092785 -> 41825.623507071345
+E         /fast_estimate/PROT/0/time_fraction_min : 0.00016999540985343994 -> 0.00017071683064110753
+E         /fast_estimate/PROT/1/avg_power_kw : 2.0824437707046393 -> 2.091281175353567
+E         /fast_estimate/PROT/1/energy_fraction : 0.0011675377999263517 -> 0.0011724925574693977
+E         /fast_estimate/PROT/1/energy_j_per_refresh : 41648.875414092785 -> 41825.623507071345
+E         /fast_estimate/PROT/1/time_fraction_min : 0.00016999540985343994 -> 0.00017071683064110753
+E         /fast_estimate/PROT/2/avg_power_kw : 2.0824437707046393 -> 2.091281175353567
+E         /fast_estimate/PROT/2/energy_fraction : 0.0011675377999263517 -> 0.0011724925574693977
+E         /fast_estimate/PROT/2/energy_j_per_refresh : 41648.875414092785 -> 41825.623507071345
+E         /fast_estimate/PROT/2/time_fraction_min : 0.00016999540985343994 -> 0.00017071683064110753
+E         ... and 1159 more
+E       assert not [('/fast_estimate/AXIS/1/avg_power_kw', 650.7663352461426, 654.4097631276056), ('/fast_estimate/AXIS/1/energy_fraction...52461425, 654.4097631276056), ('/fast_estimate/AXIS/2/energy_fraction', 0.36485705208852925, 0.36689976739866437), ...]
+
+tests\test_snapshots.py:18: AssertionError
+____________ test_outputs_match_snapshot[mission_redundancy_demo] _____________
+[gw2] win32 -- Python 3.13.14 C:\Users\MAIN_PC\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe
+
+case = 'mission_redundancy_demo'
+
+    @pytest.mark.parametrize("case", tb.case_names())
+    def test_outputs_match_snapshot(case):
+        if not os.path.exists(tb.snapshot_path(case)):
+            pytest.fail(f"no snapshot for '{case}': run python tests/update_snapshots.py {case}")
+        diffs = tb.differences(tb.load_snapshot(case), tb.compute_case(case))
+>       assert not diffs, f"{len(diffs)} output value(s) of '{case}' changed:\n{tb.format_differences(diffs)}"
+E       AssertionError: 924 output value(s) of 'mission_redundancy_demo' changed:
+E         /fast_estimate/A1_TRIM/2/avg_power_kw : 3.41078699292466 -> 3.4254415220222034
+E         /fast_estimate/A1_TRIM/2/energy_fraction : 0.0019122834420586565 -> 0.001920499614280062
+E         /fast_estimate/A1_TRIM/2/energy_j_per_refresh : 34107.869929246604 -> 34254.415220222036
+E         /fast_estimate/A1_TRIM/2/time_fraction_min : 0.000278431591259156 -> 0.0002796278793487513
+E         /fast_estimate/A2_VEILLE/2/avg_power_kw : 0.12259366798779961 -> 0.1231246051315204
+E         /fast_estimate/A2_VEILLE/2/energy_fraction : 6.87330642108743e-05 -> 6.903073812332247e-05
+E         /fast_estimate/A2_VEILLE/2/energy_j_per_refresh : 36778.10039633988 -> 36937.38153945612
+E         /fast_estimate/A2_VEILLE/2/time_fraction_min : 1.0007646366350989e-05 -> 1.0050988174001665e-05
+E         /fast_estimate/A2_VEILLE/3/avg_power_kw : 0.7192908588710207 -> 0.72240461108562
+E         /fast_estimate/A2_VEILLE/3/energy_fraction : 0.000403275842876297 -> 0.0004050215915304942
+E         /fast_estimate/A2_VEILLE/3/energy_j_per_refresh : 215787.25766130624 -> 216721.383325686
+E         /fast_estimate/A2_VEILLE/3/time_fraction_min : 5.871762113232822e-05 -> 5.8971804986581227e-05
+E         /fast_estimate/A3_HIBAND/0/avg_power_kw : 43.006854755110105 -> 43.1931975378049
+E         /fast_estimate/A3_HIBAND/0/energy_fraction : 0.024112117354094544 -> 0.024216591840080792
+E         /fast_estimate/A3_HIBAND/0/energy_j_per_refresh : 430068.5475511011 -> 431931.97537804896
+E         /fast_estimate/A3_HIBAND/0/time_fraction_min : 0.003510763653478376 -> 0.003525975309208563
+E         /fast_estimate/A4_SEARCH/3/avg_power_kw : 3.060304884507839 -> 3.073427304809964
+E         /fast_estimate/A4_SEARCH/3/energy_fraction : 0.0017157830056333968 -> 0.0017231401895078347
+E         /fast_estimate/A4_SEARCH/3/energy_j_per_refresh : 30603.04884507839 -> 30734.27304809964
+E         /fast_estimate/A4_SEARCH/3/time_fraction_min : 0.0002498208068985991 -> 0.00025089202488244605
+E         /fast_estimate/A5_SHORT/0/avg_power_kw : 248.1921909271211 -> 249.2660342199798
+E         /fast_estimate/A5_SHORT/0/energy_fraction : 0.1391508230044074 -> 0.13975288134242708
+E         /fast_estimate/A5_SHORT/0/energy_j_per_refresh : 1240960.9546356054 -> 1246330.1710998989
+E         /fast_estimate/A5_SHORT/0/time_fraction_min : 0.020260587014458868 -> 0.02034824769142692
+E         /fast_estimate/A5_SHORT/3/avg_power_kw : 54.879955597537176 -> 55.117439419490914
+E         /fast_estimate/A5_SHORT/3/energy_fraction : 0.030768860854631135 -> 0.030902007949838484
+E         /fast_estimate/A5_SHORT/3/energy_j_per_refresh : 274399.77798768587 -> 275587.19709745457
+E         /fast_estimate/A5_SHORT/3/time_fraction_min : 0.004479996375309158 -> 0.0044993828097543605
+E         /fast_estimate/B1_TRIM/2/avg_power_kw : 6.581806878367048 -> 6.6100649059704715
+E         /fast_estimate/B1_TRIM/2/energy_fraction : 0.003690139647664328 -> 0.003705982723882033
+E         /fast_estimate/B1_TRIM/2/energy_j_per_refresh : 65818.06878367047 -> 66100.64905970471
+E         /fast_estimate/B1_TRIM/2/time_fraction_min : 0.0005372903574177182 -> 0.0005395971351812629
+E         /fast_estimate/B2_AUTOPROT/3/avg_power_kw : 0.0007556269152783555 -> 0.0007586552643667532
+E         /fast_estimate/B2_AUTOPROT/3/energy_fraction : 4.236479268444823e-07 -> 4.253457935921067e-07
+E         /fast_estimate/B2_AUTOPROT/3/energy_j_per_refresh : 0.1511253830556711 -> 0.15173105287335065
+E         /fast_estimate/B2_AUTOPROT/3/time_fraction_min : 6.168382981864126e-08 -> 6.193104198912271e-08
+E         /fast_estimate/B3_EDGE/0/avg_power_kw : 0.4517817238462755 -> 0.45373877984635524
+E         /fast_estimate/B3_EDGE/0/energy_fraction : 0.00025329482952998706 -> 0.00025439206773099387
+E         /fast_estimate/B3_EDGE/0/energy_j_per_refresh : 4517.817238462755 -> 4537.387798463553
+E         /fast_estimate/B3_EDGE/0/time_fraction_min : 3.688014072214494e-05 -> 3.703990039562084e-05
+E         ... and 884 more
+E       assert not [('/fast_estimate/A1_TRIM/2/avg_power_kw', 3.41078699292466, 3.4254415220222034), ('/fast_estimate/A1_TRIM/2/energy_fr... 0.1231246051315204), ('/fast_estimate/A2_VEILLE/2/energy_fraction', 6.87330642108743e-05, 6.903073812332247e-05), ...]
+
+tests\test_snapshots.py:18: AssertionError
+_____________ test_outputs_match_snapshot[mission_target_library] _____________
+[gw3] win32 -- Python 3.13.14 C:\Users\MAIN_PC\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe
+
+case = 'mission_target_library'
+
+    @pytest.mark.parametrize("case", tb.case_names())
+    def test_outputs_match_snapshot(case):
+        if not os.path.exists(tb.snapshot_path(case)):
+            pytest.fail(f"no snapshot for '{case}': run python tests/update_snapshots.py {case}")
+        diffs = tb.differences(tb.load_snapshot(case), tb.compute_case(case))
+>       assert not diffs, f"{len(diffs)} output value(s) of '{case}' changed:\n{tb.format_differences(diffs)}"
+E       AssertionError: 1073 output value(s) of 'mission_target_library' changed:
+E         /fast_estimate/T_DEBRIS/1/avg_power_kw : 25.83024765663403 -> 25.94201167833241
+E         /fast_estimate/T_DEBRIS/1/energy_fraction : 0.014481923087111622 -> 0.014544584428483876
+E         /fast_estimate/T_DEBRIS/1/energy_j_per_refresh : 774907.4296990209 -> 778260.3503499723
+E         /fast_estimate/T_DEBRIS/1/time_fraction_min : 0.002108591645439513 -> 0.0021177152390475435
+E         /fast_estimate/T_DEBRIS/2/avg_power_kw : 5.879637334209402 -> 5.905084674959819
+E         /fast_estimate/T_DEBRIS/2/energy_fraction : 0.003296462998962449 -> 0.003310730242405793
+E         /fast_estimate/T_DEBRIS/2/energy_j_per_refresh : 176389.12002628206 -> 177152.5402487946
+E         /fast_estimate/T_DEBRIS/2/time_fraction_min : 0.00047997039462933895 -> 0.00048204772856814856
+E         /fast_estimate/T_DECOY/2/at_avg_power_kw : 0.021602693038448778 -> 0.023953042547894238
+E         /fast_estimate/T_DECOY/2/at_ku_time_fraction : 1.4876358843416318e-06 -> 1.653919114941855e-06
+E         /fast_estimate/T_DECOY/2/avg_power_kw : 1386.1632380363314 -> 1387.8568403871786
+E         /fast_estimate/T_DECOY/2/energy_fraction : 0.777162869914181 -> 0.7781124008405259
+E         /fast_estimate/T_DECOY/2/energy_j_per_refresh : 41584249.060298786 -> 41634986.62033892
+E         /fast_estimate/T_DECOY/2/time_fraction_min : 0.11315441921169739 -> 0.11329248059956169
+E         /fast_estimate/T_DECOY/3/at_avg_power_kw : 0.02898841959122566 -> 0.0321349922674106
+E         /fast_estimate/T_DECOY/3/at_ku_time_fraction : 1.991599294900641e-06 -> 2.2142139604266515e-06
+E         /fast_estimate/T_DECOY/3/avg_power_kw : 1917.842507066174 -> 1921.2561411631955
+E         /fast_estimate/T_DECOY/3/energy_fraction : 1.0752528605118659 -> 1.0771667402043013
+E         /fast_estimate/T_DECOY/3/energy_j_per_refresh : 57534405.55939748 -> 57636720.18512784
+E         /fast_estimate/T_DECOY/3/time_fraction_min : 0.15655620560380268 -> 0.1568346127486472
+E         /fast_estimate/T_KKV/0/avg_power_kw : 718.1633479135556 -> 721.2708198243462
+E         /fast_estimate/T_KKV/0/energy_fraction : 0.4026436953575065 -> 0.4043859229120252
+E         /fast_estimate/T_KKV/0/energy_j_per_refresh : 14363266.958271114 -> 14425416.396486925
+E         /fast_estimate/T_KKV/0/time_fraction_min : 0.05862557942151476 -> 0.058879250597905816
+E         /fast_estimate/T_KKV/1/avg_power_kw : 133.25194848651267 -> 133.82861093877403
+E         /fast_estimate/T_KKV/1/energy_fraction : 0.07470870952698035 -> 0.07503201967839229
+E         /fast_estimate/T_KKV/1/energy_j_per_refresh : 2665038.9697302533 -> 2676572.218775481
+E         /fast_estimate/T_KKV/1/time_fraction_min : 0.010877710080531648 -> 0.010924784566430534
+E         /fast_estimate/T_KKV/3/avg_power_kw : 133.25194848651267 -> 133.82861093877403
+E         /fast_estimate/T_KKV/3/energy_fraction : 0.07470870952698035 -> 0.07503201967839229
+E         /fast_estimate/T_KKV/3/energy_j_per_refresh : 2665038.9697302533 -> 2676572.218775481
+E         /fast_estimate/T_KKV/3/time_fraction_min : 0.010877710080531648 -> 0.010924784566430534
+E         /fast_estimate/T_KKV_RETRO/2/avg_power_kw : 983.6264154271995 -> 987.8892098866011
+E         /fast_estimate/T_KKV_RETRO/2/energy_fraction : 0.5514775655280831 -> 0.5538675333796443
+E         /fast_estimate/T_KKV_RETRO/2/energy_j_per_refresh : 29508792.462815985 -> 29636676.296598032
+E         /fast_estimate/T_KKV_RETRO/2/time_fraction_min : 0.08029603391242446 -> 0.0806440171336001
+E         /run/compute/faces/0/bands/Ku/beams_mean : 0.019033029852002666 -> 0.021115328156803066
+E         /run/compute/faces/0/bands/Ku/bits_per_s : 31367237306.37216 -> 34814190908.92584
+E         /run/compute/faces/0/bands/Ku/open_windows_mean : 0.019033029852002666 -> 0.021115328156803066
+E         /run/compute/faces/0/bands/Ku/ops_per_s/banks : 66455307682.84034 -> 73767921265.57079
+E         ... and 1033 more
+E       assert not [('/fast_estimate/T_DEBRIS/1/avg_power_kw', 25.83024765663403, 25.94201167833241), ('/fast_estimate/T_DEBRIS/1/energy_...02, 5.905084674959819), ('/fast_estimate/T_DEBRIS/2/energy_fraction', 0.003296462998962449, 0.003310730242405793), ...]
+
+tests\test_snapshots.py:18: AssertionError
+_____________________ test_outputs_match_snapshot[model] ______________________
+[gw2] win32 -- Python 3.13.14 C:\Users\MAIN_PC\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe
+
+case = 'model'
+
+    @pytest.mark.parametrize("case", tb.case_names())
+    def test_outputs_match_snapshot(case):
+        if not os.path.exists(tb.snapshot_path(case)):
+            pytest.fail(f"no snapshot for '{case}': run python tests/update_snapshots.py {case}")
+        diffs = tb.differences(tb.load_snapshot(case), tb.compute_case(case))
+>       assert not diffs, f"{len(diffs)} output value(s) of '{case}' changed:\n{tb.format_differences(diffs)}"
+E       AssertionError: 610 output value(s) of 'model' changed:
+E         /ku_look/0.0 deg | 300.0 km | detect/cost : 3.80550176361412e-06 -> 4.142289155857425e-06
+E         /ku_look/0.0 deg | 300.0 km | detect/energy_J : 6.787569055617416 -> 7.3882697841704195
+E         /ku_look/0.0 deg | 300.0 km | detect/energy_rf_J : 3.4931698861513207 -> 3.883625359710774
+E         /ku_look/0.0 deg | 300.0 km | detect/pae : 0.514642261099408 -> 0.5256474754118418
+E         /ku_look/0.0 deg | 300.0 km | detect/reach_km : 571.2920321146795 -> 556.3572627434063
+E         /ku_look/0.0 deg | 300.0 km | detect/scale : 0.07604179344002875 -> 0.08454150442907807
+E         /ku_look/0.0 deg | 300.0 km | detect/time_s : 3.8020896720014377e-07 -> 4.2270752214539036e-07
+E         /ku_look/0.0 deg | 300.0 km | track/cost : 4.145672275881055e-06 -> 4.5204828513038315e-06
+E         /ku_look/0.0 deg | 300.0 km | track/energy_J : 7.394303984706967 -> 8.062823623242538
+E         /ku_look/0.0 deg | 300.0 km | track/energy_rf_J : 3.8875475900595284 -> 4.32208535510765
+E         /ku_look/0.0 deg | 300.0 km | track/pae : 0.5257489546142307 -> 0.5360510854594986
+E         /ku_look/0.0 deg | 300.0 km | track/reach_km : 1176.2554890737435 -> 1145.5057088151525
+E         /ku_look/0.0 deg | 300.0 km | track/scale : 0.004231344315711051 -> 0.004704310590593361
+E         /ku_look/0.0 deg | 300.0 km | track/time_s : 4.231344315711051e-07 -> 4.7043105905933613e-07
+E         /ku_look/0.0 deg | 800.0 km | detect/cost : 0.00011057161360554537 -> 0.0001222223222014671
+E         /ku_look/0.0 deg | 800.0 km | detect/energy_J : 197.2177414591228 -> 217.9981783249807
+E         /ku_look/0.0 deg | 800.0 km | detect/energy_rf_J : 120.84153194842983 -> 134.34881591123744
+E         /ku_look/0.0 deg | 800.0 km | detect/pae : 0.6127315476507299 -> 0.6162841219294823
+E         /ku_look/0.0 deg | 800.0 km | detect/reach_km : 1056.4532105442574 -> 1028.8353125795045
+E         /ku_look/0.0 deg | 800.0 km | detect/scale : 0.32882049509776823 -> 0.3655750092822787
+E         /ku_look/0.0 deg | 800.0 km | detect/time_s : 1.315281980391073e-05 -> 1.462300037129115e-05
+E         /ku_look/0.0 deg | 800.0 km | track/cost : 0.00011057161360554537 -> 0.0001222223222014671
+E         /ku_look/0.0 deg | 800.0 km | track/energy_J : 197.2177414591228 -> 217.9981783249807
+E         /ku_look/0.0 deg | 800.0 km | track/energy_rf_J : 120.84153194842983 -> 134.34881591123744
+E         /ku_look/0.0 deg | 800.0 km | track/pae : 0.6127315476507299 -> 0.6162841219294823
+E         /ku_look/0.0 deg | 800.0 km | track/reach_km : 1056.4532105442574 -> 1028.8353125795045
+E         /ku_look/0.0 deg | 800.0 km | track/scale : 0.32882049509776823 -> 0.3655750092822787
+E         /ku_look/0.0 deg | 800.0 km | track/time_s : 1.315281980391073e-05 -> 1.462300037129115e-05
+E         /ku_look/60.0 deg | 300.0 km | detect/cost : 1.1802370780849285e-05 -> 1.2767284230730238e-05
+E         /ku_look/60.0 deg | 300.0 km | detect/energy_J : 21.0509445721384 -> 22.771983499615065
+E         /ku_look/60.0 deg | 300.0 km | detect/energy_rf_J : 10.008113971889959 -> 11.126789274749793
+E         /ku_look/60.0 deg | 300.0 km | detect/pae : 0.475423510693008 -> 0.4886174836257843
+E         /ku_look/60.0 deg | 300.0 km | detect/reach_km : 620.9977563008628 -> 604.763575270714
+E         /ku_look/60.0 deg | 300.0 km | detect/scale : 0.05446592637763243 -> 0.06055395523673357
+E         /ku_look/60.0 deg | 300.0 km | detect/time_s : 1.0893185275526486e-06 -> 1.2110791047346714e-06
+E         /ku_look/60.0 deg | 300.0 km | track/cost : 1.1802370780849285e-05 -> 1.2767284230730238e-05
+E         /ku_look/60.0 deg | 300.0 km | track/energy_J : 21.0509445721384 -> 22.771983499615065
+E         /ku_look/60.0 deg | 300.0 km | track/energy_rf_J : 10.008113971889959 -> 11.126789274749793
+E         /ku_look/60.0 deg | 300.0 km | track/pae : 0.475423510693008 -> 0.4886174836257843
+E         /ku_look/60.0 deg | 300.0 km | track/reach_km : 620.9977563008628 -> 604.763575270714
+E         ... and 570 more
+E       assert not [('/ku_look/0.0 deg | 300.0 km | detect/cost', 3.80550176361412e-06, 4.142289155857425e-06), ('/ku_look/0.0 deg | 300....795, 556.3572627434063), ('/ku_look/0.0 deg | 300.0 km | detect/scale', 0.07604179344002875, 0.08454150442907807), ...]
+
+tests\test_snapshots.py:18: AssertionError
+============================== warnings summary ===============================
+tests/test_sim.py::test_equatorial_orbit
+  C:\Users\MAIN_PC\Documents\TLW\RADARv6\V1\tests\test_sim.py:857: RuntimeWarning: invalid value encountered in divide
+    assert np.cross(r, v) / np.linalg.norm(np.cross(r, v)) == pytest.approx(pole, abs=1e-9)
+
+tests/test_sim.py::test_sim_view_offscreen
+  C:\Users\MAIN_PC\Documents\TLW\RADARv6\V1\gui\sim_view.py:3097: RuntimeWarning: invalid value encountered in divide
+    up /= np.linalg.norm(up)
+
+tests/test_sim.py::test_sim_view_offscreen
+  C:\Users\MAIN_PC\Documents\TLW\RADARv6\V1\gui\sim_view.py:3205: RuntimeWarning: invalid value encountered in divide
+    up /= np.linalg.norm(up)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_sim.py::test_equatorial_orbit - assert array([nan, nan, nan...
+FAILED tests/test_sim.py::test_sim_view_offscreen - assert (22.85358842515925...
+FAILED tests/test_sim.py::test_event_marks_follow_the_classification - worker...
+FAILED tests/test_sim.py::test_aspect_rcs_direction_and_structure - assert np...
+FAILED tests/test_snapshots.py::test_outputs_match_snapshot[mission_example]
+FAILED tests/test_snapshots.py::test_outputs_match_snapshot[mission_environment]
+FAILED tests/test_snapshots.py::test_outputs_match_snapshot[mission_example_csv]
+FAILED tests/test_snapshots.py::test_outputs_match_snapshot[mission_sky_demo]
+FAILED tests/test_snapshots.py::test_outputs_match_snapshot[mission_veille500]
+FAILED tests/test_snapshots.py::test_outputs_match_snapshot[mission_synthetic_mix]
+FAILED tests/test_snapshots.py::test_outputs_match_snapshot[mission_frames]
+FAILED tests/test_snapshots.py::test_outputs_match_snapshot[mission_redundancy_demo]
+FAILED tests/test_snapshots.py::test_outputs_match_snapshot[mission_target_library]
+FAILED tests/test_snapshots.py::test_outputs_match_snapshot[model] - Assertio...
+14 failed, 319 passed, 3 warnings in 2210.98s (0:36:50)

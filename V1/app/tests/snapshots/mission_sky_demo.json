@@ -1,0 +1,5230 @@
+{
+ "fast_estimate": {
+  "EARTH": {
+   "2": {
+    "at_avg_power_kw": 0.0,
+    "at_ku_time_fraction": 0.0,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 2115.138061357075,
+    "energy_fraction": 1.1858681004681912,
+    "energy_j_per_refresh": 42302761.2271415,
+    "positions": 160.49983493289184,
+    "time_fraction_min": 0.17266433153935307,
+    "unreachable_pct": 23.329429476284606
+   },
+   "3": {
+    "at_avg_power_kw": 0.0,
+    "at_ku_time_fraction": 0.0,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 319.3433289647211,
+    "energy_fraction": 0.17904224496513893,
+    "energy_j_per_refresh": 6386866.579294422,
+    "positions": 18.072134127578927,
+    "time_fraction_min": 0.02606884318079356,
+    "unreachable_pct": 48.35450052990647
+   }
+  },
+  "MOON": {
+   "1": {
+    "at_avg_power_kw": 0.005798635667504459,
+    "at_ku_time_fraction": 3.102436118506557e-07,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 379.62997280534074,
+    "energy_fraction": 0.21284240634515242,
+    "energy_j_per_refresh": 3796241.741696732,
+    "positions": 28.276604281190153,
+    "time_fraction_min": 0.0309897285036468,
+    "unreachable_pct": 0.0
+   }
+  },
+  "SUN": {
+   "0": {
+    "at_avg_power_kw": 0.0,
+    "at_ku_time_fraction": 0.0,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 324.15833664725113,
+    "energy_fraction": 0.18174181532347203,
+    "energy_j_per_refresh": 6483166.732945023,
+    "positions": 57.82447516131592,
+    "time_fraction_min": 0.026461905032428665,
+    "unreachable_pct": 0.0
+   },
+   "1": {
+    "at_avg_power_kw": 0.0,
+    "at_ku_time_fraction": 0.0,
+    "at_unreachable_tracks": 0.0,
+    "avg_power_kw": 324.15833664725113,
+    "energy_fraction": 0.18174181532347203,
+    "energy_j_per_refresh": 6483166.732945023,
+    "positions": 57.82447516131592,
+    "time_fraction_min": 0.026461905032428665,
+    "unreachable_pct": 0.0
+   }
+  }
+ },
+ "redundancy": {
+  "findings": [],
+  "pair_notes": {}
+ },
+ "run": {
+  "cancelled": false,
+  "compute": {
+   "faces": {
+    "0": {
+     "bands": {
+      "Ku": {
+       "beams_max": 32,
+       "beams_mean": 0.08692755058427512,
+       "beams_peak": 1,
+       "bits_per_s": 68151199658.07169,
+       "buffer_peak_GB": 0.02,
+       "face_input_peak_tbps": 0.784,
+       "link_trsa_peak_tbps": 0.004,
+       "open_windows_mean": 0.08692755058427512,
+       "ops_per_s": {
+        "banks": 10570390151.047853,
+        "beamforming": 10665662746488.22,
+        "cfar": 825811730.5506136,
+        "compression": 1983414693.2726817,
+        "nulling": 0.0,
+        "repointing": 217.3188764606878,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 10679042363280.41,
+       "transport": "subarray_beams"
+      },
+      "S": {
+       "beams_max": 512,
+       "beams_mean": 0.018102244550615557,
+       "beams_peak": 7.992160949499142,
+       "bits_per_s": 88788000000.0,
+       "buffer_peak_GB": 0.00799216094949914,
+       "face_input_peak_tbps": 39.2,
+       "link_trsa_peak_tbps": 0.2,
+       "open_windows_mean": 0.002265,
+       "ops_per_s": {
+        "banks": 231708730.24787915,
+        "beamforming": 177401996596.03247,
+        "cfar": 144817956.40492445,
+        "compression": 766248487.1685553,
+        "nulling": 0.0,
+        "repointing": 226.5,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 178544771996.35382,
+       "transport": "raw"
+      }
+     },
+     "bits_per_s": 156939199658.0717,
+     "bus_draw_MW_actual": 0.088030433083508,
+     "capacity_ops_per_s": 3.9999992153040015e+18,
+     "face_heat_kW_actual": 70.5557740011929,
+     "jammers_nulled": 0,
+     "load": 2.714397316313369e-06,
+     "memory": {
+      "bandwidth_TB_per_s": 50.0,
+      "buffers_peak_TB": 2.7992160949499143e-05,
+      "capacity_TB": 4.0,
+      "flight_tables_TB": 9.6e-10,
+      "traffic_TB_per_s": 0.01974053199694447
+     },
+     "non_tx_kW_actual": 66.88011642283132,
+     "ops_total_per_s": 10857587135276.764,
+     "power_kW": {
+      "ceiling": 50.0,
+      "ops": 0.00010857587135276763,
+      "static": 10.0,
+      "total": 10.000116422831336,
+      "transport": 7.846959982903584e-06
+     }
+    },
+    "1": {
+     "bands": {
+      "Ku": {
+       "beams_max": 32,
+       "beams_mean": 0.08934479793701533,
+       "beams_peak": 1,
+       "bits_per_s": 70095813417.1303,
+       "buffer_peak_GB": 0.02,
+       "face_input_peak_tbps": 3.136,
+       "link_trsa_peak_tbps": 0.016,
+       "open_windows_mean": 0.08934479793701533,
+       "ops_per_s": {
+        "banks": 10862038010.946032,
+        "beamforming": 10969994799780.89,
+        "cfar": 848744016.7316774,
+        "compression": 2039869999.2391152,
+        "nulling": 0.0,
+        "repointing": 227.5178780550294,
+        "tracks": 10000.0
+       },
+       "ops_total_per_s": 10983745462035.326,
+       "transport": "subarray_beams"
+      },
+      "S": {
+       "beams_max": 512,
+       "beams_mean": 0.03408656644961384,
+       "beams_peak": 12.487751483592406,
+       "bits_per_s": 138964000000.0,
+       "buffer_peak_GB": 0.012487751483592406,
+       "face_input_peak_tbps": 39.2,
+       "link_trsa_peak_tbps": 0.2,
+       "open_windows_mean": 0.003545,
+       "ops_per_s": {
+        "banks": 334008390.40146816,
+        "beamforming": 334048351206.21564,
+        "cfar": 208755244.00091755,
+        "compression": 1442847592.8361535,
+        "nulling": 0.0,
+        "repointing": 354.5,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 336033962787.95416,
+       "transport": "raw"
+      }
+     },
+     "bits_per_s": 209059813417.1303,
+     "bus_draw_MW_actual": 0.10328869703792032,
+     "capacity_ops_per_s": 3.999998954700933e+18,
+     "face_heat_kW_actual": 73.53727960269823,
+     "jammers_nulled": 0,
+     "load": 2.8299455957406927e-06,
+     "memory": {
+      "bandwidth_TB_per_s": 50.0,
+      "buffers_peak_TB": 3.2487751483592404e-05,
+      "capacity_TB": 4.0,
+      "flight_tables_TB": 1.728e-09,
+      "traffic_TB_per_s": 0.026290057735317465
+     },
+     "non_tx_kW_actual": 66.88012365078491,
+     "ops_total_per_s": 11319779424823.281,
+     "power_kW": {
+      "ceiling": 50.0,
+      "ops": 0.00011319779424823281,
+      "static": 10.0,
+      "total": 10.00012365078492,
+      "transport": 1.0452990670856515e-05
+     }
+    },
+    "2": {
+     "bands": {
+      "Ku": {
+       "beams_max": 32,
+       "beams_mean": 0,
+       "beams_peak": 0.0,
+       "bits_per_s": 0.0,
+       "buffer_peak_GB": 0.0,
+       "face_input_peak_tbps": 0.0,
+       "link_trsa_peak_tbps": 0.0,
+       "open_windows_mean": 0,
+       "ops_per_s": {
+        "banks": 0.0,
+        "beamforming": 0.0,
+        "cfar": 0.0,
+        "compression": 0.0,
+        "nulling": 0.0,
+        "repointing": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 0.0,
+       "transport": "subarray_beams"
+      },
+      "S": {
+       "beams_max": 512,
+       "beams_mean": 4.14825468449669,
+       "beams_peak": 9.83118955249738,
+       "bits_per_s": 23889154416503.977,
+       "buffer_peak_GB": 5.194171363408255,
+       "face_input_peak_tbps": 58.8,
+       "link_trsa_peak_tbps": 0.3,
+       "open_windows_mean": 0.4219483982427056,
+       "ops_per_s": {
+        "banks": 38050900137559.14,
+        "beamforming": 58714701329382.63,
+        "cfar": 770087298135.4801,
+        "compression": 313119698478.5313,
+        "nulling": 0.0,
+        "repointing": 338.5,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 97848808463894.28,
+       "transport": "raw"
+      }
+     },
+     "bits_per_s": 23889154416503.977,
+     "bus_draw_MW_actual": 0.2632360655337799,
+     "capacity_ops_per_s": 3.9998805542279173e+18,
+     "face_heat_kW_actual": 103.90439894580547,
+     "jammers_nulled": 0,
+     "load": 2.4462932614441955e-05,
+     "memory": {
+      "bandwidth_TB_per_s": 50.0,
+      "buffers_peak_TB": 0.005194171363408256,
+      "capacity_TB": 4.0,
+      "flight_tables_TB": 1.728e-09,
+      "traffic_TB_per_s": 2.9981268941710346
+     },
+     "non_tx_kW_actual": 66.88217294580545,
+     "ops_total_per_s": 97848808463894.28,
+     "power_kW": {
+      "ceiling": 50.0,
+      "ops": 0.0009784880846389428,
+      "static": 10.0,
+      "total": 10.002172945805464,
+      "transport": 0.001194457720825199
+     }
+    },
+    "3": {
+     "bands": {
+      "Ku": {
+       "beams_max": 32,
+       "beams_mean": 0,
+       "beams_peak": 0.0,
+       "bits_per_s": 0.0,
+       "buffer_peak_GB": 0.0,
+       "face_input_peak_tbps": 0.0,
+       "link_trsa_peak_tbps": 0.0,
+       "open_windows_mean": 0,
+       "ops_per_s": {
+        "banks": 0.0,
+        "beamforming": 0.0,
+        "cfar": 0.0,
+        "compression": 0.0,
+        "nulling": 0.0,
+        "repointing": 0.0,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 0.0,
+       "transport": "subarray_beams"
+      },
+      "S": {
+       "beams_max": 512,
+       "beams_mean": 0.47793776276328187,
+       "beams_peak": 9.83118955249738,
+       "bits_per_s": 2752369341931.034,
+       "buffer_peak_GB": 5.194171363408255,
+       "face_input_peak_tbps": 58.8,
+       "link_trsa_peak_tbps": 0.3,
+       "open_windows_mean": 0.04861443879310344,
+       "ops_per_s": {
+        "banks": 4384003265479.487,
+        "beamforming": 6764766179751.617,
+        "cfar": 88724976742.34482,
+        "compression": 36075829366.80272,
+        "nulling": 0.0,
+        "repointing": 38.99999999999999,
+        "tracks": 0.0
+       },
+       "ops_total_per_s": 11273570251379.252,
+       "transport": "raw"
+      }
+     },
+     "bits_per_s": 2752369341931.034,
+     "bus_draw_MW_actual": 0.12493664147492162,
+     "capacity_ops_per_s": 3.99998623815329e+18,
+     "face_heat_kW_actual": 77.3137283541696,
+     "jammers_nulled": 0,
+     "load": 2.818402259449778e-06,
+     "memory": {
+      "bandwidth_TB_per_s": 50.0,
+      "buffers_peak_TB": 0.005194171363408256,
+      "capacity_TB": 4.0,
+      "flight_tables_TB": 1.728e-09,
+      "traffic_TB_per_s": 0.3454267322678592
+     },
+     "non_tx_kW_actual": 66.88025035416962,
+     "ops_total_per_s": 11273570251379.252,
+     "power_kW": {
+      "ceiling": 50.0,
+      "ops": 0.00011273570251379251,
+      "static": 10.0,
+      "total": 10.000250354169612,
+      "transport": 0.0001376184670965517
+     }
+    }
+   },
+   "flags": [],
+   "reselect_ops": {
+    "EARTH": 27000.0,
+    "MOON": 12000.0,
+    "SUN": 15000.0
+   },
+   "sectors": {
+    "EARTH": {
+     "processing_s": 2.20221029339804e-05,
+     "reselect_ops": 27000.0
+    },
+    "MOON": {
+     "processing_s": 3.0759702638018816e-08,
+     "reselect_ops": 12000.0
+    },
+    "SUN": {
+     "processing_s": 1.9706989371036346e-08,
+     "reselect_ops": 15000.0
+    }
+   }
+  },
+  "faces_total": {
+   "0": {
+    "avg_power_kW": 14.7164,
+    "dissipation_kW": 2.9477,
+    "energy_fraction": 0.0083,
+    "ku_duty_pct": 12.5147,
+    "p_available_kW": 1768.9036,
+    "positions": 45.3,
+    "power_margin": 0.9917,
+    "time_fraction": 0.0012,
+    "time_margin_s": 0.9988
+   },
+   "1": {
+    "avg_power_kW": 16.5622,
+    "dissipation_kW": 3.3194,
+    "energy_fraction": 0.0093,
+    "ku_duty_pct": 12.5016,
+    "p_available_kW": 1767.0578,
+    "positions": 58.1,
+    "power_margin": 0.9907,
+    "time_fraction": 0.0014,
+    "time_margin_s": 0.9986
+   },
+   "2": {
+    "avg_power_kW": 181.1361,
+    "dissipation_kW": 36.2963,
+    "energy_fraction": 0.1016,
+    "ku_duty_pct": 11.3373,
+    "p_available_kW": 1602.4839,
+    "positions": 67.7,
+    "power_margin": 0.8984,
+    "time_fraction": 0.0148,
+    "time_margin_s": 0.9852
+   },
+   "3": {
+    "avg_power_kW": 51.0557,
+    "dissipation_kW": 10.2289,
+    "energy_fraction": 0.0286,
+    "ku_duty_pct": 12.2576,
+    "p_available_kW": 1732.5643,
+    "positions": 7.8,
+    "power_margin": 0.9714,
+    "time_fraction": 0.0042,
+    "time_margin_s": 0.9958
+   }
+  },
+  "global": {
+   "bin_deg": 5,
+   "eps_max_deg": 90.0,
+   "eps_min_deg": -90.0,
+   "face_elec_avail_kW": 1783.6199999999997,
+   "face_elec_cap_mw": 2.0,
+   "face_elec_mw": 2.0,
+   "max_wf_per_sector": 4,
+   "objective": "max(energy,time)",
+   "sky_bodies": [
+    "SUN",
+    "MOON",
+    "EARTH"
+   ],
+   "sky_galactic": "frame"
+  },
+  "global_opt": {
+   "converged": false,
+   "history": [
+    {
+     "couplings": {
+      "EARTH": {
+       "_eclipse_rho": 0.014255
+      },
+      "MOON": {
+       "_eclipse_rho": 0.014255
+      },
+      "SUN": {
+       "_eclipse_rho": 0.014255
+      }
+     },
+     "mission_choice": [],
+     "pass": 2,
+     "re-planned": [
+      "EARTH",
+      "MOON",
+      "SUN"
+     ]
+    },
+    {
+     "couplings": {
+      "EARTH": {
+       "_eclipse_rho": 0.014791
+      },
+      "MOON": {
+       "_eclipse_rho": 0.014791
+      },
+      "SUN": {
+       "_eclipse_rho": 0.014791
+      }
+     },
+     "mission_choice": [],
+     "pass": 3,
+     "re-planned": [
+      "EARTH",
+      "MOON",
+      "SUN"
+     ]
+    }
+   ],
+   "max_passes": 3,
+   "passes": 3
+  },
+  "power_allocation": {
+   "faces": {
+    "0": {
+     "alloc_MW": 1.9999999999999998,
+     "always_on_MW": 0.07083013820688082,
+     "cap_MW": 2.0,
+     "load": 0.043968844334170115,
+     "need_MW": 0.08793768866834023
+    },
+    "1": {
+     "alloc_MW": 2.0,
+     "always_on_MW": 0.07089199272195744,
+     "cap_MW": 2.0,
+     "load": 0.05163089836475646,
+     "need_MW": 0.10326179672951293
+    },
+    "2": {
+     "alloc_MW": 2.0,
+     "always_on_MW": 0.07152404014367147,
+     "cap_MW": 2.0,
+     "load": 0.13157585554352508,
+     "need_MW": 0.26315171108705016
+    },
+    "3": {
+     "alloc_MW": 2.0,
+     "always_on_MW": 0.07097046109935956,
+     "cap_MW": 2.0,
+     "load": 0.06249167034799414,
+     "need_MW": 0.12498334069598828
+    }
+   },
+   "flags": [],
+   "need_MW": 0.5793345371808916,
+   "partial": [],
+   "ship_MW": 8.0,
+   "status": "OK",
+   "tiers": [
+    {
+     "fraction": 1.0,
+     "need_MW": 0.28421663217186927,
+     "served_MW": 0.28421663217186927,
+     "tier": "always-on"
+    },
+    {
+     "fraction": 1.0,
+     "need_MW": 0.01629909090799183,
+     "served_MW": 0.01629909090799183,
+     "tier": "P2 confirmation / initiation"
+    },
+    {
+     "fraction": 1.0,
+     "need_MW": 8.795113040619684e-05,
+     "served_MW": 8.795113040619684e-05,
+     "tier": "P3 tracks other"
+    },
+    {
+     "fraction": 1.0,
+     "need_MW": 0.27873086297062427,
+     "served_MW": 0.27873086297062427,
+     "tier": "P4_1 search"
+    }
+   ]
+  },
+  "redundancy": [],
+  "repointing": {
+   "accel_max_dps2": 15.0,
+   "bands": {
+    "Ku": {
+     "accel_tenable_dps2": 130.80316179041495,
+     "error_hpbw": 0.005885028372556691,
+     "error_rms_deg": 0.0017326227915083884,
+     "hpbw_deg": 0.2944119691228724,
+     "lever_loss_db": 0.46017620781715246,
+     "lever_loss_db_sized": 0.46017620781715246,
+     "loss_db": 0.0008340592079425268,
+     "loss_db_sized": 0.0008340592079425268
+    },
+    "S": {
+     "accel_tenable_dps2": 647.5981157474987,
+     "error_hpbw": 0.0011890760037895844,
+     "error_rms_deg": 0.0017326227915083884,
+     "hpbw_deg": 1.4571169428922297,
+     "lever_loss_db": 0.018789853633719253,
+     "lever_loss_db_sized": 0.018789853633719253,
+     "loss_db": 3.4050146840066366e-05,
+     "loss_db_sized": 3.4050146840066366e-05
+    }
+   },
+   "flags": [],
+   "lever_accel_mps2": 22.4785770239955,
+   "lever_error_m": 0.0005355657078559341,
+   "lever_m": 59.298,
+   "lever_speed_mps": 31.048360195427925,
+   "nav_age_s": 0.015,
+   "rate_max_dps": 30.0,
+   "sectors": {},
+   "track_axis_sigma_deg": 0.001225149325113947
+  },
+  "saturation": {
+   "brackets": {
+    "MOON/0": {
+     "binding_alone": "F2 energy",
+     "cost_per_track": {
+      "F2 Ku beams": 2.2430436243635332e-08,
+      "F2 Ku time": 1.457132277817453e-07,
+      "F2 compute": 8.808819851338986e-11,
+      "F2 energy": 1.4877865663343037e-06,
+      "F2 heat": 9.176997117256446e-08,
+      "F2 memory bandwidth": 5.684769761589263e-09,
+      "ship energy": 3.7194664158357593e-07
+     },
+     "extra_alone": 503008,
+     "n_targets": 2.0,
+     "r_min_km": 5.0,
+     "target_type": null
+    }
+   },
+   "critique": {
+    "brackets": {
+     "MOON/0": {
+      "binding_critique": "F2 energy",
+      "extra_critique": 1189627
+     }
+    },
+    "cumulative": {
+     "assemblies": 9,
+     "binding": "F2 energy (bisection)",
+     "bisected": true,
+     "extra": {
+      "MOON/0": 1003748
+     },
+     "p": 501874.09366835095,
+     "verified": true
+    },
+    "first_shed": "tracks of bracket MOON/0 (other), the farthest first",
+    "ku_levers": false,
+    "mode": "NONE",
+    "search_floors": {},
+    "track_floors": {
+     "MOON/0": {
+      "limited_by": "p_loss_max",
+      "p_loss_per_update": {
+       "2.0": 0.0004356226393949223,
+       "4.0": 0.0023013983023709057,
+       "8.0": 1.0
+      },
+      "t_max_s": 4.73003954871671
+     }
+    }
+   },
+   "cumulative": {
+    "assemblies": 1,
+    "binding": "F2 energy",
+    "bisected": false,
+    "extra": {
+     "MOON/0": 503008
+    },
+    "p": 251504.18701491557,
+    "verified": true
+   },
+   "extrapolated": true,
+   "flags": [
+    "saturation critique: cumulative cut back by bisection (F2 energy above 80 % at the linear estimate)"
+   ],
+   "load_ceiling": 0.8,
+   "probe": {
+    "MOON/0": 1.0
+   },
+   "room": {
+    "F2 Ku beams": 0.76875,
+    "F2 Ku time": 0.7997358888356101,
+    "F2 compute": 0.7999971700544043,
+    "F2 energy": 0.7483691016352436,
+    "F2 heat": 0.7928590827929451,
+    "F2 memory bandwidth": 0.7994741988452937,
+    "ship energy": 0.7275831828523887
+   },
+   "tracking_budgets": 1
+  },
+  "scheduler": {
+   "eclipse_db": {
+    "Ku": 0.0011301765562885535,
+    "S": 0.06481284492954499
+   },
+   "faces": {
+    "0": {
+     "Ku": {
+      "capacity": 0.9851870975888644,
+      "feasible": true,
+      "load": 0.0002535942172509418,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 8.69275505842751e-05
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.180735781259107e-06,
+       "confirmation SUN": 4.181796260608519e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 17.33796662459764,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation SUN": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0012342178429160528,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.0012008845095827195
+      },
+      "mean_wait_s": {
+       "calibration S": 4.850324161701039e-07,
+       "search SUN": 4.856317915923746e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.64726368331117,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search SUN": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search SUN": 0.0
+       }
+      }
+     }
+    },
+    "1": {
+     "Ku": {
+      "capacity": 0.9851870975888644,
+      "feasible": true,
+      "load": 0.0002601989114861414,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667,
+       "P2": 9.32622176535041e-05,
+       "P3": 2.70027165970594e-07
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.180815623290125e-06,
+       "confirmation MOON": 4.181902620572626e-06,
+       "confirmation SUN": 4.181902620572626e-06,
+       "initiation MOON/0": 4.181902620572626e-06,
+       "track updates MOON/0": 4.182293865113748e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.99872451699465,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0,
+        "confirmation MOON": 0.0,
+        "confirmation SUN": 0.0,
+        "initiation MOON/0": 0.0,
+        "track updates MOON/0": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.002400235167893808,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P2": 0.0010155908976737097,
+       "P4_1": 0.0013513109368867649
+      },
+      "mean_wait_s": {
+       "calibration S": 9.557701895597875e-07,
+       "confirmation MOON": 9.567737727536207e-07,
+       "search MOON": 9.590438109771873e-07,
+       "search SUN": 9.590438109771873e-07
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.914280633116523,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "confirmation MOON": 0.0,
+        "search MOON": 0.0,
+        "search SUN": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search MOON": 0.0,
+        "search SUN": 0.0
+       }
+      }
+     }
+    },
+    "2": {
+     "Ku": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0001666666666666667,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167361226871146e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 0.05,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.014812902411135663,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.01477956907780233
+      },
+      "mean_wait_s": {
+       "calibration S": 3.2432985894044446e-05,
+       "search EARTH": 3.292063606336356e-05
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.87344129293272,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search EARTH": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search EARTH": 0.0
+       }
+      }
+     }
+    },
+    "3": {
+     "Ku": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.0001666666666666667,
+      "load_by_priority": {
+       "P0": 0.0001666666666666667
+      },
+      "mean_wait_s": {
+       "calibration Ku": 4.167361226871146e-06
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 0.05,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration Ku": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0,
+       "revisit_spread_s": {}
+      }
+     },
+     "S": {
+      "capacity": 1.0,
+      "feasible": true,
+      "load": 0.004199329239977696,
+      "load_by_priority": {
+       "P0": 3.3333333333333335e-05,
+       "P4_1": 0.0041659959066443625
+      },
+      "mean_wait_s": {
+       "calibration S": 2.2418083031200508e-05,
+       "search EARTH": 2.2512620938576402e-05
+      },
+      "stretch": {},
+      "timeline": {
+       "calibration_delay_s": 0.0,
+       "end_s": 19.217535108403478,
+       "late_update_frac": 0.0,
+       "max_delay_s": {
+        "calibration S": 0.0,
+        "search EARTH": 0.0
+       },
+       "pause_time_s": 0.0,
+       "recharge_pauses": 0,
+       "revisit_spread_s": {
+        "search EARTH": 0.0
+       }
+      }
+     }
+    }
+   },
+   "flags": [],
+   "frame_interleaved_checked": true,
+   "harmonic_faces": [
+    0,
+    1
+   ],
+   "sectors": [
+    {
+     "confirm_mode": "KU1+7",
+     "go_cfar_advised": false,
+     "id": "SUN",
+     "latency_ok": true,
+     "latency_q95_s": 0.02032153140522419,
+     "latency_required_s": 21.428571428571427,
+     "priority": "P4_1",
+     "scan": {
+      "0": {
+       "frame_tx_s": 0.0271936,
+       "mean_step_deg": 9.510970382494273,
+       "plan_positions": 45.3,
+       "pointing_rate_hz": 2.45,
+       "pointings": 49,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 0.75,
+        "50%": 0.6818181818181818
+       }
+      },
+      "1": {
+       "frame_tx_s": 0.027806799999999996,
+       "mean_step_deg": 9.181925008519501,
+       "plan_positions": 45.3,
+       "pointing_rate_hz": 2.45,
+       "pointings": 49,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 0.75,
+        "50%": 0.6818181818181818
+       }
+      }
+     }
+    },
+    {
+     "confirm_mode": null,
+     "go_cfar_advised": true,
+     "id": "EARTH",
+     "latency_ok": true,
+     "latency_q95_s": 0.0,
+     "latency_required_s": 21.428571428571427,
+     "priority": "P4_1",
+     "scan": {
+      "2": {
+       "frame_tx_s": 0.6891986,
+       "mean_step_deg": 10.03123798689536,
+       "plan_positions": 67.7,
+       "pointing_rate_hz": 4.25,
+       "pointings": 85,
+       "uniformity": {
+        "10%": 0.5,
+        "25%": 0.5714285714285714,
+        "50%": 0.8695652173913043
+       }
+      },
+      "3": {
+       "frame_tx_s": 0.2140484,
+       "mean_step_deg": 8.86869467790874,
+       "plan_positions": 7.8,
+       "pointing_rate_hz": 0.65,
+       "pointings": 13,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 1.0,
+        "50%": 0.8333333333333334
+       }
+      }
+     }
+    },
+    {
+     "confirm_mode": "S2",
+     "go_cfar_advised": true,
+     "id": "MOON",
+     "latency_ok": true,
+     "latency_q95_s": 0.060043713987218944,
+     "latency_required_s": 42.857142857142854,
+     "priority": "P4_1",
+     "scan": {
+      "1": {
+       "frame_tx_s": 0.0016575999999999997,
+       "mean_step_deg": 6.098200142039846,
+       "plan_positions": 12.8,
+       "pointing_rate_hz": 1.4,
+       "pointings": 14,
+       "uniformity": {
+        "10%": 1.0,
+        "25%": 1.0,
+        "50%": 1.0
+       }
+      }
+     }
+    }
+   ],
+   "slots": {
+    "Ku": 0.0002601989114861414,
+    "S": 0.014812902411135663
+   }
+  },
+  "sectors": [
+   {
+    "beam_spacing_hpbw": 1.6,
+    "environment": {
+     "burn_through_best_km": null,
+     "burn_through_km": null,
+     "faraday_deg": null,
+     "jammer_type": null,
+     "objects_per_rr": 0.0
+    },
+    "fa_per_rr": 10.0,
+    "face_overlap": {
+     "0>1": {
+      "fe_other": 0.00499819550997779,
+      "fe_own": 0.008345814111102138,
+      "fe_own_reach": 0.004457270780907286,
+      "ft_other": 0.0007275408685104241,
+      "ft_own": 0.0012147071007468982,
+      "ft_own_reach": 0.0006487567744097844,
+      "sr": 0.0854387506708141,
+      "sr_reach": 0.04429729361031681
+     },
+     "1>0": {
+      "fe_other": 0.00499819550997779,
+      "fe_own": 0.008345814111102138,
+      "fe_own_reach": 0.004457270780907288,
+      "ft_other": 0.0007275408685104241,
+      "ft_own": 0.0012147071007468982,
+      "ft_own_reach": 0.0006487567744097844,
+      "sr": 0.0854387506708141,
+      "sr_reach": 0.04429729361031681
+     }
+    },
+    "faces": {
+     "0": {
+      "avg_power_kW": 14.716379341562696,
+      "dissipation_kW": 2.9477111476520466,
+      "dissipation_kW_m2": 0.221692424088629,
+      "energy_J_per_refresh": 294327.58683125395,
+      "energy_fraction": 0.008250849027013995,
+      "positions": 45.3,
+      "theta_max_deg": 46.0,
+      "time_fraction": 0.0012008845095827195
+     },
+     "1": {
+      "avg_power_kW": 14.716379341562707,
+      "dissipation_kW": 2.9477111476520474,
+      "dissipation_kW_m2": 0.22169242408862905,
+      "energy_J_per_refresh": 294327.5868312541,
+      "energy_fraction": 0.008250849027013998,
+      "positions": 45.3,
+      "theta_max_deg": 46.0,
+      "time_fraction": 0.00120088450958272
+     }
+    },
+    "flags": [
+     "0.98 % of the S positions blinded by the sky (SUN: T_sys rise above 10 dB), not scanned",
+     "0.99 % of the S positions above the budget T_sys (374.5 K): sky noise up to +10.0 dB, range reduced there"
+    ],
+    "flight_table": {
+     "bytes": 960.0,
+     "centres_evaluated": 3,
+     "degraded": 0,
+     "entries": [
+      {
+       "chosen": false,
+       "degraded": false,
+       "energy_max": 0.009866830692810774,
+       "freq_ghz": 2.695,
+       "groups": 5,
+       "occupied_ghz": [
+        2.645,
+        2.745
+       ],
+       "range_worst_km": 1502,
+       "short_pct": 0.0,
+       "spacing": 1.4,
+       "time_max": 0.0014360964040608932,
+       "unscanned_pct": 0.0
+      },
+      {
+       "chosen": false,
+       "degraded": false,
+       "energy_max": 0.009178426607441947,
+       "freq_ghz": 2.77,
+       "groups": 5,
+       "occupied_ghz": [
+        2.72,
+        2.82
+       ],
+       "range_worst_km": 1508,
+       "short_pct": 0.0,
+       "spacing": 1.4,
+       "time_max": 0.0013358336310287067,
+       "unscanned_pct": 0.0
+      },
+      {
+       "chosen": true,
+       "degraded": false,
+       "energy_max": 0.008250849027013998,
+       "freq_ghz": 2.845,
+       "groups": 5,
+       "occupied_ghz": [
+        2.795,
+        2.895
+       ],
+       "range_worst_km": 1510,
+       "short_pct": 0.0,
+       "spacing": 1.6,
+       "time_max": 0.00120088450958272,
+       "unscanned_pct": 0.0
+      }
+     ],
+     "entry_groups": 15,
+     "worst_fallback_short_pct": 0.0,
+     "worst_fallback_unscanned_pct": 0.0
+    },
+    "frequency": {
+     "centres_evaluated": 3,
+     "centres_excluded": 0,
+     "centres_valid": 47,
+     "freq_ghz": 2.845,
+     "occupied_ghz": [
+      2.795,
+      2.895
+     ]
+    },
+    "id": "SUN",
+    "mismatch_db_per_pass_max": 0.05566803723350894,
+    "pd_cumulative": 0.9,
+    "positions_total": 90.5,
+    "range_km": {
+     "at_best_scan": 1610,
+     "at_worst_scan": 1544,
+     "positions_short_of_range_pct": 0.0,
+     "requested": 1500.0
+    },
+    "range_min_km": 150.0,
+    "range_resolution_m": {
+     "achieved": 1.7743151612725794,
+     "requested": 2.0
+    },
+    "rr_alone_s": 0.16501698054027997,
+    "rr_est_mission_s": 20.0,
+    "rr_target_s": 20.0,
+    "rx_beams_per_position": 7.992160949499142,
+    "rx_sll_db": -25.0,
+    "rx_sll_held_up_to_deg": 46.0,
+    "s_min_unsaturated_range_km": 2.195013524420537,
+    "sky": {
+     "above_budget_pct": 0.9901327979675589,
+     "adc_margin_db_min": null,
+     "band": "S",
+     "blind_rise_db": 10.0,
+     "blinded_by": [
+      "SUN"
+     ],
+     "blinded_pct": 0.9802055606107134,
+     "clutter_limited_pct": 0.0,
+     "galactic": "frame",
+     "limbs": [],
+     "main_lobe_surface": false,
+     "masked_by_structure_pct": 0.0,
+     "no_volume_pct": 0.0,
+     "range_reduced_pct": 0.0,
+     "rise_db": 4.137448820677857,
+     "structure_rise_k_max": 6.212619728490762e-05,
+     "surfaces": {
+      "EARTH": {
+       "clutter_ratio_max_db": -53.8407221021966,
+       "doppler_rejected": null,
+       "in_main_lobe_pct": 0.0,
+       "min_distance_km": null,
+       "shadowed_pct": 0.0
+      }
+     },
+     "t_sys_budget_k": 374.5462601744774,
+     "t_sys_cold_k": 144.46431510192332,
+     "worst_rise_db": 9.998707079041335
+    },
+    "status": "OK",
+    "target": {
+     "accel_max_mps2": 9.80665,
+     "depol_db": -10.0,
+     "fluctuation": "SW1",
+     "optics_rcs_m2": 0.0,
+     "rcs_m2": 1.0,
+     "rcs_mean_m2": 1.0,
+     "rcs_sizing_sigmas": 0.0,
+     "swerling": 1,
+     "t0_s": 1.0062590845490915,
+     "type": "GENERIC"
+    },
+    "time_to_impact_at_detection_s": 194.28571428571428,
+    "unscanned_pct": 0.0,
+    "wf": {
+     "acceleration_hypotheses": 1,
+     "agility_mhz": 0.0,
+     "b_tx": 1,
+     "band": "S",
+     "blind_range_km": 89.94523221145,
+     "block_ms": 0.6,
+     "cells_in_pulse": 2.801938399664477,
+     "coherent_blocks": 1,
+     "doppler_max_kHz": 132.9,
+     "doppler_window_db": null,
+     "duty_pct": 60.0,
+     "dwell_ms": 0.6,
+     "freq_ghz": 2.845,
+     "frequency_draws": 1,
+     "integration": "COHERENT",
+     "junction_c": 50.50016039451172,
+     "modulation": "nlfm",
+     "n_pulses": 1,
+     "name": "WF-SUN-1",
+     "pae": 0.7997334221926025,
+     "pfa": 3.16228e-08,
+     "positions_per_dwell": 1.0,
+     "pri_ms": 1.0,
+     "pulses_per_block": 1,
+     "range_resolution_m": 1.7743151612725794,
+     "rx_beams_per_position": 7.992160949499142,
+     "rx_deaf_us": 600.05,
+     "sig_bw_mhz": 100.0,
+     "staggered": false,
+     "tau_us": 600.0,
+     "tx_cut": null,
+     "tx_mode": "single",
+     "unamb_range_km": 150,
+     "velocity_hypotheses": 2,
+     "velocity_hypotheses_1db": 2
+    },
+    "wf_by_bin": [
+     {
+      "elec_J_per_position": 5728.38586931145,
+      "pae_at_scale": 0.7996578442785254,
+      "positions": 11.7,
+      "pulse_scale": 0.779,
+      "range_km_at_bin_max": 1597,
+      "theta_hi_deg": 30.0,
+      "theta_lo_deg": 25.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 89.94523221145,
+       "block_ms": 0.6,
+       "cells_in_pulse": 2.801938399664477,
+       "coherent_blocks": 1,
+       "doppler_max_kHz": 132.9,
+       "doppler_window_db": null,
+       "duty_pct": 60.0,
+       "dwell_ms": 0.6,
+       "freq_ghz": 2.845,
+       "frequency_draws": 1,
+       "integration": "COHERENT",
+       "junction_c": 50.50016039451172,
+       "modulation": "nlfm",
+       "n_pulses": 1,
+       "name": "WF-SUN-1",
+       "pae": 0.7997334221926025,
+       "pfa": 3.16228e-08,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 1.0,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.7743151612725794,
+       "rx_beams_per_position": 7.992160949499142,
+       "rx_deaf_us": 600.05,
+       "sig_bw_mhz": 100.0,
+       "staggered": false,
+       "tau_us": 600.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 150,
+       "velocity_hypotheses": 2,
+       "velocity_hypotheses_1db": 2
+      }
+     },
+     {
+      "elec_J_per_position": 6326.3909008824,
+      "pae_at_scale": 0.7996901867066535,
+      "positions": 33.7,
+      "pulse_scale": 0.86,
+      "range_km_at_bin_max": 1557,
+      "theta_hi_deg": 35.0,
+      "theta_lo_deg": 30.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 89.94523221145,
+       "block_ms": 0.6,
+       "cells_in_pulse": 2.801938399664477,
+       "coherent_blocks": 1,
+       "doppler_max_kHz": 132.9,
+       "doppler_window_db": null,
+       "duty_pct": 60.0,
+       "dwell_ms": 0.6,
+       "freq_ghz": 2.845,
+       "frequency_draws": 1,
+       "integration": "COHERENT",
+       "junction_c": 50.50016039451172,
+       "modulation": "nlfm",
+       "n_pulses": 1,
+       "name": "WF-SUN-1",
+       "pae": 0.7997334221926025,
+       "pfa": 3.16228e-08,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 1.0,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.7743151612725794,
+       "rx_beams_per_position": 7.992160949499142,
+       "rx_deaf_us": 600.05,
+       "sig_bw_mhz": 100.0,
+       "staggered": false,
+       "tau_us": 600.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 150,
+       "velocity_hypotheses": 2,
+       "velocity_hypotheses_1db": 2
+      }
+     },
+     {
+      "elec_J_per_position": 7159.443946935138,
+      "pae_at_scale": 0.7997262357224211,
+      "positions": 33.3,
+      "pulse_scale": 0.974,
+      "range_km_at_bin_max": 1510,
+      "theta_hi_deg": 40.0,
+      "theta_lo_deg": 35.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 89.94523221145,
+       "block_ms": 0.6,
+       "cells_in_pulse": 2.801938399664477,
+       "coherent_blocks": 1,
+       "doppler_max_kHz": 132.9,
+       "doppler_window_db": null,
+       "duty_pct": 60.0,
+       "dwell_ms": 0.6,
+       "freq_ghz": 2.845,
+       "frequency_draws": 1,
+       "integration": "COHERENT",
+       "junction_c": 50.50016039451172,
+       "modulation": "nlfm",
+       "n_pulses": 1,
+       "name": "WF-SUN-1",
+       "pae": 0.7997334221926025,
+       "pfa": 3.16228e-08,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 1.0,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.7743151612725794,
+       "rx_beams_per_position": 7.992160949499142,
+       "rx_deaf_us": 600.05,
+       "sig_bw_mhz": 100.0,
+       "staggered": false,
+       "tau_us": 600.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 150,
+       "velocity_hypotheses": 2,
+       "velocity_hypotheses_1db": 2
+      }
+     },
+     {
+      "elec_J_per_position": 8434.252464896417,
+      "pae_at_scale": 0.7997676142600477,
+      "positions": 11.8,
+      "pulse_scale": 0.86,
+      "range_km_at_bin_max": 1557,
+      "theta_hi_deg": 45.0,
+      "theta_lo_deg": 40.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 119.92447801145002,
+       "block_ms": 0.8,
+       "cells_in_pulse": 3.735917866219303,
+       "coherent_blocks": 1,
+       "doppler_max_kHz": 132.9,
+       "doppler_window_db": null,
+       "duty_pct": 80.0,
+       "dwell_ms": 0.8,
+       "freq_ghz": 2.845,
+       "frequency_draws": 1,
+       "integration": "COHERENT",
+       "junction_c": 53.22002079767929,
+       "modulation": "nlfm",
+       "n_pulses": 1,
+       "name": "WF-SUN-2",
+       "pae": 0.7998000499875031,
+       "pfa": 3.16228e-08,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 1.0,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.7743151612725794,
+       "rx_beams_per_position": 7.992160949499142,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 100.0,
+       "staggered": false,
+       "tau_us": 800.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 150,
+       "velocity_hypotheses": 2,
+       "velocity_hypotheses_1db": 2
+      }
+     },
+     {
+      "elec_J_per_position": 8733.802219968402,
+      "pae_at_scale": 0.7997755845677936,
+      "positions": 0.0,
+      "pulse_scale": 0.891,
+      "range_km_at_bin_max": 1544,
+      "theta_hi_deg": 50.0,
+      "theta_lo_deg": 45.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 119.92447801145002,
+       "block_ms": 0.8,
+       "cells_in_pulse": 3.735917866219303,
+       "coherent_blocks": 1,
+       "doppler_max_kHz": 132.9,
+       "doppler_window_db": null,
+       "duty_pct": 80.0,
+       "dwell_ms": 0.8,
+       "freq_ghz": 2.845,
+       "frequency_draws": 1,
+       "integration": "COHERENT",
+       "junction_c": 53.22002079767929,
+       "modulation": "nlfm",
+       "n_pulses": 1,
+       "name": "WF-SUN-2",
+       "pae": 0.7998000499875031,
+       "pfa": 3.16228e-08,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 1.0,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.7743151612725794,
+       "rx_beams_per_position": 7.992160949499142,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 100.0,
+       "staggered": false,
+       "tau_us": 800.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 150,
+       "velocity_hypotheses": 2,
+       "velocity_hypotheses_1db": 2
+      }
+     }
+    ],
+    "wf_set": [
+     {
+      "acceleration_hypotheses": 1,
+      "agility_mhz": 0.0,
+      "b_tx": 1,
+      "band": "S",
+      "blind_range_km": 89.94523221145,
+      "block_ms": 0.6,
+      "cells_in_pulse": 2.801938399664477,
+      "coherent_blocks": 1,
+      "doppler_max_kHz": 132.9,
+      "doppler_window_db": null,
+      "duty_pct": 60.0,
+      "dwell_ms": 0.6,
+      "freq_ghz": 2.845,
+      "frequency_draws": 1,
+      "integration": "COHERENT",
+      "junction_c": 50.50016039451172,
+      "modulation": "nlfm",
+      "n_pulses": 1,
+      "name": "WF-SUN-1",
+      "pae": 0.7997334221926025,
+      "pfa": 3.16228e-08,
+      "positions": 78.7,
+      "positions_per_dwell": 1.0,
+      "pri_ms": 1.0,
+      "pulses_per_block": 1,
+      "range_resolution_m": 1.7743151612725794,
+      "rx_beams_per_position": 7.992160949499142,
+      "rx_deaf_us": 600.05,
+      "sig_bw_mhz": 100.0,
+      "staggered": false,
+      "tau_us": 600.0,
+      "theta_hi_deg": 40.0,
+      "theta_lo_deg": 27.0,
+      "tx_cut": null,
+      "tx_mode": "single",
+      "unamb_range_km": 150,
+      "velocity_hypotheses": 2,
+      "velocity_hypotheses_1db": 2
+     },
+     {
+      "acceleration_hypotheses": 1,
+      "agility_mhz": 0.0,
+      "b_tx": 1,
+      "band": "S",
+      "blind_range_km": 119.92447801145002,
+      "block_ms": 0.8,
+      "cells_in_pulse": 3.735917866219303,
+      "coherent_blocks": 1,
+      "doppler_max_kHz": 132.9,
+      "doppler_window_db": null,
+      "duty_pct": 80.0,
+      "dwell_ms": 0.8,
+      "freq_ghz": 2.845,
+      "frequency_draws": 1,
+      "integration": "COHERENT",
+      "junction_c": 53.22002079767929,
+      "modulation": "nlfm",
+      "n_pulses": 1,
+      "name": "WF-SUN-2",
+      "pae": 0.7998000499875031,
+      "pfa": 3.16228e-08,
+      "positions": 11.9,
+      "positions_per_dwell": 1.0,
+      "pri_ms": 1.0,
+      "pulses_per_block": 1,
+      "range_resolution_m": 1.7743151612725794,
+      "rx_beams_per_position": 7.992160949499142,
+      "rx_deaf_us": 800.05,
+      "sig_bw_mhz": 100.0,
+      "staggered": false,
+      "tau_us": 800.0,
+      "theta_hi_deg": 46.0,
+      "theta_lo_deg": 40.0,
+      "tx_cut": null,
+      "tx_mode": "single",
+      "unamb_range_km": 150,
+      "velocity_hypotheses": 2,
+      "velocity_hypotheses_1db": 2
+     }
+    ]
+   },
+   {
+    "beam_spacing_hpbw": 1.9,
+    "environment": {
+     "burn_through_best_km": null,
+     "burn_through_km": null,
+     "faraday_deg": null,
+     "jammer_type": null,
+     "objects_per_rr": 0.0
+    },
+    "fa_per_rr": 10.0,
+    "face_overlap": {
+     "2>3": {
+      "fe_other": 0.06705312011905895,
+      "fe_own": 0.06744208167140604,
+      "fe_own_reach": 0.028204191262050822,
+      "ft_other": 0.009759096688628538,
+      "ft_own": 0.00981538656045721,
+      "ft_own_reach": 0.00410451161278224,
+      "sr": 0.1389095763310028,
+      "sr_reach": 0.06635040038579318
+     },
+     "3>2": {
+      "fe_other": 0.02764710749158706,
+      "fe_own": 0.03383629426806028,
+      "fe_own_reach": 0.01958055053496473,
+      "ft_other": 0.004023656779218204,
+      "ft_own": 0.004924653475621985,
+      "ft_own_reach": 0.0028495340908072063,
+      "sr": 0.04241852645244116,
+      "sr_reach": 0.029440759035396107
+     }
+    },
+    "faces": {
+     "2": {
+      "avg_power_kW": 181.13605595922868,
+      "dissipation_kW": 36.296278996765864,
+      "dissipation_kW_m2": 2.729782422066564,
+      "energy_J_per_refresh": 3622721.1191845736,
+      "energy_fraction": 0.10155529538759865,
+      "positions": 67.7,
+      "theta_max_deg": 71.0,
+      "time_fraction": 0.01477956907780233
+     },
+     "3": {
+      "avg_power_kW": 51.055674438713304,
+      "dissipation_kW": 10.22891455359853,
+      "dissipation_kW_m2": 0.7692995512769268,
+      "energy_J_per_refresh": 1021113.488774266,
+      "energy_fraction": 0.028624748791061607,
+      "positions": 7.8,
+      "theta_max_deg": 70.0,
+      "time_fraction": 0.0041659959066443625
+     }
+    },
+    "flags": [
+     "range 1500 km not reached on 0.7 % of positions at full power (worst scan 1353 km)",
+     "0.9 % of the sector is outside the scanned zone (scan limit / eps window)",
+     "16.01 % of the S positions blinded by the sky (clutter: T_sys rise above 10 dB), not scanned",
+     "16.01 % of the S positions clutter-limited (surface echo in the target's range cell above what any power can beat): blinded",
+     "5.96 % of the S positions look at EARTH closer than the required range (down to 1369 km): nothing can come from behind its surface",
+     "clutter edge in the S sector (limb of EARTH): GO-CFAR advised there (choice per position at 4.3 / 5.2)"
+    ],
+    "flight_table": {
+     "bytes": 1728.0,
+     "centres_evaluated": 3,
+     "degraded": 2,
+     "entries": [
+      {
+       "chosen": true,
+       "degraded": false,
+       "energy_max": 0.10155529538759865,
+       "freq_ghz": 2.695,
+       "groups": 9,
+       "occupied_ghz": [
+        2.62,
+        2.77
+       ],
+       "range_worst_km": 799,
+       "short_pct": 0.7,
+       "spacing": 1.9,
+       "time_max": 0.01477956907780233,
+       "unscanned_pct": 0.9
+      },
+      {
+       "chosen": false,
+       "degraded": true,
+       "energy_max": 0.13685375460620264,
+       "freq_ghz": 2.77,
+       "groups": 9,
+       "occupied_ghz": [
+        2.67,
+        2.87
+       ],
+       "range_worst_km": 452,
+       "short_pct": 7.1,
+       "spacing": 1.4,
+       "time_max": 0.019913047361008285,
+       "unscanned_pct": 0.9
+      },
+      {
+       "chosen": false,
+       "degraded": true,
+       "energy_max": 0.1714776400187109,
+       "freq_ghz": 2.845,
+       "groups": 9,
+       "occupied_ghz": [
+        2.77,
+        2.92
+       ],
+       "range_worst_km": 779,
+       "short_pct": 5.5,
+       "spacing": 1.4,
+       "time_max": 0.024953603180867617,
+       "unscanned_pct": 0.9
+      }
+     ],
+     "entry_groups": 27,
+     "worst_fallback_short_pct": 7.1,
+     "worst_fallback_unscanned_pct": 0.9
+    },
+    "frequency": {
+     "centres_evaluated": 3,
+     "centres_excluded": 0,
+     "centres_valid": 47,
+     "freq_ghz": 2.695,
+     "occupied_ghz": [
+      2.62,
+      2.77
+     ]
+    },
+    "id": "EARTH",
+    "mismatch_db_per_pass_max": 0.5978915123875804,
+    "pd_cumulative": 0.9,
+    "positions_total": 75.4,
+    "range_km": {
+     "at_best_scan": 1689,
+     "at_worst_scan": 1353,
+     "positions_short_of_range_pct": 0.7,
+     "requested": 1500.0
+    },
+    "range_min_km": 150.0,
+    "range_resolution_m": {
+     "achieved": 1.8984953033578444,
+     "requested": 2.0
+    },
+    "rr_alone_s": 2.031105907751973,
+    "rr_est_mission_s": 20.0,
+    "rr_target_s": 20.0,
+    "rx_beams_per_position": 9.83118955249738,
+    "rx_sll_db": -30.0,
+    "rx_sll_held_up_to_deg": 71.0,
+    "s_min_unsaturated_range_km": 2.1363649780323777,
+    "sky": {
+     "above_budget_pct": 0.9999843012036135,
+     "adc_margin_db_min": 33.7540965109451,
+     "band": "S",
+     "blind_rise_db": 10.0,
+     "blinded_by": [
+      "clutter"
+     ],
+     "blinded_pct": 16.01467634558704,
+     "clutter_limited_pct": 16.01467634558704,
+     "galactic": "frame",
+     "limbs": [
+      "EARTH"
+     ],
+     "main_lobe_surface": true,
+     "masked_by_structure_pct": 0.0,
+     "no_volume_pct": 0.0,
+     "range_reduced_pct": 0.0,
+     "rise_db": 2.4656826035619757,
+     "structure_rise_k_max": 7.310709671226906e-05,
+     "surfaces": {
+      "EARTH": {
+       "clutter_ratio_max_db": 57.765831993581465,
+       "doppler_rejected": null,
+       "in_main_lobe_pct": 43.88840992432604,
+       "min_distance_km": 1368.6149901649515,
+       "shadowed_pct": 5.958996373812824
+      }
+     },
+     "t_sys_budget_k": 254.87594165000155,
+     "t_sys_cold_k": 144.46431510192332,
+     "worst_rise_db": 2.465879032231141
+    },
+    "status": "OK",
+    "target": {
+     "accel_max_mps2": 9.80665,
+     "depol_db": -10.0,
+     "fluctuation": "SW1",
+     "optics_rcs_m2": 0.0,
+     "rcs_m2": 1.0,
+     "rcs_mean_m2": 1.0,
+     "rcs_sizing_sigmas": 0.0,
+     "swerling": 1,
+     "t0_s": 1.0622660836891151,
+     "type": "GENERIC"
+    },
+    "time_to_impact_at_detection_s": 194.28571428571428,
+    "unscanned_pct": 0.9,
+    "wf": {
+     "acceleration_hypotheses": 1,
+     "agility_mhz": 0.0,
+     "b_tx": 1,
+     "band": "S",
+     "blind_range_km": 149.90372381144996,
+     "block_ms": 1.0,
+     "cells_in_pulse": 4.669897332774129,
+     "coherent_blocks": 3,
+     "doppler_max_kHz": 125.9,
+     "doppler_window_db": null,
+     "duty_pct": 9.085,
+     "dwell_ms": 23.0,
+     "freq_ghz": 2.695,
+     "frequency_draws": 1,
+     "integration": "NONCOHERENT",
+     "junction_c": 50.06198972311197,
+     "modulation": "nlfm",
+     "n_pulses": 3,
+     "name": "WF-EARTH-2",
+     "pae": 0.7998400319936014,
+     "pfa": 1e-09,
+     "positions_per_dwell": 1.0,
+     "pri_ms": 11.007,
+     "pulses_per_block": 1,
+     "range_resolution_m": 1.8984953033578444,
+     "rx_beams_per_position": 9.83118955249738,
+     "rx_deaf_us": 1000.05,
+     "sig_bw_mhz": 100.0,
+     "staggered": false,
+     "tau_us": 1000.0,
+     "tx_cut": null,
+     "tx_mode": "single",
+     "unamb_range_km": 1650,
+     "velocity_hypotheses": 49,
+     "velocity_hypotheses_1db": 2
+    },
+    "wf_by_bin": [
+     {
+      "elec_J_per_position": 8110.1770101606635,
+      "pae_at_scale": 0.7997583283327178,
+      "positions": 1.8,
+      "pulse_scale": 0.662,
+      "range_km_at_bin_max": 1663,
+      "theta_hi_deg": 35.0,
+      "theta_lo_deg": 30.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 149.90372381144996,
+       "block_ms": 1.0,
+       "cells_in_pulse": 4.669897332774129,
+       "coherent_blocks": 1,
+       "doppler_max_kHz": 125.9,
+       "doppler_window_db": null,
+       "duty_pct": 100.0,
+       "dwell_ms": 1.0,
+       "freq_ghz": 2.695,
+       "frequency_draws": 1,
+       "integration": "COHERENT",
+       "junction_c": 55.67116198568257,
+       "modulation": "nlfm",
+       "n_pulses": 1,
+       "name": "WF-EARTH-1",
+       "pae": 0.7998400319936014,
+       "pfa": 2.51189e-08,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 1.0,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.8984953033578444,
+       "rx_beams_per_position": 9.83118955249738,
+       "rx_deaf_us": 1000.05,
+       "sig_bw_mhz": 100.0,
+       "staggered": false,
+       "tau_us": 1000.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 150,
+       "velocity_hypotheses": 2,
+       "velocity_hypotheses_1db": 2
+      }
+     },
+     {
+      "elec_J_per_position": 9183.47620940375,
+      "pae_at_scale": 0.7997865731934938,
+      "positions": 7.3,
+      "pulse_scale": 0.749,
+      "range_km_at_bin_max": 1612,
+      "theta_hi_deg": 40.0,
+      "theta_lo_deg": 35.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 149.90372381144996,
+       "block_ms": 1.0,
+       "cells_in_pulse": 4.669897332774129,
+       "coherent_blocks": 1,
+       "doppler_max_kHz": 125.9,
+       "doppler_window_db": null,
+       "duty_pct": 100.0,
+       "dwell_ms": 1.0,
+       "freq_ghz": 2.695,
+       "frequency_draws": 1,
+       "integration": "COHERENT",
+       "junction_c": 55.67116198568257,
+       "modulation": "nlfm",
+       "n_pulses": 1,
+       "name": "WF-EARTH-1",
+       "pae": 0.7998400319936014,
+       "pfa": 2.51189e-08,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 1.0,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.8984953033578444,
+       "rx_beams_per_position": 9.83118955249738,
+       "rx_deaf_us": 1000.05,
+       "sig_bw_mhz": 100.0,
+       "staggered": false,
+       "tau_us": 1000.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 150,
+       "velocity_hypotheses": 2,
+       "velocity_hypotheses_1db": 2
+      }
+     },
+     {
+      "elec_J_per_position": 10744.802262866291,
+      "pae_at_scale": 0.7998175862196392,
+      "positions": 11.1,
+      "pulse_scale": 0.877,
+      "range_km_at_bin_max": 1550,
+      "theta_hi_deg": 45.0,
+      "theta_lo_deg": 40.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 149.90372381144996,
+       "block_ms": 1.0,
+       "cells_in_pulse": 4.669897332774129,
+       "coherent_blocks": 1,
+       "doppler_max_kHz": 125.9,
+       "doppler_window_db": null,
+       "duty_pct": 100.0,
+       "dwell_ms": 1.0,
+       "freq_ghz": 2.695,
+       "frequency_draws": 1,
+       "integration": "COHERENT",
+       "junction_c": 55.67116198568257,
+       "modulation": "nlfm",
+       "n_pulses": 1,
+       "name": "WF-EARTH-1",
+       "pae": 0.7998400319936014,
+       "pfa": 2.51189e-08,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 1.0,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.8984953033578444,
+       "rx_beams_per_position": 9.83118955249738,
+       "rx_deaf_us": 1000.05,
+       "sig_bw_mhz": 100.0,
+       "staggered": false,
+       "tau_us": 1000.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 150,
+       "velocity_hypotheses": 2,
+       "velocity_hypotheses_1db": 2
+      }
+     },
+     {
+      "elec_J_per_position": 18239.148739545453,
+      "pae_at_scale": 0.7996776165333171,
+      "positions": 13.8,
+      "pulse_scale": 0.496,
+      "range_km_at_bin_max": 1787,
+      "theta_hi_deg": 50.0,
+      "theta_lo_deg": 45.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 149.90372381144996,
+       "block_ms": 1.0,
+       "cells_in_pulse": 4.669897332774129,
+       "coherent_blocks": 3,
+       "doppler_max_kHz": 125.9,
+       "doppler_window_db": null,
+       "duty_pct": 9.085,
+       "dwell_ms": 23.0,
+       "freq_ghz": 2.695,
+       "frequency_draws": 1,
+       "integration": "NONCOHERENT",
+       "junction_c": 50.06198972311197,
+       "modulation": "nlfm",
+       "n_pulses": 3,
+       "name": "WF-EARTH-2",
+       "pae": 0.7998400319936014,
+       "pfa": 1e-09,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 11.007,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.8984953033578444,
+       "rx_beams_per_position": 9.83118955249738,
+       "rx_deaf_us": 1000.05,
+       "sig_bw_mhz": 100.0,
+       "staggered": false,
+       "tau_us": 1000.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 1650,
+       "velocity_hypotheses": 49,
+       "velocity_hypotheses_1db": 2
+      }
+     },
+     {
+      "elec_J_per_position": 32132.32219339988,
+      "pae_at_scale": 0.7998170066898805,
+      "positions": 17.3,
+      "pulse_scale": 0.874,
+      "range_km_at_bin_max": 1551,
+      "theta_hi_deg": 55.0,
+      "theta_lo_deg": 50.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 149.90372381144996,
+       "block_ms": 1.0,
+       "cells_in_pulse": 4.669897332774129,
+       "coherent_blocks": 3,
+       "doppler_max_kHz": 125.9,
+       "doppler_window_db": null,
+       "duty_pct": 9.085,
+       "dwell_ms": 23.0,
+       "freq_ghz": 2.695,
+       "frequency_draws": 1,
+       "integration": "NONCOHERENT",
+       "junction_c": 50.06198972311197,
+       "modulation": "nlfm",
+       "n_pulses": 3,
+       "name": "WF-EARTH-2",
+       "pae": 0.7998400319936014,
+       "pfa": 1e-09,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 11.007,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.8984953033578444,
+       "rx_beams_per_position": 9.83118955249738,
+       "rx_deaf_us": 1000.05,
+       "sig_bw_mhz": 100.0,
+       "staggered": false,
+       "tau_us": 1000.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 1650,
+       "velocity_hypotheses": 49,
+       "velocity_hypotheses_1db": 2
+      }
+     },
+     {
+      "elec_J_per_position": 120914.25162006046,
+      "pae_at_scale": 0.7994812852979724,
+      "positions": 14.1,
+      "pulse_scale": 0.385,
+      "range_km_at_bin_max": 1904,
+      "theta_hi_deg": 60.0,
+      "theta_lo_deg": 55.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 119.92447801145002,
+       "block_ms": 0.8,
+       "cells_in_pulse": 5.6038767993289555,
+       "coherent_blocks": 32,
+       "doppler_max_kHz": 125.9,
+       "doppler_window_db": null,
+       "duty_pct": 7.403,
+       "dwell_ms": 335.8,
+       "freq_ghz": 2.695,
+       "frequency_draws": 1,
+       "integration": "NONCOHERENT",
+       "junction_c": 48.739904890062235,
+       "modulation": "nlfm",
+       "n_pulses": 32,
+       "name": "WF-EARTH-3",
+       "pae": 0.7998000499875031,
+       "pfa": 3.16228e-11,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 10.807,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.2656635355718961,
+       "rx_beams_per_position": 9.83118955249738,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 150.0,
+       "staggered": false,
+       "tau_us": 800.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 1620,
+       "velocity_hypotheses": 1069,
+       "velocity_hypotheses_1db": 3
+      }
+     },
+     {
+      "elec_J_per_position": 198596.15705943698,
+      "pae_at_scale": 0.7996841832141736,
+      "positions": 7.3,
+      "pulse_scale": 0.633,
+      "range_km_at_bin_max": 1682,
+      "theta_hi_deg": 65.0,
+      "theta_lo_deg": 60.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 119.92447801145002,
+       "block_ms": 0.8,
+       "cells_in_pulse": 5.6038767993289555,
+       "coherent_blocks": 32,
+       "doppler_max_kHz": 125.9,
+       "doppler_window_db": null,
+       "duty_pct": 7.403,
+       "dwell_ms": 335.8,
+       "freq_ghz": 2.695,
+       "frequency_draws": 1,
+       "integration": "NONCOHERENT",
+       "junction_c": 48.739904890062235,
+       "modulation": "nlfm",
+       "n_pulses": 32,
+       "name": "WF-EARTH-3",
+       "pae": 0.7998000499875031,
+       "pfa": 3.16228e-11,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 10.807,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.2656635355718961,
+       "rx_beams_per_position": 9.83118955249738,
+       "rx_deaf_us": 800.05,
+       "sig_bw_mhz": 150.0,
+       "staggered": false,
+       "tau_us": 800.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 1620,
+       "velocity_hypotheses": 1069,
+       "velocity_hypotheses_1db": 3
+      }
+     },
+     {
+      "elec_J_per_position": 392078.3999999999,
+      "pae_at_scale": 0.7998400319936014,
+      "positions": 2.7,
+      "pulse_scale": 1.0,
+      "range_km_at_bin_max": 799,
+      "theta_hi_deg": 70.0,
+      "theta_lo_deg": 65.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 149.90372381144996,
+       "block_ms": 1.0,
+       "cells_in_pulse": 7.004845999161193,
+       "coherent_blocks": 32,
+       "doppler_max_kHz": 125.9,
+       "doppler_window_db": null,
+       "duty_pct": 9.085,
+       "dwell_ms": 342.2,
+       "freq_ghz": 2.695,
+       "frequency_draws": 1,
+       "integration": "NONCOHERENT",
+       "junction_c": 50.06198972311201,
+       "modulation": "nlfm",
+       "n_pulses": 32,
+       "name": "WF-EARTH-4",
+       "pae": 0.7998400319936014,
+       "pfa": 3.16228e-11,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 11.007,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.2656635355718961,
+       "rx_beams_per_position": 9.83118955249738,
+       "rx_deaf_us": 1000.05,
+       "sig_bw_mhz": 150.0,
+       "staggered": false,
+       "tau_us": 1000.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 1650,
+       "velocity_hypotheses": 1089,
+       "velocity_hypotheses_1db": 3
+      }
+     },
+     {
+      "elec_J_per_position": 392078.3999999999,
+      "pae_at_scale": 0.7998400319936014,
+      "positions": 0.0,
+      "pulse_scale": 1.0,
+      "range_km_at_bin_max": 1353,
+      "theta_hi_deg": 75.0,
+      "theta_lo_deg": 70.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 149.90372381144996,
+       "block_ms": 1.0,
+       "cells_in_pulse": 7.004845999161193,
+       "coherent_blocks": 32,
+       "doppler_max_kHz": 125.9,
+       "doppler_window_db": null,
+       "duty_pct": 9.085,
+       "dwell_ms": 342.2,
+       "freq_ghz": 2.695,
+       "frequency_draws": 1,
+       "integration": "NONCOHERENT",
+       "junction_c": 50.06198972311201,
+       "modulation": "nlfm",
+       "n_pulses": 32,
+       "name": "WF-EARTH-4",
+       "pae": 0.7998400319936014,
+       "pfa": 3.16228e-11,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 11.007,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.2656635355718961,
+       "rx_beams_per_position": 9.83118955249738,
+       "rx_deaf_us": 1000.05,
+       "sig_bw_mhz": 150.0,
+       "staggered": false,
+       "tau_us": 1000.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 1650,
+       "velocity_hypotheses": 1089,
+       "velocity_hypotheses_1db": 3
+      }
+     }
+    ],
+    "wf_set": [
+     {
+      "acceleration_hypotheses": 1,
+      "agility_mhz": 0.0,
+      "b_tx": 1,
+      "band": "S",
+      "blind_range_km": 149.90372381144996,
+      "block_ms": 1.0,
+      "cells_in_pulse": 4.669897332774129,
+      "coherent_blocks": 1,
+      "doppler_max_kHz": 125.9,
+      "doppler_window_db": null,
+      "duty_pct": 100.0,
+      "dwell_ms": 1.0,
+      "freq_ghz": 2.695,
+      "frequency_draws": 1,
+      "integration": "COHERENT",
+      "junction_c": 55.67116198568257,
+      "modulation": "nlfm",
+      "n_pulses": 1,
+      "name": "WF-EARTH-1",
+      "pae": 0.7998400319936014,
+      "pfa": 2.51189e-08,
+      "positions": 20.2,
+      "positions_per_dwell": 1.0,
+      "pri_ms": 1.0,
+      "pulses_per_block": 1,
+      "range_resolution_m": 1.8984953033578444,
+      "rx_beams_per_position": 9.83118955249738,
+      "rx_deaf_us": 1000.05,
+      "sig_bw_mhz": 100.0,
+      "staggered": false,
+      "tau_us": 1000.0,
+      "theta_hi_deg": 45.0,
+      "theta_lo_deg": 31.0,
+      "tx_cut": null,
+      "tx_mode": "single",
+      "unamb_range_km": 150,
+      "velocity_hypotheses": 2,
+      "velocity_hypotheses_1db": 2
+     },
+     {
+      "acceleration_hypotheses": 1,
+      "agility_mhz": 0.0,
+      "b_tx": 1,
+      "band": "S",
+      "blind_range_km": 149.90372381144996,
+      "block_ms": 1.0,
+      "cells_in_pulse": 4.669897332774129,
+      "coherent_blocks": 3,
+      "doppler_max_kHz": 125.9,
+      "doppler_window_db": null,
+      "duty_pct": 9.085,
+      "dwell_ms": 23.0,
+      "freq_ghz": 2.695,
+      "frequency_draws": 1,
+      "integration": "NONCOHERENT",
+      "junction_c": 50.06198972311197,
+      "modulation": "nlfm",
+      "n_pulses": 3,
+      "name": "WF-EARTH-2",
+      "pae": 0.7998400319936014,
+      "pfa": 1e-09,
+      "positions": 31.1,
+      "positions_per_dwell": 1.0,
+      "pri_ms": 11.007,
+      "pulses_per_block": 1,
+      "range_resolution_m": 1.8984953033578444,
+      "rx_beams_per_position": 9.83118955249738,
+      "rx_deaf_us": 1000.05,
+      "sig_bw_mhz": 100.0,
+      "staggered": false,
+      "tau_us": 1000.0,
+      "theta_hi_deg": 55.0,
+      "theta_lo_deg": 45.0,
+      "tx_cut": null,
+      "tx_mode": "single",
+      "unamb_range_km": 1650,
+      "velocity_hypotheses": 49,
+      "velocity_hypotheses_1db": 2
+     },
+     {
+      "acceleration_hypotheses": 1,
+      "agility_mhz": 0.0,
+      "b_tx": 1,
+      "band": "S",
+      "blind_range_km": 119.92447801145002,
+      "block_ms": 0.8,
+      "cells_in_pulse": 5.6038767993289555,
+      "coherent_blocks": 32,
+      "doppler_max_kHz": 125.9,
+      "doppler_window_db": null,
+      "duty_pct": 7.403,
+      "dwell_ms": 335.8,
+      "freq_ghz": 2.695,
+      "frequency_draws": 1,
+      "integration": "NONCOHERENT",
+      "junction_c": 48.739904890062235,
+      "modulation": "nlfm",
+      "n_pulses": 32,
+      "name": "WF-EARTH-3",
+      "pae": 0.7998000499875031,
+      "pfa": 3.16228e-11,
+      "positions": 21.4,
+      "positions_per_dwell": 1.0,
+      "pri_ms": 10.807,
+      "pulses_per_block": 1,
+      "range_resolution_m": 1.2656635355718961,
+      "rx_beams_per_position": 9.83118955249738,
+      "rx_deaf_us": 800.05,
+      "sig_bw_mhz": 150.0,
+      "staggered": false,
+      "tau_us": 800.0,
+      "theta_hi_deg": 65.0,
+      "theta_lo_deg": 55.0,
+      "tx_cut": null,
+      "tx_mode": "single",
+      "unamb_range_km": 1620,
+      "velocity_hypotheses": 1069,
+      "velocity_hypotheses_1db": 3
+     },
+     {
+      "acceleration_hypotheses": 1,
+      "agility_mhz": 0.0,
+      "b_tx": 1,
+      "band": "S",
+      "blind_range_km": 149.90372381144996,
+      "block_ms": 1.0,
+      "cells_in_pulse": 7.004845999161193,
+      "coherent_blocks": 32,
+      "doppler_max_kHz": 125.9,
+      "doppler_window_db": null,
+      "duty_pct": 9.085,
+      "dwell_ms": 342.2,
+      "freq_ghz": 2.695,
+      "frequency_draws": 1,
+      "integration": "NONCOHERENT",
+      "junction_c": 50.06198972311201,
+      "modulation": "nlfm",
+      "n_pulses": 32,
+      "name": "WF-EARTH-4",
+      "pae": 0.7998400319936014,
+      "pfa": 3.16228e-11,
+      "positions": 2.7,
+      "positions_per_dwell": 1.0,
+      "pri_ms": 11.007,
+      "pulses_per_block": 1,
+      "range_resolution_m": 1.2656635355718961,
+      "rx_beams_per_position": 9.83118955249738,
+      "rx_deaf_us": 1000.05,
+      "sig_bw_mhz": 150.0,
+      "staggered": false,
+      "tau_us": 1000.0,
+      "theta_hi_deg": 71.0,
+      "theta_lo_deg": 65.0,
+      "tx_cut": null,
+      "tx_mode": "single",
+      "unamb_range_km": 1650,
+      "velocity_hypotheses": 1089,
+      "velocity_hypotheses_1db": 3
+     }
+    ]
+   },
+   {
+    "beam_spacing_hpbw": 2.0,
+    "environment": {
+     "burn_through_best_km": null,
+     "burn_through_km": null,
+     "faraday_deg": null,
+     "jammer_type": null,
+     "objects_per_rr": 0.0
+    },
+    "fa_per_rr": 10.0,
+    "face_overlap": {
+     "1>2": {
+      "fe_other": 0.0,
+      "fe_own": 0.0010113159127110086,
+      "fe_own_reach": 0.0,
+      "ft_other": 0.0,
+      "ft_own": 0.00014699927561197666,
+      "ft_own_reach": 0.0,
+      "sr": 0.03373243642551976,
+      "sr_reach": 0.0
+     }
+    },
+    "faces": {
+     "1": {
+      "avg_power_kW": 1.8458591419151849,
+      "dissipation_kW": 0.3716801543355435,
+      "dissipation_kW_m2": 0.027953442611198785,
+      "energy_J_per_refresh": 18458.59141915185,
+      "energy_fraction": 0.0010348948441457177,
+      "positions": 12.8,
+      "theta_max_deg": 17.0,
+      "time_fraction": 0.00015042642730404504
+     }
+    },
+    "flags": [
+     "clutter edge in the S sector (limb of MOON): GO-CFAR advised there (choice per position at 4.3 / 5.2)"
+    ],
+    "flight_table": {
+     "bytes": 768.0,
+     "centres_evaluated": 3,
+     "degraded": 0,
+     "entries": [
+      {
+       "chosen": true,
+       "degraded": false,
+       "energy_max": 0.0010348948441457177,
+       "freq_ghz": 2.695,
+       "groups": 4,
+       "occupied_ghz": [
+        2.645,
+        2.745
+       ],
+       "range_worst_km": 3393,
+       "short_pct": 0.0,
+       "spacing": 2.0,
+       "time_max": 0.00015042642730404504,
+       "unscanned_pct": 0.0
+      },
+      {
+       "chosen": false,
+       "degraded": false,
+       "energy_max": 0.0012762582627766925,
+       "freq_ghz": 2.77,
+       "groups": 4,
+       "occupied_ghz": [
+        2.72,
+        2.82
+       ],
+       "range_worst_km": 3282,
+       "short_pct": 0.0,
+       "spacing": 1.4,
+       "time_max": 0.00018527345864307126,
+       "unscanned_pct": 0.0
+      },
+      {
+       "chosen": false,
+       "degraded": false,
+       "energy_max": 0.0012825957674236002,
+       "freq_ghz": 2.845,
+       "groups": 4,
+       "occupied_ghz": [
+        2.795,
+        2.895
+       ],
+       "range_worst_km": 3322,
+       "short_pct": 0.0,
+       "spacing": 1.4,
+       "time_max": 0.0001861659227333266,
+       "unscanned_pct": 0.0
+      }
+     ],
+     "entry_groups": 12,
+     "worst_fallback_short_pct": 0.0,
+     "worst_fallback_unscanned_pct": 0.0
+    },
+    "frequency": {
+     "centres_evaluated": 3,
+     "centres_excluded": 0,
+     "centres_valid": 47,
+     "freq_ghz": 2.695,
+     "occupied_ghz": [
+      2.645,
+      2.745
+     ]
+    },
+    "id": "MOON",
+    "mismatch_db_per_pass_max": 0.12747332217836527,
+    "pd_cumulative": 0.9,
+    "positions_total": 12.8,
+    "range_km": {
+     "at_best_scan": 3449,
+     "at_worst_scan": 3393,
+     "positions_short_of_range_pct": 0.0,
+     "requested": 3000.0
+    },
+    "range_min_km": 300.0,
+    "range_resolution_m": {
+     "achieved": 1.7743151612725794,
+     "requested": 2.0
+    },
+    "rr_alone_s": 0.010348948441457177,
+    "rr_est_mission_s": 10.0,
+    "rr_target_s": 10.0,
+    "rx_beams_per_position": 12.487751483592406,
+    "rx_sll_db": -25.0,
+    "rx_sll_held_up_to_deg": 17.0,
+    "s_min_unsaturated_range_km": 3.799053852763233,
+    "sky": {
+     "above_budget_pct": 0.9997908318539528,
+     "adc_margin_db_min": 82.15545831136694,
+     "band": "S",
+     "blind_rise_db": 10.0,
+     "blinded_by": [],
+     "blinded_pct": 0.0,
+     "clutter_limited_pct": 0.0,
+     "galactic": "frame",
+     "limbs": [
+      "MOON"
+     ],
+     "main_lobe_surface": true,
+     "masked_by_structure_pct": 0.0,
+     "no_volume_pct": 0.0,
+     "range_reduced_pct": 0.0,
+     "rise_db": 0.29370412586621686,
+     "structure_rise_k_max": 9.682878638146774e-05,
+     "surfaces": {
+      "EARTH": {
+       "clutter_ratio_max_db": -59.71874559682068,
+       "doppler_rejected": null,
+       "in_main_lobe_pct": 0.0,
+       "min_distance_km": null,
+       "shadowed_pct": 0.0
+      },
+      "MOON": {
+       "clutter_ratio_max_db": null,
+       "doppler_rejected": null,
+       "in_main_lobe_pct": 0.12258526551497595,
+       "min_distance_km": null,
+       "shadowed_pct": 0.0
+      }
+     },
+     "t_sys_budget_k": 154.5720602424994,
+     "t_sys_cold_k": 144.46431510192332,
+     "worst_rise_db": 0.3876826889120658
+    },
+    "status": "OK",
+    "target": {
+     "accel_max_mps2": 9.80665,
+     "depol_db": -10.0,
+     "fluctuation": "SW1",
+     "optics_rcs_m2": 0.0,
+     "rcs_m2": 10.0,
+     "rcs_mean_m2": 10.0,
+     "rcs_sizing_sigmas": 0.0,
+     "swerling": 1,
+     "t0_s": 1.0622660836891151,
+     "type": "GENERIC"
+    },
+    "time_to_impact_at_detection_s": 418.57142857142856,
+    "unscanned_pct": 0.0,
+    "wf": {
+     "acceleration_hypotheses": 1,
+     "agility_mhz": 0.0,
+     "b_tx": 1,
+     "band": "S",
+     "blind_range_km": 29.98674061145,
+     "block_ms": 0.2,
+     "cells_in_pulse": 0.9339794665548258,
+     "coherent_blocks": 1,
+     "doppler_max_kHz": 125.9,
+     "doppler_window_db": null,
+     "duty_pct": 20.0,
+     "dwell_ms": 0.2,
+     "freq_ghz": 2.695,
+     "frequency_draws": 1,
+     "integration": "COHERENT",
+     "junction_c": 44.02153920207862,
+     "modulation": "nlfm",
+     "n_pulses": 1,
+     "name": "WF-MOON",
+     "pae": 0.7992007992007992,
+     "pfa": 1.41254e-07,
+     "positions_per_dwell": 1.0,
+     "pri_ms": 1.0,
+     "pulses_per_block": 1,
+     "range_resolution_m": 1.7743151612725794,
+     "rx_beams_per_position": 12.487751483592406,
+     "rx_deaf_us": 200.05,
+     "sig_bw_mhz": 100.0,
+     "staggered": false,
+     "tau_us": 200.0,
+     "tx_cut": null,
+     "tx_mode": "single",
+     "unamb_range_km": 150,
+     "velocity_hypotheses": 1,
+     "velocity_hypotheses_1db": 1
+    },
+    "wf_by_bin": [
+     {
+      "elec_J_per_position": 1405.4247909599017,
+      "pae_at_scale": 0.7986054038518409,
+      "positions": 0.3,
+      "pulse_scale": 0.573,
+      "range_km_at_bin_max": 3449,
+      "theta_hi_deg": 5.0,
+      "theta_lo_deg": 0.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 29.98674061145,
+       "block_ms": 0.2,
+       "cells_in_pulse": 0.9339794665548258,
+       "coherent_blocks": 1,
+       "doppler_max_kHz": 125.9,
+       "doppler_window_db": null,
+       "duty_pct": 20.0,
+       "dwell_ms": 0.2,
+       "freq_ghz": 2.695,
+       "frequency_draws": 1,
+       "integration": "COHERENT",
+       "junction_c": 44.02153920207862,
+       "modulation": "nlfm",
+       "n_pulses": 1,
+       "name": "WF-MOON",
+       "pae": 0.7992007992007992,
+       "pfa": 1.41254e-07,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 1.0,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.7743151612725794,
+       "rx_beams_per_position": 12.487751483592406,
+       "rx_deaf_us": 200.05,
+       "sig_bw_mhz": 100.0,
+       "staggered": false,
+       "tau_us": 200.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 150,
+       "velocity_hypotheses": 1,
+       "velocity_hypotheses_1db": 1
+      }
+     },
+     {
+      "elec_J_per_position": 1430.6965440351698,
+      "pae_at_scale": 0.7986300379293068,
+      "positions": 5.1,
+      "pulse_scale": 0.583,
+      "range_km_at_bin_max": 3433,
+      "theta_hi_deg": 10.0,
+      "theta_lo_deg": 5.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 29.98674061145,
+       "block_ms": 0.2,
+       "cells_in_pulse": 0.9339794665548258,
+       "coherent_blocks": 1,
+       "doppler_max_kHz": 125.9,
+       "doppler_window_db": null,
+       "duty_pct": 20.0,
+       "dwell_ms": 0.2,
+       "freq_ghz": 2.695,
+       "frequency_draws": 1,
+       "integration": "COHERENT",
+       "junction_c": 44.02153920207862,
+       "modulation": "nlfm",
+       "n_pulses": 1,
+       "name": "WF-MOON",
+       "pae": 0.7992007992007992,
+       "pfa": 1.41254e-07,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 1.0,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.7743151612725794,
+       "rx_beams_per_position": 12.487751483592406,
+       "rx_deaf_us": 200.05,
+       "sig_bw_mhz": 100.0,
+       "staggered": false,
+       "tau_us": 200.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 150,
+       "velocity_hypotheses": 1,
+       "velocity_hypotheses_1db": 1
+      }
+     },
+     {
+      "elec_J_per_position": 1475.9164755534755,
+      "pae_at_scale": 0.7986720115721555,
+      "positions": 6.6,
+      "pulse_scale": 0.601,
+      "range_km_at_bin_max": 3407,
+      "theta_hi_deg": 15.0,
+      "theta_lo_deg": 10.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 29.98674061145,
+       "block_ms": 0.2,
+       "cells_in_pulse": 0.9339794665548258,
+       "coherent_blocks": 1,
+       "doppler_max_kHz": 125.9,
+       "doppler_window_db": null,
+       "duty_pct": 20.0,
+       "dwell_ms": 0.2,
+       "freq_ghz": 2.695,
+       "frequency_draws": 1,
+       "integration": "COHERENT",
+       "junction_c": 44.02153920207862,
+       "modulation": "nlfm",
+       "n_pulses": 1,
+       "name": "WF-MOON",
+       "pae": 0.7992007992007992,
+       "pfa": 1.41254e-07,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 1.0,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.7743151612725794,
+       "rx_beams_per_position": 12.487751483592406,
+       "rx_deaf_us": 200.05,
+       "sig_bw_mhz": 100.0,
+       "staggered": false,
+       "tau_us": 200.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 150,
+       "velocity_hypotheses": 1,
+       "velocity_hypotheses_1db": 1
+      }
+     },
+     {
+      "elec_J_per_position": 1500.2678194910202,
+      "pae_at_scale": 0.7986935665922202,
+      "positions": 0.8,
+      "pulse_scale": 0.611,
+      "range_km_at_bin_max": 3393,
+      "theta_hi_deg": 20.0,
+      "theta_lo_deg": 15.0,
+      "wf": {
+       "acceleration_hypotheses": 1,
+       "agility_mhz": 0.0,
+       "b_tx": 1,
+       "band": "S",
+       "blind_range_km": 29.98674061145,
+       "block_ms": 0.2,
+       "cells_in_pulse": 0.9339794665548258,
+       "coherent_blocks": 1,
+       "doppler_max_kHz": 125.9,
+       "doppler_window_db": null,
+       "duty_pct": 20.0,
+       "dwell_ms": 0.2,
+       "freq_ghz": 2.695,
+       "frequency_draws": 1,
+       "integration": "COHERENT",
+       "junction_c": 44.02153920207862,
+       "modulation": "nlfm",
+       "n_pulses": 1,
+       "name": "WF-MOON",
+       "pae": 0.7992007992007992,
+       "pfa": 1.41254e-07,
+       "positions_per_dwell": 1.0,
+       "pri_ms": 1.0,
+       "pulses_per_block": 1,
+       "range_resolution_m": 1.7743151612725794,
+       "rx_beams_per_position": 12.487751483592406,
+       "rx_deaf_us": 200.05,
+       "sig_bw_mhz": 100.0,
+       "staggered": false,
+       "tau_us": 200.0,
+       "tx_cut": null,
+       "tx_mode": "single",
+       "unamb_range_km": 150,
+       "velocity_hypotheses": 1,
+       "velocity_hypotheses_1db": 1
+      }
+     }
+    ],
+    "wf_set": [
+     {
+      "acceleration_hypotheses": 1,
+      "agility_mhz": 0.0,
+      "b_tx": 1,
+      "band": "S",
+      "blind_range_km": 29.98674061145,
+      "block_ms": 0.2,
+      "cells_in_pulse": 0.9339794665548258,
+      "coherent_blocks": 1,
+      "doppler_max_kHz": 125.9,
+      "doppler_window_db": null,
+      "duty_pct": 20.0,
+      "dwell_ms": 0.2,
+      "freq_ghz": 2.695,
+      "frequency_draws": 1,
+      "integration": "COHERENT",
+      "junction_c": 44.02153920207862,
+      "modulation": "nlfm",
+      "n_pulses": 1,
+      "name": "WF-MOON",
+      "pae": 0.7992007992007992,
+      "pfa": 1.41254e-07,
+      "positions": 12.8,
+      "positions_per_dwell": 1.0,
+      "pri_ms": 1.0,
+      "pulses_per_block": 1,
+      "range_resolution_m": 1.7743151612725794,
+      "rx_beams_per_position": 12.487751483592406,
+      "rx_deaf_us": 200.05,
+      "sig_bw_mhz": 100.0,
+      "staggered": false,
+      "tau_us": 200.0,
+      "theta_hi_deg": 17.0,
+      "theta_lo_deg": 4.0,
+      "tx_cut": null,
+      "tx_mode": "single",
+      "unamb_range_km": 150,
+      "velocity_hypotheses": 1,
+      "velocity_hypotheses_1db": 1
+     }
+    ]
+   }
+  ],
+  "tracking": {
+   "advice": [],
+   "array_errors": {
+    "Ku": {
+     "boresight_mrad": 0.0029087362879927853,
+     "cal_time_frac": 0.0001666666666666667,
+     "loss_db": 0.00571224281655752,
+     "sidelobe_floor_db": -58.91465629083789
+    },
+    "S": {
+     "boresight_mrad": 0.014702684968049159,
+     "cal_time_frac": 3.3333333333333335e-05,
+     "loss_db": 0.00571224281655752,
+     "sidelobe_floor_db": -58.592451021244784
+    }
+   },
+   "confirm_p_min": 0.9995,
+   "faces": {
+    "0": {
+     "alloc_MW": 1.9999999999999998,
+     "at_energy": 0.0,
+     "at_ku_time": 0.0,
+     "binding": "energy",
+     "burn_through_energy": 0.0,
+     "burn_through_ku_time": 0.0,
+     "bus_draw_MW": 0.1303471573121974,
+     "calibration_ku_time": 0.0001666666666666667,
+     "calibration_s_time": 3.3333333333333335e-05,
+     "cap_MW": 2.0,
+     "confirm_energy": 0.0008154947422274976,
+     "confirm_ku_time": 8.69275505842751e-05,
+     "confirm_s_time": 0.0,
+     "coolant_flow_L_s": 5.527782878918078,
+     "cooling_capacity_kW": 15899.520000000002,
+     "dissipation_kW": 3.6035858611387814,
+     "dissipation_kW_m2": 0.2710196640548405,
+     "face_heat_kW": 110.55565757836156,
+     "heat_burst_deficit_MJ": 0.0,
+     "heat_burst_ok": true,
+     "heat_flux_W_cm2": 0.8344075110068344,
+     "heat_load": 0.006953395925056954,
+     "load": 0.043968844334170115,
+     "max_contiguous_tx_s": 0.3238586473713355,
+     "max_contiguous_tx_thermal_s": Infinity,
+     "non_tx_kW": 106.88,
+     "p_left_kW": 1912.0623113316594,
+     "peak_MW": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     },
+     "peak_ok": true,
+     "pumps_kW": 0.07207171722277564,
+     "search_energy": 0.0083,
+     "search_s_time": 0.0012,
+     "status": "OK",
+     "store_burst_deficit_MJ": 0.27213144359561275,
+     "store_burst_ok": true,
+     "store_obs_deficit_MJ": 0.00730696387734218,
+     "store_obs_ok": true,
+     "store_usable_MJ": 4.0,
+     "total_energy": 0.043968844334170115,
+     "total_ku_time": 0.0002535942172509418,
+     "total_s_time": 0.0012333333333333332,
+     "transient_MW_per_us": {
+      "Ku": 141.34615384615387,
+      "S": 61.25000000000001
+     }
+    },
+    "1": {
+     "alloc_MW": 2.0,
+     "at_energy": 4.66107164174306e-05,
+     "at_ku_time": 4.208489329104882e-06,
+     "binding": "energy",
+     "burn_through_energy": 0.0,
+     "burn_through_ku_time": 0.0,
+     "bus_draw_MW": 0.1456054136200045,
+     "calibration_ku_time": 0.0001666666666666667,
+     "calibration_s_time": 3.3333333333333335e-05,
+     "cap_MW": 2.0,
+     "confirm_energy": 0.007822396557925718,
+     "confirm_ku_time": 8.93237554903698e-05,
+     "confirm_s_time": 0.0010155908976737097,
+     "coolant_flow_L_s": 5.676857797595665,
+     "cooling_capacity_kW": 15899.520000000002,
+     "dissipation_kW": 6.526623482267959,
+     "dissipation_kW_m2": 0.4908564334908666,
+     "face_heat_kW": 113.53715595191332,
+     "heat_burst_deficit_MJ": 0.0,
+     "heat_burst_ok": true,
+     "heat_flux_W_cm2": 0.8569100648465863,
+     "heat_load": 0.007140917207054886,
+     "load": 0.05163089836475646,
+     "max_contiguous_tx_s": 0.3238571144730127,
+     "max_contiguous_tx_thermal_s": Infinity,
+     "non_tx_kW": 106.88,
+     "p_left_kW": 1896.7382032704872,
+     "peak_MW": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     },
+     "peak_ok": true,
+     "pumps_kW": 0.1305324696453592,
+     "search_energy": 0.0093,
+     "search_s_time": 0.0014,
+     "status": "OK",
+     "store_burst_deficit_MJ": 0.5158258432756918,
+     "store_burst_ok": true,
+     "store_obs_deficit_MJ": 0.007307010645944119,
+     "store_obs_ok": true,
+     "store_usable_MJ": 4.0,
+     "total_energy": 0.05163089836475646,
+     "total_ku_time": 0.0002601989114861414,
+     "total_s_time": 0.0024489242310070432,
+     "transient_MW_per_us": {
+      "Ku": 141.34615384615387,
+      "S": 61.25000000000001
+     }
+    },
+    "2": {
+     "alloc_MW": 2.0,
+     "at_energy": 0.0,
+     "at_ku_time": 0.0,
+     "binding": "energy",
+     "burn_through_energy": 0.0,
+     "burn_through_ku_time": 0.0,
+     "bus_draw_MW": 0.3055506141232478,
+     "calibration_ku_time": 0.0001666666666666667,
+     "calibration_s_time": 3.3333333333333335e-05,
+     "cap_MW": 2.0,
+     "confirm_energy": 0.0,
+     "confirm_ku_time": 0.0,
+     "confirm_s_time": 0.0,
+     "coolant_flow_L_s": 7.195111300000001,
+     "cooling_capacity_kW": 15899.520000000002,
+     "dissipation_kW": 36.2963,
+     "dissipation_kW_m2": 2.7297840016846666,
+     "face_heat_kW": 143.902226,
+     "heat_burst_deficit_MJ": 0.0,
+     "heat_burst_ok": true,
+     "heat_flux_W_cm2": 1.086087323390895,
+     "heat_load": 0.009050727694924123,
+     "load": 0.13157585554352508,
+     "max_contiguous_tx_s": 0.3238415034965449,
+     "max_contiguous_tx_thermal_s": Infinity,
+     "non_tx_kW": 106.88,
+     "p_left_kW": 1736.8482889129498,
+     "peak_MW": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     },
+     "peak_ok": true,
+     "pumps_kW": 0.7259260000000001,
+     "search_energy": 0.1016,
+     "search_s_time": 0.0148,
+     "status": "OK",
+     "store_burst_deficit_MJ": 3.089447617799999,
+     "store_burst_ok": true,
+     "store_obs_deficit_MJ": 0.008961908188866292,
+     "store_obs_ok": true,
+     "store_usable_MJ": 4.0,
+     "total_energy": 0.13157585554352508,
+     "total_ku_time": 0.0001666666666666667,
+     "total_s_time": 0.014833333333333334,
+     "transient_MW_per_us": {
+      "Ku": 141.34615384615387,
+      "S": 61.25000000000001
+     }
+    },
+    "3": {
+     "alloc_MW": 2.0,
+     "at_energy": 0.0,
+     "at_ku_time": 0.0,
+     "binding": "energy",
+     "burn_through_energy": 0.0,
+     "burn_through_ku_time": 0.0,
+     "bus_draw_MW": 0.16725322401481094,
+     "calibration_ku_time": 0.0001666666666666667,
+     "calibration_s_time": 3.3333333333333335e-05,
+     "cap_MW": 2.0,
+     "confirm_energy": 0.0,
+     "confirm_ku_time": 0.0,
+     "confirm_s_time": 0.0,
+     "coolant_flow_L_s": 5.865673899999999,
+     "cooling_capacity_kW": 15899.520000000002,
+     "dissipation_kW": 10.2289,
+     "dissipation_kW_m2": 0.7692984567251285,
+     "face_heat_kW": 117.31347799999999,
+     "heat_burst_deficit_MJ": 0.0,
+     "heat_burst_ok": true,
+     "heat_flux_W_cm2": 0.8854114690254798,
+     "heat_load": 0.007378428908545665,
+     "load": 0.06249167034799414,
+     "max_contiguous_tx_s": 0.3238551729473413,
+     "max_contiguous_tx_thermal_s": Infinity,
+     "non_tx_kW": 106.88,
+     "p_left_kW": 1875.0166593040117,
+     "peak_MW": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     },
+     "peak_ok": true,
+     "pumps_kW": 0.204578,
+     "search_energy": 0.0286,
+     "search_s_time": 0.0042,
+     "status": "OK",
+     "store_burst_deficit_MJ": 0.8632900828639999,
+     "store_burst_ok": true,
+     "store_obs_deficit_MJ": 0.008961386840866292,
+     "store_obs_ok": true,
+     "store_usable_MJ": 4.0,
+     "total_energy": 0.06249167034799414,
+     "total_ku_time": 0.0001666666666666667,
+     "total_s_time": 0.004233333333333333,
+     "transient_MW_per_us": {
+      "Ku": 141.34615384615387,
+      "S": 61.25000000000001
+     }
+    }
+   },
+   "pfa": 1e-08,
+   "scheduler_rules": [
+    "search lattice shifted every frame (grid_dithering, step 2.3): the cumulative detection criterion draws the target position in its cell anew at each revisit",
+    "S band: common TX / RX cadence of all faces (interface_mode sync): no face receives S while another transmits S (adjacent and opposite faces fail the isolation)",
+    "Ku band: common TX / RX cadence of all faces (interface_mode sync): no face receives Ku while another transmits Ku (adjacent and opposite faces fail the isolation)",
+    "S transmission and Ku reception on the same face(s) only if the S harmonic (order 5) misses the Ku channel",
+    "sector SUN: WF-SUN-1 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+    "sector SUN: WF-SUN-2 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+    "face F1: at most 0.32 s of contiguous transmission at peak power, then recharge (face storage 4 MJ usable, step 4.1)",
+    "face F2: at most 0.32 s of contiguous transmission at peak power, then recharge (face storage 4 MJ usable, step 4.1)",
+    "face F3: at most 0.32 s of contiguous transmission at peak power, then recharge (face storage 4 MJ usable, step 4.1)",
+    "face F4: at most 0.32 s of contiguous transmission at peak power, then recharge (face storage 4 MJ usable, step 4.1)"
+   ],
+   "sectors": [
+    {
+     "alternatives": {
+      "KU1+7": {
+       "admissible": true,
+       "faces": {
+        "0": {
+         "energy_fraction": 0.0008154947422274976,
+         "ku_time_fraction": 8.69275505842751e-05,
+         "s_time_fraction": 0.0
+        },
+        "1": {
+         "energy_fraction": 0.0008154947422274976,
+         "ku_time_fraction": 8.692755058427513e-05,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.1016,
+       "why_not": ""
+      },
+      "KU7": {
+       "admissible": true,
+       "faces": {
+        "0": {
+         "energy_fraction": 0.0011216868686732548,
+         "ku_time_fraction": 0.0001255406859612839,
+         "s_time_fraction": 0.0
+        },
+        "1": {
+         "energy_fraction": 0.0011216868686732548,
+         "ku_time_fraction": 0.00012554068596128392,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.1016,
+       "why_not": ""
+      },
+      "S2": {
+       "admissible": false,
+       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+      }
+     },
+     "at": [],
+     "confirm_mode": "KU1+7",
+     "confirm_p_min": 0.9995,
+     "confirmation": {
+      "admissible": true,
+      "attempts": 2,
+      "cluster_tx": "sequential x37",
+      "faces": {
+       "0": {
+        "energy_fraction": 0.0008154947422274976,
+        "ku_time_fraction": 8.69275505842751e-05,
+        "s_time_fraction": 0.0
+       },
+       "1": {
+        "energy_fraction": 0.0008154947422274976,
+        "ku_time_fraction": 8.692755058427513e-05,
+        "s_time_fraction": 0.0
+       }
+      },
+      "ku_looks_fa": 76.0,
+      "ku_looks_true": 15.990650596760428,
+      "margin_db": 3.223,
+      "round_trips": 2,
+      "success": 0.9995037121307114,
+      "success_first_attempt": 0.9848623622674781,
+      "why_not": ""
+     },
+     "discrimination": null,
+     "false_alarms_per_rr": 10.3,
+     "false_alarms_per_rr_face": [
+      5.150774179931741,
+      5.150774179931741,
+      0.0,
+      0.0
+     ],
+     "false_tracks_per_s": 5.150774179931741e-07,
+     "flags": [
+      "0.07 % of the Ku positions blinded by the sky (SUN: T_sys rise above 10 dB), not scanned",
+      "1.00 % of the Ku positions above the budget T_sys (234.9 K): sky noise up to +10.0 dB, range reduced there",
+      "S waveform WF-SUN-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 50 MHz on the same face",
+      "S waveform WF-SUN-2: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 50 MHz on the same face"
+     ],
+     "forced": false,
+     "id": "SUN",
+     "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 8,
+      "n_pulses": 8,
+      "pri_ms": 5.0,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 50.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 38
+     },
+     "ku_freq_candidates": 3,
+     "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 0.32568522302233877,
+     "ku_min_unsaturated_range_km": 1.8314625990929638,
+     "ku_sky": {
+      "above_budget_pct": 0.9964736027108992,
+      "adc_margin_db_min": null,
+      "band": "Ku",
+      "blind_rise_db": 10.0,
+      "blinded_by": [
+       "SUN"
+      ],
+      "blinded_pct": 0.07206783911549484,
+      "clutter_limited_pct": 0.0,
+      "galactic": "frame",
+      "limbs": [],
+      "main_lobe_surface": false,
+      "masked_by_structure_pct": 0.0,
+      "rise_db": 0.07653543503460769,
+      "structure_rise_k_max": 2.028841922160623e-05,
+      "surfaces": {
+       "EARTH": {
+        "clutter_ratio_max_db": -80.41281245304488,
+        "doppler_rejected": false,
+        "in_main_lobe_pct": 0.0,
+        "min_distance_km": null,
+        "shadowed_pct": 0.0
+       }
+      },
+      "t_sys_budget_k": 234.8952361992741,
+      "t_sys_cold_k": 230.7919548038089,
+      "worst_rise_db": 9.990337631976713
+     },
+     "p_share": [
+      0.49999999999999994,
+      0.5000000000000001,
+      0.0,
+      0.0
+     ],
+     "reason": "lowest mission face load (binding resource: energy)",
+     "scheduler_rules": [
+      "WF-SUN-1 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+      "WF-SUN-2 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 50 MHz: on the same face, no Ku reception during this S transmission"
+     ]
+    },
+    {
+     "alternatives": {
+      "KU1+7": {
+       "admissible": false,
+       "faces": {
+        "2": {
+         "energy_fraction": 0.0032300958126314145,
+         "ku_time_fraction": 0.0003862136510747924,
+         "s_time_fraction": 0.0
+        },
+        "3": {
+         "energy_fraction": 0.00032271879495506314,
+         "ku_time_fraction": 3.9080906211574665e-05,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.1048,
+       "why_not": "part of the sector is out of Ku reach"
+      },
+      "KU7": {
+       "admissible": false,
+       "faces": {
+        "2": {
+         "energy_fraction": 0.0045133633211786595,
+         "ku_time_fraction": 0.0005474458923520411,
+         "s_time_fraction": 0.0
+        },
+        "3": {
+         "energy_fraction": 0.00045233837750674683,
+         "ku_time_fraction": 5.5373402858706064e-05,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.1061,
+       "why_not": "part of the sector is out of Ku reach"
+      },
+      "S2": {
+       "admissible": false,
+       "faces": {
+        "2": {
+         "energy_fraction": 0.18641138498853183,
+         "ku_time_fraction": 2.532211919512709e-06,
+         "s_time_fraction": 0.027129342341890822
+        },
+        "3": {
+         "energy_fraction": 0.040575190285041945,
+         "ku_time_fraction": 2.5535189945448074e-07,
+         "s_time_fraction": 0.005905622336407139
+        }
+       },
+       "mission_max_load": 0.288,
+       "why_not": "part of the sector is out of Ku reach"
+      }
+     },
+     "at": [],
+     "confirm_mode": null,
+     "confirm_p_min": 0.9995,
+     "confirmation": {},
+     "discrimination": null,
+     "false_alarms_per_rr": 10.0,
+     "false_alarms_per_rr_face": [
+      0.0,
+      0.0,
+      8.949080897870878,
+      1.0167960653178474
+     ],
+     "false_tracks_per_s": 4.982938481594364e-07,
+     "flags": [
+      "5.96 % of the Ku positions look at EARTH closer than the required range (down to 1369 km): nothing can come from behind its surface",
+      "clutter edge in the Ku sector (limb of EARTH): GO-CFAR advised there (choice per position at 4.3 / 5.2)",
+      "25.8 % of the positions are out of Ku reach (scan limit, range, jammer or clutter): no Ku confirmation or track there"
+     ],
+     "forced": false,
+     "id": "EARTH",
+     "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.01,
+      "coherent_blocks": 8,
+      "n_pulses": 8,
+      "pri_ms": 5.0,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 200.0,
+      "tau_us": 10.0,
+      "velocity_hypotheses": 149
+     },
+     "ku_freq_candidates": 3,
+     "ku_freq_ghz": 14.0,
+     "ku_min_unsaturated_range_attenuated_km": 0.3233835318273817,
+     "ku_min_unsaturated_range_km": 1.8185192383254527,
+     "ku_sky": {
+      "above_budget_pct": 0.9999823054216187,
+      "adc_margin_db_min": 48.864555117697066,
+      "band": "Ku",
+      "blind_rise_db": 10.0,
+      "blinded_by": [],
+      "blinded_pct": 0.0,
+      "clutter_limited_pct": 0.0,
+      "galactic": "frame",
+      "limbs": [
+       "EARTH"
+      ],
+      "main_lobe_surface": true,
+      "masked_by_structure_pct": 0.0,
+      "rise_db": 2.187478572049493,
+      "structure_rise_k_max": 0.00033110257528899684,
+      "surfaces": {
+       "EARTH": {
+        "clutter_ratio_max_db": 58.60029044366462,
+        "doppler_rejected": false,
+        "in_main_lobe_pct": 43.88840992432604,
+        "min_distance_km": 1368.6149901649515,
+        "shadowed_pct": 5.958996373812824
+       }
+      },
+      "t_sys_budget_k": 381.916588969802,
+      "t_sys_cold_k": 230.7919548038089,
+      "worst_rise_db": 2.1882986782634326
+     },
+     "p_share": [
+      0.0,
+      0.0,
+      0.8987843248067576,
+      0.10121567519324237
+     ],
+     "reason": "no admissible confirmation mode",
+     "scheduler_rules": []
+    },
+    {
+     "alternatives": {
+      "KU1+7": {
+       "admissible": false,
+       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+      },
+      "KU7": {
+       "admissible": false,
+       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+      },
+      "S2": {
+       "admissible": true,
+       "faces": {
+        "1": {
+         "energy_fraction": 0.00700690181569822,
+         "ku_time_fraction": 2.3962049060946735e-06,
+         "s_time_fraction": 0.0010155908976737097
+        }
+       },
+       "mission_max_load": 0.1016,
+       "why_not": ""
+      }
+     },
+     "at": [
+      {
+       "accel_bank_mps2": 9.80665,
+       "angle_zone_deg": 0.2,
+       "attenuation_db": 0.0,
+       "avg_power_kW": 0.08313580601645755,
+       "cluster_update_share": 0.0,
+       "deception_verification": false,
+       "driver": "DOP",
+       "energy_per_update_J": 5.230191672853593,
+       "faces": {
+        "1": {
+         "energy_fraction": 4.66107164174306e-05,
+         "ku_time_fraction": 4.208489329104882e-06
+        }
+       },
+       "filtered_range_sigma_m": 8.578865495408639,
+       "filtered_vr_sigma_mps": 4.259071425889226,
+       "init_energy_J": 616.6003336412598,
+       "init_freqs": 9,
+       "init_looks": 11.012034391524526,
+       "init_loss_prob": 1.7158970562796579e-15,
+       "init_mode": "hop",
+       "init_research_beams": 7,
+       "init_research_coverage": 0.9999999993457752,
+       "init_time_s": 14.59042713301117,
+       "init_tk": [
+        0.0,
+        3.938462163134288e-06,
+        0.0,
+        0.0
+       ],
+       "initiations_per_s": 0.10043562263939493,
+       "n_targets": 2.0,
+       "p_loss_per_update": 0.0004356226393949223,
+       "pointing_sigma_hpbw": 0.16636624706685268,
+       "predicted_angle_sigma_mrad": 0.8726646259971645,
+       "r_max_km": 1000.0,
+       "r_min_km": 5.0,
+       "range_acc_m": 10.0,
+       "rr_alert_s": null,
+       "rr_s": 2.0,
+       "rr_tenable": true,
+       "sigma_theta_deg": 0.07030931820981937,
+       "track_losses_per_s": 0.0004356226393949223,
+       "tracks_face": [
+        0.0,
+        2.0,
+        0.0,
+        0.0
+       ],
+       "unreachable_tracks": 0.0,
+       "velocity_bank_mps": 57.043981396466435,
+       "vr_acc_mps": 5.0,
+       "wf": "14.2 GHz COHE tau 100 us x N 1 @ PRI 0.5 ms B 200 MHz",
+       "wf_params": {
+        "acceleration_hypotheses": 1,
+        "block_ms": 0.1,
+        "coherent_blocks": 1,
+        "n_pulses": 1,
+        "pri_ms": 0.5,
+        "pulses_per_block": 1,
+        "sig_bw_mhz": 200.0,
+        "tau_us": 100.0,
+        "velocity_hypotheses": 1
+       }
+      }
+     ],
+     "confirm_mode": "S2",
+     "confirm_p_min": 0.9995,
+     "confirmation": {
+      "admissible": true,
+      "attempts": 2,
+      "cluster_tx": "sequential",
+      "faces": {
+       "1": {
+        "energy_fraction": 0.00700690181569822,
+        "ku_time_fraction": 2.3962049060946735e-06,
+        "s_time_fraction": 0.0010155908976737097
+       }
+      },
+      "ku_looks_fa": 0.0,
+      "ku_looks_true": 1.634908058652284,
+      "margin_db": [
+       14.5,
+       1.523
+      ],
+      "round_trips": 3,
+      "s_touch_wf": "pointed search waveform (role CONFIRM)",
+      "success": 0.999501775048648,
+      "why_not": ""
+     },
+     "discrimination": null,
+     "false_alarms_per_rr": 10.2,
+     "false_alarms_per_rr_face": [
+      0.0,
+      10.165435008230645,
+      0.0,
+      0.0
+     ],
+     "false_tracks_per_s": 1.0165435008230646e-06,
+     "flags": [
+      "1.00 % of the Ku positions above the budget T_sys (231.4 K): sky noise up to +2.6 dB, range reduced there",
+      "clutter edge in the Ku sector (limb of MOON): GO-CFAR advised there (choice per position at 4.3 / 5.2)",
+      "AT 5-1000 km starts below the sector's shortest range of interest (300 km, range_min_km): Ku looks only need a blind range below that"
+     ],
+     "forced": false,
+     "id": "MOON",
+     "ku_burn_through": null,
+     "ku_confirm_wf": {
+      "acceleration_hypotheses": 1,
+      "block_ms": 0.005,
+      "coherent_blocks": 8,
+      "n_pulses": 8,
+      "pri_ms": 5.0,
+      "pulses_per_block": 1,
+      "sig_bw_mhz": 50.0,
+      "tau_us": 5.0,
+      "velocity_hypotheses": 38
+     },
+     "ku_freq_candidates": 3,
+     "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 0.5791593262545596,
+     "ku_min_unsaturated_range_km": 3.2568522302233878,
+     "ku_sky": {
+      "above_budget_pct": 0.999794355079626,
+      "adc_margin_db_min": 99.26591691811892,
+      "band": "Ku",
+      "blind_rise_db": 10.0,
+      "blinded_by": [],
+      "blinded_pct": 0.0,
+      "clutter_limited_pct": 0.0,
+      "galactic": "frame",
+      "limbs": [
+       "MOON"
+      ],
+      "main_lobe_surface": true,
+      "masked_by_structure_pct": 0.0,
+      "rise_db": 0.01118720108915192,
+      "structure_rise_k_max": 2.2391915220926355e-05,
+      "surfaces": {
+       "EARTH": {
+        "clutter_ratio_max_db": -89.32212075277292,
+        "doppler_rejected": false,
+        "in_main_lobe_pct": 0.0,
+        "min_distance_km": null,
+        "shadowed_pct": 0.0
+       },
+       "MOON": {
+        "clutter_ratio_max_db": null,
+        "doppler_rejected": false,
+        "in_main_lobe_pct": 0.12258526551497595,
+        "min_distance_km": null,
+        "shadowed_pct": 0.0
+       }
+      },
+      "t_sys_budget_k": 231.38722930397134,
+      "t_sys_cold_k": 230.7919548038089,
+      "worst_rise_db": 2.61273013156408
+     },
+     "p_share": [
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "reason": "only admissible mode (KU1+7: confirmation probability < 0.9995 even with 15 dB margin; KU7: confirmation probability < 0.9995 even with 15 dB margin)",
+     "scheduler_rules": []
+    }
+   ],
+   "separability": {
+    "DEBRIS": {
+     "DECOY": 1.0
+    },
+    "GENERIC": {
+     "DEBRIS": 0.9959,
+     "DECOY": 0.9988,
+     "KKV": 0.9974,
+     "SHIP": 0.998
+    },
+    "KKV": {
+     "DEBRIS": 1.0,
+     "DECOY": 0.9999,
+     "SHIP": 1.0
+    },
+    "SHIP": {
+     "DEBRIS": 1.0,
+     "DECOY": 1.0
+    }
+   },
+   "ship_power": {
+    "budget_MW": 8.0,
+    "draw_MW": 0.7487564090702606,
+    "heat_MW": 0.5263029309268717,
+    "heat_load": 0.08771715515447862,
+    "heat_rejection_MW": 6.0,
+    "heat_status": "OK",
+    "load": 0.09359455113378258,
+    "status": "OK",
+    "suggested_allocation_MW": [
+     1.393,
+     1.556,
+     3.265,
+     1.787
+    ]
+   }
+  },
+  "verdict": {
+   "advice": [
+    {
+     "approximate": false,
+     "changes": [
+      {
+       "bracket": null,
+       "current": 0.01,
+       "key": "short_tol",
+       "proposed": 0.007,
+       "sector": "EARTH"
+      }
+     ],
+     "constraint": "EARTH.range",
+     "item": "search EARTH",
+     "kept_fraction": null,
+     "kept_fraction_at_1": null,
+     "kind": "direct",
+     "law": "the shortfall accepted",
+     "load": 0.7,
+     "n": 1,
+     "nok_before": [
+      "EARTH.confirmation mode"
+     ],
+     "note": "",
+     "object": "EARTH",
+     "others_left": [],
+     "quantity": "range",
+     "state": "ALERT",
+     "target_load": 1.0,
+     "verified": null
+    },
+    {
+     "approximate": false,
+     "changes": [
+      {
+       "bracket": null,
+       "current": 1500.0,
+       "key": "range_km",
+       "proposed": 799.0,
+       "sector": "EARTH"
+      }
+     ],
+     "constraint": "EARTH.range",
+     "item": "search EARTH",
+     "kept_fraction": null,
+     "kept_fraction_at_1": null,
+     "kind": "direct",
+     "law": "range of the short scan-angle bins, plan kept",
+     "load": 0.7,
+     "n": 2,
+     "nok_before": [
+      "EARTH.confirmation mode"
+     ],
+     "note": "short bins 65-70 deg (799 km), 70-75 deg (1353 km); or more energy on their faces",
+     "object": "EARTH",
+     "others_left": [],
+     "quantity": "range",
+     "state": "ALERT",
+     "target_load": 1.0,
+     "verified": null
+    }
+   ],
+   "constraints": [
+    {
+     "family": "sector",
+     "id": "SUN.plan",
+     "kind": "spec",
+     "limit": "OK",
+     "load": 0.0,
+     "note": "",
+     "object": "SUN",
+     "priority": "P4_1",
+     "quantity": "plan",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "",
+     "value": "OK"
+    },
+    {
+     "family": "sector",
+     "id": "SUN.range",
+     "kind": "spec",
+     "limit": 1500.0,
+     "load": 0.0,
+     "note": "",
+     "object": "SUN",
+     "priority": "P4_1",
+     "quantity": "range",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "km",
+     "value": 1544
+    },
+    {
+     "family": "sector",
+     "id": "SUN.revisit",
+     "kind": "spec",
+     "limit": 20.0,
+     "load": 1.0,
+     "note": "",
+     "object": "SUN",
+     "priority": "P4_1",
+     "quantity": "revisit",
+     "state": "OK",
+     "step": "2.3",
+     "unit": "s",
+     "value": 20.0
+    },
+    {
+     "family": "sector",
+     "id": "EARTH.plan",
+     "kind": "spec",
+     "limit": "OK",
+     "load": 0.0,
+     "note": "",
+     "object": "EARTH",
+     "priority": "P4_1",
+     "quantity": "plan",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "",
+     "value": "OK"
+    },
+    {
+     "family": "sector",
+     "id": "EARTH.range",
+     "kind": "spec",
+     "limit": 1500.0,
+     "load": 0.7,
+     "note": "0.7 % of the positions short of range (tolerance 1 %; load = short fraction / tolerance)",
+     "object": "EARTH",
+     "priority": "P4_1",
+     "quantity": "range",
+     "state": "ALERT",
+     "step": "3.1",
+     "unit": "km",
+     "value": 1353
+    },
+    {
+     "family": "sector",
+     "id": "EARTH.revisit",
+     "kind": "spec",
+     "limit": 20.0,
+     "load": 1.0,
+     "note": "",
+     "object": "EARTH",
+     "priority": "P4_1",
+     "quantity": "revisit",
+     "state": "OK",
+     "step": "2.3",
+     "unit": "s",
+     "value": 20.0
+    },
+    {
+     "family": "sector",
+     "id": "MOON.plan",
+     "kind": "spec",
+     "limit": "OK",
+     "load": 0.0,
+     "note": "",
+     "object": "MOON",
+     "priority": "P4_1",
+     "quantity": "plan",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "",
+     "value": "OK"
+    },
+    {
+     "family": "sector",
+     "id": "MOON.range",
+     "kind": "spec",
+     "limit": 3000.0,
+     "load": 0.0,
+     "note": "",
+     "object": "MOON",
+     "priority": "P4_1",
+     "quantity": "range",
+     "state": "OK",
+     "step": "3.1",
+     "unit": "km",
+     "value": 3393
+    },
+    {
+     "family": "sector",
+     "id": "MOON.revisit",
+     "kind": "spec",
+     "limit": 10.0,
+     "load": 1.0,
+     "note": "",
+     "object": "MOON",
+     "priority": "P4_1",
+     "quantity": "revisit",
+     "state": "OK",
+     "step": "2.3",
+     "unit": "s",
+     "value": 10.0
+    },
+    {
+     "family": "confirmation",
+     "id": "SUN.confirmation mode",
+     "kind": "spec",
+     "limit": "admissible",
+     "load": 0.0,
+     "note": "",
+     "object": "SUN",
+     "priority": "P2",
+     "quantity": "confirmation mode",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": "KU1+7"
+    },
+    {
+     "family": "confirmation",
+     "id": "SUN.P confirm",
+     "kind": "spec",
+     "limit": 0.9995,
+     "load": 0.9925757385772488,
+     "note": "",
+     "object": "SUN",
+     "priority": "P2",
+     "quantity": "P confirm",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": 0.9995037121307114
+    },
+    {
+     "family": "confirmation",
+     "id": "SUN.confirmation latency",
+     "kind": "spec",
+     "limit": 21.428571428571427,
+     "load": 0.0009483381322437956,
+     "note": "95 % quantile",
+     "object": "SUN",
+     "priority": "P2",
+     "quantity": "confirmation latency",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "s",
+     "value": 0.02032153140522419
+    },
+    {
+     "family": "confirmation",
+     "id": "EARTH.confirmation mode",
+     "kind": "spec",
+     "limit": "admissible",
+     "load": null,
+     "note": "no admissible confirmation mode",
+     "object": "EARTH",
+     "priority": "P2",
+     "quantity": "confirmation mode",
+     "state": "NOK",
+     "step": "3.2",
+     "unit": "",
+     "value": null
+    },
+    {
+     "family": "confirmation",
+     "id": "EARTH.confirmation latency",
+     "kind": "spec",
+     "limit": 21.428571428571427,
+     "load": 0.0,
+     "note": "95 % quantile",
+     "object": "EARTH",
+     "priority": "P2",
+     "quantity": "confirmation latency",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "s",
+     "value": 0.0
+    },
+    {
+     "family": "confirmation",
+     "id": "MOON.confirmation mode",
+     "kind": "spec",
+     "limit": "admissible",
+     "load": 0.0,
+     "note": "",
+     "object": "MOON",
+     "priority": "P2",
+     "quantity": "confirmation mode",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": "S2"
+    },
+    {
+     "family": "confirmation",
+     "id": "MOON.P confirm",
+     "kind": "spec",
+     "limit": 0.9995,
+     "load": 0.9964499027040872,
+     "note": "",
+     "object": "MOON",
+     "priority": "P2",
+     "quantity": "P confirm",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": 0.999501775048648
+    },
+    {
+     "family": "confirmation",
+     "id": "MOON.confirmation latency",
+     "kind": "spec",
+     "limit": 42.857142857142854,
+     "load": 0.0014010199930351089,
+     "note": "95 % quantile",
+     "object": "MOON",
+     "priority": "P2",
+     "quantity": "confirmation latency",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "s",
+     "value": 0.060043713987218944
+    },
+    {
+     "family": "track",
+     "id": "MOON.track chain failure",
+     "kind": "spec",
+     "limit": 0.001,
+     "load": 0.4982249513536541,
+     "note": "confirmation 0.9995, initiation loss 1.72e-15",
+     "object": "MOON",
+     "priority": "P2",
+     "quantity": "track chain failure",
+     "state": "OK",
+     "step": "3.3",
+     "unit": "",
+     "value": 0.0004982249513536541
+    },
+    {
+     "family": "track",
+     "id": "MOON/0 5-1000 km.track period",
+     "kind": "spec",
+     "limit": 2.0,
+     "load": 0.0,
+     "note": "",
+     "object": "MOON/0 5-1000 km",
+     "priority": "P3 other",
+     "quantity": "track period",
+     "state": "OK",
+     "step": "3.3",
+     "unit": "s",
+     "value": 2.0
+    },
+    {
+     "family": "track",
+     "id": "MOON/0 5-1000 km.track reach",
+     "kind": "spec",
+     "limit": 2.0,
+     "load": 0.0,
+     "note": "",
+     "object": "MOON/0 5-1000 km",
+     "priority": "P3 other",
+     "quantity": "track reach",
+     "state": "OK",
+     "step": "3.3",
+     "unit": "",
+     "value": 2.0
+    },
+    {
+     "family": "face",
+     "id": "F1.energy",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.043968844334170115,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "energy",
+     "state": "OK",
+     "step": "5.2",
+     "unit": "",
+     "value": 0.043968844334170115
+    },
+    {
+     "family": "face",
+     "id": "F1.S time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0012342178429160528,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "S time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.0012342178429160528
+    },
+    {
+     "family": "face",
+     "id": "F1.Ku time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.00025740716445798507,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "Ku time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.00025740716445798507
+    },
+    {
+     "family": "face",
+     "id": "F1.heat",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.006953395925056954,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "heat",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "",
+     "value": 0.006953395925056954
+    },
+    {
+     "family": "face",
+     "id": "F1.compute",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 2.714397316313369e-06,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "compute",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 2.714397316313369e-06
+    },
+    {
+     "family": "face",
+     "id": "F1.memory",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 6.998280237374786e-06,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "memory",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 6.998280237374786e-06
+    },
+    {
+     "family": "face",
+     "id": "F1.memory bandwidth",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0003948106399388894,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "memory bandwidth",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0003948106399388894
+    },
+    {
+     "family": "face",
+     "id": "F1.S beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.015609689354490511,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "S beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.015609689354490511
+    },
+    {
+     "family": "face",
+     "id": "F1.Ku beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.03125,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "Ku beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.03125
+    },
+    {
+     "family": "face",
+     "id": "F1.S TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.05,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "S TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.2
+    },
+    {
+     "family": "face",
+     "id": "F1.S processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.098,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "S processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 39.2
+    },
+    {
+     "family": "face",
+     "id": "F1.Ku TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.001,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "Ku TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.004
+    },
+    {
+     "family": "face",
+     "id": "F1.Ku processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.00196,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "Ku processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.784
+    },
+    {
+     "family": "face",
+     "id": "F1.processing power",
+     "kind": "resource",
+     "limit": 50.0,
+     "load": 0.20000232845662672,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "processing power",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "kW",
+     "value": 10.000116422831336
+    },
+    {
+     "family": "face",
+     "id": "F1.storage (observation)",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.001826740969335545,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "storage (observation)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.00730696387734218
+    },
+    {
+     "family": "face",
+     "id": "F1.storage (burst)",
+     "kind": "spec",
+     "limit": 4.0,
+     "load": null,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "storage (burst)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.27213144359561275
+    },
+    {
+     "family": "face",
+     "id": "F1.heat (burst)",
+     "kind": "spec",
+     "limit": 0.0,
+     "load": null,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "heat (burst)",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F1.peak power",
+     "kind": "spec",
+     "limit": null,
+     "load": 0.0,
+     "note": "",
+     "object": "F1",
+     "priority": null,
+     "quantity": "peak power",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "",
+     "value": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     }
+    },
+    {
+     "family": "face",
+     "id": "F2.energy",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.05163089836475646,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "energy",
+     "state": "OK",
+     "step": "5.2",
+     "unit": "",
+     "value": 0.05163089836475646
+    },
+    {
+     "family": "face",
+     "id": "F2.S time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.002400235167893808,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "S time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.002400235167893808
+    },
+    {
+     "family": "face",
+     "id": "F2.Ku time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.000264111164389941,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "Ku time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.000264111164389941
+    },
+    {
+     "family": "face",
+     "id": "F2.heat",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.007140917207054886,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "heat",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "",
+     "value": 0.007140917207054886
+    },
+    {
+     "family": "face",
+     "id": "F2.compute",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 2.8299455957406927e-06,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "compute",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 2.8299455957406927e-06
+    },
+    {
+     "family": "face",
+     "id": "F2.memory",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 8.122369870898101e-06,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "memory",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 8.122369870898101e-06
+    },
+    {
+     "family": "face",
+     "id": "F2.memory bandwidth",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0005258011547063493,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "memory bandwidth",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0005258011547063493
+    },
+    {
+     "family": "face",
+     "id": "F2.S beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.02439013961639142,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "S beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.02439013961639142
+    },
+    {
+     "family": "face",
+     "id": "F2.Ku beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.03125,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "Ku beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.03125
+    },
+    {
+     "family": "face",
+     "id": "F2.S TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.05,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "S TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.2
+    },
+    {
+     "family": "face",
+     "id": "F2.S processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.098,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "S processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 39.2
+    },
+    {
+     "family": "face",
+     "id": "F2.Ku TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.004,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "Ku TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.016
+    },
+    {
+     "family": "face",
+     "id": "F2.Ku processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.00784,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "Ku processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 3.136
+    },
+    {
+     "family": "face",
+     "id": "F2.processing power",
+     "kind": "resource",
+     "limit": 50.0,
+     "load": 0.2000024730156984,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "processing power",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "kW",
+     "value": 10.00012365078492
+    },
+    {
+     "family": "face",
+     "id": "F2.storage (observation)",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.0018267526614860296,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "storage (observation)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.007307010645944119
+    },
+    {
+     "family": "face",
+     "id": "F2.storage (burst)",
+     "kind": "spec",
+     "limit": 4.0,
+     "load": null,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "storage (burst)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.5158258432756918
+    },
+    {
+     "family": "face",
+     "id": "F2.heat (burst)",
+     "kind": "spec",
+     "limit": 0.0,
+     "load": null,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "heat (burst)",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F2.peak power",
+     "kind": "spec",
+     "limit": null,
+     "load": 0.0,
+     "note": "",
+     "object": "F2",
+     "priority": null,
+     "quantity": "peak power",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "",
+     "value": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     }
+    },
+    {
+     "family": "face",
+     "id": "F3.energy",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.13157585554352508,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "energy",
+     "state": "OK",
+     "step": "5.2",
+     "unit": "",
+     "value": 0.13157585554352508
+    },
+    {
+     "family": "face",
+     "id": "F3.S time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.014812902411135663,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "S time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.014812902411135663
+    },
+    {
+     "family": "face",
+     "id": "F3.Ku time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0001666666666666667,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "Ku time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.0001666666666666667
+    },
+    {
+     "family": "face",
+     "id": "F3.heat",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.009050727694924123,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "heat",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "",
+     "value": 0.009050727694924123
+    },
+    {
+     "family": "face",
+     "id": "F3.compute",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 2.4462932614441955e-05,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "compute",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 2.4462932614441955e-05
+    },
+    {
+     "family": "face",
+     "id": "F3.memory",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.001298543272852064,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "memory",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.001298543272852064
+    },
+    {
+     "family": "face",
+     "id": "F3.memory bandwidth",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.059962537883420694,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "memory bandwidth",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.059962537883420694
+    },
+    {
+     "family": "face",
+     "id": "F3.S beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.019201542094721444,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "S beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.019201542094721444
+    },
+    {
+     "family": "face",
+     "id": "F3.Ku beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "Ku beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.S TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.075,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "S TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.3
+    },
+    {
+     "family": "face",
+     "id": "F3.S processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.147,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "S processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 58.8
+    },
+    {
+     "family": "face",
+     "id": "F3.Ku TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "Ku TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.Ku processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "Ku processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.processing power",
+     "kind": "resource",
+     "limit": 50.0,
+     "load": 0.20004345891610928,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "processing power",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "kW",
+     "value": 10.002172945805464
+    },
+    {
+     "family": "face",
+     "id": "F3.storage (observation)",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.002240477047216573,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "storage (observation)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.008961908188866292
+    },
+    {
+     "family": "face",
+     "id": "F3.storage (burst)",
+     "kind": "spec",
+     "limit": 4.0,
+     "load": null,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "storage (burst)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 3.089447617799999
+    },
+    {
+     "family": "face",
+     "id": "F3.heat (burst)",
+     "kind": "spec",
+     "limit": 0.0,
+     "load": null,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "heat (burst)",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F3.peak power",
+     "kind": "spec",
+     "limit": null,
+     "load": 0.0,
+     "note": "",
+     "object": "F3",
+     "priority": null,
+     "quantity": "peak power",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "",
+     "value": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     }
+    },
+    {
+     "family": "face",
+     "id": "F4.energy",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.06249167034799414,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "energy",
+     "state": "OK",
+     "step": "5.2",
+     "unit": "",
+     "value": 0.06249167034799414
+    },
+    {
+     "family": "face",
+     "id": "F4.S time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.004199329239977696,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "S time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.004199329239977696
+    },
+    {
+     "family": "face",
+     "id": "F4.Ku time",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0001666666666666667,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "Ku time",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "",
+     "value": 0.0001666666666666667
+    },
+    {
+     "family": "face",
+     "id": "F4.heat",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.007378428908545665,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "heat",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "",
+     "value": 0.007378428908545665
+    },
+    {
+     "family": "face",
+     "id": "F4.compute",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 2.818402259449778e-06,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "compute",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 2.818402259449778e-06
+    },
+    {
+     "family": "face",
+     "id": "F4.memory",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.001298543272852064,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "memory",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.001298543272852064
+    },
+    {
+     "family": "face",
+     "id": "F4.memory bandwidth",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0069085346453571835,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "memory bandwidth",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0069085346453571835
+    },
+    {
+     "family": "face",
+     "id": "F4.S beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.019201542094721444,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "S beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.019201542094721444
+    },
+    {
+     "family": "face",
+     "id": "F4.Ku beams",
+     "kind": "resource",
+     "limit": 1.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "Ku beams",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.S TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.075,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "S TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.3
+    },
+    {
+     "family": "face",
+     "id": "F4.S processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.147,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "S processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 58.8
+    },
+    {
+     "family": "face",
+     "id": "F4.Ku TRSA link",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "Ku TRSA link",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.Ku processor input",
+     "kind": "resource",
+     "limit": 400.0,
+     "load": 0.0,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "Ku processor input",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "Tbit/s",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.processing power",
+     "kind": "resource",
+     "limit": 50.0,
+     "load": 0.20000500708339225,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "processing power",
+     "state": "OK",
+     "step": "4.4",
+     "unit": "kW",
+     "value": 10.000250354169612
+    },
+    {
+     "family": "face",
+     "id": "F4.storage (observation)",
+     "kind": "resource",
+     "limit": 4.0,
+     "load": 0.002240346710216573,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "storage (observation)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.008961386840866292
+    },
+    {
+     "family": "face",
+     "id": "F4.storage (burst)",
+     "kind": "spec",
+     "limit": 4.0,
+     "load": null,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "storage (burst)",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "MJ",
+     "value": 0.8632900828639999
+    },
+    {
+     "family": "face",
+     "id": "F4.heat (burst)",
+     "kind": "spec",
+     "limit": 0.0,
+     "load": null,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "heat (burst)",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "MJ",
+     "value": 0.0
+    },
+    {
+     "family": "face",
+     "id": "F4.peak power",
+     "kind": "spec",
+     "limit": null,
+     "load": 0.0,
+     "note": "",
+     "object": "F4",
+     "priority": null,
+     "quantity": "peak power",
+     "state": "OK",
+     "step": "4.1",
+     "unit": "",
+     "value": {
+      "Ku": 14.134615384615383,
+      "S": 12.25
+     }
+    },
+    {
+     "family": "ship",
+     "id": "ship.energy",
+     "kind": "resource",
+     "limit": 8.0,
+     "load": 0.07241681714761145,
+     "note": "",
+     "object": "ship",
+     "priority": null,
+     "quantity": "energy",
+     "state": "OK",
+     "step": "5.2",
+     "unit": "MW",
+     "value": 0.5793345371808916
+    },
+    {
+     "family": "ship",
+     "id": "ship.heat rejection",
+     "kind": "resource",
+     "limit": 6.0,
+     "load": 0.08771715515447862,
+     "note": "",
+     "object": "ship",
+     "priority": null,
+     "quantity": "heat rejection",
+     "state": "OK",
+     "step": "4.2",
+     "unit": "MW",
+     "value": 0.5263029309268717
+    },
+    {
+     "family": "flight",
+     "id": "S.navigation pointing",
+     "kind": "transient",
+     "limit": 0.05,
+     "load": 0.023781520075791686,
+     "note": "",
+     "object": "S",
+     "priority": null,
+     "quantity": "navigation pointing",
+     "state": "OK",
+     "step": "4.5",
+     "unit": "HPBW",
+     "value": 0.0011890760037895844
+    },
+    {
+     "family": "flight",
+     "id": "Ku.navigation pointing",
+     "kind": "transient",
+     "limit": 0.05,
+     "load": 0.11770056745113382,
+     "note": "",
+     "object": "Ku",
+     "priority": null,
+     "quantity": "navigation pointing",
+     "state": "OK",
+     "step": "4.5",
+     "unit": "HPBW",
+     "value": 0.005885028372556691
+    }
+   ],
+   "counts": {
+    "ALERT": 1,
+    "NOK": 1,
+    "OK": 94
+   },
+   "faces": {
+    "0": {
+     "load": 0.20000232845662672,
+     "resource": "processing power",
+     "state": "OK"
+    },
+    "1": {
+     "load": 0.2000024730156984,
+     "resource": "processing power",
+     "state": "OK"
+    },
+    "2": {
+     "load": 0.20004345891610928,
+     "resource": "processing power",
+     "state": "OK"
+    },
+    "3": {
+     "load": 0.20000500708339225,
+     "resource": "processing power",
+     "state": "OK"
+    }
+   },
+   "limiting": {
+    "load": 0.20004345891610928,
+    "object": "F3",
+    "resource": "processing power",
+    "state": "OK"
+   },
+   "load_ceiling": 0.8,
+   "nok_priorities": [
+    "P2"
+   ],
+   "overlap": [
+    {
+     "energy_on": "ship",
+     "energy_other_MW": 0.008914881475506583,
+     "energy_own_MW": 0.014885760964843993,
+     "energy_own_reach_MW": 0.007950077310241853,
+     "face": "F1",
+     "margin_energy_MW": 5.820665462819109,
+     "margin_s_time": 0.7975997648321063,
+     "neighbour": "F2",
+     "relief_energy": -0.0001206005206580913,
+     "relief_s_time": 0.0006487567744097844,
+     "s_time_other": 0.0007275408685104241,
+     "s_time_own": 0.0012147071007468982,
+     "s_time_own_reach": 0.0006487567744097844,
+     "sr": 0.0854387506708141,
+     "sr_reach": 0.04429729361031681,
+     "takeable": 1.0
+    },
+    {
+     "energy_on": "ship",
+     "energy_other_MW": 0.008914881475506583,
+     "energy_own_MW": 0.014885760964843993,
+     "energy_own_reach_MW": 0.007950077310241856,
+     "face": "F2",
+     "margin_energy_MW": 5.820665462819109,
+     "margin_s_time": 0.7987657821570839,
+     "neighbour": "F1",
+     "relief_energy": -0.00012060052065809086,
+     "relief_s_time": 0.0006487567744097844,
+     "s_time_other": 0.0007275408685104241,
+     "s_time_own": 0.0012147071007468982,
+     "s_time_own_reach": 0.0006487567744097844,
+     "sr": 0.0854387506708141,
+     "sr_reach": 0.04429729361031681,
+     "takeable": 1.0
+    },
+    {
+     "energy_on": "ship",
+     "energy_other_MW": 0.0,
+     "energy_own_MW": 0.0018038032882296089,
+     "energy_own_reach_MW": 0.0,
+     "face": "F2",
+     "margin_energy_MW": 1.3368482889129498,
+     "margin_s_time": 0.7851870975888644,
+     "neighbour": "F3",
+     "relief_energy": 0.0,
+     "relief_s_time": 0.0,
+     "s_time_other": 0.0,
+     "s_time_own": 0.00014699927561197666,
+     "s_time_own_reach": 0.0,
+     "sr": 0.03373243642551976,
+     "sr_reach": 0.0,
+     "takeable": 0.0
+    },
+    {
+     "energy_on": "face",
+     "energy_other_MW": 0.1195972861067559,
+     "energy_own_MW": 0.12029104571075323,
+     "energy_own_reach_MW": 0.05030555961881908,
+     "face": "F3",
+     "margin_energy_MW": 5.820665462819109,
+     "margin_s_time": 0.7958006707600224,
+     "neighbour": "F4",
+     "relief_energy": 0.02515277980940954,
+     "relief_s_time": 0.00410451161278224,
+     "s_time_other": 0.009759096688628538,
+     "s_time_own": 0.00981538656045721,
+     "s_time_own_reach": 0.00410451161278224,
+     "sr": 0.1389095763310028,
+     "sr_reach": 0.06635040038579318,
+     "takeable": 1.0
+    },
+    {
+     "energy_on": "ship",
+     "energy_other_MW": 0.04931193386414451,
+     "energy_own_MW": 0.06035109118239766,
+     "energy_own_reach_MW": 0.034924261545173786,
+     "face": "F4",
+     "margin_energy_MW": 1.3368482889129498,
+     "margin_s_time": 0.7851870975888644,
+     "neighbour": "F3",
+     "relief_energy": -0.0017984590398713403,
+     "relief_s_time": 0.0028495340908072063,
+     "s_time_other": 0.004023656779218204,
+     "s_time_own": 0.004924653475621985,
+     "s_time_own_reach": 0.0028495340908072063,
+     "sr": 0.04241852645244116,
+     "sr_reach": 0.029440759035396107,
+     "takeable": 1.0
+    }
+   ],
+   "redundancy": [],
+   "saturation": {
+    "brackets": {
+     "MOON/0": {
+      "binding": "F2 energy",
+      "critical_alone": 1189627,
+      "critical_cumulative": 1003748,
+      "manageable_alone": 503008,
+      "manageable_cumulative": 503008,
+      "n_targets": 2.0,
+      "t_max_s": 4.73003954871671
+     }
+    },
+    "first_shed": "tracks of bracket MOON/0 (other), the farthest first",
+    "load_ceiling": 0.8,
+    "mode": "NONE",
+    "p2_unreachable": [],
+    "state_at_spec": "nominal"
+   },
+   "ship": {
+    "load": 0.07241681714761145,
+    "object": "ship",
+    "resource": "energy"
+   },
+   "state": "NOK"
+  },
+  "warnings": [
+   "sector SUN: 0.07 % of the Ku positions blinded by the sky (SUN: T_sys rise above 10 dB), not scanned",
+   "sector SUN: 1.00 % of the Ku positions above the budget T_sys (234.9 K): sky noise up to +10.0 dB, range reduced there",
+   "sector SUN: S waveform WF-SUN-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 50 MHz on the same face",
+   "sector SUN: S waveform WF-SUN-2: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 50 MHz on the same face",
+   "sector EARTH: no admissible confirmation mode at any Ku frequency (part of the sector is out of Ku reach; part of the sector is out of Ku reach; part of the sector is out of Ku reach)",
+   "sector EARTH: 5.96 % of the Ku positions look at EARTH closer than the required range (down to 1369 km): nothing can come from behind its surface",
+   "sector EARTH: clutter edge in the Ku sector (limb of EARTH): GO-CFAR advised there (choice per position at 4.3 / 5.2)",
+   "sector EARTH: 25.8 % of the positions are out of Ku reach (scan limit, range, jammer or clutter): no Ku confirmation or track there",
+   "sector MOON: 1.00 % of the Ku positions above the budget T_sys (231.4 K): sky noise up to +2.6 dB, range reduced there",
+   "sector MOON: clutter edge in the Ku sector (limb of MOON): GO-CFAR advised there (choice per position at 4.3 / 5.2)",
+   "sector MOON: AT 5-1000 km starts below the sector's shortest range of interest (300 km, range_min_km): Ku looks only need a blind range below that",
+   "saturation critique: cumulative cut back by bisection (F2 energy above 80 % at the linear estimate)"
+  ]
+ },
+ "validation": []
+}

@@ -1,0 +1,72 @@
+[N3] forced -> all tests + cost table, every case, impact report (full pass)
+[N3] [------------------------------]   0.0 % | item 1/14: self-test 0.0 / ~0.0 min | elapsed 0.0 min, left ~23.8 min
+[N3] [------------------------------]   0.1 % | item 1/14: - | elapsed 0.1 min, left ~23.8 min
+[N3] [------------------------------]   0.1 % | item 2/14: cost table 0.0 / ~3.4 min | elapsed 0.1 min, left ~23.8 min
+[N3] [#-----------------------------]   2.2 % | item 2/14: cost table 0.5 / ~3.4 min | elapsed 0.6 min, left ~24.8 min
+[N3] [#-----------------------------]   4.3 % | item 2/14: cost table 1.0 / ~3.4 min | elapsed 1.1 min, left ~23.5 min
+[N3] [##----------------------------]   6.4 % | item 2/14: cost table 1.5 / ~3.4 min | elapsed 1.6 min, left ~22.8 min
+[N3] [###---------------------------]   8.5 % | item 2/14: cost table 2.0 / ~3.4 min | elapsed 2.1 min, left ~22.2 min
+[N3] [####--------------------------]  14.3 % | item 2/14: - | elapsed 2.3 min, left ~14.0 min
+[N3] [####--------------------------]  14.3 % | item 3/14: case model 0.0 / ~0.2 min | elapsed 2.3 min, left ~14.0 min
+[N3] [#####-------------------------]  15.2 % | item 3/14: - | elapsed 2.5 min, left ~14.2 min
+[N3] [#####-------------------------]  15.2 % | item 4/14: case mission_example 0.0 / ~1.5 min | elapsed 2.5 min, left ~14.2 min
+[N3] [#####-------------------------]  17.3 % | item 4/14: case mission_example 0.5 / ~1.5 min | elapsed 3.0 min, left ~14.5 min
+[N3] [######------------------------]  19.4 % | item 4/14: case mission_example 1.0 / ~1.5 min | elapsed 3.5 min, left ~14.7 min
+[N3] [#######-----------------------]  21.7 % | item 4/14: - | elapsed 3.6 min, left ~12.9 min
+[N3] [#######-----------------------]  21.7 % | item 5/14: case mission_example_csv 0.0 / ~0.9 min | elapsed 3.6 min, left ~12.9 min
+[N3] [#######-----------------------]  23.8 % | item 5/14: case mission_example_csv 0.5 / ~0.9 min | elapsed 4.1 min, left ~13.1 min
+[N3] [########----------------------]  25.3 % | item 5/14: - | elapsed 4.2 min, left ~12.3 min
+[N3] [########----------------------]  25.3 % | item 6/14: case mission_veille500 0.0 / ~1.1 min | elapsed 4.2 min, left ~12.3 min
+[N3] [########----------------------]  27.4 % | item 6/14: case mission_veille500 0.5 / ~1.1 min | elapsed 4.7 min, left ~12.4 min
+[N3] [#########---------------------]  29.9 % | item 6/14: - | elapsed 4.9 min, left ~11.5 min
+[N3] [#########---------------------]  29.9 % | item 7/14: case mission_redundancy_demo 0.0 / ~1.9 min | elapsed 4.9 min, left ~11.5 min
+[N3] [##########--------------------]  32.0 % | item 7/14: case mission_redundancy_demo 0.5 / ~1.9 min | elapsed 5.4 min, left ~11.5 min
+[N3] [##########--------------------]  34.1 % | item 7/14: case mission_redundancy_demo 1.0 / ~1.9 min | elapsed 5.9 min, left ~11.4 min
+[N3] [###########-------------------]  36.2 % | item 7/14: case mission_redundancy_demo 1.5 / ~1.9 min | elapsed 6.4 min, left ~11.3 min
+[N3] [###########-------------------]  37.7 % | item 7/14: - | elapsed 6.8 min, left ~11.2 min
+[N3] [###########-------------------]  37.7 % | item 8/14: case mission_synthetic_mix 0.0 / ~1.4 min | elapsed 6.8 min, left ~11.2 min
+[N3] [############------------------]  39.8 % | item 8/14: case mission_synthetic_mix 0.5 / ~1.4 min | elapsed 7.3 min, left ~11.0 min
+[N3] [#############-----------------]  41.9 % | item 8/14: case mission_synthetic_mix 1.0 / ~1.4 min | elapsed 7.8 min, left ~10.8 min
+[N3] [#############-----------------]  43.8 % | item 8/14: - | elapsed 8.2 min, left ~10.6 min
+[N3] [#############-----------------]  43.8 % | item 9/14: case mission_sky_demo 0.0 / ~1.4 min | elapsed 8.2 min, left ~10.6 min
+[N3] [##############----------------]  45.9 % | item 9/14: case mission_sky_demo 0.5 / ~1.4 min | elapsed 8.7 min, left ~10.3 min
+[N3] [##############----------------]  48.0 % | item 9/14: case mission_sky_demo 1.0 / ~1.4 min | elapsed 9.2 min, left ~10.0 min
+[N3] [###############---------------]  49.5 % | item 9/14: - | elapsed 9.6 min, left ~9.8 min
+[N3] [###############---------------]  49.5 % | item 10/14: case mission_target_library 0.0 / ~1.2 min | elapsed 9.6 min, left ~9.8 min
+[N3] [###############---------------]  51.6 % | item 10/14: case mission_target_library 0.5 / ~1.2 min | elapsed 10.1 min, left ~9.5 min
+[N3] [################--------------]  53.7 % | item 10/14: case mission_target_library 1.0 / ~1.2 min | elapsed 10.6 min, left ~9.2 min
+[N3] [################--------------]  54.5 % | item 10/14: - | elapsed 11.0 min, left ~9.1 min
+[N3] [################--------------]  54.5 % | item 11/14: case mission_environment 0.0 / ~4.2 min | elapsed 11.0 min, left ~9.1 min
+[N3] [#################-------------]  56.7 % | item 11/14: case mission_environment 0.5 / ~4.2 min | elapsed 11.5 min, left ~8.8 min
+[N3] [##################------------]  58.8 % | item 11/14: case mission_environment 1.0 / ~4.2 min | elapsed 12.0 min, left ~8.4 min
+[N3] [##################------------]  60.9 % | item 11/14: case mission_environment 1.5 / ~4.2 min | elapsed 12.5 min, left ~8.0 min
+[N3] [###################-----------]  63.0 % | item 11/14: case mission_environment 2.0 / ~4.2 min | elapsed 13.0 min, left ~7.6 min
+[N3] [####################----------]  65.1 % | item 11/14: case mission_environment 2.5 / ~4.2 min | elapsed 13.5 min, left ~7.2 min
+[N3] [####################----------]  67.2 % | item 11/14: case mission_environment 3.0 / ~4.2 min | elapsed 14.0 min, left ~6.8 min
+[N3] [#####################---------]  69.3 % | item 11/14: case mission_environment 3.5 / ~4.2 min | elapsed 14.5 min, left ~6.4 min
+[N3] [######################--------]  72.1 % | item 11/14: - | elapsed 14.6 min, left ~5.7 min
+[N3] [######################--------]  72.1 % | item 12/14: case mission_frames 0.0 / ~2.8 min | elapsed 14.6 min, left ~5.7 min
+[N3] [######################--------]  74.2 % | item 12/14: case mission_frames 0.5 / ~2.8 min | elapsed 15.1 min, left ~5.3 min
+[N3] [#######################-------]  76.3 % | item 12/14: case mission_frames 1.0 / ~2.8 min | elapsed 15.6 min, left ~4.9 min
+[N3] [########################------]  78.4 % | item 12/14: case mission_frames 1.5 / ~2.8 min | elapsed 16.1 min, left ~4.4 min
+[N3] [########################------]  80.5 % | item 12/14: case mission_frames 2.0 / ~2.8 min | elapsed 16.6 min, left ~4.0 min
+[N3] [#########################-----]  82.6 % | item 12/14: case mission_frames 2.5 / ~2.8 min | elapsed 17.1 min, left ~3.6 min
+[N3] [#########################-----]  83.9 % | item 12/14: - | elapsed 17.4 min, left ~3.3 min
+[N3] [#########################-----]  83.9 % | item 13/14: impact report 0.0 / ~0.0 min | elapsed 17.4 min, left ~3.3 min
+[N3] [#########################-----]  84.0 % | item 13/14: - | elapsed 17.5 min, left ~3.3 min
+[N3] [#########################-----]  84.0 % | item 14/14: test suite 0.0 / ~3.8 min | elapsed 17.5 min, left ~3.3 min
+[N3] [##########################----]  85.9 % | item 14/14: test suite 0.5 / ~3.8 min | elapsed 18.0 min, left ~2.9 min
+[N3] [###########################---]  88.8 % | item 14/14: test suite 1.0 / ~3.8 min | elapsed 18.5 min, left ~2.3 min
+[N3] [###########################---]  88.8 % | item 14/14: test suite 1.5 / ~3.8 min | elapsed 19.0 min, left ~2.4 min
+[N3] [############################--]  91.9 % | item 14/14: test suite 2.0 / ~3.8 min | elapsed 19.5 min, left ~1.7 min
+[N3] [############################--]  92.2 % | item 14/14: test suite 2.5 / ~3.8 min | elapsed 20.0 min, left ~1.7 min
+[N3] [############################--]  93.8 % | item 14/14: test suite 3.0 / ~3.8 min | elapsed 20.5 min, left ~1.3 min
+[N3] [#############################-]  97.3 % | item 14/14: test suite 3.5 / ~3.8 min | elapsed 21.0 min, left ~0.6 min
+[N3] [#############################-]  97.3 % | item 14/14: test suite 4.0 / ~3.8 min | elapsed 21.5 min, left ~0.6 min
+[N3] [#############################-]  97.3 % | item 14/14: test suite 4.5 / ~3.8 min | elapsed 22.0 min, left ~0.6 min
+[N3] [##############################] 100.0 % | item 14/14: - | elapsed 22.2 min, left ~0.0 min
+
+[N3] FAILED: test suite in 22.2 min (logs: tests/.n3_*.log; impact report: tests/.impact_last.md)
+commit line: Tests: N3 full pass (22.2 min) -- FAILURES
+then, if the changes are intended: python tests/update_snapshots.py (from the computed cases) and the JOURNAL.md entry
+exit 0 

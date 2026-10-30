@@ -1,0 +1,151 @@
+tests/test_physics.py::test_active_mismatch_current_sheet_with_waim
+tests/test_physics.py::test_adc_noise_figure_from_the_converter
+tests/test_physics.py::test_agile_variants_fit_the_band
+tests/test_physics.py::test_angle_accuracy_is_the_cramer_rao_bound_times_the_margin
+tests/test_physics.py::test_aperture_derived_from_trsa_build_up
+tests/test_physics.py::test_blind_range_eclipsing_and_unambiguous_pri
+tests/test_physics.py::test_buffer_droop_and_tau_max_from_the_buffer
+tests/test_physics.py::test_burn_through_scales_and_cfar_variants
+tests/test_physics.py::test_clutter_gain_restores_the_look_pd
+tests/test_physics.py::test_coherent_blocks_replace_the_coherence_floor
+tests/test_physics.py::test_coherent_requirement_independent_of_pulse_count
+tests/test_physics.py::test_confirmation_probability_grows_with_margin
+tests/test_physics.py::test_cost_table_matches_the_parameter_file
+tests/test_physics.py::test_cumulative_criterion_and_averaged_pd
+tests/test_physics.py::test_default_sectors_and_brackets_are_valid
+tests/test_physics.py::test_depolarisation_gain_and_acceleration_bank
+tests/test_physics.py::test_doppler_residual_of_the_clutter
+tests/test_physics.py::test_doppler_weighting_option
+tests/test_physics.py::test_duty_ceiling_on_trains_only
+tests/test_physics.py::test_edge_law_from_the_band_entries
+tests/test_physics.py::test_electrical_budget_and_dissipation@runs
+tests/test_physics.py::test_environment_per_waveform_outputs@runs
+tests/test_physics.py::test_eps_window_only_removes_positions
+tests/test_physics.py::test_estimator_constants_share_one_margin_over_the_bounds
+tests/test_physics.py::test_every_parameter_is_read_by_the_code
+tests/test_physics.py::test_exact_laws_match_the_closed_forms_and_shnidman
+tests/test_physics.py::test_face_power_above_ship_total_is_refused
+tests/test_physics.py::test_face_sector_radius_follows_band_scan_limits
+tests/test_physics.py::test_faces_partition_the_scanned_sphere
+tests/test_physics.py::test_false_alarm_policy
+tests/test_physics.py::test_false_alarms_count_independent_cells@runs
+tests/test_physics.py::test_fast_estimate_follows_the_rx_setting
+tests/test_physics.py::test_fingerprint_follows_system_values_only
+tests/test_physics.py::test_fluctuation_shape_of_a_look
+tests/test_physics.py::test_frequency_agility_decorrelates_the_target
+tests/test_physics.py::test_frequency_grid_is_derived_from_the_band_and_the_exclusions
+tests/test_physics.py::test_galactic_rise_profile_and_worst_case
+tests/test_physics.py::test_gap_lobes_next_to_the_grating_lobe_match_the_subarray_factor
+tests/test_physics.py::test_grating_lobe_term_explains_the_70_deg_limit
+tests/test_physics.py::test_gui_modules_import
+tests/test_physics.py::test_intra_pulse_velocity_mismatch_law
+tests/test_physics.py::test_invalid_frames_are_refused[glob0-sec0-one only]
+tests/test_physics.py::test_invalid_frames_are_refused[glob1-sec1-not a unit quaternion]
+tests/test_physics.py::test_invalid_frames_are_refused[glob2-sec2-ISO 8601]
+tests/test_physics.py::test_invalid_frames_are_refused[glob3-sec3-together]
+tests/test_physics.py::test_invalid_frames_are_refused[glob4-sec4-no orbit plane]
+tests/test_physics.py::test_invalid_frames_are_refused[glob5-sec5-needs the ship orbit]
+tests/test_physics.py::test_invalid_frames_are_refused[glob6-sec6-needs the ship orbit]
+tests/test_physics.py::test_invalid_frames_are_refused[glob7-sec7-unknown frame]
+tests/test_physics.py::test_invalid_frames_are_refused[glob8-sec8-from aligned]
+tests/test_physics.py::test_invalid_frames_are_refused[glob9-sec9-needs frame_p_ra_deg]
+tests/test_physics.py::test_invalid_parameter_file_is_refused[[detection\n-radar_system.toml]
+tests/test_physics.py::test_invalid_parameter_file_is_refused[[detection]\npd = 0.9\n-bare value]
+tests/test_physics.py::test_invalid_parameter_file_is_refused[[detection]\npd = { value = 0.9, unit = "-", status = "V", source = "s" }\n-misses ['date']]
+tests/test_physics.py::test_invalid_parameter_file_is_refused[[detection]\npd = { value = 0.9, unit = "-", status = "V", source = "s", date = "", typo = 1 }\n-unknown keys]
+tests/test_physics.py::test_invalid_parameter_file_is_refused[[detection]\npd = { value = 0.9, unit = "-", status = "X", source = "s", date = "" }\n-status 'X']
+tests/test_physics.py::test_invalid_sector_is_refused[change0-zero-width]
+tests/test_physics.py::test_invalid_sector_is_refused[change1-v_close_max_mps must be > 0]
+tests/test_physics.py::test_invalid_sector_is_refused[change2-empty sector]
+tests/test_physics.py::test_invalid_sector_is_refused[change3-swerling]
+tests/test_physics.py::test_invalid_sector_is_refused[change4-overlap]
+tests/test_physics.py::test_invalid_sector_is_refused[change5-beyond the required detection range]
+tests/test_physics.py::test_invalid_sky_is_refused
+tests/test_physics.py::test_invalid_spectrum_inputs_are_refused[glob0-sec0-lo < hi]
+tests/test_physics.py::test_invalid_spectrum_inputs_are_refused[glob1-sec1-spectrum_exclusions_ghz must be]
+tests/test_physics.py::test_invalid_spectrum_inputs_are_refused[glob2-sec2-outside the S band]
+tests/test_physics.py::test_invalid_spectrum_inputs_are_refused[glob3-sec3-no signal of the search space fits]
+tests/test_physics.py::test_invalid_spectrum_inputs_are_refused[glob4-sec4-no signal of the search space fits]
+tests/test_physics.py::test_isolation_matrix_and_scheduler_rules
+tests/test_physics.py::test_jammers_main_lobe_sidelobes_and_nulling
+tests/test_physics.py::test_lattice_spacing_threads_through_the_model
+tests/test_physics.py::test_limb_band_follows_the_altitude
+tests/test_physics.py::test_longest_pulse_follows_the_trm_buffer
+tests/test_physics.py::test_missing_parameter_file_is_refused
+tests/test_physics.py::test_missing_parameter_names_the_file
+tests/test_physics.py::test_model_cli_selftest
+tests/test_physics.py::test_model_selftest_passes
+tests/test_physics.py::test_modulation_choice_and_compression_loss
+tests/test_physics.py::test_multibeam_values_and_modes
+tests/test_physics.py::test_no_frequency_above_scan_break_when_it_leaves_sky_unscanned@runs
+tests/test_physics.py::test_nothing_playable_outside_the_bands_or_beyond_scan_limit
+tests/test_physics.py::test_numba_sky_sums_equal_the_numpy_ones
+tests/test_physics.py::test_os_cfar_and_masking_outputs
+tests/test_physics.py::test_oscillator_phase_noise_through_the_round_trip
+tests/test_physics.py::test_pae_law_per_band
+tests/test_physics.py::test_parameter_file_entries_are_complete
+tests/test_physics.py::test_partition_beam_gain_and_lattice
+tests/test_physics.py::test_pattern_cache_is_current
+tests/test_physics.py::test_pattern_follows_the_build_up_without_touching_the_cache
+tests/test_physics.py::test_polarisation_glrt_replaces_the_placeholder
+tests/test_physics.py::test_positions_times_cell_area_is_sector_area
+tests/test_physics.py::test_pruning_of_dominated_candidates_is_exact
+tests/test_physics.py::test_pulse_scale_never_above_full_pulse@runs
+tests/test_physics.py::test_pulse_shortening_costs
+tests/test_physics.py::test_range_decreases_with_scan_angle
+tests/test_physics.py::test_range_independent_of_face_electrical_power
+tests/test_physics.py::test_range_scales_as_peak_power_quarter_power
+tests/test_physics.py::test_range_scales_as_rcs_quarter_power[wf0-2.8-0.0]
+tests/test_physics.py::test_range_scales_as_rcs_quarter_power[wf1-2.75-60.0]
+tests/test_physics.py::test_range_scales_as_rcs_quarter_power[wf2-14.0-30.0]
+tests/test_physics.py::test_range_scales_as_rcs_quarter_power[wf3-13.8-0.0]
+tests/test_physics.py::test_range_weighting_follows_the_volume_sidelobes
+tests/test_physics.py::test_ray_casting_on_the_model
+tests/test_physics.py::test_refined_cells_are_shared_point_by_point
+tests/test_physics.py::test_requirement_brought_back_to_the_surface
+tests/test_physics.py::test_rotations_round_trip
+tests/test_physics.py::test_rtn_limb_and_two_dir_axes
+tests/test_physics.py::test_rx_weighting_only_scales_the_rx_gain
+tests/test_physics.py::test_rx_weighting_reaches_each_sidelobe_option
+tests/test_physics.py::test_s_trm_block_must_divide_the_ku_block
+tests/test_physics.py::test_saturation_range_scales_as_rcs_quarter_power
+tests/test_physics.py::test_search_has_the_rx_grid_loss_and_counts_rx_beams
+tests/test_physics.py::test_search_space_holds_the_short_and_long_pulses_and_wide_bands
+tests/test_physics.py::test_sector_target_resolution
+tests/test_physics.py::test_self_protection_jammer_in_the_range
+tests/test_physics.py::test_ship_model_matches_the_locked_dimensions_and_its_placement_is_checked
+tests/test_physics.py::test_signal_must_fit_in_the_usable_band
+tests/test_physics.py::test_sky_body_filling_the_front_half_space_adds_its_temperature
+tests/test_physics.py::test_sky_inconsistent_with_the_navigation_is_flagged
+tests/test_physics.py::test_sky_refinement_is_invariant_under_rotation
+tests/test_physics.py::test_sky_rotation_drift_is_measured
+tests/test_physics.py::test_sky_sector_budget_blinds_and_takes_the_quantile@runs
+tests/test_physics.py::test_solve_applies_the_mismatch_on_tx_and_rx
+tests/test_physics.py::test_solve_scales_with_the_system_temperature
+tests/test_physics.py::test_special_functions_of_the_taylor_law
+tests/test_physics.py::test_static_3d_scene_builds
+tests/test_physics.py::test_straddle_and_cfar_follow_the_processing_entries
+tests/test_physics.py::test_structure_cache_is_current
+tests/test_physics.py::test_structure_masks_no_owned_direction_and_the_radiators_are_hidden
+tests/test_physics.py::test_subaperture_clutter_pattern_tables
+tests/test_physics.py::test_sun_in_the_beam_matches_the_hand_calculation
+tests/test_physics.py::test_superposition_range_is_the_scaled_one_beam_range
+tests/test_physics.py::test_surface_shadow_and_clutter_geometry
+tests/test_physics.py::test_t_sys_from_the_receive_chain
+tests/test_physics.py::test_target_class_added_in_the_file_only
+tests/test_physics.py::test_target_coherence_time_drives_the_coherence_loss
+tests/test_physics.py::test_target_library_classes_and_derived_values
+tests/test_physics.py::test_test_missions_are_valid
+tests/test_physics.py::test_ties_are_broken_deterministically
+tests/test_physics.py::test_tilt_change_propagates_to_the_model
+tests/test_physics.py::test_time_multiplex_blocks
+tests/test_physics.py::test_time_on_air_at_least_energy_over_peak_power@runs
+tests/test_physics.py::test_total_losses_are_the_sum_of_the_terms
+tests/test_physics.py::test_tracking_loads_add_up@runs
+tests/test_physics.py::test_true_time_delay_entry_and_phase_steering_limit
+tests/test_physics.py::test_turning_the_ship_turns_the_faces
+tests/test_physics.py::test_tx_beam_of_the_uniform_octagon
+tests/test_physics.py::test_tx_chain_from_its_components
+tests/test_physics.py::test_tx_polarisation_purity_ludwig3
+tests/test_physics.py::test_velocity_bank_loss_and_hypotheses
+tests/test_physics.py::test_visible_sidelobes_and_held_scan_angle

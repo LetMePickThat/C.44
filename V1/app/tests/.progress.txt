@@ -1,0 +1,6 @@
+running 18:47:33
+tests: 4 done (0 failed) / 9 to do / 13 total
+computation done: 45.0 % (weighted by the last known durations)
+elapsed 3.0 min, estimated left 3.7 min
+running: tests/test_snapshots.py::test_outputs_match_snapshot[mission_environment], tests/test_snapshots.py::test_outputs_match_snapshot[mission_frames], tests/test_snapshots.py::test_outputs_match_snapshot[mission_redundancy_demo], tests/test_snapshots.py::test_outputs_match_snapshot[mission_synthetic_mix], tests/test_snapshots.py::test_outputs_match_snapshot[mission_target_library]
+failed: -
