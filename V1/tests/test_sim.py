@@ -1345,6 +1345,42 @@ def test_lunar_interception_scenario_loads():
     assert any("pn target" in e for e in scn.validate(bad))
 
 
+def test_load_propagates_and_problems_block_play():
+    """A scenario created or opened propagates at once whatever its size, not with problems; while the validation
+    fails Play is greyed and Space does nothing; a closing window stops the propagation under way (user, 30 October
+    2026)."""
+    app = _qt()
+    from gui.scenario_tab import ScenarioTab
+    from gui.scenario_tab import new_scenario as scn_tab_new
+    tab = ScenarioTab()
+    v = tab.preview
+    tab._set_scenario(scn_tab_new(), None)
+    assert v.load_timer.isActive() and not v.debounce.isActive()
+    app.processEvents()
+    v.stop_worker()
+    assert not v.load_timer.isActive() and not v.worker.isRunning()
+    tab.sc["objects"].append({"id": "BAD", "class": "NOPE"})
+    tab._validate()
+    assert not v._valid and not v.bt_play.isEnabled()
+    v.sc = tab.sc
+    v.toggle_play()
+    assert not v._playing
+    tab._set_scenario(tab.sc, None)
+    assert not v.load_timer.isActive()
+
+
+def test_labels_in_double_precision():
+    """The labels' points in double precision: in single, 31 m steps at the Moon's range shook them when zoomed in."""
+    app = _qt()
+    from gui import sim_view as sv
+    from vtkmodules.vtkCommonCore import VTK_DOUBLE
+    v = sv.SimView()
+    lab = sv._Labels(v.plotter, "#ffffff", 15)
+    lab.set(np.array([[384400.001, 0.0, 0.0]]), ["x"])
+    assert lab.points.GetDataType() == VTK_DOUBLE and lab.points.GetPoint(0)[0] == 384400.001
+    v.plotter.close()
+
+
 def test_main_window_fits_the_screen(monkeypatch):
     """The main window starts at tool.display.window_size (2560 x 1440) on a screen large enough, cut to the available
     area in a direction that does not fit (5120 x 1440 with its task bar), maximised when neither fits (1920 x 1080);

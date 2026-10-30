@@ -591,6 +591,7 @@ class ActionList(QWidget):
 class ScenarioTab(QWidget):
     """Scenario editor: tree, forms, validation messages, JSON files (the separate scenario tool)."""
     scenario_changed = pyqtSignal(dict)           # the scenario on screen, after each valid change (for S6 / S7)
+    validated = pyqtSignal(bool)                  # the validation's result, after each change
     title_changed = pyqtSignal(str)               # the file name (with " *" when modified)
 
     def __init__(self, grid=None, view: bool = True, parent=None):
@@ -637,6 +638,7 @@ class ScenarioTab(QWidget):
             from gui.sim_view import SimView
             self.preview = SimView(grid, get_path=lambda: None if self.modified else self.path)
             self.scenario_changed.connect(self.preview.set_scenario)
+            self.validated.connect(self.preview.set_valid)
             self.preview.picked.connect(self._pick_from_view)
         else:
             self.preview = QLabel("3D preview and playback (not built)")
@@ -845,6 +847,8 @@ class ScenarioTab(QWidget):
         self._rebuild_tree()
         self._validate()
         self._update_title()
+        if hasattr(self.preview, "propagate_loaded"):
+            self.preview.propagate_loaded()
 
     def _update_title(self) -> None:
         name = os.path.basename(self.path) if self.path else "(not saved)"
@@ -1193,6 +1197,7 @@ class ScenarioTab(QWidget):
         st.setText("Scenario valid" if not err else f"{len(err)} problem(s)")     # no symbols in the UI (user)
         st.setStyleSheet(f"color: {'darkgreen' if not err else 'darkred'}; font-weight: bold;")
         st.setToolTip("\n".join(err) if err else "")
+        self.validated.emit(not err)
         if not err:
             it = QListWidgetItem("Scenario valid")
             it.setForeground(QColor("darkgreen"))

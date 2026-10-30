@@ -81,6 +81,8 @@ class ScenarioWindow(QMainWindow):
         self.showMaximized()
 
     def closeEvent(self, event) -> None:
+        if hasattr(self.scenario.preview, "stop_worker"):
+            self.scenario.preview.stop_worker()
         view = getattr(self.scenario.preview, "plotter", None)
         if view is not None:
             view.close()
