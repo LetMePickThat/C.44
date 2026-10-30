@@ -2501,11 +2501,10 @@ class SimView(QWidget):
         its drawn range from the ship (the nearest point of the ring of that radius: its direction projected on the
         plane), linked to the object by the arc of the sphere of that radius around the ship (every point of it at
         the same range)."""
-        o = self._array_view                          # (the rings' centre)
-        rad = np.linalg.norm(pos - o, axis=1)
-        u = (pos - o) / np.maximum(rad, 1e-300)[:, None]
+        rad = np.linalg.norm(pos, axis=1)
+        u = pos / np.maximum(rad, 1e-300)[:, None]
         proj = self._to_plane(pos)
-        p = (proj - o) / np.maximum(rad, 1e-300)[:, None]
+        p = proj / np.maximum(rad, 1e-300)[:, None]
         self._proj_src = (proj, rgb)
         self._draw_proj_pts()
         th = np.arccos(np.clip(np.sum(u * p, axis=1), -1.0, 1.0))
@@ -2520,7 +2519,7 @@ class SimView(QWidget):
         small = t < 1e-6
         a = np.where(small, 1.0 - s, np.sin((1.0 - s) * t) / sin_t)         # slerp from u (s = 0) to p (s = 1)
         b = np.where(small, s, np.sin(s * t) / sin_t)
-        arc = o + (a * u[arc_of] + b * p[arc_of]) * rad[arc_of][:, None]
+        arc = (a * u[arc_of] + b * p[arc_of]) * rad[arc_of][:, None]
         self._screen_lines(f"{DYN}proj_arcs", arc, k, np.repeat(rgb, k, axis=0), PROJ_DOT_PX, front=True,
                            line_width=1.5, opacity=0.8)
 
@@ -2572,13 +2571,13 @@ class SimView(QWidget):
         point of the ring of that radius: the direction projected on the plane; on the plane's axis, toward e1)."""
         _h, e1, e2, _c = self._ring_frame()
         nrm = np.cross(e1, e2)
-        pts = np.asarray(pts, float) - self._array_view
+        pts = np.asarray(pts, float)
         rad = np.linalg.norm(pts, axis=-1)
         u = pts / np.maximum(rad, 1e-300)[..., None]
         p = u - (u @ nrm)[..., None] * nrm
         pn = np.linalg.norm(p, axis=-1)
         p = np.where((pn > 1e-9)[..., None], p / np.maximum(pn, 1e-300)[..., None], e1)
-        return self._array_view + p * rad[..., None]
+        return p * rad[..., None]
 
     def _full_projection(self) -> bool:
         """Ship view, range projection "full": every body and path drawn in the plane of the rings."""
@@ -2687,7 +2686,8 @@ class SimView(QWidget):
             ax = prop.pnr_matrix(rs[:, 0], tr.v_kms[sel][:, 0])               # (n_t, 3, 3)
             return np.einsum("kni,kij->knj", tr.r_km[sel][:, cols + 1] - rs, ax)
         rr = g.range_km[sel][:, cols]                                  # (n_t, n)
-        return g.dir_ship[sel][:, cols] * np.where(np.isfinite(rr), rr, np.nan)[..., None]
+        # (the geometry's are from the apertures, the view's from the centre of gravity)
+        return sgeo.ARRAY_KM + g.dir_ship[sel][:, cols] * np.where(np.isfinite(rr), rr, np.nan)[..., None]
 
     def _planned_records(self, cols: np.ndarray, sel: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """The planned paths of the columns cols: the records sel up to the next point of the run's grid
@@ -2732,7 +2732,6 @@ class SimView(QWidget):
         self._in_rings = True
         try:
             half, e1, e2, cover = self._ring_frame()
-            o = self._array_view                      # around the apertures, as the ranges (user, 30 October 2026)
             step = RING_STEP_FRAC * half
             ang = np.linspace(0.0, 2.0 * math.pi, RING_POINTS)
             pts, lines, lab_p, lab_t, seen = [], [], [], [], set()
@@ -2754,25 +2753,25 @@ class SimView(QWidget):
                 seen.add(nice)
                 rad = nice
                 off = len(pts) * RING_POINTS
-                pts.append(o + rad * (np.cos(ang)[:, None] * e1 + np.sin(ang)[:, None] * e2))
+                pts.append(rad * (np.cos(ang)[:, None] * e1 + np.sin(ang)[:, None] * e2))
                 lines.append(np.r_[RING_POINTS, off + np.arange(RING_POINTS)])
                 # each value where its ring crosses the azimuths 0 and 180 (user, 30 October 2026)
-                lab_p += [o + sign * rad * e1 + RING_LABEL_OFF * half * e2 for sign in (1.0, -1.0)]
+                lab_p += [sign * rad * e1 + RING_LABEL_OFF * half * e2 for sign in (1.0, -1.0)]
                 lab_t += [f"{nice:g} km" if nice >= 1.0 else f"{1e3 * nice:.3g} m"] * 2
             if pts:
                 self._poly(f"{DYN}rings", np.vstack(pts), lines=np.hstack(lines), color=RING_COLOR, line_width=1)
                 self._labels(f"{DYN}rings_lbl", np.array(lab_p), lab_t, MUTED_COLOR, 14)
                 q, counts = self._hidden_arcs(np.array(sorted(seen)), e1, e2)
-                self._screen_lines(f"{DYN}rings_hidden", q + o, counts, np.tile(_rgb(RING_COLOR), (len(q), 1)).astype(np.uint8),
+                self._screen_lines(f"{DYN}rings_hidden", q, counts, np.tile(_rgb(RING_COLOR), (len(q), 1)).astype(np.uint8),
                                    RING_HIDDEN_DOT_PX, line_width=1)
             # azimuth spokes in the rings' plane: from the ship's centre out to the corners of the view every 45 deg,
             # phi from +X toward +Y (the ship frame's convention), labelled inside the view
             names = (f"{DYN}spokes", f"{DYN}spokes_lbl")
             az = np.radians(np.arange(0.0, 360.0, SPOKE_STEP_DEG))
             d = np.cos(az)[:, None] * e1 + np.sin(az)[:, None] * e2
-            self._poly(names[0], np.r_[np.tile(o, (len(az), 1)), o + cover * d], lines=_pairs(len(az)),
+            self._poly(names[0], np.r_[np.zeros((len(az), 3)), cover * d], lines=_pairs(len(az)),
                        color="#3a4256", line_width=1)
-            self._labels(names[1], o + SPOKE_LABEL_FRAC * half * d,
+            self._labels(names[1], SPOKE_LABEL_FRAC * half * d,
                          [f"{self._azimuth_label(a):g}°" for a in np.arange(0.0, 360.0, SPOKE_STEP_DEG)],
                          MUTED_COLOR, 14)
         finally:
@@ -3380,11 +3379,12 @@ class SimView(QWidget):
         r, v = sgeo.states_at(tr, self.t)
         m = self._view_axes(self.t)                   # the ship's attitude, or the local orbital frame
         s_v = self._ship_to_view(self.t)
-        # the view's origin: the apertures in the ship view, the centre of gravity (the point of the local orbital
-        # frame) in the orbital view, where the model, rings and volumes turn about it (user, 30 October 2026)
-        arr = sgeo.ARRAY_KM @ s_v.T
-        self._array_view = arr if self._orbital() else np.zeros(3)
-        cg_view = self._array_view - arr
+        # the origin of the ship and orbital views is the centre of gravity: the rings, the distances and OWNSHIP's
+        # symbol are around it, the model turns about it; the lines of sight and the volumes leave from the apertures
+        # (user, 30 October 2026)
+        self._array_view = sgeo.ARRAY_KM @ s_v.T
+        if self._model is not None:
+            self._place_model(self._array_view, s_v)
         self.sky.set_rotation(m.T)                    # the sky in the view's frame: it turns with it
         self._planets_drawn = {}
         self._sbody_names = []
@@ -3400,10 +3400,9 @@ class SimView(QWidget):
             self._update_rings()
             return
         los = ro[ex] - sgeo.array_state(tr, self.t, r[0], v[0])[0]
-        rng = np.linalg.norm(los, axis=1)
-        d = (los / rng[:, None]) @ tr.attitude("ship", self.t)               # ship frame: the faces
+        d = (los / np.linalg.norm(los, axis=1)[:, None]) @ tr.attitude("ship", self.t)   # ship frame: the faces
         face = opt.face_of(d[:, 0], d[:, 1], d[:, 2])[0]
-        pos = self._array_view + (d @ s_v.T) * np.asarray(rng, float)[:, None]   # the view's
+        pos = (ro[ex] - r[0]) @ m                                            # the view's
         k = self._k()
         js = np.flatnonzero(ex)
         occ = g.occulted_by[k, js] >= 0
@@ -3432,7 +3431,7 @@ class SimView(QWidget):
                        cell_rgb=np.r_[los_rgb[lone], los_rgb[[c["k"][0] for c in clusters]].reshape(-1, 3)],
                        line_width=1.5, opacity=0.7)
         # OWNSHIP's symbol at its centre of gravity (user, 30 October 2026; never in a multitrack)
-        self._draw_bodies(np.r_[0, js + 1], np.r_[cg_view[None, :], pos], r, v, 9,
+        self._draw_bodies(np.r_[0, js + 1], np.r_[np.zeros((1, 3)), pos], r, v, 9,
                           [dict(c, k=np.asarray(c["k"]) + 1) for c in clusters])
         groups, rgb = self._path_groups(js + 1, clusters)
         cols = [gr - 1 for gr in groups]              # (the geometry's columns)
@@ -3458,13 +3457,9 @@ class SimView(QWidget):
         self._centre_pending = False
         self._axes_dirs = s_v.T                       # (rows: the ship's axes in the view)
         if self.cb_axes.isChecked():                  # the ship's axes, constant on screen
-            self._scaled(f"{DYN}ship_axes", np.tile(self._array_view, (3, 1)), s_v.T, cell_rgb=self._triad_rgb,
-                         line_width=3)
-            self._labels(f"{DYN}ship_axes_lbl",
-                         self._array_view + 1.05 * self._screen_len(np.zeros((1, 3)))[:, None] * s_v.T,
+            self._scaled(f"{DYN}ship_axes", np.zeros((3, 3)), s_v.T, cell_rgb=self._triad_rgb, line_width=3)
+            self._labels(f"{DYN}ship_axes_lbl", 1.05 * self._screen_len(np.zeros((1, 3)))[:, None] * s_v.T,
                          ["X", "Y", "Z (nose)"], TEXT_COLOR, 15)
-        if self._model is not None and self._orbital():   # the model turns with the attitude (user)
-            self._place_model(self._array_view, s_v)
         self._vol_view = s_v
         self._place_volumes()
         self._update_rings()
@@ -3811,7 +3806,7 @@ class SimView(QWidget):
                 a, x1, f1 = x1, x2, f2
                 x2 = a + q * (b - a)
                 f2 = rng(x2)
-        cands = [(rng(x), x) for x in (a, b, 0.5 * (a + b))] + [(float(g.range_km[ia, j]), float(g.t_s[ia]))]
+        cands = [(rng(x), x) for x in (a, b, 0.5 * (a + b))] + [(rng(float(g.t_s[ia])), float(g.t_s[ia]))]
         d, t_cpa = min(cands)
         reached = not (ia == len(g.t_s) - 1 and np.isfinite(g.range_rate_mps[ia, j]) and g.range_rate_mps[ia, j] < 0)
         res = (max(t_cpa, self.t), d, reached)
