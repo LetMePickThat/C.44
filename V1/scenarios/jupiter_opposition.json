@@ -1,0 +1,1002 @@
+{
+ "meta": {
+  "name": "Jupiter - orbites en opposition (bataille d'ouverture) : 5 vaisseaux amis dont OWNSHIP contre 5 hostiles, plans a 5 deg l'un de l'autre, 150 KKV de chaque cote en 3 salves echelonnees",
+  "epoch_utc": "2050-06-15T00:00:00Z",
+  "duration_s": 3600.0,
+  "step_s": 0.1,
+  "seed": 1
+ },
+ "central_body": "jupiter",
+ "ship": {
+  "name": "OWNSHIP",
+  "orbit": {
+   "type": "state",
+   "r_km": [
+    95541.874512,
+    -72606.819341,
+    0.0
+   ],
+   "v_kms": [
+    19.65942298,
+    25.869445051,
+    0.0
+   ]
+  }
+ },
+ "objects": [
+  {
+   "id": "FRIEND_2",
+   "class": "SHIP",
+   "identity": "friendly",
+   "state": {
+    "type": "state",
+    "r_km": [
+     95147.287066,
+     -73123.141097,
+     0.0
+    ],
+    "v_kms": [
+     19.799225107,
+     25.762604378,
+     0.0
+    ]
+   }
+  },
+  {
+   "id": "FRIEND_3",
+   "class": "SHIP",
+   "identity": "friendly",
+   "state": {
+    "type": "state",
+    "r_km": [
+     94749.909378,
+     -73637.318479,
+     0.0
+    ],
+    "v_kms": [
+     19.938446612,
+     25.655008203,
+     0.0
+    ]
+   }
+  },
+  {
+   "id": "FRIEND_4",
+   "class": "SHIP",
+   "identity": "friendly",
+   "state": {
+    "type": "state",
+    "r_km": [
+     94349.7531,
+     -74149.33641,
+     0.0
+    ],
+    "v_kms": [
+     20.077083411,
+     25.546659681,
+     0.0
+    ]
+   }
+  },
+  {
+   "id": "FRIEND_5",
+   "class": "SHIP",
+   "identity": "friendly",
+   "state": {
+    "type": "state",
+    "r_km": [
+     93946.829967,
+     -74659.179872,
+     0.0
+    ],
+    "v_kms": [
+     20.21513144,
+     25.437561991,
+     0.0
+    ]
+   }
+  },
+  {
+   "id": "HOSTILE_1",
+   "class": "SHIP",
+   "identity": "hostile",
+   "state": {
+    "type": "state",
+    "r_km": [
+     95541.874512,
+     72330.528473,
+     6328.101268
+    ],
+    "v_kms": [
+     19.65942298,
+     -25.771004003,
+     -2.254670698
+    ]
+   }
+  },
+  {
+   "id": "HOSTILE_2",
+   "class": "SHIP",
+   "identity": "hostile",
+   "state": {
+    "type": "state",
+    "r_km": [
+     95147.287066,
+     72844.885469,
+     6373.101674
+    ],
+    "v_kms": [
+     19.799225107,
+     -25.66456989,
+     -2.24535892
+    ]
+   }
+  },
+  {
+   "id": "HOSTILE_3",
+   "class": "SHIP",
+   "identity": "hostile",
+   "state": {
+    "type": "state",
+    "r_km": [
+     94749.909378,
+     73357.106251,
+     6417.915186
+    ],
+    "v_kms": [
+     19.938446612,
+     -25.557383151,
+     -2.235981295
+    ]
+   }
+  },
+  {
+   "id": "HOSTILE_4",
+   "class": "SHIP",
+   "identity": "hostile",
+   "state": {
+    "type": "state",
+    "r_km": [
+     94349.7531,
+     73867.175798,
+     6462.540489
+    ],
+    "v_kms": [
+     20.077083411,
+     -25.449446928,
+     -2.226538099
+    ]
+   }
+  },
+  {
+   "id": "HOSTILE_5",
+   "class": "SHIP",
+   "identity": "hostile",
+   "state": {
+    "type": "state",
+    "r_km": [
+     93946.829967,
+     74375.079153,
+     6506.976275
+    ],
+    "v_kms": [
+     20.21513144,
+     -25.340764387,
+     -2.217029609
+    ]
+   }
+  }
+ ],
+ "groups": [
+  {
+   "id": "KKV_OWNSHIP_W1",
+   "class": "KKV",
+   "identity": "friendly",
+   "n": 10,
+   "around": "ship",
+   "t_appear_s": 600.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 600.0,
+     "dv_mps": [
+      -7453.877,
+      2512.081,
+      0.0
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 600.0,
+     "target": "HOSTILE_1"
+    }
+   ]
+  },
+  {
+   "id": "KKV_OWNSHIP_W2",
+   "class": "KKV",
+   "identity": "friendly",
+   "n": 10,
+   "around": "ship",
+   "t_appear_s": 1200.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1200.0,
+     "dv_mps": [
+      -5140.102,
+      1131.386,
+      0.0
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1200.0,
+     "target": "HOSTILE_1"
+    }
+   ]
+  },
+  {
+   "id": "KKV_OWNSHIP_W3",
+   "class": "KKV",
+   "identity": "friendly",
+   "n": 10,
+   "around": "ship",
+   "t_appear_s": 1800.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1800.0,
+     "dv_mps": [
+      -2621.913,
+      285.099,
+      0.0
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1800.0,
+     "target": "HOSTILE_1"
+    }
+   ]
+  },
+  {
+   "id": "KKV_HOSTILE_1_W1",
+   "class": "KKV",
+   "identity": "hostile",
+   "n": 10,
+   "around": "HOSTILE_1",
+   "t_appear_s": 600.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 600.0,
+     "dv_mps": [
+      -7453.877,
+      -2502.522,
+      -218.942
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 600.0,
+     "target": "ship"
+    }
+   ]
+  },
+  {
+   "id": "KKV_HOSTILE_1_W2",
+   "class": "KKV",
+   "identity": "hostile",
+   "n": 10,
+   "around": "HOSTILE_1",
+   "t_appear_s": 1200.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1200.0,
+     "dv_mps": [
+      -5140.102,
+      -1127.08,
+      -98.607
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1200.0,
+     "target": "ship"
+    }
+   ]
+  },
+  {
+   "id": "KKV_HOSTILE_1_W3",
+   "class": "KKV",
+   "identity": "hostile",
+   "n": 10,
+   "around": "HOSTILE_1",
+   "t_appear_s": 1800.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1800.0,
+     "dv_mps": [
+      -2621.913,
+      -284.014,
+      -24.848
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1800.0,
+     "target": "ship"
+    }
+   ]
+  },
+  {
+   "id": "KKV_FRIEND_2_W1",
+   "class": "KKV",
+   "identity": "friendly",
+   "n": 10,
+   "around": "FRIEND_2",
+   "t_appear_s": 600.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 600.0,
+     "dv_mps": [
+      -7526.355,
+      2566.843,
+      0.0
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 600.0,
+     "target": "HOSTILE_2"
+    }
+   ]
+  },
+  {
+   "id": "KKV_FRIEND_2_W2",
+   "class": "KKV",
+   "identity": "friendly",
+   "n": 10,
+   "around": "FRIEND_2",
+   "t_appear_s": 1200.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1200.0,
+     "dv_mps": [
+      -5221.066,
+      1168.997,
+      0.0
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1200.0,
+     "target": "HOSTILE_2"
+    }
+   ]
+  },
+  {
+   "id": "KKV_FRIEND_2_W3",
+   "class": "KKV",
+   "identity": "friendly",
+   "n": 10,
+   "around": "FRIEND_2",
+   "t_appear_s": 1800.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1800.0,
+     "dv_mps": [
+      -2708.095,
+      304.368,
+      0.0
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1800.0,
+     "target": "HOSTILE_2"
+    }
+   ]
+  },
+  {
+   "id": "KKV_HOSTILE_2_W1",
+   "class": "KKV",
+   "identity": "hostile",
+   "n": 10,
+   "around": "HOSTILE_2",
+   "t_appear_s": 600.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 600.0,
+     "dv_mps": [
+      -7526.355,
+      -2557.076,
+      -223.715
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 600.0,
+     "target": "FRIEND_2"
+    }
+   ]
+  },
+  {
+   "id": "KKV_HOSTILE_2_W2",
+   "class": "KKV",
+   "identity": "hostile",
+   "n": 10,
+   "around": "HOSTILE_2",
+   "t_appear_s": 1200.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1200.0,
+     "dv_mps": [
+      -5221.066,
+      -1164.548,
+      -101.885
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1200.0,
+     "target": "FRIEND_2"
+    }
+   ]
+  },
+  {
+   "id": "KKV_HOSTILE_2_W3",
+   "class": "KKV",
+   "identity": "hostile",
+   "n": 10,
+   "around": "HOSTILE_2",
+   "t_appear_s": 1800.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1800.0,
+     "dv_mps": [
+      -2708.095,
+      -303.21,
+      -26.527
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1800.0,
+     "target": "FRIEND_2"
+    }
+   ]
+  },
+  {
+   "id": "KKV_FRIEND_3_W1",
+   "class": "KKV",
+   "identity": "friendly",
+   "n": 10,
+   "around": "FRIEND_3",
+   "t_appear_s": 600.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 600.0,
+     "dv_mps": [
+      -7598.497,
+      2622.15,
+      0.0
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 600.0,
+     "target": "HOSTILE_3"
+    }
+   ]
+  },
+  {
+   "id": "KKV_FRIEND_3_W2",
+   "class": "KKV",
+   "identity": "friendly",
+   "n": 10,
+   "around": "FRIEND_3",
+   "t_appear_s": 1200.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1200.0,
+     "dv_mps": [
+      -5301.799,
+      1207.202,
+      0.0
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1200.0,
+     "target": "HOSTILE_3"
+    }
+   ]
+  },
+  {
+   "id": "KKV_FRIEND_3_W3",
+   "class": "KKV",
+   "identity": "friendly",
+   "n": 10,
+   "around": "FRIEND_3",
+   "t_appear_s": 1800.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1800.0,
+     "dv_mps": [
+      -2794.156,
+      324.261,
+      0.0
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1800.0,
+     "target": "HOSTILE_3"
+    }
+   ]
+  },
+  {
+   "id": "KKV_HOSTILE_3_W1",
+   "class": "KKV",
+   "identity": "hostile",
+   "n": 10,
+   "around": "HOSTILE_3",
+   "t_appear_s": 600.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 600.0,
+     "dv_mps": [
+      -7598.497,
+      -2612.172,
+      -228.535
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 600.0,
+     "target": "FRIEND_3"
+    }
+   ]
+  },
+  {
+   "id": "KKV_HOSTILE_3_W2",
+   "class": "KKV",
+   "identity": "hostile",
+   "n": 10,
+   "around": "HOSTILE_3",
+   "t_appear_s": 1200.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1200.0,
+     "dv_mps": [
+      -5301.799,
+      -1202.608,
+      -105.215
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1200.0,
+     "target": "FRIEND_3"
+    }
+   ]
+  },
+  {
+   "id": "KKV_HOSTILE_3_W3",
+   "class": "KKV",
+   "identity": "hostile",
+   "n": 10,
+   "around": "HOSTILE_3",
+   "t_appear_s": 1800.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1800.0,
+     "dv_mps": [
+      -2794.156,
+      -323.028,
+      -28.261
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1800.0,
+     "target": "FRIEND_3"
+    }
+   ]
+  },
+  {
+   "id": "KKV_FRIEND_4_W1",
+   "class": "KKV",
+   "identity": "friendly",
+   "n": 10,
+   "around": "FRIEND_4",
+   "t_appear_s": 600.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 600.0,
+     "dv_mps": [
+      -7670.299,
+      2677.999,
+      0.0
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 600.0,
+     "target": "HOSTILE_4"
+    }
+   ]
+  },
+  {
+   "id": "KKV_FRIEND_4_W2",
+   "class": "KKV",
+   "identity": "friendly",
+   "n": 10,
+   "around": "FRIEND_4",
+   "t_appear_s": 1200.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1200.0,
+     "dv_mps": [
+      -5382.297,
+      1245.999,
+      0.0
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1200.0,
+     "target": "HOSTILE_4"
+    }
+   ]
+  },
+  {
+   "id": "KKV_FRIEND_4_W3",
+   "class": "KKV",
+   "identity": "friendly",
+   "n": 10,
+   "around": "FRIEND_4",
+   "t_appear_s": 1800.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1800.0,
+     "dv_mps": [
+      -2880.095,
+      344.779,
+      0.0
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1800.0,
+     "target": "HOSTILE_4"
+    }
+   ]
+  },
+  {
+   "id": "KKV_HOSTILE_4_W1",
+   "class": "KKV",
+   "identity": "hostile",
+   "n": 10,
+   "around": "HOSTILE_4",
+   "t_appear_s": 600.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 600.0,
+     "dv_mps": [
+      -7670.299,
+      -2667.808,
+      -233.403
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 600.0,
+     "target": "FRIEND_4"
+    }
+   ]
+  },
+  {
+   "id": "KKV_HOSTILE_4_W2",
+   "class": "KKV",
+   "identity": "hostile",
+   "n": 10,
+   "around": "HOSTILE_4",
+   "t_appear_s": 1200.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1200.0,
+     "dv_mps": [
+      -5382.297,
+      -1241.258,
+      -108.596
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1200.0,
+     "target": "FRIEND_4"
+    }
+   ]
+  },
+  {
+   "id": "KKV_HOSTILE_4_W3",
+   "class": "KKV",
+   "identity": "hostile",
+   "n": 10,
+   "around": "HOSTILE_4",
+   "t_appear_s": 1800.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1800.0,
+     "dv_mps": [
+      -2880.095,
+      -343.467,
+      -30.049
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1800.0,
+     "target": "FRIEND_4"
+    }
+   ]
+  },
+  {
+   "id": "KKV_FRIEND_5_W1",
+   "class": "KKV",
+   "identity": "friendly",
+   "n": 10,
+   "around": "FRIEND_5",
+   "t_appear_s": 600.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 600.0,
+     "dv_mps": [
+      -7741.757,
+      2734.389,
+      0.0
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 600.0,
+     "target": "HOSTILE_5"
+    }
+   ]
+  },
+  {
+   "id": "KKV_FRIEND_5_W2",
+   "class": "KKV",
+   "identity": "friendly",
+   "n": 10,
+   "around": "FRIEND_5",
+   "t_appear_s": 1200.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1200.0,
+     "dv_mps": [
+      -5462.557,
+      1285.388,
+      0.0
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1200.0,
+     "target": "HOSTILE_5"
+    }
+   ]
+  },
+  {
+   "id": "KKV_FRIEND_5_W3",
+   "class": "KKV",
+   "identity": "friendly",
+   "n": 10,
+   "around": "FRIEND_5",
+   "t_appear_s": 1800.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1800.0,
+     "dv_mps": [
+      -2965.907,
+      365.919,
+      0.0
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1800.0,
+     "target": "HOSTILE_5"
+    }
+   ]
+  },
+  {
+   "id": "KKV_HOSTILE_5_W1",
+   "class": "KKV",
+   "identity": "hostile",
+   "n": 10,
+   "around": "HOSTILE_5",
+   "t_appear_s": 600.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 600.0,
+     "dv_mps": [
+      -7741.757,
+      -2723.984,
+      -238.318
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 600.0,
+     "target": "FRIEND_5"
+    }
+   ]
+  },
+  {
+   "id": "KKV_HOSTILE_5_W2",
+   "class": "KKV",
+   "identity": "hostile",
+   "n": 10,
+   "around": "HOSTILE_5",
+   "t_appear_s": 1200.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1200.0,
+     "dv_mps": [
+      -5462.557,
+      -1280.497,
+      -112.029
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1200.0,
+     "target": "FRIEND_5"
+    }
+   ]
+  },
+  {
+   "id": "KKV_HOSTILE_5_W3",
+   "class": "KKV",
+   "identity": "hostile",
+   "n": 10,
+   "around": "HOSTILE_5",
+   "t_appear_s": 1800.0,
+   "pos_sigma_m": 300.0,
+   "vel_sigma_mps": 20.0,
+   "manoeuvres": [
+    {
+     "type": "impulse",
+     "t_s": 1800.0,
+     "dv_mps": [
+      -2965.907,
+      -364.527,
+      -31.892
+     ],
+     "frame": "inertial"
+    },
+    {
+     "type": "pn",
+     "t_s": 1800.0,
+     "target": "FRIEND_5"
+    }
+   ]
+  }
+ ]
+}

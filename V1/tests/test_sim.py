@@ -738,8 +738,8 @@ def test_multitracks():
     assert any(b.startswith("4 x KKV") for b in v._lab[sv.DYN + "labels"]._last)
     assert len(v._screen_src[sv.DYN + "planned"][1]) == 2   # one path for the multitrack, one for F (not one per
     # member; the path's counts: it is drawn dashed)
-    v.cb_los.setChecked(True)                   # (off by default, user 30 October 2026)
     v.set_view("ship")                          # ship view: one line of sight per multitrack
+    v.cb_los.setChecked(True)                   # (off by default, user 30 October 2026)
     v.set_time(5.0)
     if v._mt_click:
         assert v._dyn[sv.DYN + "los"][1].n_lines == 2
@@ -908,7 +908,7 @@ def test_sim_view_offscreen(tmp_path):
     lists the events, plays and steps, informs on an object and the ship, computes in the background and replays a
     journal."""
     app = _qt()
-    from gui.sim_view import CENTRAL, DYN, OWNSHIP, VOL, SimView
+    from gui.sim_view import CENTRAL, DYN, OWNSHIP, VIEW_COLORS, VIEW_PROFILES, VOL, SimView
     objs = [{"id": "K", "class": "KKV", "t_appear_s": 2.0, "manoeuvres": [{"type": "pn", "start_range_km": 30.0}],
              "state": {"type": "relative", "range_km": 60.0, "phi_deg": 45.0, "eps_deg": 5.0, "v_close_mps": 4000.0}},
             {"id": "D", "class": "DEBRIS", "state": {"type": "relative", "range_km": 300.0, "phi_deg": 200.0,
@@ -931,9 +931,7 @@ def test_sim_view_offscreen(tmp_path):
     v.set_ui_scale(-1)
     # the star background under the scene (its own renderer, layer 0), the constellations on demand
     assert v.sky.ren.GetLayer() == 0 and v.plotter.renderer.GetLayer() == 1 and v.sky.star_actors
-    assert not v.sky.star_actors[0].GetVisibility()                    # plain background at start (user)
-    v.tg_sky.setChecked(True)
-    assert v.sky.star_actors[0].GetVisibility() and not v.sky.line_actor.GetVisibility()
+    assert v.sky.star_actors[0].GetVisibility() and not v.sky.line_actor.GetVisibility()   # the global profile (user)
     v.cb_const.setChecked(True)
     assert v.sky.line_actor.GetVisibility()
     v.tg_sky.setChecked(False)                                         # plain background
@@ -945,6 +943,7 @@ def test_sim_view_offscreen(tmp_path):
     pl = v._dyn[DYN + "planned_ship"][1]
     assert np.allclose(pl.points[0], geo.states_at(tr, 10.0)[0][0]) and np.allclose(
         pl.points[-1], geo.states_at(tr, v.duration())[0][0])
+    v.cb_trails.setChecked(True)                        # (off in the global profile, user 30 October 2026)
     v.sp_trail.setValue(5.0)
     tl = v._dyn[DYN + "trails"][1]
     assert np.allclose(tl.points[0], geo.states_at(tr, 5.0)[0][0])     # OWNSHIP's trail starts 5 s back
@@ -965,6 +964,7 @@ def test_sim_view_offscreen(tmp_path):
     def orbits():                                       # the orbits drawn: one actor each (its part near t)
         return sorted(n[len(DYN) + 6:-5] for n, e in v._dyn.items()
                       if n.startswith(DYN + "orbit_") and n.endswith("_near") and e[2].GetVisibility())
+    v.cb_all_orbits.setChecked(False)                   # (on in the global profile, user 30 October 2026)
     for name, n_orbits in (("Sun", 9), ("Earth", 2), ("Moon", 2)):   # (+ the central body's, the Earth's, always;
         #                                                                the Sun: the Earth and the eight planets)
         v.select(BODY_SEL + name)
@@ -990,10 +990,10 @@ def test_sim_view_offscreen(tmp_path):
     v.set_centre(CENTRAL)
     assert v._sun_light.positional and np.allclose(v._sun_light.position, v._bodies_at()["sun"])   # the Sun's light
     assert v._actor("body_jupiter").GetProperty().GetLighting() and not v._actor("body_sun").GetProperty().GetLighting()
-    body_names = v._lab.get(DYN + "planet_lbl")         # the bodies' names follow "labels", their dots stay
-    v.cb_labels.setChecked(False)
+    body_names = v._lab.get(DYN + "planet_lbl")         # the bodies' names follow "celestial labels", their dots stay
+    v.cb_celestial_labels.setChecked(False)
     assert body_names is None or not body_names.actor.GetVisibility()
-    v.cb_labels.setChecked(True)
+    v.cb_celestial_labels.setChecked(True)
     assert DYN + "sun" not in names                                    # no Sun arrow (the Sun is drawn)
     atm = v.plotter.actors["body_earth_atm"].user_matrix                 # the halo on the Earth, a bit larger
     assert np.allclose(atm[:3, 3], v.plotter.actors["body_earth"].user_matrix[:3, 3])
@@ -1018,10 +1018,27 @@ def test_sim_view_offscreen(tmp_path):
     assert any("K appears" in x for x in texts) and any("terminal guidance" in x for x in texts)
     assert len(v.slider._marks) == len(v.events) and v.slider._clusters()        # L4: marks on the slider
     assert not v.cb_los.isChecked()              # array lines off by default (user, 30 October 2026)
+    v.set_view("ship")                           # ship view
+    assert v.tg_sky.isChecked() and v.cb_bodies.isChecked()     # the ship profile (user, 30 October 2026)
     v.cb_los.setChecked(True)
     v.cb_axes.setChecked(True)
-    v.set_view("ship")                           # ship view
-    assert not v.tg_sky.isChecked()                      # plain at start, one setting for both views
+    v.set_view("orbital")                                # each view its own settings (user, 30 October 2026)
+    assert not v.cb_los.isChecked() and v.sp_orbit.isEnabled()
+    assert v.cb_los._on_color.name() == VIEW_COLORS["orbital"]
+    v.sp_trail.setValue(30.0)
+    v.set_view("ship")
+    assert v.cb_los.isChecked() and v.cb_axes.isChecked() and v.sp_trail.value() == VIEW_PROFILES["ship"]["trail_s"]
+    v.set_view("orbital")
+    assert v.sp_trail.value() == 30.0 and not v.cb_los.isChecked()
+    v.set_time(10.0)                                     # Recenter, orbital view: the ship, from the zenith, 0 deg up
+    v.set_centre("K")
+    v.plotter.camera.Roll(30.0)
+    d_o = v.plotter.camera.GetDistance()
+    v.recentre()
+    assert v.centre == CENTRAL and np.allclose(v.plotter.camera.GetFocalPoint(), 0.0, atol=1e-9)
+    assert np.allclose(v.plotter.camera.GetPosition(), [0.0, 0.0, d_o], rtol=1e-9)
+    assert np.allclose(v.plotter.camera.GetViewUp(), [1.0, 0.0, 0.0], atol=1e-9)
+    v.set_view("ship")
     v.set_time(10.0)
     names = list(v.plotter.actors)
     assert DYN + "los" in names and any(n.startswith(VOL) for n in names)
@@ -1030,6 +1047,11 @@ def test_sim_view_offscreen(tmp_path):
     box = v._lab[DYN + "labels"]._last    # the data boxes: name, altitude, orbital speed (+ range, Vc, CPA)
     kb = [b for b in box if b.startswith("K\n")]
     assert kb and kb[0].startswith("K\nalt ") and "\nVc " in kb[0] and "\ndCPA " in kb[0]
+    v.tg_object_full.setChecked(False)                  # partial: the id, the range and the closing speed only
+    kb = [b for b in v._lab[DYN + "labels"]._last if b.startswith("K\n")]
+    assert kb and kb[0].split("\n")[1].startswith("rng ") and kb[0].split("\n")[2].startswith("Vc ")
+    assert kb[0].count("\n") == 2
+    v.tg_object_full.setChecked(True)
     t_c, d_c, _ok = v._cpa_all()          # the boxes' closest approach agrees with the Info box's finer one
     fine = v._cpa(tr.row("K"), v.g.ids.index("K"))
     assert t_c[v.g.ids.index("K")] == pytest.approx(fine[0], abs=0.05)
@@ -1053,13 +1075,16 @@ def test_sim_view_offscreen(tmp_path):
         L0 = np.linalg.norm(v._dyn[DYN + "ship_axes"][1].points[3])
         v.zoom(2.0)
         assert np.linalg.norm(v._dyn[DYN + "ship_axes"][1].points[3]) == pytest.approx(L0 / 2.0, rel=1e-6)
-    cam.Roll(30.0)                        # Recentre: back to the centre, level with the central body's equator
+    v.set_centre("K")                     # Recentre, ship view: back to the view at start, zoom and roll undone
+    v.zoom(2.0)
+    cam.Roll(30.0)
     v.recentre()
-    fwd, up = np.array(cam.GetDirectionOfProjection()), np.array(cam.GetViewUp())
-    pole = np.asarray(tr.body.pole) @ tr.attitude("ship", v.t)                  # ship view: the ship's frame
-    assert np.allclose(cam.GetFocalPoint(), 0.0, atol=1e-9) and abs(up @ np.cross(fwd, pole)) < 1e-9
-    assert abs(fwd @ pole) < 1e-9 and up @ pole == pytest.approx(1.0)     # on a vessel: level with the equator
-    v.set_centre("K")                     # ship view centred on an object
+    assert v.centre == CENTRAL and np.allclose(cam.GetFocalPoint(), 0.0, atol=1e-9)
+    p_home, up_home = np.array(cam.GetPosition()), np.array(cam.GetViewUp())
+    assert np.allclose(up_home, [0.0, 0.0, 1.0], atol=1e-9)
+    v._ship_home()
+    assert np.allclose(cam.GetPosition(), p_home, rtol=1e-9)
+    v.set_centre("K")                   # ship view centred on an object
     assert np.allclose(v.plotter.camera.GetFocalPoint(), v._screen_pts["K"], atol=1e-9)
     v.set_centre(CENTRAL)
     from gui import sim_view as sv_
@@ -1077,9 +1102,9 @@ def test_sim_view_offscreen(tmp_path):
         sun_dot is not None and sun_dot.actor.GetVisibility() and "Sun" in sun_dot._last)
     v.cb_bodies.setChecked(False)
     assert not v.plotter.actors[DYN + "sbody_sun"].GetVisibility()
-    # mouse rotation by the virtual trackball: a vertical drag right of the centre (outside its circle) turns the view
-    # about the line of sight; a horizontal drag through the centre turns the scene about the screen's vertical
-    iren = v.plotter.iren.interactor
+    # mouse rotation as a turntable: azimuth about the ship's Z, elevation about the screen's horizontal, one rate and
+    # no roll wherever the drag starts
+    iren =v.plotter.iren.interactor
     v.plotter.ren_win.SetSize(900, 700)                 # offscreen: the window has no size of its own
     w, h = v.plotter.ren_win.GetSize()
     assert w > 0 and h > 0
@@ -1095,12 +1120,18 @@ def test_sim_view_offscreen(tmp_path):
     p_left = np.array(cam.GetPosition())
     drag((0.3 * w, 0.5 * h), (0.6 * w, 0.5 * h), "Left")    # a plain left drag leaves the camera alone
     assert np.allclose(cam.GetPosition(), p_left)
-    d0, up0 = np.array(cam.GetDirectionOfProjection()), np.array(cam.GetViewUp())
-    drag((0.97 * w, 0.4 * h), (0.97 * w, 0.6 * h))      # far right of the centre: mostly a roll
-    d1, up1 = np.array(cam.GetDirectionOfProjection()), np.array(cam.GetViewUp())
-    tilt = math.degrees(math.acos(np.clip(d0 @ d1, -1, 1)))
-    roll = math.degrees(math.acos(np.clip(up0 @ up1, -1, 1)))
-    assert roll > 5.0 and roll > 3.0 * tilt
+    def look():                                         # the line of sight, the screen's horizontal
+        fwd = np.array(cam.GetDirectionOfProjection())
+        return fwd, np.cross(fwd, cam.GetViewUp())
+
+    def angle(a, b):
+        return math.degrees(math.acos(np.clip(a @ b, -1, 1)))
+    d0, s0 = look()
+    drag((0.97 * w, 0.4 * h), (0.97 * w, 0.6 * h))      # at the edge of the view: elevation only, the usual rate
+    d1, s1 = look()
+    px = int(0.6 * h) - int(0.4 * h)
+    assert angle(d0, d1) == pytest.approx(sv_.TURN_DEG_PX * px, abs=0.3)        # (a pixel of rounding)
+    assert angle(s0, s1) < 1e-6 and abs(s1[2]) < 1e-9
     # azimuth spokes every 45 deg in the rings' plane, from the ship's centre, labelled 0..315 deg
     v._draw_frame()
     spk = v._dyn[DYN + "spokes"]
@@ -1114,21 +1145,32 @@ def test_sim_view_offscreen(tmp_path):
     assert np.allclose(cam.GetFocalPoint(), 0.0, atol=1e-9)
     ring = v._dyn[DYN + "rings"][1].points
     assert np.allclose(ring[:sv_.RING_POINTS - 1].mean(axis=0), 0.0, atol=1e-6 * np.abs(ring).max())
+    lbl = v._lab[DYN + "rings_lbl"]                     # each ring's value at the azimuths 0 and 180
+    assert np.allclose(lbl._pts[0::2, 0], -lbl._pts[1::2, 0]) and (lbl._pts[0::2, 0] > 0.0).all()
+    assert lbl._last[0::2] == lbl._last[1::2]
+    c_h, r_h = lbl._pts[0] * [1.0, 0.0, 0.0], 0.2 * lbl._pts[0, 0]     # a body cutting a ring: its hidden part dotted
+    v._planets_drawn = {"test": (c_h, r_h)}
+    v._update_rings()
+    arcs = v._screen_src[DYN + "rings_hidden"][0]
+    assert len(arcs) and (np.linalg.norm(arcs - c_h, axis=1) > 0.999 * r_h).all()     # in front of the body
+    assert v._dyn[DYN + "rings_hidden"][2].GetVisibility()
+    v._planets_drawn = {}
+    v._update_rings()
+    assert not len(v._screen_src[DYN + "rings_hidden"][0])
     pan = np.array([0.3, -0.2, 0.1])                    # a pan: the camera and its focal point moved together
     cam.SetFocalPoint(*(np.array(cam.GetFocalPoint()) + pan))
     cam.SetPosition(*(np.array(cam.GetPosition()) + pan))
     v.recentre()
     assert np.allclose(cam.GetFocalPoint(), 0.0, atol=1e-9) and np.allclose(v.plotter._pivot, 0.0)
-    d1, up1 = np.array(cam.GetDirectionOfProjection()), np.array(cam.GetViewUp())
-    # Bell's trackball: no step from the ball to the roll (the mapped point moves little for one pixel anywhere)
-    from gui import scene_view as scv
-    st = scv._ARC[id(v.plotter.iren.style)]
-    pts = np.array([scv._arc_ball(st, x, 0.5 * h) for x in np.arange(0.5 * w, w, 1.0)])
-    assert np.degrees(np.arccos(np.clip(np.einsum("ij,ij->i", pts[1:], pts[:-1]), -1, 1))).max() < 0.5
-    drag((0.5 * w - 0.1 * h, 0.5 * h), (0.5 * w + 0.1 * h, 0.5 * h))
-    d2, up2 = np.array(cam.GetDirectionOfProjection()), np.array(cam.GetViewUp())
-    roll = math.degrees(math.acos(np.clip(up1 @ up2, -1, 1)))      # (pixel rounding of the events: ~0.03 deg)
-    assert math.degrees(math.acos(np.clip(d1 @ d2, -1, 1))) > 5.0 and roll < 0.5
+    d1, s1 = look()
+    drag((0.97 * w, 0.9 * h), (0.97 * w - 200, 0.9 * h))   # in a corner: azimuth only, the usual rate
+    d2, s2 = look()
+    assert angle(s1, s2) == pytest.approx(sv_.TURN_DEG_PX * 200.0, abs=0.5) and abs(s2[2]) < 1e-9
+    assert d2[2] == pytest.approx(d1[2], abs=1e-9)
+    drag((0.5 * w, 0.95 * h), (0.5 * w, 0.05 * h))         # far: stopped at the pole, the view not turned over
+    drag((0.5 * w, 0.95 * h), (0.5 * w, 0.05 * h))
+    assert np.allclose(look()[0], [0.0, 0.0, -1.0], atol=1e-6) and abs(look()[1][2]) < 1e-6
+    v.recentre()
     v._select("K")
     assert "range" in v.info.toPlainText() and "RCS S" in v.info.toPlainText()
     v.step(1)
@@ -1357,7 +1399,7 @@ def test_load_propagates_and_problems_block_play():
     tab._set_scenario(scn_tab_new(), None)
     assert v.load_timer.isActive() and not v.debounce.isActive()
     app.processEvents()
-    v.stop_worker()
+    v.stop_background()
     assert not v.load_timer.isActive() and not v.worker.isRunning()
     tab.sc["objects"].append({"id": "BAD", "class": "NOPE"})
     tab._validate()
@@ -1367,6 +1409,25 @@ def test_load_propagates_and_problems_block_play():
     assert not v._playing
     tab._set_scenario(tab.sc, None)
     assert not v.load_timer.isActive()
+
+
+def test_window_closes_during_the_playback():
+    """No frame after the window's close: the playback's timer would draw without a render window (user, 30 October
+    2026)."""
+    app = _qt()
+    from gui.scenario_window import ScenarioWindow
+    from gui.scenario_tab import new_scenario as scn_tab_new
+    w = ScenarioWindow()
+    v = w.scenario.preview
+    w.scenario._set_scenario(scn_tab_new(), None)
+    app.processEvents()
+    while v.worker is None or v.worker.isRunning() or v.truth is None:
+        app.processEvents()
+    v.toggle_play()
+    assert v._playing and v.timer.isActive()
+    w.close()
+    assert not v._playing and not v.timer.isActive()
+    app.processEvents()
 
 
 def test_labels_in_double_precision():
@@ -1435,7 +1496,7 @@ def test_scenario_tab_layout():
                                                    "Export mission at t...", "Record run...", "Open run..."]
     assert tab.status in tab.status_widgets() and tab.preview.progress in tab.status_widgets()
     assert not tab.preview.cb_vectors.isEnabled() and tab.preview.cb_vectors.isHidden()   # ship view only
-    assert tab.preview.view_panel.isAncestorOf(tab.preview.cb_labels)          # layers as switches, no menu
+    assert tab.preview.view_panel.isAncestorOf(tab.preview.cb_object_labels)          # layers as switches, no menu
     tab.preview.set_view("ship")
     assert tab.preview.cb_vectors.isEnabled() and not tab.preview.cb_vectors.isHidden()
     tab.preview.set_view("global")

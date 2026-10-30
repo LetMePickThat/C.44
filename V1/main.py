@@ -64,7 +64,7 @@ def prefer_high_performance_gpu() -> None:
 ERROR_LOG = os.path.join(tempfile.gettempdir(), "radar_mission_prep_error.log")
 
 
-def install_error_dialog() -> None:
+def install_error_dialog(tool: str = "Radar mission preparation") -> None:
     """Started without a console (pythonw, double-click), an uncaught error would be silent: show it in a dialog
     and append the traceback to ERROR_LOG. With a hook installed, PyQt also no longer aborts the whole application
     on an error raised inside a Qt slot: the action fails, the window stays open."""
@@ -78,7 +78,7 @@ def install_error_dialog() -> None:
         if sys.stderr is not None:
             sys.__excepthook__(exc_type, exc, tb)
         if QApplication.instance() is not None:
-            QMessageBox.critical(None, "Radar mission preparation -- unexpected error",
+            QMessageBox.critical(None, f"{tool} -- unexpected error",
                                  f"{exc_type.__name__}: {exc}\n\nThe details were written to:\n{ERROR_LOG}")
     sys.excepthook = hook
 

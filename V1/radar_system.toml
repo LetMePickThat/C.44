@@ -939,12 +939,10 @@ rr_t0_ratio          = 3.0      # flag a sector whose revisit is below this x th
 window_size = [2560, 1440]      # main window at start, px; a smaller screen: maximised on its available area (user, 29 Oct 2026)
 grid_res_deg = 0.5              # direction-sphere raster of the 3D views and the fast estimate
 viz_freq_ghz = 2.8              # frequency of the viz-only scan limit and of the fast estimate
-sim_trail_s = 60.0              # simulator playback: trail length behind each body at start (the 3D view's trails duration) (S7, L3, D)
-sim_orbit_vector_s = 180.0      # simulator 3D views: orbital velocity vector at start (user, 30 Oct 2026: on, 180 s; was 60 s, off), free fall under the local gravity over this time, s (user 29 Oct 2026, D)
-sim_fps = 60                    # simulator playback: frames per second aimed at (S7, L2, D; user, 30 Oct 2026: at least 30, ideally 60; was 20)
+sim_fps = 60                   # simulator playback: frames per second aimed at (S7, L2, D; user, 30 Oct 2026: at least 30, ideally 60; was 20)
 sim_box_text_s = 0.2            # simulator playback: the data boxes' texts refreshed at most once per this, their places at every frame, s (30 Oct 2026, D)
 sim_auto_max_cells = 2.0e6      # simulator: automatic re-propagation only below rows x steps (S6, V2, D)
-arcball_radius = 0.9            # 3D views (mission preparation, results, simulator), mouse rotation: radius of the virtual trackball, share of the half-height (outside: roll about the line of sight) (user, 29 Oct 2026, D)
+mouse_turn_deg_px = 0.25        # 3D views (mission preparation, results, simulator), mouse rotation (turntable): degrees of azimuth or elevation per pixel of drag, everywhere in the view (user, 30 Oct 2026)
 sim_min_camera_m = 50.0         # simulator views: nearest zoom in, the camera at least this from its focal point (the ship, a body, an object), m (user, 30 Oct 2026; was the innermost ring at 0.5 km)
 sim_max_view_margin = 1.1       # simulator views: farthest zoom out, the whole solar system and this margin: the view's half-height at most this x (the focal point to the Sun + the farthest aphelion, Pluto's ~49 AU) (user, 30 Oct 2026; was 2e13 km)
 sim_sun_halo_r = 4.0            # simulator views: the Sun's halo (its glare) out to this x the solar radius, at its true size (user, 30 Oct 2026; was 3.0)
@@ -954,7 +952,8 @@ sim_sun_limb_u = 0.6            # simulator views: the Sun's limb darkening I(mu
 sim_trail_alpha = 0.9           # simulator 3D views: a trail's opacity at t, fading linearly to 0 at its start (user, 30 Oct 2026)
 sim_planned_dash_px = [8.0, 6.0]   # simulator 3D views: the planned trajectories dashed, dash and gap on screen, px at UI size 100 % (user, 30 Oct 2026)
 sim_proj_dot_px = [2.0, 4.0]    # simulator ship view: the arcs to the range projection dotted, dot and gap on screen, px at UI size 100 % (user, 30 Oct 2026: not to be taken for a planned trajectory)
-sim_vel_white = 0.5             # simulator 3D views: the orbital velocity vector in its body's colour mixed with this share of white (user, 30 Oct 2026)
+sim_ring_hidden_dot_px = [3.0, 4.0]   # simulator ship and orbital views: the part of a range ring hidden by a celestial body dotted, dot and gap on screen, px at UI size 100 % (user, 30 Oct 2026; values D)
+sim_vel_white = 0.5            # simulator 3D views: the orbital velocity vector in its body's colour mixed with this share of white (user, 30 Oct 2026)
 sim_vel_arrow_px = 12.0         # simulator 3D views: the orbital velocity vector's arrowhead, its wings' length on screen, px at UI size 100 % (user, 30 Oct 2026)
 sim_multitrack_px = 30.0        # 3D views: objects of one identity and class closer than this on screen (px at UI size 100 %, centre to centre) drawn as one multitrack symbol (user, 29 Oct 2026)
 sim_multitrack_off_km = 100.0    # 3D views: no multitrack once the view shows less than this height at its focal point, km (zoomed in, user, 29 Oct 2026)
@@ -964,6 +963,78 @@ sim_node_px = 180               # manoeuvre node: its size on screen, handles in
 sim_node_dv_rate = 50.0         # manoeuvre node, impulse: delta-v rate of a handle pulled to its stop, m/s per s (square of the pull below) (user, 29 Oct 2026)
 sim_node_accel_rate = 1.0       # manoeuvre node, burn: acceleration rate of a handle pulled to its stop, m/s2 per s (user, 29 Oct 2026)
 sim_node_preview_step_s = 5.0   # manoeuvre node: RK4 step of the edited body's real-time path, s (5 s: well under 1 m from the full propagation over 900 s in low orbit) (D)
+sim_view_button_idle = 0.25     # 3D view buttons: opacity of a button's colour while its view is not shown (D, 30 Oct 2026)
+
+# Each 3D view's button colour and display profile at start (user, 30 Oct 2026): a change made in a view holds for that
+# view until the tool closes.
+[tool.display.view_global]
+color = "#2f7fd1"
+skybox = true                  # stars (true) or plain background
+constellations = false
+celestial_labels = true
+object_labels = true
+object_labels_full = true       # the whole data box, else the id, the range and the closing speed
+symbols = true                  # the objects drawn by their symbol, else by a dot
+all_orbits = true
+planned_trajectory = true
+trails = false
+trail_s = 60.0                  # flight time drawn by each trail, s (S7, L3, D)
+orbital_vector = true
+orbital_vector_s = 180.0        # free fall under the local gravity over this time, s (user, 29-30 Oct 2026)
+ship_axes = true
+noses = false
+mission_volumes = true
+responsibility_zones = false
+celestial_objects = false
+array_lines = false
+range_projection = true
+range_projection_full = false
+
+[tool.display.view_ship]
+color = "#2e9e5b"
+skybox = true
+constellations = false
+celestial_labels = true
+object_labels = true
+object_labels_full = true
+symbols = true
+all_orbits = false
+planned_trajectory = true
+trails = false
+trail_s = 60.0
+orbital_vector = true
+orbital_vector_s = 180.0
+ship_axes = false
+noses = false
+mission_volumes = true
+responsibility_zones = false
+celestial_objects = true
+array_lines = false
+range_projection = true
+range_projection_full = false
+
+[tool.display.view_orbital]
+color = "#d9822b"
+skybox = false
+constellations = false
+celestial_labels = true
+object_labels = true
+object_labels_full = true
+symbols = true
+all_orbits = false
+planned_trajectory = false
+trails = false
+trail_s = 60.0
+orbital_vector = true
+orbital_vector_s = 600.0
+ship_axes = true
+noses = false
+mission_volumes = false
+responsibility_zones = false
+celestial_objects = false
+array_lines = false
+range_projection = true
+range_projection_full = true
 
 [tool.mission_defaults]       # values of a new mission / sector / AT bracket (operator inputs, not the radar)
 eps_min_deg = -90.0             # rear limit of the scan window (-90 = no limit)

@@ -2,7 +2,10 @@
 name: next-session-reminders
 description: "things the user asked to be reminded of at the START of the next session (symbology to finish, load-ceiling criterion)"
 metadata:
+  node_type: memory
   type: project
+  originSessionId: 1e6057f9-20c0-4a9e-87fc-dddd14f594cc
+  modified: 2026-10-30T13:38:46.206Z
 ---
 
 At the start of the next session, remind the user (in French) of:
@@ -14,6 +17,7 @@ At the start of the next session, remind the user (in French) of:
 2e. Manoeuvre node (P42-P44: OWNSHIP manoeuvres, KSP-like node in gui/maneuver_node.py, pnr frame, real-time one-body preview, run ends at the ship's impact): NOT yet seen by the user on screen after the 3D-handle fix; ask for feedback (handle labels and the dv/t readout were added unasked; depth cue values 70 % size / 55 % colour are mine).
 2d. [DONE 2026-10-29 evening, committed] Scenario tool fixes (Choix_architecturaux P38-P41): form fields fit the column; ship view 1:1 only (log scale code removed); 3D view options in two columns per section, layers shared by both views, plain background at start; Sun halo (3 R_sun, 0.4 linear). OPEN: what should the "responsibility zones" switch show at 1:1 (it only worked in log scale), or remove it? Halo colour = SUN_COLOR #e0a800 (not chosen by the user, ask if they want another). The user announced "several bugs": more may come.
 2f. Solar system (P48-P49, 29 Oct 2026 late): planets and 41 major moons in the views and the propagation. To check with the user: the map orientation of Miranda, Ariel, Umbriel, Titania, Oberon, Triton, Charon (default, no reliable feature), Rhea (P, Inktomi unclear), Deimos; textures and shape models still missing for the irregular moons (Amalthea ... Hydra, list in the last reply); physical data of [sim.planets] and planets' Info facts from memory; Saturn rings radii; planet dot colours.
+2g. 3D view profiles (P54, 30 Oct 2026): per-view settings and coloured buttons coded, the user's three default profiles entered in [tool.display.view_global/ship/orbital]; ring values at azimuths 0/180 (P55); Recenter per view (P56); turntable mouse rotation, 0.25 deg/px (P57, ask for feedback on the feel). GUI tests of test_sim.py not yet run: ask first.
 3. The "late search dwell" criterion (veille en retard) for the Monte-Carlo per-band load ceiling and its threshold: still undecided, user said "rappelle plus tard".
 
 **Why:** the user explicitly asked for these reminders.

@@ -23,7 +23,7 @@ from gui import controls as uc
 from gui.main_window import GRID_RES_DEG, HEADER_STYLE, PRIMARY_STYLE
 from gui.scenario_tab import ScenarioTab
 
-TITLE = "Radar scenario"
+TITLE = "Mission Scenario Editor"
 
 
 class ScenarioWindow(QMainWindow):
@@ -73,7 +73,7 @@ class ScenarioWindow(QMainWindow):
                 act.setIcon(ic)
             act.setEnabled(self.scenario.loaded or text in ("New...", "Open..."))
         self.menu.addSeparator()
-        self.menu.addAction("About...", lambda: uc.show_about(self, "Radar scenario"))
+        self.menu.addAction("About...", lambda: uc.show_about(self, "Mission Scenario Editor"))
 
     def show_default(self) -> None:
         """At start, maximised on its screen (user, 29 October 2026): the whole screen but the task bar, the title
@@ -81,8 +81,8 @@ class ScenarioWindow(QMainWindow):
         self.showMaximized()
 
     def closeEvent(self, event) -> None:
-        if hasattr(self.scenario.preview, "stop_worker"):
-            self.scenario.preview.stop_worker()
+        if hasattr(self.scenario.preview, "stop_background"):
+            self.scenario.preview.stop_background()
         view = getattr(self.scenario.preview, "plotter", None)
         if view is not None:
             view.close()

@@ -31,7 +31,8 @@ def std_icon(widget: QWidget, name: Optional[str]):
 
 # the attributions of the textures of the Earth, the Moon and the Sun (assets/textures), shown by File > About
 TEXTURE_ATTRIBUTIONS = ("Creative Commons Attribution 4.0 International", "NASA")
-MODEL_ATTRIBUTIONS = (                            # the moons' shape models (user, 29 October 2026)
+MODEL_ATTRIBUTIONS = (                            # the ship's model, the moons' shape models (user, 29 October 2026)
+    "Ship model: Theo Bouvier (https://www.artstation.com/theo_bouvier)",
     "Phobos, Deimos: NASA/JPL-Caltech",
     "Thomas, P., Joseph, J., and Ansty, T., Saturn Small Moon Shape Models V1.0. "
     "urn:nasa:pds:saturn_satellite_shape_models::1.0. NASA Planetary Data System, 2018",
@@ -136,10 +137,16 @@ class Toggle(QCheckBox):
         super().__init__(text)
         self.off_text = off_text
         self._color = QColor(color) if color else None
+        self._on_color = self.ON_COLOR
         self.setChecked(checked)
         self.setCursor(Qt.PointingHandCursor)
         if tip:
             self.setToolTip(tip)
+
+    def set_on_color(self, color: str) -> None:
+        """The track's colour when on (a two-way choice: on both sides)."""
+        self._on_color = QColor(color)
+        self.update()
 
     def _off_w(self) -> int:
         return self.fontMetrics().horizontalAdvance(self.off_text) + self.GAP if self.off_text else 0
@@ -168,7 +175,7 @@ class Toggle(QCheckBox):
             p.setPen(text)
             p.drawText(QRect(0, 0, x0, h), Qt.AlignVCenter | Qt.AlignLeft, self.off_text)
         # a two-way choice: both sides are a choice, one colour
-        track = QColor(self.ON_COLOR if on or self.off_text else self.OFF_COLOR)
+        track = QColor(self._on_color if on or self.off_text else self.OFF_COLOR)
         if not self.isEnabled():
             track.setAlpha(90)
         y0 = (h - self.TRACK_H) // 2

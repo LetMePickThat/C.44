@@ -220,34 +220,20 @@ def _rotation(axis: np.ndarray, angle: float) -> np.ndarray:
     return np.eye(3) + math.sin(angle) * kx + (1.0 - math.cos(angle)) * (kx @ kx)
 
 
-_ARC: Dict[int, dict] = {}                    # per arcball style: its plotter, radius and drag state
+_TURN: Dict[int, dict] = {}                   # per turntable style: its plotter, rate, axis and drag state
 
 
-def _arc_ball(st: dict, x: float, y: float) -> np.ndarray:
-    w, h = st["plotter"].ren_win.GetSize()
-    r = max(st["radius"] * 0.5 * min(w, h), 1.0)
-    v = np.array([(x - 0.5 * w) / r, (y - 0.5 * h) / r, 0.0])
-    d2 = v[0] ** 2 + v[1] ** 2
-    # Bell's trackball (user, 29 October 2026: Shoemake's rim switched abruptly from a rotation in a plane to the
-    # roll): the sphere up to half its radius squared, then the hyperbolic sheet z = 1 / (2 d) that meets it smoothly;
-    # the farther from the centre, the more the drag rolls the view about the line of sight, without a step
-    v[2] = math.sqrt(1.0 - d2) if d2 <= 0.5 else 0.5 / math.sqrt(d2)
-    return v / np.linalg.norm(v)
-
-
-def _arc_move(style, _ev) -> None:
-    st = _ARC[id(style)]
+def _turn_move(style, _ev) -> None:
+    st = _TURN[id(style)]
     if st["p"] is None:
         style.OnMouseMove()
         return
-    plotter = st["plotter"]
-    p1 = _arc_ball(st, *style.GetInteractor().GetEventPosition())
-    p0 = st["p"]
-    axis = np.cross(p0, p1)
-    s = float(np.linalg.norm(axis))
-    if s < 1e-9:
+    x1, y1 = style.GetInteractor().GetEventPosition()
+    dx, dy = x1 - st["p"][0], y1 - st["p"][1]
+    if not dx and not dy:
         return
-    angle = math.atan2(s, float(p0 @ p1))
+    st["p"] = (x1, y1)
+    plotter = st["plotter"]
     cam = plotter.renderer.GetActiveCamera()
     f, pos = np.asarray(cam.GetFocalPoint()), np.asarray(cam.GetPosition())
     back = pos - f
@@ -255,25 +241,28 @@ def _arc_move(style, _ev) -> None:
     z = back / np.linalg.norm(back)
     y = up - (up @ z) * z
     y /= np.linalg.norm(y)
-    x = np.cross(y, z)
-    rot = _rotation(axis[0] * x + axis[1] * y + axis[2] * z, -angle)   # screen x right, y up, z to the viewer
-    cam.SetPosition(*(f + rot @ back))                                  # the scene follows the hand
+    x = np.cross(y, z)                                                  # screen x right, y up, z to the viewer
+    a = np.asarray(st["axis"](), float)
+    a = a / np.linalg.norm(a)
+    from_pole = math.acos(float(np.clip(z @ a, -1.0, 1.0)))
+    tilt = float(np.clip(dy * st["rate"], -from_pole, math.pi - from_pole))   # stops at the poles
+    rot = _rotation(a, -dx * st["rate"]) @ _rotation(x, tilt)           # the scene follows the hand
+    cam.SetPosition(*(f + rot @ back))
     cam.SetViewUp(*(rot @ y))
     cam.OrthogonalizeViewUp()
     plotter.renderer.ResetCameraClippingRange()
-    st["p"] = p1
     style.GetInteractor().Render()
 
 
-def install_arcball(plotter, radius_frac: float, button: str = "left"):
-    """Left-drag (button "right": right-drag) rotation by a virtual trackball (Bell's trackball, user 29 October 2026): the press and the current
-    point are put on a sphere of radius radius_frac x the half-height of the view around its centre, prolonged by a
-    hyperbolic sheet that meets it smoothly; near the centre the scene turns as a ball under the hand, and the farther
-    from it (left / right, top / bottom) the more a drag along the edge turns the view about the line of sight
-    (clockwise / counterclockwise), progressively. The camera turns about its
-    focal point (the pivot of lock_pivot). Built on pyvista's own trackball style (its capture of the release events
-    and the observers pyvista puts on the style stay valid: install it BEFORE adding them); Shift / Ctrl + left drag
-    keep VTK's pan / spin; the wheel, the right button and the interactor's observers (clicks) are unchanged.
+def install_turntable(plotter, deg_per_px: float, button: str = "left", axis=lambda: (0.0, 0.0, 1.0)):
+    """Left-drag (button "right": right-drag) rotation as a turntable (user, 30 October 2026, replaces the virtual
+    trackball, whose drags rolled the view away from its centre and whose rate depended on the place of the press): a
+    horizontal drag turns the azimuth about axis() (the view's own vertical), a vertical one the elevation about the
+    screen's horizontal, stopped at the poles of that axis; deg_per_px everywhere in the view. A level view stays
+    level. The camera turns about its focal point (the pivot of lock_pivot). Built on pyvista's own trackball style
+    (its capture of the release events and the observers pyvista puts on the style stay valid: install it BEFORE
+    adding them); Shift / Ctrl + left drag keep VTK's pan / spin; the wheel, the right button and the interactor's
+    observers (clicks) are unchanged.
     button "right" (the scenario tool, user 29 October 2026: the left button already picks and centres): the right
     drag turns the view (no more right-drag zoom: the wheel zooms), a plain left drag does nothing to the camera
     (Shift / Ctrl + left drag still pan / spin)."""
@@ -281,7 +270,7 @@ def install_arcball(plotter, radius_frac: float, button: str = "left"):
 
     right = button == "right"
 
-    class _Arcball(InteractorStyleTrackballCamera):
+    class _Turntable(InteractorStyleTrackballCamera):
         def _press(self, *a):
             iren = self.GetInteractor()
             if iren.GetShiftKey() or iren.GetControlKey():
@@ -291,7 +280,7 @@ def install_arcball(plotter, radius_frac: float, button: str = "left"):
                 self._start()
 
         def _release(self, *a):
-            st = _ARC[id(self)]
+            st = _TURN[id(self)]
             if st["p"] is None:
                 if not right or st["vtk"]:
                     super()._release(*a)
@@ -300,23 +289,23 @@ def install_arcball(plotter, radius_frac: float, button: str = "left"):
                 self._end()
 
         def _start(self):
-            st = _ARC[id(self)]
-            st["p"] = _arc_ball(st, *self.GetInteractor().GetEventPosition())
+            st = _TURN[id(self)]
+            st["p"] = self.GetInteractor().GetEventPosition()
             self.StartRotate()
 
         def _end(self):
-            st = _ARC[id(self)]
+            st = _TURN[id(self)]
             if st["p"] is not None:
                 st["p"] = None
                 self.EndRotate()
 
-    style = _Arcball(plotter.iren)
-    _ARC[id(style)] = {"plotter": plotter, "radius": float(radius_frac), "p": None, "vtk": True}
+    style = _Turntable(plotter.iren)
+    _TURN[id(style)] = {"plotter": plotter, "rate": math.radians(deg_per_px), "axis": axis, "p": None, "vtk": True}
     if right:
         # observers on the style's right-button events replace VTK's own (the right-drag zoom)
         style.add_observer("RightButtonPressEvent", lambda *_a: style._start())
         style.add_observer("RightButtonReleaseEvent", lambda *_a: style._end())
-    style.add_observer("MouseMoveEvent", _arc_move)
+    style.add_observer("MouseMoveEvent", _turn_move)
     plotter.iren.style = style
     return style
 
@@ -415,7 +404,7 @@ def set_km_axes(plotter, max_range_km: Optional[float]) -> None:
                                  shape=None, show_points=False, name=f"{KM_AXES_PREFIX}name_{tag}", render=False)
 
 
-ARCBALL_RADIUS = float(P.get("tool.display.arcball_radius"))   # mouse rotation of the 3D views (user)
+TURN_DEG_PX = float(P.get("tool.display.mouse_turn_deg_px"))   # mouse rotation of the 3D views (user)
 BACKGROUND_ACTOR = "background_sphere"
 
 
@@ -491,7 +480,8 @@ class SceneView(QWidget):
         self.display_bar.install(self, self.plotter.interactor)
         add_static_scene(self.plotter)
         lock_pivot(self.plotter)
-        install_arcball(self.plotter, ARCBALL_RADIUS)   # before the label drag: its release observer goes on the style
+        # before the label drag: its release observer goes on the style
+        install_turntable(self.plotter, TURN_DEG_PX, axis=self._turn_axis)
         set_default_camera(self.plotter)
 
         self._eps: Optional[tuple] = None             # eps window of the scene on screen
@@ -519,6 +509,10 @@ class SceneView(QWidget):
 
     def _icrf_view(self) -> bool:
         return self.display_bar.cb_view_frame.currentText() == "ICRF" and self._r_is is not None
+
+    def _turn_axis(self) -> np.ndarray:
+        """The vertical of the mouse rotation: the one of the default view (set_default_camera)."""
+        return self._r_is[:, 2] if self._icrf_view() else np.array([0.0, 0.0, 1.0])
 
     def _apply_view_frame(self) -> None:
         set_icrf_axes(self.plotter, self._r_is if self._icrf_view() else None)

@@ -1,10 +1,10 @@
 @echo off
-rem Radar scenario -- double-click this file to start the scenario tool.
+rem Mission Scenario Editor -- double-click this file to start the scenario tool.
 rem Drop a scenario file (.json) on it to open that scenario directly.
 rem First start: missing Python packages are installed automatically (needs internet, one-off).
 setlocal
 cd /d "%~dp0"
-set "TITLE=Radar scenario"
+set "TITLE=Mission Scenario Editor"
 
 rem 1. A working Python 3 (python on PATH or Microsoft Store first, else the py launcher of python.org installs).
 set "PY="
@@ -30,6 +30,9 @@ if errorlevel 1 (
     )
 )
 
-rem 3. Start without a console window (any scenario file dropped on this launcher is passed on).
+rem 3. A shortcut beside this file, with the tool's icon (a .bat cannot carry one); rewritten here, it follows the folder.
+powershell -NoProfile -Command "$s = (New-Object -ComObject WScript.Shell).CreateShortcut('%~dp0Mission Scenario Editor.lnk'); $s.TargetPath = '%~f0'; $s.WorkingDirectory = '%~dp0'; $s.IconLocation = '%~dp0assets\icons\mission_scenario_editor.ico'; $s.Save()" >nul 2>&1
+
+rem 4. Start without a console window (any scenario file dropped on this launcher is passed on).
 start "" %PYW% "%~dp0scenario_tool.py" %*
 exit /b 0

@@ -2,7 +2,7 @@
  "meta": {
   "name": "Lune - SHIP_1 (plan a 20 deg de celui de OWNSHIP) tire 20 KKV sur OWNSHIP a 300 s ; OWNSHIP riposte a 315 s avec 15 KKV sur SHIP_1",
   "epoch_utc": "2050-01-01T00:00:00Z",
-  "duration_s": 960.0,
+  "duration_s": 2500.0,
   "step_s": 0.1,
   "seed": 1
  },
