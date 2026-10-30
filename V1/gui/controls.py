@@ -127,15 +127,17 @@ def layers_menu(parent: QWidget, sections: Sequence[Tuple[Optional[str], Sequenc
 
 class Toggle(QCheckBox):
     """An on / off switch (user, 29 October 2026): a check box drawn as a sliding switch, its text on the right
-    (in `color` if given), and `off_text` on its left for a two-way choice (e.g. "Global" / "Ship")."""
+    (in `color` if given), and `off_text` on its left for a two-way choice (e.g. "Global" / "Ship"); two_way: such a
+    choice, its other side named by the caller."""
 
     TRACK_W, TRACK_H, GAP = 30, 16, 6
     ON_COLOR, OFF_COLOR = QColor("#2f7de1"), QColor("#8a8f99")
 
     def __init__(self, text: str, checked: bool = False, color: Optional[str] = None, off_text: str = "",
-                 tip: str = ""):
+                 tip: str = "", two_way: bool = False):
         super().__init__(text)
         self.off_text = off_text
+        self.two_way = two_way or bool(off_text)
         self._color = QColor(color) if color else None
         self._on_color = self.ON_COLOR
         self.setChecked(checked)
@@ -175,7 +177,7 @@ class Toggle(QCheckBox):
             p.setPen(text)
             p.drawText(QRect(0, 0, x0, h), Qt.AlignVCenter | Qt.AlignLeft, self.off_text)
         # a two-way choice: both sides are a choice, one colour
-        track = QColor(self._on_color if on or self.off_text else self.OFF_COLOR)
+        track = QColor(self._on_color if on or self.two_way else self.OFF_COLOR)
         if not self.isEnabled():
             track.setAlpha(90)
         y0 = (h - self.TRACK_H) // 2

@@ -703,8 +703,8 @@ class ScenarioTab(QWidget):
         menu.exec_(self.tree.viewport().mapToGlobal(pos))
 
     def primary_action(self) -> Optional[QWidget]:
-        """The mode's main action for the window's header: "Propagate", shown only for a scenario too large for
-        the automatic propagation."""
+        """The mode's main action, for its style: "Propagate", active only when a scenario too large for the
+        automatic propagation changed."""
         return getattr(self.preview, "bt_prop", None)
 
     def file_commands(self) -> list:

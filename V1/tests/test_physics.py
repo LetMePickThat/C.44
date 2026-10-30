@@ -2578,6 +2578,21 @@ def test_repoint_navigation_error_by_hand():
     assert rpt.axis_sigma_deg() == pytest.approx(math.sqrt(r2 / 2))
 
 
+def test_repoint_lever_arm_by_hand():
+    """The apertures 59.3 m from the centre of gravity: speed, acceleration, error left and coherent loss."""
+    assert rpt.LEVER_M == pytest.approx(59.298)
+    speed, acc = rpt.lever_motion(30.0, 15.0)
+    assert speed == pytest.approx(31.05, abs=0.01) and acc == pytest.approx(22.48, abs=0.01)
+    tau = np.linspace(rpt.NAV_LATENCY_S, rpt.age_s(), 200001)
+    a, s_att, s_w = math.radians(rpt.ACCEL_MAX_DPS2), math.radians(rpt.ATT_SIGMA_DEG), math.radians(rpt.RATE_SIGMA_DPS)
+    e = rpt.LEVER_M * math.sqrt(s_att ** 2 + (s_w * rpt.age_s()) ** 2 + (0.5 * a) ** 2 * float(np.var(tau ** 2)))
+    assert rpt.lever_error_m() == pytest.approx(e, rel=1e-4)
+    phi = 4 * math.pi * e * 15e9 / 299792458.0
+    assert rpt.lever_loss_db(15.0) == pytest.approx(4.3429 * phi * phi, rel=1e-3)
+    for b in rm.BANDS.values():
+        assert b.losses_db["nav_lever"] == pytest.approx(rpt.lever_loss_db(b.usable_hi_ghz))
+
+
 def test_repoint_migration_skips_ship_frame_and_flags_overload():
     """D1-D2: a ship-frame volume never migrates; a volume whose face load would overload its neighbour is flagged."""
     mission = {"global": {"eps_min_deg": -90.0, "eps_max_deg": 90.0},

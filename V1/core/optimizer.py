@@ -2676,9 +2676,11 @@ def print_report(res: dict) -> None:
         print("-" * 100)
         print(f" RE-POINTING IN FLIGHT: up to {rp['rate_max_dps']:g} deg/s, {rp['accel_max_dps2']:g} deg/s2, navigation "
               f"at most {1e3 * rp['nav_age_s']:.1f} ms old | track error {3600 * rp['track_axis_sigma_deg']:.2f} arcsec per axis")
+        print(f"   apertures {rp['lever_m']:.1f} m from the centre of gravity: up to {rp['lever_speed_mps']:.1f} m/s, "
+              f"{rp['lever_accel_mps2']:.1f} m/s2, {1e3 * rp['lever_error_m']:.2f} mm rms left after compensation")
         for b, v in rp["bands"].items():
             print(f"   {b}: pointing error {v['error_hpbw']:.4f} HPBW, loss {v['loss_db']:.4f} dB, acceleration tenable "
-                  f"{v['accel_tenable_dps2']:.3g} deg/s2")
+                  f"{v['accel_tenable_dps2']:.3g} deg/s2, lever arm loss {v['lever_loss_db']:.3f} dB")
         for sid, s_ in rp["sectors"].items():
             tr = [f"F{int(k) + 1} {v['transit_s']:.2f} s" for k, v in s_["faces"].items()]
             print(f"   {sid} ({s_['frame']}): face transit at the maximum rate {', '.join(tr)}")

@@ -196,6 +196,8 @@ eclipse_flag_db    = { value = 0.5, unit = "dB", status = "V", source = "eclipse
 # Re-pointing in flight (step 4.5, core/repoint.py): the navigation keeps the pointings on their volumes and tracks
 # while the ship turns; its errors cost a beam-shape loss (band losses 'nav_pointing') and a track pointing error;
 # the maximum rate moves the sectors between faces. Rate and acceleration are editable here (user, 25 October 2026).
+# The ship turns about its centre of gravity (ship.model_cg_z_m), so the turn moves the apertures: the navigation
+# compensates that motion in the phase and what it misses costs the band loss 'nav_lever' (user, 30 October 2026).
 [repointing]
 rate_max_dps          = { value = 30.0, unit = "deg/s", status = "V", source = "A1: largest angular rate of the ship (user, step 4.5)", date = "2026-10-25" }
 accel_max_dps2        = { value = 15.0, unit = "deg/s2", status = "V", source = "A2: largest angular acceleration of the ship (user, step 4.5); unmeasured between two navigation messages", date = "2026-10-25" }
@@ -696,6 +698,7 @@ model_path      = { value = "assets/models/LP_NISO.obj", unit = "", status = "V"
 model_nose_axis = { value = "-Z", unit = "", status = "V", source = "the nose of the model is toward its -Z (radiator wings toward +Z); the ship frame is the model turned 180 deg about X", date = "2026-10-22" }
 model_array_station_z_m = { value = -59.298, unit = "m", status = "V", source = "model z of the front-face centres of the four radar panels (octagons, 25 deg tilt), the z = 0 of the ship frame", date = "2026-10-22" }
 length_m        = { value = 149.46, unit = "m", status = "V", source = "overall length of the 3D model (user, 2026-10-22; was 136.4 m from the former drawing); checked against the model (1 %)", date = "2026-10-22" }
+model_cg_z_m    = { value = 0.0, unit = "m", status = "V", source = "model z of the centre of gravity, the point about which the ship turns and that follows the orbit: 50 % of the length, on the axis, under the four laser turrets; fixed as a first approach (user, 2026-10-30)", date = "2026-10-30" }
 hull_diameter_m = { value = 17.22, unit = "m", status = "V", source = "max diameter of the hull body of the 3D model (its longest connected piece, r 8.612 m near the aft end; was 16.8 m); checked against the model (1 %)", date = "2026-10-22" }
 width_m         = { value = 74.68, unit = "m", status = "V", source = "max overall width of the 3D model (radiator wing tips, +/- 37.34 m; was 76.5 m); checked against the model (1 %)", date = "2026-10-22" }
 array_radius_m  = { value = 5.248, unit = "m", status = "V", source = "distance of the aperture centres (front face of the radar panels of the 3D model) to the ship axis at z = 0 (was 4.926 m)", date = "2026-10-22" }
@@ -976,6 +979,7 @@ object_labels = true
 object_labels_full = true       # the whole data box, else the id, the range and the closing speed
 symbols = true                  # the objects drawn by their symbol, else by a dot
 all_orbits = true
+events = true
 planned_trajectory = true
 trails = false
 trail_s = 60.0                  # flight time drawn by each trail, s (S7, L3, D)
@@ -999,6 +1003,7 @@ object_labels = true
 object_labels_full = true
 symbols = true
 all_orbits = false
+events = true
 planned_trajectory = true
 trails = false
 trail_s = 60.0
@@ -1022,6 +1027,7 @@ object_labels = true
 object_labels_full = true
 symbols = true
 all_orbits = false
+events = true
 planned_trajectory = false
 trails = false
 trail_s = 60.0

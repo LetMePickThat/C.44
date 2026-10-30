@@ -58,7 +58,7 @@ import numpy as np
 import pyvista as pv
 from vtkmodules.util.numpy_support import numpy_to_vtk
 from PyQt5.QtCore import QThread, QTimer, Qt, pyqtSignal
-from PyQt5.QtWidgets import (QButtonGroup, QToolButton, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
+from PyQt5.QtWidgets import (QButtonGroup, QToolButton, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
                              QMessageBox, QProgressBar, QPushButton, QShortcut, QVBoxLayout, QWidget)
 from PyQt5.QtGui import QKeySequence
 from pyvistaqt import QtInteractor
@@ -80,6 +80,8 @@ from sim import scenario as scn
 FPS =int(P.get("tool.display.sim_fps"))
 BOX_TEXT_S = float(P.get("tool.display.sim_box_text_s"))   # the data boxes' texts during the playback: at most once per this
 AUTO_MAX_CELLS = float(P.get("tool.display.sim_auto_max_cells"))
+PROP_TIP_IDLE = "Only for large scenarios, after a change: smaller ones propagate by themselves"
+PROP_TIP_NEEDED = "The scenario changed and is too large for the automatic propagation: propagate it"
 MAX_VIEW_MARGIN = float(P.get("tool.display.sim_max_view_margin"))   # farthest zoom out: the solar system (user)
 FARTHEST_APHELION_KM = max(el[0] * (1.0 + el[1]) for el, _r in eph.PLANET_ELEMENTS.values()) * eph.AU_KM
 MIN_CAMERA_KM = 1e-3 * float(P.get("tool.display.sim_min_camera_m"))   # nearest zoom in, to any focal point (user)
@@ -108,7 +110,10 @@ IDENTITY_COLORS = {"friendly": "#4FC3F7", "hostile": "#FF4D4D", "suspect": "#FF9
 OWNSHIP_IDENTITY = "friendly"                     # OWNSHIP is friendly (user): always drawn in that colour
 SHIP_COLOR = IDENTITY_COLORS[OWNSHIP_IDENTITY]    # its point, trajectory and trail
 KM_PER_MODEL_UNIT = 1e-3 / cgeo._M                # 1:1: the model's scene units to km (its true size)
-OPTION_COLUMNS = 2                                # the view's switches: two columns per section (user)
+OPTION_COLUMNS = 2                                # the view's switches: two columns, one grid for its sections (user)
+PAIR_NAME = "optionPair"
+PAIR_PAD = 2                                      # px above and under the switches in a pair's frame
+OPTION_MARGIN = 5                                 # px left of every switch: a pair's frame fits in it, all aligned
 BG_COLOR = "#000000"                              # background of the 3D views: the black of space (user, 29 October 2026)
 TEXT_COLOR = "#e6e6e6"
 # the widest Info lines of an object or the ship (side_width: the column fits them and the bodies' facts)
@@ -129,6 +134,8 @@ SELECT_COLOR = "#ffffff"
 # selection's square, labels: ids, range and azimuth marks, sectors, axes, events, bodies) x one of these
 UI_SCALES = (0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0)
 UI_SCALE_START = 1.0                              # (the sizes below: those of the former 150 %, user 30 October 2026)
+UI_BUTTON_PX = 28                                 # the width of the UI size's - and + buttons, px
+PLAY_BUTTON_PX = 40                               # the width of the |<, play / pause and >| buttons, px
 BOX_GAP = 0.15                                    # data box: its gap to the symbol, share of the symbol's size (D)
 CPA_REFINE_ITER = 40                              # golden-section steps refining the closest approach between records
 MUTED_COLOR = "#9aa0aa"
@@ -760,11 +767,30 @@ def _row(*widgets: QWidget) -> QWidget:
     """Widgets side by side on one line of the options."""
     w = QWidget()
     lay = QHBoxLayout(w)
-    lay.setContentsMargins(0, 0, 0, 0)
+    lay.setContentsMargins(OPTION_MARGIN, 0, 0, 0)
     for x in widgets:
         lay.addWidget(x)
     lay.addStretch(1)
     return w
+
+
+def _pair(first: QWidget, off_label: QLabel, second: QWidget) -> Tuple[QFrame, QWidget, QWidget]:
+    """Settings working as a pair, in a small frame over the whole line (user, 30 October 2026): (the frame, the
+    widget of the first column, the one of the second), the two-way switch in line with that column's switches, the
+    name of its off side before it."""
+    frame = QFrame()
+    frame.setObjectName(PAIR_NAME)
+    frame.setStyleSheet(f"#{PAIR_NAME} {{ border: 1px solid {MUTED_COLOR}; border-radius: 3px; }}")
+    frame.setAttribute(Qt.WA_TransparentForMouseEvents)     # (it lies over the switches)
+    left = QWidget()
+    lay = QHBoxLayout(left)
+    lay.setContentsMargins(OPTION_MARGIN, PAIR_PAD, 0, PAIR_PAD)
+    lay.addWidget(first)
+    lay.addStretch(1)
+    lay.addWidget(off_label)
+    right = _row(second)
+    right.layout().setContentsMargins(OPTION_MARGIN, PAIR_PAD, 0, PAIR_PAD)
+    return frame, left, right
 
 
 def _add_atmosphere(p, name: str):
@@ -1025,8 +1051,7 @@ class SimView(QWidget):
 
         # ---- B14 (user, 29 October 2026, replaces the ribbon B13): the view's controls (kind, centre, recentre,
         # "Layers") in the playback bar, the events as marks on its slider; the propagation automatic, its
-        # state in the window's status bar (status_widgets), "Propagate" in the window's header only when the
-        # scenario is too large for the automatic one; "Open run..." and "Record run..." in the window's menu
+        # state and "Propagate" in the window's status bar (status_widgets); "Open run..." and "Record run..." in the window's menu
         # (file_commands); the playback bar under the view
         # three views side by side (user, 30 October 2026: the orbital view a third one beside the two)
         self.view_mode = "global"
@@ -1043,8 +1068,10 @@ class SimView(QWidget):
             b.clicked.connect(lambda _c=False, m=mode: self.set_view(m))
             self._view_group.addButton(b)
             self.view_buttons[mode] = b
-        self.bt_prop = uc.tool_button("Propagate", self.propagate, "SP_BrowserReload",
-                                      tip="Propagate the scenario on screen (too large for the automatic propagation)")
+        # always there, greyed unless a large scenario changed (user, 30 October 2026), in the status bar
+        self.bt_prop = uc.tool_button("Propagate", self.propagate, "SP_BrowserReload", tip=PROP_TIP_IDLE)
+        self.bt_prop.setEnabled(False)
+        self._launched: Optional[dict] = None     # the scenario of the last propagation started
         self.bt_prop.setVisible(False)
         self.progress = QProgressBar()
         self.progress.setRange(0, 1000)
@@ -1057,10 +1084,12 @@ class SimView(QWidget):
         # (full), or only the id, the range and the closing speed (partial)
         self.cb_celestial_labels = uc.Toggle("celestial labels", tip="The names of the celestial bodies")
         self.cb_object_labels = uc.Toggle("object labels", tip="The objects' data boxes and the sectors' names")
-        self.tg_object_full = uc.Toggle("full", off_text="partial",
+        self.tg_object_full = uc.Toggle("full", two_way=True,
                                         tip="Object labels: the whole data box (full), or the id, the range and the "
                                             "closing speed only (partial)")
+        self.lb_object_partial = QLabel("partial")
         self.cb_object_labels.toggled.connect(self.tg_object_full.setEnabled)
+        self.cb_object_labels.toggled.connect(self.lb_object_partial.setEnabled)
         self.tg_object_full.toggled.connect(lambda _on: self._draw_frame())
         self.cb_vectors = uc.Toggle("noses", tip="Ship view: each object's nose (its Z axis)")
         self.cb_trails = uc.Toggle("trails")
@@ -1096,10 +1125,12 @@ class SimView(QWidget):
         self.cb_proj.toggled.connect(lambda _on: self._draw_frame())
         # partial: the objects and their copies in the plane, linked by the dashed arcs; full (user, 29 October
         # 2026): the copies only, a 2D view in the plane of the rings (the objects, their arcs not drawn)
-        self.tg_proj_full = uc.Toggle("full", off_text="partial",
+        self.tg_proj_full = uc.Toggle("full", two_way=True,
                                       tip="Range projection: the objects and their copies (partial), or the copies "
                                           "only, every body and path in the plane of the rings (full)")
+        self.lb_proj_partial = QLabel("partial")
         self.cb_proj.toggled.connect(self.tg_proj_full.setEnabled)
+        self.cb_proj.toggled.connect(self.lb_proj_partial.setEnabled)
         self.tg_proj_full.toggled.connect(lambda _on: self._draw_frame())
         # D: the faces' responsibility zones (ship view), one switch for the four (user, 29 October 2026)
         self.cb_zones = uc.Toggle("responsibility zones")
@@ -1109,6 +1140,8 @@ class SimView(QWidget):
         self.cb_los = uc.Toggle("array lines", tip="Ship view: a line from the ship to each object, in the "
                                 "colour of the array tracking it (masked, occulted or out of every array: grey)")
         self.cb_los.toggled.connect(lambda _on: self._draw_frame())   # (user, 30 October 2026)
+        self.cb_events = uc.Toggle("events", tip="Global view: the events' marks and their texts on the paths")
+        self.cb_events.toggled.connect(lambda _on: self._draw_frame())
         self.cb_axes = uc.Toggle("ship axes")
         self.cb_axes.toggled.connect(lambda _on: self._draw_frame())
         # the objects drawn by their symbol (classification frame, characterisation glyph), else by a dot (user)
@@ -1120,7 +1153,7 @@ class SimView(QWidget):
         self.cb_all_orbits.toggled.connect(lambda _on: self._draw_frame())
         # the star background (user, 29 October 2026): the real sky (skybox) or the plain background; the
         # constellation lines on demand
-        self.tg_sky = uc.Toggle("skybox", off_text="plain",
+        self.tg_sky = uc.Toggle("skybox",
                                 tip="The stars at their true directions (Yale Bright Star Catalogue), or the plain "
                                     "background")
         self.cb_const = uc.Toggle("constellations", tip="The lines of the 88 constellations over the stars")
@@ -1133,23 +1166,37 @@ class SimView(QWidget):
         self._profile_widgets = {
             "skybox": self.tg_sky, "constellations": self.cb_const,
             "celestial_labels": self.cb_celestial_labels, "object_labels": self.cb_object_labels,
-            "object_labels_full": self.tg_object_full, "symbols": self.cb_symbols, "all_orbits": self.cb_all_orbits, "planned_trajectory": self.cb_planned,
+            "object_labels_full": self.tg_object_full, "symbols": self.cb_symbols, "events": self.cb_events, "all_orbits": self.cb_all_orbits, "planned_trajectory": self.cb_planned,
             "trails": self.cb_trails, "trail_s": self.sp_trail, "orbital_vector": self.cb_orbit,
             "orbital_vector_s": self.sp_orbit, "ship_axes": self.cb_axes, "noses": self.cb_vectors,
             "mission_volumes": self.cb_volumes, "responsibility_zones": self.cb_zones,
             "celestial_objects": self.cb_bodies, "array_lines": self.cb_los, "range_projection": self.cb_proj,
             "range_projection_full": self.tg_proj_full}
-        self._common =(self.tg_sky, self.cb_const, self.cb_celestial_labels, _row(self.cb_object_labels, self.tg_object_full),
-                        self.cb_symbols, self.cb_all_orbits, self.cb_planned, _row(self.cb_trails, self.sp_trail),
-                        _row(self.cb_orbit, self.sp_orbit), self.cb_axes)
-        self._ship_only = (self.cb_vectors, self.cb_volumes, self.cb_zones, self.cb_bodies, self.cb_los,
-                           _row(self.cb_proj, self.tg_proj_full))
+        # the same columns in both sections (user, 30 October 2026): each switch at the same place in its cell, a pair
+        # on a whole line, the durations under one another, the pairs' two-way switches in the second column
+        wide = max(self.cb_trails.sizeHint().width(), self.cb_orbit.sizeHint().width())
+        self.cb_trails.setMinimumWidth(wide)
+        self.cb_orbit.setMinimumWidth(wide)
+        self._common = (_row(self.tg_sky), _row(self.cb_const), _row(self.cb_celestial_labels), _row(self.cb_symbols),
+                        _pair(self.cb_object_labels, self.lb_object_partial, self.tg_object_full),
+                        _row(self.cb_planned), _row(self.cb_all_orbits),
+                        _row(self.cb_trails, self.sp_trail), _row(self.cb_axes),
+                        _row(self.cb_orbit, self.sp_orbit), _row(self.cb_events))
+        proj_pair = _pair(self.cb_proj, self.lb_proj_partial, self.tg_proj_full)
+        self._ship_only = (_row(self.cb_vectors), _row(self.cb_volumes), _row(self.cb_zones), _row(self.cb_bodies),
+                           _row(self.cb_los)) + proj_pair
         # UI size (user, 29 October 2026): the icons and texts of the 3D view, - / +
         self.ui_scale = UI_SCALE_START
-        self.bt_ui_minus = uc.tool_button("-", lambda: self.set_ui_scale(-1),
-                                          tip="Smaller icons and texts in the 3D view")
-        self.bt_ui_plus = uc.tool_button("+", lambda: self.set_ui_scale(1), tip="Larger icons and texts in the 3D view")
+        self.bt_ui_minus = QPushButton("-")                  # plain buttons, seen as clickable (user, 30 October 2026)
+        self.bt_ui_minus.clicked.connect(lambda _c=False: self.set_ui_scale(-1))
+        self.bt_ui_minus.setToolTip("Smaller icons and texts in the 3D view")
+        self.bt_ui_plus = QPushButton("+")
+        self.bt_ui_plus.clicked.connect(lambda _c=False: self.set_ui_scale(1))
+        self.bt_ui_plus.setToolTip("Larger icons and texts in the 3D view")
+        for b in (self.bt_ui_minus, self.bt_ui_plus):
+            b.setFixedWidth(UI_BUTTON_PX)
         self.lb_ui = QLabel()
+        self._array_view = np.zeros(3)                       # the apertures in the view's frame (_frame_ship)
         self.bt_recentre = QPushButton("Recenter view")      # a plain button (user, 30 October 2026)
         self.bt_recentre.clicked.connect(lambda _c=False: self.recentre())
         self.bt_recentre.setToolTip("Global view: back to the central body or the body double-clicked, level with "
@@ -1182,7 +1229,7 @@ class SimView(QWidget):
         # user, 29 October 2026: the view's options under the Info box, in the side column (no longer in the
         # playback bar), one per line; the layers as on / off switches (the ship view's own ones and their title
         # shown in the ship view only)
-        self._ship_titles = (_title("Ship/Orbital view display options"),)
+        self._ship_titles = (_title("Ship view display options"),)   # (named by _show_view_options)
         self.view_panel = QGroupBox("3D view")
         vcol = QVBoxLayout(self.view_panel)
         vcol.setContentsMargins(8, 4, 8, 6)
@@ -1195,23 +1242,43 @@ class SimView(QWidget):
         vcol.addLayout(head)
         vcol.addWidget(_row(QLabel("UI size"), self.bt_ui_minus, self.lb_ui, self.bt_ui_plus))
         self._show_ui_scale()
-        for title, ws in ((_title("General display options"), self._common), (self._ship_titles[0], self._ship_only)):
-            vcol.addWidget(title)
-            grid = QGridLayout()                       # two columns per section (user, 29 October 2026)
-            grid.setContentsMargins(0, 0, 0, 0)
-            grid.setVerticalSpacing(4)
-            for k, w in enumerate(ws):
-                grid.addWidget(w, k // OPTION_COLUMNS, k % OPTION_COLUMNS)
-            vcol.addLayout(grid)
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setVerticalSpacing(4)
+        line = 0
+        for title, ws in ((_title("General display options"), self._common), (self._ship_titles[0], self._ship_only[:-3] + (proj_pair,))):
+            grid.addWidget(title, line, 0, 1, OPTION_COLUMNS)
+            line += 1
+            col = 0
+            for w in ws:
+                if isinstance(w, tuple):
+                    line += 1 if col else 0
+                    col = 0
+                    grid.addWidget(w[0], line, 0, 1, OPTION_COLUMNS)
+                    grid.addWidget(w[1], line, 0)
+                    grid.addWidget(w[2], line, 1)
+                    line += 1
+                else:
+                    grid.addWidget(w, line, col)
+                    col = (col + 1) % OPTION_COLUMNS
+                    line += 0 if col else 1
+            line += 1 if col else 0
+        for col in range(OPTION_COLUMNS):
+            grid.setColumnStretch(col, 1)
+        vcol.addLayout(grid)
 
         # ---- L1 playback
         play = QHBoxLayout()
         self.bt_back = QPushButton("|<")
         self.bt_back.clicked.connect(lambda: self.step(-1))
-        self.bt_play = QPushButton("Play")
+        self.bt_play = QPushButton()                  # the symbols, not the words (user, 30 October 2026)
+        self.bt_play.setIcon(uc.std_icon(self.bt_play, "SP_MediaPlay"))
+        self.bt_play.setToolTip("Play / pause (Space)")
         self.bt_play.clicked.connect(self.toggle_play)
         self.bt_fwd = QPushButton(">|")
         self.bt_fwd.clicked.connect(lambda: self.step(1))
+        for b in (self.bt_back, self.bt_play, self.bt_fwd):        # one size (user, 30 October 2026)
+            b.setFixedSize(PLAY_BUTTON_PX, self.bt_back.sizeHint().height())
         self.cb_speed = QComboBox()
         self.cb_speed.addItems([f"x{s}" for s in SPEEDS])
         self.cb_speed.setCurrentIndex(1)
@@ -1277,12 +1344,23 @@ class SimView(QWidget):
         names = _renaming(self.sc, sc) if (self.truth is not None and not busy) else None
         if names is not None:
             self.debounce.stop()
+            self._launched = sc
+            self._update_prop()
             self._rename(sc, names)
             return
-        small = cells(sc) <= AUTO_MAX_CELLS
-        self.bt_prop.setVisible(not small)
-        if small:
+        if cells(sc) <= AUTO_MAX_CELLS:
             self.debounce.start()
+        self._update_prop()
+
+    def _update_prop(self, busy: Optional[bool] = None) -> None:
+        """"Propagate" active only when the user has to act: a large scenario, valid, changed since its last
+        propagation, none under way."""
+        if busy is None:
+            busy = self.worker is not None and self.worker.isRunning()
+        large = self.pending is not None and cells(self.pending) > AUTO_MAX_CELLS
+        needed = large and self._valid and not busy and self.pending is not self._launched
+        self.bt_prop.setEnabled(needed)
+        self.bt_prop.setToolTip(PROP_TIP_NEEDED if needed else PROP_TIP_IDLE)
 
     def _rename(self, sc: dict, names: Dict[str, str]) -> None:
         """The run shown under the new names (rows, group members, attitudes, events), the scenario kept."""
@@ -1332,7 +1410,9 @@ class SimView(QWidget):
 
     def propagate(self) -> None:
         if self.pending is not None:
+            self._launched = self.pending
             self._start(propagate_job(self.pending), "propagation")
+            self._update_prop()
 
     def propagate_loaded(self) -> None:
         """A scenario just created or opened: its propagation starts at once, whatever its size (user, 30 October
@@ -1382,10 +1462,14 @@ class SimView(QWidget):
         self.worker.progress.connect(lambda st, f: (self.progress.setValue(int(1000 * f)),
                                                     self.status.setText(f"{st}...")))
         self.worker.done.connect(lambda res: self.show_run(*res, label=what))
-        self.worker.failed.connect(lambda msg: self.status.setText(f"failed: {msg}"))
+        self.worker.failed.connect(self._on_failed)
         self.worker.finished.connect(self._after_worker)
         self.status.setText(f"{what}...")
         self.worker.start()
+
+    def _on_failed(self, msg: str) -> None:
+        self.status.setText(f"failed: {msg}")
+        self._launched = None                         # (still to propagate)
 
     def _after_worker(self) -> None:
         if self._queued is not None:
@@ -1393,6 +1477,8 @@ class SimView(QWidget):
             self._queued = None
             self.worker = None
             self._start(job, what)
+        else:
+            self._update_prop(busy=False)
 
     def show_run(self, sc: dict, truth, g: sgeo.Geometry, label: str = "") -> None:
         """Display a propagated run (from the worker or a journal)."""
@@ -1447,6 +1533,7 @@ class SimView(QWidget):
         if on:
             self.status.setVisible(True)
             self.progress.setVisible(True)
+            self.bt_prop.setVisible(True)
         self.side_panel.setVisible(on)
 
     def _enable_playback(self, on: bool) -> None:
@@ -1458,6 +1545,7 @@ class SimView(QWidget):
         """The editor's validation (user, 30 October 2026): a scenario with problems cannot be played, Play greyed
         and any playback stopped; step and slider still show the last run."""
         self._valid = ok
+        self._update_prop()
         if self._playing and not ok:
             self.toggle_play()
         self.bt_play.setEnabled(ok and self.truth is not None)
@@ -1487,7 +1575,7 @@ class SimView(QWidget):
         if self._playing:
             self._playing = False
             self.timer.stop()
-            self.bt_play.setText("Play")
+            self.bt_play.setIcon(uc.std_icon(self.bt_play, "SP_MediaPlay"))
             self._draw_frame()                        # (the data boxes' texts at t)
             self._draw_volumes()
         elif self.sc is not None and self._valid:     # (the Space shortcut ignores the greyed button)
@@ -1496,7 +1584,7 @@ class SimView(QWidget):
             self._playing = True
             self._wall = time.perf_counter()
             self.timer.start(0)
-            self.bt_play.setText("Pause")
+            self.bt_play.setIcon(uc.std_icon(self.bt_play, "SP_MediaPause"))
 
     def _tick(self) -> None:
         """One frame; the next is scheduled after it with at least MIN_IDLE_MS left to the event loop, so the mouse
@@ -1589,6 +1677,8 @@ class SimView(QWidget):
         self.sp_orbit.setEnabled(self.cb_orbit.isChecked())
         self.tg_proj_full.setEnabled(self.cb_proj.isChecked())
         self.tg_object_full.setEnabled(self.cb_object_labels.isChecked())
+        self.lb_object_partial.setEnabled(self.cb_object_labels.isChecked())
+        self.lb_proj_partial.setEnabled(self.cb_proj.isChecked())
         self.cb_const.setEnabled(self.tg_sky.isChecked())
         self.sky.set_visible(self.tg_sky.isChecked(), self.cb_const.isChecked())
 
@@ -1622,7 +1712,9 @@ class SimView(QWidget):
 
     def _show_view_options(self) -> None:
         """B4 / B14: the ship view's own switches (and their titles) shown in the ship view only; hidden, they keep
-        their room, so the "3D view" box keeps the height of the taller of its two states (user, 29 October 2026)."""
+        their room, so the "3D view" box keeps the height of the taller of its two states (user, 29 October 2026); the
+        title names the view shown (user, 30 October 2026)."""
+        self._ship_titles[0].setText(f"{'Orbital' if self._orbital() else 'Ship'} view display options:")
         for w in self._ship_only + self._ship_titles:
             sp = w.sizePolicy()
             sp.setRetainSizeWhenHidden(True)
@@ -1631,8 +1723,8 @@ class SimView(QWidget):
             w.setVisible(not self._global())
 
     def status_widgets(self) -> list:
-        """The propagation's state, for the window's status bar."""
-        return [self.status, self.progress]
+        """"Propagate" and the propagation's state, for the window's status bar."""
+        return [self.bt_prop, self.status, self.progress]
 
     def file_commands(self) -> list:
         """(text, slot, icon) of the simulator in the window's menu."""
@@ -2117,6 +2209,8 @@ class SimView(QWidget):
         self.node.place()                             # the manoeuvre node too
         for name in list(getattr(self, "_screen_src", {})):   # dashes and arrowheads constant on screen
             self._draw_screen(name)
+        if self._proj_src is not None:
+            self._draw_proj_pts()
         for act, c, rad in getattr(self, "_limbs", []):   # the Sun's limb disc in front of it, from the camera
             if act.GetVisibility():
                 _place_limb(self.plotter, act, c, rad)
@@ -2261,7 +2355,7 @@ class SimView(QWidget):
                                                    for part in ship["hull"] + ship["arrays"])
 
     def _place_model(self, centre: np.ndarray, m: np.ndarray) -> None:
-        """Global view: the model at OWNSHIP's position, turned by its attitude m (ship frame to scene), the scale to
+        """The model's origin (the apertures) at centre, turned by its attitude m (ship frame to scene), the scale to
         km in the same matrix (one actor per part: the GPU's float32 kept near the part, user 30 October 2026)."""
         from vtkmodules.vtkCommonMath import vtkMatrix4x4
         t = np.eye(4)
@@ -2315,9 +2409,10 @@ class SimView(QWidget):
             rot = s_v @ rot
             u = np.eye(4)
             u[:3, :3] = rot
+            u[:3, 3] = self._array_view
             for a in acts:
                 a.user_matrix = u
-            pts.append(rot @ c)
+            pts.append(rot @ c + self._array_view)
         lab = vol.get("labels")
         if lab is not None:
             if pts and self.cb_object_labels.isChecked():
@@ -2406,11 +2501,13 @@ class SimView(QWidget):
         its drawn range from the ship (the nearest point of the ring of that radius: its direction projected on the
         plane), linked to the object by the arc of the sphere of that radius around the ship (every point of it at
         the same range)."""
-        rad = np.linalg.norm(pos, axis=1)
-        u = pos / np.maximum(rad, 1e-300)[:, None]
+        o = self._array_view                          # (the rings' centre)
+        rad = np.linalg.norm(pos - o, axis=1)
+        u = (pos - o) / np.maximum(rad, 1e-300)[:, None]
         proj = self._to_plane(pos)
-        p = proj / np.maximum(rad, 1e-300)[:, None]
-        self._poly(f"{DYN}proj_pts", proj, rgb=rgb, point_size=7, render_points_as_spheres=True, opacity=0.8)
+        p = (proj - o) / np.maximum(rad, 1e-300)[:, None]
+        self._proj_src = (proj, rgb)
+        self._draw_proj_pts()
         th = np.arccos(np.clip(np.sum(u * p, axis=1), -1.0, 1.0))
         # dotted on screen (user, 29 then 30 October 2026: not to be taken for a trail or a planned trajectory,
         # dashed): each arc as a polyline, a point every PROJ_ARC_DEG, cut by _screen_lines
@@ -2423,20 +2520,43 @@ class SimView(QWidget):
         small = t < 1e-6
         a = np.where(small, 1.0 - s, np.sin((1.0 - s) * t) / sin_t)         # slerp from u (s = 0) to p (s = 1)
         b = np.where(small, s, np.sin(s * t) / sin_t)
-        arc = (a * u[arc_of] + b * p[arc_of]) * rad[arc_of][:, None]
-        self._screen_lines(f"{DYN}proj_arcs", arc, k, np.repeat(rgb, k, axis=0), PROJ_DOT_PX, line_width=1.5,
-                           opacity=0.8)
+        arc = o + (a * u[arc_of] + b * p[arc_of]) * rad[arc_of][:, None]
+        self._screen_lines(f"{DYN}proj_arcs", arc, k, np.repeat(rgb, k, axis=0), PROJ_DOT_PX, front=True,
+                           line_width=1.5, opacity=0.8)
+
+    def _draw_proj_pts(self) -> None:
+        proj, rgb = self._proj_src
+        self._poly(f"{DYN}proj_pts", self._in_front(proj), rgb=rgb, point_size=7, render_points_as_spheres=True,
+                   opacity=0.8)
+
+    def _in_front(self, pts: np.ndarray) -> np.ndarray:
+        """Points hidden by a celestial body (or inside it) brought halfway to its surface along their line of sight:
+        the same place on screen, in front of the body (user, 30 October 2026: the projections stay shown)."""
+        discs = list(getattr(self, "_planets_drawn", {}).values())
+        if not discs or not len(pts):
+            return pts
+        eye = np.asarray(self.plotter.camera.GetPosition(), float)
+        hid, entry = _occluded(pts, eye, discs)
+        if not hid.any():
+            return pts
+        out = np.array(pts, float)
+        d = out[hid] - eye
+        out[hid] = eye + d * (0.5 * entry[hid] / np.linalg.norm(d, axis=1))[:, None]
+        return out
 
     def _screen_lines(self, name: str, pts: np.ndarray, counts: np.ndarray, rgb: np.ndarray, pattern, *,
-                      tips: Optional[tuple] = None, **style) -> None:
+                      tips: Optional[tuple] = None, front: bool = False, **style) -> None:
         """Lines whose look is set on screen (user, 30 October 2026): the polylines (pts, counts, rgb per point)
         dashed by pattern (on, off px at UI size 100 %), and / or arrowheads at tips (their points, the points
-        before, their rgb); drawn again at each camera change (_on_camera)."""
-        self._screen_src[name] = (pts, counts, rgb, pattern, tips, style)
+        before, their rgb); drawn again at each camera change (_on_camera). front: kept in front of the bodies
+        (_in_front)."""
+        self._screen_src[name] = (pts, counts, rgb, pattern, tips, front, style)
         self._draw_screen(name)
 
     def _draw_screen(self, name: str) -> None:
-        pts, counts, rgb, pattern, tips, style = self._screen_src[name]
+        pts, counts, rgb, pattern, tips, front, style = self._screen_src[name]
+        if front:
+            pts = self._in_front(pts)
         cam, size = self.plotter.camera, self.plotter.ren_win.GetSize()
         if min(size) <= 0:                             # (not shown yet: the widget's size)
             size = (max(self.plotter.width(), 1), max(self.plotter.height(), 1))
@@ -2452,13 +2572,13 @@ class SimView(QWidget):
         point of the ring of that radius: the direction projected on the plane; on the plane's axis, toward e1)."""
         _h, e1, e2, _c = self._ring_frame()
         nrm = np.cross(e1, e2)
-        pts = np.asarray(pts, float)
+        pts = np.asarray(pts, float) - self._array_view
         rad = np.linalg.norm(pts, axis=-1)
         u = pts / np.maximum(rad, 1e-300)[..., None]
         p = u - (u @ nrm)[..., None] * nrm
         pn = np.linalg.norm(p, axis=-1)
         p = np.where((pn > 1e-9)[..., None], p / np.maximum(pn, 1e-300)[..., None], e1)
-        return p * rad[..., None]
+        return self._array_view + p * rad[..., None]
 
     def _full_projection(self) -> bool:
         """Ship view, range projection "full": every body and path drawn in the plane of the rings."""
@@ -2612,6 +2732,7 @@ class SimView(QWidget):
         self._in_rings = True
         try:
             half, e1, e2, cover = self._ring_frame()
+            o = self._array_view                      # around the apertures, as the ranges (user, 30 October 2026)
             step = RING_STEP_FRAC * half
             ang = np.linspace(0.0, 2.0 * math.pi, RING_POINTS)
             pts, lines, lab_p, lab_t, seen = [], [], [], [], set()
@@ -2633,25 +2754,25 @@ class SimView(QWidget):
                 seen.add(nice)
                 rad = nice
                 off = len(pts) * RING_POINTS
-                pts.append(rad * (np.cos(ang)[:, None] * e1 + np.sin(ang)[:, None] * e2))
+                pts.append(o + rad * (np.cos(ang)[:, None] * e1 + np.sin(ang)[:, None] * e2))
                 lines.append(np.r_[RING_POINTS, off + np.arange(RING_POINTS)])
                 # each value where its ring crosses the azimuths 0 and 180 (user, 30 October 2026)
-                lab_p += [sign * rad * e1 + RING_LABEL_OFF * half * e2 for sign in (1.0, -1.0)]
+                lab_p += [o + sign * rad * e1 + RING_LABEL_OFF * half * e2 for sign in (1.0, -1.0)]
                 lab_t += [f"{nice:g} km" if nice >= 1.0 else f"{1e3 * nice:.3g} m"] * 2
             if pts:
                 self._poly(f"{DYN}rings", np.vstack(pts), lines=np.hstack(lines), color=RING_COLOR, line_width=1)
                 self._labels(f"{DYN}rings_lbl", np.array(lab_p), lab_t, MUTED_COLOR, 14)
                 q, counts = self._hidden_arcs(np.array(sorted(seen)), e1, e2)
-                self._screen_lines(f"{DYN}rings_hidden", q, counts, np.tile(_rgb(RING_COLOR), (len(q), 1)).astype(np.uint8),
+                self._screen_lines(f"{DYN}rings_hidden", q + o, counts, np.tile(_rgb(RING_COLOR), (len(q), 1)).astype(np.uint8),
                                    RING_HIDDEN_DOT_PX, line_width=1)
             # azimuth spokes in the rings' plane: from the ship's centre out to the corners of the view every 45 deg,
             # phi from +X toward +Y (the ship frame's convention), labelled inside the view
             names = (f"{DYN}spokes", f"{DYN}spokes_lbl")
             az = np.radians(np.arange(0.0, 360.0, SPOKE_STEP_DEG))
             d = np.cos(az)[:, None] * e1 + np.sin(az)[:, None] * e2
-            self._poly(names[0], np.r_[np.zeros((len(az), 3)), cover * d], lines=_pairs(len(az)),
+            self._poly(names[0], np.r_[np.tile(o, (len(az), 1)), o + cover * d], lines=_pairs(len(az)),
                        color="#3a4256", line_width=1)
-            self._labels(names[1], SPOKE_LABEL_FRAC * half * d,
+            self._labels(names[1], o + SPOKE_LABEL_FRAC * half * d,
                          [f"{self._azimuth_label(a):g}°" for a in np.arange(0.0, 360.0, SPOKE_STEP_DEG)],
                          MUTED_COLOR, 14)
         finally:
@@ -2711,6 +2832,7 @@ class SimView(QWidget):
         """After plotter.clear(): forget the dynamic actors, labels and volumes (they were removed with it)."""
         self._dyn: Dict[str, list] = {}               # name -> [topology key, mesh, actor]
         self._screen_src: Dict[str, tuple] = {}       # the lines drawn on screen's terms (_screen_lines)
+        self._proj_src: Optional[tuple] = None        # the range projection's copies and colours
         self._limbs: list = []                        # (the Sun's limb disc, its centre, its radius) as placed
         self._lab: Dict[str, "_Labels"] = {}
         self._vol: Optional[dict] = None
@@ -2766,7 +2888,7 @@ class SimView(QWidget):
         """Global view: the places of the events still to come (user, 29 October 2026: a past event's mark goes),
         each in its body's colour (its path's, its identity's), with its text at the UI size."""
         mk = getattr(self, "_markers", None)
-        if mk is None or not len(mk[0]):
+        if mk is None or not len(mk[0]) or not self.cb_events.isChecked():
             return
         t, pts, labels, rows = mk
         keep = t >= self.t - 1e-9
@@ -2964,7 +3086,9 @@ class SimView(QWidget):
 
     def _sym_corners(self, q: np.ndarray, px: float = SYMBOL_PX) -> np.ndarray:
         """The four corners of each symbol centred on q, facing the camera, px (SYMBOL_PX) x the UI size on
-        screen."""
+        screen; range projection "full": kept in front of the bodies, the copies stand for the objects."""
+        if self._full_projection():
+            q = self._in_front(q)
         px = px * self.ui_scale
         cam = self.plotter.camera
         pos = np.asarray(cam.GetPosition())
@@ -3172,6 +3296,7 @@ class SimView(QWidget):
             return
         self._used = set()
         self._screen_src = {}                         # the lines drawn on screen's terms (_screen_lines)
+        self._proj_src = None
         if self._global():
             self._frame_global()
         else:
@@ -3245,7 +3370,7 @@ class SimView(QWidget):
         # ship attitude triad, enlarged (V3), of constant size on screen ("ship axes" switch)
         m = tr.attitude("ship", self.t)
         if np.isfinite(r[0, 0]) and self._model is not None:   # the ship model there too (user, 30 October 2026)
-            self._place_model(r[0], m)
+            self._place_model(r[0] + m @ sgeo.ARRAY_KM, m)     # (OWNSHIP's point: the centre of gravity)
         if self.cb_axes.isChecked():
             self._scaled(f"{DYN}triad", np.repeat(r[0][None, :], 3, axis=0), m.T, cell_rgb=self._triad_rgb,
                          line_width=3)
@@ -3255,6 +3380,11 @@ class SimView(QWidget):
         r, v = sgeo.states_at(tr, self.t)
         m = self._view_axes(self.t)                   # the ship's attitude, or the local orbital frame
         s_v = self._ship_to_view(self.t)
+        # the view's origin: the apertures in the ship view, the centre of gravity (the point of the local orbital
+        # frame) in the orbital view, where the model, rings and volumes turn about it (user, 30 October 2026)
+        arr = sgeo.ARRAY_KM @ s_v.T
+        self._array_view = arr if self._orbital() else np.zeros(3)
+        cg_view = self._array_view - arr
         self.sky.set_rotation(m.T)                    # the sky in the view's frame: it turns with it
         self._planets_drawn = {}
         self._sbody_names = []
@@ -3269,11 +3399,11 @@ class SimView(QWidget):
             self._screen_pts = {}
             self._update_rings()
             return
-        los = ro[ex] - r[0]
+        los = ro[ex] - sgeo.array_state(tr, self.t, r[0], v[0])[0]
         rng = np.linalg.norm(los, axis=1)
         d = (los / rng[:, None]) @ tr.attitude("ship", self.t)               # ship frame: the faces
         face = opt.face_of(d[:, 0], d[:, 1], d[:, 2])[0]
-        pos = (d @ s_v.T) * np.asarray(rng, float)[:, None]                  # the view's
+        pos = self._array_view + (d @ s_v.T) * np.asarray(rng, float)[:, None]   # the view's
         k = self._k()
         js = np.flatnonzero(ex)
         occ = g.occulted_by[k, js] >= 0
@@ -3298,11 +3428,11 @@ class SimView(QWidget):
         sight = np.r_[pos[lone], cq]
         n = len(sight)
         if self.cb_los.isChecked():                   # the array-object lines (toggle, user 30 October 2026)
-            self._poly(f"{DYN}los", np.r_[np.zeros((n, 3)), sight], lines=_pairs(n),
+            self._poly(f"{DYN}los", np.r_[np.tile(self._array_view, (n, 1)), sight], lines=_pairs(n),
                        cell_rgb=np.r_[los_rgb[lone], los_rgb[[c["k"][0] for c in clusters]].reshape(-1, 3)],
                        line_width=1.5, opacity=0.7)
-        # OWNSHIP's symbol at the centre of the ship's frame (user, 30 October 2026; never in a multitrack)
-        self._draw_bodies(np.r_[0, js + 1], np.r_[np.zeros((1, 3)), pos], r, v, 9,
+        # OWNSHIP's symbol at its centre of gravity (user, 30 October 2026; never in a multitrack)
+        self._draw_bodies(np.r_[0, js + 1], np.r_[cg_view[None, :], pos], r, v, 9,
                           [dict(c, k=np.asarray(c["k"]) + 1) for c in clusters])
         groups, rgb = self._path_groups(js + 1, clusters)
         cols = [gr - 1 for gr in groups]              # (the geometry's columns)
@@ -3328,11 +3458,13 @@ class SimView(QWidget):
         self._centre_pending = False
         self._axes_dirs = s_v.T                       # (rows: the ship's axes in the view)
         if self.cb_axes.isChecked():                  # the ship's axes, constant on screen
-            self._scaled(f"{DYN}ship_axes", np.zeros((3, 3)), s_v.T, cell_rgb=self._triad_rgb, line_width=3)
-            self._labels(f"{DYN}ship_axes_lbl", 1.05 * self._screen_len(np.zeros((1, 3)))[:, None] * s_v.T,
+            self._scaled(f"{DYN}ship_axes", np.tile(self._array_view, (3, 1)), s_v.T, cell_rgb=self._triad_rgb,
+                         line_width=3)
+            self._labels(f"{DYN}ship_axes_lbl",
+                         self._array_view + 1.05 * self._screen_len(np.zeros((1, 3)))[:, None] * s_v.T,
                          ["X", "Y", "Z (nose)"], TEXT_COLOR, 15)
         if self._model is not None and self._orbital():   # the model turns with the attitude (user)
-            self._place_model(np.zeros(3), s_v)
+            self._place_model(self._array_view, s_v)
         self._vol_view = s_v
         self._place_volumes()
         self._update_rings()

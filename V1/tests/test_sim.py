@@ -479,11 +479,13 @@ def test_aspect_rcs_direction_and_structure():
     tr = prop.propagate(sc)
     g = geo.geometry(sc, tr, np.array([0.0, 4.0, 36.0]))
     k, gi, d = (g.ids.index(x) for x in ("K", "G", "D"))
-    assert g.aspect_deg[0, k] < 1e-6 and g.range_rate_mps[0, k] == pytest.approx(-3000.0, abs=1.0)
+    assert g.aspect_deg[0, k] < 0.01 and g.range_rate_mps[0, k] == pytest.approx(-3000.0, abs=1.0)
     tgt = rm.target_for_sector({"id": "K", "target_type": "KKV"})
     assert g.rcs_s_dbsm[0, k] == pytest.approx(tgt.aspect_table_db(g.f_s_ghz)[0] + 1.5)
     assert g.rcs_ku_dbsm[0, k] == pytest.approx(tgt.aspect_table_db(g.f_ku_ghz)[0] + 1.5)
-    assert np.allclose(g.dir_ship[0, k], frames.unit(45.0, 5.0), atol=1e-9) and g.range_km[0, k] == pytest.approx(500.0)
+    # (a relative object starts from the ship's point, the apertures are 59 m from it)
+    assert np.allclose(g.dir_ship[0, k], frames.unit(45.0, 5.0), atol=2e-4)
+    assert g.range_km[0, k] == pytest.approx(500.0, abs=0.07)
     for j in (k, gi, d):
         if g.face[0, j] >= 0:
             f, _ = env.blockage(int(g.face[0, j]), g.dir_ship[0, j][None, :], "S")
@@ -929,6 +931,10 @@ def test_sim_view_offscreen(tmp_path):
     v.set_ui_scale(1)
     assert tp.GetFontSize() > f0 and v._dyn[DYN + "markers"][2].GetProperty().GetPointSize() == p0
     v.set_ui_scale(-1)
+    v.cb_events.setChecked(False)                       # "events" off: neither the marks nor their texts
+    assert not v._dyn[DYN + "markers"][2].GetVisibility() and not v._lab[DYN + "markers_lbl"].actor.GetVisibility()
+    v.cb_events.setChecked(True)
+    assert v._dyn[DYN + "markers"][2].GetVisibility() and v._lab[DYN + "markers_lbl"].actor.GetVisibility()
     # the star background under the scene (its own renderer, layer 0), the constellations on demand
     assert v.sky.ren.GetLayer() == 0 and v.plotter.renderer.GetLayer() == 1 and v.sky.star_actors
     assert v.sky.star_actors[0].GetVisibility() and not v.sky.line_actor.GetVisibility()   # the global profile (user)
@@ -1154,6 +1160,8 @@ def test_sim_view_offscreen(tmp_path):
     arcs = v._screen_src[DYN + "rings_hidden"][0]
     assert len(arcs) and (np.linalg.norm(arcs - c_h, axis=1) > 0.999 * r_h).all()     # in front of the body
     assert v._dyn[DYN + "rings_hidden"][2].GetVisibility()
+    in_body = v._in_front(c_h[None])                    # a projection inside a body: shown in front of it
+    assert np.linalg.norm(in_body[0] - c_h) > 0.999 * r_h
     v._planets_drawn = {}
     v._update_rings()
     assert not len(v._screen_src[DYN + "rings_hidden"][0])
@@ -1359,12 +1367,30 @@ def test_no_propagation_for_non_physical_changes():
     assert _renaming(old, dyn) is None
 
 
+def test_geometry_seen_from_the_apertures():
+    """The ship turns about its centre of gravity: range and range rate are the apertures', 59.3 m ahead on +Z."""
+    objs = [{"id": "T", "class": "ST", "state": {"type": "relative", "range_km": 100.0, "phi_deg": 0.0, "eps_deg": 0.0,
+                                                 "v_close_mps": 0.0}}]
+    sc = _orbit_sc(20.0, objs, step=0.1)
+    tr = prop.propagate(sc)
+    t = 10.0
+    r, v = geo.states_at(tr, t)
+    m, w = tr.attitude("ship", t), np.radians(geo.ship_rate_dps(tr, t))
+    d = np.array([0.0, 0.0, 0.059298])
+    ra, va = geo.array_state(tr, t, r[0], v[0])
+    assert np.allclose(ra, r[0] + m @ d) and np.allclose(va, v[0] + m @ np.cross(w, d))
+    g = geo.geometry(sc, tr, np.array([t]))
+    los = r[1] - ra
+    assert g.range_km[0, 0] == pytest.approx(np.linalg.norm(los))
+    assert g.range_rate_mps[0, 0] == pytest.approx(1e3 * (los / np.linalg.norm(los)) @ (v[1] - va))
+
+
 def test_lunar_interception_scenario_loads():
-    """The lunar scenario (scenarios/lune_interception.json, user 29 October 2026): OWNSHIP in a low circular orbit;
+    """The lunar scenario (scenarios/moon_interception.json, user 29 October 2026): OWNSHIP in a low circular orbit;
     SHIP_1 on an orbit at 20 deg of OWNSHIP's plane, passing it near 900 s; 20 KKV fired by SHIP_1 at 300 s with a
     5000 m/s impulse and terminal guidance on OWNSHIP; OWNSHIP's answer 15 s later, 15 friendly KKV launched around
     it at 6500 m/s with terminal guidance on SHIP_1 (pn target). Every KKV reaches its target (miss < 1 m)."""
-    sc = scn.load(os.path.join(os.path.dirname(__file__), "..", "scenarios", "lune_interception.json"))
+    sc = scn.load(os.path.join(os.path.dirname(__file__), "..", "scenarios", "moon_interception.json"))
     assert sc["central_body"] == "moon" and sc["ship"]["orbit"]["e"] == 0.0
     tr = prop.propagate(sc)
     i1 = tr.row("SHIP_1")
@@ -1491,14 +1517,25 @@ def test_scenario_tab_layout():
     assert tab.preview.side_panel.isAncestorOf(tab.preview.info)
     assert tab.preview.view_panel.isAncestorOf(tab.preview.view_buttons["ship"])            # the view's options under the Info
     assert tab.preview.side_panel.isAncestorOf(tab.preview.view_panel)
-    assert tab.primary_action() is tab.preview.bt_prop and tab.preview.bt_prop.isHidden()   # small: automatic
+    assert tab.primary_action() is tab.preview.bt_prop and not tab.preview.bt_prop.isEnabled()   # small: automatic
+    from gui import sim_view as sv_b                    # large: active after a change, greyed once propagated
+    keep = sv_b.AUTO_MAX_CELLS
+    sv_b.AUTO_MAX_CELLS = 0.0
+    tab.preview.pending, tab.preview._launched = scn.normalise(tab.sc), None
+    tab.preview._valid = True
+    tab.preview._update_prop(busy=False)
+    assert tab.preview.bt_prop.isEnabled()
+    tab.preview._launched = tab.preview.pending
+    tab.preview._update_prop(busy=False)
+    assert not tab.preview.bt_prop.isEnabled()
+    sv_b.AUTO_MAX_CELLS = keep
     assert [c[0] for c in tab.file_commands()] == ["New...", "Open...", "Save", "Save as...", "Scenario properties...",
                                                    "Export mission at t...", "Record run...", "Open run..."]
     assert tab.status in tab.status_widgets() and tab.preview.progress in tab.status_widgets()
-    assert not tab.preview.cb_vectors.isEnabled() and tab.preview.cb_vectors.isHidden()   # ship view only
+    assert not tab.preview.cb_vectors.isEnabled() and not tab.preview.cb_vectors.isVisibleTo(tab.preview.view_panel)   # ship view only
     assert tab.preview.view_panel.isAncestorOf(tab.preview.cb_object_labels)          # layers as switches, no menu
     tab.preview.set_view("ship")
-    assert tab.preview.cb_vectors.isEnabled() and not tab.preview.cb_vectors.isHidden()
+    assert tab.preview.cb_vectors.isEnabled() and tab.preview.cb_vectors.isVisibleTo(tab.preview.view_panel)
     tab.preview.set_view("global")
     assert "valid" in tab.status.text()
     tab.sc["objects"][0]["class"] = "NOPE"

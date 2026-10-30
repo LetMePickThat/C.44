@@ -153,6 +153,8 @@ _V_MODEL, MODEL_FACES = load_obj(MODEL_PATH)
 MODEL_VERTICES: np.ndarray = _to_ship_frame(_V_MODEL)      # ship frame, metres
 TRIANGLES: np.ndarray = MODEL_VERTICES[MODEL_FACES]         # (triangles, 3 corners, xyz)
 TRI_MATERIAL: np.ndarray = _triangle_materials(TRIANGLES)
+# the centre of gravity on the ship's axis, the point that turns and follows the orbit (user, 30 October 2026)
+ARRAY_FROM_CG_M: np.ndarray = -_to_ship_frame(np.array([[0.0, 0.0, float(P.get("ship.model_cg_z_m"))]]))[0]
 del _V_MODEL
 
 
@@ -262,6 +264,8 @@ def _check_ship() -> None:
         ref = P.get(f"ship.{k}")
         if abs(v / ref - 1.0) > 0.01:
             raise ValueError(f"{P.path}: the 3D model gives {k} = {v:.2f} m, ship.{k} is {ref} m (1 % tolerance)")
+    if not MODEL_VERTICES[:, 2].min() <= -ARRAY_FROM_CG_M[2] <= MODEL_VERTICES[:, 2].max():
+        raise ValueError(f"{P.path}: ship.model_cg_z_m is outside the 3D model")
     for k in range(len(face_phis())):
         n = face_frame(k)[0]
         t, j = _first_hits(array_centre_m(k) + 0.05 * n, -n[None, :])

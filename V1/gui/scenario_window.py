@@ -43,8 +43,7 @@ class ScenarioWindow(QMainWindow):
         hl.addStretch(1)
         prop = self.scenario.primary_action()
         if prop is not None:
-            prop.setStyleSheet(PRIMARY_STYLE)
-            hl.addWidget(prop)
+            prop.setStyleSheet(PRIMARY_STYLE)         # (in the status bar, status_widgets)
         central = QWidget()
         cl = QVBoxLayout(central)
         cl.setContentsMargins(0, 0, 0, 0)

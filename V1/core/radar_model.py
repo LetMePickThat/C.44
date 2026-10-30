@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.35.0
+# Radar Performance Model - V6.36.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,11 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.35.0 -> V6.36.0 (user, 30 October 2026)
+#   - the ship turns about its centre of gravity (ship.model_cg_z_m, 59.3 m behind the apertures), no longer about the
+#     apertures: core/repoint.py gives their speed and acceleration (reported, compensated by the navigation) and the
+#     new band loss 'nav_lever', the coherent loss of the error the navigation leaves, at the top of the band.
 #
 # Changes V6.34.0 -> V6.35.0 (step 5.4, pass M4, user 29 October 2026, Q1-Q8)
 #   - Monte-Carlo states OK / ALERT / NOK (the verdict's words; ALERTE before); its rows go into the verdict with the
@@ -692,7 +697,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.35.0"
+MODEL_VERSION = "6.36.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -3388,6 +3393,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import repoint as _repoint  # noqa: E402
 for _b in BANDS.values():
     _b.losses_db["nav_pointing"] = _repoint.loss_db(hpbw_deg(_b.usable_hi_ghz))
+    _b.losses_db["nav_lever"] = _repoint.lever_loss_db(_b.usable_hi_ghz)    # the apertures turn about the CG (V6.36.0)
 
 if __name__ == "__main__":
     sys.exit(main())

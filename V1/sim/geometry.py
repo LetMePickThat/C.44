@@ -11,6 +11,8 @@ body is (the truth is the scenario's, the radar gets only its navigation and its
   G4 any instant: states by a cubic Hermite on position and velocity between the recorded points (sim.log_step_s),
      attitudes by SLERP between the steps; a row that appears or ends inside an interval is extrapolated linearly
      from the recorded end it has;
+     Everything the radar sees is taken from the apertures, not from the ship's point, its centre of gravity (user,
+     30 October 2026): array_state, r + m d and v + w x (m d), d = env.ARRAY_FROM_CG_M;
   G5 default attitudes of the objects (nose = body Z), unless the object flies waypoints (SHIP, KKV): KKV and DECOY
      nose on their velocity relative to the ship, GENERIC and SHIP on their inertial velocity (central-body frame),
      DEBRIS tumbling at the class's rotation_dps about an axis drawn once (nose normal to it), ST toward the ship;
@@ -41,6 +43,7 @@ from core import optimizer as opt
 from core import radar_model as rm
 from core.params import P
 
+from . import attitude as att
 from . import ephemeris as eph
 from . import scenario as scn
 from .propagate import Truth
@@ -64,6 +67,7 @@ F_KU_GHZ = 0.5 * (rm.BAND_KU.usable_lo_ghz + rm.BAND_KU.usable_hi_ghz)
 NOSE_RULES = {"KKV": "relative", "DECOY": "relative", "GENERIC": "inertial", "SHIP": "inertial",
               "DEBRIS": "tumble", "ST": "ship"}             # G5; any other class: "ship"
 SEED_RCS, SEED_TUMBLE = 200000, 300000                     # generator streams per row (propagation: 0.., 100000..)
+ARRAY_KM = 1e-3 * env.ARRAY_FROM_CG_M                      # centre of gravity -> apertures, ship frame
 
 
 @dataclass
@@ -139,6 +143,25 @@ def states_at(truth: Truth, t: float):
     r[~ex] = np.nan
     v[~ex] = np.nan
     return r.reshape(n, 3), v.reshape(n, 3)
+
+
+def _ship_m(truth: Truth, t: float) -> np.ndarray:
+    return truth.attitude("ship", min(max(t, float(truth.att_t_s[0])), float(truth.att_t_s[-1])))
+
+
+def ship_rate_dps(truth: Truth, t: float) -> np.ndarray:
+    """Angular rate of the ship (deg/s, ship frame), from the recorded attitude over the step around t."""
+    ta = truth.att_t_s
+    k = int(np.clip(np.searchsorted(ta, t, side="right") - 1, 0, len(ta) - 2))
+    m0, m1 = _ship_m(truth, float(ta[k])), _ship_m(truth, float(ta[k + 1]))
+    w_icrf = att.rotvec(m1 @ m0.T) / float(ta[k + 1] - ta[k])
+    return np.degrees(_ship_m(truth, t).T @ w_icrf)
+
+
+def array_state(truth: Truth, t: float, rs: np.ndarray, vs: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """(r km, v km/s) of the apertures at t, from the ship's own (its centre of gravity)."""
+    m = _ship_m(truth, t)
+    return rs + m @ ARRAY_KM, vs + m @ np.cross(np.radians(ship_rate_dps(truth, t)), ARRAY_KM)
 
 
 # ----------------------------------------------------------------------------- G8 shadow
@@ -243,10 +266,11 @@ def geometry(sc: dict, truth: Truth, times: Optional[np.ndarray] = None) -> Geom
         rs, vs = r[0], v[0]
         m = truth.attitude("ship", float(t))
         ship_m[it] = m
+        ra, va = array_state(truth, float(t), rs, vs)
         # bodies, ship-centred (ICRF axes)
         T = eph.centuries_tt(epoch, float(t))
         geo_at = {b: eph.body_icrf_km(b, T) for b in names}
-        ship_geo = geo_at[truth.body.name] + rs
+        ship_geo = geo_at[truth.body.name] + ra
         bpos = np.array([geo_at[b] - ship_geo for b in names])
         bd = np.linalg.norm(bpos, axis=1)
         bu = bpos / bd[:, None]
@@ -266,11 +290,11 @@ def geometry(sc: dict, truth: Truth, times: Optional[np.ndarray] = None) -> Geom
         exists[it] = ex
         if not ex.any():
             continue
-        los = ro - rs                                             # ship -> object, ICRF
+        los = ro - ra                                             # apertures -> object, ICRF
         rng_km = np.linalg.norm(los, axis=1)
         lu = los / rng_km[:, None]
         out["range_km"][it] = rng_km
-        out["range_rate_mps"][it] = 1e3 * np.einsum("ij,ij->i", lu, vo - vs)
+        out["range_rate_mps"][it] = 1e3 * np.einsum("ij,ij->i", lu, vo - va)
         ds = lu @ m                                              # ship frame
         dir_ship[it] = ds
         fo, w, uu, vv = opt.face_of(ds[:, 0], ds[:, 1], ds[:, 2])

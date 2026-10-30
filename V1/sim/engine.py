@@ -48,6 +48,7 @@ from . import attitude as att
 from . import ephemeris as eph
 from . import geometry as geo
 from . import scenario as scn
+from .geometry import _ship_m, ship_rate_dps
 from .propagate import Body, Truth
 
 JOURNAL_VERSION = 1
@@ -62,19 +63,6 @@ SEED_NAV_BIAS, SEED_NAV_MSG = 400000, 500000           # generator streams (geom
 
 
 # ----------------------------------------------------------------------------- N1-N3 navigation
-def _ship_m(truth: Truth, t: float) -> np.ndarray:
-    return truth.attitude("ship", min(max(t, float(truth.att_t_s[0])), float(truth.att_t_s[-1])))
-
-
-def ship_rate_dps(truth: Truth, t: float) -> np.ndarray:
-    """Angular rate of the ship (deg/s, ship frame), from the recorded attitude over the step around t."""
-    ta = truth.att_t_s
-    k = int(np.clip(np.searchsorted(ta, t, side="right") - 1, 0, len(ta) - 2))
-    m0, m1 = _ship_m(truth, float(ta[k])), _ship_m(truth, float(ta[k + 1]))
-    w_icrf = att.rotvec(m1 @ m0.T) / float(ta[k + 1] - ta[k])
-    return np.degrees(_ship_m(truth, t).T @ w_icrf)
-
-
 class Navigation:
     """The navigation stream of one run (sc: sim.scenario.load, truth: sim.propagate.propagate)."""
 
@@ -95,7 +83,8 @@ class Navigation:
         return np.arange(self.index(t0), self.index(t1) + 1) / NAV_RATE_HZ
 
     def state(self, t: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """(m ship -> ICRF, w ship frame deg/s, r km, v km/s) of the message stamped t."""
+        """(m ship -> ICRF, w ship frame deg/s, r km, v km/s) of the message stamped t; r and v: the centre of gravity
+        (the apertures follow from m and w)."""
         tt = max(0.0, t - NAV_LATENCY_S) if self.errors else t
         r, v = geo.states_at(self.truth, tt)
         m, w = _ship_m(self.truth, tt), ship_rate_dps(self.truth, tt)
@@ -139,6 +128,7 @@ def sky_at(sc: dict, truth: Truth, t: float, g: Optional[geo.Geometry] = None) -
     # user, 30 October 2026) only hides the others and the objects, no noise, no clutter of its own yet
     types = {"sun": meta.get("sun_type", "sun"), "earth": meta.get("earth_type", "earth"), "moon": "moon"}
     r, v = geo.states_at(truth, float(t))
+    v_arr = geo.array_state(truth, float(t), r[0], v[0])[1]
     T = eph.centuries_tt(scn.epoch(sc), float(t))
     h = 30.0                                                      # s, central difference of the bodies' velocities
     dT = h / 3.15576e9
@@ -160,7 +150,7 @@ def sky_at(sc: dict, truth: Truth, t: float, g: Optional[geo.Geometry] = None) -
         item = {"id": b.upper(), "type": types[b], "phi_deg": phi, "eps_deg": eps,
                 "angular_radius_deg": round(rad, 9)}
         if b in v_body:
-            rel = 1e3 * (v_body[b] - v[0])                       # m/s, body - ship, ICRF
+            rel = 1e3 * (v_body[b] - v_arr)                      # m/s, body - apertures, ICRF
             u = m @ d
             item["closing_mps"] = round(-float(rel @ u), 6)      # body centre coming toward the ship: > 0
             item["closing_spread_mps"] = round(float(np.linalg.norm(rel - (rel @ u) * u))
