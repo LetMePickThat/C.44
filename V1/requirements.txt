@@ -1,6 +1,6 @@
 # Radar mission preparation -- Python packages (Python 3.11 or later: tomllib reads radar_system.toml).
 # Tested with Python 3.13, PyQt5 5.15.11, pyvista 0.49.1 (VTK 9.7.1), pyvistaqt 0.13.1, numpy 2.2.5.
-# Installed automatically by "Radar mission prep.bat" on first start, or by hand:
+# Installed by the .bat launchers once the user agrees, or by hand:
 #     python -m pip install -r requirements.txt
 numpy
 scipy               # step 3.3: Riccati equation and matrix exponential of the track model

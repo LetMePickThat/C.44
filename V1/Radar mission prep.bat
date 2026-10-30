@@ -1,7 +1,7 @@
 @echo off
 rem Radar mission preparation -- double-click this file to start the tool.
 rem Drop a mission file (.json or .csv) on it to open that mission directly.
-rem First start: missing Python packages are installed automatically (needs internet, one-off).
+rem Missing Python packages: the user is told and asked; only on yes, the installation by pip.
 setlocal
 cd /d "%~dp0"
 set "TITLE=Radar mission preparation"
@@ -16,10 +16,18 @@ if not defined PY (
     exit /b 1
 )
 
-rem 2. The packages of requirements.txt (installed for the current user on first start).
-%PY% -c "import PyQt5, pyvista, pyvistaqt, numpy" >nul 2>&1
-if errorlevel 1 (
-    echo %TITLE%: first start, installing the required Python packages...
+rem 2. The packages of requirements.txt: nothing is installed unless the user agrees, and pip is needed.
+set "MISSING="
+for /f "delims=" %%m in ('%PY% -c "import importlib.util as u; print(' '.join(m for m in ('numpy', 'scipy', 'PyQt5', 'pyvista', 'pyvistaqt') if u.find_spec(m) is None))"') do set "MISSING=%%m"
+if defined MISSING (
+    powershell -NoProfile -Command "Add-Type -AssemblyName PresentationFramework; $r = [System.Windows.MessageBox]::Show('These Python packages are missing: %MISSING%.' + [Environment]::NewLine + [Environment]::NewLine + 'The tool cannot start without them. Install them now? (needs internet)', '%TITLE%', 'YesNo', 'Question'); if ($r -eq 'Yes') { exit 0 } else { exit 1 }" >nul
+    if errorlevel 1 exit /b 1
+    %PY% -m pip --version >nul 2>&1
+    if errorlevel 1 (
+        powershell -NoProfile -Command "Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show('pip is needed and was not found.' + [Environment]::NewLine + [Environment]::NewLine + 'Install it with the command: python -m ensurepip --upgrade' + [Environment]::NewLine + 'then start again.', '%TITLE%', 'OK', 'Error')" >nul
+        exit /b 1
+    )
+    echo %TITLE%: installing the required Python packages...
     echo.
     %PY% -m pip install --user -r requirements.txt
     if errorlevel 1 (
