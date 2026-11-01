@@ -17,7 +17,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 from PyQt5.QtCore import QEvent, QSize, QTimer, Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QKeySequence
 from PyQt5.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QInputDialog, QFileDialog, QGridLayout, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget,
-                             QListWidgetItem, QMenu, QMessageBox, QDialog, QDialogButtonBox, QPushButton, QShortcut, QScrollArea, QSizePolicy, QSpinBox, QSplitter,
+                             QListWidgetItem, QMenu, QMessageBox, QDialog, QDialogButtonBox, QPushButton, QShortcut, QScrollArea, QSizePolicy, QSpinBox, QSplitter, QStyle,
                              QTableWidget, QTableWidgetItem, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from core import radar_model as rm
@@ -34,7 +34,9 @@ _BIG = 1e12
 COMPACT_TREE_H = 120                       # px: least height of the tree over the options (compact column)
 TREE_MAX_SHARE = 0.5                       # the tree at most this share of the column
 FORM_MIN_W = 280                           # px: the narrowest the forms start at
-SPIN_MAX_W = 110                           # px: a number field's wish (a bound of 1e12 asked for 13 digits, 180 px)
+SPIN_CHARS = 11                            # digits of a number field's wish (a bound of 1e12 asked for 13)
+SPIN_ARROWS_W = 34                         # px: a number field's arrows and margins
+VIEW_MIN_W = 400                           # px: the 3D view keeps this when the columns widen
 FIELD_MIN_W = 48                           # px: the narrowest a field shrinks to with the column (it is never cut)
 SCENARIO_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scenarios")
 
@@ -120,7 +122,7 @@ class _Narrow:
 class _Spin(_Narrow, DecimalSpinBox):
     def sizeHint(self) -> QSize:                   # the column's width at its true need (user, 29 October 2026)
         s = super().sizeHint()
-        return QSize(min(s.width(), SPIN_MAX_W), s.height())
+        return QSize(min(s.width(), self.fontMetrics().horizontalAdvance("0" * SPIN_CHARS) + SPIN_ARROWS_W), s.height())
 
 
 class _IntSpin(_Narrow, QSpinBox):
@@ -633,6 +635,8 @@ class ScenarioTab(QWidget):
         self.form_holder = QWidget()
         self.form_layout = QVBoxLayout(self.form_holder)
         self.form_layout.setContentsMargins(4, 0, 4, 0)
+        self.form_holder.installEventFilter(self)              # a wider form widens the column
+        self._col_need = 0
 
         if view:                                   # passes S6 / S7: 3D views and playback
             from gui.sim_view import SimView
@@ -729,15 +733,39 @@ class ScenarioTab(QWidget):
     def _fit_columns(self) -> None:
         """At start (and when a file is opened): the column at the width the forms need, the Info column at the
         width of its widest rows, the rest of the window to the 3D view (user, 29 October 2026)."""
-        w0 = max(self.left_col.sizeHint().width(), self.form_holder.minimumSizeHint().width() + 24, FORM_MIN_W)
+        w0 = self._col_need = self._column_need()
         if self.side_col is None:
-            total = max(self._split.width(), w0 + 400)
+            total = max(self._split.width(), w0 + VIEW_MIN_W)
             self._split.setSizes([w0, total - w0])
         else:
             side = self.preview.side_width()              # fits the longest Info line (no wrapping)
-            total = max(self._split.width(), w0 + side + 400)
+            total = max(self._split.width(), w0 + side + VIEW_MIN_W)
             self._split.setSizes([w0, side, total - w0 - side])
         self._fit_form()
+
+    def _column_need(self) -> int:
+        """px: the column's width with every field of the form at its natural width (not its narrowest), the tree's
+        rows and the action table's columns whole (user, 1 November 2026)."""
+        t = self.tree
+        tree = t.sizeHintForColumn(0) + 2 * t.frameWidth()
+        tables = [sum(x.sizeHintForColumn(c) for c in range(x.columnCount())) + 2 * x.frameWidth() + 8
+                  for x in self.form_holder.findChildren(QTableWidget)]
+        bar = self.style().pixelMetric(QStyle.PM_ScrollBarExtent)
+        return max(tree, self.form_holder.sizeHint().width(), FORM_MIN_W, *tables) + bar + 8
+
+    def _widen_column(self) -> None:
+        """The column widened, at the 3D view's expense, when a form needs more than any before it; a width set by
+        hand stays until then."""
+        need = self._column_need()
+        if not self.loaded or need <= self._col_need:
+            return
+        self._col_need = need
+        sizes = self._split.sizes()
+        grow = min(need - sizes[0], sizes[-1] - VIEW_MIN_W)
+        if grow > 0:
+            sizes[0] += grow
+            sizes[-1] -= grow
+            self._split.setSizes(sizes)
 
     # ------------------------------------------------------------------ files
     def _confirm_discard(self) -> bool:
@@ -847,6 +875,7 @@ class ScenarioTab(QWidget):
         self._rebuild_tree()
         self._validate()
         self._update_title()
+        QTimer.singleShot(0, self._fit_columns)
         if hasattr(self.preview, "propagate_loaded"):
             self.preview.propagate_loaded()
 
@@ -984,6 +1013,8 @@ class ScenarioTab(QWidget):
     def eventFilter(self, obj, ev) -> bool:
         if obj is getattr(self, "_col_split", None) and ev.type() == QEvent.Resize:
             QTimer.singleShot(0, self._fit_form)
+        elif obj is self.form_holder and ev.type() == QEvent.LayoutRequest:
+            QTimer.singleShot(0, self._widen_column)
         return super().eventFilter(obj, ev)
 
     def _tree_need(self) -> int:

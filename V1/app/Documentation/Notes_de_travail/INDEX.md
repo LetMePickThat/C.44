@@ -1,4 +1,4 @@
-- [Radar roadmap](radar-roadmap.md) — phases 0-5, per-step status / decisions / renvois; STATUS says the next step (detail in V1/Documentation)
+- [Radar roadmap](radar-roadmap.md) — phases 0-5, per-step status / decisions / renvois; STATUS says the next step (detail in V1/app/Documentation)
 - [Session workflow](session-workflow.md) — French replies, git identity / push / "c, p", per-step procedure, Windows shell pitfalls
 - [Ask for every variable](ask-for-every-variable.md) — each step: ask the user for every variable's value, never pick silently
 - [Global parameter file](global-parameter-file.md) — architecture must allow fast edits of system variables via one parameter file
