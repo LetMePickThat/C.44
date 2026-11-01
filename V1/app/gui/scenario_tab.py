@@ -31,7 +31,7 @@ from sim import scenario as scn
 Field = Tuple[str, str, str, dict]          # (key, label, kind, options)
 # a choice's stored value -> the text shown (option names of a field)
 FRAME_NAMES = {"pnr": "prograde, normal, radial", "rtn": "radial, along-track, cross-track",
-               "inertial": "inertial (ICRF)"}
+               "inertial": "body equator axes"}
 
 _BIG = 1e12
 COMPACT_TREE_H = 120                       # px: least height of the tree over the options (compact column)
@@ -56,7 +56,7 @@ ORBIT_FIELDS: Dict[str, List[Field]] = {
     "state": [_f("r_km", "position (km, body equator)", "vec3"), _f("v_kms", "velocity (km/s, body equator)", "vec3", dec=6)],
     "relative": [_f("range_km", "range from the ship (km)", min=0.001), _f("phi_deg", "azimuth (deg)", min=-360.0, max=360.0),
                  _f("eps_deg", "elevation (deg)", min=-90.0, max=90.0),
-                 _f("frame", "direction frame", "choice", choices=("ship", "inertial")),
+                 _f("frame", "direction frame", "choice", choices=("ship", "inertial"), names=FRAME_NAMES),
                  _f("v_close_mps", "closing speed (m/s)", min=-_BIG),
                  _f("v_transverse_mps", "transverse velocity (m/s)", "vec2")],
 }
@@ -376,7 +376,7 @@ def _action_cells(kind: str, item: dict) -> Tuple[str, str, str]:
         a = item.get("attitude", {})
         what = a.get("type", "?")
         if what == "fixed":
-            what = (f"fixed {a.get('frame', 'orbital')}, yaw {a.get('yaw_deg', 0):g}, pitch {a.get('pitch_deg', 0):g}, "
+            what = (f"fixed {FRAME_NAMES.get(a.get('frame', 'orbital'), 'orbital')}, yaw {a.get('yaw_deg', 0):g}, pitch {a.get('pitch_deg', 0):g}, "
                     f"roll {a.get('roll_deg', 0):g} deg")
         else:
             what = f"toward {a.get('id')}" if what == "target" else what
@@ -561,7 +561,7 @@ class ActionList(QWidget):
             fields.append(_f("rate_dps", "slew rate (deg/s)", min=0.001, max=att.RATE_MAX_DPS))
         form = FormWidget(fields, w)
         att_fields: Dict[str, List[Field]] = {
-            "fixed": [_f("frame", "frame", "choice", choices=att.FIXED_FRAMES),
+            "fixed": [_f("frame", "frame", "choice", choices=att.FIXED_FRAMES, names=FRAME_NAMES),
                       _f("yaw_deg", "yaw (deg)", min=-360.0, max=360.0),
                       _f("pitch_deg", "pitch (deg)", min=-90.0, max=90.0), _ROLL],
             "target": [_f("id", "target", "choice", choices=self.targets), _ROLL]}

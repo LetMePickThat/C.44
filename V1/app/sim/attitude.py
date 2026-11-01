@@ -17,7 +17,7 @@ plane:
   - orbital reference (yaw = pitch = roll = 0): Z along track T = N x R, Y = the orbit normal N = r x v, X = -R
     (toward the central body); the XZ plane is the orbital plane;
   - angles in the aircraft order: yaw about Y (positive: nose toward +X), then pitch about the new X (positive: nose
-    up, toward +Y), then roll about the new Z (positive: +X wing down); "inertial": the same angles from the ICRF axes;
+    up, toward +Y), then roll about the new Z (positive: +X wing down); "inertial": the same angles from the central body's equatorial axes;
   - a direction attitude (prograde = +v, normal+ = +N, radial_out = +R, target = line of sight, ...) puts Z along the
     direction and X in the orbital plane (X = N x Z; for a direction along the normal, X along the velocity), then
     roll_deg about Z.
@@ -155,13 +155,14 @@ def pointing(d: np.ndarray, r: np.ndarray, v: np.ndarray, roll_deg: float) -> np
     return np.stack([x, cross3(z, x), z], axis=1) @ rot_z(-math.radians(roll_deg))
 
 
-def target_attitude(att: dict, r: np.ndarray, v: np.ndarray, target_pos: Optional[np.ndarray]) -> Optional[np.ndarray]:
+def target_attitude(att: dict, r: np.ndarray, v: np.ndarray, target_pos: Optional[np.ndarray],
+                    axes: np.ndarray = np.eye(3)) -> Optional[np.ndarray]:
     """Body -> ICRF matrix of an attitude for a body at (r, v); target_pos: the target's position for "target"
     (None: the target does not exist, no attitude)."""
     t = att["type"]
     if t == "fixed":
         e = euler(att["yaw_deg"], att["pitch_deg"], att["roll_deg"])
-        return orbital_reference(r, v) @ e if att["frame"] == "orbital" else e
+        return orbital_reference(r, v) @ e if att["frame"] == "orbital" else axes @ e
     rr, _, n = orbital_axes(r, v)
     d = {"prograde": v, "retrograde": -v, "normal+": n, "normal-": -n, "radial_out": rr, "radial_in": -rr}.get(t)
     if t == "target":
@@ -231,8 +232,8 @@ DEFAULT_SHIP = [{"t_s": 0.0, "attitude": {"type": "prograde", "roll_deg": 0.0}}]
 class Flyer:
     """The attitude of one body along its waypoints, advanced step by step (step())."""
 
-    def __init__(self, row: int, wps: List[dict]):
-        self.row, self.wps = row, wps
+    def __init__(self, row: int, wps: List[dict], axes: np.ndarray = np.eye(3)):
+        self.row, self.wps, self.axes = row, wps, axes
         self.k = 0                                      # current waypoint
         self.m: Optional[np.ndarray] = None             # body -> ICRF
         self.w = np.zeros(3)                            # angular velocity (rad/s, ICRF)
@@ -242,7 +243,7 @@ class Flyer:
         self.events: List[dict] = []
 
     def _goal(self, k: int, r, v, tpos) -> Optional[np.ndarray]:
-        return target_attitude(self.wps[k]["attitude"], r, v, tpos)
+        return target_attitude(self.wps[k]["attitude"], r, v, tpos, self.axes)
 
     def start(self, r: np.ndarray, v: np.ndarray, tpos: Callable[[str, float], Optional[np.ndarray]]) -> None:
         """The initial attitude (first waypoint) at t = 0."""

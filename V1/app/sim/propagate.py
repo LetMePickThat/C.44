@@ -213,11 +213,12 @@ def preview_path(body: Body, third: Optional[ThirdBodies], r0: np.ndarray, v0: n
     pre: List[Optional[tuple]] = [None] * len(manoeuvres)
     x, u = np.asarray(r0, float).copy(), np.asarray(v0, float).copy()
     ts, rs, vs = [t0], [x.copy()], [u.copy()]
+    axes = body.equator()
 
     def force(t: float, rr: np.ndarray, vv: np.ndarray, run) -> np.ndarray:
         a = acc(t, rr[None])[0]
         for m in run:
-            a = a + frame_matrix(m["frame"], rr, vv) @ (1e-3 * np.asarray(m["accel_mps2"], float))
+            a = a + frame_matrix(m["frame"], rr, vv, axes) @ (1e-3 * np.asarray(m["accel_mps2"], float))
         return a
 
     for a, b in zip(ev[:-1], ev[1:]):
@@ -225,7 +226,7 @@ def preview_path(body: Body, third: Optional[ThirdBodies], r0: np.ndarray, v0: n
             if id(m) in mine and abs(float(m["t_s"]) - a) < 1e-9:
                 pre[j] = (x.copy(), u.copy())
                 if m["type"] == "impulse":
-                    u = u + frame_matrix(m["frame"], x, u) @ (1e-3 * np.asarray(m["dv_mps"], float))
+                    u = u + frame_matrix(m["frame"], x, u, axes) @ (1e-3 * np.asarray(m["dv_mps"], float))
         running = [(b0, b1, m) for b0, b1, m in burns if b0 - 1e-9 <= a < b1 - 1e-9]
         run = [m for _b0, _b1, m in running]
         h = step_s if not run else min(step_s, min(b1 - b0 for b0, b1, _m in running) / BURN_SUBSTEPS)
@@ -297,13 +298,14 @@ def pnr_matrix(r: np.ndarray, v: np.ndarray) -> np.ndarray:
     return np.stack([x, y, z], axis=-1)
 
 
-def frame_matrix(frame: str, r: np.ndarray, v: np.ndarray) -> np.ndarray:
-    """The matrix of a manoeuvre frame ("rtn", "pnr", "inertial") at the state r, v (3,) or (n, 3): v_icrf = M v."""
+def frame_matrix(frame: str, r: np.ndarray, v: np.ndarray, axes: np.ndarray) -> np.ndarray:
+    """The matrix of a manoeuvre frame ("rtn", "pnr", "inertial": the central body's equatorial axes, axes, Body.equator)
+    at the state r, v (3,) or (n, 3): v_icrf = M v."""
     if frame == "rtn":
         return rtn_matrix(r, v)
     if frame == "pnr":
         return pnr_matrix(r, v)
-    return np.broadcast_to(np.eye(3), np.shape(r)[:-1] + (3, 3)).copy()
+    return np.broadcast_to(axes, np.shape(r)[:-1] + (3, 3)).copy()
 
 
 def rtn_matrix(r: np.ndarray, v: np.ndarray) -> np.ndarray:
@@ -464,8 +466,8 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
     pn_tgt = np.zeros(n, int)
     for i in pn_rows:
         pn_tgt[i] = idx[rows[i].pn.get("target", "ship")]
-    flyers = {0: att.Flyer(0, sc["ship"]["attitude"])}
-    flyers.update({i: att.Flyer(i, w.spec["attitude"]) for i, w in enumerate(rows) if i and "attitude" in w.spec
+    flyers = {0: att.Flyer(0, sc["ship"]["attitude"], axes)}
+    flyers.update({i: att.Flyer(i, w.spec["attitude"], axes) for i, w in enumerate(rows) if i and "attitude" in w.spec
                    and not w.group})
     now = [0.0]                                           # time of the states in x (the targets are extrapolated)
 
@@ -492,11 +494,13 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
                 st = w.spec["state"]
                 d = frames.unit(float(st["phi_deg"]), float(st["eps_deg"]))
                 rs, vs = x[0, :3], x[0, 3:]
-                m = flyers[0].m if st["frame"] == "ship" else np.eye(3)
+                ship = st["frame"] == "ship"
+                m = flyers[0].m if ship else axes
                 los = m @ d
-                ax1 = np.cross(los, [0.0, 0.0, 1.0])
+                ref = np.eye(3) if ship else axes
+                ax1 = np.cross(los, ref[:, 2])
                 if np.linalg.norm(ax1) < 1e-9:
-                    ax1 = np.cross(los, [1.0, 0.0, 0.0])
+                    ax1 = np.cross(los, ref[:, 0])
                 ax1 /= np.linalg.norm(ax1)
                 ax2 = np.cross(los, ax1)
                 vt = st["v_transverse_mps"]
@@ -524,7 +528,7 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
         for _t, i, m in imp[lo:hi]:
             if active[i]:
                 dv = 1e-3 * np.asarray(m["dv_mps"], float)
-                x[i, 3:] += frame_matrix(m["frame"], x[i, :3], x[i, 3:]) @ dv
+                x[i, 3:] += frame_matrix(m["frame"], x[i, :3], x[i, 3:], axes) @ dv
 
     def accel(t0: float, tb: float, xs: np.ndarray, act: np.ndarray) -> np.ndarray:
         """d/dt of the active states xs (k, 6) at tb, during a sub-step that starts at t0 (burns decided at t0)."""
@@ -549,7 +553,9 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
                 for name in ("rtn", "pnr"):
                     rt = fr == name
                     if rt.any():
-                        acc[rt] = np.einsum("nij,nj->ni", frame_matrix(name, r[ks[rt]], v[ks[rt]]), acc[rt])
+                        acc[rt] = np.einsum("nij,nj->ni", frame_matrix(name, r[ks[rt]], v[ks[rt]], axes), acc[rt])
+                rt = fr == "inertial"
+                acc[rt] = acc[rt] @ axes.T
                 np.add.at(a, ks, acc)
         on = np.flatnonzero(pn_on[rows_act])
         if len(on):                                   # each guided row toward its target, when the target exists

@@ -408,7 +408,7 @@ class NodeTool:
         delta = dr["sign"] * rate * frac * abs(frac) * dt               # along the handle's pnr axis
         rn, vn = c["node"]
         d_icrf = prop.pnr_matrix(rn, vn)[:, dr["axis"]] * delta
-        d_own = prop.frame_matrix(m.get("frame", "rtn"), rn, vn).T @ d_icrf   # in the manoeuvre's own frame
+        d_own = prop.frame_matrix(m.get("frame", "rtn"), rn, vn, self.v.truth.body.equator()).T @ d_icrf   # in the manoeuvre's own frame
         m[key] = [round(float(x), 4) for x in np.asarray(m.get(key, [0.0, 0.0, 0.0]), float) + d_own]
         self._edited(False)
 

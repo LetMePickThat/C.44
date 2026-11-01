@@ -118,7 +118,7 @@ OPTION_MARGIN = 5                                 # px left of every switch: a p
 BG_COLOR = "#000000"                              # background of the 3D views: the black of space (user, 29 October 2026)
 TEXT_COLOR = "#e6e6e6"
 # the widest Info lines of an object or the ship (side_width: the column fits them and the bodies' facts)
-INFO_WIDEST = ("classification\tsuspect", "reference frame\tICRF / earth", "position x\t-1234567.890 km", "velocity x\t-12.34567 km/s",
+INFO_WIDEST = ("classification\tsuspect", "reference frame\tjupiter equator", "position x\t-1234567.890 km", "velocity x\t-12.34567 km/s",
                "block loss\t12.34 dB / pass", "rate x\t-12.345 deg/s", "range\t1234567.890 km", "Sun hidden\t100 %",
                "longitude of ascending node\t359.999 deg", "closest approach in\t> 12345.6 s (after the end)", "closest distance\t< 1234567.890 km",
                "radar cross section (Ku band)\t-123.4 dBsm")
@@ -1221,7 +1221,7 @@ class SimView(QWidget):
         self.bt_recentre = QPushButton("Recenter view")      # a plain button (user, 30 October 2026)
         self.bt_recentre.clicked.connect(lambda _c=False: self.recentre())
         self.bt_recentre.setToolTip("Global view: back to the central body or the body double-clicked, level with "
-                                    "the reference plane (ICRF XY); zoom and direction of view kept. Ship view: back "
+                                    "the central body's equator; zoom and direction of view kept. Ship view: back "
                                     "to the view at start. Orbital view: on the ship, from the zenith, 0 deg up, "
                                     "90 deg to the right; zoom kept")
 
@@ -1711,7 +1711,7 @@ class SimView(QWidget):
         """The vertical of the mouse rotation: the central body's pole (global view, the reference of "Recenter
         view"), the view's Z (ship: the ship's Z, normal to the range rings; orbital: the local radial)."""
         if self._global() and self.truth is not None:
-            return np.asarray(self.truth.body.pole, float)
+            return self.truth.body.equator()[:, 2]
         return np.array([0.0, 0.0, 1.0])
 
     def _view_axes(self, t: float) -> np.ndarray:
@@ -2498,7 +2498,7 @@ class SimView(QWidget):
         off = tgt - np.asarray(cam.GetFocalPoint())
         cam.SetFocalPoint(*tgt)
         cam.SetPosition(*(np.asarray(cam.GetPosition()) + off))
-        pole = np.asarray(self.truth.body.pole, float)               # ICRF
+        pole = self.truth.body.equator()[:, 2]                       # up: the pole of the body's rotation sense
         fwd =np.asarray(cam.GetDirectionOfProjection(), float)
         if self._on_vessel():
             # centred on a vessel (user, 29 October 2026): the camera parallel to the equatorial plane of the body
@@ -4148,7 +4148,7 @@ class SimView(QWidget):
         lines += self._orbit_lines(r[0], v[0])
         lines += [_kv("altitude", f"{alt:.1f} km"),
                   _kv("speed", f"{1e3 * float(np.linalg.norm(v[0])):.1f} m/s")]
-        lines += _vec_lines("nose direction", m[:, 2], "", 4)                        # the ship's Z axis, ICRF
+        lines += _vec_lines("nose direction", m[:, 2] @ tr.body.equator(), "", 4)    # the ship's Z axis, body equator
         lines += _vec_lines("turn rate", w, "deg/s", 3)                         # ship frame
         lines += [_kv("turn rate", f"{float(np.linalg.norm(w)):.3f} deg/s"), _kv("recorded at", f"{g.t_s[k]:.1f} s"),
                   _kv("Sun hidden", f"{100.0 * float(g.ship_shadow[k]):.0f} %")]

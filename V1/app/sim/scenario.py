@@ -30,7 +30,7 @@ It describes the WORLD only (the radar is the mission file it cites); values of 
   (the ship also takes "manoeuvres": [MANOEUVRE, ...] (optional, user 29 October 2026): its pn needs a target
    other than itself; pn and singer bounded by sim.ship_manoeuvre_class, Singer time sim.ship_maneuver_tau_s)
   RELATIVE  {"type": "relative", "range_km": > 0, "phi_deg", "eps_deg" (direction from the ship, in "frame": "ship"
-             (default) or "inertial"), "v_close_mps": closing speed, "v_transverse_mps": [a, b] (optional, along
+             (default) or "inertial": the central body's equatorial axes), "v_close_mps": closing speed, "v_transverse_mps": [a, b] (optional, along
              the two axes normal to the line of sight; default 0)}            resolved at t_appear_s by the propagation
   MANOEUVRE {"type": "impulse", "t_s", "dv_mps": [x, y, z], "frame": "rtn" (default) | "pnr" | "inertial"}
           | {"type": "burn", "t_s", "duration_s", "accel_mps2": [x, y, z], "frame": "rtn" | "pnr" | "inertial"}
