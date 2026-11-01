@@ -136,6 +136,10 @@ class Body:
         return cls(name, float(b["mu_km3_s2"]), float(b["j2"]), float(b["r_eq_km"]), float(b["radius_km"]),
                    frames.unit(float(b["pole_ra_deg"]), float(b["pole_dec_deg"])))
 
+    def equator(self) -> np.ndarray:
+        """Columns: its equatorial axes in ICRF (scn.equator_axes)."""
+        return scn.equator_axes(self.name)
+
     def accel(self, r: np.ndarray) -> np.ndarray:
         """Two-body + J2 acceleration (km/s2) of positions r (n, 3)."""
         rn2 = np.einsum("ij,ij->i", r, r)
@@ -247,7 +251,7 @@ def preview_path(body: Body, third: Optional[ThirdBodies], r0: np.ndarray, v0: n
 
 
 def elements_to_state(o: dict, mu: float) -> Tuple[np.ndarray, np.ndarray]:
-    """(r km, v km/s) of Keplerian elements a, e, i, raan, argp, nu (closed orbit), ICRF axes."""
+    """(r km, v km/s) of Keplerian elements a, e, i, raan, argp, nu (closed orbit), in the axes they are given in."""
     a, e = float(o["a_km"]), float(o["e"])
     i, W, w, nu = (math.radians(float(o[k])) for k in ("i_deg", "raan_deg", "argp_deg", "nu_deg"))
     p = a * (1.0 - e * e)
@@ -258,6 +262,29 @@ def elements_to_state(o: dict, mu: float) -> Tuple[np.ndarray, np.ndarray]:
                   [sW * cw + cW * sw * ci, -sW * sw + cW * cw * ci, -cW * si],
                   [sw * si, cw * si, ci]])
     return m @ r_pf, m @ v_pf
+
+
+def state_to_elements(r: np.ndarray, v: np.ndarray, mu: float) -> dict:
+    """The Keplerian elements of a state, in the axes of r and v: elements_to_state's inverse, angles in [0, 360) deg. A
+    circular orbit counts its anomaly from the node (argp 0), an equatorial one its node from +X (raan 0)."""
+    r, v = np.asarray(r, float), np.asarray(v, float)
+    rn, h = float(np.linalg.norm(r)), np.cross(r, v)
+    hn = float(np.linalg.norm(h))
+    ev = ((v @ v - mu / rn) * r - (r @ v) * v) / mu
+    e = float(np.linalg.norm(ev))
+    n = np.array([-h[1], h[0], 0.0])
+    nn = float(np.linalg.norm(n))
+    node = n / nn if nn > 1e-9 * hn else np.array([1.0, 0.0, 0.0])
+    side = np.cross(h / hn, node)
+    if e > 1e-9:
+        w = math.atan2(float(ev @ side), float(ev @ node))
+        nu = math.atan2(float(r @ np.cross(h / hn, ev / e)), float(r @ ev / e))
+    else:
+        w, nu = 0.0, math.atan2(float(r @ side), float(r @ node))
+    return {"type": "elements", "a_km": 1.0 / (2.0 / rn - (v @ v) / mu), "e": e,
+            "i_deg": math.degrees(math.atan2(math.hypot(h[0], h[1]), h[2])),
+            "raan_deg": math.degrees(math.atan2(node[1], node[0])) % 360.0, "argp_deg": math.degrees(w) % 360.0,
+            "nu_deg": math.degrees(nu) % 360.0}
 
 
 def pnr_matrix(r: np.ndarray, v: np.ndarray) -> np.ndarray:
@@ -398,11 +425,15 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
     pn_on = np.zeros(n, bool)
     pn_done = np.zeros(n, bool)
 
+    axes = body.equator()
+
     def absolute(st: dict) -> np.ndarray:
+        """A state of the scenario, in the central body's equatorial axes, in ICRF."""
         if st["type"] == "state":
-            return np.concatenate([np.asarray(st["r_km"], float), np.asarray(st["v_kms"], float)])
-        r, v = elements_to_state(st, body.mu)
-        return np.concatenate([r, v])
+            r, v = np.asarray(st["r_km"], float), np.asarray(st["v_kms"], float)
+        else:
+            r, v = elements_to_state(st, body.mu)
+        return np.concatenate([axes @ r, axes @ v])
 
     x[0] = absolute(sc["ship"]["orbit"])
     active[0] = spawned[0] = True

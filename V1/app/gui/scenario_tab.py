@@ -50,10 +50,10 @@ def _f(key: str, label: str, kind: str = "float", **opt) -> Field:
 
 ORBIT_FIELDS: Dict[str, List[Field]] = {
     "elements": [_f("a_km", "semi-major axis (km)", min=1.0), _f("e", "eccentricity", min=0.0, max=0.999999, dec=6),
-                 _f("i_deg", "inclination (deg)", min=0.0, max=180.0), _f("raan_deg", "longitude of ascending node (deg)", min=-360.0, max=360.0),
+                 _f("i_deg", "inclination (deg, body equator)", min=0.0, max=180.0), _f("raan_deg", "longitude of ascending node (deg)", min=-360.0, max=360.0),
                  _f("argp_deg", "argument of perigee (deg)", min=-360.0, max=360.0),
                  _f("nu_deg", "true anomaly (deg)", min=-360.0, max=360.0)],
-    "state": [_f("r_km", "position (km, ICRF)", "vec3"), _f("v_kms", "velocity (km/s, ICRF)", "vec3", dec=6)],
+    "state": [_f("r_km", "position (km, body equator)", "vec3"), _f("v_kms", "velocity (km/s, body equator)", "vec3", dec=6)],
     "relative": [_f("range_km", "range from the ship (km)", min=0.001), _f("phi_deg", "azimuth (deg)", min=-360.0, max=360.0),
                  _f("eps_deg", "elevation (deg)", min=-90.0, max=90.0),
                  _f("frame", "direction frame", "choice", choices=("ship", "inertial")),
@@ -630,9 +630,9 @@ class ScenarioTab(QWidget):
         add = QMenu(self)
         add.addAction("Object", self.add_object)
         add.addAction("Group", self.add_group)
-        tree_box = QGroupBox("Elements")
+        tree_box = QWidget()
         tl = QVBoxLayout(tree_box)
-        tl.setContentsMargins(4, 4, 4, 4)
+        tl.setContentsMargins(0, 0, 0, 0)
         tl.setSpacing(0)
         head = QHBoxLayout()
         head.addStretch(1)
@@ -678,7 +678,10 @@ class ScenarioTab(QWidget):
         split_col.installEventFilter(self)                     # B9: the fit again when the column changes height
         self.tree.itemExpanded.connect(lambda _it: self._fit_form())
         self.tree.itemCollapsed.connect(lambda _it: self._fit_form())
-        self.left_col = split_col
+        self.left_col = QGroupBox("Elements")                  # the tree and the options of its element, one frame
+        cl = QVBoxLayout(self.left_col)
+        cl.setContentsMargins(4, 4, 4, 4)
+        cl.addWidget(split_col)
         split = QSplitter(Qt.Horizontal)
         split.addWidget(self.left_col)
         # (user, 29 October 2026) the information in a column right of the options column
@@ -764,7 +767,7 @@ class ScenarioTab(QWidget):
         tables = [sum(x.sizeHintForColumn(c) for c in range(x.columnCount())) + 2 * x.frameWidth() + 24
                   for x in self.form_holder.findChildren(QTableWidget)]
         bar = self.style().pixelMetric(QStyle.PM_ScrollBarExtent)
-        return max(tree, self.form_holder.sizeHint().width(), FORM_MIN_W, *tables) + bar + 8
+        return max(tree, self.form_holder.sizeHint().width(), FORM_MIN_W, *tables) + bar + 18
 
     def _widen_column(self) -> None:
         """The column widened, at the 3D view's expense, when a form needs more than any before it; a width set by

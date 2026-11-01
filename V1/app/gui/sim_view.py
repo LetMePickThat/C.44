@@ -120,7 +120,7 @@ TEXT_COLOR = "#e6e6e6"
 # the widest Info lines of an object or the ship (side_width: the column fits them and the bodies' facts)
 INFO_WIDEST = ("classification\tsuspect", "reference frame\tICRF / earth", "position x\t-1234567.890 km", "velocity x\t-12.34567 km/s",
                "block loss\t12.34 dB / pass", "rate x\t-12.345 deg/s", "range\t1234567.890 km", "Sun hidden\t100 %",
-               "closest approach in\t> 12345.6 s (after the end)", "closest distance\t< 1234567.890 km",
+               "longitude of ascending node\t359.999 deg", "closest approach in\t> 12345.6 s (after the end)", "closest distance\t< 1234567.890 km",
                "radar cross section (Ku band)\t-123.4 dBsm")
 SYMBOL_DIR = cgeo.MOON_TEXTURE_PATH.parent.parent / "symbols"   # assets/symbols: <classification>_<class>.png
 SYMBOL_PX = 42                                    # px: a symbol on screen in the 3D views (user, 30 October 2026: 28 x 1.5)
@@ -3925,7 +3925,7 @@ class SimView(QWidget):
             n_a = enc.orbit_normal(r_a, v_a)
             n_b = None if tgt is None else enc.orbit_normal(r_b, v_b)
             c = self._enc_cache = (tr, sel.tobytes(), pair, pre_a, pre_b, n_a, n_b,
-                                   enc.crossings(tr.t_s, r_a, tr.body.pole),
+                                   enc.crossings(tr.t_s, r_a, tr.body.equator()[:, 2]),
                                    [] if tgt is None else enc.crossings(tr.t_s, r_a, n_b))
         return c[5:]
 
@@ -3964,7 +3964,7 @@ class SimView(QWidget):
         color = self._rgb_text(sel[0])                # the nodes in the colour of the path they lie on
         if self._global() or 0 not in sel:            # (the ship view draws no path of its own for OWNSHIP)
             self._node_marks("eqnode", enc.next_nodes(equator, self.t), "equator",
-                             lambda x: enc.angle_deg(n_a[x.k], tr.body.pole), color, EQ_NODE_UP, EQ_NODE_DOWN,
+                             lambda x: enc.angle_deg(n_a[x.k], tr.body.equator()[:, 2]), color, EQ_NODE_UP, EQ_NODE_DOWN,
                              at, texts)
             self._node_marks("tgnode", enc.next_nodes(nodes, self.t), "target plane",
                              lambda x: enc.angle_deg(n_a[x.k], n_b[x.k]), color, NODE_UP, NODE_DOWN,
@@ -4044,9 +4044,8 @@ class SimView(QWidget):
         # short labels (user): charact. = characterisation (class), classif. = classification (identity)
         lines = [_kv("name", self.selected), _kv("characterisation", g.classes[j]), _kv("classification", ident),
                  _kv("time", f"{self.t:.2f} s")]
-        lines += _vec_lines("position", r[i], "km", 3) + _vec_lines("velocity", v[i], "km/s", 5)
-        lines += [_kv("reference frame", f"ICRF / {tr.body.name}"), self._inclination_line(r[i], v[i]),
-                  _kv("range", f"{rng:.3f} km"), _kv("range rate", f"{rr:+.1f} m/s")]
+        lines += self._orbit_lines(r[i], v[i])
+        lines += [_kv("range", f"{rng:.3f} km"), _kv("range rate", f"{rr:+.1f} m/s")]
         lines += self._cpa_lines(i, j)                # closest approach to OWNSHIP (user, 29 October 2026)
         lines.append(_kv("radar face", f"F{f + 1}" if f >= 0 else "none"))
         if f >= 0:
@@ -4116,9 +4115,17 @@ class SimView(QWidget):
         return [_kv("closest approach in", f"{t_cpa - self.t:.1f} s" if t_cpa > self.t + 1e-6 else "now (receding)"),
                 _kv("closest distance", dist)]
 
-    def _inclination_line(self, r: np.ndarray, v: np.ndarray) -> str:
-        """The orbit's inclination on the central body's equator (user, 1 November 2026)."""
-        return _kv("inclination", f"{enc.angle_deg(enc.orbit_normal(r, v), self.truth.body.pole):.3f} deg")
+    def _orbit_lines(self, r: np.ndarray, v: np.ndarray) -> List[str]:
+        """The state and the orbital elements in the central body's equatorial axes (user, 1 November 2026)."""
+        body = self.truth.body
+        r, v = r @ body.equator(), v @ body.equator()
+        el = prop.state_to_elements(r, v, body.mu)
+        return (_vec_lines("position", r, "km", 3) + _vec_lines("velocity", v, "km/s", 5) +
+                [_kv("reference frame", f"{body.name} equator"), _kv("semi-major axis", f"{el['a_km']:.3f} km"),
+                 _kv("eccentricity", f"{el['e']:.6f}"), _kv("inclination", f"{el['i_deg']:.3f} deg"),
+                 _kv("longitude of ascending node", f"{el['raan_deg']:.3f} deg"),
+                 _kv("argument of periapsis", f"{el['argp_deg']:.3f} deg"),
+                 _kv("true anomaly", f"{el['nu_deg']:.3f} deg")])
 
     def _show_body_info(self, name: str) -> None:
         """A celestial body's facts (assets/celestial_info.json), one per line, and nothing else (user)."""
@@ -4138,9 +4145,8 @@ class SimView(QWidget):
         k = self._k()
         alt = float(np.linalg.norm(r[0])) - tr.body.radius_km
         lines = [_kv("name", self.own_name()), _kv("classification", OWNSHIP_IDENTITY), _kv("time", f"{self.t:.2f} s")]
-        lines += _vec_lines("position", r[0], "km", 3) + _vec_lines("velocity", v[0], "km/s", 5)
-        lines += [_kv("reference frame", f"ICRF / {tr.body.name}"), self._inclination_line(r[0], v[0]),
-                  _kv("altitude", f"{alt:.1f} km"),
+        lines += self._orbit_lines(r[0], v[0])
+        lines += [_kv("altitude", f"{alt:.1f} km"),
                   _kv("speed", f"{1e3 * float(np.linalg.norm(v[0])):.1f} m/s")]
         lines += _vec_lines("nose direction", m[:, 2], "", 4)                        # the ship's Z axis, ICRF
         lines += _vec_lines("turn rate", w, "deg/s", 3)                         # ship frame

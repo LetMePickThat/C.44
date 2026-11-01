@@ -851,10 +851,24 @@ def test_equatorial_orbit():
     for name, b in scn.bodies().items():
         o = scn.equatorial_orbit(name)
         r, v = prop.elements_to_state(o, b["mu_km3_s2"])
+        axes = scn.equator_axes(name)
         ra, dec = np.radians(b["pole_ra_deg"]), np.radians(b["pole_dec_deg"])
         pole = np.array([np.cos(dec) * np.cos(ra), np.cos(dec) * np.sin(ra), np.sin(dec)])
         assert np.linalg.norm(r) == pytest.approx(1.5 * b["r_eq_km"])
-        assert np.cross(r, v) / np.linalg.norm(np.cross(r, v)) == pytest.approx(pole, abs=1e-9)
+        h = axes @ np.cross(r, v)
+        assert h / np.linalg.norm(h) == pytest.approx(-pole if name in ("venus", "uranus") else pole, abs=1e-9)
+        assert axes @ axes.T == pytest.approx(np.eye(3), abs=1e-12) and np.linalg.det(axes) == pytest.approx(1.0)
+    assert np.array_equal(scn.equator_axes("earth"), np.eye(3))
+
+
+def test_state_to_elements():
+    """P73: the state of elements gives them back; circular and equatorial orbits by the conventions of the docstring."""
+    o = {"a_km": 7000.0, "e": 0.1, "i_deg": 120.0, "raan_deg": 40.0, "argp_deg": 300.0, "nu_deg": 77.0}
+    el = prop.state_to_elements(*prop.elements_to_state(o, 398600.0), 398600.0)
+    assert all(el[k] == pytest.approx(x, abs=1e-8) for k, x in o.items())
+    o = {"a_km": 7000.0, "e": 0.0, "i_deg": 0.0, "raan_deg": 0.0, "argp_deg": 0.0, "nu_deg": 33.0}
+    el = prop.state_to_elements(*prop.elements_to_state(o, 398600.0), 398600.0)
+    assert el["i_deg"] == pytest.approx(0.0) and el["nu_deg"] == pytest.approx(33.0)
 
 
 def test_action_list():

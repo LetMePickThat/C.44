@@ -15,7 +15,8 @@ It describes the WORLD only (the radar is the mission file it cites); values of 
             "attitude": [WAYPOINT, ...] (sim/attitude.py; default prograde, roll 0)},
    "objects": [OBJECT, ...], "groups": [GROUP, ...]}
 
-  ORBIT     {"type": "state", "r_km": [x, y, z], "v_kms": [x, y, z]}   (ICRF axes, from the body centre)
+  ORBIT     {"type": "state", "r_km": [x, y, z], "v_kms": [x, y, z]}   (the central body's equatorial axes, equator_axes,
+                                                                        from its centre)
           | {"type": "elements", "a_km", "e", "i_deg", "raan_deg", "argp_deg", "nu_deg"}
   WAYPOINT  {"t_s", "rate_dps", "attitude": fixed in the orbital or inertial frame | prograde | retrograde | normal+ |
              normal- | radial_out | radial_in | toward a target}            (format and axes: sim/attitude.py, pass S3a)
@@ -51,6 +52,9 @@ import os
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
+import numpy as np
+
+from core import frames
 from core import radar_model as rm
 from core.params import P
 
@@ -105,14 +109,29 @@ def bodies() -> Dict[str, dict]:
     return out
 
 
+def equator_axes(body: str) -> np.ndarray:
+    """Columns: the axes of a central body's equatorial frame in ICRF (user, 1 November 2026): Z the pole about which
+    the body turns anticlockwise (the IAU pole, reversed for Venus or Uranus: an inclination below 90 deg is an orbit
+    in the sense of its rotation), X the ascending node of its equator on the ICRF equator. The orbits of a scenario are
+    given in these axes. The Earth: ICRF itself."""
+    b = bodies()[body]
+    z = frames.unit(float(b["pole_ra_deg"]), float(b["pole_dec_deg"]))
+    if body in P.section("sim.planets") and float(P.get(f"sim.planets.{body}")["rate_deg_day"]) < 0.0:
+        z = -z
+    x = np.cross([0.0, 0.0, 1.0], z)
+    n = float(np.linalg.norm(x))
+    if n < 1e-9:
+        return np.eye(3) if z[2] > 0.0 else np.diag([1.0, -1.0, -1.0])
+    x = x / n
+    return np.column_stack([x, np.cross(z, x), z])
+
+
 def equatorial_orbit(body: str) -> dict:
-    """The circular prograde orbit in a body's equatorial plane, at sim.new_body_orbit_radii equatorial radii: the
-    ship's orbit when the central body changes (user, 30 October 2026). The ascending node on the ICRF equator lies at
-    90 deg east of the pole's right ascension, the inclination is the pole's angle from the ICRF Z axis."""
+    """The circular orbit in a body's equatorial plane, in the sense of its rotation, at sim.new_body_orbit_radii
+    equatorial radii: the ship's orbit when the central body changes (user, 30 October 2026)."""
     b = bodies()[body]
     return {"type": "elements", "a_km": float(P.get("sim.new_body_orbit_radii")) * b["r_eq_km"], "e": 0.0,
-            "i_deg": 90.0 - b["pole_dec_deg"], "raan_deg": (b["pole_ra_deg"] + 90.0) % 360.0, "argp_deg": 0.0,
-            "nu_deg": 0.0}
+            "i_deg": 0.0, "raan_deg": 0.0, "argp_deg": 0.0, "nu_deg": 0.0}
 
 
 def sky_types(body: str) -> List[str]:
@@ -140,7 +159,7 @@ def _check_orbit(o, tag: str, err: List[str], relative_ok: bool) -> None:
     t = o["type"]
     if t == "state":
         if not _vec(o.get("r_km")) or not _vec(o.get("v_kms")):
-            err.append(f"{tag}: 'state' needs r_km and v_kms, 3 numbers each (km, km/s, ICRF axes)")
+            err.append(f"{tag}: 'state' needs r_km and v_kms, 3 numbers each (km, km/s, the central body's equatorial axes)")
     elif t == "elements":
         miss = [k for k in ("a_km", "e", "i_deg", "raan_deg", "argp_deg", "nu_deg") if not _num(o.get(k))]
         if miss:
