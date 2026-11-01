@@ -56,7 +56,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pyvista as pv
-from vtkmodules.util.numpy_support import numpy_to_vtk
+from vtkmodules.util.numpy_support import numpy_to_vtk, vtk_to_numpy
 from PyQt5.QtCore import QThread, QTimer, Qt, pyqtSignal
 from PyQt5.QtWidgets import (QButtonGroup, QMenu, QToolButton, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
                              QMessageBox, QProgressBar, QPushButton, QShortcut, QVBoxLayout, QWidget)
@@ -132,6 +132,9 @@ MULTITRACK_OFF_KM = float(P.get("tool.display.sim_multitrack_off_km"))   # ... n
 MT_COUNT_GAP_PX = 4.5                             # ... the number this far under the symbol (D)
 MT_SEL = "<multi>"                                # a multitrack's selection key: MT_SEL + its members' ids, "|"
 SELECT_COLOR = "#ffffff"
+BODY_KNOT_S = 30.0                                # s of the run between two computations of the bodies' places
+ORBIT_KEEP_PX = 0.25                              # px: a body's orbit moved less than this on screen stays as drawn
+CLIP_EVERY = 15                                   # frames between two clipping computations, the camera still
 # the data boxes kept apart (user, 1 November 2026, _place_boxes): (x, y) directions of the eight places, the first the
 # usual one, right of the symbol
 BOX_PLACES = ((1, 0), (-1, 0), (0, -1), (0, 1), (1, -1), (-1, -1), (1, 1), (-1, 1))
@@ -616,6 +619,27 @@ def _nice(x: float) -> float:
 def _pairs(n: int) -> np.ndarray:
     """Lines of segment j from point j to point n + j."""
     return np.column_stack([np.full(n, 2), np.arange(n), n + np.arange(n)]).ravel()
+
+
+def _set_user_matrix(actor, u: np.ndarray) -> None:
+    """actor.user_matrix = u (4, 4) at a tenth of its cost: 50 bodies are placed at each frame."""
+    m = actor.GetUserMatrix()
+    if m is None:
+        actor.user_matrix = u
+    else:
+        m.DeepCopy(u.ravel().tolist())
+
+
+def _set_points(mesh, pts: np.ndarray) -> None:
+    """mesh.points = pts, in place when the count is the same (pyvista's setter costs 0.1 ms: 100 meshes per frame)."""
+    data = mesh.GetPoints().GetData()
+    view = vtk_to_numpy(data)
+    if view.shape != pts.shape:
+        mesh.points = pts
+        return
+    view[:] = pts
+    data.Modified()
+    mesh.GetPoints().Modified()
 
 
 def _as_groups(rows) -> List[np.ndarray]:
@@ -1233,6 +1257,11 @@ class SimView(QWidget):
                              on_click=self._on_right_click)
         self.target_key: Optional[str] = None          # the target's selection key (_rows_of)
         self._glyphs: Dict[str, tuple] = {}
+        self._poly_color: Dict[str, Optional[str]] = {}  # the colour each dynamic actor has (_poly)
+        self._body_knots: tuple = (None, {})            # the ephemerides at the knots around t (_bodies_at)
+        self._moon_mats: Dict[str, np.ndarray] = {}     # each moon's last turn (_ship_bodies)
+        self._orbit_last: Dict[str, tuple] = {}         # each orbit as last drawn (_orbit_kept)
+        self._clip_state = (-1, 0)                      # the camera's time at the last clipping, frames since (_clip)
         self._box_slots: Dict[tuple, int] = {}          # each data box's place (_place_boxes)
         self.plotter.iren.interactor.AddObserver("LeftButtonPressEvent", self._on_click, 1.0)
         # the manoeuvre node (user, 29 October 2026): its own presses before the click above
@@ -1867,6 +1896,8 @@ class SimView(QWidget):
                 near_t = np.linspace(t_lo, t_hi, BODY_ORBIT_NEAR)
                 near = np.array([self._orbit_rel(b, float(t)) for t in near_t])
                 nc[b] = (id(self.truth), ts, near_t, near)
+            if self._orbit_kept(b, now[parent], rel, near):
+                continue
             before, after = ts < t_lo + 1e-9, ts > t_hi - 1e-9
             pieces = [rel[before], rel[after]]
             pts = [p_ for p_ in pieces if len(p_) >= 1]
@@ -1882,6 +1913,27 @@ class SimView(QWidget):
                            line_width=1, opacity=0.7)                # (its body's dominant colour, user)
             self._poly(f"{DYN}orbit_{b}_near", now[parent] + near, lines=np.r_[len(near), np.arange(len(near))],
                        color=_body_color(b), line_width=1, opacity=0.7)
+
+    def _orbit_kept(self, b: str, parent: np.ndarray, rel: np.ndarray, near: np.ndarray) -> bool:
+        """Whether the orbit of b, drawn about its parent's former place, stays as it is: same points and the parent
+        moved less than ORBIT_KEEP_PX on screen where the orbit is nearest to the camera (user, 1 November 2026: its 51
+        orbits were sent to the graphics card at each frame). Else it remembers the place of this drawing."""
+        last = self._orbit_last.get(b)
+        if last is None or last[0] is not rel or last[1] is not near or last[3] is not self.truth:
+            self._orbit_last[b] = (rel, near, parent, self.truth, float(np.linalg.norm(rel, axis=1).max()))
+            return False
+        cam = self.plotter.camera
+        depth = max(float(np.linalg.norm(parent - np.asarray(cam.GetPosition()))) - last[4], 0.0)
+        px_size = depth * 2.0 * math.tan(math.radians(0.5 * cam.GetViewAngle())) / max(self.plotter.ren_win.GetSize()[1], 1)
+        if float(np.linalg.norm(parent - last[2])) >= ORBIT_KEEP_PX * px_size:
+            self._orbit_last[b] = (*last[:2], parent, *last[3:])
+            return False
+        for name in (f"{DYN}orbit_{b}", f"{DYN}orbit_{b}_near"):
+            e = self._dyn.get(name)
+            if e is not None:
+                self._used.add(name)
+                e[2].SetVisibility(True)
+        return True
 
     def _orbit_rel(self, b: str, t: float) -> np.ndarray:
         """The body b about its parent at t (km, ICRF axes)."""
@@ -1923,11 +1975,11 @@ class SimView(QWidget):
             if a is not None:
                 u = np.eye(4)
                 u[:3, :3], u[:3, 3] = m, pos
-                a.user_matrix = u
+                _set_user_matrix(a, u)
             if b == "earth" and self._actor("body_earth_atm") is not None:
                 u = np.eye(4)
                 u[:3, :3], u[:3, 3] = float(scn.bodies()["earth"]["radius_km"]) * np.eye(3), pos
-                self._actor("body_earth_atm").user_matrix = u
+                _set_user_matrix(self._actor("body_earth_atm"), u)
         halo = self._actor("body_sun_halo")
         if halo is not None:
             _place_halo(self.plotter, halo, pos_b["sun"], eph_sun_radius_km())
@@ -1945,7 +1997,7 @@ class SimView(QWidget):
                 if a is not None:
                     u = np.eye(4)
                     u[:3, :3], u[:3, 3] = k * m, pos_b[name]
-                    a.user_matrix = u
+                    _set_user_matrix(a, u)
             drawn[name] = (pos_b[name], rad)
         for name in ("sun", "earth", "moon"):          # a dot too when too small (user, 29 October 2026)
             drawn[name] = (pos_b[name], self._body_radius(name))
@@ -1965,22 +2017,44 @@ class SimView(QWidget):
         """A moon's actor in the global view at t (two ephemeris calls for its turn: only the moons shown)."""
         u = np.eye(4)
         u[:3, :3], u[:3, 3] = self._moon_matrix_of(name, True), self._bodies_at()[name]
-        a.user_matrix = u
+        _set_user_matrix(a, u)
 
     def _bodies_at(self) -> Dict[str, np.ndarray]:
-        """Earth, Moon and Sun at t, km from the central body (true places); once per instant of the run shown."""
+        """Earth, Moon and Sun at t, km from the central body (true places); once per instant of the run shown. The
+        50 bodies' ephemerides are computed at every BODY_KNOT_S of the run, a parabola through the three knots
+        around t between them (about 3 ms per frame saved; 3 m at most, for Metis); at the highest speeds, where a
+        frame jumps over the knots, directly."""
         c = getattr(self, "_bodies_cache", None)
         if c is not None and c[0] is self.truth and c[1] == self.t:
             return c[2]
-        T = eph.centuries_tt(scn.epoch(self.sc), self.t)
+        if c is not None and c[0] is self.truth and abs(self.t - c[1]) < BODY_KNOT_S:
+            k = int(round(self.t / BODY_KNOT_S))
+            u = self.t / BODY_KNOT_S - k
+            knots = self._body_knots if self._body_knots[0] is self.truth else (self.truth, {})
+            self._body_knots = knots
+            for j in (k - 1, k, k + 1):
+                if j not in knots[1]:
+                    knots[1][j] = self._bodies_exact(j * BODY_KNOT_S)
+            if len(knots[1]) > 6:
+                for j in [j for j in knots[1] if abs(j - k) > 1]:
+                    del knots[1][j]
+            a, b, d = (knots[1][k + j] for j in (-1, 0, 1))
+            w_a, w_b, w_d = 0.5 * u * (u - 1.0), 1.0 - u * u, 0.5 * u * (u + 1.0)
+            out = {n: w_a * a[n] + w_b * b[n] + w_d * d[n] for n in b}
+        else:
+            out = self._bodies_exact(self.t)
+        self._bodies_cache = (self.truth, self.t, out)
+        return out
+
+    def _bodies_exact(self, t: float) -> Dict[str, np.ndarray]:
+        """The bodies at t from the ephemerides."""
+        T = eph.centuries_tt(scn.epoch(self.sc), t)
         moon, sun = eph.moon_icrf_km(T), eph.sun_icrf_km(T)
         geo_ = {"earth": np.zeros(3), "moon": moon, "sun": sun}
         geo_.update({p: eph.planet_icrf_km(p, T) for p in PLANET_NAMES.values()})
         geo_.update({m: geo_[MOON_DATA[m]["planet"]] + eph.satellite_planetocentric_km(m, T) for m in MOON_DATA})
         centre = geo_[self.truth.body.name]          # (any body as the central one, user 30 October 2026)
-        out = {b: x - centre for b, x in geo_.items()}
-        self._bodies_cache = (self.truth, self.t, out)
-        return out
+        return {b: x - centre for b, x in geo_.items()}
 
     def _actor(self, name: str):
         """An actor by its name (the dynamic ones, else the bodies', kept: plotter.actors rebuilds its whole dict at
@@ -2131,6 +2205,10 @@ class SimView(QWidget):
         ren = self.plotter.renderer
         cam = ren.GetActiveCamera()
         self._log_depth()
+        when, age = self._clip_state
+        if cam.GetMTime() == when and age < CLIP_EVERY:    # (the camera still: VTK's walk through 176 actors, 4 ms)
+            self._clip_state = (when, age + 1)
+            return
         self._in_camera = True                        # a clipping change only: no zoom bound, no ring update
         try:
             ren.ResetCameraClippingRange()
@@ -2139,6 +2217,7 @@ class SimView(QWidget):
             cam.SetClippingRange(near, max(far, 1.01 * near))
         finally:
             self._in_camera = False
+        self._clip_state = (cam.GetMTime(), 0)
 
     def _log_depth(self) -> None:
         """Every actor of the scene writes a logarithmic depth (LOG_DEPTH_*): a relative precision of 3e-6 at any
@@ -2436,7 +2515,7 @@ class SimView(QWidget):
             u[:3, :3] = rot
             u[:3, 3] = self._array_view
             for a in acts:
-                a.user_matrix = u
+                _set_user_matrix(a, u)
             pts.append(rot @ c + self._array_view)
         lab = vol.get("labels")
         if lab is not None:
@@ -2878,7 +2957,7 @@ class SimView(QWidget):
         key = (len(pts), None if lines is None else lines.tobytes(), rgb is not None, cell_rgb is not None)
         if e is not None and (e[0] == key or (lines is not None and e[0][1] is not None and e[0][2:] == key[2:])):
             mesh = e[1]
-            mesh.points = np.asarray(pts, float)
+            _set_points(mesh, np.asarray(pts, float))
             if e[0] != key:                            # other lines (dashes at each frame): the actor kept
                 mesh.lines = lines
                 e[0] = key
@@ -2887,7 +2966,8 @@ class SimView(QWidget):
             if cell_rgb is not None:
                 mesh.cell_data["rgb"] = cell_rgb
             mesh.Modified()
-            if "color" in style:                       # (one name may serve several bodies: the node's path, a mark)
+            if style.get("color", self._poly_color.get(name)) != self._poly_color.get(name):
+                self._poly_color[name] = style["color"]    # (one name may serve several bodies: the node's path, a mark)
                 e[2].GetProperty().SetColor(*pv.Color(style["color"]).float_rgb)
             e[2].SetVisibility(True)
             return
@@ -2903,6 +2983,7 @@ class SimView(QWidget):
             kw.update(scalars="rgb", rgb=True, preference="point" if rgb is not None else "cell")
         actor = self.plotter.add_mesh(mesh, name=name, render=False, **kw)
         self._dyn[name] = [key, mesh, actor]
+        self._poly_color[name] = style.get("color")
 
     def _row_symbol(self, i: int) -> Optional[str]:
         """The symbol file of a row of the truth (0: OWNSHIP)."""
@@ -3594,7 +3675,9 @@ class SimView(QWidget):
         mats = {"earth": _earth_matrix(scn.epoch(self.sc), self.t),
                 "moon": _moon_matrix(bodies["moon"] - bodies["earth"]), "sun": _sun_matrix(scn.epoch(self.sc), self.t)}
         mats.update({p: _iau_matrix(PLANET_DATA[p], scn.epoch(self.sc), self.t) for p in PLANET_NAMES.values()})
-        mats.update({m: self._moon_matrix_of(m, False) for m in MOON_DATA})
+        cam = self.plotter.camera
+        pos = np.asarray(cam.GetPosition())
+        px = 2.0 * math.tan(math.radians(0.5 * cam.GetViewAngle())) / max(self.plotter.ren_win.GetSize()[1], 1)
         pts, names = [], []
         self._planets_drawn = {}
         for b in ("earth", "moon", "sun") + tuple(PLANET_NAMES.values()) + tuple(MOON_DATA):
@@ -3618,11 +3701,16 @@ class SimView(QWidget):
                                             color=None if tex is not None else col,
                                             lighting=(b in ("earth", "moon")), ambient=0.12, name=name, render=False)
                 e = self._dyn[name] = [None, None, act]
+            if b in MOON_DATA:                                             # (two ephemeris calls: a moon wider than
+                seen = size >= px * float(np.linalg.norm(centre - pos))    # a pixel only; 41 moons took 9 ms a frame)
+                if seen or b not in self._moon_mats:
+                    self._moon_mats[b] = self._moon_matrix_of(b, False)
+                mats[b] = self._moon_mats[b]
             u = np.eye(4)
             shape = _shape_mesh(b) is not None                          # (a shape model: in km already)
             u[:3, :3] = (1.0 if shape else size) * (m_ship.T @ mats[b])
             u[:3, 3] = centre
-            e[2].user_matrix = u
+            _set_user_matrix(e[2], u)
             e[2].SetVisibility(True)
             if b == "earth":                                               # the atmosphere's halo at the limb
                 self._used.add(name + "_atm")
@@ -3631,7 +3719,7 @@ class SimView(QWidget):
                     h = self._dyn[name + "_atm"] = [None, None, _add_atmosphere(self.plotter, name + "_atm")]
                 ua = np.eye(4)
                 ua[:3, :3], ua[:3, 3] = size * np.eye(3), centre
-                h[2].user_matrix = ua
+                _set_user_matrix(h[2], ua)
                 h[2].SetVisibility(True)
             self._planets_drawn[b] = (centre, size)                         # a dot when too small (_planet_marks)
             if b in PLANET_DATA:
@@ -3645,7 +3733,7 @@ class SimView(QWidget):
                             lighting=False, name=f"{DYN}sbody_saturn_rings", render=False)]
                     ur = np.eye(4)
                     ur[:3, :3], ur[:3, 3] = m_ship.T @ mats[b], centre
-                    h[2].user_matrix = ur
+                    _set_user_matrix(h[2], ur)
             if b == "sun":                                                 # its halo, at its true size too
                 self._used.add(name + "_halo")
                 h = self._dyn.get(name + "_halo")
