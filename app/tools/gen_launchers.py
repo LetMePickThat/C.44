@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-GEN_LAUNCHERS -- builds the two launchers at the root of V1/ from tools/launcher.cs, with the C# compiler that comes with
+GEN_LAUNCHERS -- builds the two launchers at the root of the repository from tools/launcher.cs, with the C# compiler that comes with
 Windows (.NET Framework 4). The icon is embedded in the .exe, so it needs no path and shows from the first clone on, on any
 machine and in any folder. Each .exe starts the .bat of its own name in app/.
 Run again whenever the icon or launcher.cs changes:

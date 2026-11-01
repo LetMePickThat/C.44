@@ -667,13 +667,17 @@ def propagate(sc: dict, progress_cb=None) -> Truth:
     pn_update(0.0, x.copy())
     record(0, 0.0)
     j_log, e_ptr = 1, 0
+    fleet = att.Fleet(flyers, idx) if fast.USE_NUMBA else None
     for k in range(n_steps):
         t0, t1 = k * dt, min((k + 1) * dt, duration)
         prev = x.copy()
         now[0] = t0
-        for i in att_rows:                                # attitudes advanced on the states at the step start
-            if active[i] and flyers[i].m is not None:
-                flyers[i].step(t0, t1 - t0, x[i, :3], x[i, 3:], tpos)
+        if fleet is not None:                             # attitudes advanced on the states at the step start
+            fleet.step(t0, t1 - t0, x, active)
+        else:
+            for i in att_rows:
+                if active[i] and flyers[i].m is not None:
+                    flyers[i].step(t0, t1 - t0, x[i, :3], x[i, 3:], tpos)
         t = t0
         while e_ptr < len(events) and events[e_ptr] <= t0 + 1e-9:
             e_ptr += 1

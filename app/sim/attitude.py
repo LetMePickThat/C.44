@@ -43,6 +43,8 @@ from . import fast
 
 TYPES = ("fixed", "prograde", "retrograde", "normal+", "normal-", "radial_out", "radial_in", "target")
 FIXED_FRAMES = ("orbital", "inertial")
+KINDS = {"prograde": 2, "retrograde": 3, "normal+": 4, "normal-": 5, "radial_out": 6, "radial_in": 7, "target": 8}
+                                                    # (sim/fast._goal; 0 and 1: fixed, orbital and inertial)
 FLYING_CLASSES = ("SHIP", "KKV")                    # object classes that may fly waypoints (user)
 RATE_MAX_DPS = float(P.get("repointing.rate_max_dps"))
 ACCEL_MAX_DPS2 = float(P.get("repointing.accel_max_dps2"))
@@ -229,18 +231,121 @@ DEFAULT_SHIP = [{"t_s": 0.0, "attitude": {"type": "prograde", "roll_deg": 0.0}}]
 
 
 # ----------------------------------------------------------------------------- the follower
+class _Held:
+    """A flyer's state: in its fleet's array once in a fleet (sim/fast.fleet_step), else its own."""
+
+    def __init__(self, array: str):
+        self.array = array
+
+    def __set_name__(self, _owner, name: str) -> None:
+        self.own = "_" + name
+
+    def __get__(self, o, _owner=None):
+        return getattr(o, self.own) if o._fleet is None else getattr(o._fleet, self.array)[o._j]
+
+    def __set__(self, o, value) -> None:
+        if o._fleet is None:
+            setattr(o, self.own, value)
+        else:
+            getattr(o._fleet, self.array)[o._j] = value
+
+
+class Fleet:
+    """All the flyers of a run stepped at once by the compiled sim/fast.fleet_step (1000 objects: a third of the
+    propagation went through Flyer.step, object by object); same steps, same events as Flyer.step. The flyers read and
+    write their state in its arrays; Python only at a change of waypoint and at an event."""
+
+    def __init__(self, flyers: Dict[int, "Flyer"], index: Dict[str, int]):
+        self.flyers = [flyers[i] for i in sorted(flyers)]
+        self.index = index
+        n = len(self.flyers)
+        self.rows = np.array([f.row for f in self.flyers], np.int64)
+        self.kind, self.target = np.zeros(n, np.int64), np.full(n, -1, np.int64)
+        self.roll, self.rate, self.next_t = np.zeros(n), np.zeros(n), np.zeros(n)
+        self.fixed = np.zeros((n, 3, 3))
+        self.M, self.W = np.zeros((n, 3, 3)), np.zeros((n, 3))
+        self.phi, self.err = np.zeros(n), np.zeros(n)
+        self.has = np.zeros(n, bool)
+        self.reached, self.lost = np.zeros(n, bool), np.zeros(n, bool)
+        self.flags = np.zeros(n, np.int64)
+        for j, f in enumerate(self.flyers):
+            m, w, reached, lost, err = f.m, f.w, f.reached, f.lost, f._err_deg
+            f._fleet, f._j = self, j
+            if m is not None:
+                f.m = m
+            f.w, f.reached, f.lost, f._err_deg = w, reached, lost, err
+            self._load(j)
+
+    def _load(self, j: int) -> None:
+        """The arrays of the current waypoint of flyer j."""
+        f = self.flyers[j]
+        a = f.wps[f.k]["attitude"]
+        self.kind[j] = KINDS.get(a["type"], 0)
+        self.roll[j] = math.radians(float(a.get("roll_deg", 0.0)))
+        if a["type"] == "fixed":
+            e = euler(a["yaw_deg"], a["pitch_deg"], a["roll_deg"])
+            self.kind[j], self.fixed[j] = (0, e) if a["frame"] == "orbital" else (1, f.axes @ e)
+        self.target[j] = self.index.get(a["id"], -1) if a["type"] == "target" else -1
+        self.rate[j] = math.radians(RATE_MAX_DPS if f.k == 0 else float(f.wps[f.k]["rate_dps"]))
+        self.next_t[j] = float(f.wps[f.k + 1]["t_s"]) if f.k + 1 < len(f.wps) else math.inf
+
+    def step(self, t0: float, dt: float, x: np.ndarray, active: np.ndarray) -> None:
+        """Advance the flyers of the active rows that have an attitude from t0 to t0 + dt; x (n, 6) at t0."""
+        sel = np.flatnonzero(active[self.rows] & self.has)
+        for j in sel[self.next_t[sel] <= t0 + 1e-9]:
+            f = self.flyers[j]
+            if not f.reached:
+                f.events.append({"t_s": t0, "kind": "slew not finished", "waypoint": f.k, "error_deg": float(f._err_deg)})
+            f.k, f.reached, f.lost = f.k + 1, False, False
+            self._load(j)
+        fast.fleet_step(sel, self.rows, self.kind, self.roll, self.fixed, self.target, self.rate, active, x, dt,
+                        math.radians(ACCEL_MAX_DPS2), math.radians(RATE_MAX_DPS), REACHED_TOL_DEG, HOLD_TOL_DEG, self.M,
+                        self.W, self.phi, self.err, self.reached, self.lost, self.flags)
+        for j in sel[self.flags[sel] != 0]:
+            f, flag = self.flyers[j], int(self.flags[j])
+            if flag == 3:
+                f.events.append({"t_s": t0, "kind": "target missing", "waypoint": f.k})
+            elif flag == 1:
+                f.events.append({"t_s": t0 + dt, "kind": "hold lost (rate or acceleration limit)", "waypoint": f.k,
+                                 "error_deg": float(self.err[j])})
+            else:
+                f.events.append({"t_s": t0 + dt, "kind": "hold recovered", "waypoint": f.k})
+
+
 class Flyer:
     """The attitude of one body along its waypoints, advanced step by step (step())."""
 
+    w = _Held("W")
+    reached = _Held("reached")
+    lost = _Held("lost")
+    _err_deg = _Held("phi")
+
     def __init__(self, row: int, wps: List[dict], axes: np.ndarray = np.eye(3)):
+        self._fleet: Optional[Fleet] = None
+        self._j = -1
+        self._m: Optional[np.ndarray] = None
         self.row, self.wps, self.axes = row, wps, axes
         self.k = 0                                      # current waypoint
-        self.m: Optional[np.ndarray] = None             # body -> ICRF
         self.w = np.zeros(3)                            # angular velocity (rad/s, ICRF)
         self.reached = True
         self.lost = False
         self._err_deg = 0.0
         self.events: List[dict] = []
+
+    @property
+    def m(self) -> Optional[np.ndarray]:
+        """Body -> ICRF."""
+        if self._fleet is None:
+            return self._m
+        return self._fleet.M[self._j] if self._fleet.has[self._j] else None
+
+    @m.setter
+    def m(self, value: Optional[np.ndarray]) -> None:
+        if self._fleet is None:
+            self._m = value
+        else:
+            self._fleet.M[self._j] = value
+            self._fleet.has[self._j] = True
 
     def _goal(self, k: int, r, v, tpos) -> Optional[np.ndarray]:
         return target_attitude(self.wps[k]["attitude"], r, v, tpos, self.axes)

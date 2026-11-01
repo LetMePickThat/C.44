@@ -12,11 +12,11 @@ asked). Method: [[explain-before-coding]], [[ask-for-every-variable]], [[group-b
 [[test-values-not-reference]]; workflow and git: [[session-workflow]].
 
 AUTHORITATIVE DETAIL lives in the repo (French, kept up to date at every step):
-- V1/app/Documentation/Choix_architecturaux.md: every variable (definition, value, status, rationale), formulas,
+- app/Documentation/Choix_architecturaux.md: every variable (definition, value, status, rationale), formulas,
   provisional measures, open points, decision history per step (question tables).
-- V1/app/Documentation/Feuille_de_route.md: this roadmap in French with per-step decisions and renvois.
-- V1/app/tests/snapshots/JOURNAL.md: every refreeze of the test snapshots and its causes.
-- V1/app/radar_system.toml (source text of each entry) and the change log at the top of V1/app/core/radar_model.py.
+- app/Documentation/Feuille_de_route.md: this roadmap in French with per-step decisions and renvois.
+- app/tests/snapshots/JOURNAL.md: every refreeze of the test snapshots and its causes.
+- app/radar_system.toml (source text of each entry) and the change log at the top of app/core/radar_model.py.
 This memory is the index; if it and the repo disagree, the repo wins (then fix this file).
 
 **Why:** the user wants the rebuild driven step by step from this list, session after session, with no loss of info.
@@ -130,7 +130,7 @@ core/environment.py: ship primitives in [ship], masking, structure noise, surfac
 126 tests) were done on ANOTHER machine (laptop). Rules added there: threats / environment = MEDIAN or class mean
 (optimistic end only for our technology); V values never change without explicit user OK; repo neutrality
 ([[session-workflow]]). Repo §1.5 lists pending off-roadmap items, §1.6 working knowledge and reference timings.
-2026-10-22 (this machine): ship geometry = the user's 3D model V1/app/assets/models/LP_NISO.obj (reference for ALL masking /
+2026-10-22 (this machine): ship geometry = the user's 3D model app/assets/models/LP_NISO.obj (reference for ALL masking /
 element positions), model V6.10.1: length 149.46, width 74.68, hull diam 17.22, arrays at r 5.248 (panel front faces,
 tilt 25 deg confirmed by the ship designer); [ship.hull]/[ship.parts] removed; load-time checks of dims + apertures vs
 tilt; radiator material region V (user). COMMITTED 9ea4985 (pushed).

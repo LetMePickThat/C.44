@@ -5,12 +5,12 @@ metadata:
   type: feedback
 ---
 
-Layout (2026-11-01): V1 holds only the two .exe launchers (tools/gen_launchers.py, icon embedded, tracked) and app/, everything else; run every command from V1/app.
+Layout (2026-11-01): the repository root holds the two .exe launchers (tools/gen_launchers.py, icon embedded, tracked) and app/, everything else; run every command from app/.
 
 Language: the user writes in French; answer in French. Code, comments, toml sources and the memory are in English;
-V1/app/Documentation/*.md is in French.
+app/Documentation/*.md is in French.
 
-Repo: git root C:\Users\MAIN_PC\Documents\TLW\RADARv6 (work dir V1\app\), remote https://github.com/LetMePickThat/C.44.git,
+Repo: git root C:\Users\MAIN_PC\Documents\TLW\RADARv6 (work dir app\), remote https://github.com/LetMePickThat/C.44.git,
 branch main. Git has NO identity configured: commit with
 `git -c user.name="LMPT" -c user.email="72825026+LetMePickThat@users.noreply.github.com" commit ...` (do not change
 the config), push with `GIT_TERMINAL_PROMPT=0 git push origin main`. REPO NEUTRALITY (user rule, Choix_architecturaux
@@ -32,7 +32,7 @@ changes; the antenna cache core/antenna_cache.json rebuilds itself); 5) `python 
 + waveform / confirmation-mode changes) and write an entry in tests/snapshots/JOURNAL.md; 6) `python
 tests/update_snapshots.py`, then `python -m pytest -q` (parallel since 2026-10-22: pytest-xdist, pytest.ini
 -n 6 --dist loadgroup, ~2 min on the desktop; `-n 0` = sequential ~6.5 min; a new machine needs
-`pip install --user -r requirements-dev.txt`); 7) update V1/app/Documentation/Choix_architecturaux.md (variables,
+`pip install --user -r requirements-dev.txt`); 7) update app/Documentation/Choix_architecturaux.md (variables,
 derived values, formulas, renvois, history with the question table) and Feuille_de_route.md (status table, step
 decisions, renvois into the target steps), and the STATUS of [[radar-roadmap]]; 8) wait for "c, p".
 Never present test-mission numbers as performance ([[test-values-not-reference]]).
@@ -48,4 +48,4 @@ tests must run from a script file, not stdin; the auto-mode classifier may be un
 **Why:** collected over the 2026-10-20 sessions so that a new session can resume without loss.
 **How to apply:** read at session start together with [[radar-roadmap]].
 
-Sync (user 2026-10-29, changing machines): the memory is mirrored in V1/app/Documentation/Notes_de_travail/ (MEMORY.md as INDEX.md, no session ids, no tool / vendor mention); update that copy with every memory change and commit it with "c, p".
+Sync (user 2026-10-29, changing machines): the memory is mirrored in app/Documentation/Notes_de_travail/ (MEMORY.md as INDEX.md, no session ids, no tool / vendor mention); update that copy with every memory change and commit it with "c, p".

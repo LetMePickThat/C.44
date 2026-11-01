@@ -11,6 +11,8 @@ compilation, a few seconds).
   pointing  body -> ICRF matrix with Z along d, X in the orbital plane, then the roll (sim/attitude.pointing)
   slew      one step of a flown attitude toward its goal (sim/attitude.Flyer.step): feed-forward of the goal's rate,
             the slew rate that still stops on it, the rate and acceleration bounds, the turn by expm
+  fleet_step  the same for every flyer of a run at once, with the goals of its attitude kinds (sim/attitude.Fleet)
+  multitrack_labels  the groups of objects close on screen (gui/sim_view._multitracks)
   pn_command  the proportional-navigation command of the guided rows (in the acceleration)
   pn_step     the per-step update of the guided rows: start, closest approach, end when the range opens
 """
@@ -167,6 +169,118 @@ def slew(g0, g1, m, w, dt, a_max, cap, w_cap):
     m2 = _expm(w2 * dt) @ m
     err = math.degrees(_norm(_rotvec(g1 @ m2.T)))
     return m2, w2, phi, err
+
+
+@_jit
+def _goal(kind, roll_rad, fixed, r, v, d):
+    """Body -> ICRF matrix of an attitude for a body at (r, v) (sim/attitude.target_attitude): kind as attitude.KINDS,
+    fixed the matrix of the fixed kinds, d the direction of "target"."""
+    if kind == 1:                                        # fixed, inertial
+        return fixed
+    rr = r / _norm(r)
+    nn = _cross(r, v)
+    nn = nn / _norm(nn)
+    if kind == 0:                                        # fixed, orbital: X = -R, Y = N, Z = T, then fixed
+        t = _cross(nn, rr)
+        m = np.empty((3, 3))
+        for i in range(3):
+            m[i, 0], m[i, 1], m[i, 2] = -rr[i], nn[i], t[i]
+        return m @ fixed
+    if kind == 2:
+        d = v
+    elif kind == 3:
+        d = -v
+    elif kind == 4:
+        d = nn
+    elif kind == 5:
+        d = -nn
+    elif kind == 6:
+        d = rr
+    elif kind == 7:
+        d = -rr
+    return pointing(d, r, v, roll_rad)
+
+
+@_jit
+def fleet_step(sel, rows, kind, roll, fixed, target, rate, active, x, dt, a_max, w_cap, reached_deg, hold_deg, m, w,
+               phi_deg, err_deg, reached, lost, flags):
+    """One step dt of the attitudes sel (indices into the fleet's arrays, sim/attitude.Fleet) on the states x (n, 6) at
+    the step start: their goals at both ends, slew, then the slew's state as Flyer._hold; flags: 0, 1 hold lost, 2 hold
+    recovered, 3 target missing (no turn, no rate)."""
+    empty = np.zeros(3)
+    for q in range(sel.shape[0]):
+        j = sel[q]
+        flags[j] = 0
+        i = rows[j]
+        r0, v0 = x[i, :3].copy(), x[i, 3:].copy()
+        r1 = r0 + v0 * dt
+        d0, d1 = empty, empty
+        if kind[j] == 8:
+            s = target[j]
+            if s < 0 or not active[s]:
+                flags[j] = 3
+                w[j, 0], w[j, 1], w[j, 2] = 0.0, 0.0, 0.0
+                continue
+            d0 = x[s, :3] - r0
+            d1 = x[s, :3] + x[s, 3:] * dt - r1
+        g0 = _goal(kind[j], roll[j], fixed[j].copy(), r0, v0, d0)
+        g1 = _goal(kind[j], roll[j], fixed[j].copy(), r1, v0, d1)
+        m2, w2, phi, err = slew(g0, g1, m[j].copy(), w[j].copy(), dt, a_max, w_cap if reached[j] else rate[j], w_cap)
+        m[j, :, :] = m2
+        w[j, :] = w2
+        phi_deg[j] = math.degrees(phi)
+        err_deg[j] = err
+        if not reached[j] and err < reached_deg:
+            reached[j] = True
+        elif reached[j] and err > hold_deg and not lost[j]:
+            lost[j] = True
+            flags[j] = 1
+        elif lost[j] and err < reached_deg:
+            lost[j] = False
+            flags[j] = 2
+
+
+@_jit
+def _root(parent, a):
+    while parent[a] != a:
+        parent[a] = parent[parent[a]]
+        a = parent[a]
+    return a
+
+
+@_jit
+def multitrack_labels(xy, code, lim):
+    """The groups of two or more points of one code linked by distances up to lim (one to the next: a chain is one
+    group), code < 0 taking no part: each point's group (its lowest member), -1 when alone (user, 1 November 2026: 6 ms
+    per frame at 1000 objects through a k-d tree and a graph). A sweep along x; a group's points all compared at
+    worst, 1000 x 1000 simple tests."""
+    n = xy.shape[0]
+    order = np.argsort(xy[:, 0])
+    parent = np.arange(n)
+    lim2 = lim * lim
+    for p in range(n):
+        a = order[p]
+        if code[a] < 0:
+            continue
+        for s in range(p + 1, n):
+            b = order[s]
+            dx = xy[b, 0] - xy[a, 0]
+            if dx > lim:
+                break
+            dy = xy[b, 1] - xy[a, 1]
+            if code[b] == code[a] and dx * dx + dy * dy <= lim2:
+                ra, rb = _root(parent, a), _root(parent, b)
+                if ra != rb:
+                    parent[max(ra, rb)] = min(ra, rb)
+    size = np.zeros(n, np.int64)
+    for a in range(n):
+        if code[a] >= 0:
+            size[_root(parent, a)] += 1
+    out = np.full(n, -1, np.int64)
+    for a in range(n):
+        if code[a] >= 0 and size[_root(parent, a)] >= 2:
+            out[a] = _root(parent, a)
+    return out
 
 
 @_jit

@@ -74,6 +74,7 @@ from sim import attitude as att
 from sim import encounter as enc
 from sim import engine
 from sim import ephemeris as eph
+from sim import fast
 from sim import geometry as sgeo
 from sim import propagate as prop
 from sim import scenario as scn
@@ -1260,6 +1261,7 @@ class SimView(QWidget):
         self._poly_color: Dict[str, Optional[str]] = {}  # the colour each dynamic actor has (_poly)
         self._body_knots: tuple = (None, {})            # the ephemerides at the knots around t (_bodies_at)
         self._moon_mats: Dict[str, np.ndarray] = {}     # each moon's last turn (_ship_bodies)
+        self._mt_codes: tuple = (None, np.zeros(0, int), [])   # (run, each row's code of identity and class, identities)
         self._orbit_last: Dict[str, tuple] = {}         # each orbit as last drawn (_orbit_kept)
         self._clip_state = (-1, 0)                      # the camera's time at the last clipping, frames since (_clip)
         self._box_slots: Dict[tuple, int] = {}          # each data box's place (_place_boxes)
@@ -3069,17 +3071,30 @@ class SimView(QWidget):
         cam = self.plotter.camera                     # zoomed in (the view's height at its focal point): none (user)
         if len(rows) < 2 or 2.0 * cam.GetDistance() * math.tan(math.radians(0.5 * cam.GetViewAngle())) < MULTITRACK_OFF_KM:
             return []
+        xy, ok = self._display_xy(pts)
+        tr = self.truth
+        lim = MULTITRACK_PX * self.ui_scale
+        if fast.USE_NUMBA:
+            c = self._mt_codes
+            if c[0] is not self.truth or len(c[1]) != len(tr.ids) or c[2] != self._row_ident:
+                names: Dict[Tuple[str, str], int] = {}
+                code = np.array([names.setdefault((self._row_ident[i], tr.classes[i]), len(names)) for i in range(len(tr.ids))])
+                c = self._mt_codes = (self.truth, code, list(self._row_ident))
+            code = np.where(ok & (rows > 0), c[1][rows], -1)
+            labels = fast.multitrack_labels(np.nan_to_num(xy), code, float(lim))
+            keep = np.flatnonzero(labels >= 0)
+            keep = keep[np.argsort(labels[keep], kind="stable")]
+            groups = np.split(keep, np.flatnonzero(np.diff(labels[keep])) + 1) if len(keep) else []
+            return [dict(k=mem, q=pts[mem].mean(axis=0), ident=self._row_ident[rows[mem[0]]], cls=tr.classes[rows[mem[0]]])
+                    for mem in groups]
         from scipy.sparse import coo_matrix
         from scipy.sparse.csgraph import connected_components
         from scipy.spatial import cKDTree
-        xy, ok = self._display_xy(pts)
-        tr = self.truth
         keys: Dict[Tuple[str, str], List[int]] = {}
         for k, i in enumerate(rows):
             if i > 0 and ok[k]:
                 keys.setdefault((self._row_ident[i], tr.classes[i]), []).append(k)
         out = []
-        lim = MULTITRACK_PX * self.ui_scale
         for (ident, cls), ks in keys.items():
             if len(ks) < 2:
                 continue

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 REFERENCE PROTOTYPE (not production) -- per-scan-angle-bin waveform selection with a joint energy/time objective.
-Spec: SPEC_optimiseur_v2.md. Run from V1/app/: python -m AUDIT.proto_per_bin_reference mission.json [sector_id ...]
+Spec: SPEC_optimiseur_v2.md. Run from app/: python -m AUDIT.proto_per_bin_reference mission.json [sector_id ...]
 Representative face only (face with most positions); production code must do every face.
 """
 import json, math, sys
