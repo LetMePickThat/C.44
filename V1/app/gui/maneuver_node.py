@@ -47,7 +47,7 @@ RING_POINTS = 48
 AXIS_COLORS = tuple(cgeo.COLORS[k] for k in ("axis_x", "axis_y", "axis_z"))   # prograde, normal, radial (user)
 RING_COLOR = "#6a8a92"
 LABEL_COLOR = "#e6e6e6"
-HANDLE_TEXT = (("pro", "retro"), ("nrm+", "nrm-"), ("rad+", "rad-"))
+HANDLE_TEXT = (("prograde", "retrograde"), ("normal +", "normal -"), ("radial +", "radial -"))
 NAME = "dyn_node_"                               # its actors (the view's dynamic prefix: hidden when not drawn)
 
 
@@ -213,18 +213,18 @@ class NodeTool:
             return                                       # the ship view's centre: nothing to draw for its own path
         if t < c["t0"]:
             if v._global():
-                v._truth_lines(f"{NAME}path_rec", np.array([i]), rgb[None], t, c["t0"], **style)
+                v._truth_lines(f"{NAME}path_rec", np.array([i]), rgb[None], t, c["t0"], "planned", **style)
             else:
                 g = v.g
                 v._ship_lines(f"{NAME}path_rec", np.array([i - 1]), rgb[None], (g.t_s >= t) & (g.t_s <= c["t0"]),
-                              **style)
+                              "planned", **style)
         pts = self._view_path(c)
         keep = c["ts"] >= t - 1e-9
         pts = pts[keep]
         if len(pts) >= 2:
             if v._full_projection():
                 pts = v._to_plane(pts)
-            v._poly(f"{NAME}path", pts, lines=np.r_[len(pts), np.arange(len(pts))], color=_hex(rgb), **style)
+            v._styled_lines(f"{NAME}path", pts[:, None], rgb[None], c["ts"][keep], t, v.duration(), "planned", **style)
         if c["node"] is None or v._full_projection():
             return
         rn, vn = c["node"]
@@ -320,9 +320,9 @@ class NodeTool:
     def _value_text(self) -> str:
         m = self.target["m"]
         if m["type"] == "impulse":
-            return f"dv {np.linalg.norm(m.get('dv_mps', [0, 0, 0])):.1f} m/s  t {float(m['t_s']):.1f} s"
-        return (f"a {np.linalg.norm(m.get('accel_mps2', [0, 0, 0])):.2f} m/s2 x {float(m.get('duration_s', 0)):g} s  "
-                f"t {float(m['t_s']):.1f} s")
+            return f"speed change {np.linalg.norm(m.get('dv_mps', [0, 0, 0])):.1f} m/s  at {float(m['t_s']):.1f} s"
+        return (f"acceleration {np.linalg.norm(m.get('accel_mps2', [0, 0, 0])):.2f} m/s2 for "
+                f"{float(m.get('duration_s', 0)):g} s  at {float(m['t_s']):.1f} s")
 
     def _display(self, w: np.ndarray) -> Tuple[float, float]:
         ren = self.v.plotter.renderer
@@ -459,7 +459,3 @@ class NodeTool:
         t = base["t"][k] + u[k] * (base["t"][k + 1] - base["t"][k])
         return float(np.clip(t, 0.0, self.v.scenario_duration()))
 
-
-def _hex(rgb) -> str:
-    r, g, b = (int(x) for x in rgb[:3])
-    return f"#{r:02x}{g:02x}{b:02x}"

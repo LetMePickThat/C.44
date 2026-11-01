@@ -58,9 +58,9 @@ import numpy as np
 import pyvista as pv
 from vtkmodules.util.numpy_support import numpy_to_vtk
 from PyQt5.QtCore import QThread, QTimer, Qt, pyqtSignal
-from PyQt5.QtWidgets import (QButtonGroup, QToolButton, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
+from PyQt5.QtWidgets import (QButtonGroup, QMenu, QToolButton, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
                              QMessageBox, QProgressBar, QPushButton, QShortcut, QVBoxLayout, QWidget)
-from PyQt5.QtGui import QKeySequence
+from PyQt5.QtGui import QCursor, QKeySequence
 from pyvistaqt import QtInteractor
 
 from core import frames
@@ -71,6 +71,7 @@ from gui import scene_view as sv
 from gui import controls as uc
 from gui import sky as gsky
 from sim import attitude as att
+from sim import encounter as enc
 from sim import engine
 from sim import ephemeris as eph
 from sim import geometry as sgeo
@@ -117,9 +118,10 @@ OPTION_MARGIN = 5                                 # px left of every switch: a p
 BG_COLOR = "#000000"                              # background of the 3D views: the black of space (user, 29 October 2026)
 TEXT_COLOR = "#e6e6e6"
 # the widest Info lines of an object or the ship (side_width: the column fits them and the bodies' facts)
-INFO_WIDEST = ("classif.\tsuspect", "frame\tICRF / earth", "pos x\t-1234567.890 km", "vel x\t-12.34567 km/s",
+INFO_WIDEST = ("classification\tsuspect", "reference frame\tICRF / earth", "position x\t-1234567.890 km", "velocity x\t-12.34567 km/s",
                "block loss\t12.34 dB / pass", "rate x\t-12.345 deg/s", "range\t1234567.890 km", "Sun hidden\t100 %",
-               "CPA in\t> 12345.6 s (after the end)", "CPA range\t< 1234567.890 km")
+               "closest approach in\t> 12345.6 s (after the end)", "closest distance\t< 1234567.890 km",
+               "radar cross section (Ku band)\t-123.4 dBsm")
 SYMBOL_DIR = cgeo.MOON_TEXTURE_PATH.parent.parent / "symbols"   # assets/symbols: <classification>_<class>.png
 SYMBOL_PX = 42                                    # px: a symbol on screen in the 3D views (user, 30 October 2026: 28 x 1.5)
 SELECT_PX = 66                                    # px: the square around the selected body (44 x 1.5)
@@ -130,6 +132,25 @@ MULTITRACK_OFF_KM = float(P.get("tool.display.sim_multitrack_off_km"))   # ... n
 MT_COUNT_GAP_PX = 4.5                             # ... the number this far under the symbol (D)
 MT_SEL = "<multi>"                                # a multitrack's selection key: MT_SEL + its members' ids, "|"
 SELECT_COLOR = "#ffffff"
+# the data boxes kept apart (user, 1 November 2026, _place_boxes): (x, y) directions of the eight places, the first the
+# usual one, right of the symbol
+BOX_PLACES = ((1, 0), (-1, 0), (0, -1), (0, 1), (1, -1), (-1, -1), (1, 1), (-1, 1))
+BOX_RINGS = 3                                     # ... tried at 1, 2, 3 times the symbol's distance
+BOX_MAX_PLACED = 200                              # ... above this number of boxes, each stays beside its symbol
+BOX_CHAR_W, BOX_LINE_H = 0.56, 1.2                # estimated width of a character, height of a line: x the font's size
+BOX_PAD_PX, BOX_RETURN_PX = 4.0, 12.0             # free margin of a new place; of the usual place, to go back to it
+NODE_BOX_PX = 70.0                                # half width kept free around the manoeuvre node
+# the target and its marks (user, 1 November 2026): shapes in half widths, a NaN point lifts the pen
+TARGET_PX = 92                                    # px: the four bars around the target's symbol (D)
+MARK_PX = 20                                      # px: a node or closest-approach mark on a planned path (D)
+_UP = (float("nan"), 0.0)
+TARGET_BARS = ((0.0, 0.62), (0.0, 1.0), _UP, (0.0, -0.62), (0.0, -1.0), _UP,
+               (0.62, 0.0), (1.0, 0.0), _UP, (-0.62, 0.0), (-1.0, 0.0))
+NODE_UP = ((0.0, 1.0), (-0.87, -0.5), (0.87, -0.5), (0.0, 1.0))             # the target's nodes: triangles
+NODE_DOWN = ((0.0, -1.0), (-0.87, 0.5), (0.87, 0.5), (0.0, -1.0))
+EQ_NODE_UP = ((0.0, 1.0), (-0.7, 0.0), (0.0, -0.4), (0.7, 0.0), (0.0, 1.0))  # the equatorial nodes: kites
+EQ_NODE_DOWN = ((0.0, -1.0), (-0.7, 0.0), (0.0, 0.4), (0.7, 0.0), (0.0, -1.0))
+CPA_CROSS = ((-1.0, -1.0), (1.0, 1.0), _UP, (-1.0, 1.0), (1.0, -1.0))
 # "UI size" of the view's options (user, 29 October 2026): the icons and texts of the 3D view (symbols, the
 # selection's square, labels: ids, range and azimuth marks, sectors, axes, events, bodies) x one of these
 UI_SCALES = (0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0)
@@ -1208,7 +1229,11 @@ class SimView(QWidget):
         self.plotter.setMinimumWidth(400)
         sv.lock_pivot(self.plotter)
         # right drag: turntable about the view's vertical; the left button picks and centres (user, 29 October 2026)
-        sv.install_turntable(self.plotter, TURN_DEG_PX, button="right", axis=self._turn_axis)
+        sv.install_turntable(self.plotter, TURN_DEG_PX, button="right", axis=self._turn_axis,
+                             on_click=self._on_right_click)
+        self.target_key: Optional[str] = None          # the target's selection key (_rows_of)
+        self._glyphs: Dict[str, tuple] = {}
+        self._box_slots: Dict[tuple, int] = {}          # each data box's place (_place_boxes)
         self.plotter.iren.interactor.AddObserver("LeftButtonPressEvent", self._on_click, 1.0)
         # the manoeuvre node (user, 29 October 2026): its own presses before the click above
         from gui.maneuver_node import NodeTool
@@ -2862,6 +2887,8 @@ class SimView(QWidget):
             if cell_rgb is not None:
                 mesh.cell_data["rgb"] = cell_rgb
             mesh.Modified()
+            if "color" in style:                       # (one name may serve several bodies: the node's path, a mark)
+                e[2].GetProperty().SetColor(*pv.Color(style["color"]).float_rgb)
             e[2].SetVisibility(True)
             return
         if e is not None:
@@ -3031,7 +3058,7 @@ class SimView(QWidget):
         rng = np.linalg.norm(rel, axis=1)
         close = -1e3 * np.einsum("ij,ij->i", rel, vrel) / np.maximum(rng, 1e-12)
         lines = [f"{len(i)} x {c['cls']}", f"range {_dist_text(float(rng.mean()))}",
-                 f"Vc {float(close.mean()):+.0f} m/s"]
+                 f"closing speed {float(close.mean()):+.0f} m/s"]
         if not self.tg_object_full.isChecked():
             return "\n".join(lines)
         t_c, d_c, reached = self._cpa_all()
@@ -3046,8 +3073,9 @@ class SimView(QWidget):
         if not np.isfinite(tc):
             return []
         if not ok:                                    # still closing at the run's end
-            return [f"CPA > {tc - self.t:.0f} s", f"dCPA < {_dist_text(dc)}"]
-        return ["CPA receding" if tc <= self.t + 1e-6 else f"CPA {tc - self.t:.1f} s", f"dCPA {_dist_text(dc)}"]
+            return [f"closest approach in > {tc - self.t:.0f} s", f"closest distance < {_dist_text(dc)}"]
+        return ["closest approach: receding" if tc <= self.t + 1e-6 else f"closest approach in {tc - self.t:.1f} s",
+                f"closest distance {_dist_text(dc)}"]
 
     def _symbols(self, pts: np.ndarray, paths: List[Optional[str]]) -> None:
         """The objects' symbols: square billboards facing the camera, SYMBOL_PX on screen, one textured mesh per
@@ -3116,14 +3144,16 @@ class SimView(QWidget):
             if e is not None and e[2].GetVisibility() and e[0] == len(q):
                 e[1].points = self._sym_corners(q)
                 e[1].Modified()
-        for name, q in self._box_pts.items():         # the data boxes beside their symbols
-            lab = self._lab.get(name)
-            if lab is not None and lab.actor.GetVisibility() and len(q) == len(lab._last):
-                lab.set(self._box_anchor(q), lab._last)
+        self._place_boxes()                           # the data boxes around their symbols
         for name, q in getattr(self, "_mt_lbl", {}).items():     # the multitracks' numbers under their symbols
             lab = self._lab.get(name)
             if lab is not None and lab.actor.GetVisibility() and len(q) == len(lab._last):
                 lab.set(self._mt_below(q), lab._last)
+        for name, (pts, shape, px) in self._glyphs.items():
+            e = self._dyn.get(name)
+            if e is not None and e[2].GetVisibility() and e[0][0] == len(pts) * len(shape):
+                e[1].points = self._glyph_pts(pts, shape, px)
+                e[1].Modified()
         e = self._dyn.get(f"{DYN}select")
         q = getattr(self, "_sel_pt", None)
         if e is not None and q is not None and e[2].GetVisibility():
@@ -3210,6 +3240,95 @@ class SimView(QWidget):
         side = max(1.0, SELECT_PX / SYMBOL_PX) + 2.0 * BOX_GAP          # (in half symbols)
         return q + side * half * right + half * up
 
+    def _box_obstacles(self, xy: np.ndarray, half: float) -> list:
+        """Display rectangles (x0, y0, x1, y1) no box may cover: the symbols at xy, the manoeuvre node, the texts of the
+        event marks."""
+        out = [np.c_[xy - half, xy + half]]
+        glyph = self.node._glyph
+        if glyph is not None:
+            c, ok = self._display_xy(np.asarray(glyph[0], float)[None])
+            if ok[0]:
+                out.append(np.c_[c - NODE_BOX_PX * self.ui_scale, c + NODE_BOX_PX * self.ui_scale])
+        lab = self._lab.get(f"{DYN}markers_lbl")
+        if lab is not None and lab.actor.GetVisibility() and len(lab._last):
+            c, ok = self._display_xy(lab._pts)
+            sz = self._box_size(lab._last)
+            out.append(np.c_[c, c + sz][ok])
+        return out
+
+    def _box_size(self, texts: List[str]) -> np.ndarray:
+        """px: the estimated (width, height) on screen of each text of the data boxes' font."""
+        font = DATA_FONT * self.ui_scale
+        rows = [t.split("\n") for t in texts]
+        return np.array([[BOX_CHAR_W * font * max(map(len, r)), BOX_LINE_H * font * len(r)] for r in rows]).reshape(-1, 2)
+
+    def _place_boxes(self) -> None:
+        """The data boxes around their symbols without overlapping (user, 1 November 2026): each takes the first free
+        place among eight around its symbol, on BOX_RINGS rings, in the window; beside the symbol when that is free, else
+        the place it had (no jumps from one frame to the next). A box moved past the first ring gets a leader line.
+        Beyond BOX_MAX_PLACED boxes, each beside its symbol."""
+        items = []
+        for name, q in self._box_pts.items():
+            lab = self._lab.get(name)
+            if lab is not None and lab.actor.GetVisibility() and len(q) == len(lab._last):
+                items += [(name, n, q[n], lab._last[n]) for n in range(len(q))]
+        lines: List[np.ndarray] = []
+        if len(items) > BOX_MAX_PLACED or not items:
+            for name in {it[0] for it in items}:
+                self._lab[name].set(self._box_anchor(self._box_pts[name]), self._lab[name]._last)
+            self._poly(f"{DYN}box_leaders", np.zeros((0, 3)))
+            return
+        qs = np.array([it[2] for it in items])
+        xy, front = self._display_xy(qs)
+        sizes = self._box_size([it[3] for it in items])
+        half = 0.5 * SYMBOL_PX * self.ui_scale
+        side = half * (max(1.0, SELECT_PX / SYMBOL_PX) + 2.0 * BOX_GAP)
+        w, h = self.plotter.ren_win.GetSize()
+        taken = np.concatenate(self._box_obstacles(xy[front], half) + [np.zeros((len(items), 4))])
+        n_taken = len(taken) - len(items)
+        cam = self.plotter.camera
+        pos, fwd = np.asarray(cam.GetPosition()), np.asarray(cam.GetDirectionOfProjection())
+        up = np.asarray(cam.GetViewUp(), float)
+        up = up - (up @ fwd) * fwd
+        up /= np.linalg.norm(up)
+        right = np.cross(fwd, up)
+        wpp = 2.0 * math.tan(math.radians(0.5 * cam.GetViewAngle())) / max(h, 1)  # world size of a pixel at depth 1
+        anchors = {name: self._box_anchor(self._box_pts[name]) for name in {it[0] for it in items}}
+        last = self._box_slots
+        self._box_slots = {}
+
+        def free(x: float, y: float, bw: float, bh: float, pad: float, n: int) -> bool:
+            if x < 0.0 or y - bh < 0.0 or x + bw > w or y > h:
+                return False
+            t = taken[:n]
+            return not np.any((x < t[:, 2] + pad) & (x + bw > t[:, 0] - pad) & (y - bh < t[:, 3] + pad) & (y > t[:, 1] - pad))
+
+        for k, (name, n, q, text) in enumerate(items):
+            if not front[k]:
+                continue
+            bw, bh = sizes[k]
+            places = [(side * r * dx - (bw if dx < 0 else 0.5 * bw if dx == 0 else 0.0),
+                       (half if r == 1 and dy == 0 else side * r * dy) + (bh if dy > 0 else 0.5 * bh if dy == 0 and r > 1 else 0.0))
+                      for r in range(1, BOX_RINGS + 1) for dx, dy in BOX_PLACES]
+            key = (name, text.split("\n", 1)[0])
+            was = last.get(key)
+            tries = [(0, BOX_RETURN_PX)] + ([(was, 0.0)] if was is not None else [])
+            tries += [(c, BOX_PAD_PX) for c in range(len(places))]
+            slot = next((c for c, pad in tries if free(xy[k, 0] + places[c][0], xy[k, 1] + places[c][1], bw, bh, pad,
+                                                       n_taken + k)), was or 0)
+            self._box_slots[key] = slot
+            x, y = xy[k, 0] + places[slot][0], xy[k, 1] + places[slot][1]
+            taken[n_taken + k] = (x, y - bh, x + bw, y)
+            scale = max(float((q - pos) @ fwd), 1e-12) * wpp
+            anchors[name][n] = q + places[slot][0] * scale * right + places[slot][1] * scale * up
+            if slot >= len(BOX_PLACES):
+                lines.append(np.array([q, anchors[name][n]]))
+        for name, a in anchors.items():
+            self._lab[name].set(a, self._lab[name]._last)
+        pts = np.array(lines).reshape(-1, 3)
+        self._poly(f"{DYN}box_leaders", np.r_[pts[0::2], pts[1::2]], lines=_pairs(len(lines)) if lines else None,
+                   color=MUTED_COLOR, line_width=1)
+
     def _databox(self, name: str, pts: np.ndarray, texts: List[str]) -> None:
         """The bodies' data boxes (user, 29 October 2026), beside their symbols, kept there by the camera changes
         (_place_symbols)."""
@@ -3233,9 +3352,9 @@ class SimView(QWidget):
         for n, i in enumerate(rows):
             lines = [self.own_name() if i == 0 else tr.ids[i]]
             if full:
-                lines += [f"alt {alt[n]:.1f} km", f"v {spd[n]:.3f} km/s"]
+                lines += [f"altitude {alt[n]:.1f} km", f"speed {spd[n]:.3f} km/s"]
             if i:
-                lines += [f"rng {_dist_text(rng[n])}", f"Vc {close[n]:+.0f} m/s"]
+                lines += [f"range {_dist_text(rng[n])}", f"closing speed {close[n]:+.0f} m/s"]
             if i and full:
                 lines += self._cpa_box(t_c[i - 1], d_c[i - 1], reached[i - 1])
             out.append("\n".join(lines))
@@ -3301,7 +3420,9 @@ class SimView(QWidget):
         else:
             self._frame_ship()
         self._draw_selection()
+        self._draw_encounter()
         self._hide_unused()
+        self._place_boxes()
         self._show_info()
         self._render()
 
@@ -3310,7 +3431,7 @@ class SimView(QWidget):
             self.time_label.setText("")
             return
         utc = scn.epoch(self.sc) + timedelta(seconds=self.t)
-        self.time_label.setText(f"t {self.t:9.2f} s   {utc.strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        self.time_label.setText(f"time {self.t:9.2f} s   {utc.strftime('%Y-%m-%d %H:%M:%S')} UTC")
 
     def set_ui_scale(self, step: int) -> None:
         """UI size one step down (-1) or up (+1) among UI_SCALES: the labels, symbols and the selection's square."""
@@ -3629,25 +3750,8 @@ class SimView(QWidget):
         its disc), and on nothing back to the default centre."""
         if self.truth is None:
             return
-        if self._global():
-            r, _ = sgeo.states_at(self.truth, self.t)
-            pts = {(OWNSHIP if i == 0 else oid): r[i] for i, oid in enumerate(self.truth.ids) if np.isfinite(r[i, 0])}
-        else:
-            pts = dict(getattr(self, "_screen_pts", {}), **{OWNSHIP: np.zeros(3)})
-        for key, q in getattr(self, "_mt_click", {}).items():     # a multitrack: one target, its members not
-            for oid in key[len(MT_SEL):].split("|"):
-                pts.pop(oid, None)
-            pts[key] = q
         x, y = obj.GetEventPosition()
-        ren = self.plotter.renderer
-        best, best_d = None, CLICK_PX
-        for oid, w in pts.items():
-            ren.SetWorldPoint(float(w[0]), float(w[1]), float(w[2]), 1.0)
-            ren.WorldToDisplay()
-            dx, dy, _ = ren.GetDisplayPoint()
-            dd = math.hypot(dx - x, dy - y)
-            if dd < best_d:
-                best, best_d = oid, dd
+        best = self._pick(x, y)
         double = obj.GetRepeatCount() >= 1
         members = best[len(MT_SEL):].split("|") if best and best.startswith(MT_SEL) else [best]
         if self.node.target is not None and not any(self.node.owns("ship" if b == OWNSHIP else b) for b in members):
@@ -3664,6 +3768,28 @@ class SimView(QWidget):
             self._select(BODY_SEL + body)                # a celestial body: its facts (user, 29 October 2026)
         if double:
             self.set_centre(body or CENTRAL)
+
+    def _pick(self, x: float, y: float) -> Optional[str]:
+        """The selection key of the body drawn nearest the display point (x, y), within CLICK_PX; None: none."""
+        if self._global():
+            r, _ = sgeo.states_at(self.truth, self.t)
+            pts = {(OWNSHIP if i == 0 else oid): r[i] for i, oid in enumerate(self.truth.ids) if np.isfinite(r[i, 0])}
+        else:
+            pts = dict(getattr(self, "_screen_pts", {}), **{OWNSHIP: np.zeros(3)})
+        for key, q in getattr(self, "_mt_click", {}).items():     # a multitrack: one target, its members not
+            for oid in key[len(MT_SEL):].split("|"):
+                pts.pop(oid, None)
+            pts[key] = q
+        ren = self.plotter.renderer
+        best, best_d = None, CLICK_PX
+        for oid, w in pts.items():
+            ren.SetWorldPoint(float(w[0]), float(w[1]), float(w[2]), 1.0)
+            ren.WorldToDisplay()
+            dx, dy, _ = ren.GetDisplayPoint()
+            dd = math.hypot(dx - x, dy - y)
+            if dd < best_d:
+                best, best_d = oid, dd
+        return best
 
     def _body_under(self, x: float, y: float) -> Optional[str]:
         """The celestial body whose disc on screen holds the display point (x, y) (global view; ship view: as drawn
@@ -3695,6 +3821,169 @@ class SimView(QWidget):
     def _select(self, oid: str) -> None:
         self.select(oid)
 
+    # ------------------------------------------------------------------ the target (user, 1 November 2026)
+    def _rows_of(self, key: Optional[str]) -> Optional[np.ndarray]:
+        """The truth rows of a selection key (OWNSHIP, an object, a multitrack: its members); None: a celestial body,
+        nothing, or bodies absent from this run."""
+        if not key or key.startswith(BODY_SEL):
+            return None
+        tr = self.truth
+        ids = key[len(MT_SEL):].split("|") if key.startswith(MT_SEL) else [key]
+        rows = [0 if x == OWNSHIP else tr.row(x) for x in ids if x == OWNSHIP or x in tr.ids]
+        return np.array(rows, int) if rows else None
+
+    def _on_right_click(self, x: float, y: float) -> None:
+        """A right click (not a drag) on a unit other than the one selected: its menu (a body must be selected)."""
+        sel = self._rows_of(self.selected) if self.truth is not None else None
+        if sel is None:
+            return
+        key = self._pick(x, y)
+        rows = self._rows_of(key)
+        if rows is not None and not np.intersect1d(rows, sel).size:
+            QTimer.singleShot(0, lambda: self._target_menu(key))     # (out of the interactor's event)
+
+    def _target_menu(self, key: str) -> None:
+        menu = QMenu(self)
+        define = menu.addAction("Define as target")
+        if menu.exec_(QCursor.pos()) is define:
+            self.define_target(key)
+
+    def define_target(self, key: Optional[str]) -> None:
+        """The target (one at a time: it replaces the former one): a unit, or a multitrack, whose members are the ones
+        of its planned path."""
+        self.target_key = key
+        self._draw_frame()
+
+    def _track(self, rows: np.ndarray) -> Tuple[np.ndarray, np.ndarray, object]:
+        """The planned path of rows on the truth's records, (n_t, 3) km and km/s, their mean for several (as the
+        multitrack's path is drawn), the manoeuvre node's real-time preview from its start on when the node's body is
+        one of them; and that preview (None: none)."""
+        tr = self.truth
+        r, v = tr.r_km[:, rows].copy(), tr.v_kms[:, rows].copy()
+        pre = None
+        row = self.node.row()
+        at = np.flatnonzero(rows == row) if row is not None else ()
+        if len(at):
+            pre = self.node._preview()
+            if pre is not None:
+                late = tr.t_s >= pre["t0"]
+                for c in range(3):
+                    r[late, at[0], c] = np.interp(tr.t_s[late], pre["ts"], pre["r"][:, c])
+                    v[late, at[0], c] = np.interp(tr.t_s[late], pre["ts"], pre["v"][:, c])
+        whole = [np.arange(len(rows))]
+        return _group_mean(r, whole)[:, 0], _group_mean(v, whole)[:, 0], pre
+
+    def _mark_at(self, t: float, q: np.ndarray) -> np.ndarray:
+        """A place of the central body's frame at the time t as the view draws the planned paths."""
+        if self._global():
+            return np.asarray(q, float)
+        q = (q - sgeo.states_at(self.truth, t)[0][0]) @ self._view_axes(min(t, self.duration()))
+        return self._to_plane(q[None])[0] if self._full_projection() else q
+
+    def _glyph(self, name: str, q: np.ndarray, shape: tuple, px: float, **style) -> None:
+        """The polyline shape (points in half widths, a NaN point lifts the pen) at each of the points q, px on screen
+        and facing the camera, kept so by the camera changes (_place_symbols)."""
+        q = np.asarray(q, float)
+        self._glyphs[name] = (q, shape, px)
+        cuts = [-1] + [n for n, p in enumerate(shape) if p[0] != p[0]] + [len(shape)]
+        one = [np.arange(a + 1, b) for a, b in zip(cuts, cuts[1:]) if b - a > 2]
+        lines = np.concatenate([np.r_[len(s), s + n * len(shape)] for n in range(len(q)) for s in one])
+        self._poly(name, self._glyph_pts(q, shape, px), lines=lines, **style)
+
+    def _glyph_pts(self, q: np.ndarray, shape: tuple, px: float) -> np.ndarray:
+        c = self._sym_corners(q, px).reshape(-1, 4, 3)
+        mid, right, up = 0.5 * (c[:, 0] + c[:, 2]), 0.5 * (c[:, 1] - c[:, 0]), 0.5 * (c[:, 3] - c[:, 0])
+        s = np.nan_to_num(np.array(shape, float))
+        return (mid[:, None] + s[None, :, 0, None] * right[:, None] + s[None, :, 1, None] * up[:, None]).reshape(-1, 3)
+
+    def _target_pt(self, rows: np.ndarray) -> Optional[np.ndarray]:
+        """Where the view draws the target: its multitrack, or its members' mean."""
+        key = self.target_key
+        ids = key[len(MT_SEL):].split("|") if key.startswith(MT_SEL) else [key]
+        if ids[0] in getattr(self, "_mt_of", {}):
+            return np.asarray(self._mt_of[ids[0]], float)
+        if self._global():
+            pts = sgeo.states_at(self.truth, self.t)[0][rows]
+        else:
+            shown = getattr(self, "_screen_pts", {})
+            pts = np.array([np.zeros(3) if x == OWNSHIP else shown.get(x, np.full(3, np.nan)) for x in ids])
+        pts = pts[np.isfinite(pts[:, 0])]
+        return pts.mean(axis=0) if len(pts) else None
+
+    def _rgb_text(self, row: int) -> str:
+        return "#%02x%02x%02x" % tuple(int(x) for x in self._row_rgb[row])
+
+    def _encounter_planes(self, sel: np.ndarray, tgt: Optional[np.ndarray], tracks: tuple) -> tuple:
+        """(orbit normals of the selected path and of the target's, its passages through the equator and through the
+        target's plane at the same instant), kept while the run, the pair and the node's preview stay."""
+        r_a, v_a, pre_a, r_b, v_b, pre_b = tracks
+        tr = self.truth
+        pair = None if tgt is None else tgt.tobytes()
+        c = getattr(self, "_enc_cache", None)
+        if (c is None or c[0] is not tr or c[1] != sel.tobytes() or c[2] != pair or c[3] is not pre_a
+                or c[4] is not pre_b):
+            n_a = enc.orbit_normal(r_a, v_a)
+            n_b = None if tgt is None else enc.orbit_normal(r_b, v_b)
+            c = self._enc_cache = (tr, sel.tobytes(), pair, pre_a, pre_b, n_a, n_b,
+                                   enc.crossings(tr.t_s, r_a, tr.body.pole),
+                                   [] if tgt is None else enc.crossings(tr.t_s, r_a, n_b))
+        return c[5:]
+
+    def _node_marks(self, name: str, found: list, label: str, angle, color: str, up: tuple, down: tuple,
+                    at: list, texts: list) -> None:
+        """The nodes found drawn on the planned path, ascending as up and descending as down, with their texts."""
+        for shape, asc in ((up, True), (down, False)):
+            now = [x for x in found if x.ascending == asc]
+            if now:
+                q = np.array([self._mark_at(x.t_s, x.r_km) for x in now])
+                self._glyph(f"{DYN}{name}{int(asc)}", q, shape, MARK_PX, color=color, line_width=2)
+                at.append(q)
+                side, what = "Ascending" if asc else "Descending", "inclination" if label == "equator" else "plane angle"
+                texts.extend(f"{side} node ({label})\n{what} {angle(x):.2f} deg\nin {x.t_s - self.t:.0f} s" for x in now)
+
+    def _draw_encounter(self) -> None:
+        """The target's four bars; on the planned path of the selected body its next passages through the equator of
+        the central body and, with a target, through the target's plane at the same instant (where a plane change
+        aligns the two) with the planes' angle; the closest approach of the two bodies at one instant marked on both
+        paths. They follow the manoeuvre node at each of its changes (_track)."""
+        tgt = self._rows_of(self.target_key)
+        if tgt is not None:
+            q = self._target_pt(tgt)
+            if q is not None:
+                self._glyph(f"{DYN}target", q[None], TARGET_BARS, TARGET_PX, color=self._rgb_text(tgt[0]), line_width=3)
+        sel = self._rows_of(self.selected)
+        if sel is None or not self.cb_planned.isChecked():
+            return
+        if tgt is not None and np.intersect1d(sel, tgt).size:
+            tgt = None                                 # (the target selected: no pair)
+        tr = self.truth
+        r_a, v_a, pre_a = self._track(sel)
+        r_b, v_b, pre_b = self._track(tgt) if tgt is not None else (None, None, None)
+        n_a, n_b, equator, nodes = self._encounter_planes(sel, tgt, (r_a, v_a, pre_a, r_b, v_b, pre_b))
+        at, texts = [], []
+        color = self._rgb_text(sel[0])                # the nodes in the colour of the path they lie on
+        if self._global() or 0 not in sel:            # (the ship view draws no path of its own for OWNSHIP)
+            self._node_marks("eqnode", enc.next_nodes(equator, self.t), "equator",
+                             lambda x: enc.angle_deg(n_a[x.k], tr.body.pole), color, EQ_NODE_UP, EQ_NODE_DOWN,
+                             at, texts)
+            self._node_marks("tgnode", enc.next_nodes(nodes, self.t), "target plane",
+                             lambda x: enc.angle_deg(n_a[x.k], n_b[x.k]), color, NODE_UP, NODE_DOWN,
+                             at, texts)
+        cpa = None if tgt is None else enc.closest_approach(tr.t_s, r_a, v_a, r_b, v_b, self.t)
+        if cpa is not None:
+            ends = [(row, q, tag) for row, q, tag in ((sel, cpa.r_a_km, "a"), (tgt, cpa.r_b_km, "b"))
+                    if self._global() or 0 not in row]
+            for row, q, tag in ends:
+                self._glyph(f"{DYN}cpa_{tag}", self._mark_at(cpa.t_s, q)[None], CPA_CROSS, MARK_PX,
+                            color=self._rgb_text(row[0]), line_width=2)
+            if ends:
+                over, under = ("", "") if cpa.reached else ("> ", "< ")
+                at.append(self._mark_at(cpa.t_s, ends[0][1])[None])
+                texts.append(f"Closest approach\ndistance {under}{_dist_text(cpa.range_km)}\n"
+                             f"in {over}{cpa.t_s - self.t:.1f} s\nrelative speed {cpa.v_rel_kms:.3f} km/s")
+        if at:
+            self._databox(f"{DYN}encounter", np.concatenate(at), texts)
+
     def _show_multitrack_info(self, ids: List[str]) -> None:
         """A multitrack clicked (user, 29 October 2026): its number, identity and class, then each member and its
         range to OWNSHIP (zoom in to tell them apart)."""
@@ -3706,8 +3995,8 @@ class SimView(QWidget):
         r, _v = sgeo.states_at(tr, self.t)
         i0 = tr.row(ids[0])
         ident, cls = self._row_ident[i0], tr.classes[i0]
-        lines = [_kv("name", f"{len(ids)} x {cls}"), _kv("charact.", cls), _kv("classif.", ident),
-                 _kv("t", f"{self.t:.2f} s"), _kv("members", "range")]
+        lines = [_kv("name", f"{len(ids)} x {cls}"), _kv("characterisation", cls), _kv("classification", ident),
+                 _kv("time", f"{self.t:.2f} s"), _kv("members", "range")]
         for oid in ids:
             d = r[tr.row(oid)] - r[0]
             lines.append(_kv(oid, _dist_text(float(np.linalg.norm(d))) if np.isfinite(d[0]) else "not there"))
@@ -3740,8 +4029,8 @@ class SimView(QWidget):
 
         r, v = sgeo.states_at(tr, self.t)
         if not np.isfinite(r[i, 0]):
-            self._set_info("\n".join([_kv("name", self.selected), _kv("charact.", g.classes[j]),
-                                      _kv("t", f"{self.t:.2f} s"), _kv("state", "not there at t")]),
+            self._set_info("\n".join([_kv("name", self.selected), _kv("characterisation", g.classes[j]),
+                                      _kv("time", f"{self.t:.2f} s"), _kv("state", "not there at t")]),
                            self._row_symbol(i))
             return
         los = r[i] - r[0]
@@ -3753,21 +4042,21 @@ class SimView(QWidget):
         ident = scn.identity_of(self.sc, self.selected, tr.group_of[i] or None)
         occ = g.occulted_by[k, j]
         # short labels (user): charact. = characterisation (class), classif. = classification (identity)
-        lines = [_kv("name", self.selected), _kv("charact.", g.classes[j]), _kv("classif.", ident),
-                 _kv("t", f"{self.t:.2f} s")]
-        lines += _vec_lines("pos", r[i], "km", 3) + _vec_lines("vel", v[i], "km/s", 5)
-        lines += [_kv("frame", f"ICRF / {tr.body.name}"),
+        lines = [_kv("name", self.selected), _kv("characterisation", g.classes[j]), _kv("classification", ident),
+                 _kv("time", f"{self.t:.2f} s")]
+        lines += _vec_lines("position", r[i], "km", 3) + _vec_lines("velocity", v[i], "km/s", 5)
+        lines += [_kv("reference frame", f"ICRF / {tr.body.name}"), self._inclination_line(r[i], v[i]),
                   _kv("range", f"{rng:.3f} km"), _kv("range rate", f"{rr:+.1f} m/s")]
         lines += self._cpa_lines(i, j)                # closest approach to OWNSHIP (user, 29 October 2026)
-        lines.append(_kv("face", f"F{f + 1}" if f >= 0 else "none"))
+        lines.append(_kv("radar face", f"F{f + 1}" if f >= 0 else "none"))
         if f >= 0:
-            lines.append(_kv("theta", f"{math.degrees(math.acos(min(1.0, float(w)))):.2f} deg"))
-        lines += [_kv("recorded", f"{g.t_s[k]:.1f} s"), _kv("aspect", f"{g.aspect_deg[k, j]:.1f} deg"),
-                  _kv("RCS S", f"{g.rcs_s_dbsm[k, j]:.1f} dBsm"), _kv("RCS Ku", f"{g.rcs_ku_dbsm[k, j]:.1f} dBsm"),
-                  _kv("occulted", g.body_names[occ] if occ >= 0 else "no")]
+            lines.append(_kv("angle off the face axis", f"{math.degrees(math.acos(min(1.0, float(w)))):.2f} deg"))
+        lines += [_kv("recorded at", f"{g.t_s[k]:.1f} s"), _kv("aspect angle", f"{g.aspect_deg[k, j]:.1f} deg"),
+                  _kv("radar cross section (S band)", f"{g.rcs_s_dbsm[k, j]:.1f} dBsm"), _kv("radar cross section (Ku band)", f"{g.rcs_ku_dbsm[k, j]:.1f} dBsm"),
+                  _kv("hidden by", g.body_names[occ] if occ >= 0 else "no")]
         if np.isfinite(g.block_loss_db[k, j]):
-            lines += [_kv("masked", "yes" if g.masked[k, j] else "no"),
-                      _kv("block loss", f"{max(0.0, float(g.block_loss_db[k, j])):.2f} dB / pass")]
+            lines += [_kv("masked by the ship", "yes" if g.masked[k, j] else "no"),
+                      _kv("loss through the ship", f"{max(0.0, float(g.block_loss_db[k, j])):.2f} dB / pass")]
         self._set_info("\n".join(lines), self._row_symbol(i))           # its symbol beside its name
 
     def _cpa(self, i: int, j: int) -> Optional[Tuple[float, float, bool]]:
@@ -3822,9 +4111,14 @@ class SimView(QWidget):
         t_cpa, d, reached = c
         dist = _dist_text(d)
         if not reached:                               # still closing at the run's end
-            return [_kv("CPA in", f"> {t_cpa - self.t:.1f} s (after the end)"), _kv("CPA range", f"< {dist}")]
-        return [_kv("CPA in", f"{t_cpa - self.t:.1f} s" if t_cpa > self.t + 1e-6 else "now (receding)"),
-                _kv("CPA range", dist)]
+            return [_kv("closest approach in", f"> {t_cpa - self.t:.1f} s (after the end)"),
+                    _kv("closest distance", f"< {dist}")]
+        return [_kv("closest approach in", f"{t_cpa - self.t:.1f} s" if t_cpa > self.t + 1e-6 else "now (receding)"),
+                _kv("closest distance", dist)]
+
+    def _inclination_line(self, r: np.ndarray, v: np.ndarray) -> str:
+        """The orbit's inclination on the central body's equator (user, 1 November 2026)."""
+        return _kv("inclination", f"{enc.angle_deg(enc.orbit_normal(r, v), self.truth.body.pole):.3f} deg")
 
     def _show_body_info(self, name: str) -> None:
         """A celestial body's facts (assets/celestial_info.json), one per line, and nothing else (user)."""
@@ -3843,12 +4137,13 @@ class SimView(QWidget):
         w = engine.ship_rate_dps(tr, self.t)
         k = self._k()
         alt = float(np.linalg.norm(r[0])) - tr.body.radius_km
-        lines = [_kv("name", self.own_name()), _kv("classif.", OWNSHIP_IDENTITY), _kv("t", f"{self.t:.2f} s")]
-        lines += _vec_lines("pos", r[0], "km", 3) + _vec_lines("vel", v[0], "km/s", 5)
-        lines += [_kv("frame", f"ICRF / {tr.body.name}"), _kv("altitude", f"{alt:.1f} km"),
+        lines = [_kv("name", self.own_name()), _kv("classification", OWNSHIP_IDENTITY), _kv("time", f"{self.t:.2f} s")]
+        lines += _vec_lines("position", r[0], "km", 3) + _vec_lines("velocity", v[0], "km/s", 5)
+        lines += [_kv("reference frame", f"ICRF / {tr.body.name}"), self._inclination_line(r[0], v[0]),
+                  _kv("altitude", f"{alt:.1f} km"),
                   _kv("speed", f"{1e3 * float(np.linalg.norm(v[0])):.1f} m/s")]
-        lines += _vec_lines("nose", m[:, 2], "", 4)                        # the ship's Z axis, ICRF
-        lines += _vec_lines("rate", w, "deg/s", 3)                         # ship frame
-        lines += [_kv("rate", f"{float(np.linalg.norm(w)):.3f} deg/s"), _kv("recorded", f"{g.t_s[k]:.1f} s"),
+        lines += _vec_lines("nose direction", m[:, 2], "", 4)                        # the ship's Z axis, ICRF
+        lines += _vec_lines("turn rate", w, "deg/s", 3)                         # ship frame
+        lines += [_kv("turn rate", f"{float(np.linalg.norm(w)):.3f} deg/s"), _kv("recorded at", f"{g.t_s[k]:.1f} s"),
                   _kv("Sun hidden", f"{100.0 * float(g.ship_shadow[k]):.0f} %")]
         self._set_info("\n".join(lines), symbol_path("ownship", None))

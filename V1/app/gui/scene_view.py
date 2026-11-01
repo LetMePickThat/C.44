@@ -220,6 +220,7 @@ def _rotation(axis: np.ndarray, angle: float) -> np.ndarray:
     return np.eye(3) + math.sin(angle) * kx + (1.0 - math.cos(angle)) * (kx @ kx)
 
 
+CLICK_DRAG_PX = 4.0                           # px: a press and release this close: a click, not a drag
 _TURN: Dict[int, dict] = {}                   # per turntable style: its plotter, rate, axis and drag state
 
 
@@ -254,7 +255,8 @@ def _turn_move(style, _ev) -> None:
     style.GetInteractor().Render()
 
 
-def install_turntable(plotter, deg_per_px: float, button: str = "left", axis=lambda: (0.0, 0.0, 1.0)):
+def install_turntable(plotter, deg_per_px: float, button: str = "left", axis=lambda: (0.0, 0.0, 1.0),
+                      on_click=None):
     """Left-drag (button "right": right-drag) rotation as a turntable (user, 30 October 2026, replaces the virtual
     trackball, whose drags rolled the view away from its centre and whose rate depended on the place of the press): a
     horizontal drag turns the azimuth about axis() (the view's own vertical), a vertical one the elevation about the
@@ -265,7 +267,8 @@ def install_turntable(plotter, deg_per_px: float, button: str = "left", axis=lam
     observers (clicks) are unchanged.
     button "right" (the scenario tool, user 29 October 2026: the left button already picks and centres): the right
     drag turns the view (no more right-drag zoom: the wheel zooms), a plain left drag does nothing to the camera
-    (Shift / Ctrl + left drag still pan / spin)."""
+    (Shift / Ctrl + left drag still pan / spin). on_click(x, y), button "right": the right button released where it was
+    pressed, a click and not a drag (user, 1 November 2026)."""
     from pyvista.plotting.render_window_interactor import InteractorStyleTrackballCamera
 
     right = button == "right"
@@ -290,7 +293,7 @@ def install_turntable(plotter, deg_per_px: float, button: str = "left", axis=lam
 
         def _start(self):
             st = _TURN[id(self)]
-            st["p"] = self.GetInteractor().GetEventPosition()
+            st["p"] = st["p0"] = self.GetInteractor().GetEventPosition()
             self.StartRotate()
 
         def _end(self):
@@ -298,6 +301,9 @@ def install_turntable(plotter, deg_per_px: float, button: str = "left", axis=lam
             if st["p"] is not None:
                 st["p"] = None
                 self.EndRotate()
+                x, y = self.GetInteractor().GetEventPosition()
+                if on_click is not None and math.hypot(x - st["p0"][0], y - st["p0"][1]) <= CLICK_DRAG_PX:
+                    on_click(x, y)
 
     style = _Turntable(plotter.iren)
     _TURN[id(style)] = {"plotter": plotter, "rate": math.radians(deg_per_px), "axis": axis, "p": None, "vtk": True}

@@ -882,8 +882,8 @@ def test_action_list():
     wl._add_manoeuvre("pn")
     cell = lambda r, c: wl.table.item(r, c).text()       # noqa: E731
     assert [cell(r, 0) for r in range(wl.table.rowCount())] == ["-", "0", "5", "7", "10", "-"]
-    assert [cell(r, 1) for r in range(wl.table.rowCount())] == ["Random (Singer)", "Attitude", "Attitude", "Impulse",
-                                                                "Attitude", "Guidance (PN)"]
+    assert [cell(r, 1) for r in range(wl.table.rowCount())] == ["Random manoeuvres", "Attitude", "Attitude", "Impulse",
+                                                                "Attitude", "Homing guidance"]
     assert cell(2, 2) == "prograde, 5 deg/s" and cell(5, 2) == "below 100 km, toward ship"
     wl.select(3)
     wl.form.widgets["t_s"][1].setValue(20.0)             # the line follows its time, the form stays
@@ -1052,10 +1052,10 @@ def test_sim_view_offscreen(tmp_path):
     assert DYN + "nose" in v.plotter.actors
     box = v._lab[DYN + "labels"]._last    # the data boxes: name, altitude, orbital speed (+ range, Vc, CPA)
     kb = [b for b in box if b.startswith("K\n")]
-    assert kb and kb[0].startswith("K\nalt ") and "\nVc " in kb[0] and "\ndCPA " in kb[0]
+    assert kb and kb[0].startswith("K\naltitude ") and "\nclosing speed " in kb[0] and "\nclosest distance " in kb[0]
     v.tg_object_full.setChecked(False)                  # partial: the id, the range and the closing speed only
     kb = [b for b in v._lab[DYN + "labels"]._last if b.startswith("K\n")]
-    assert kb and kb[0].split("\n")[1].startswith("rng ") and kb[0].split("\n")[2].startswith("Vc ")
+    assert kb and kb[0].split("\n")[1].startswith("range ") and kb[0].split("\n")[2].startswith("closing speed ")
     assert kb[0].count("\n") == 2
     v.tg_object_full.setChecked(True)
     t_c, d_c, _ok = v._cpa_all()          # the boxes' closest approach agrees with the Info box's finer one
@@ -1180,7 +1180,7 @@ def test_sim_view_offscreen(tmp_path):
     assert np.allclose(look()[0], [0.0, 0.0, -1.0], atol=1e-6) and abs(look()[1][2]) < 1e-6
     v.recentre()
     v._select("K")
-    assert "range" in v.info.toPlainText() and "RCS S" in v.info.toPlainText()
+    assert "range" in v.info.toPlainText() and "radar cross section (S band)" in v.info.toPlainText()
     v.step(1)
     assert v.t == pytest.approx(11.0)
     v.toggle_play()
@@ -1598,3 +1598,20 @@ def test_document_navigation_from_the_scenario():
     assert np.allclose(nav["r_km"], r10, atol=1e-3) and "t_nav_s" not in m
     with pytest.raises(doc.DocumentError):
         doc.mission_for_calc(doc.Document(dict(mission, t_nav_s=50.0), sc))
+
+
+def test_encounter_nodes_and_closest_approach():
+    """P70: two circular orbits 20 deg apart, at one speed: nodes half a period apart, the planes' angle, and the closest
+    approach at the same instant (at the second node, where the two bodies meet)."""
+    from sim import encounter as enc
+    ts = np.linspace(0.0, 6000.0, 6001)
+    w, inc = 2.0 * math.pi / 6000.0, math.radians(20.0)
+    a = 2000.0 * np.c_[np.cos(w * ts), np.sin(w * ts), 0.0 * ts]
+    b = 2000.0 * np.c_[np.cos(w * ts), math.cos(inc) * np.sin(w * ts), math.sin(inc) * np.sin(w * ts)]
+    va, vb = np.gradient(a, ts, axis=0), np.gradient(b, ts, axis=0)
+    n_a, n_b = enc.orbit_normal(a, va), enc.orbit_normal(b, vb)
+    assert enc.angle_deg(n_a[10], n_b[10]) == pytest.approx(20.0)
+    nodes = enc.crossings(ts, a, n_b)
+    assert [round(c.t_s) for c in nodes] == [0, 3000] and [c.ascending for c in enc.next_nodes(nodes, 1.0)] == [True]
+    c = enc.closest_approach(ts, a, va, b, vb, 1000.0)
+    assert c.t_s == pytest.approx(3000.0, abs=1e-3) and c.range_km == pytest.approx(0.0, abs=1e-6) and c.reached

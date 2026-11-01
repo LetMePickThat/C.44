@@ -16,7 +16,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from PyQt5.QtCore import QEvent, QSize, QTimer, Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QKeySequence
-from PyQt5.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QInputDialog, QFileDialog, QGridLayout, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget,
+from PyQt5.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QInputDialog, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget,
                              QListWidgetItem, QMenu, QMessageBox, QDialog, QDialogButtonBox, QPushButton, QShortcut, QScrollArea, QSizePolicy, QSpinBox, QSplitter, QStyle,
                              QTableWidget, QTableWidgetItem, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
@@ -29,6 +29,9 @@ from sim import scenario as scn
 
 # field kinds: "text", "float", "int", "choice", "vecN" (N numbers), "json" (a dict or list typed as JSON)
 Field = Tuple[str, str, str, dict]          # (key, label, kind, options)
+# a choice's stored value -> the text shown (option names of a field)
+FRAME_NAMES = {"pnr": "prograde, normal, radial", "rtn": "radial, along-track, cross-track",
+               "inertial": "inertial (ICRF)"}
 
 _BIG = 1e12
 COMPACT_TREE_H = 120                       # px: least height of the tree over the options (compact column)
@@ -47,12 +50,12 @@ def _f(key: str, label: str, kind: str = "float", **opt) -> Field:
 
 ORBIT_FIELDS: Dict[str, List[Field]] = {
     "elements": [_f("a_km", "semi-major axis (km)", min=1.0), _f("e", "eccentricity", min=0.0, max=0.999999, dec=6),
-                 _f("i_deg", "inclination (deg)", min=0.0, max=180.0), _f("raan_deg", "RAAN (deg)", min=-360.0, max=360.0),
+                 _f("i_deg", "inclination (deg)", min=0.0, max=180.0), _f("raan_deg", "longitude of ascending node (deg)", min=-360.0, max=360.0),
                  _f("argp_deg", "argument of perigee (deg)", min=-360.0, max=360.0),
                  _f("nu_deg", "true anomaly (deg)", min=-360.0, max=360.0)],
     "state": [_f("r_km", "position (km, ICRF)", "vec3"), _f("v_kms", "velocity (km/s, ICRF)", "vec3", dec=6)],
-    "relative": [_f("range_km", "range from the ship (km)", min=0.001), _f("phi_deg", "phi (deg)", min=-360.0, max=360.0),
-                 _f("eps_deg", "eps (deg)", min=-90.0, max=90.0),
+    "relative": [_f("range_km", "range from the ship (km)", min=0.001), _f("phi_deg", "azimuth (deg)", min=-360.0, max=360.0),
+                 _f("eps_deg", "elevation (deg)", min=-90.0, max=90.0),
                  _f("frame", "direction frame", "choice", choices=("ship", "inertial")),
                  _f("v_close_mps", "closing speed (m/s)", min=-_BIG),
                  _f("v_transverse_mps", "transverse velocity (m/s)", "vec2")],
@@ -65,13 +68,13 @@ ATT_DEFAULTS = {"fixed": {"type": "fixed", "frame": "orbital", "yaw_deg": 0.0, "
 ATT_DEFAULTS.update({t: {"type": t, "roll_deg": 0.0} for t in ATT_DIRECTIONS})
 MANOEUVRE_FIELDS: Dict[str, List[Field]] = {
     # pnr: prograde, normal, radial, the manoeuvre node's axes (user, 29 October 2026), first: a new manoeuvre's
-    "impulse": [_f("t_s", "time (s)", min=0.0), _f("dv_mps", "delta-v (m/s)", "vec3"),
-                _f("frame", "frame", "choice", choices=("pnr", "rtn", "inertial"))],
+    "impulse": [_f("t_s", "time (s)", min=0.0), _f("dv_mps", "speed change (m/s)", "vec3"),
+                _f("frame", "axes", "choice", choices=("pnr", "rtn", "inertial"), names=FRAME_NAMES)],
     "burn": [_f("t_s", "start (s)", min=0.0), _f("duration_s", "duration (s)", min=0.001),
              _f("accel_mps2", "acceleration (m/s2)", "vec3"),
-             _f("frame", "frame", "choice", choices=("pnr", "rtn", "inertial"))],
+             _f("frame", "axes", "choice", choices=("pnr", "rtn", "inertial"), names=FRAME_NAMES)],
     "singer": [],
-    "pn": [_f("n", "navigation constant", min=0.1, default=float(P.get("sim.pn_n"))), _f("start_range_km", "start below range (km, or empty: time)", "json"),
+    "pn": [_f("n", "guidance gain", min=0.1, default=float(P.get("sim.pn_n"))), _f("start_range_km", "start below range (km, or empty: time)", "json"),
            _f("t_s", "start time (s, or empty: range)", "json"),
            _f("target", "target (ship, an object, <group>#k)", "text", default="ship")],
 }
@@ -80,8 +83,8 @@ MANOEUVRE_DEFAULTS = {"impulse": {"type": "impulse", "t_s": 0.0, "dv_mps": [0.0,
                                "frame": "pnr"},
                       "singer": {"type": "singer"},
                       "pn": {"type": "pn", "start_range_km": 100.0}}
-ACTION_NAMES = {"attitude": "Attitude", "impulse": "Impulse", "burn": "Burn", "singer": "Random (Singer)",
-                "pn": "Guidance (PN)"}
+ACTION_NAMES = {"attitude": "Attitude", "impulse": "Impulse", "burn": "Burn", "singer": "Random manoeuvres",
+                "pn": "Homing guidance"}
 # a new relative object 1000 km ahead along the nose (+Z; the default attitude is prograde: along the track); at
 # phi = eps = 0 (+X = toward the central body in the orbital reference) it started below the surface (user, 29 Oct 2026)
 ORBIT_DEFAULTS = {"elements": {"type": "elements", "a_km": 7000.0, "e": 0.0, "i_deg": 51.6, "raan_deg": 0.0,
@@ -149,6 +152,15 @@ class _WrapLabel(QLabel):
         fm = self.fontMetrics()
         word = max((fm.horizontalAdvance(x) for x in self.text().split()), default=0)
         return QSize(word + 2, fm.height())
+
+
+def _actions_box(actions: QWidget) -> QGroupBox:
+    """The action list in its frame, as the Info box and the Elements."""
+    box = QGroupBox("Actions")
+    lay = QVBoxLayout(box)
+    lay.setContentsMargins(4, 4, 4, 4)
+    lay.addWidget(actions)
+    return box
 
 
 def _button_row(buttons: Sequence[QPushButton]) -> FlowLayout:
@@ -228,14 +240,16 @@ class FormWidget(QWidget):
         elif kind == "choice":
             w = _Combo()
             choices = list(opt["choices"]() if callable(opt["choices"]) else opt["choices"])
-            w.addItems(choices)
+            names = opt.get("names", {})
+            shown = {names.get(c, c): c for c in choices}
+            w.addItems(list(shown))
             if v in choices:
                 w.setCurrentIndex(choices.index(v))
             elif choices and v is not None:
                 # a value the list does not offer (e.g. the default target "ship" in the ship's own waypoints): the
                 # choice shown is stored, so what is shown is what is validated (user, 29 October 2026)
                 self.data[key] = choices[0]
-            w.currentTextChanged.connect(lambda x, k=key: self._set(k, x if x else None))
+            w.currentTextChanged.connect(lambda x, k=key: self._set(k, shown.get(x, x) if x else None))
         elif kind.startswith("vec"):
             w = VecEdit(int(kind[3:]), int(opt.get("dec", 3)))
             w.set_value(v)
@@ -370,10 +384,10 @@ def _action_cells(kind: str, item: dict) -> Tuple[str, str, str]:
         return time, ACTION_NAMES[kind], what + (f", {item['rate_dps']:g} deg/s" if "rate_dps" in item else "")
     m = item.get("type")
     if m == "impulse":
-        what = f"dv ({_vec(item.get('dv_mps'))}) m/s, {item.get('frame', 'rtn')}"
+        what = f"speed change ({_vec(item.get('dv_mps'))}) m/s, {FRAME_NAMES.get(item.get('frame', 'rtn'))}"
     elif m == "burn":
         what = (f"{item.get('duration_s', 0):g} s at ({_vec(item.get('accel_mps2'))}) m/s2, "
-                f"{item.get('frame', 'rtn')}")
+                f"{FRAME_NAMES.get(item.get('frame', 'rtn'))}")
     elif m == "pn":
         r = _num(item.get("start_range_km"))
         what = ("" if r is None else f"below {r:g} km, ") + f"toward {item.get('target', 'ship')}"
@@ -426,7 +440,7 @@ class ActionList(QWidget):
             b.clicked.connect(self._add_attitude)
             buttons.append(b)
         for t in MANOEUVRE_FIELDS:
-            b = QPushButton(f"+ {t}")
+            b = QPushButton(f"+ {ACTION_NAMES[t].lower()}")
             b.clicked.connect(lambda _c, tt=t: self._add_manoeuvre(tt))
             buttons.append(b)
         rm_b = QPushButton("Remove")
@@ -616,12 +630,11 @@ class ScenarioTab(QWidget):
         add = QMenu(self)
         add.addAction("Object", self.add_object)
         add.addAction("Group", self.add_group)
-        tree_box = QWidget()
+        tree_box = QGroupBox("Elements")
         tl = QVBoxLayout(tree_box)
-        tl.setContentsMargins(0, 0, 0, 0)
+        tl.setContentsMargins(4, 4, 4, 4)
         tl.setSpacing(0)
         head = QHBoxLayout()
-        head.addWidget(QLabel("Elements"))
         head.addStretch(1)
         head.addWidget(uc.menu_button("+", add, tip="Add an object or a group", arrow=False))
         tl.addLayout(head)
@@ -747,8 +760,8 @@ class ScenarioTab(QWidget):
         """px: the column's width with every field of the form at its natural width (not its narrowest), the tree's
         rows and the action table's columns whole (user, 1 November 2026)."""
         t = self.tree
-        tree = t.sizeHintForColumn(0) + 2 * t.frameWidth()
-        tables = [sum(x.sizeHintForColumn(c) for c in range(x.columnCount())) + 2 * x.frameWidth() + 8
+        tree = t.sizeHintForColumn(0) + 2 * t.frameWidth() + 12
+        tables = [sum(x.sizeHintForColumn(c) for c in range(x.columnCount())) + 2 * x.frameWidth() + 24
                   for x in self.form_holder.findChildren(QTableWidget)]
         bar = self.style().pixelMetric(QStyle.PM_ScrollBarExtent)
         return max(tree, self.form_holder.sizeHint().width(), FORM_MIN_W, *tables) + bar + 8
@@ -1111,8 +1124,9 @@ class ScenarioTab(QWidget):
         lay.addWidget(_typed_form("orbit", ("elements", "state"), ORBIT_FIELDS, ORBIT_DEFAULTS, ship, "orbit", "type",
                                   self._changed))
         ship.setdefault("attitude", copy.deepcopy(att.DEFAULT_SHIP))
-        lay.addWidget(QLabel("Actions"))                       # manoeuvres as any object's (user, 29 October 2026)
-        lay.addWidget(self._action_list("ship", ship, lambda: list(scn.object_ids(self.sc)), optional_attitude=False))
+        # manoeuvres as any object's (user, 29 October 2026)
+        lay.addWidget(_actions_box(self._action_list("ship", ship, lambda: list(scn.object_ids(self.sc)),
+                                                     optional_attitude=False)))
         return box
 
     def _action_list(self, row_id: str, owner: dict, targets: Optional[Callable[[], List[str]]] = None,
@@ -1153,7 +1167,7 @@ class ScenarioTab(QWidget):
         lay = QVBoxLayout(box)
         classes = sorted(rm.TARGETS)
         # terms (user, 29 October 2026): "characterisation" for the class, "classification" for the identity
-        fields = [_f("id", "id", "text"), _f("class", "characterisation", "choice", choices=classes),
+        fields = [_f("id", "name", "text"), _f("class", "characterisation", "choice", choices=classes),
                   _f("identity", "classification", "choice", choices=scn.IDENTITIES, default=scn.DEFAULT_IDENTITY),
                   _f("t_appear_s", "appears at (s)", min=0.0)]
         if kind == "objects":
@@ -1181,8 +1195,8 @@ class ScenarioTab(QWidget):
         targets = None
         if kind == "objects" and o.get("class") in att.FLYING_CLASSES:     # none: the class's default attitude (G5)
             targets = lambda: ["ship"] + [x for x in scn.object_ids(self.sc) if x != o.get("id")]  # noqa: E731
-        lay.addWidget(QLabel("Actions"))
-        lay.addWidget(self._action_list(o.get("id", "") if kind == "objects" else f"{o.get('id', '')}#0", o, targets))
+        lay.addWidget(_actions_box(self._action_list(o.get("id", "") if kind == "objects" else f"{o.get('id', '')}#0",
+                                                     o, targets)))
         return box
 
     # ------------------------------------------------------------------ changes and validation
