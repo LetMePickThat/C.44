@@ -8,8 +8,8 @@ once the scenario is validated, its journal the entry point of the radar).
 The same forces as the real computation (sim/propagate: the central body with J2, the other bodies, the burns, the
 impulses, proportional navigation, the spawns of relative states and groups, the attitudes flown by waypoints, the
 impacts), integrated by RK4 at two rates instead of 0.1 s everywhere (compiled, sim/fast_preview):
-  - the free rows: one step of PREVIEW_STEP_S (30 s: < 1 m off the 0.1 s integration after an hour in low orbit,
-    measured), each step ending at the next event (spawn, impulse, burn start or end, PN start time);
+  - the free rows: one step of PREVIEW_STEP_S (15 s, user 8 November 2026: the 30 s segments showed on the paths;
+    30 s was already < 1 m off the 0.1 s integration after an hour in low orbit, measured), each step ending at the next event (spawn, impulse, burn start or end, PN start time);
   - within it, the rows that need finer steps, at their own: a row burning (BURN_STEP_S), a guided row (a twentieth
     of the time to its target, PN_SHARE, down to FINE_STEP_S), a row closing on its PN start range or on the surface
     (half the time left, HALF); a guided row's target, when free, interpolated over the step (cubic on its states at
@@ -34,7 +34,7 @@ from . import fast
 from . import fast_preview as fp
 from . import propagate as prop
 
-PREVIEW_STEP_S = 30.0          # a free row's step, s (D)
+PREVIEW_STEP_S = 15.0          # a free row's step, s (user, 8 November 2026: 30 s segments visible)
 BURN_STEP_S = 5.0              # a row burning, s (D)
 FINE_STEP_S = 0.1              # the finest step: the real computation's default, s (D)
 PN_SHARE = 0.05                # a guided row: this share of the time to its target per step (D)
