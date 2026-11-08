@@ -813,6 +813,21 @@ def _set_user_matrix(actor, u: np.ndarray) -> None:
         m.DeepCopy(u.ravel().tolist())
 
 
+VBO_NEAR_PLANE_SHIFT_SCALE = 5                   # vtkOpenGLVertexBufferObject::NEAR_PLANE_SHIFT_SCALE (enum not wrapped)
+
+
+def _near_camera_precision(actor, mesh) -> None:
+    """The actor drawn by a polydata mapper whose vertex buffer is shifted to the camera's near plane, rebuilt as the
+    camera moves (VTK's default shifts it to the data's centre once: a 4000 km trail kept in float32 about its middle
+    is drawn in 0.1 m steps, its segments in all directions seen from a few metres, user 8 November 2026)."""
+    from vtkmodules.vtkRenderingCore import vtkPolyDataMapper
+    m = vtkPolyDataMapper()
+    m.ShallowCopy(actor.GetMapper())                 # (scalars, colour mode, array: as pyvista set them)
+    m.SetInputData(mesh)
+    m.SetVBOShiftScaleMethod(VBO_NEAR_PLANE_SHIFT_SCALE)
+    actor.SetMapper(m)
+
+
 def _set_points(mesh, pts: np.ndarray) -> None:
     """mesh.points = pts, in place when the count is the same (pyvista's setter costs 0.1 ms: 100 meshes per frame)."""
     data = mesh.GetPoints().GetData()
@@ -3464,7 +3479,8 @@ class SimView(QWidget):
         if rgb is not None or cell_rgb is not None:
             kw.update(scalars="rgb", rgb=True, preference="point" if rgb is not None else "cell")
         actor = self.plotter.add_mesh(mesh, name=name, render=False, **kw)
-        if front:                                      # moved to the layer over the scene: never hidden by a body
+        _near_camera_precision(actor, mesh)
+        if front:                                     # moved to the layer over the scene: never hidden by a body
             self.plotter.remove_actor(actor, render=False)
             actor.GetProperty().LightingOff()
             self._front_renderer().AddActor(actor)
