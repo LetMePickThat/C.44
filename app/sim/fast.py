@@ -33,7 +33,60 @@ USE_NUMBA: bool = bool(P.get("sim.use_numba")) and _nb is not None
 
 
 def _jit(f):
-    return _nb.njit(cache=True)(f) if USE_NUMBA else f
+    return _nb.njit(cache=True, nogil=True)(f) if USE_NUMBA else f   # (nogil: the editor's background preview
+                                                                      # leaves the interface its turns, 8 Nov 2026)
+
+
+@_jit
+def _grid_at(grid, g_t0, g_step, t, out):
+    """The other bodies at t from their grid (n, k, 3): the cubic through four points (propagate.ThirdBodies)."""
+    x = (t - g_t0) / g_step
+    k = int(math.floor(x))
+    k = min(max(k, 1), grid.shape[0] - 3)
+    u = x - k
+    w0 = -u * (u - 1.0) * (u - 2.0) / 6.0
+    w1 = (u + 1.0) * (u - 1.0) * (u - 2.0) / 2.0
+    w2 = -(u + 1.0) * u * (u - 2.0) / 2.0
+    w3 = (u + 1.0) * u * (u - 1.0) / 6.0
+    for b in range(grid.shape[1]):
+        for c in range(3):
+            out[b, c] = (w0 * grid[k - 1, b, c] + w1 * grid[k, b, c] + w2 * grid[k + 1, b, c]
+                         + w3 * grid[k + 2, b, c])
+
+
+@_jit
+def coast_path(x, u, t0, h, n, grid, g_t0, g_step, tmu, mu, j2, r_eq_km, pole, radius_km, out_r, out_v):
+    """The free fall of one state x, u (3,) from t0 in n RK4 steps of h (the manoeuvre node's path between its
+    manoeuvres, propagate.preview_path; fork RADARv6_RS, 8 November 2026: 21 ms of a drag event in Python):
+    out_r, out_v (n, 3) after each step. Returns the steps taken: fewer when the surface is met (the last one inside)."""
+    r = np.empty((1, 3))
+    no = np.zeros((1, 3))
+    tp = np.empty((grid.shape[1], 3))
+    xs, us = x.copy(), u.copy()
+    kx = np.empty((4, 3))
+    ka = np.empty((4, 3))
+    for s in range(n):
+        t = t0 + s * h
+        for q in range(4):
+            c = 0.0 if q == 0 else (0.5 if q < 3 else 1.0)
+            tq = t + c * h
+            for i in range(3):
+                pv = ka[q - 1, i] if q > 0 else 0.0
+                px = kx[q - 1, i] if q > 0 else 0.0
+                kx[q, i] = us[i] + c * h * pv
+                r[0, i] = xs[i] + c * h * px
+            _grid_at(grid, g_t0, g_step, tq, tp)
+            a = gravity(r, no, mu, j2, r_eq_km, pole, tp, tmu)
+            for i in range(3):
+                ka[q, i] = a[0, i]
+        for i in range(3):
+            xs[i] += h / 6.0 * (kx[0, i] + 2.0 * kx[1, i] + 2.0 * kx[2, i] + kx[3, i])
+            us[i] += h / 6.0 * (ka[0, i] + 2.0 * ka[1, i] + 2.0 * ka[2, i] + ka[3, i])
+            out_r[s, i] = xs[i]
+            out_v[s, i] = us[i]
+        if math.sqrt(xs[0] * xs[0] + xs[1] * xs[1] + xs[2] * xs[2]) < radius_km:
+            return s + 1
+    return n
 
 
 @_jit
@@ -249,15 +302,17 @@ def _root(parent, a):
 
 
 @_jit
-def multitrack_labels(xy, code, lim):
-    """The groups of two or more points of one code linked by distances up to lim (one to the next: a chain is one
-    group), code < 0 taking no part: each point's group (its lowest member), -1 when alone (user, 1 November 2026: 6 ms
-    per frame at 1000 objects through a k-d tree and a graph). A sweep along x; a group's points all compared at
-    worst, 1000 x 1000 simple tests."""
+def multitrack_labels(xy, code, lim, bw, bh, near):
+    """The groups of two or more points of one code linked by distances up to lim (neither of the two near), or whose
+    boxes of bw x bh px (their data boxes, at the same offset from each point) would overlap: |dx| < bw and |dy| < bh,
+    near or not (user, 8 November 2026) (one to the next: a chain is one group), code < 0 taking no part: each point's
+    group (its lowest member), -1 when alone (user, 1 November 2026: 6 ms per frame at 1000 objects through a k-d tree
+    and a graph). A sweep along x; a group's points all compared at worst, 1000 x 1000 simple tests."""
     n = xy.shape[0]
     order = np.argsort(xy[:, 0])
     parent = np.arange(n)
     lim2 = lim * lim
+    reach = max(lim, bw)
     for p in range(n):
         a = order[p]
         if code[a] < 0:
@@ -265,10 +320,11 @@ def multitrack_labels(xy, code, lim):
         for s in range(p + 1, n):
             b = order[s]
             dx = xy[b, 0] - xy[a, 0]
-            if dx > lim:
+            if dx > reach:
                 break
             dy = xy[b, 1] - xy[a, 1]
-            if code[b] == code[a] and dx * dx + dy * dy <= lim2:
+            if code[b] == code[a] and ((dx * dx + dy * dy <= lim2 and not near[a] and not near[b])
+                                       or (dx < bw and abs(dy) < bh)):
                 ra, rb = _root(parent, a), _root(parent, b)
                 if ra != rb:
                     parent[max(ra, rb)] = min(ra, rb)

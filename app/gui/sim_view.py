@@ -44,10 +44,12 @@ No RF here (F9): step 6.4 adds the looks and the tracks to the same player.
 from __future__ import annotations
 
 import atexit
+import dataclasses
 import copy
 import json
 import math
 import os
+import sys
 from functools import lru_cache
 import time
 import weakref
@@ -57,7 +59,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 import numpy as np
 import pyvista as pv
 from vtkmodules.util.numpy_support import numpy_to_vtk, vtk_to_numpy
-from PyQt5.QtCore import QThread, QTimer, Qt, pyqtSignal
+from PyQt5.QtCore import QProcess, QThread, QTimer, Qt, pyqtSignal
 from PyQt5.QtWidgets import (QButtonGroup, QMenu, QToolButton, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
                              QMessageBox, QProgressBar, QPushButton, QShortcut, QVBoxLayout, QWidget)
 from PyQt5.QtGui import QCursor, QKeySequence
@@ -76,12 +78,20 @@ from sim import engine
 from sim import ephemeris as eph
 from sim import fast
 from sim import geometry as sgeo
+from sim import preview
 from sim import propagate as prop
 from sim import scenario as scn
 
 FPS =int(P.get("tool.display.sim_fps"))
 BOX_TEXT_S = float(P.get("tool.display.sim_box_text_s"))   # the data boxes' texts during the playback: at most once per this
-AUTO_MAX_CELLS = float(P.get("tool.display.sim_auto_max_cells"))
+BODY_SHAPES = {"SHIP": ("cylinder", 130.0, 15.0),   # the objects at their size in the 3D views: shape, length and
+               "KKV": ("cylinder", 1.5, 0.5),      # diameter, m; a cylinder along the nose (user, 8 November 2026)
+               "DEBRIS": ("sphere", 1.0, 1.0), "DECOY": ("sphere", 1.0, 1.0)}
+MARK_FONT = 14                                   # events' labels: pt at UI size 100 %
+MARK_GROUP_PX = 8.0                               # ... of one kind, points this close on screen: one label (D, 8 Nov 2026)
+DRAG_FLEET_HZ = 10.0                             # node drag: the whole preview drawn at most this often (D, 8 Nov 2026)
+APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # (the real computation runs there)
+AUTO_MAX_CELLS = float(P.get("tool.display.sim_auto_max_cells"))   # (former propagation; unused by the live view)
 PROP_TIP_IDLE = "Only for large scenarios, after a change: smaller ones propagate by themselves"
 PROP_TIP_NEEDED = "The scenario changed and is too large for the automatic propagation: propagate it"
 MAX_VIEW_MARGIN = float(P.get("tool.display.sim_max_view_margin"))   # farthest zoom out: the solar system (user)
@@ -198,6 +208,7 @@ DATA_FONT = 15                                    # pt: the objects' data boxes 
 BODY_AMBIENT = 0.12                               # global view: a body's night side, share of its lit colour
 BODY_ORBIT_NEAR = 61                               # ... its points about t, computed at each frame (D)
 BODY_ORBIT_COLOR = "#8a8a8a"                      # (a body without a colour of its own)
+ORBIT_ALPHA = 0.7                                 # an orbit: its body's colour at this share over the background
 ORBIT_MIN_PEAK = 170.0                            # an orbit's colour: its brightest channel at least this (D)
 ORBIT_HUE_SHARE = 0.2                             # ... a coloured part of the map at least this share (D)
 PROJ_ARC_DEG = 2.0                                # the arc to the range projection: one point per this many degrees
@@ -326,6 +337,49 @@ class SimWorker(QThread):
             self.failed.emit(f"{type(exc).__name__}: {exc}")
 
 
+class _PreviewWorker(QThread):
+    """The scenario editor's previews during a node drag (SimView._preview_async): one thread, the last scenario
+    submitted computed next (the ones in between dropped), each result emitted with its request number. No parent,
+    kept in _WORKERS while it runs (as SimWorker)."""
+    ready = pyqtSignal(int, object, object, object, float, int, str)
+
+    def __init__(self):
+        super().__init__()
+        import threading
+        self._cv = threading.Condition()
+        self._job: Optional[tuple] = None
+        self._stop = False
+        _WORKERS.add(self)
+        self.finished.connect(lambda: _WORKERS.discard(self))
+
+    def submit(self, seq: int, sc: dict, edits: int) -> None:
+        with self._cv:
+            self._job = (seq, sc, edits)
+            self._cv.notify()
+
+    def stop(self) -> None:
+        with self._cv:
+            self._stop, self._job = True, None
+            self._cv.notify()
+        self.wait()
+
+    def run(self) -> None:
+        while True:
+            with self._cv:
+                while self._job is None and not self._stop:
+                    self._cv.wait()
+                if self._stop:
+                    return
+                (seq, sc, edits), self._job = self._job, None
+            t0 = time.perf_counter()
+            try:
+                truth = preview.preview(sc)
+                g = sgeo.lazy_geometry(sc, truth)
+                self.ready.emit(seq, sc, truth, g, 1e3 * (time.perf_counter() - t0), edits, "")
+            except Exception as exc:                  # (a scenario the model refuses: the former view kept)
+                self.ready.emit(seq, sc, None, None, 0.0, edits, f"{type(exc).__name__}: {exc}")
+
+
 def propagate_job(sc: dict) -> Callable:
     def job(cb):
         truth = prop.propagate(sc, progress_cb=lambda k, n: cb("propagation", k / max(n, 1)))
@@ -395,6 +449,29 @@ def _renaming(old: Optional[dict], new: dict) -> Optional[Dict[str, str]]:
     return names if c == _physics(new) else None
 
 
+def _first_records(tr, n: int):
+    """The truth's first n records (views; L5: the instants whose geometry is computed)."""
+    return dataclasses.replace(tr, t_s=tr.t_s[:n], r_km=tr.r_km[:n], v_kms=tr.v_kms[:n], att_t_s=tr.att_t_s[:n],
+                               att_q=tr.att_q[:n])
+
+
+@lru_cache(maxsize=None)
+def _unit_shape(kind: str) -> Tuple[np.ndarray, np.ndarray]:
+    """(points (p, 3), triangles (f, 3)) of a shape of length and diameter 1 along +Z, centred on the origin."""
+    if kind == "cylinder":
+        m = pv.Cylinder(center=(0.0, 0.0, 0.0), direction=(0.0, 0.0, 1.0), radius=0.5, height=1.0, resolution=16)
+    else:
+        m = pv.Sphere(radius=0.5, theta_resolution=12, phi_resolution=8)
+    m = m.triangulate().clean()
+    return np.asarray(m.points, float), m.faces.reshape(-1, 4)[:, 1:].copy()
+
+
+def _quat_z(q: np.ndarray) -> np.ndarray:
+    """(n, 3) the body Z axis in ICRF of Hamilton quaternions [w, x, y, z] (n, 4) body -> ICRF."""
+    w, x, y, z = q[:, 0], q[:, 1], q[:, 2], q[:, 3]
+    return np.c_[2.0 * (x * z + w * y), 2.0 * (y * z - w * x), 1.0 - 2.0 * (x * x + y * y)]
+
+
 def cells(sc: dict) -> float:
     """Rows x steps of a normalised scenario (the cost of a propagation)."""
     n = 1 + len(sc.get("objects", [])) + sum(int(g.get("n", 0)) for g in sc.get("groups", []))
@@ -445,6 +522,16 @@ def _body_color(body: str) -> str:
     if peak < ORBIT_MIN_PEAK:
         rgb = rgb * ORBIT_MIN_PEAK / peak
     return "#%02x%02x%02x" % tuple(int(round(min(255.0, x))) for x in rgb)
+
+
+@lru_cache(maxsize=None)
+def _orbit_line_color(body: str) -> str:
+    """The colour an orbit is drawn in: its body's at ORBIT_ALPHA over the background, drawn opaque (user, 8 November
+    2026: the orbits flickered as the view turned. A translucent line goes through VTK's order-independent
+    translucency, outside the window's multisampling: 1 px stairs without antialiasing that crawled at each step of
+    a rotation; opaque, the multisampling smooths it, 9 grey levels across the line instead of 1)."""
+    c, bg = np.array(_rgb(_body_color(body)), float), np.array(_rgb(BG_COLOR), float)
+    return "#%02x%02x%02x" % tuple(int(round(x)) for x in ORBIT_ALPHA * c + (1.0 - ORBIT_ALPHA) * bg)
 
 
 def _has_texture(body: str) -> bool:
@@ -1391,6 +1478,28 @@ class SimView(QWidget):
         self.load_timer.setSingleShot(True)
         self.load_timer.setInterval(0)
         self.load_timer.timeout.connect(self.propagate)
+        # the scenario editor (fork RADARv6_RS, user 8 November 2026): while editing, the scenario's preview
+        # (sim/preview, approximate, computed at once) shown at each change, a node drag included; once validated, the
+        # real computation (sim/run, its journal the radar's entry point) in a separate process, then its run shown
+        self._live = False                            # a scenario was loaded: its changes are previewed
+        self._mode: Optional[str] = None              # what is shown: "preview" or "run" (a journal)
+        self._preview_sc: Optional[dict] = None       # the scenario waiting for its preview (one per event-loop turn)
+        self._preview_ms = 0.0                        # the last preview's cost
+        self.preview_timer = QTimer(self)
+        self.preview_timer.setSingleShot(True)
+        self.preview_timer.setInterval(0)
+        self.preview_timer.timeout.connect(self._do_preview)
+        self._preview_seq = 0                         # each preview asked; a background one shown only if newer than
+        self._preview_shown = 0                       # ... the one shown (its number)
+        self._pworker: Optional[_PreviewWorker] = None   # a node drag's previews (_preview_async)
+        self._fleet_wall = 0.0                        # ... the last one drawn (wall clock), the one waiting its turn
+        self._fleet_held: Optional[tuple] = None
+        self.fleet_timer = QTimer(self)
+        self.fleet_timer.setSingleShot(True)
+        self.fleet_timer.timeout.connect(self._fleet_due)
+        self.scenario_source: Optional[Callable[[], dict]] = None   # the editor's scenario now (a node drag)
+        self.calc: Optional[QProcess] = None          # the real computation under way
+        self._calc_path: Optional[str] = None
         self._reframe_next = True                     # the next run shown frames the camera (a file loaded)
         self._enable_playback(False)
 
@@ -1400,27 +1509,19 @@ class SimView(QWidget):
         attributes with no effect on the physics (classification, scenario name), only updates the run shown,
         without propagating again (user, 29 October 2026)."""
         self.pending = sc
-        busy = self.worker is not None and self.worker.isRunning()
-        names = _renaming(self.sc, sc) if (self.truth is not None and not busy) else None
-        if names is not None:
-            self.debounce.stop()
-            self._launched = sc
-            self._update_prop()
-            self._rename(sc, names)
-            return
-        if cells(sc) <= AUTO_MAX_CELLS:
-            self.debounce.start()
-        self._update_prop()
+        if self.truth is not None and self.sc is not None:
+            names = _renaming(self.sc, sc)             # no effect on the paths (classification, names): the view
+            if names is not None:                      # at once (user, 29 October 2026), nothing computed again
+                self._rename(sc, names)
+                return
+        self._stop_calc()                              # (a real computation of the former scenario: stale)
+        if self._live:
+            self._preview_soon(sc)
 
     def _update_prop(self, busy: Optional[bool] = None) -> None:
         """"Propagate" active only when the user has to act: a large scenario, valid, changed since its last
         propagation, none under way."""
-        if busy is None:
-            busy = self.worker is not None and self.worker.isRunning()
-        large = self.pending is not None and cells(self.pending) > AUTO_MAX_CELLS
-        needed = large and self._valid and not busy and self.pending is not self._launched
-        self.bt_prop.setEnabled(needed)
-        self.bt_prop.setToolTip(PROP_TIP_NEEDED if needed else PROP_TIP_IDLE)
+        self.bt_prop.setEnabled(False)                # (nothing to start: the preview follows the edits)
 
     def _rename(self, sc: dict, names: Dict[str, str]) -> None:
         """The run shown under the new names (rows, group members, attitudes, events), the scenario kept."""
@@ -1469,37 +1570,194 @@ class SimView(QWidget):
         self._apply_centre(reframe=True)
 
     def propagate(self) -> None:
+        """The preview of the scenario now."""
         if self.pending is not None:
-            self._launched = self.pending
-            self._start(propagate_job(self.pending), "propagation")
-            self._update_prop()
+            self._live = True
+            self._preview_soon(self.pending)
+
+    def _preview_soon(self, sc: dict) -> None:
+        """The preview of sc at the next turn of the event loop (several changes meanwhile: the last one)."""
+        self._preview_sc = sc
+        if not self.preview_timer.isActive():
+            self.preview_timer.start()
+
+    def _do_preview(self) -> None:
+        """The scenario's preview computed and shown (sim/preview: approximate, user 8 November 2026)."""
+        sc, self._preview_sc = self._preview_sc, None
+        if sc is None or getattr(self.plotter, "_closed", False):
+            return
+        self._preview_seq += 1                         # (a node drag's preview still under way: stale)
+        self._preview_shown = self._preview_seq
+        t0 = time.perf_counter()
+        try:
+            truth = preview.preview(sc)
+        except Exception as exc:                       # (a scenario the model refuses: the former view kept)
+            self.status.setText(f"preview failed: {type(exc).__name__}: {exc}")
+            return
+        g = sgeo.lazy_geometry(sc, truth)
+        self._show_preview(sc, truth, g, 1e3 * (time.perf_counter() - t0), self.node.edits)
+
+    def _preview_async(self, sc: dict) -> None:
+        """During a node drag (user, 8 November 2026: the node lagged behind the mouse, the whole preview computed
+        and drawn at each mouse event, 0.4 s): the preview computed in a background thread, the last scenario sent
+        winning, shown when ready; the node follows the mouse meanwhile."""
+        self._preview_seq += 1
+        if self._pworker is None:
+            self._pworker = _PreviewWorker()
+            self._pworker.ready.connect(self._preview_ready)
+            self._pworker.start()
+        self._pworker.submit(self._preview_seq, sc, self.node.edits)
+
+    def _preview_ready(self, seq: int, sc: dict, truth, g, ms: float, edits: int, err: str) -> None:
+        if seq <= self._preview_shown or getattr(self.plotter, "_closed", False):
+            return                                     # (older than the one shown, or than the release's own preview)
+        if err:
+            self._preview_shown = seq
+            self.status.setText(f"preview failed: {err}")
+            return
+        wait = 1.0 / DRAG_FLEET_HZ - (time.perf_counter() - self._fleet_wall)
+        if self.node.dragging() and wait > 0.0:        # the fleet drawn DRAG_FLEET_HZ times a second at most: the
+            self._fleet_held = (seq, sc, truth, g, ms, edits)   # mouse's other events move the node alone
+            if not self.fleet_timer.isActive():
+                self.fleet_timer.start(int(math.ceil(1e3 * wait)))
+            return
+        self._fleet_held = None
+        self._preview_shown = seq                      # (newer edits may be under way: shown meanwhile, behind them)
+        self._fleet_wall = time.perf_counter()
+        self._show_preview(sc, truth, g, ms, edits)
+
+    def _fleet_due(self) -> None:
+        held, self._fleet_held = self._fleet_held, None
+        if held is not None and held[0] > self._preview_shown and not getattr(self.plotter, "_closed", False):
+            self._preview_shown = held[0]
+            self._fleet_wall = time.perf_counter()
+            self._show_preview(*held[1:])
+
+    def _show_preview(self, sc: dict, truth, g, ms: float, edits: int) -> None:
+        self._preview_ms = ms
+        same = (self.truth is not None and list(self.truth.ids) == list(truth.ids)
+                and self.truth.body.name == truth.body.name and self._mode == "preview")
+        self._mode = "preview"
+        self.show_run(sc, truth, g, "preview", edits=edits, rebuild=not same)
+        self.status.setText(f"preview (approximate): {len(g.ids)} objects, {float(sc['meta']['duration_s']):g} s, "
+                            f"{self._preview_ms:.0f} ms")
+
+    def _run_complete(self) -> bool:
+        """The run shown is whole (a preview is computed in one go, a journal read whole)."""
+        return True
+
+    def node_edited(self, final: bool) -> None:
+        """The manoeuvre node changed a value (user, 8 November 2026): the whole preview follows during a drag, in the
+        background (every body reading the edited one too: a KKV's interception); at the release the editor's
+        validation sends the scenario (set_scenario)."""
+        if final or not self._live or self.scenario_source is None:
+            return
+        try:
+            sc = self.scenario_source()
+        except Exception:                              # (an editor state that does not normalise: wait)
+            return
+        self._preview_async(sc)
 
     def propagate_loaded(self) -> None:
-        """A scenario just created or opened: its propagation starts at once, whatever its size (user, 30 October
-        2026); not for a scenario with problems (pending would still be the former one)."""
+        """A scenario just created or opened: its preview at once (user, 30 October 2026); not for a scenario with
+        problems (pending would still be the former one)."""
         self._reframe_next = True                     # (its run framed by the camera, the next edits keep it)
-        if self._valid:
-            self.debounce.stop()
-            self.load_timer.start()
+        self._stop_calc()
+        if self._valid and self.pending is not None:
+            self._live = True
+            self._preview_soon(self.pending)
 
     def stop_background(self) -> None:
-        """The window closes: the playback and the propagation under way stopped before the view goes (a frame drawn
-        without its render window, a running thread destroyed)."""
+        """The window closes: the playback, the preview to come and the real computation stopped before the view
+        goes (a frame drawn without its render window)."""
         self._playing = False
         self.timer.stop()
         self.load_timer.stop()
         self.debounce.stop()
+        self.preview_timer.stop()
+        self.fleet_timer.stop()
+        if self._pworker is not None:
+            self._pworker.stop()
+            self._pworker = None
+        self._stop_calc()
         self._queued = None
         if self.worker is not None and self.worker.isRunning():
             self.worker.cancelled = True
             self.worker.wait()
 
+    # ------------------------------------------------------------------ the real computation (validated scenario)
     def run_journal(self) -> None:
+        """The validated scenario's real computation (sim/run: the full model, its journal written next to the
+        scenario, the radar's entry point), in a separate process (the view stays fluid), then its run shown."""
         path = self.get_path()
         if path is None:
             QMessageBox.information(self, "Simulator", "Save the scenario first: the journal is written next to it.")
             return
-        self._start(run_job(path), "run")
+        if not self._valid:
+            QMessageBox.information(self, "Simulator", "The scenario has problems: correct them before computing it.")
+            return
+        self._stop_calc()
+        proc = QProcess(self)
+        proc.setProgram(sys.executable)
+        proc.setArguments(["-u", "-m", "sim.run", path])
+        proc.setWorkingDirectory(APP_DIR)
+        proc.setProcessChannelMode(QProcess.MergedChannels)
+        proc.readyReadStandardOutput.connect(self._calc_output)
+        proc.finished.connect(self._calc_finished)
+        self.calc, self._calc_path = proc, path
+        self.status.setText("real computation: starting...")
+        self.progress.setValue(0)
+        proc.start()
+
+    def _calc_output(self) -> None:
+        """The computation's progress (lines "<stage> <percent> %" ended by a carriage return, sim/run.main)."""
+        if self.calc is None:
+            return
+        text = bytes(self.calc.readAllStandardOutput()).decode("utf-8", "replace")
+        self._calc_log = (getattr(self, "_calc_log", "") + text)[-2000:]
+        parts = [x.strip() for x in text.replace("\n", "\r").split("\r") if x.strip()]
+        if not parts:
+            return
+        last = parts[-1].split()
+        if len(last) >= 3 and last[-1] == "%":
+            try:
+                f = float(last[-2]) / 100.0
+            except ValueError:
+                return
+            self.progress.setValue(int(round(1000 * f)))
+            self.status.setText(f"real computation: {last[0]} {100 * f:.0f} %")
+
+    def _calc_finished(self, code: int, _status=None) -> None:
+        proc, path = self.calc, self._calc_path
+        self.calc = None
+        if proc is None or path is None:
+            return
+        if code != 0:
+            tail = getattr(self, "_calc_log", "").strip().splitlines()
+            self.status.setText(f"real computation failed ({code}): {tail[-1] if tail else ''}")
+            return
+        try:
+            sc, truth, g, _nav, _meta = engine.load_journal(engine.journal_paths(path)[0])
+        except (OSError, ValueError, KeyError) as exc:
+            self.status.setText(f"real computation: its journal could not be read: {exc}")
+            return
+        same = (self.truth is not None and list(self.truth.ids) == list(truth.ids)
+                and self.truth.body.name == truth.body.name)
+        self._mode = "run"
+        self.show_run(sc, truth, g, "computed run", rebuild=not same)
+
+    def _stop_calc(self) -> None:
+        """The real computation under way stopped (the scenario changed, the window closes)."""
+        proc, self.calc = self.calc, None
+        self._calc_log = ""
+        if proc is not None:
+            try:
+                proc.finished.disconnect()
+                proc.readyReadStandardOutput.disconnect()
+            except TypeError:
+                pass
+            proc.kill()
+            proc.waitForFinished(2000)
 
     def open_journal(self) -> None:
         from gui.scenario_tab import SCENARIO_DIR            # the journals are written next to their scenarios
@@ -1513,6 +1771,8 @@ class SimView(QWidget):
             QMessageBox.critical(self, "Simulator", f"{path}: {exc}")
             return
         self._reframe_next = True
+        self._stop_calc()
+        self._mode = "run"
         self.show_run(sc, truth, g, f"journal {path}")
 
     def _start(self, job: Callable, what: str) -> None:
@@ -1543,9 +1803,11 @@ class SimView(QWidget):
         else:
             self._update_prop(busy=False)
 
-    def show_run(self, sc: dict, truth, g: sgeo.Geometry, label: str = "", edits: Optional[int] = None) -> None:
-        """Display a propagated run (from the worker or a journal); edits: the manoeuvres' changes it takes in (the
-        node's count when it was launched; None: all of them)."""
+    def show_run(self, sc: dict, truth, g: sgeo.Geometry, label: str = "", edits: Optional[int] = None,
+                 rebuild: bool = True) -> None:
+        """Display a propagated run (from the worker, a journal or the live front); edits: the manoeuvres' changes it
+        takes in (the node's count when it was launched; None: all of them); rebuild False (L5: the same bodies and
+        central body as the run shown, an edit taken up by the front): the scene kept, its data replaced."""
         if getattr(self.plotter, "_closed", False):    # (the view closed while the worker ran)
             return
         self._run_edits = self.node.edits if edits is None else edits
@@ -1559,7 +1821,8 @@ class SimView(QWidget):
         self._mt_input = None                          # (rows of the former run: fewer objects now, until the next frame)
         self._cpa_cache = {}                          # the closest approaches of the run shown
         # global view: the paths through every n-th truth record, n fixed for the run (no shimmer while playing)
-        self._path_stride = max(1, math.ceil(len(truth.t_s) / PATH_MAX_PTS))
+        n_all = float(sc["meta"]["duration_s"]) / prop.LOG_STEP_S + 1.0      # (L5: the live run grows)
+        self._path_stride = max(1, math.ceil(max(len(truth.t_s), n_all) / PATH_MAX_PTS))
         self._coast_third = None                      # the other bodies' grid of the orbital vectors (_coast)
         self.progress.setValue(1000)
         self.status.setText(f"{label}: {len(g.ids)} objects, {float(sc['meta']['duration_s']):g} s")
@@ -1567,13 +1830,19 @@ class SimView(QWidget):
         rng = g.range_km[np.isfinite(g.range_km)]
         self._r_far = max(float(rng.max()), 1e-3) if rng.size else 10.0
         self._navigation = engine.Navigation(sc, truth)
-        self.node.invalidate()                        # the node's preview from the new run
+        if rebuild or not self.node.dragging():       # the node's preview from the new run (during a drag, kept: it
+            self.node.invalidate()                    # starts before the edited manoeuvre, where the runs are alike)
         self._triad_rgb = np.array([_rgb(cgeo.COLORS[k]) for k in ("axis_x", "axis_y", "axis_z")], np.uint8)
         self._colour_rows()
         self._fill_lists()
         self._fill_events()
         self._enable_playback(True)
-        self._rebuild(keep_camera=keep)
+        if rebuild:
+            self._rebuild(keep_camera=keep)
+        else:
+            self._compute_markers()
+            self._draw_frame()
+            self._draw_volumes()
         self.run_shown.emit()
 
     # ------------------------------------------------------------------ time
@@ -1584,6 +1853,10 @@ class SimView(QWidget):
             return 0.0
         d = float(self.sc["meta"]["duration_s"])
         return min(d, float(self.truth.t_s[-1])) if self.truth is not None and len(self.truth.t_s) else d
+
+    def span(self) -> float:
+        """The slider's length (L5): the scenario's, or the run's once complete (it may end at the ship's impact)."""
+        return self.duration() if self._run_complete() else self.scenario_duration()
 
     def scenario_duration(self) -> float:
         """The scenario's length (the manoeuvre node's paths: beyond an impact the edit may avoid)."""
@@ -1604,7 +1877,6 @@ class SimView(QWidget):
         if on:
             self.status.setVisible(True)
             self.progress.setVisible(True)
-            self.bt_prop.setVisible(True)
         self.side_panel.setVisible(on)
 
     def _enable_playback(self, on: bool) -> None:
@@ -1624,7 +1896,7 @@ class SimView(QWidget):
     def set_time(self, t: float) -> None:
         self.t = float(np.clip(t, 0.0, self.duration()))
         self.slider.blockSignals(True)
-        self.slider.setValue(int(round(10000 * self.t / max(self.duration(), 1e-9))))
+        self.slider.setValue(int(round(10000 * self.t / max(self.span(), 1e-9))))
         self.slider.blockSignals(False)
         self._draw_frame()
         if not self._playing:
@@ -1632,7 +1904,7 @@ class SimView(QWidget):
 
     def _on_slider(self, v: int) -> None:
         if self.sc is not None:
-            self.set_time(v / 10000.0 * self.duration())
+            self.set_time(v / 10000.0 * self.span())    # (L5: beyond the front, held at it)
 
     def step(self, k: int) -> None:
         if self.truth is None:
@@ -1650,7 +1922,7 @@ class SimView(QWidget):
             self._draw_frame()                        # (the data boxes' texts at t)
             self._draw_volumes()
         elif self.sc is not None and self._valid:     # (the Space shortcut ignores the greyed button)
-            if self.t >= self.duration():
+            if self.t >= self.duration() and self._run_complete():
                 self.t = 0.0
             self._playing = True
             self._wall = time.perf_counter()
@@ -1666,8 +1938,10 @@ class SimView(QWidget):
         dt = (now - self._wall) * SPEEDS[self.cb_speed.currentIndex()]
         self._wall = now
         t = self.t + dt
-        if t >= self.duration():
-            self.toggle_play()
+        if t >= self.duration():                      # L5: the end of the run, or the front: the clock waits there
+            t = self.duration()
+            if self._run_complete():
+                self.toggle_play()
         self.set_time(t)
         self._draw_volumes()
         if self._playing:
@@ -1695,12 +1969,16 @@ class SimView(QWidget):
                     ev.append((float(m["t_s"]), f"{o['id']} {m['type']}"))
         for e in tr.att_events:
             ev.append((float(e["t_s"]), f"{e['id']} {e['kind']}"))
-        for a, b in engine._periods(self.g.t_s, self.g.ship_shadow > 0.0):
-            ev.append((a, "ship enters the shadow"))
-            if b < self.duration():
-                ev.append((b, "ship leaves the shadow"))
-        self.events = sorted(ev)
-        span = max(self.duration(), 1e-9)
+        if self.node.dragging():                       # (during a node drag, the former shadow marks: 46 ms each,
+            shade = [e for e in getattr(self, "events", []) if e[1].startswith("ship ") and "shadow" in e[1]]
+        else:                                          # taken again at the release)
+            shade = []
+            for a, b in engine._periods(self.g.t_s, self.g.ship_shadow > 0.0):
+                shade.append((a, "ship enters the shadow"))
+                if b < self.duration():
+                    shade.append((b, "ship leaves the shadow"))
+        self.events = sorted(ev + shade)
+        span = max(self.span(), 1e-9)
         self.slider.set_marks([(int(round(10000 * t / span)), f"{t:.1f} s  {text}") for t, text in self.events])
 
     # ------------------------------------------------------------------ drawing
@@ -1795,7 +2073,7 @@ class SimView(QWidget):
 
     def status_widgets(self) -> list:
         """"Propagate" and the propagation's state, for the window's status bar."""
-        return [self.bt_prop, self.status, self.progress]
+        return [self.status, self.progress]                # (L5: no Propagate button)
 
     def file_commands(self) -> list:
         """(text, slot, icon) of the simulator in the window's menu."""
@@ -1810,6 +2088,8 @@ class SimView(QWidget):
         saved = (cam.GetPosition(), cam.GetFocalPoint(), cam.GetViewUp(), cam.GetViewAngle(),
                  getattr(p, "_pivot", None)) if keep_camera else None
         p.clear()
+        if getattr(self, "_front_ren", None) is not None:
+            self._front_ren.RemoveAllViewProps()       # (the layer over the scene: the node's former actors)
         p.set_background(BG_COLOR)
         p.remove_all_lights()
         self._add_fps()                               # (the clear took it away)
@@ -1871,8 +2151,22 @@ class SimView(QWidget):
         self._sun_light.attenuation_values = (1.0, 0.0, 0.0)
         p.add_light(self._sun_light)
         self._add_model()                              # OWNSHIP's model, placed at each frame (user, 30 October 2026)
+        self._compute_markers()
+        extent = max(float(np.nanmax(np.abs(tr.r_km))) if np.isfinite(tr.r_km).any() else 0.0, 2.0 * body.radius_km)
+        self._home = (-extent, extent, -extent, extent, -extent, extent)
+        p.camera.up = tuple(self._turn_axis())         # level with the mouse rotation's vertical
+        p.reset_camera(render=False, bounds=self._home)
+        p._pivot = (0.0, 0.0, 0.0)
+        self._centre_pending = True
+
+    def _compute_markers(self) -> None:
+        """The events' places, drawn at each frame (_draw_markers); L5: those within the run computed so far."""
+        tr = self.truth
+        t_end = float(tr.t_s[-1])
         times, pts, labels, rows = [], [], [], []
-        for t, text in self._marker_events():         # the events' places, drawn at each frame (_draw_markers)
+        for t, text in self._marker_events():
+            if t > t_end + 1e-9:
+                continue
             r = sgeo.states_at(tr, t)[0]
             oid = text.split()[0]
             if oid in tr.ids and np.isfinite(r[tr.row(oid), 0]):
@@ -1881,12 +2175,6 @@ class SimView(QWidget):
                 labels.append(text)
                 rows.append(tr.row(oid))
         self._markers = (np.array(times, float), np.array(pts, float).reshape(-1, 3), labels, np.array(rows, int))
-        extent = max(float(np.nanmax(np.abs(tr.r_km))) if np.isfinite(tr.r_km).any() else 0.0, 2.0 * body.radius_km)
-        self._home = (-extent, extent, -extent, extent, -extent, extent)
-        p.camera.up = tuple(self._turn_axis())         # level with the mouse rotation's vertical
-        p.reset_camera(render=False, bounds=self._home)
-        p._pivot = (0.0, 0.0, 0.0)
-        self._centre_pending = True
 
     def _body_orbits(self) -> None:
         """Global view: the celestial body selected (user, 29 October 2026): its orbit around its parent (the Moon
@@ -1917,7 +2205,7 @@ class SimView(QWidget):
             nc = getattr(self, "_near_cache", {})
             self._near_cache = nc
             hit = nc.get(b)
-            if (hit is not None and hit[0] == id(self.truth) and hit[1] is ts and hit[2][0] + step <= self.t
+            if (hit is not None and hit[0] == self._sky_key() and hit[1] is ts and hit[2][0] + step <= self.t
                     <= hit[2][-1] - step):                   # the body still well inside it: kept (all orbits:
                 near_t, near, t_lo, t_hi = hit[2], hit[3], hit[2][0], hit[2][-1]    # 51 at each frame, user)
             else:
@@ -1926,7 +2214,7 @@ class SimView(QWidget):
                 t_hi = ts[ts > hi][0] if (ts > hi).any() else hi
                 near_t = np.linspace(t_lo, t_hi, BODY_ORBIT_NEAR)
                 near = np.array([self._orbit_rel(b, float(t)) for t in near_t])
-                nc[b] = (id(self.truth), ts, near_t, near)
+                nc[b] = (self._sky_key(), ts, near_t, near)
             if self._orbit_kept(b, now[parent], rel, near):
                 continue
             before, after = ts < t_lo + 1e-9, ts > t_hi - 1e-9
@@ -1940,18 +2228,18 @@ class SimView(QWidget):
             if coarse:
                 off = np.cumsum([0] + [len(p_) for p_ in coarse])
                 lines = np.hstack([np.r_[len(p_), off[k] + np.arange(len(p_))] for k, p_ in enumerate(coarse)])
-                self._poly(f"{DYN}orbit_{b}", now[parent] + np.vstack(coarse), lines=lines, color=_body_color(b),
-                           line_width=1, opacity=0.7)                # (its body's dominant colour, user)
+                self._poly(f"{DYN}orbit_{b}", now[parent] + np.vstack(coarse), lines=lines, color=_orbit_line_color(b),
+                           line_width=1)                             # (its body's dominant colour, user)
             self._poly(f"{DYN}orbit_{b}_near", now[parent] + near, lines=np.r_[len(near), np.arange(len(near))],
-                       color=_body_color(b), line_width=1, opacity=0.7)
+                       color=_orbit_line_color(b), line_width=1)
 
     def _orbit_kept(self, b: str, parent: np.ndarray, rel: np.ndarray, near: np.ndarray) -> bool:
         """Whether the orbit of b, drawn about its parent's former place, stays as it is: same points and the parent
         moved less than ORBIT_KEEP_PX on screen where the orbit is nearest to the camera (user, 1 November 2026: its 51
         orbits were sent to the graphics card at each frame). Else it remembers the place of this drawing."""
         last = self._orbit_last.get(b)
-        if last is None or last[0] is not rel or last[1] is not near or last[3] is not self.truth:
-            self._orbit_last[b] = (rel, near, parent, self.truth, float(np.linalg.norm(rel, axis=1).max()))
+        if last is None or last[0] is not rel or last[1] is not near or last[3] != self._sky_key():
+            self._orbit_last[b] = (rel, near, parent, self._sky_key(), float(np.linalg.norm(rel, axis=1).max()))
             return False
         cam = self.plotter.camera
         depth = max(float(np.linalg.norm(parent - np.asarray(cam.GetPosition()))) - last[4], 0.0)
@@ -1987,11 +2275,11 @@ class SimView(QWidget):
         cache = getattr(self, "_orbit_cache", {})
         self._orbit_cache = cache
         hit = cache.get(b)
-        if hit is not None and hit[0] == id(self.truth) and abs(hit[1] - self.t) < period / 20.0:
+        if hit is not None and hit[0] == self._sky_key() and abs(hit[1] - self.t) < period / 20.0:
             return hit[2], hit[3]
         ts = self.t + np.linspace(-0.5, 0.5, BODY_ORBIT_POINTS) * period
         out = np.array([self._orbit_rel(b, float(t)) for t in ts])
-        cache[b] = (id(self.truth), self.t, ts, out)
+        cache[b] = (self._sky_key(), self.t, ts, out)
         return ts, out
 
     def _place_bodies(self) -> None:
@@ -2050,18 +2338,23 @@ class SimView(QWidget):
         u[:3, :3], u[:3, 3] = self._moon_matrix_of(name, True), self._bodies_at()[name]
         _set_user_matrix(a, u)
 
+    def _sky_key(self) -> tuple:
+        """What the celestial bodies' places depend on (their caches' key; L5: not the run object, which the live
+        front replaces as it grows): the epoch and the central body."""
+        return (self.sc["meta"].get("epoch_utc"), self.truth.body.name)
+
     def _bodies_at(self) -> Dict[str, np.ndarray]:
         """Earth, Moon and Sun at t, km from the central body (true places); once per instant of the run shown. The
         50 bodies' ephemerides are computed at every BODY_KNOT_S of the run, a parabola through the three knots
         around t between them (about 3 ms per frame saved; 3 m at most, for Metis); at the highest speeds, where a
         frame jumps over the knots, directly."""
         c = getattr(self, "_bodies_cache", None)
-        if c is not None and c[0] is self.truth and c[1] == self.t:
+        if c is not None and c[0] == self._sky_key() and c[1] == self.t:
             return c[2]
-        if c is not None and c[0] is self.truth and abs(self.t - c[1]) < BODY_KNOT_S:
+        if c is not None and c[0] == self._sky_key() and abs(self.t - c[1]) < BODY_KNOT_S:
             k = int(round(self.t / BODY_KNOT_S))
             u = self.t / BODY_KNOT_S - k
-            knots = self._body_knots if self._body_knots[0] is self.truth else (self.truth, {})
+            knots = self._body_knots if self._body_knots[0] == self._sky_key() else (self._sky_key(), {})
             self._body_knots = knots
             for j in (k - 1, k, k + 1):
                 if j not in knots[1]:
@@ -2074,7 +2367,7 @@ class SimView(QWidget):
             out = {n: w_a * a[n] + w_b * b[n] + w_d * d[n] for n in b}
         else:
             out = self._bodies_exact(self.t)
-        self._bodies_cache = (self.truth, self.t, out)
+        self._bodies_cache = (self._sky_key(), self.t, out)
         return out
 
     def _bodies_exact(self, t: float) -> Dict[str, np.ndarray]:
@@ -2342,6 +2635,8 @@ class SimView(QWidget):
         self._place_symbols()                         # SYMBOL_PX on screen whatever the camera does
         self._place_scaled()                          # the axes and noses too (user)
         self.node.place()                             # the manoeuvre node too
+        if self.truth is not None and self._global():
+            self._draw_markers()                      # the events' labels grouped again as the zoom changes
         for name in list(getattr(self, "_screen_src", {})):   # dashes and arrowheads constant on screen
             self._draw_screen(name)
         if self._proj_src is not None:
@@ -2761,7 +3056,7 @@ class SimView(QWidget):
         third = getattr(self, "_coast_third", None)
         if prop.THIRD_BODY and (third is None or third[0] < need):            # the bodies' grid over the fall
             span = max(need, 2.0 * self.duration())
-            self._coast_third = third = (span, prop.ThirdBodies(self.truth.body.name, scn.epoch(self.sc), span))
+            self._coast_third = third = (span, prop.view_third_bodies(self.truth.body.name, scn.epoch(self.sc), span))
         n = int(np.clip(math.ceil(dur / COAST_STEP_S), *COAST_STEPS))
         return prop.coast(self.truth.body, third[1] if third else None, r, v, self.t, dur, n)
 
@@ -2980,6 +3275,7 @@ class SimView(QWidget):
               cell_rgb: Optional[np.ndarray] = None, **style) -> None:
         """Show a dynamic polydata: its actor is created once and its points (and colours) updated in place; it is
         rebuilt only when its topology (point count, lines) changes. Hidden when not drawn in a frame."""
+        front = style.pop("front", False)             # drawn over everything (the manoeuvre node, 8 November 2026)
         self._used.add(name)
         e = self._dyn.get(name)
         if len(pts) == 0:
@@ -3005,6 +3301,8 @@ class SimView(QWidget):
             return
         if e is not None:
             self.plotter.remove_actor(e[2], render=False)
+            if getattr(self, "_front_ren", None) is not None:
+                self._front_ren.RemoveActor(e[2])
         mesh = pv.PolyData(np.asarray(pts, float), lines=lines) if lines is not None else pv.PolyData(np.asarray(pts, float))
         if rgb is not None:
             mesh.point_data["rgb"] = rgb
@@ -3014,8 +3312,29 @@ class SimView(QWidget):
         if rgb is not None or cell_rgb is not None:
             kw.update(scalars="rgb", rgb=True, preference="point" if rgb is not None else "cell")
         actor = self.plotter.add_mesh(mesh, name=name, render=False, **kw)
+        if front:                                      # moved to the layer over the scene: never hidden by a body
+            self.plotter.remove_actor(actor, render=False)
+            actor.GetProperty().LightingOff()
+            self._front_renderer().AddActor(actor)
         self._dyn[name] = [key, mesh, actor]
         self._poly_color[name] = style.get("color")
+
+    def _front_renderer(self):
+        """The layer drawn over the scene with its camera (its depth cleared: what it holds is never behind a body,
+        user 8 November 2026: the node's radial handle went into the Moon when zoomed out)."""
+        r = getattr(self, "_front_ren", None)
+        cam = self.plotter.renderer.GetActiveCamera()
+        if r is None:
+            from vtkmodules.vtkRenderingCore import vtkRenderer
+            win = self.plotter.ren_win
+            win.SetNumberOfLayers(max(3, win.GetNumberOfLayers()))
+            r = self._front_ren = vtkRenderer()
+            r.SetLayer(win.GetNumberOfLayers() - 1)
+            r.InteractiveOff()
+            win.AddRenderer(r)
+        if r.GetActiveCamera() is not cam:
+            r.SetActiveCamera(cam)
+        return r
 
     def _row_symbol(self, i: int) -> Optional[str]:
         """The symbol file of a row of the truth (0: OWNSHIP)."""
@@ -3033,7 +3352,128 @@ class SimView(QWidget):
         keep = t >= self.t - 1e-9
         self._poly(f"{DYN}markers", pts[keep], rgb=self._row_rgb[rows[keep]], point_size=8,
                    render_points_as_spheres=True)
-        self._labels(f"{DYN}markers_lbl", pts[keep], [x for x, k in zip(labels, keep) if k], MUTED_COLOR, 14)
+        q, texts = self._marker_groups(pts[keep], [x for x, k in zip(labels, keep) if k])
+        self._labels(f"{DYN}markers_lbl", q, texts, MUTED_COLOR, MARK_FONT)
+
+    def _row_noses(self, rows: np.ndarray, r: np.ndarray, v: np.ndarray) -> np.ndarray:
+        """(n, 3) unit nose (body Z, ICRF) of the truth rows at t: their attitude when they fly waypoints, else their
+        class's rule (sgeo.NOSE_RULES: inertial or relative velocity, or toward the ship), as the geometry's."""
+        tr = self.truth
+        out = np.full((len(rows), 3), np.nan)
+        if len(tr.att_ids) and len(tr.att_t_s) >= 2:
+            col = {oid: j for j, oid in enumerate(tr.att_ids)}
+            ks = [(n, col[tr.ids[i]]) for n, i in enumerate(rows) if tr.ids[i] in col]
+            if ks:
+                ta = tr.att_t_s
+                k = int(np.clip(np.searchsorted(ta, self.t, side="right") - 1, 0, len(ta) - 2))
+                u = float(np.clip((self.t - ta[k]) / max(ta[k + 1] - ta[k], 1e-12), 0.0, 1.0))
+                n_, j_ = np.array(ks).T
+                q0, q1 = tr.att_q[k, j_], tr.att_q[k + 1, j_]
+                q1 = np.where((np.einsum("ij,ij->i", q0, q1) < 0.0)[:, None], -q1, q1)   # (the short way)
+                q = (1.0 - u) * q0 + u * q1
+                out[n_] = _quat_z(q / np.linalg.norm(q, axis=1)[:, None])
+        for n, i in enumerate(rows):
+            if np.isfinite(out[n, 0]):
+                continue
+            rule = sgeo.NOSE_RULES.get(tr.classes[i], "ship")
+            out[n] = v[i] if rule == "inertial" else v[i] - v[0] if rule == "relative" else r[0] - r[i]
+        return out / np.maximum(np.linalg.norm(out, axis=1), 1e-12)[:, None]
+
+    def _draw_shapes(self, rows: np.ndarray, pos: np.ndarray, noses: np.ndarray) -> None:
+        """The objects (truth rows) at their size (BODY_SHAPES, user 8 November 2026): cylinders along their nose,
+        spheres; at pos (view's km), noses in the view's axes. One mesh per class, its points relative to the
+        camera's focal point (an actor matrix in double precision: the GPU's float32 kept near where one zooms in;
+        2000 km from the Moon's centre it would be off by about a decimetre)."""
+        tr = self.truth
+        ok = np.isfinite(pos[:, 0]) & np.isfinite(noses[:, 0])
+        origin = np.asarray(self.plotter.camera.GetFocalPoint(), float)
+        by: Dict[str, List[int]] = {}
+        for n, i in enumerate(rows):
+            if ok[n] and tr.classes[i] in BODY_SHAPES:
+                by.setdefault(tr.classes[i], []).append(n)
+        for cls, ns in by.items():
+            kind, length_m, diam_m = BODY_SHAPES[cls]
+            unit, tri = _unit_shape(kind)
+            ns = np.asarray(ns)
+            z = noses[ns]
+            a = np.where((np.abs(z[:, 0]) > 0.9)[:, None], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0])
+            x = np.cross(z, a)
+            x /= np.linalg.norm(x, axis=1)[:, None]
+            y = np.cross(z, x)
+            local = unit * (1e-3 * np.array([diam_m, diam_m, length_m]))       # km
+            pts = (pos[ns] - origin)[:, None, :] + np.einsum("pj,njk->npk", local, np.stack([x, y, z], axis=1))
+            pts = pts.reshape(-1, 3)
+            rgb = np.repeat(self._row_rgb[rows[ns]], len(unit), axis=0)
+            name = f"{DYN}shape_{cls}"
+            self._used.add(name)
+            e = self._dyn.get(name)
+            key = ("shape", len(ns))
+            if e is None or e[0] != key:
+                if e is not None:
+                    self.plotter.remove_actor(e[2], render=False)
+                faces = (tri[None] + (len(unit) * np.arange(len(ns)))[:, None, None]).reshape(-1, 3)
+                mesh = pv.PolyData(pts, np.c_[np.full(len(faces), 3), faces].ravel())
+                mesh.point_data["rgb"] = rgb
+                actor = self.plotter.add_mesh(mesh, name=name, scalars="rgb", rgb=True, render=False)
+                e = self._dyn[name] = [key, mesh, actor]
+            else:
+                _set_points(e[1], pts)
+                e[1].point_data["rgb"] = rgb
+                e[1].Modified()
+            from vtkmodules.vtkCommonMath import vtkMatrix4x4
+            mat = vtkMatrix4x4()
+            for c in range(3):
+                mat.SetElement(c, 3, float(origin[c]))
+            e[2].SetUserMatrix(mat)
+            e[2].SetVisibility(True)
+
+    def _marker_groups(self, pts: np.ndarray, labels: List[str]) -> Tuple[np.ndarray, List[str]]:
+        """The events' labels, those of one kind close on screen as one (user, 8 November 2026, as the multitracks:
+        "KKV_OS#0 appears" ... 15 times one on another -> "15 x KKV_OS appears"): linked when their points are within
+        MARK_GROUP_PX or their texts would overlap (fast.multitrack_labels); one label at its first member's place."""
+        if len(labels) < 2:
+            return pts, labels
+        same: Dict[tuple, int] = {}                   # one body's events at one place (a KKV appearing and starting
+        p1, l1 = [], []                               # its PN at once): one label, their kinds joined
+        for p_, x in zip(pts, labels):
+            oid, kind = x.split(" ", 1) if " " in x else (x, "")
+            key = (oid, tuple(np.round(p_, 6)))
+            if key in same:
+                l1[same[key]] += f", {kind}"
+            else:
+                same[key] = len(l1)
+                p1.append(p_)
+                l1.append(x)
+        pts, labels = np.array(p1, float).reshape(-1, 3), l1
+        if len(labels) < 2:
+            return pts, labels
+        xy, ok = self._display_xy(pts)
+        kinds: Dict[str, int] = {}
+        code = np.array([kinds.setdefault(x.split(" ", 1)[1] if " " in x else x, len(kinds)) for x in labels])
+        code = np.where(ok, code, -1)
+        font = MARK_FONT * self.ui_scale
+        bw = BOX_CHAR_W * font * max(len(x) for x in labels)
+        bh = BOX_LINE_H * font
+        lab = fast.multitrack_labels(np.nan_to_num(xy), code, MARK_GROUP_PX, float(bw), float(bh),
+                                     np.zeros(len(labels), np.bool_))
+        q, texts, done = [], [], set()
+        for k, x in enumerate(labels):
+            if lab[k] < 0:
+                q.append(pts[k])
+                texts.append(x)
+            elif lab[k] not in done:
+                done.add(lab[k])
+                mem = np.flatnonzero(lab == lab[k])
+                ids = [labels[j].split(" ", 1)[0] for j in mem]
+                kind = x.split(" ", 1)[1] if " " in x else x
+                groups = list(dict.fromkeys(i.rsplit("#", 1)[0] for i in ids))
+                if len(groups) == 1:
+                    texts.append(f"{len(mem)} x {groups[0]} {kind}")
+                else:
+                    names = ", ".join(groups[:3]) + (", ..." if len(groups) > 3 else "")
+                    texts.append(f"{len(mem)} x {kind} ({names})")
+                q.append(pts[mem[0]])
+        return np.array(q, float).reshape(-1, 3), texts
 
     def _path_groups(self, rows: np.ndarray, clusters: List[dict]) -> Tuple[List[np.ndarray], np.ndarray]:
         """The rows as the paths draw them: each lone row, then each multitrack (its members, one path), with their
@@ -3093,17 +3533,34 @@ class SimView(QWidget):
         wq = np.where(ok, p[:, 3], 1.0)
         return np.c_[(p[:, 0] / wq + 1.0) * 0.5 * w, (p[:, 1] / wq + 1.0) * 0.5 * h], ok
 
+    def _mt_box_px(self, rows: np.ndarray) -> Tuple[float, float]:
+        """px: the (width, height) of a lone object's data box, the widest of rows' names (0, 0: no data boxes), the
+        multitracks' second link (user, 8 November 2026: boxes of objects too close overlapped, a multitrack instead)."""
+        if not self.cb_object_labels.isChecked() or not len(rows):
+            return 0.0, 0.0
+        full = self.tg_object_full.isChecked()
+        name = max(len(self.truth.ids[i]) for i in rows)
+        chars, lines = (max(name, 28), 7) if full else (max(name, 23), 3)   # (_box_texts: its longest line, its lines)
+        font = DATA_FONT * self.ui_scale
+        return BOX_CHAR_W * font * chars, BOX_LINE_H * font * lines
+
     def _multitracks(self, rows: np.ndarray, pts: np.ndarray) -> List[dict]:
         """The groups (two or more) of objects of one identity and class linked on screen by distances under
-        MULTITRACK_PX x the UI size (one to the next: a chain is one group); OWNSHIP never; none when the view
-        shows less than MULTITRACK_OFF_KM in height at its focal point: k (indices into rows), q (their mean place),
-        ident, cls."""
-        cam = self.plotter.camera                     # zoomed in (the view's height at its focal point): none (user)
-        if len(rows) < 2 or 2.0 * cam.GetDistance() * math.tan(math.radians(0.5 * cam.GetViewAngle())) < MULTITRACK_OFF_KM:
+        MULTITRACK_PX x the UI size, except an object the view shows less than MULTITRACK_OFF_KM high at its own depth
+        (zoomed in on it; judged at the focal point before, user 8 November 2026: the far objects behind a ship viewed
+        close stayed apart), or whose data boxes would overlap beside their symbols, whatever the zoom (user,
+        8 November 2026: their boxes piled up; zoomed in on them, they part on screen and split) (one to the next: a
+        chain is one group); OWNSHIP never: k (indices into rows), q (their mean place), ident, cls."""
+        if len(rows) < 2:
             return []
         xy, ok = self._display_xy(pts)
+        cam = self.plotter.camera
+        fwd = np.asarray(cam.GetDirectionOfProjection())
+        depth = (np.asarray(pts, float) - np.asarray(cam.GetPosition())) @ fwd
+        near = 2.0 * depth * math.tan(math.radians(0.5 * cam.GetViewAngle())) < MULTITRACK_OFF_KM
         tr = self.truth
         lim = MULTITRACK_PX * self.ui_scale
+        bw, bh = self._mt_box_px(rows[rows > 0])
         if fast.USE_NUMBA:
             c = self._mt_codes
             if c[0] is not self.truth or len(c[1]) != len(tr.ids) or c[2] != self._row_ident:
@@ -3111,7 +3568,7 @@ class SimView(QWidget):
                 code = np.array([names.setdefault((self._row_ident[i], tr.classes[i]), len(names)) for i in range(len(tr.ids))])
                 c = self._mt_codes = (self.truth, code, list(self._row_ident))
             code = np.where(ok & (rows > 0), c[1][rows], -1)
-            labels = fast.multitrack_labels(np.nan_to_num(xy), code, float(lim))
+            labels = fast.multitrack_labels(np.nan_to_num(xy), code, float(lim), float(bw), float(bh), near)
             keep = np.flatnonzero(labels >= 0)
             keep = keep[np.argsort(labels[keep], kind="stable")]
             groups = np.split(keep, np.flatnonzero(np.diff(labels[keep])) + 1) if len(keep) else []
@@ -3129,7 +3586,11 @@ class SimView(QWidget):
             if len(ks) < 2:
                 continue
             ks = np.array(ks)
-            pairs = cKDTree(xy[ks]).query_pairs(lim, output_type="ndarray")
+            pairs = cKDTree(xy[ks]).query_pairs(lim, output_type="ndarray").reshape(-1, 2)
+            pairs = pairs[~near[ks][pairs].any(axis=1)]
+            if bw > 0.0 and bh > 0.0:                 # boxes that would overlap (Chebyshev on the box's axes)
+                box = cKDTree(xy[ks] / [bw, bh]).query_pairs(1.0 - 1e-9, p=np.inf, output_type="ndarray").reshape(-1, 2)
+                pairs = np.r_[pairs, box]
             if not len(pairs):
                 continue
             g = coo_matrix((np.ones(len(pairs)), (pairs[:, 0], pairs[:, 1])), shape=(len(ks), len(ks)))
@@ -3669,6 +4130,8 @@ class SimView(QWidget):
         idx = np.flatnonzero(ex)
         clusters = self._frame_clusters(idx, r[idx])
         self._draw_bodies(idx, r[idx], r, v, 8, clusters)
+        obj = idx[idx > 0]                            # the objects at their size (user, 8 November 2026)
+        self._draw_shapes(obj, r[obj], self._row_noses(obj, r, v))
         # the paths: one per lone body and one per multitrack (its members' mean, user 29 October 2026)
         groups, rgb = self._path_groups(idx, clusters)
         if self.cb_trails.isChecked():
@@ -3754,6 +4217,8 @@ class SimView(QWidget):
         # OWNSHIP's symbol at its centre of gravity (user, 30 October 2026; never in a multitrack)
         self._draw_bodies(np.r_[0, js + 1], np.r_[np.zeros((1, 3)), pos], r, v, 9,
                           [dict(c, k=np.asarray(c["k"]) + 1) for c in clusters])
+        if not full:                                  # the objects at their size, in the view's axes (user)
+            self._draw_shapes(js + 1, pos, self._row_noses(js + 1, r, v) @ m)
         groups, rgb = self._path_groups(js + 1, clusters)
         cols = [gr - 1 for gr in groups]              # (the geometry's columns)
         if self.cb_proj.isChecked() and not full:

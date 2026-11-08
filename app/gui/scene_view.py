@@ -21,13 +21,14 @@ frame of the mission navigation (set_navigation) and adds the ICRF axes, so the 
 from __future__ import annotations
 
 import math
+import time
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Dict, Iterable, List, Optional, Set
 
 import numpy as np
 import pyvista as pv
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import QObject, QTimer, Qt, pyqtSignal
 from PyQt5.QtWidgets import QCheckBox, QComboBox, QVBoxLayout, QWidget
 from pyvistaqt import QtInteractor
 
@@ -224,7 +225,14 @@ CLICK_DRAG_PX = 4.0                           # px: a press and release this clo
 _TURN: Dict[int, dict] = {}                   # per turntable style: its plotter, rate, axis and drag state
 
 
+TURN_SMOOTH_S = 1e-3 * float(P.get("tool.display.mouse_turn_smooth_ms"))   # mouse rotation's glide (user)
+TURN_TICK_MS = 8                              # ms: the glide's timer, about 120 turns a second (finer than the mouse's)
+TURN_REST_PX = 0.02                           # px: a glide left with less than this to go ends there
+
+
 def _turn_move(style, _ev) -> None:
+    """The drag's pixels go to the glide (user, 8 November 2026: the view turned by whole-pixel jumps at each mouse
+    event, a jagged motion): each tick turns the camera by its share of what is left, in fractions of a pixel."""
     st = _TURN[id(style)]
     if st["p"] is None:
         style.OnMouseMove()
@@ -234,6 +242,45 @@ def _turn_move(style, _ev) -> None:
     if not dx and not dy:
         return
     st["p"] = (x1, y1)
+    if st["smooth"] <= 0.0:                                             # no glide: at once, as before
+        _turn_apply(style, dx, dy)
+        return
+    st["todo"][0] += dx
+    st["todo"][1] += dy
+    if not st["timer"].isActive():
+        st["t"] = time.perf_counter()
+        st["timer"].start()
+
+
+def _turn_tick(style) -> None:
+    st = _TURN.get(id(style))
+    if st is None:
+        return
+    now = time.perf_counter()
+    dt, st["t"] = now - st["t"], now
+    todo = st["todo"]
+    k = 1.0 - math.exp(-max(dt, 1e-4) / st["smooth"])                  # frame-rate independent share
+    if math.hypot(*todo) * (1.0 - k) < TURN_REST_PX:                   # the end of the glide: what is left
+        k = 1.0
+        st["timer"].stop()
+    dx, dy = todo[0] * k, todo[1] * k
+    todo[0] -= dx
+    todo[1] -= dy
+    _turn_apply(style, dx, dy)
+
+
+def flush_turn(style) -> None:
+    """The glide finished at once (tests)."""
+    st = _TURN[id(style)]
+    st["timer"].stop()
+    dx, dy = st["todo"]
+    st["todo"] = [0.0, 0.0]
+    if dx or dy:
+        _turn_apply(style, dx, dy)
+
+
+def _turn_apply(style, dx: float, dy: float) -> None:
+    st = _TURN[id(style)]
     plotter = st["plotter"]
     cam = plotter.renderer.GetActiveCamera()
     f, pos = np.asarray(cam.GetFocalPoint()), np.asarray(cam.GetPosition())
@@ -306,7 +353,12 @@ def install_turntable(plotter, deg_per_px: float, button: str = "left", axis=lam
                     on_click(x, y)
 
     style = _Turntable(plotter.iren)
-    _TURN[id(style)] = {"plotter": plotter, "rate": math.radians(deg_per_px), "axis": axis, "p": None, "vtk": True}
+    timer = QTimer(plotter if isinstance(plotter, QObject) else None)   # (kept in _TURN either way)
+    timer.setInterval(TURN_TICK_MS)
+    timer.setTimerType(Qt.PreciseTimer)
+    timer.timeout.connect(lambda: _turn_tick(style))
+    _TURN[id(style)] = {"plotter": plotter, "rate": math.radians(deg_per_px), "axis": axis, "p": None, "vtk": True,
+                        "smooth": TURN_SMOOTH_S, "todo": [0.0, 0.0], "timer": timer, "t": 0.0}
     if right:
         # observers on the style's right-button events replace VTK's own (the right-drag zoom)
         style.add_observer("RightButtonPressEvent", lambda *_a: style._start())

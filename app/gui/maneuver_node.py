@@ -47,8 +47,31 @@ RING_POINTS = 48
 AXIS_COLORS = tuple(cgeo.COLORS[k] for k in ("axis_x", "axis_y", "axis_z"))   # prograde, normal, radial (user)
 RING_COLOR = "#6a8a92"
 LABEL_COLOR = "#e6e6e6"
-HANDLE_TEXT = (("prograde", "retrograde"), ("normal +", "normal -"), ("radial +", "radial -"))
 NAME = "dyn_node_"                               # its actors (the view's dynamic prefix: hidden when not drawn)
+
+
+ICON_SIGN = 0.5                                  # an icon's + or - half width: x its radius (D)
+
+
+def _ring(r: float, n: int, start_deg: float = 90.0) -> np.ndarray:
+    a = np.radians(start_deg) + np.linspace(0.0, 2.0 * math.pi, n + 1)
+    return r * np.c_[np.cos(a), np.sin(a)]
+
+
+_ICONS: dict = {}
+
+
+def _icon(axis: int, plus: bool) -> List[np.ndarray]:
+    """A handle's icon (user, 8 November 2026, after the space-flight games' node; + and - harmonised): polylines
+    (k, 2) in units of the marker's radius, x right and y up on screen. Its shape tells the axis: a circle
+    (prograde), a triangle (normal), a square (radial); inside, its sign, + or - (no text label, user)."""
+    key = (axis, plus)
+    if key not in _ICONS:
+        shape = (_ring(1.0, 32), _ring(1.25, 3), _ring(1.0, 4, 45.0) * math.sqrt(2.0) * 0.85)[axis]
+        c = ICON_SIGN * (0.8 if axis == 1 else 1.0)                          # (within the triangle's inner circle)
+        inner = [np.array([[-c, 0.0], [c, 0.0]])] + ([np.array([[0.0, -c], [0.0, c]])] if plus else [])
+        _ICONS[key] = [shape] + inner
+    return _ICONS[key]
 
 
 def _rgb(hex_color: str) -> Tuple[int, int, int]:
@@ -126,10 +149,7 @@ class NodeTool:
         tr, sc = self.v.truth, self.v.sc
         if not prop.THIRD_BODY:
             return None
-        key = (id(tr), self.v.scenario_duration())
-        if self._third is None or self._third[0] != key:
-            self._third = (key, prop.ThirdBodies(tr.body.name, scn.epoch(sc), self.v.scenario_duration() + 10.0))
-        return self._third[1]
+        return prop.view_third_bodies(tr.body.name, scn.epoch(sc), self.v.scenario_duration() + 10.0)
 
     def _run_owner(self) -> Optional[dict]:
         """The body's scenario entry in the run shown (the manoeuvres the truth was propagated with)."""
@@ -265,8 +285,13 @@ class NodeTool:
         pts = [q + ring_px * wpp * circle]
         lines = [np.r_[RING_POINTS, np.arange(RING_POINTS)]]
         cells = [_rgb(RING_COLOR)]
-        marks = {True: ([], []), False: ([], [])}        # front / back: points, colours
-        lab_p, lab_t, ends = [], [], []
+        ends = []
+
+        def add(poly: np.ndarray, col) -> None:          # one polyline of the glyph (screen units at end, world)
+            off = sum(len(x) for x in pts)
+            pts.append(poly)
+            lines.append(np.r_[len(poly), off + np.arange(len(poly))])
+            cells.append(col)
         cx, cy = self._display(q)
         for a in range(3):
             for s_i, sign in enumerate((1.0, -1.0)):
@@ -290,32 +315,15 @@ class NodeTool:
                 end = q + e_px * wpp * d
                 if e_px * n > ring_px + mk:              # the spoke from the ring's edge on screen to the marker
                     w = ux * right + uy * up
-                    off = len(np.concatenate(pts))
-                    pts.append(np.array([q + ring_px * wpp * w, end - mk * wpp * w]))
-                    lines.append(np.array([2, off, off + 1]))
-                    cells.append(col)
-                if sign > 0:                             # + : a filled marker; - : a hollow one
-                    marks[front][0].append(end)
-                    marks[front][1].append(col)
-                else:
-                    off = len(np.concatenate(pts))
-                    pts.append(end + mk * wpp * circle)
-                    lines.append(np.r_[RING_POINTS, off + np.arange(RING_POINTS)])
-                    cells.append(col)
-                lab_p.append(end + 1.6 * mark_px * wpp * (ux * right + uy * up))
-                lab_t.append(HANDLE_TEXT[a][s_i])
+                    add(np.array([q + ring_px * wpp * w, end - mk * wpp * w]), col)
+                # the handle's icon, upright on screen (user, 8 November 2026, after the space-flight games' node:
+                # one shape per axis, + and - alike; inside, its sign + or -; no text label)
+                for poly in _icon(a, sign > 0):
+                    add(end + mk * wpp * (poly[:, :1] * right + poly[:, 1:] * up), col)
                 ex, ey = self._display(q + end_px * wpp * d)      # the marker at rest, where a press takes it
                 ends.append(dict(axis=a, sign=sign, x=ex, y=ey, sx=ux, sy=uy, away=away))
         v._poly(f"{NAME}glyph", np.concatenate(pts), lines=np.concatenate(lines),
-                cell_rgb=np.array(cells, np.uint8), line_width=4)
-        for front, name, size in ((True, "marks", mark_px), (False, "marks_back", BACK_SIZE * mark_px)):
-            p_, c_ = marks[front]
-            v._poly(f"{NAME}{name}", np.array(p_).reshape(-1, 3), rgb=np.array(c_, np.uint8).reshape(-1, 3),
-                    point_size=2.0 * size, render_points_as_spheres=True)
-            e = v._dyn.get(f"{NAME}{name}")
-            if e is not None:
-                e[2].GetProperty().SetPointSize(2.0 * size)
-        v._labels(f"{NAME}handle_lbl", np.array(lab_p), lab_t, LABEL_COLOR, 12)
+                cell_rgb=np.array(cells, np.uint8), line_width=3, front=True)   # (over the bodies, user)
         v._labels(f"{NAME}value_lbl", (q - (ring_px + 0.3 * px) * wpp * up)[None], [self._value_text()], LABEL_COLOR, 14)
         self._screen = dict(cx=cx, cy=cy, ring=ring_px, mark=mark_px, ends=ends)
 
@@ -420,6 +428,8 @@ class NodeTool:
         cb = self.target["on_edit"] if self.target else None
         if cb is not None:
             cb(final)
+        if hasattr(self.v, "node_edited"):            # L5: the computation front told (at most 2/s)
+            self.v.node_edited(final)
         self.v._draw_frame()
 
     # ------------------------------------------------------------------ the node along its path

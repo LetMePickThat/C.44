@@ -33,7 +33,7 @@ from __future__ import annotations
 import json
 import math
 from functools import lru_cache
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -46,7 +46,7 @@ from core.params import P
 from . import attitude as att
 from . import ephemeris as eph
 from . import scenario as scn
-from .propagate import Truth
+from .propagate import Truth, row_seed
 
 BODIES = ("sun", "earth", "moon")                         # always; the central body (and its planet) added per run
 
@@ -217,13 +217,13 @@ def geometry(sc: dict, truth: Truth, times: Optional[np.ndarray] = None) -> Geom
         if "rcs_offset_db" in sp:
             offs[j] = float(sp["rcs_offset_db"])
         else:
-            g = np.random.default_rng([seed, SEED_RCS + i])
+            g = np.random.default_rng(row_seed(seed, SEED_RCS, truth.ids[i]))     # by name (user, 8 Nov 2026)
             offs[j] = float(np.clip(g.standard_normal(), -RCS_TRUNC_SIGMAS, RCS_TRUNC_SIGMAS)) * tgt.rcs_spread_db
         flies = truth.ids[i] in truth.att_ids
         rule = "waypoints" if flies else NOSE_RULES.get(cls, "ship")
         rules.append(rule)
         if rule == "tumble":
-            g = np.random.default_rng([seed, SEED_TUMBLE + i])
+            g = np.random.default_rng(row_seed(seed, SEED_TUMBLE, truth.ids[i]))
             a = _unit(g.standard_normal(3))
             n0 = g.standard_normal(3)
             n0 = _unit(n0 - (n0 @ a) * a)
@@ -353,3 +353,123 @@ def geometry(sc: dict, truth: Truth, times: Optional[np.ndarray] = None) -> Geom
                     dir_ship=dir_ship, nose_ship=nose_sh, face=face, occulted_by=occ, masked=masked, body_angle_deg=b_ang,
                     ship_m=ship_m, body_dir_ship=b_dir, body_range_km=b_rng, body_radius_deg=b_rad, body_face=b_face,
                     body_theta_deg=b_th, ship_shadow=shadow, nose_rule=rules, body_names=names, **out)
+
+
+# ----------------------------------------------------------------------------- the scenario editor's geometry
+SHADOW_SAMPLES = 120           # preview: the ship's shadow on at most this many instants, held between them (D)
+_SHADOW: Dict[tuple, np.ndarray] = {}   # the last preview's shadow samples, by the ship's path
+
+
+def _quats_to_matrices(q: np.ndarray) -> np.ndarray:
+    """(n, 4) unit Hamilton quaternions [w, x, y, z] -> (n, 3, 3) (core/frames.quat_to_matrix)."""
+    w, x, y, z = q[:, 0], q[:, 1], q[:, 2], q[:, 3]
+    return np.stack([np.stack([1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)], -1),
+                     np.stack([2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)], -1),
+                     np.stack([2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)], -1)], -2)
+
+
+class _AtInstant:
+    """A field of the preview's geometry computed at one recorded instant when read (g.rcs_s_dbsm[k, j]): the
+    full geometry() of that instant, kept (LazyGeometry)."""
+
+    def __init__(self, owner: "LazyGeometry", name: str):
+        self.owner, self.name = owner, name
+
+    def __getitem__(self, key):
+        k = key[0] if isinstance(key, tuple) else key
+        rest = key[1:] if isinstance(key, tuple) else ()
+        if isinstance(k, (int, np.integer)):
+            return getattr(self.owner.at(int(k)), self.name)[0][rest] if rest else getattr(self.owner.at(int(k)), self.name)[0]
+        ks = np.arange(len(self.owner.t_s))[k]
+        out = np.stack([getattr(self.owner.at(int(i)), self.name)[0] for i in np.atleast_1d(ks)])
+        return out[(slice(None),) + rest] if rest else out
+
+    @property
+    def shape(self):
+        return (len(self.owner.t_s), len(self.owner.ids))
+
+
+@dataclass
+class LazyGeometry(Geometry):
+    """The geometry of a preview (sim/preview, the scenario editor, user 8 November 2026): the kinematics at every
+    recorded instant at once (range, range rate, direction in the ship frame, existence, the ship's attitude; from the
+    apertures as geometry(), their rotation speed left out), the radar's fields (faces, aspect, RCS, occultation,
+    blockage, noses, the bodies) at one instant when read (_AtInstant), the ship's shadow on SHADOW_SAMPLES instants."""
+    sc: dict = field(default_factory=dict)
+    truth: Optional[Truth] = None
+    _one: Dict[int, Geometry] = field(default_factory=dict)
+    _shadow: Optional[np.ndarray] = None
+
+    def at(self, k: int) -> Geometry:
+        g = self._one.get(k)
+        if g is None:
+            if len(self._one) > 64:
+                self._one.clear()
+            g = self._one[k] = geometry(self.sc, self.truth, self.t_s[k:k + 1])
+        return g
+
+    def __getattribute__(self, name):
+        if name == "ship_shadow":
+            sh = object.__getattribute__(self, "_shadow")
+            if sh is None:
+                sh = object.__getattribute__(self, "_shadow_now")()
+                object.__setattr__(self, "_shadow", sh)
+            return sh
+        return object.__getattribute__(self, name)
+
+    def _shadow_now(self) -> np.ndarray:
+        t = self.t_s
+        if not len(t):
+            return np.zeros(0)
+        ks = np.unique(np.linspace(0, len(t) - 1, min(len(t), SHADOW_SAMPLES)).round().astype(int))
+        tr = self.truth                                # kept while the ship's path is the same (an object's edit:
+        key = (tr.body.name, str(self.sc["meta"].get("epoch_utc")),       # 46 ms per node drag event otherwise)
+               t[ks].tobytes(), tr.r_km[ks, 0].tobytes())
+        sub = _SHADOW.get(key)
+        if sub is None:
+            sub = geometry({**self.sc, "objects": [], "groups": []}, _ship_only(tr), t[ks]).ship_shadow
+            _SHADOW.clear()
+            _SHADOW[key] = sub
+        return sub[np.clip(np.searchsorted(ks, np.arange(len(t)), side="right") - 1, 0, len(ks) - 1)]
+
+
+def _ship_only(truth: Truth) -> Truth:
+    """The truth reduced to the ship's row (the shadow reads only it)."""
+    return replace(truth, ids=truth.ids[:1], classes=truth.classes[:1], r_km=truth.r_km[:, :1],
+                   v_kms=truth.v_kms[:, :1], t_appear_s=truth.t_appear_s[:1], t_impact_s=truth.t_impact_s[:1],
+                   t_pn_start_s=truth.t_pn_start_s[:1], miss_km=truth.miss_km[:1], group_of=truth.group_of[:1])
+
+
+def lazy_geometry(sc: dict, truth: Truth) -> LazyGeometry:
+    """The preview's geometry (LazyGeometry)."""
+    t = truth.t_s
+    n_t = len(t)
+    rows = list(range(1, len(truth.ids)))
+    ship_j = truth.att_ids.index("ship") if "ship" in truth.att_ids else None
+    q = truth.att_q[:n_t, ship_j] if ship_j is not None else np.tile([1.0, 0.0, 0.0, 0.0], (n_t, 1))
+    q = np.where(np.isfinite(q), q, [1.0, 0.0, 0.0, 0.0])
+    m = _quats_to_matrices(q / np.linalg.norm(q, axis=1, keepdims=True))          # ship -> ICRF per instant
+    rs, vs = truth.r_km[:, 0], truth.v_kms[:, 0]
+    ra = rs + np.einsum("kij,j->ki", m, ARRAY_KM)
+    ro, vo = truth.r_km[:, rows], truth.v_kms[:, rows]
+    los = ro - ra[:, None]
+    rng = np.linalg.norm(los, axis=2)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        lu = los / rng[..., None]
+        rate = 1e3 * np.einsum("kij,kij->ki", lu, vo - vs[:, None])
+    dir_ship = np.einsum("kij,kjl->kil", lu, m)                                    # ship frame
+    shp = (n_t, len(rows))
+    nan = np.full(shp, np.nan)
+    names = body_names(truth.body.name)
+    g = LazyGeometry(t_s=t, ids=[truth.ids[i] for i in rows], classes=[truth.classes[i] for i in rows],
+                     f_s_ghz=F_S_GHZ, f_ku_ghz=F_KU_GHZ, rcs_offset_db=np.zeros(len(rows)),
+                     exists=np.isfinite(ro[..., 0]), range_km=rng, range_rate_mps=rate, dir_ship=dir_ship,
+                     face=None, theta_deg=None, u=nan, v=nan, aspect_deg=None, nose_ship=None, rcs_s_dbsm=None,
+                     rcs_ku_dbsm=None, occulted_by=None, block_f=None, block_loss_db=None, masked=None,
+                     body_angle_deg=None, ship_m=m, body_dir_ship=None, body_range_km=None, body_radius_deg=None,
+                     body_face=None, body_theta_deg=None, ship_shadow=None, body_names=names, sc=sc, truth=truth)
+    for name in ("face", "theta_deg", "aspect_deg", "nose_ship", "rcs_s_dbsm", "rcs_ku_dbsm", "occulted_by",
+                 "block_f", "block_loss_db", "masked", "body_angle_deg", "body_dir_ship", "body_range_km",
+                 "body_radius_deg", "body_face", "body_theta_deg", "u", "v"):
+        object.__setattr__(g, name, _AtInstant(g, name))
+    return g

@@ -10,3 +10,4 @@
 - [Mission params later](mission-params-later.md) — RR targets and standard mission values are set in the operator's mission prep (Pmiss), not while building the tool
 - [Ask before tests](ask-before-tests.md) — ask before ANY test; full battery at most once a day or every 2 days on the user's call; model work first
 - [Next-session reminders](next-session-reminders.md) — SAY AT SESSION START: finish the symbology (icons done, wiring + open questions left); rework the 3D option bar; load-ceiling late-dwell criterion
+- [Live architecture (fork)](live-architecture.md) — RADARv6_RS: real-time KSP-like simulator, no precomputed propagation; decisions A1-D2 of 8 Nov 2026

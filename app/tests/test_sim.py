@@ -3,6 +3,7 @@ editor's form logic (pass S5, without a window)."""
 import copy
 import json
 import os
+import time
 
 import pytest
 
@@ -753,18 +754,32 @@ def test_multitracks():
     v.select("K1")                                      # a member selected: the square around its multitrack
     assert np.allclose(v._sel_pt, v._mt_of["K1"])
     c = cl[0]["q"]
-    cam = v.plotter.camera                              # zoomed in under MULTITRACK_OFF_KM: no multitrack, even with
-    cam.SetFocalPoint(*c)                               # the objects still within MULTITRACK_PX on screen
+    cam = v.plotter.camera                              # zoomed in under MULTITRACK_OFF_KM: no multitrack for symbols
+    cam.SetFocalPoint(*c)                               # within MULTITRACK_PX on screen, without data boxes...
     u = (np.asarray(cam.GetPosition()) - c) / np.linalg.norm(np.asarray(cam.GetPosition()) - c)
     d = 0.4 * sv.MULTITRACK_OFF_KM / (2.0 * np.tan(np.radians(0.5 * cam.GetViewAngle())))
     cam.SetPosition(*(c + d * u))
     v.plotter.renderer.ResetCameraClippingRange()
     xy, _ok = v._display_xy(np.array([geo.states_at(tr, 5.0)[0][tr.row(f"K{k}")] for k in range(2)]))
+    v.cb_object_labels.setChecked(False)
     assert np.linalg.norm(xy[0] - xy[1]) < sv.MULTITRACK_PX and v._multitracks(*v._mt_input) == []
+    v.cb_object_labels.setChecked(True)                 # ... but their boxes would overlap: one (user, 8 November 2026)
+    assert [len(c_["k"]) for c_ in v._multitracks(*v._mt_input)] == [4]
     c = cl[0]["q"]                                      # zoomed in close: the multitrack splits
     cam.SetFocalPoint(*c)
     cam.SetPosition(*(c + 0.05 * (np.asarray(cam.GetPosition()) - c) / np.linalg.norm(np.asarray(cam.GetPosition()) - c)))
     v.plotter.renderer.ResetCameraClippingRange()
+    v._draw_frame()
+    split = v._multitracks(*v._mt_input)                # the four apart: only those whose boxes still overlap together
+    bw, bh = v._mt_box_px(v._mt_input[0][v._mt_input[0] > 0])
+    xy, _ok = v._display_xy(v._mt_input[1])
+    assert all(len(c_["k"]) < 4 for c_ in split)
+    for c_ in split:
+        d = np.abs(xy[c_["k"]][:, None] - xy[c_["k"]][None])
+        hit = (d[..., 0] < bw) & (d[..., 1] < bh)
+        np.fill_diagonal(hit, False)
+        assert hit.any(axis=1).all()                    # (each member's box on another's: a chain is one group)
+    v.cb_object_labels.setChecked(False)                # without data boxes: none
     v._draw_frame()
     assert v._multitracks(*v._mt_input) == [] and not v._mt_click
     v.plotter.close()
@@ -837,7 +852,7 @@ def test_event_marks_follow_the_classification():
     new = copy.deepcopy(sc)
     new["objects"][0]["identity"] = "friendly"
     v.set_scenario(new)
-    assert not v.debounce.isActive() and marks() == [list(sv._rgb(sv.IDENTITY_COLORS["friendly"]))] * 2
+    assert v._mode is None and marks() == [list(sv._rgb(sv.IDENTITY_COLORS["friendly"]))] * 2   # (no run again)
     v.set_time(7.0)                                     # a past event's mark goes (user): the impulse's stays
     assert len(marks()) == 1 and v._lab[sv.DYN + "markers_lbl"]._last == ["K impulse"]
     v.set_time(12.0)
@@ -1137,6 +1152,7 @@ def test_sim_view_offscreen(tmp_path):
             iren.SetEventInformation(int(p0[0] + a * (p1[0] - p0[0])), int(p0[1] + a * (p1[1] - p0[1])), 0, 0)
             iren.InvokeEvent("MouseMoveEvent")
         iren.InvokeEvent(f"{button}ButtonReleaseEvent")
+        sv_.sv.flush_turn(v.plotter.iren.style)         # the glide's end at once
     p_left = np.array(cam.GetPosition())
     drag((0.3 * w, 0.5 * h), (0.6 * w, 0.5 * h), "Left")    # a plain left drag leaves the camera alone
     assert np.allclose(cam.GetPosition(), p_left)
@@ -1205,10 +1221,13 @@ def test_sim_view_offscreen(tmp_path):
     assert v.t > 11.0 and not v.timer.isActive()
     v.set_view("global")
     v.pending = scn.normalise(sc)
-    v.propagate()
-    v.worker.wait()
-    app.processEvents()
-    assert v.status.text().startswith("propagation")
+    v.propagate()                                       # the scenario editor: its preview at the next turn
+    t_end = time.perf_counter() + 60.0
+    while v._mode != "preview" and time.perf_counter() < t_end:
+        app.processEvents()
+    assert v._mode == "preview" and v.status.text().startswith("preview (approximate)")
+    assert isinstance(v.g, geo.LazyGeometry) and v.truth.t_s[-1] == pytest.approx(20.0)
+    v.stop_background()
     npz = str(tmp_path / "j.npz")
     engine.save_journal(npz, sc, tr, g)
     sc2, tr2, g2, _n, _m = engine.load_journal(npz)
@@ -1429,27 +1448,27 @@ def test_lunar_interception_scenario_loads():
 
 
 def test_load_propagates_and_problems_block_play():
-    """A scenario created or opened propagates at once whatever its size, not with problems; while the validation
-    fails Play is greyed and Space does nothing; a closing window stops the propagation under way (user, 30 October
-    2026)."""
+    """A scenario created or opened is previewed at once whatever its size (the scenario editor's preview, user 8
+    November 2026), not with problems; while the validation fails Play is greyed and Space does nothing; a closing
+    window stops the preview to come (user, 30 October 2026)."""
     app = _qt()
     from gui.scenario_tab import ScenarioTab
     from gui.scenario_tab import new_scenario as scn_tab_new
     tab = ScenarioTab()
     v = tab.preview
     tab._set_scenario(scn_tab_new(), None)
-    assert v.load_timer.isActive() and not v.debounce.isActive()
-    app.processEvents()
+    assert v._live and v.preview_timer.isActive()
     v.stop_background()
-    assert not v.load_timer.isActive() and not v.worker.isRunning()
+    assert not v.preview_timer.isActive() and v.calc is None
     tab.sc["objects"].append({"id": "BAD", "class": "NOPE"})
     tab._validate()
     assert not v._valid and not v.bt_play.isEnabled()
     v.sc = tab.sc
     v.toggle_play()
     assert not v._playing
+    v._live = False
     tab._set_scenario(tab.sc, None)
-    assert not v.load_timer.isActive()
+    assert not v._live and not v.preview_timer.isActive()   # (with problems: nothing computed)
 
 
 def test_window_closes_during_the_playback():
@@ -1462,7 +1481,8 @@ def test_window_closes_during_the_playback():
     v = w.scenario.preview
     w.scenario._set_scenario(scn_tab_new(), None)
     app.processEvents()
-    while v.worker is None or v.worker.isRunning() or v.truth is None:
+    t_end = time.perf_counter() + 120.0
+    while v.truth is None and time.perf_counter() < t_end:     # the preview shown
         app.processEvents()
     v.toggle_play()
     assert v._playing and v.timer.isActive()
@@ -1532,18 +1552,8 @@ def test_scenario_tab_layout():
     assert tab.preview.side_panel.isAncestorOf(tab.preview.info)
     assert tab.preview.view_panel.isAncestorOf(tab.preview.view_buttons["ship"])            # the view's options under the Info
     assert tab.preview.side_panel.isAncestorOf(tab.preview.view_panel)
-    assert tab.primary_action() is tab.preview.bt_prop and not tab.preview.bt_prop.isEnabled()   # small: automatic
-    from gui import sim_view as sv_b                    # large: active after a change, greyed once propagated
-    keep = sv_b.AUTO_MAX_CELLS
-    sv_b.AUTO_MAX_CELLS = 0.0
-    tab.preview.pending, tab.preview._launched = scn.normalise(tab.sc), None
-    tab.preview._valid = True
-    tab.preview._update_prop(busy=False)
-    assert tab.preview.bt_prop.isEnabled()
-    tab.preview._launched = tab.preview.pending
-    tab.preview._update_prop(busy=False)
-    assert not tab.preview.bt_prop.isEnabled()
-    sv_b.AUTO_MAX_CELLS = keep
+    assert tab.primary_action() is None and not tab.preview.bt_prop.isEnabled()   # L5: no Propagate
+    assert tab.preview.bt_prop not in tab.preview.status_widgets()
     assert [c[0] for c in tab.file_commands()] == ["New...", "Open...", "Save", "Save as...", "Scenario properties...",
                                                    "Export mission at t...", "Record run...", "Open run..."]
     assert tab.status in tab.status_widgets() and tab.preview.progress in tab.status_widgets()
@@ -1630,3 +1640,44 @@ def test_encounter_nodes_and_closest_approach():
     assert [round(c.t_s) for c in nodes] == [0, 3000] and [c.ascending for c in enc.next_nodes(nodes, 1.0)] == [True]
     c = enc.closest_approach(ts, a, va, b, vb, 1000.0)
     assert c.t_s == pytest.approx(3000.0, abs=1e-3) and c.range_km == pytest.approx(0.0, abs=1e-6) and c.reached
+
+
+def test_affected_rows():
+    """The rows an edit touches (user, 8 November 2026): the edited body, the rows that read it (PN target, relative
+    state, group reference), followed until none is left; an attitude aimed at a body moves no path. The others keep
+    their paths to the bit; the whole run (None) for a change of the run's own settings."""
+    from sim import live
+    import numpy as np
+
+    def deb(i, nu, **kw):
+        return {"id": f"D{i}", "class": "DEBRIS", **kw, "state": {"type": "elements", "a_km": 7100.0, "e": 0.0,
+                "i_deg": 51.6, "raan_deg": 30.0, "argp_deg": 0.0, "nu_deg": nu}}
+    kkv = {"id": "K", "class": "KKV", "manoeuvres": [{"type": "pn", "start_range_km": 30.0}],
+           "state": {"type": "relative", "range_km": 60.0, "phi_deg": 45.0, "eps_deg": 5.0, "v_close_mps": 4000.0}}
+    sc = _orbit_sc(300.0, [deb(1, 2.0), deb(2, 4.0), kkv], step=0.1)
+    sc["ship"]["attitude"] = [{"t_s": 0.0, "attitude": {"type": "target", "id": "D2", "roll_deg": 0.0}}]
+    sc = scn.normalise(sc)
+    base = prop.propagate(sc)
+
+    def edit(change):
+        new = copy.deepcopy(sc)
+        change(new)
+        return scn.normalise(new)
+    imp = [{"type": "impulse", "t_s": 100.0, "dv_mps": [20.0, 0.0, 0.0], "frame": "pnr"}]
+    d1 = edit(lambda s: s["objects"][0].__setitem__("manoeuvres", imp))
+    assert live.affected_rows(sc, d1) == ({"D1"}, {"D1"})
+    ship = edit(lambda s: s["ship"].__setitem__("manoeuvres", imp))
+    assert live.affected_rows(sc, ship) == ({"ship", "K"}, {"ship", "K"})
+    d2 = edit(lambda s: s["objects"][1].__setitem__("manoeuvres", imp))     # aimed at by the ship: its attitude
+    # only; K's relative state reads the ship's attitude (frame "ship"): counted, though it appeared before the edit
+    # (the rule does not look at the times: on the safe side)
+    assert live.affected_rows(sc, d2) == ({"D2", "K"}, {"D2", "K", "ship"})
+    for new in (d1, ship, d2):
+        paths, _atts = live.affected_rows(sc, new)
+        tr = prop.propagate(new)
+        keep = [i for i, oid in enumerate(tr.ids) if oid not in paths]
+        moved = [i for i, oid in enumerate(tr.ids) if oid in paths]
+        assert np.array_equal(tr.r_km[:, keep], base.r_km[:, keep], equal_nan=True)
+        assert not np.allclose(tr.r_km[-1, moved], base.r_km[-1, moved])
+    assert live.affected_rows(sc, edit(lambda s: s["objects"][0].__setitem__("identity", "friendly"))) == (set(), set())
+    assert live.affected_rows(sc, edit(lambda s: s["meta"].__setitem__("step_s", 0.2))) is None

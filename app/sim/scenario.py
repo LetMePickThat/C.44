@@ -426,5 +426,29 @@ def epoch(sc: dict) -> datetime:
     return datetime.fromisoformat(sc["meta"]["epoch_utc"].replace("Z", "+00:00"))
 
 
+def rename_refs(sc: dict, old: str, new: str, group: bool = False) -> None:
+    """An object (or a group, its members "<group>#<k>") renamed old -> new: the attitude targets, the guidance
+    targets and the groups' "around" that named it follow (user, 8 November 2026)."""
+    def ren(x):
+        if not isinstance(x, str):
+            return x
+        if not group:
+            return new if x == old else x
+        head, sep, k = x.partition("#")
+        return f"{new}#{k}" if sep and head == old else x
+    for o in [sc.get("ship") or {}] + list(sc.get("objects", [])) + list(sc.get("groups", [])):
+        if not isinstance(o, dict):
+            continue
+        for w in o.get("attitude") or []:
+            a = w.get("attitude") if isinstance(w, dict) else None
+            if isinstance(a, dict) and a.get("type") == "target":
+                a["id"] = ren(a.get("id"))
+        for m in o.get("manoeuvres", []):
+            if isinstance(m, dict) and "target" in m:
+                m["target"] = ren(m["target"])
+        if not group and "around" in o:
+            o["around"] = ren(o["around"])
+
+
 def object_ids(sc: dict) -> Tuple[str, ...]:
     return tuple(o["id"] for o in sc.get("objects", [])) + tuple(g["id"] for g in sc.get("groups", []))

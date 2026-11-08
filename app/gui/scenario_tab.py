@@ -20,12 +20,20 @@ from PyQt5.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QInputD
                              QListWidgetItem, QMenu, QMessageBox, QDialog, QDialogButtonBox, QPushButton, QShortcut, QScrollArea, QSizePolicy, QSpinBox, QSplitter, QStyle,
                              QTableWidget, QTableWidgetItem, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
+from core import geometry as cgeo
 from core import radar_model as rm
 from core.params import P
 from gui import controls as uc
 from gui.widgets import DecimalSpinBox, FlowLayout
 from sim import attitude as att
 from sim import scenario as scn
+
+# a manoeuvre's vector components in the colours of the manoeuvre node's handles (gui/maneuver_node.py, user 8 November
+# 2026): pnr's prograde, normal, radial are the handles' axes; rtn's radial, along-track, cross-track the nearest
+# ones (exact for cross-track and on a circular orbit); inertial none
+_HANDLE_RGB = tuple(cgeo.COLORS[k] for k in ("axis_x", "axis_y", "axis_z"))      # prograde, normal, radial
+VEC_HANDLE_COLORS = {"pnr": _HANDLE_RGB, "rtn": (_HANDLE_RGB[2], _HANDLE_RGB[0], _HANDLE_RGB[1])}
+VEC_TINT = 0.45                               # a box's background: this share of its handle's colour over white (D)
 
 # field kinds: "text", "float", "int", "choice", "vecN" (N numbers), "json" (a dict or list typed as JSON)
 Field = Tuple[str, str, str, dict]          # (key, label, kind, options)
@@ -206,6 +214,18 @@ class VecEdit(QWidget):
     def value(self) -> List[float]:
         return [b.value() for b in self.boxes]
 
+    def set_colors(self, colors) -> None:
+        """Each box's background tinted with its colour (hex), a border of it; None: the default look."""
+        for k, b in enumerate(self.boxes):
+            c = colors[k] if colors and k < len(colors) else None
+            if c is None:
+                b.setStyleSheet("")
+                continue
+            q = QColor(c)
+            mix = [round(255 - VEC_TINT * (255 - x)) for x in (q.red(), q.green(), q.blue())]
+            b.setStyleSheet(f"QAbstractSpinBox {{ background: rgb({mix[0]}, {mix[1]}, {mix[2]}); "
+                            f"border: 2px solid {q.name()}; border-radius: 2px; }}")
+
 
 class FormWidget(QWidget):
     """A form built from a list of fields; edits a dict in place and emits `changed` after each edit."""
@@ -241,6 +261,7 @@ class FormWidget(QWidget):
             w = _Combo()
             choices = list(opt["choices"]() if callable(opt["choices"]) else opt["choices"])
             names = opt.get("names", {})
+            names = names() if callable(names) else names
             shown = {names.get(c, c): c for c in choices}
             w.addItems(list(shown))
             if v in choices:
@@ -368,8 +389,9 @@ def _vec(v) -> str:
     return ", ".join(f"{x:g}" for x in v) if isinstance(v, (list, tuple)) else str(v)
 
 
-def _action_cells(kind: str, item: dict) -> Tuple[str, str, str]:
-    """The three columns of an action's line: time, type, parameters."""
+def _action_cells(kind: str, item: dict, names: Optional[Dict[str, str]] = None) -> Tuple[str, str, str]:
+    """The three columns of an action's line: time, type, parameters (names: id -> name shown, the ship's name)."""
+    names = names or {}
     t = _action_time(item)
     time = "-" if t is None else f"{t:.3f}".rstrip("0").rstrip(".")
     if kind == "attitude":
@@ -379,7 +401,7 @@ def _action_cells(kind: str, item: dict) -> Tuple[str, str, str]:
             what = (f"fixed {FRAME_NAMES.get(a.get('frame', 'orbital'), 'orbital')}, yaw {a.get('yaw_deg', 0):g}, pitch {a.get('pitch_deg', 0):g}, "
                     f"roll {a.get('roll_deg', 0):g} deg")
         else:
-            what = f"toward {a.get('id')}" if what == "target" else what
+            what = f"toward {names.get(a.get('id'), a.get('id'))}" if what == "target" else what
             what += f", roll {a['roll_deg']:g} deg" if a.get("roll_deg") else ""
         return time, ACTION_NAMES[kind], what + (f", {item['rate_dps']:g} deg/s" if "rate_dps" in item else "")
     m = item.get("type")
@@ -390,7 +412,7 @@ def _action_cells(kind: str, item: dict) -> Tuple[str, str, str]:
                 f"{FRAME_NAMES.get(item.get('frame', 'rtn'))}")
     elif m == "pn":
         r = _num(item.get("start_range_km"))
-        what = ("" if r is None else f"below {r:g} km, ") + f"toward {item.get('target', 'ship')}"
+        what = ("" if r is None else f"below {r:g} km, ") + f"toward {names.get(item.get('target', 'ship'), item.get('target', 'ship'))}"
     else:
         what = "whole run, the class's bounds"
     return time, ACTION_NAMES[m], what
@@ -404,10 +426,13 @@ class ActionList(QWidget):
 
     def __init__(self, owner: dict, on_change: Callable[[], None], targets: Callable[[], List[str]] = list,
                  duration: Callable[[], float] = float, parent=None, flies: bool = False,
-                 optional_attitude: bool = True, default_t: Optional[Callable[[], float]] = None):
+                 optional_attitude: bool = True, default_t: Optional[Callable[[], float]] = None,
+                 names: Callable[[], Dict[str, str]] = dict):
         # flies: attitude actions offered; on_select(m): the manoeuvre shown (None: none), its node in the 3D views;
-        # on_values(): its values changed in the box; default_t(): the time of a new impulse or burn (the playback time)
+        # on_values(): its values changed in the box; default_t(): the time of a new impulse or burn (the playback time);
+        # names(): id -> name shown (the ship by its current name, user 8 November 2026)
         super().__init__(parent)
+        self.names = names
         self.owner, self.on_change, self.targets, self.duration = owner, on_change, targets, duration
         self.optional_attitude, self.default_t = optional_attitude, default_t
         self.manoeuvres = owner.setdefault("manoeuvres", [])
@@ -445,6 +470,11 @@ class ActionList(QWidget):
             buttons.append(b)
         rm_b = QPushButton("Remove")
         rm_b.clicked.connect(self._remove)
+        # red: set apart from the add buttons (user, 8 November 2026)
+        rm_b.setStyleSheet("QPushButton { background: #c62828; color: white; border: 1px solid #8e1b1b; "
+                           "border-radius: 3px; padding: 3px 10px; } QPushButton:hover { background: #d84343; } "
+                           "QPushButton:pressed { background: #9f1f1f; } "
+                           "QPushButton:disabled { background: #e0a0a0; color: #f6eaea; }")
         lay.addLayout(_button_row(buttons + [rm_b]))
         self.form_area = QVBoxLayout()
         lay.addLayout(self.form_area)
@@ -456,7 +486,7 @@ class ActionList(QWidget):
             self._show(i)
 
     def _set_row(self, r: int) -> None:
-        for c, text in enumerate(_action_cells(*self.rows[r])):
+        for c, text in enumerate(_action_cells(*self.rows[r], self.names())):
             cell = QTableWidgetItem(text)
             cell.setToolTip(text)
             self.table.setItem(r, c, cell)
@@ -545,7 +575,14 @@ class ActionList(QWidget):
         form = FormWidget(MANOEUVRE_FIELDS[m["type"]], m)
         self.form = form
 
+        def tint():                                    # the vector's boxes in the node's handles' colours
+            for key in ("dv_mps", "accel_mps2"):
+                if key in form.widgets:
+                    form.widgets[key][1].set_colors(VEC_HANDLE_COLORS.get(m.get("frame", "rtn")))
+        tint()
+
         def changed():
+            tint()
             self._fill(keep=m)
             self.on_change()
             if self.on_values is not None:
@@ -564,7 +601,7 @@ class ActionList(QWidget):
             "fixed": [_f("frame", "frame", "choice", choices=att.FIXED_FRAMES, names=FRAME_NAMES),
                       _f("yaw_deg", "yaw (deg)", min=-360.0, max=360.0),
                       _f("pitch_deg", "pitch (deg)", min=-90.0, max=90.0), _ROLL],
-            "target": [_f("id", "target", "choice", choices=self.targets), _ROLL]}
+            "target": [_f("id", "target", "choice", choices=self.targets, names=self.names), _ROLL]}
         att_fields.update({t: [_ROLL] for t in ATT_DIRECTIONS})
 
         def changed():
@@ -656,6 +693,8 @@ class ScenarioTab(QWidget):
             self.preview = SimView(grid, get_path=lambda: None if self.modified else self.path)
             self.scenario_changed.connect(self.preview.set_scenario)
             self.validated.connect(self.preview.set_valid)
+            if hasattr(self.preview, "scenario_source"):   # L5: a node drag sends the editor's scenario now
+                self.preview.scenario_source = lambda: scn.normalise(self.sc)
             self.preview.picked.connect(self._pick_from_view)
         else:
             self.preview = QLabel("3D preview and playback (not built)")
@@ -723,9 +762,9 @@ class ScenarioTab(QWidget):
         menu.exec_(self.tree.viewport().mapToGlobal(pos))
 
     def primary_action(self) -> Optional[QWidget]:
-        """The mode's main action, for its style: "Propagate", active only when a scenario too large for the
-        automatic propagation changed."""
-        return getattr(self.preview, "bt_prop", None)
+        """The mode's main action, for its style: none (fork RADARv6_RS, L5, user 8 November 2026: no "Propagate",
+        the computation front follows every edit)."""
+        return None
 
     def file_commands(self) -> list:
         """(text, slot, icon) of the scenario in the window's menu (before a file is created or opened, only New
@@ -923,10 +962,10 @@ class ScenarioTab(QWidget):
         self.tree.blockSignals(False)
         self.tree.setCurrentItem(found or self.n_ship)
 
-    @staticmethod
-    def _item_label(kind: str, o: dict) -> str:
+    def _item_label(self, kind: str, o: dict) -> str:
         if kind == "groups":
-            return f"{o.get('id', '?')} ({o.get('n', '?')} x {o.get('class', '?')} around {o.get('around', '?')})"
+            around = scn.ship_name(self.sc) if o.get("around") == "ship" else o.get("around", "?")   # (its name)
+            return f"{o.get('id', '?')} ({o.get('n', '?')} x {o.get('class', '?')} around {around})"
         return f"{o.get('id', '?')} ({o.get('class', '?')})"
 
     def _selected(self) -> Tuple[str, int]:
@@ -1121,14 +1160,14 @@ class ScenarioTab(QWidget):
 
         def renamed():
             self.n_ship.setText(0, scn.ship_name(self.sc))
-            self._changed()
+            self._changed(relabel=("ship", -1))
         name.changed.connect(renamed)
         lay.addWidget(name)
         lay.addWidget(_typed_form("orbit", ("elements", "state"), ORBIT_FIELDS, ORBIT_DEFAULTS, ship, "orbit", "type",
                                   self._changed))
         ship.setdefault("attitude", copy.deepcopy(att.DEFAULT_SHIP))
         # manoeuvres as any object's (user, 29 October 2026)
-        lay.addWidget(_actions_box(self._action_list("ship", ship, lambda: list(scn.object_ids(self.sc)),
+        lay.addWidget(_actions_box(self._action_list("ship", ship, lambda: [x.get("id") for x in self.sc.get("objects", [])],
                                                      optional_attitude=False)))
         return box
 
@@ -1139,7 +1178,8 @@ class ScenarioTab(QWidget):
         what the body can aim at when it flies waypoints (None: it does not)."""
         ml = ActionList(owner, self._changed, targets or list, self._duration, flies=targets is not None,
                         optional_attitude=optional_attitude,
-                        default_t=lambda: float(getattr(self.preview, "t", 0.0)))
+                        default_t=lambda: float(getattr(self.preview, "t", 0.0)),
+                        names=lambda: {"ship": scn.ship_name(self.sc)})
 
         def on_edit(final: bool) -> None:
             ml.refresh()
@@ -1177,14 +1217,19 @@ class ScenarioTab(QWidget):
             fields.append(_f("jammer", "jammer", "choice", choices=[""] + sorted(scn.jammer_classes())))
         else:
             fields += [_f("n", "count", "int", min=1),
-                       _f("around", "around", "choice", choices=["ship"] + [x["id"] for x in self.sc.get("objects", [])]),
+                       _f("around", "around", "choice", choices=["ship"] + [x["id"] for x in self.sc.get("objects", [])],
+                          names=lambda: {"ship": scn.ship_name(self.sc)}),
                        _f("pos_sigma_m", "position spread (m, 1 sigma)", min=0.0),
                        _f("vel_sigma_mps", "velocity spread (m/s, 1 sigma)", min=0.0)]
         fields.append(_f("overrides", "class overrides (JSON)", "json"))
         form = FormWidget(fields, o)
         cls0 = o.get("class")
+        id0 = [o.get("id")]
 
         def changed():
+            if o.get("id") != id0[0] and isinstance(o.get("id"), str) and o["id"]:
+                scn.rename_refs(self.sc, id0[0], o["id"], group=kind == "groups")   # the references follow (user)
+                id0[0] = o["id"]
             if o.get("class") != cls0 and o.get("class") not in att.FLYING_CLASSES:
                 o.pop("attitude", None)
             self._changed(relabel=(kind, i))
@@ -1197,7 +1242,9 @@ class ScenarioTab(QWidget):
                                       o, "state", "type", self._changed))
         targets = None
         if kind == "objects" and o.get("class") in att.FLYING_CLASSES:     # none: the class's default attitude (G5)
-            targets = lambda: ["ship"] + [x for x in scn.object_ids(self.sc) if x != o.get("id")]  # noqa: E731
+            # the ship (shown by its name) and the other objects by their current ids; not the groups (the
+            # validation refuses them as attitude targets)
+            targets = lambda: ["ship"] + [x.get("id") for x in self.sc.get("objects", []) if x is not o]  # noqa: E731
         lay.addWidget(_actions_box(self._action_list(o.get("id", "") if kind == "objects" else f"{o.get('id', '')}#0",
                                                      o, targets)))
         return box
@@ -1208,11 +1255,10 @@ class ScenarioTab(QWidget):
         self._update_title()
         if rebuild is not None:
             self._rebuild_tree(select=rebuild)
-        elif relabel is not None:
-            kind, i = relabel
-            parent = self.n_obj if kind == "objects" else self.n_grp
-            if i < parent.childCount():
-                parent.child(i).setText(0, self._item_label(kind, self.sc[kind][i]))
+        elif relabel is not None:                     # every line: a rename shows in the groups' "around" too
+            for kind, parent in (("objects", self.n_obj), ("groups", self.n_grp)):
+                for i, o in enumerate(self.sc.get(kind, [])[:parent.childCount()]):
+                    parent.child(i).setText(0, self._item_label(kind, o))
         self._validate()
 
     def _push_mission(self) -> None:
