@@ -142,6 +142,15 @@ class ThirdBodies:
         self._cache[t] = out
         return out
 
+    def positions3(self, t0: float, h: float) -> np.ndarray:
+        """(3, n, 3): positions(t0), positions(t0 + h / 2), positions(t0 + h); compiled in one call when numba runs
+        (P1, user 8 November 2026: the same bits, 1.1 s of the 4.4 s of the Jupiter scenario went through here)."""
+        if not fast.USE_NUMBA:
+            return np.stack([self.positions(t0), self.positions(t0 + 0.5 * h), self.positions(t0 + h)])
+        out = np.empty((3,) + self.pos.shape[1:])
+        fast.grid_at3(self.pos, self.t0, THIRD_BODY_STEP_S, float(t0), float(h), out)
+        return out
+
     def accel(self, r: np.ndarray, t: float) -> np.ndarray:
         """Differential attraction (km/s2) of the other bodies on positions r (n, 3) at t."""
         a = np.zeros_like(r)
@@ -458,6 +467,7 @@ class LiveSim:
     def __init__(self, sc: dict):
         self.sc = sc
         self.tag = 0                                      # (L5: what a caller knows of the edit it takes in)
+        self._glue: Optional[tuple] = None               # (P3: the rows' arguments of the compiled step, _rk4_compiled)
         body = self.body = Body.of(sc["central_body"])
         self.third = self._third_bodies(body.name, sc) if THIRD_BODY else None
         self.duration, self.dt = float(sc["meta"]["duration_s"]), float(sc["meta"]["step_s"])
@@ -699,32 +709,44 @@ class LiveSim:
 
     def _rk4_compiled(self, t0: float, h: float, act: np.ndarray) -> None:
         """_rk4 by fast.rk4_step (C3): the guided rows and their targets, the other bodies at the step's three
-        instants and the Singer accelerations gathered once for the four stages (_accel does it at each)."""
-        n, third = self.n, self.third
-        rows_act = np.flatnonzero(act)
-        on = np.flatnonzero(self.pn_on[rows_act])
-        if len(on):
-            where = np.full(n, -1)
-            where[rows_act] = np.arange(len(rows_act))
-            tg = where[self.pn_tgt[rows_act[on]]]
-            on, tg = on[tg >= 0], tg[tg >= 0]
-        else:
-            tg = on
+        instants and the Singer accelerations gathered once for the four stages (_accel does it at each); the rows'
+        part kept from step to step while the active and guided rows stay the same (P3, user 8 November 2026)."""
+        third = self.third
+        key = (act.tobytes(), self.pn_on.tobytes())
+        glue = self._glue
+        if glue is None or glue[0] != key:
+            glue = self._glue = (key,) + self._rk4_rows_glue(act)
+        _key, rows_act, on, tg, gain, lim, a_sing, par = glue
+        if self.sing:                                 # (Singer: new accelerations at each step)
+            a_sing = np.ascontiguousarray(self.a_sing[act])
         if third is not None:
-            tpos3 = np.stack([third.positions(t0), third.positions(t0 + 0.5 * h), third.positions(t0 + h)])
-            tmu = third.mu
+            tpos3, tmu = third.positions3(t0, h), third.mu
         else:
             tpos3, tmu = np.zeros((3, 0, 3)), _NO_MU
         b = self.body
-        par = len(rows_act) >= PARALLEL_MIN_ROWS
-        args = (self.x, rows_act, float(h), tpos3, tmu, b.mu, float(b.j2), b.r_eq_km, b.pole,
-                np.ascontiguousarray(self.a_sing[act]), on.astype(np.int64), tg.astype(np.int64),
-                np.ascontiguousarray(self.pn_n[rows_act[on]]), np.ascontiguousarray(self.a_max[rows_act[on]]), par)
+        args = (self.x, rows_act, float(h), tpos3, tmu, b.mu, float(b.j2), b.r_eq_km, b.pole, a_sing, on, tg, gain,
+                lim, par)
         if par:
             with fast.PAR_LOCK:
                 fast.rk4_step(*args)
         else:
             fast.rk4_step(*args)
+
+    def _rk4_rows_glue(self, act: np.ndarray) -> tuple:
+        """The rows' arguments of fast.rk4_step for the active rows act: (active rows, guided ones among them and
+        their targets' places in it, their gains and acceleration bounds, the Singer accelerations, parallel)."""
+        rows_act = np.flatnonzero(act)
+        on = np.flatnonzero(self.pn_on[rows_act])
+        if len(on):
+            where = np.full(self.n, -1)
+            where[rows_act] = np.arange(len(rows_act))
+            tg = where[self.pn_tgt[rows_act[on]]]
+            on, tg = on[tg >= 0], tg[tg >= 0]
+        else:
+            tg = on
+        return (rows_act, on.astype(np.int64), tg.astype(np.int64), np.ascontiguousarray(self.pn_n[rows_act[on]]),
+                np.ascontiguousarray(self.a_max[rows_act[on]]), np.ascontiguousarray(self.a_sing[act]),
+                len(rows_act) >= PARALLEL_MIN_ROWS)
 
     def _pn_update(self, t: float, prev: np.ndarray) -> None:
         """Start PN (time or range), end it when the range opens; miss = closest approach of the step (linear); all
@@ -732,16 +754,16 @@ class LiveSim:
         pn_rows, x, active = self.pn_rows, self.x, self.active
         if not len(pn_rows):
             return
+        if fast.USE_NUMBA:                            # compiled, the selection too (P3): the same steps row by row
+            fast.pn_update_all(x, prev, pn_rows, self.pn_tgt, active, t, self.pn_t, self.pn_r0, self.pn_on,
+                               self.pn_done, self.t_pn, self.miss)
+            return
         sel = pn_rows[active[pn_rows] & ~self.pn_done[pn_rows] & active[self.pn_tgt[pn_rows]]]   # (the target exists)
         if not len(sel):
             return
         was_on = self.pn_on[sel]
         k_t = np.searchsorted(pn_rows, sel)
         tg = self.pn_tgt[sel]
-        if fast.USE_NUMBA:                            # compiled: the same steps row by row
-            fast.pn_step(x, prev, sel, tg, was_on, t, self.pn_t[k_t], self.pn_r0[k_t], self.pn_on, self.pn_done,
-                         self.t_pn, self.miss)
-            return
         los = x[tg, :3] - x[sel, :3]
         off = sel[~was_on]
         if len(off):                                  # not guided yet: start at its time or within its range
@@ -766,6 +788,8 @@ class LiveSim:
     def _impacts(self, t: float) -> bool:
         """The rows below the surface at t marked impacted; True when the ship is (the run ends: it stays
         active for its last record)."""
+        if fast.USE_NUMBA:                            # compiled (P3), the same norm to the bit
+            return bool(fast.impacts(self.x, self.active, float(self.body.radius_km), float(t), self.t_impact))
         r = np.linalg.norm(self.x[:, :3], axis=1)
         hit = self.active & (r < self.body.radius_km)
         if hit.any():
@@ -815,6 +839,7 @@ class LiveSim:
         source: the run ck comes from, when it is another one (L3: the scenario edited after ck); its record and
         checkpoints up to ck are taken over (the past before an edit stays right)."""
         ids = [w.id for w in self.rows]
+        self._glue = None
         here = {oid: i for i, oid in enumerate(ids)}
         old = {oid: i for i, oid in enumerate(ck["ids"])}
         new_rows = np.array([i for i, oid in enumerate(ids) if oid in old], int)     # the rows the checkpoint has

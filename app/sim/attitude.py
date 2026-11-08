@@ -50,6 +50,7 @@ RATE_MAX_DPS = float(P.get("repointing.rate_max_dps"))
 ACCEL_MAX_DPS2 = float(P.get("repointing.accel_max_dps2"))
 REACHED_TOL_DEG = 0.01                              # the slew is over below this error (then the rate limit is the max)
 HOLD_TOL_DEG = 0.1                                  # a held attitude farther than this is logged
+_A_MAX_RAD, _W_CAP_RAD = math.radians(ACCEL_MAX_DPS2), math.radians(RATE_MAX_DPS)   # (Fleet.step, the same values)
 
 
 # ----------------------------------------------------------------------------- rotations
@@ -268,6 +269,8 @@ class Fleet:
         self.has = np.zeros(n, bool)
         self.reached, self.lost = np.zeros(n, bool), np.zeros(n, bool)
         self.flags = np.zeros(n, np.int64)
+        self._hit = np.zeros(n, np.int64)             # (the flyers whose flags a step set)
+        self._next_min = 0.0
         for j, f in enumerate(self.flyers):
             m, w, reached, lost, err = f.m, f.w, f.reached, f.lost, f._err_deg
             f._fleet, f._j = self, j
@@ -288,20 +291,25 @@ class Fleet:
         self.target[j] = self.index.get(a["id"], -1) if a["type"] == "target" else -1
         self.rate[j] = math.radians(RATE_MAX_DPS if f.k == 0 else float(f.wps[f.k]["rate_dps"]))
         self.next_t[j] = float(f.wps[f.k + 1]["t_s"]) if f.k + 1 < len(f.wps) else math.inf
+        self._next_min = float(self.next_t.min())     # (step: Python only once a waypoint may be due)
 
     def step(self, t0: float, dt: float, x: np.ndarray, active: np.ndarray) -> None:
-        """Advance the flyers of the active rows that have an attitude from t0 to t0 + dt; x (n, 6) at t0."""
-        sel = np.flatnonzero(active[self.rows] & self.has)
-        for j in sel[self.next_t[sel] <= t0 + 1e-9]:
-            f = self.flyers[j]
-            if not f.reached:
-                f.events.append({"t_s": t0, "kind": "slew not finished", "waypoint": f.k, "error_deg": float(f._err_deg)})
-            f.k, f.reached, f.lost = f.k + 1, False, False
-            self._load(j)
-        fast.fleet_step(sel, self.rows, self.kind, self.roll, self.fixed, self.target, self.rate, active, x, dt,
-                        math.radians(ACCEL_MAX_DPS2), math.radians(RATE_MAX_DPS), REACHED_TOL_DEG, HOLD_TOL_DEG, self.M,
-                        self.W, self.phi, self.err, self.reached, self.lost, self.flags)
-        for j in sel[self.flags[sel] != 0]:
+        """Advance the flyers of the active rows that have an attitude from t0 to t0 + dt; x (n, 6) at t0. The
+        selection and the slews in one compiled call (P2, user 8 November 2026), Python only for a waypoint due and
+        for the events."""
+        if self._next_min <= t0 + 1e-9:                # a waypoint due, perhaps
+            sel = np.flatnonzero(active[self.rows] & self.has)
+            for j in sel[self.next_t[sel] <= t0 + 1e-9]:
+                f = self.flyers[j]
+                if not f.reached:
+                    f.events.append({"t_s": t0, "kind": "slew not finished", "waypoint": f.k,
+                                     "error_deg": float(f._err_deg)})
+                f.k, f.reached, f.lost = f.k + 1, False, False
+                self._load(j)
+        nh = fast.fleet_step_all(self.rows, self.has, self.kind, self.roll, self.fixed, self.target, self.rate, active,
+                                 x, dt, _A_MAX_RAD, _W_CAP_RAD, REACHED_TOL_DEG, HOLD_TOL_DEG, self.M, self.W, self.phi,
+                                 self.err, self.reached, self.lost, self.flags, self._hit)
+        for j in self._hit[:nh]:
             f, flag = self.flyers[j], int(self.flags[j])
             if flag == 3:
                 f.events.append({"t_s": t0, "kind": "target missing", "waypoint": f.k})

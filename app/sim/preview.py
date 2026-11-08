@@ -161,8 +161,7 @@ class PreviewSim(prop.LiveSim):
         gain = np.ascontiguousarray(self.pn_n[on]) if len(on) else _NO_F
         lim = np.ascontiguousarray(self.a_max[on]) if len(on) else _NO_F
         if self.third is not None and len(self.third.mu):
-            tpos3 = np.stack([self.third.positions(t0), self.third.positions(t0 + 0.5 * h),
-                              self.third.positions(t0 + h)])
+            tpos3 = self.third.positions3(t0, h)
             tmu = self.third.mu
         else:
             tpos3, tmu = np.zeros((3, 0, 3)), _NO_F

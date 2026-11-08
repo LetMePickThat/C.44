@@ -18,6 +18,9 @@ compilation, a few seconds).
   rk4_step    one RK4 step of the full computation's active rows in one call (no burn running), the same bits as
               the numpy step of sim/propagate (user 8 November 2026)
   pn_step     the per-step update of the guided rows: start, closest approach, end when the range opens
+  fleet_step_all, pn_update_all, impacts, grid_at3  the rest of the full computation's step (P1-P3, user 8 November
+              2026): the selections made in the kernels, the other bodies at a step's three instants in one call;
+              the same bits as the numpy code
 """
 from __future__ import annotations
 
@@ -65,6 +68,15 @@ def _grid_at(grid, g_t0, g_step, t, out):
         for c in range(3):
             out[b, c] = (w0 * grid[k - 1, b, c] + w1 * grid[k, b, c] + w2 * grid[k + 1, b, c]
                          + w3 * grid[k + 2, b, c])
+
+
+@_jit
+def grid_at3(grid, g_t0, g_step, t0, h, out):
+    """The other bodies at a step's start, middle and end (t0, t0 + h / 2, t0 + h) into out (3, n, 3) in one call
+    (P1, user 8 November 2026: the same bits as propagate.ThirdBodies.positions, checked at 15 000 instants)."""
+    _grid_at(grid, g_t0, g_step, t0, out[0])
+    _grid_at(grid, g_t0, g_step, t0 + 0.5 * h, out[1])
+    _grid_at(grid, g_t0, g_step, t0 + h, out[2])
 
 
 @_jit
@@ -300,37 +312,60 @@ def fleet_step(sel, rows, kind, roll, fixed, target, rate, active, x, dt, a_max,
     """One step dt of the attitudes sel (indices into the fleet's arrays, sim/attitude.Fleet) on the states x (n, 6) at
     the step start: their goals at both ends, slew, then the slew's state as Flyer._hold; flags: 0, 1 hold lost, 2 hold
     recovered, 3 target missing (no turn, no rate)."""
-    empty = np.zeros(3)
     for q in range(sel.shape[0]):
-        j = sel[q]
-        flags[j] = 0
-        i = rows[j]
-        r0, v0 = x[i, :3].copy(), x[i, 3:].copy()
-        r1 = r0 + v0 * dt
-        d0, d1 = empty, empty
-        if kind[j] == 8:
-            s = target[j]
-            if s < 0 or not active[s]:
-                flags[j] = 3
-                w[j, 0], w[j, 1], w[j, 2] = 0.0, 0.0, 0.0
-                continue
-            d0 = x[s, :3] - r0
-            d1 = x[s, :3] + x[s, 3:] * dt - r1
-        g0 = _goal(kind[j], roll[j], fixed[j].copy(), r0, v0, d0)
-        g1 = _goal(kind[j], roll[j], fixed[j].copy(), r1, v0, d1)
-        m2, w2, phi, err = slew(g0, g1, m[j].copy(), w[j].copy(), dt, a_max, w_cap if reached[j] else rate[j], w_cap)
-        m[j, :, :] = m2
-        w[j, :] = w2
-        phi_deg[j] = math.degrees(phi)
-        err_deg[j] = err
-        if not reached[j] and err < reached_deg:
-            reached[j] = True
-        elif reached[j] and err > hold_deg and not lost[j]:
-            lost[j] = True
-            flags[j] = 1
-        elif lost[j] and err < reached_deg:
-            lost[j] = False
-            flags[j] = 2
+        _fly(sel[q], rows, kind, roll, fixed, target, rate, active, x, dt, a_max, w_cap, reached_deg, hold_deg, m, w,
+             phi_deg, err_deg, reached, lost, flags)
+
+
+@_jit
+def fleet_step_all(rows, has, kind, roll, fixed, target, rate, active, x, dt, a_max, w_cap, reached_deg, hold_deg, m,
+                   w, phi_deg, err_deg, reached, lost, flags, hit):
+    """fleet_step on every attitude of an active row that has one (P2, user 8 November 2026: the selection made here,
+    not in numpy at each step), in the same order; hit: the indices whose flags were set, their count returned."""
+    nh = 0
+    for j in range(rows.shape[0]):
+        if not (active[rows[j]] and has[j]):
+            continue
+        _fly(j, rows, kind, roll, fixed, target, rate, active, x, dt, a_max, w_cap, reached_deg, hold_deg, m, w,
+             phi_deg, err_deg, reached, lost, flags)
+        if flags[j] != 0:
+            hit[nh] = j
+            nh += 1
+    return nh
+
+
+@_jit
+def _fly(j, rows, kind, roll, fixed, target, rate, active, x, dt, a_max, w_cap, reached_deg, hold_deg, m, w, phi_deg,
+         err_deg, reached, lost, flags):
+    """One step of the attitude j (fleet_step)."""
+    flags[j] = 0
+    i = rows[j]
+    r0, v0 = x[i, :3].copy(), x[i, 3:].copy()
+    r1 = r0 + v0 * dt
+    d0, d1 = np.zeros(3), np.zeros(3)
+    if kind[j] == 8:
+        s = target[j]
+        if s < 0 or not active[s]:
+            flags[j] = 3
+            w[j, 0], w[j, 1], w[j, 2] = 0.0, 0.0, 0.0
+            return
+        d0 = x[s, :3] - r0
+        d1 = x[s, :3] + x[s, 3:] * dt - r1
+    g0 = _goal(kind[j], roll[j], fixed[j].copy(), r0, v0, d0)
+    g1 = _goal(kind[j], roll[j], fixed[j].copy(), r1, v0, d1)
+    m2, w2, phi, err = slew(g0, g1, m[j].copy(), w[j].copy(), dt, a_max, w_cap if reached[j] else rate[j], w_cap)
+    m[j, :, :] = m2
+    w[j, :] = w2
+    phi_deg[j] = math.degrees(phi)
+    err_deg[j] = err
+    if not reached[j] and err < reached_deg:
+        reached[j] = True
+    elif reached[j] and err > hold_deg and not lost[j]:
+        lost[j] = True
+        flags[j] = 1
+    elif lost[j] and err < reached_deg:
+        lost[j] = False
+        flags[j] = 2
 
 
 @_jit
@@ -454,25 +489,59 @@ def pn_step(x, prev, sel, tg, was_on, t, pn_t, pn_r0, pn_on, pn_done, t_pn, miss
     time or within the range of the target; when guided, the step's closest approach to it (relative motion
     linear within it) and the end when the range opens (arrays updated in place)."""
     for q in range(sel.shape[0]):
-        i = sel[q]
-        s = tg[q]
-        lx, ly, lz = x[s, 0] - x[i, 0], x[s, 1] - x[i, 1], x[s, 2] - x[i, 2]
-        if not was_on[q]:
-            if not math.isnan(pn_t[q]):
-                start = t >= pn_t[q] - 1e-9
-            else:
-                start = math.sqrt(lx * lx + ly * ly + lz * lz) <= pn_r0[q]
-            if start:
-                pn_on[i] = True
-                t_pn[i] = t
+        _pn_one(x, prev, sel[q], tg[q], was_on[q], t, pn_t[q], pn_r0[q], pn_on, pn_done, t_pn, miss)
+
+
+@_jit
+def pn_update_all(x, prev, pn_rows, pn_tgt, active, t, pn_t, pn_r0, pn_on, pn_done, t_pn, miss):
+    """pn_step on the guided rows pn_rows (pn_t / pn_r0 in their order) that exist, are not done and whose target
+    exists (P3, user 8 November 2026: the selection made here, not in numpy at each step), in the same order."""
+    for q in range(pn_rows.shape[0]):
+        i = pn_rows[q]
+        s = pn_tgt[i]
+        if active[i] and not pn_done[i] and active[s]:
+            _pn_one(x, prev, i, s, pn_on[i], t, pn_t[q], pn_r0[q], pn_on, pn_done, t_pn, miss)
+
+
+@_jit
+def _pn_one(x, prev, i, s, was_on, t, pt, pr0, pn_on, pn_done, t_pn, miss):
+    """pn_step on the row i toward its target s."""
+    lx, ly, lz = x[s, 0] - x[i, 0], x[s, 1] - x[i, 1], x[s, 2] - x[i, 2]
+    if not was_on:
+        if not math.isnan(pt):
+            start = t >= pt - 1e-9
+        else:
+            start = math.sqrt(lx * lx + ly * ly + lz * lz) <= pr0
+        if start:
+            pn_on[i] = True
+            t_pn[i] = t
+        return
+    d0x, d0y, d0z = prev[s, 0] - prev[i, 0], prev[s, 1] - prev[i, 1], prev[s, 2] - prev[i, 2]
+    ddx, ddy, ddz = lx - d0x, ly - d0y, lz - d0z
+    u = -(d0x * ddx + d0y * ddy + d0z * ddz) / max(ddx * ddx + ddy * ddy + ddz * ddz, 1e-300)
+    u = min(max(u, 0.0), 1.0)
+    cx, cy, cz = d0x + u * ddx, d0y + u * ddy, d0z + u * ddz
+    closest = math.sqrt(cx * cx + cy * cy + cz * cz)
+    miss[i] = closest if math.isnan(miss[i]) else min(miss[i], closest)
+    if lx * (x[s, 3] - x[i, 3]) + ly * (x[s, 4] - x[i, 4]) + lz * (x[s, 5] - x[i, 5]) > 0.0:
+        pn_on[i] = False
+        pn_done[i] = True
+
+
+@_jit
+def impacts(x, active, radius_km, t, t_impact):
+    """The active rows below the surface at t: their impact time set, the objects' rows (not the ship's, row 0)
+    made inactive; True when the ship is below it (sim/propagate.LiveSim._impacts, the same norm to the bit: its
+    squares summed from the first axis, as numpy)."""
+    ship = False
+    for i in range(x.shape[0]):
+        if not active[i]:
             continue
-        d0x, d0y, d0z = prev[s, 0] - prev[i, 0], prev[s, 1] - prev[i, 1], prev[s, 2] - prev[i, 2]
-        ddx, ddy, ddz = lx - d0x, ly - d0y, lz - d0z
-        u = -(d0x * ddx + d0y * ddy + d0z * ddz) / max(ddx * ddx + ddy * ddy + ddz * ddz, 1e-300)
-        u = min(max(u, 0.0), 1.0)
-        cx, cy, cz = d0x + u * ddx, d0y + u * ddy, d0z + u * ddz
-        closest = math.sqrt(cx * cx + cy * cy + cz * cz)
-        miss[i] = closest if math.isnan(miss[i]) else min(miss[i], closest)
-        if lx * (x[s, 3] - x[i, 3]) + ly * (x[s, 4] - x[i, 4]) + lz * (x[s, 5] - x[i, 5]) > 0.0:
-            pn_on[i] = False
-            pn_done[i] = True
+        r = math.sqrt((x[i, 0] * x[i, 0] + x[i, 1] * x[i, 1]) + x[i, 2] * x[i, 2])
+        if r < radius_km:
+            t_impact[i] = t
+            if i == 0:
+                ship = True
+            else:
+                active[i] = False
+    return ship
