@@ -487,9 +487,49 @@ def _rgb(hex_color: str) -> Tuple[int, int, int]:
     return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
 
 
-@lru_cache(maxsize=4)
+COLOR_CACHE = TEXTURE_DIR / ".orbit_colors.json"   # E2: the maps' dominant colours (local, not in the repository)
+_COLOR_DISK: Optional[dict] = None
+
+
+def _color_key(body: str, path) -> str:
+    """What a cached colour depends on: the map (name, size, date) and the rule's values."""
+    st = path.stat()
+    plain = PLANET_COLORS.get(body, MOON_COLORS.get(body, ""))
+    return f"{body}|{path.name}|{st.st_size}|{st.st_mtime_ns}|{ORBIT_MIN_PEAK}|{ORBIT_HUE_SHARE}|{plain}"
+
+
 @lru_cache(maxsize=None)
 def _body_color(body: str) -> str:
+    """_body_color_of, read from COLOR_CACHE when its map has not changed (E2, user 8 November 2026: the 51 maps
+    decoded for their colour cost 0.8 s of a scenario's opening)."""
+    global _COLOR_DISK
+    path = TEXTURE_DIR / TEXTURE_FILES.get(body, f"{body}.jpg")
+    if not path.exists():
+        return _body_color_of(body)
+    if _COLOR_DISK is None:
+        try:
+            with open(COLOR_CACHE, encoding="utf-8") as fh:
+                _COLOR_DISK = dict(json.load(fh))
+        except (OSError, ValueError, TypeError):
+            _COLOR_DISK = {}
+    key = _color_key(body, path)
+    got = _COLOR_DISK.get(key)
+    if isinstance(got, str):
+        return got
+    col = _body_color_of(body)
+    _COLOR_DISK = {k: v for k, v in _COLOR_DISK.items() if not k.startswith(f"{body}|")}
+    _COLOR_DISK[key] = col
+    try:                                             # (best effort: a read-only folder only costs the time)
+        tmp = f"{COLOR_CACHE}.{os.getpid()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(_COLOR_DISK, fh, indent=0, sort_keys=True)
+        os.replace(tmp, COLOR_CACHE)
+    except OSError:
+        pass
+    return col
+
+
+def _body_color_of(body: str) -> str:
     """A body's dominant colour (its orbit's, user 30 October 2026): of its map's eight colours (median cut; a mean
     washes them out: the Earth's came out grey), the most frequent coloured one, else its plain colour; brightened up to
     ORBIT_MIN_PEAK on its brightest channel to stand out on the black."""
@@ -538,22 +578,74 @@ def _has_texture(body: str) -> bool:
     return (TEXTURE_DIR / TEXTURE_FILES.get(body, f"{body}.jpg")).exists() or body == "moon"
 
 
+_PIX: dict = {}                                   # E3: maps being decoded ahead, by key ("sun" its photosphere)
+_PIX_POOL = None
+PREFETCH_WORKERS = 4                              # E3: maps decoded at once (D)
+
+
+def _map_pixels(body: str) -> Optional[np.ndarray]:
+    """A body's map in RGB (an indexed or transparent map would draw wrong), at most TEXTURE_MAX_PX wide; None: no
+    map file."""
+    path = TEXTURE_DIR / TEXTURE_FILES.get(body, f"{body}.jpg")
+    if not path.exists():
+        return None
+    from PIL import Image
+    Image.MAX_IMAGE_PIXELS = None
+    im = Image.open(path)
+    if im.width > TEXTURE_MAX_PX:
+        im.draft("RGB", (TEXTURE_MAX_PX, TEXTURE_MAX_PX // 2))      # (a JPEG decoded at a smaller scale)
+        if im.width > TEXTURE_MAX_PX:
+            im = im.resize((TEXTURE_MAX_PX, max(1, round(im.height * TEXTURE_MAX_PX / im.width))), Image.BILINEAR)
+    return np.asarray(im.convert("RGB"))
+
+
+def _sun_pixels() -> Optional[np.ndarray]:
+    """The Sun's map as the photosphere seen from space: its warm white, the map's granulation kept as at most
+    SUN_GRANULATION toward the limb's warmer colour (the map's orange washed out)."""
+    path = TEXTURE_DIR / TEXTURE_FILES["sun"]
+    if not path.exists():
+        return None
+    from PIL import Image
+    a = np.asarray(Image.open(path).convert("L"), float)
+    g = (a - a.mean()) / max(a.std(), 1e-6)                # granulation, unit contrast
+    k = np.clip(SUN_GRANULATION * (1.0 - np.clip(g, -2.0, 2.0) / 2.0) / 2.0, 0.0, SUN_GRANULATION)
+    white, warm = np.array(SUN_WHITE, float), np.array(SUN_LIMB_COLOR, float)
+    return (white + k[..., None] * (warm - white)).clip(0, 255).astype(np.uint8)   # (its dimmer parts warmer, not grey)
+
+
+def prefetch_maps() -> None:
+    """E3 (user, 8 November 2026: 1.5 s of a scenario's opening decoding maps one after the other): the maps the
+    global view puts on at once (the Earth, the Moon, the Sun, the planets) decoded in background threads, several at
+    a time, from the moment the view is created; each taken (and forgotten here) when first drawn. Once."""
+    global _PIX_POOL
+    if _PIX_POOL is not None:
+        return
+    from concurrent.futures import ThreadPoolExecutor
+    _PIX_POOL = ThreadPoolExecutor(max_workers=PREFETCH_WORKERS, thread_name_prefix="maps")
+    _PIX["sun"] = _PIX_POOL.submit(_sun_pixels)
+    for b in ("earth", "moon", *PLANET_NAMES.values()):
+        _PIX[b] = _PIX_POOL.submit(_map_pixels, b)
+
+
+def _pixels(key: str) -> Optional[np.ndarray]:
+    """A map's pixels: decoded ahead (waited for if under way), else now."""
+    fut = _PIX.pop(key, None)
+    if fut is not None:
+        try:
+            return fut.result()
+        except Exception:                            # noqa: BLE001 -- decoded again here, its error shown as before
+            pass
+    return _sun_pixels() if key == "sun" else _map_pixels(key)
+
+
 @lru_cache(maxsize=None)
 def _texture(body: str) -> Optional[pv.Texture]:
     """Equirectangular texture of a body (TEXTURE_DIR/TEXTURE_FILES[body]; the Moon falls back on the procedural
-    one), read once: in RGB (an indexed or transparent map would draw wrong), at most TEXTURE_MAX_PX wide; repeated
-    (a shape model's seam triangles reach past u = 1)."""
+    one), read once (_map_pixels, decoded ahead by prefetch_maps for the bodies drawn at once); repeated (a shape
+    model's seam triangles reach past u = 1)."""
     path = TEXTURE_DIR / TEXTURE_FILES.get(body, f"{body}.jpg")
     if path.exists():
-        from PIL import Image
-        Image.MAX_IMAGE_PIXELS = None
-        im = Image.open(path)
-        if im.width > TEXTURE_MAX_PX:
-            im.draft("RGB", (TEXTURE_MAX_PX, TEXTURE_MAX_PX // 2))      # (a JPEG decoded at a smaller scale)
-            if im.width > TEXTURE_MAX_PX:
-                im = im.resize((TEXTURE_MAX_PX, max(1, round(im.height * TEXTURE_MAX_PX / im.width))),
-                               Image.BILINEAR)
-        tex = pv.Texture(np.asarray(im.convert("RGB")))                  # (pyvista: the first row at the top)
+        tex = pv.Texture(_pixels(body))                                  # (pyvista: the first row at the top)
     elif body == "moon":
         tex = pv.Texture(cgeo.moon_texture())
     else:
@@ -1006,15 +1098,9 @@ def _place_limb(p, act, centre, radius_km: float) -> None:
 def _sun_texture() -> Optional[pv.Texture]:
     """The Sun's map as the photosphere seen from space: its warm white, the map's granulation kept as at most
     SUN_GRANULATION toward the limb's warmer colour (the map's orange washed out)."""
-    path = TEXTURE_DIR / TEXTURE_FILES["sun"]
-    if not path.exists():
+    img = _pixels("sun")
+    if img is None:
         return None
-    from PIL import Image
-    a = np.asarray(Image.open(path).convert("L"), float)
-    g = (a - a.mean()) / max(a.std(), 1e-6)                # granulation, unit contrast
-    k = np.clip(SUN_GRANULATION * (1.0 - np.clip(g, -2.0, 2.0) / 2.0) / 2.0, 0.0, SUN_GRANULATION)
-    white, warm = np.array(SUN_WHITE, float), np.array(SUN_LIMB_COLOR, float)
-    img = (white + k[..., None] * (warm - white)).clip(0, 255).astype(np.uint8)   # (its dimmer parts warmer, not grey)
     tex = pv.Texture(img)
     tex.interpolate = True
     tex.mipmap = True
@@ -1204,6 +1290,7 @@ class SimView(QWidget):
     def __init__(self, grid: Optional[cgeo.SphereGrid] = None, get_path: Callable[[], Optional[str]] = lambda: None,
                  parent=None):
         super().__init__(parent)
+        prefetch_maps()                                # E3: the maps decoded while the window opens
         self.grid = grid or cgeo.SphereGrid(float(P.get("tool.display.grid_res_deg")))
         self.get_path = get_path
         self.pending: Optional[dict] = None       # latest valid scenario from the editor
@@ -2249,7 +2336,7 @@ class SimView(QWidget):
                 t_lo = ts[ts < lo][-1] if (ts < lo).any() else lo   # (from the coarse points beside it)
                 t_hi = ts[ts > hi][0] if (ts > hi).any() else hi
                 near_t = np.linspace(t_lo, t_hi, BODY_ORBIT_NEAR)
-                near = np.array([self._orbit_rel(b, float(t)) for t in near_t])
+                near = self._orbit_rel_many(b, near_t)
                 nc[b] = (self._sky_key(), ts, near_t, near)
             if self._orbit_kept(b, now[parent], rel, near):
                 continue
@@ -2304,6 +2391,14 @@ class SimView(QWidget):
             return eph.moon_icrf_km(T)
         raise KeyError(b)
 
+    def _orbit_rel_many(self, b: str, ts: np.ndarray) -> np.ndarray:
+        """_orbit_rel at the times ts, (n, 3) km: a moon's at once (E1, user 8 November 2026: one call per point cost
+        most of a playback frame and 1.2 s of a lunar scenario's opening), the others one by one."""
+        if b in MOON_DATA:
+            T = eph.centuries_tt(scn.epoch(self.sc), 0.0) + np.asarray(ts, float) / (86400.0 * 36525.0)
+            return eph.satellite_planetocentric_many_km(b, T)
+        return np.array([self._orbit_rel(b, float(t)) for t in ts]).reshape(-1, 3)
+
     def _orbit_shape(self, b: str) -> Tuple[np.ndarray, np.ndarray]:
         """(times, the body b about its parent over one period centred on t, km), computed again when t has moved a
         twentieth of the period (cached: the ephemeris at every frame would slow the playback)."""
@@ -2314,7 +2409,7 @@ class SimView(QWidget):
         if hit is not None and hit[0] == self._sky_key() and abs(hit[1] - self.t) < period / 20.0:
             return hit[2], hit[3]
         ts = self.t + np.linspace(-0.5, 0.5, BODY_ORBIT_POINTS) * period
-        out = np.array([self._orbit_rel(b, float(t)) for t in ts])
+        out = self._orbit_rel_many(b, ts)
         cache[b] = (self._sky_key(), self.t, ts, out)
         return ts, out
 

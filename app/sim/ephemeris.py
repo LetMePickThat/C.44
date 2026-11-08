@@ -313,6 +313,48 @@ def satellite_planetocentric_km(name: str, T: float) -> np.ndarray:
     return _plane(pole) @ r
 
 
+def _kepler_many(m: np.ndarray, e: float) -> np.ndarray:
+    """_kepler on an array of mean anomalies (rad)."""
+    E = m + e * np.sin(m)
+    for _ in range(30):
+        d = (E - e * np.sin(E) - m) / (1.0 - e * np.cos(E))
+        E = E - d
+        if float(np.max(np.abs(d), initial=0.0)) < 1e-12:
+            break
+    return E
+
+
+def _satellite_pole(name: str) -> np.ndarray:
+    el = _MOONS[name]
+    if el["frame"] == "laplace":
+        return _radec(float(el["pole_ra_deg"]), float(el["pole_dec_deg"]))
+    if el["frame"] == "equatorial":
+        pl = P.get(f"sim.planets.{el['planet']}")
+        return _radec(float(pl["pole_ra_deg"]), float(pl["pole_dec_deg"]))
+    return _rx(_EPS_J2000) @ np.array([0.0, 0.0, 1.0])       # the ecliptic of J2000
+
+
+def satellite_planetocentric_many_km(name: str, T: np.ndarray) -> np.ndarray:
+    """satellite_planetocentric_km at every T of an array at once, (n, 3) km (the 3D views' orbits of the moons, user
+    8 November 2026: 23 000 calls one by one when a lunar scenario opened, 1.4 s); the same formulas."""
+    el = _MOONS[name]
+    d = np.asarray(T, float) * 36525.0 - float(el["epoch_d"])
+    inc = float(el["i_deg"])
+    m_rate, w_rate, n_rate = _precession(name)
+    w, node = float(el["w_deg"]) + w_rate * d, float(el["node_deg"]) + n_rate * d
+    m = float(el["m_deg"]) + m_rate * d
+    e = float(el["e"])
+    E = _kepler_many(np.radians((m + 180.0) % 360.0 - 180.0), e)
+    a = float(el["a_km"])
+    xp, yp = a * (np.cos(E) - e), a * math.sqrt(1.0 - e * e) * np.sin(E)
+    w, O, i = np.radians(w), np.radians(node), math.radians(inc)
+    cw, sw, cO, sO, ci, si = np.cos(w), np.sin(w), np.cos(O), np.sin(O), math.cos(i), math.sin(i)
+    r = np.stack([(cw * cO - sw * sO * ci) * xp + (-sw * cO - cw * sO * ci) * yp,
+                  (cw * sO + sw * cO * ci) * xp + (-sw * sO + cw * cO * ci) * yp,
+                  (sw * si) * xp + (cw * si) * yp], axis=1)
+    return r @ _plane(_satellite_pole(name)).T
+
+
 def satellite_icrf_km(name: str, T: float) -> np.ndarray:
     """Geocentric position of a moon (km, ICRF axes): its planet's + its own about it."""
     return planet_icrf_km(_MOONS[name]["planet"], T) + satellite_planetocentric_km(name, T)
