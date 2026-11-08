@@ -20,7 +20,7 @@ continuously, up to the mission's end date. Decisions (user, 8 Nov 2026):
   full model (RK4 0.1 s, J2, other bodies, PN, Singer); the clock is held at a speed the real-time computation can
   follow. C2 the time-warp list kept (x1 .. x100000); above what the machine computes, the clock follows the front.
   Measured on the desktop (full propagation, loading included): moon 37 bodies ~x1000, Jupiter 310 ~x370,
-  TEST_MAX_LOAD 1011 ~x100.
+  TEST_MAX_LOAD 1011 ~x100; after C2-C3 (8 Nov 2026): ~x1300, ~x820, ~x320.
 - Design agreed: the projection IS the same deterministic simulation computed ahead of the clock (a computation
   front in the background toward the end date); the clock never passes the front; an edit restarts the front from
   the last checkpoint before the instant it touches; checkpoints = full fleet state (r, v, attitudes, PN, Singer

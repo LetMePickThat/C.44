@@ -7,18 +7,22 @@ numba is installed and sim.use_numba is true; otherwise the numpy code of sim/pr
 compilation, a few seconds).
 
   gravity   the acceleration of every row: two bodies + J2 about the pole, plus the differential attraction of the
-            other bodies (O1), plus the rows' Singer accelerations
+            other bodies (O1), plus the rows' Singer accelerations; gravity_par the same on all the cores (from
+            sim.parallel_min_rows rows, the same result to the bit, user 8 November 2026)
   pointing  body -> ICRF matrix with Z along d, X in the orbital plane, then the roll (sim/attitude.pointing)
   slew      one step of a flown attitude toward its goal (sim/attitude.Flyer.step): feed-forward of the goal's rate,
             the slew rate that still stops on it, the rate and acceleration bounds, the turn by expm
   fleet_step  the same for every flyer of a run at once, with the goals of its attitude kinds (sim/attitude.Fleet)
   multitrack_labels  the groups of objects close on screen (gui/sim_view._multitracks)
   pn_command  the proportional-navigation command of the guided rows (in the acceleration)
+  rk4_step    one RK4 step of the full computation's active rows in one call (no burn running), the same bits as
+              the numpy step of sim/propagate (user 8 November 2026)
   pn_step     the per-step update of the guided rows: start, closest approach, end when the range opens
 """
 from __future__ import annotations
 
 import math
+import threading
 
 import numpy as np
 
@@ -35,6 +39,15 @@ USE_NUMBA: bool = bool(P.get("sim.use_numba")) and _nb is not None
 def _jit(f):
     return _nb.njit(cache=True, nogil=True)(f) if USE_NUMBA else f   # (nogil: the editor's background preview
                                                                       # leaves the interface its turns, 8 Nov 2026)
+
+
+def _jit_parallel(f):
+    return _nb.njit(cache=True, nogil=True, parallel=True)(f) if USE_NUMBA else f
+
+
+_prange = _nb.prange if _nb is not None else range
+PAR_LOCK = threading.Lock()            # one parallel kernel at a time (numba's workqueue layer, used when neither
+                                       # OpenMP nor TBB is there, aborts on concurrent calls from two threads)
 
 
 @_jit
@@ -90,45 +103,72 @@ def coast_path(x, u, t0, h, n, grid, g_t0, g_step, tmu, mu, j2, r_eq_km, pole, r
 
 
 @_jit
-def gravity(r, a_sing, mu, j2, r_eq_km, pole, tpos, tmu):
-    """(n, 3) km/s2 at the positions r (n, 3): -mu r / |r|^3, J2 about the unit pole, + a_sing (n, 3), + the
-    differential attraction mu_b [(r_b - r) / |r_b - r|^3 - r_b / |r_b|^3] of the bodies at tpos (k, 3)."""
-    n = r.shape[0]
+def _indirect(tpos):
+    """r_b / |r_b|^3 of the bodies at tpos (k, 3): the indirect term of their differential attraction."""
     nb = tpos.shape[0]
-    a = np.empty((n, 3))
     ind = np.empty((nb, 3))
     for b in range(nb):
         rbn = math.sqrt(tpos[b, 0] * tpos[b, 0] + tpos[b, 1] * tpos[b, 1] + tpos[b, 2] * tpos[b, 2])
         rb3 = rbn ** 3
         for c in range(3):
             ind[b, c] = tpos[b, c] / rb3
+    return ind
+
+
+@_jit
+def _gravity_row(i, r, a_sing, mu, kj, j2, pole, tpos, tmu, ind, a):
+    """a[i] of gravity (below): one row, on its own (the same operations in the same order, serial or parallel)."""
+    x, y, z = r[i, 0], r[i, 1], r[i, 2]
+    rn2 = x * x + y * y + z * z
+    rn = math.sqrt(rn2)
+    d3 = rn2 * rn
+    ax, ay, az = -mu * x / d3, -mu * y / d3, -mu * z / d3
+    if j2 != 0.0:
+        zp = x * pole[0] + y * pole[1] + z * pole[2]
+        k = kj / (rn2 * rn2 * rn)
+        f = 1.0 - 5.0 * zp * zp / rn2
+        ax -= k * (f * x + 2.0 * zp * pole[0])
+        ay -= k * (f * y + 2.0 * zp * pole[1])
+        az -= k * (f * z + 2.0 * zp * pole[2])
+    ax += a_sing[i, 0]
+    ay += a_sing[i, 1]
+    az += a_sing[i, 2]
+    tx, ty, tz = 0.0, 0.0, 0.0
+    for b in range(tpos.shape[0]):
+        dx, dy, dz = tpos[b, 0] - x, tpos[b, 1] - y, tpos[b, 2] - z
+        dn3 = math.sqrt(dx * dx + dy * dy + dz * dz) ** 3
+        tx += tmu[b] * (dx / dn3 - ind[b, 0])
+        ty += tmu[b] * (dy / dn3 - ind[b, 1])
+        tz += tmu[b] * (dz / dn3 - ind[b, 2])
+    a[i, 0] = ax + tx
+    a[i, 1] = ay + ty
+    a[i, 2] = az + tz
+
+
+@_jit
+def gravity(r, a_sing, mu, j2, r_eq_km, pole, tpos, tmu):
+    """(n, 3) km/s2 at the positions r (n, 3): -mu r / |r|^3, J2 about the unit pole, + a_sing (n, 3), + the
+    differential attraction mu_b [(r_b - r) / |r_b - r|^3 - r_b / |r_b|^3] of the bodies at tpos (k, 3)."""
+    n = r.shape[0]
+    a = np.empty((n, 3))
+    ind = _indirect(tpos)
     kj = 1.5 * j2 * mu * r_eq_km ** 2
     for i in range(n):
-        x, y, z = r[i, 0], r[i, 1], r[i, 2]
-        rn2 = x * x + y * y + z * z
-        rn = math.sqrt(rn2)
-        d3 = rn2 * rn
-        ax, ay, az = -mu * x / d3, -mu * y / d3, -mu * z / d3
-        if j2 != 0.0:
-            zp = x * pole[0] + y * pole[1] + z * pole[2]
-            k = kj / (rn2 * rn2 * rn)
-            f = 1.0 - 5.0 * zp * zp / rn2
-            ax -= k * (f * x + 2.0 * zp * pole[0])
-            ay -= k * (f * y + 2.0 * zp * pole[1])
-            az -= k * (f * z + 2.0 * zp * pole[2])
-        ax += a_sing[i, 0]
-        ay += a_sing[i, 1]
-        az += a_sing[i, 2]
-        tx, ty, tz = 0.0, 0.0, 0.0
-        for b in range(nb):
-            dx, dy, dz = tpos[b, 0] - x, tpos[b, 1] - y, tpos[b, 2] - z
-            dn3 = math.sqrt(dx * dx + dy * dy + dz * dz) ** 3
-            tx += tmu[b] * (dx / dn3 - ind[b, 0])
-            ty += tmu[b] * (dy / dn3 - ind[b, 1])
-            tz += tmu[b] * (dz / dn3 - ind[b, 2])
-        a[i, 0] = ax + tx
-        a[i, 1] = ay + ty
-        a[i, 2] = az + tz
+        _gravity_row(i, r, a_sing, mu, kj, j2, pole, tpos, tmu, ind, a)
+    return a
+
+
+@_jit_parallel
+def gravity_par(r, a_sing, mu, j2, r_eq_km, pole, tpos, tmu):
+    """gravity on all the cores (C2, user 8 November 2026): the rows shared among the threads, each row computed as
+    in gravity (the same result to the bit); worth it from sim.parallel_min_rows rows (the threads' start costs a
+    few microseconds)."""
+    n = r.shape[0]
+    a = np.empty((n, 3))
+    ind = _indirect(tpos)
+    kj = 1.5 * j2 * mu * r_eq_km ** 2
+    for i in _prange(n):
+        _gravity_row(i, r, a_sing, mu, kj, j2, pole, tpos, tmu, ind, a)
     return a
 
 
@@ -361,6 +401,50 @@ def pn_command(a, r, v, on, tg, gain, lim):
         a[i, 0] += cx * f
         a[i, 1] += cy * f
         a[i, 2] += cz * f
+
+
+@_jit
+def rk4_step(x, act, h, tpos3, tmu, mu, j2, r_eq_km, pole, a_sing, on, tg, gain, lim, par):
+    """One RK4 step h of the active rows act (indices into x, (n, 6), updated in place) in a single call (C3, user
+    8 November 2026: the step in numpy cost more than the forces): the same operations in the same order as
+    sim/propagate.LiveSim._rk4 and _accel without a burn running (gravity, J2, Singer a_sing (m, 3), the other
+    bodies at tpos3 (3, nb, 3): the step's start, middle and end; proportional navigation of the rows on toward tg,
+    indices into act), hence the same result to the bit; par: gravity_par instead of gravity."""
+    m = act.shape[0]
+    y = np.empty((m, 6))
+    for i in range(m):
+        for c in range(6):
+            y[i, c] = x[act[i], c]
+    ks = np.empty((4, m, 6))
+    rr = np.empty((m, 3))
+    vv = np.empty((m, 3))
+    for q in range(4):
+        if q == 0:
+            for i in range(m):
+                for c in range(3):
+                    rr[i, c] = y[i, c]
+                    vv[i, c] = y[i, c + 3]
+        else:
+            w = h if q == 3 else 0.5 * h            # (as y + 0.5 * h * k1 and y + h * k3 in numpy)
+            for i in range(m):
+                for c in range(3):
+                    rr[i, c] = y[i, c] + w * ks[q - 1, i, c]
+                    vv[i, c] = y[i, c + 3] + w * ks[q - 1, i, c + 3]
+        tp = tpos3[0] if q == 0 else (tpos3[2] if q == 3 else tpos3[1])
+        if par:
+            a = gravity_par(rr, a_sing, mu, j2, r_eq_km, pole, tp, tmu)
+        else:
+            a = gravity(rr, a_sing, mu, j2, r_eq_km, pole, tp, tmu)
+        if on.shape[0]:
+            pn_command(a, rr, vv, on, tg, gain, lim)
+        for i in range(m):
+            for c in range(3):
+                ks[q, i, c] = vv[i, c]
+                ks[q, i, c + 3] = a[i, c]
+    f = h / 6.0
+    for i in range(m):
+        for c in range(6):
+            x[act[i], c] = y[i, c] + f * (ks[0, i, c] + 2.0 * ks[1, i, c] + 2.0 * ks[2, i, c] + ks[3, i, c])
 
 
 @_jit

@@ -913,7 +913,7 @@ def test_action_list():
     assert [cell(r, 0) for r in range(wl.table.rowCount())] == ["-", "0", "5", "7", "10", "-"]
     assert [cell(r, 1) for r in range(wl.table.rowCount())] == ["Random manoeuvres", "Attitude", "Attitude", "Impulse",
                                                                 "Attitude", "Homing guidance"]
-    assert cell(2, 2) == "prograde, 5 deg/s" and cell(5, 2) == "below 100 km, toward ship"
+    assert cell(2, 2) == "prograde, 5 deg/s" and cell(5, 2) == "below 100 km, toward OWNSHIP"
     wl.select(3)
     wl.form.widgets["t_s"][1].setValue(20.0)             # the line follows its time, the form stays
     assert wl.table.currentRow() == 4 and wl.current["type"] == "impulse" and wl.form is not None

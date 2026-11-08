@@ -20,7 +20,7 @@ sky, never the truth of the objects.
   N9    mission at t: a copy of the scenario's mission with global.nav (one message) and global.sky filled, checked
         by the mission-preparation validations (frames, sky, sky against navigation); a nav or sky already in the
         mission is replaced, with an alert;
-  N10-N13 journal <stem>.npz (compressed: scenario JSON, format and model versions, parameter-file hash, truth in
+  N10-N13 journal <stem>.npz (uncompressed, J: scenario JSON, format and model versions, parameter-file hash, truth in
         float64, attitudes, events, geometry in float32; the 100 Hz navigation only with meta.log_nav) and the
         summary <stem>.summary.json, next to the scenario, overwritten at each run; load_journal reads them back.
 """
@@ -216,7 +216,8 @@ def journal_paths(scenario_path: str) -> Tuple[str, str]:
 
 def save_journal(path: str, sc: dict, truth: Truth, g: geo.Geometry, nav: Optional[Dict[str, np.ndarray]] = None,
                  cpu_s: float = 0.0) -> None:
-    """The run's journal (.npz, compressed), written atomically."""
+    """The run's journal (.npz, not compressed: J, user 8 November 2026, 0.07 s instead of 2.9 s for an hour of
+    Jupiter, the file about twice as large), written atomically."""
     z: Dict[str, np.ndarray] = {
         "journal_version": np.array(JOURNAL_VERSION), "model_version": np.array(rm.MODEL_VERSION),
         "params_hash": np.array(params_hash()), "scenario_json": np.array(json.dumps(sc, ensure_ascii=False)),
@@ -238,7 +239,7 @@ def save_journal(path: str, sc: dict, truth: Truth, g: geo.Geometry, nav: Option
             z[f"nav.{k}"] = a
     tmp = f"{path}.{os.getpid()}.tmp"
     with open(tmp, "wb") as fh:
-        np.savez_compressed(fh, **z)
+        np.savez(fh, **z)
     os.replace(tmp, path)
 
 

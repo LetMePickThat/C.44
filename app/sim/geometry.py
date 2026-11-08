@@ -164,6 +164,47 @@ def array_state(truth: Truth, t: float, rs: np.ndarray, vs: np.ndarray) -> Tuple
     return rs + m @ ARRAY_KM, vs + m @ np.cross(np.radians(ship_rate_dps(truth, t)), ARRAY_KM)
 
 
+GEO_CHUNK = 256                # C4: the instants of a block computed at once (memory: blocks x objects x bodies) (D)
+
+
+class _ShipAttitude:
+    """The ship's attitude and apertures at the geometry's instants (C4): as truth.attitude("ship"), _ship_m and
+    array_state, with the attitudes and the rate of each recorded step computed once (they were four times per
+    instant): the same values."""
+
+    def __init__(self, truth: Truth):
+        self.truth = truth
+        self._m: Dict[float, np.ndarray] = {}
+        self._w: Dict[int, np.ndarray] = {}
+
+    def ship_m(self, t: float) -> np.ndarray:                 # _ship_m
+        ta = self.truth.att_t_s
+        t = min(max(t, float(ta[0])), float(ta[-1]))
+        m = self._m.get(t)
+        if m is None:
+            if len(self._m) > 4096:
+                self._m.clear()
+            m = self._m[t] = self.truth.attitude("ship", t)
+        return m
+
+    def matrix(self, t: float) -> np.ndarray:                 # truth.attitude("ship", t)
+        ta = self.truth.att_t_s
+        if float(ta[0]) <= t <= float(ta[-1]):
+            return self.ship_m(t)
+        return self.truth.attitude("ship", t)
+
+    def array_state(self, t: float, rs: np.ndarray, vs: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        ta = self.truth.att_t_s
+        k = int(np.clip(np.searchsorted(ta, t, side="right") - 1, 0, len(ta) - 2))
+        w_icrf = self._w.get(k)
+        if w_icrf is None:
+            m0, m1 = self.ship_m(float(ta[k])), self.ship_m(float(ta[k + 1]))
+            w_icrf = self._w[k] = att.rotvec(m1 @ m0.T) / float(ta[k + 1] - ta[k])
+        m = self.ship_m(t)
+        rate = np.degrees(m.T @ w_icrf)
+        return rs + m @ ARRAY_KM, vs + m @ np.cross(np.radians(rate), ARRAY_KM)
+
+
 # ----------------------------------------------------------------------------- G8 shadow
 def _disk_overlap(rs: float, rb: float, d: float) -> float:
     """Area shared by two flat disks of radii rs, rb whose centres are d apart."""
@@ -261,92 +302,113 @@ def geometry(sc: dict, truth: Truth, times: Optional[np.ndarray] = None) -> Geom
     b_th = np.full((n_t, nb), np.nan)
     shadow = np.zeros(n_t)
 
-    for it, t in enumerate(t_all):
-        r, v = states_at(truth, float(t))
-        rs, vs = r[0], v[0]
-        m = truth.attitude("ship", float(t))
-        ship_m[it] = m
-        ra, va = array_state(truth, float(t), rs, vs)
-        # bodies, ship-centred (ICRF axes)
-        T = eph.centuries_tt(epoch, float(t))
-        geo_at = {b: eph.body_icrf_km(b, T) for b in names}
-        ship_geo = geo_at[truth.body.name] + ra
-        bpos = np.array([geo_at[b] - ship_geo for b in names])
-        bd = np.linalg.norm(bpos, axis=1)
-        bu = bpos / bd[:, None]
-        b_rng[it] = bd
-        b_rad[it] = np.degrees(np.arcsin(np.minimum(1.0, np.array([radius[b] for b in names]) / bd)))
-        b_dir[it] = bu @ m
-        fo, w, _, _ = opt.face_of(b_dir[it, :, 0], b_dir[it, :, 1], b_dir[it, :, 2])
-        b_face[it] = fo
-        b_th[it] = np.where(fo >= 0, np.degrees(np.arccos(np.clip(w, 0.0, 1.0))), np.nan)
-        rsun = math.radians(b_rad[it, 0])
-        hid = sum(_disk_overlap(rsun, math.radians(b_rad[it, k]),
-                                math.radians(float(_angle_deg(bu[0], bu[k])))) for k in range(1, nb))
-        shadow[it] = min(1.0, hid / (math.pi * rsun * rsun))
+    # C4 (user, 8 November 2026): the instants by blocks of GEO_CHUNK, each block in two passes: what stays scalar
+    # (states, the ship's attitude and apertures, the ephemerides, the shadow) instant by instant, then every object
+    # of every instant of the block at once (the same element-wise formulas as one instant at a time)
+    ship_at = _ShipAttitude(truth)
+    n_rows = len(truth.ids)
+    radii = np.array([radius[b] for b in names])
+    for a0 in range(0, n_t, GEO_CHUNK):
+        ts = t_all[a0:a0 + GEO_CHUNK]
+        nt = len(ts)
+        sl = slice(a0, a0 + nt)
+        R, V = np.empty((nt, n_rows, 3)), np.empty((nt, n_rows, 3))
+        RA, VA = np.empty((nt, 3)), np.empty((nt, 3))
+        BPOS, BU = np.empty((nt, nb, 3)), np.empty((nt, nb, 3))
+        for q, t in enumerate(ts):
+            it = a0 + q
+            r, v = states_at(truth, float(t))
+            R[q], V[q] = r, v
+            rs, vs = r[0], v[0]
+            m = ship_at.matrix(float(t))
+            ship_m[it] = m
+            RA[q], VA[q] = ship_at.array_state(float(t), rs, vs)
+            # bodies, ship-centred (ICRF axes)
+            T = eph.centuries_tt(epoch, float(t))
+            geo_at = {b: eph.body_icrf_km(b, T) for b in names}
+            ship_geo = geo_at[truth.body.name] + RA[q]
+            bpos = np.array([geo_at[b] - ship_geo for b in names])
+            bd = np.linalg.norm(bpos, axis=1)
+            bu = bpos / bd[:, None]
+            BPOS[q], BU[q] = bpos, bu
+            b_rng[it] = bd
+            b_rad[it] = np.degrees(np.arcsin(np.minimum(1.0, radii / bd)))
+            rsun = math.radians(b_rad[it, 0])
+            hid = sum(_disk_overlap(rsun, math.radians(b_rad[it, k]),
+                                    math.radians(float(_angle_deg(bu[0], bu[k])))) for k in range(1, nb))
+            shadow[it] = min(1.0, hid / (math.pi * rsun * rsun))
+        M = ship_m[sl]
+        b_dir[sl] = np.matmul(BU, M)
+        fo, w, _, _ = opt.face_of(b_dir[sl, :, 0], b_dir[sl, :, 1], b_dir[sl, :, 2])
+        b_face[sl] = fo
+        b_th[sl] = np.where(fo >= 0, np.degrees(np.arccos(np.clip(w, 0.0, 1.0))), np.nan)
 
-        ro, vo = r[rows], v[rows]
-        ex = np.isfinite(ro[:, 0])
-        exists[it] = ex
+        ro, vo = R[:, rows], V[:, rows]                           # (nt, n_o, 3)
+        ex = np.isfinite(ro[..., 0])
+        exists[sl] = ex
         if not ex.any():
             continue
-        los = ro - ra                                             # apertures -> object, ICRF
-        rng_km = np.linalg.norm(los, axis=1)
-        lu = los / rng_km[:, None]
-        out["range_km"][it] = rng_km
-        out["range_rate_mps"][it] = 1e3 * np.einsum("ij,ij->i", lu, vo - va)
-        ds = lu @ m                                              # ship frame
-        dir_ship[it] = ds
-        fo, w, uu, vv = opt.face_of(ds[:, 0], ds[:, 1], ds[:, 2])
+        los = ro - RA[:, None, :]                                 # apertures -> object, ICRF
+        rng_km = np.linalg.norm(los, axis=2)
+        lu = los / rng_km[..., None]
+        out["range_km"][sl] = rng_km
+        out["range_rate_mps"][sl] = 1e3 * np.einsum("tij,tij->ti", lu, vo - VA[:, None, :])
+        ds = np.matmul(lu, M)                                    # ship frame
+        dir_ship[sl] = ds
+        fo, w, uu, vv = opt.face_of(ds[..., 0], ds[..., 1], ds[..., 2])
         fo = np.where(ex, fo, -1).astype(np.int8)
-        face[it] = fo
-        out["theta_deg"][it] = np.where(fo >= 0, np.degrees(np.arccos(np.clip(w, 0.0, 1.0))), np.nan)
-        out["u"][it], out["v"][it] = np.where(fo >= 0, uu, np.nan), np.where(fo >= 0, vv, np.nan)
+        face[sl] = fo
+        out["theta_deg"][sl] = np.where(fo >= 0, np.degrees(np.arccos(np.clip(w, 0.0, 1.0))), np.nan)
+        out["u"][sl], out["v"][sl] = np.where(fo >= 0, uu, np.nan), np.where(fo >= 0, vv, np.nan)
         # G5 noses (ICRF) and G6 aspect / RCS, all the objects at once (by nose rule)
         nose = -lu.copy()                                      # default rule: nose on the ship
         cols = rule_cols["relative"]
-        nose[cols] = vo[cols] - vs
+        nose[:, cols] = vo[:, cols] - V[:, None, 0]
         cols = rule_cols["inertial"]
-        nose[cols] = vo[cols]
+        nose[:, cols] = vo[:, cols]
         if len(tum):
-            ang = tum_om * (float(t) - tum_t0)
-            nose[tum] = tum_n0 * np.cos(ang)[:, None] + tum_b * np.sin(ang)[:, None]
+            ang = tum_om[None, :] * (ts[:, None] - tum_t0[None, :])
+            nose[:, tum] = tum_n0[None] * np.cos(ang)[..., None] + tum_b[None] * np.sin(ang)[..., None]
         for j, oid in zip(rule_cols["waypoints"], fly_ids):
-            if ex[j]:
-                mo = truth.attitude(oid, float(t))
-                nose[j] = mo[:, 2] if mo is not None else -lu[j]
+            for q in np.flatnonzero(ex[:, j]):
+                mo = truth.attitude(oid, float(ts[q]))
+                nose[q, j] = mo[:, 2] if mo is not None else -lu[q, j]
         with np.errstate(invalid="ignore"):
-            weak = ~(np.linalg.norm(nose, axis=1) > 1e-12)       # no velocity: nose on the ship
+            weak = ~(np.linalg.norm(nose, axis=2) > 1e-12)       # no velocity: nose on the ship
         nose[weak] = -lu[weak]
         nose[~ex] = np.nan
-        asp = _angle_deg(_unit(nose), -lu)
-        nose_sh[it] = _unit(nose) @ m
-        out["aspect_deg"][it] = asp
+        un = _unit(nose)
+        asp = _angle_deg(un, -lu)
+        nose_sh[sl] = np.matmul(un, M)
+        out["aspect_deg"][sl] = asp
         # the tables on the 1-degree grid 0..180: linear interpolation as np.interp, every object at once
-        e = np.flatnonzero(ex)
-        a_e = np.clip(asp[e], 0.0, grid[-1])
+        qe, e = np.nonzero(ex)
+        a_e = np.clip(asp[qe, e], 0.0, grid[-1])
         k0 = np.minimum(np.floor(a_e).astype(int), len(grid) - 2)
         fr = a_e - k0
-        out["rcs_s_dbsm"][it, e] = tab_s[e, k0] + fr * (tab_s[e, k0 + 1] - tab_s[e, k0]) + offs[e]
-        out["rcs_ku_dbsm"][it, e] = tab_ku[e, k0] + fr * (tab_ku[e, k0 + 1] - tab_ku[e, k0]) + offs[e]
+        out["rcs_s_dbsm"][a0 + qe, e] = tab_s[e, k0] + fr * (tab_s[e, k0 + 1] - tab_s[e, k0]) + offs[e]
+        out["rcs_ku_dbsm"][a0 + qe, e] = tab_ku[e, k0] + fr * (tab_ku[e, k0 + 1] - tab_ku[e, k0]) + offs[e]
         # G7 occultation by the bodies but the Sun (segment ship -> object against each sphere)
+        oc = occ[sl]
         for k in range(1, nb):
-            c = bpos[k]
-            s = np.clip((los @ c) / (rng_km * rng_km), 0.0, 1.0)
-            dmin = np.linalg.norm(los * s[:, None] - c, axis=1)
-            hit = ex & (dmin < radius[names[k]]) & (occ[it] < 0)
-            occ[it][hit] = k
+            c = BPOS[:, k]
+            sk = np.clip(np.einsum("tij,tj->ti", los, c) / (rng_km * rng_km), 0.0, 1.0)
+            dmin = np.linalg.norm(los * sk[..., None] - c[:, None, :], axis=2)
+            hit = ex & (dmin < radius[names[k]]) & (oc < 0)
+            oc[hit] = k
         # G7 structure of the owner face
+        bf, bl, mk = out["block_f"][sl], out["block_loss_db"][sl], masked[sl]
         for k in range(len(opt.FACE_PHI)):
-            sel = np.flatnonzero(fo == k)
-            if len(sel):
+            sel = fo == k
+            if sel.any():
                 f, _ = env.blockage(k, ds[sel], "S")
-                out["block_f"][it, sel] = f
+                bf[sel] = f
                 loss = env.block_loss_db(f)
-                out["block_loss_db"][it, sel] = loss
-                masked[it, sel] = loss > env.BLOCK_MASK_DB
-        b_ang[it] = _angle_deg(lu[:, None, :], bu[None, :, :])
-        b_ang[it][~ex] = np.nan
+                bl[sel] = loss
+                mk[sel] = loss > env.BLOCK_MASK_DB
+        ba = _angle_deg(lu[:, :, None, :], BU[:, None, :, :])
+        ba[~ex] = np.nan
+        b_ang[sl] = ba
 
     return Geometry(t_s=t_all, ids=[truth.ids[i] for i in rows], classes=[truth.classes[i] for i in rows],
                     f_s_ghz=F_S_GHZ, f_ku_ghz=F_KU_GHZ, rcs_offset_db=offs, exists=exists,

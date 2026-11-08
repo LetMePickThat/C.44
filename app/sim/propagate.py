@@ -61,6 +61,7 @@ THIRD_BODY = bool(P.get("sim.third_body"))       # O4: attraction of the other b
 PLANETS_GRAVITY = bool(P.get("sim.planets_gravity"))   # ... the planets' too (user, 29 October 2026)
 MOONS_GRAVITY = bool(P.get("sim.moons_gravity"))       # ... and the major moons' (user, 29 October 2026)
 SUN_MU = float(P.get("sim.sun_mu_km3_s2"))       # O2
+PARALLEL_MIN_ROWS = int(P.get("sim.parallel_min_rows"))   # C2: gravity on all the cores from this many rows
 _NO_BODIES, _NO_MU = np.zeros((0, 3)), np.zeros(0)  # no other body (sim.third_body false)
 _NO_GRID = np.zeros((4, 0, 3))                       # ... their grid (fast.coast_path)
 BURN_SUBSTEPS = 20                                 # manoeuvre node preview: a burn in this many RK4 steps at least
@@ -626,8 +627,13 @@ class LiveSim:
         r, v = xs[:, :3], xs[:, 3:]
         if fast.USE_NUMBA:                            # compiled: gravity, J2, Singer and the other bodies at once
             tpos, tmu = (third.positions(tb), third.mu) if third is not None else (_NO_BODIES, _NO_MU)
-            a = fast.gravity(np.ascontiguousarray(r), np.ascontiguousarray(self.a_sing[act]), body.mu,
-                             float(body.j2), body.r_eq_km, body.pole, tpos, tmu)
+            args = (np.ascontiguousarray(r), np.ascontiguousarray(self.a_sing[act]), body.mu, float(body.j2),
+                    body.r_eq_km, body.pole, tpos, tmu)
+            if len(r) >= PARALLEL_MIN_ROWS:           # C2: on all the cores, the same bits
+                with fast.PAR_LOCK:
+                    a = fast.gravity_par(*args)
+            else:
+                a = fast.gravity(*args)
         else:
             a = body.accel(r) + self.a_sing[act]
             if third is not None:
@@ -674,12 +680,51 @@ class LiveSim:
 
     def _rk4(self, t0: float, h: float) -> None:
         act = self.active.copy()
+        if fast.USE_NUMBA and not self._burning(t0, act):     # C3: the whole step compiled, the same bits
+            self._rk4_compiled(t0, h, act)
+            return
         y = self.x[act]
         k1 = self._accel(t0, t0, y, act)
         k2 = self._accel(t0, t0 + 0.5 * h, y + 0.5 * h * k1, act)
         k3 = self._accel(t0, t0 + 0.5 * h, y + 0.5 * h * k2, act)
         k4 = self._accel(t0, t0 + h, y + h * k3, act)
         self.x[act] = y + h / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+
+    def _burning(self, t0: float, act: np.ndarray) -> bool:
+        """A burn of an active row runs at t0 (the step then goes the numpy way, _accel)."""
+        b_row = self.b_row
+        if not len(b_row):
+            return False
+        return bool(((self.b_t0 - 1e-9 <= t0) & (t0 < self.b_t1 - 1e-9) & act[b_row]).any())
+
+    def _rk4_compiled(self, t0: float, h: float, act: np.ndarray) -> None:
+        """_rk4 by fast.rk4_step (C3): the guided rows and their targets, the other bodies at the step's three
+        instants and the Singer accelerations gathered once for the four stages (_accel does it at each)."""
+        n, third = self.n, self.third
+        rows_act = np.flatnonzero(act)
+        on = np.flatnonzero(self.pn_on[rows_act])
+        if len(on):
+            where = np.full(n, -1)
+            where[rows_act] = np.arange(len(rows_act))
+            tg = where[self.pn_tgt[rows_act[on]]]
+            on, tg = on[tg >= 0], tg[tg >= 0]
+        else:
+            tg = on
+        if third is not None:
+            tpos3 = np.stack([third.positions(t0), third.positions(t0 + 0.5 * h), third.positions(t0 + h)])
+            tmu = third.mu
+        else:
+            tpos3, tmu = np.zeros((3, 0, 3)), _NO_MU
+        b = self.body
+        par = len(rows_act) >= PARALLEL_MIN_ROWS
+        args = (self.x, rows_act, float(h), tpos3, tmu, b.mu, float(b.j2), b.r_eq_km, b.pole,
+                np.ascontiguousarray(self.a_sing[act]), on.astype(np.int64), tg.astype(np.int64),
+                np.ascontiguousarray(self.pn_n[rows_act[on]]), np.ascontiguousarray(self.a_max[rows_act[on]]), par)
+        if par:
+            with fast.PAR_LOCK:
+                fast.rk4_step(*args)
+        else:
+            fast.rk4_step(*args)
 
     def _pn_update(self, t: float, prev: np.ndarray) -> None:
         """Start PN (time or range), end it when the range opens; miss = closest approach of the step (linear); all
