@@ -4,8 +4,9 @@
 GEN_SYMBOLS -- the symbols of the simulator's views (proposal of 29 October 2026, inspired by MIL-STD-2525 / APP-6,
 adapted to 3D on a dark background): the FRAME gives the identity (shape and colour), the GLYPH inside the class.
 
-  identities  friendly  circle, cyan          hostile  diamond, red        suspect  diamond dashed, orange
+  identities  friendly  circle, cyan          hostile  diamond, red        suspect  diamond dashed, red
               neutral   square, green         unknown  quatrefoil, yellow  pending  quatrefoil dashed, yellow
+              (colours: tool.display.identity_colors of radar_system.toml, MIL-STD-2525C medium, user 8 Nov 2026)
               OWNSHIP   double circle, friendly blue (pending: the default identity of every class, user 29 October 2026)
   classes     ST satellite (body + two panels)   GENERIC dot   KKV filled arrowhead   DECOY hollow arrowhead
               SHIP pointed hull                  DEBRIS cross
@@ -21,9 +22,13 @@ from __future__ import annotations
 
 import math
 import os
+import sys
 from typing import List, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core.params import P  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "assets", "symbols")
@@ -34,13 +39,14 @@ GLYPH_COLOR = "#F2F2F2"
 FILL_ALPHA = 0.28              # frame fill: the identity colour at this opacity
 MULTI_INNER = 0.80             # multitrack: the inner outline and the glyph at this x the frame, about the centre
 
+_COL = P.section("tool.display.identity_colors")
 IDENTITIES = {                 # name: (shape, colour, dashed)
-    "friendly": ("circle", "#4FC3F7", False),
-    "hostile": ("diamond", "#FF4D4D", False),
-    "suspect": ("diamond", "#FF9A3C", True),
-    "neutral": ("square", "#5CD65C", False),
-    "unknown": ("quatrefoil", "#FFE24D", False),
-    "pending": ("quatrefoil", "#FFE24D", True),
+    "friendly": ("circle", _COL["friendly"], False),
+    "hostile": ("diamond", _COL["hostile"], False),
+    "suspect": ("diamond", _COL["suspect"], True),
+    "neutral": ("square", _COL["neutral"], False),
+    "unknown": ("quatrefoil", _COL["unknown"], False),
+    "pending": ("quatrefoil", _COL["pending"], True),
 }
 OWNSHIP_COLOR = IDENTITIES["friendly"][1]         # OWNSHIP is friendly (user, 29 October 2026): its blue
 CLASSES = ("ST", "GENERIC", "KKV", "DECOY", "SHIP", "DEBRIS")

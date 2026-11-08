@@ -481,9 +481,9 @@ def test_aspect_rcs_direction_and_structure():
     k, gi, d = (g.ids.index(x) for x in ("K", "G", "D"))
     assert g.aspect_deg[0, k] < 0.01 and g.range_rate_mps[0, k] == pytest.approx(-3000.0, abs=1.0)
     tgt = rm.target_for_sector({"id": "K", "target_type": "KKV"})
-    assert g.rcs_s_dbsm[0, k] == pytest.approx(tgt.aspect_table_db(g.f_s_ghz)[0] + 1.5)
-    assert g.rcs_ku_dbsm[0, k] == pytest.approx(tgt.aspect_table_db(g.f_ku_ghz)[0] + 1.5)
-    # (a relative object starts from the ship's point, the apertures are 59 m from it)
+    # (a relative object starts from the ship's point, the apertures are 59 m from it: nose on within 0.01 deg)
+    assert g.rcs_s_dbsm[0, k] == pytest.approx(tgt.aspect_table_db(g.f_s_ghz)[0] + 1.5, abs=1e-3)
+    assert g.rcs_ku_dbsm[0, k] == pytest.approx(tgt.aspect_table_db(g.f_ku_ghz)[0] + 1.5, abs=1e-3)
     assert np.allclose(g.dir_ship[0, k], frames.unit(45.0, 5.0), atol=2e-4)
     assert g.range_km[0, k] == pytest.approx(500.0, abs=0.07)
     for j in (k, gi, d):
@@ -494,7 +494,7 @@ def test_aspect_rcs_direction_and_structure():
     r, v = geo.states_at(tr, 4.0)
     j = tr.row("G")
     want = math.degrees(math.acos(float(v[j] @ (r[0] - r[j]) / np.linalg.norm(v[j]) / np.linalg.norm(r[0] - r[j]))))
-    assert g.aspect_deg[1, gi] == pytest.approx(want, abs=1e-6)
+    assert g.aspect_deg[1, gi] == pytest.approx(want, abs=0.01)         # (seen from the apertures)
     assert rm.TARGETS["DEBRIS"].rotation_dps == pytest.approx(10.0)
     assert g.aspect_deg[2, d] == pytest.approx(g.aspect_deg[0, d], abs=0.5)     # one turn in 36 s
     lim = geo.RCS_TRUNC_SIGMAS * np.array([rm.target_for_sector({"id": x, "target_type": c}).rcs_spread_db
@@ -1142,7 +1142,8 @@ def test_sim_view_offscreen(tmp_path):
     assert np.allclose(cam.GetPosition(), p_left)
     def look():                                         # the line of sight, the screen's horizontal
         fwd = np.array(cam.GetDirectionOfProjection())
-        return fwd, np.cross(fwd, cam.GetViewUp())
+        s = np.cross(fwd, cam.GetViewUp())               # (the view up may not be normal to fwd at the start)
+        return fwd, s / np.linalg.norm(s)
 
     def angle(a, b):
         return math.degrees(math.acos(np.clip(a @ b, -1, 1)))
@@ -1405,7 +1406,7 @@ def test_lunar_interception_scenario_loads():
     5000 m/s impulse and terminal guidance on OWNSHIP; OWNSHIP's answer 15 s later, 15 friendly KKV launched around
     it at 6500 m/s with terminal guidance on SHIP_1 (pn target). Every KKV reaches its target (miss < 1 m)."""
     sc = scn.load(os.path.join(os.path.dirname(__file__), "..", "scenarios", "moon_interception.json"))
-    assert sc["central_body"] == "moon" and sc["ship"]["orbit"]["e"] == 0.0
+    assert sc["central_body"] == "moon" and sc["ship"]["orbit"]["e"] == pytest.approx(0.0, abs=1e-12)   # (P73 axes)
     tr = prop.propagate(sc)
     i1 = tr.row("SHIP_1")
     h0, h1 = np.cross(tr.r_km[0, 0], tr.v_kms[0, 0]), np.cross(tr.r_km[0, i1], tr.v_kms[0, i1])

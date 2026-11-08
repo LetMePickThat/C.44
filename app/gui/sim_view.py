@@ -106,9 +106,11 @@ PATH_MAX_PTS = 400                                # L3, global view: points of a
 COAST_STEP_S = 10.0                               # L3: RK4 step of the orbital velocity vector's free fall, s (D)
 COAST_STEPS = (20, 200)                           # ... its step count kept between these (smooth, 1000+ objects)
 # the objects and their geometry (points, trajectories, trails, range projection) in the colour of their
-# classification (user, 29 October 2026), the identity frames' colours of the symbology (tools/gen_symbols.py)
-IDENTITY_COLORS = {"friendly": "#4FC3F7", "hostile": "#FF4D4D", "suspect": "#FF9A3C", "neutral": "#5CD65C",
-                   "unknown": "#FFE24D", "pending": "#FFE24D"}
+# classification (user, 29 October 2026), the identity frames' colours of the symbology (tools/gen_symbols.py), both
+# read from tool.display.identity_colors
+IDENTITY_COLORS = dict(P.section("tool.display.identity_colors"))
+if set(IDENTITY_COLORS) != set(scn.IDENTITIES):
+    raise ValueError(f"tool.display.identity_colors: one colour per identity expected, {', '.join(scn.IDENTITIES)}")
 OWNSHIP_IDENTITY = "friendly"                     # OWNSHIP is friendly (user): always drawn in that colour
 SHIP_COLOR = IDENTITY_COLORS[OWNSHIP_IDENTITY]    # its point, trajectory and trail
 KM_PER_MODEL_UNIT = 1e-3 / cgeo._M                # 1:1: the model's scene units to km (its true size)

@@ -639,3 +639,19 @@ test_s2_gains_kept_per_touch_grid_are_exact (confirmation attempts K3), test_mc_
 (updates drawn at pd_update, the steady state counts the misses), test_environment_mission_outputs (objects tested on
 E_JAMMED, E_KKV_SPJ no longer confirms). Cost table regenerated. N3 119.9 min on the laptop (on battery, with a sleep):
 267 passed; the 10 snapshot tests and the 3 tests above failed before the refreeze.
+
+## 2026-10-30 / 2026-11-08 -- rotation about the centre of gravity, band loss nav_lever (radar_model V6.36.0)
+
+Cause: the ship turns about its centre of gravity (ship.model_cg_z_m, 59.3 m behind the apertures); the navigation is
+taken to compensate the motion of the apertures in the phase and the error left costs the band loss 'nav_lever' (0.46 dB
+at 14.5 GHz, 0.02 dB at 2.93 GHz, user decision). 8574 values differ: WF-LRS ranges -0.11 % (model case), slightly more
+energy and Ku time per face. Waveform sets changed for T_SHIP (mission_target_library), E_EARTH (mission_environment,
+range at worst scan -8.8 %), DEEP (-3.6 %) and ORBIT (mission_frames). No verdict changes. The change was coded and
+committed on 30 Oct 2026 without its refreeze (done on another machine, left out of the repository); refrozen on
+8 Nov 2026 on d36eeae, same 8574 values. Tests fixed, the code was right: test_aspect_rcs_direction_and_structure (the
+apertures are 59 m from the ship's point), test_sim_view_offscreen (the view up is not always normal to the line of
+sight), test_lunar_interception_scenario_loads (e = 5e-16 after the P73 equatorial axes),
+test_every_parameter_is_read_by_the_code (gui.sim_view and gui.maneuver_node imported, sim.new_body_orbit_radii read:
+the test depended on the order of the parallel tests). Nereid GM 1.7 km3/s2 (estimate, user). N3 86.2 min on the
+desktop (suite 37.6 min): 320 passed, 14 failed before the refreeze (the 10 snapshot tests and the 4 above); the 18
+tests passed afterwards.

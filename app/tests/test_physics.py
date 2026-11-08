@@ -2085,12 +2085,15 @@ def test_every_parameter_is_read_by_the_code():
     spec = importlib.util.spec_from_file_location("robustness", os.path.join(tb.ROOT, "tools", "robustness.py"))
     spec.loader.exec_module(importlib.util.module_from_spec(spec))   # robustness test (on demand)
     import sim.propagate  # noqa: F401                               # phase 6: the truth (pass S2)
+    import gui.sim_view  # noqa: F401                                # phase 6: the 3D views (Mission Scenario Editor)
+    import gui.maneuver_node  # noqa: F401                           # ... and their manoeuvre node
     from sim import scenario as scn                                  # phase 6: [sim] is read when a scenario is
     from gui.scenario_tab import new_scenario                        # validated and normalised
     sc = new_scenario()
     sc["objects"][0]["manoeuvres"] = [{"type": "pn", "start_range_km": 1.0}]
     assert not scn.validate(sc)
     scn.normalise(sc)
+    scn.equatorial_orbit("earth")                                    # read on a change of central body only
     unread = sorted(p.path for p in params.P if p.path not in params.P.read_keys and p.path != "meta.file_version")
     assert not unread, f"parameters read by no module: {unread}"
 
