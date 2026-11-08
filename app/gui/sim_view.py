@@ -3583,6 +3583,7 @@ class SimView(QWidget):
                 mesh = pv.PolyData(pts, np.c_[np.full(len(faces), 3), faces].ravel())
                 mesh.point_data["rgb"] = rgb
                 actor = self.plotter.add_mesh(mesh, name=name, scalars="rgb", rgb=True, render=False)
+                _near_camera_precision(actor, mesh)
                 e = self._dyn[name] = [key, mesh, actor]
             else:
                 _set_points(e[1], pts)
@@ -3863,6 +3864,7 @@ class SimView(QWidget):
             mesh.active_texture_coordinates = np.tile([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], (n, 1))
             actor = self.plotter.add_mesh(mesh, texture=_symbol_texture(path), lighting=False, name=name,
                                           render=False)
+            _near_camera_precision(actor, mesh)       # (a few mm across at hundreds of km, user 8 November 2026)
             self._dyn[name] = [n, mesh, actor]
         if missing:
             self._poly(f"{DYN}pts", pts[missing], color="#ffffff", point_size=8, render_points_as_spheres=True)
