@@ -1,11 +1,13 @@
 ---
 name: live-architecture
-description: "RADARv6_RS fork: move the whole simulator to a real-time (KSP-like) architecture, no precomputed propagation between edits; decisions of 8 Nov 2026"
+description: "Live (real-time, KSP-like) simulator, started in the RADARv6_RS fork and now the app (merged 8 Nov 2026, aa86f67): move the whole simulator to a real-time (KSP-like) architecture, no precomputed propagation between edits; decisions of 8 Nov 2026"
 metadata:
   type: project
 ---
 
-Fork RADARv6_RS (copy of RADARv6 at commit 8837d94, 8 Nov 2026): the simulator moves to a live architecture
+MERGED 8 Nov 2026: the fork RADARv6_RS replaced the app (commit aa86f67 on main, pulled into RADARv6; rollback tag
+avant-RS-2026-11-08 on 8837d94, on GitHub). Work resumes in RADARv6; do not push from RADARv6_RS.
+Started as the fork RADARv6_RS (copy of RADARv6 at commit 8837d94, 8 Nov 2026): the simulator moves to a live architecture
 (user, 8 Nov 2026). Goal: no propagation to wait for between edits; initial states and manoeuvre series projected
 continuously, up to the mission's end date. Decisions (user, 8 Nov 2026):
 
@@ -36,12 +38,14 @@ bursts of edits bit-identical). test_sim 66 passed after L1-L3. Geometry RCS / t
 L5 DONE 8 Nov 2026 (L5a geometry by the front, L5b a, L5c, L5d; tool.display.sim_front_refresh_hz = 2; test_sim 66
 passed after adapting 4 tests). Known regression: renaming an object restarts the front from its entry. Not seen by
 the user on screen yet. Next: L6 journal from the history, L7 clean-up.
+Also 8 Nov 2026 (after L5): objects drawn at their size (BODY_SHAPES), scenario editor fixes (targets by name,
+rename_refs, vector boxes in the handles' colours, red Remove); see Choix_architecturaux.
 Node during a drag (changed 8 Nov 2026, user): instant one-body preview only, the front told at the release
 (gui/sim_view.DRAG_SENDS_FRONT). Live edits (8 Nov 2026): sim/live.affected_rows; the view draws the untouched rows'
 planned paths beyond the front from the last complete run (_base, _ahead_of). B (the front computing only the touched
 rows) pending the user's decision.
 
 **Why:** the current app must re-propagate the whole scenario after each edit (waits, camera resets, stale boxes).
-**How to apply:** work only in RADARv6_RS; one step at a time with its guard (see Choix_architecturaux of the fork);
+**How to apply:** work in RADARv6; one step at a time with its guard (see Choix_architecturaux, 8 Nov 2026 entries);
 explain each step and ask its values first ([[explain-before-coding]], [[ask-for-every-variable]]), ask before tests
 ([[ask-before-tests]]).
