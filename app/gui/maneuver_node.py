@@ -67,6 +67,8 @@ class NodeTool:
         self._drag: Optional[dict] = None
         self._screen: Optional[dict] = None      # the glyph as drawn: centre, ring radius, handle ends (display px)
         self._glyph: Optional[tuple] = None      # (q world, axes (3, 3) in the view's axes)
+        self.edits = 0                           # changes made to the manoeuvres (node or box): the run shown is
+        #                                          behind them while it was launched before the last one
         self._timer = QTimer(view)
         self._timer.setInterval(TICK_MS)
         self._timer.timeout.connect(self._tick)
@@ -413,6 +415,7 @@ class NodeTool:
         self._edited(False)
 
     def _edited(self, final: bool) -> None:
+        self.edits += 1
         self.invalidate()
         cb = self.target["on_edit"] if self.target else None
         if cb is not None:

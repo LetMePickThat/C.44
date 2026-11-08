@@ -164,7 +164,8 @@ UI_SCALE_START = 1.0                              # (the sizes below: those of t
 UI_BUTTON_PX = 28                                 # the width of the UI size's - and + buttons, px
 PLAY_BUTTON_PX = 40                               # the width of the |<, play / pause and >| buttons, px
 BOX_GAP = 0.15                                    # data box: its gap to the symbol, share of the symbol's size (D)
-CPA_REFINE_ITER = 40                              # golden-section steps refining the closest approach between records
+CPA_LIVE_CHUNK = 64                               # live closest approaches: objects per vectorised pass (memory)
+CPA_REFINE_ITER = 40                             # golden-section steps refining the closest approach between records
 MUTED_COLOR = "#9aa0aa"
 EARTH_COLOR = "#4a78b5"
 ATM_COLOR = "#8cc4ff"                             # the Earth's atmosphere: a halo seen at the limb
@@ -1390,6 +1391,7 @@ class SimView(QWidget):
         self.load_timer.setSingleShot(True)
         self.load_timer.setInterval(0)
         self.load_timer.timeout.connect(self.propagate)
+        self._reframe_next = True                     # the next run shown frames the camera (a file loaded)
         self._enable_playback(False)
 
     # ------------------------------------------------------------------ V2 computations
@@ -1475,6 +1477,7 @@ class SimView(QWidget):
     def propagate_loaded(self) -> None:
         """A scenario just created or opened: its propagation starts at once, whatever its size (user, 30 October
         2026); not for a scenario with problems (pending would still be the former one)."""
+        self._reframe_next = True                     # (its run framed by the camera, the next edits keep it)
         if self._valid:
             self.debounce.stop()
             self.load_timer.start()
@@ -1509,6 +1512,7 @@ class SimView(QWidget):
         except (OSError, ValueError, KeyError) as exc:
             QMessageBox.critical(self, "Simulator", f"{path}: {exc}")
             return
+        self._reframe_next = True
         self.show_run(sc, truth, g, f"journal {path}")
 
     def _start(self, job: Callable, what: str) -> None:
@@ -1519,7 +1523,8 @@ class SimView(QWidget):
         self.worker = SimWorker(job)
         self.worker.progress.connect(lambda st, f: (self.progress.setValue(int(1000 * f)),
                                                     self.status.setText(f"{st}...")))
-        self.worker.done.connect(lambda res: self.show_run(*res, label=what))
+        n = self.node.edits                           # the manoeuvres' changes this run takes in
+        self.worker.done.connect(lambda res, n=n: self.show_run(*res, label=what, edits=n))
         self.worker.failed.connect(self._on_failed)
         self.worker.finished.connect(self._after_worker)
         self.status.setText(f"{what}...")
@@ -1538,10 +1543,18 @@ class SimView(QWidget):
         else:
             self._update_prop(busy=False)
 
-    def show_run(self, sc: dict, truth, g: sgeo.Geometry, label: str = "") -> None:
-        """Display a propagated run (from the worker or a journal)."""
+    def show_run(self, sc: dict, truth, g: sgeo.Geometry, label: str = "", edits: Optional[int] = None) -> None:
+        """Display a propagated run (from the worker or a journal); edits: the manoeuvres' changes it takes in (the
+        node's count when it was launched; None: all of them)."""
         if getattr(self.plotter, "_closed", False):    # (the view closed while the worker ran)
             return
+        self._run_edits = self.node.edits if edits is None else edits
+        self._live_cache = None
+        # the camera framed again only for a file loaded, a journal or another central body: a propagation after an
+        # edit (the manoeuvre node, a form) keeps the zoom and the place chosen (user, 8 November 2026)
+        keep = (not self._reframe_next and self.truth is not None and truth is not None
+                and self.truth.body.name == truth.body.name)
+        self._reframe_next = False
         self.sc, self.truth, self.g = sc, truth, g
         self._mt_input = None                          # (rows of the former run: fewer objects now, until the next frame)
         self._cpa_cache = {}                          # the closest approaches of the run shown
@@ -1560,7 +1573,7 @@ class SimView(QWidget):
         self._fill_lists()
         self._fill_events()
         self._enable_playback(True)
-        self._rebuild()
+        self._rebuild(keep_camera=keep)
         self.run_shown.emit()
 
     # ------------------------------------------------------------------ time
@@ -1789,9 +1802,13 @@ class SimView(QWidget):
         return [("Record run...", self.run_journal, "SP_MediaPlay"),
                 ("Open run...", self.open_journal, "SP_DialogOpenButton")]
 
-    def _rebuild(self) -> None:
-        """The static layer of the current view, then the frame."""
+    def _rebuild(self, keep_camera: bool = False) -> None:
+        """The static layer of the current view, then the frame; keep_camera: the camera as it was (a run of the same
+        scenario shown again), else the view's default framing."""
         p = self.plotter
+        cam = p.camera
+        saved = (cam.GetPosition(), cam.GetFocalPoint(), cam.GetViewUp(), cam.GetViewAngle(),
+                 getattr(p, "_pivot", None)) if keep_camera else None
         p.clear()
         p.set_background(BG_COLOR)
         p.remove_all_lights()
@@ -1807,6 +1824,16 @@ class SimView(QWidget):
             self._build_global()
         else:
             self._build_ship()
+        if saved is not None:
+            cam = p.camera
+            cam.SetPosition(*saved[0])
+            cam.SetFocalPoint(*saved[1])
+            cam.SetViewUp(*saved[2])
+            cam.SetViewAngle(saved[3])
+            if saved[4] is not None:
+                p._pivot = saved[4]
+            p.renderer.ResetCameraClippingRange()
+            self._centre_pending = False              # (a centred body followed, not framed again)
         self._draw_frame()
         self._draw_volumes(force=True)
 
@@ -2352,6 +2379,7 @@ class SimView(QWidget):
 
     def manoeuvre_values_changed(self) -> None:
         """The editor's box changed the manoeuvre's values: the node and the planned trajectory follow at once."""
+        self.node.edits += 1
         self.node.invalidate()
         if self.truth is not None and self.node.row() is not None:
             self._draw_frame()
@@ -3152,6 +3180,7 @@ class SimView(QWidget):
         """A multitrack's data box: its number and class, its members' mean range and closing speed to OWNSHIP, and
         the closest approach of the member passing nearest (user, 30 October 2026: CPA and dCPA, as a lone object's)."""
         i = rows[c["k"]]
+        r, v = self._live_rv(r, v)                    # (the node's body on its live path)
         rel, vrel = r[i] - r[0], v[i] - v[0]
         rng = np.linalg.norm(rel, axis=1)
         close = -1e3 * np.einsum("ij,ij->i", rel, vrel) / np.maximum(rng, 1e-12)
@@ -3159,7 +3188,7 @@ class SimView(QWidget):
                  f"closing speed {float(close.mean()):+.0f} m/s"]
         if not self.tg_object_full.isChecked():
             return "\n".join(lines)
-        t_c, d_c, reached = self._cpa_all()
+        t_c, d_c, reached = self._cpa_now()
         dc = d_c[i - 1]
         if np.isfinite(dc).any():
             m = int(i[np.nanargmin(dc)]) - 1
@@ -3439,12 +3468,13 @@ class SimView(QWidget):
         range, closing speed, time to and range of its closest approach to OWNSHIP (_cpa_all). Partial: the name, and
         for an object its range and closing speed."""
         tr = self.truth
+        r, v = self._live_rv(r, v)                    # (the node's body on its live path)
         alt = np.linalg.norm(r[rows], axis=1) - tr.body.radius_km
         spd = np.linalg.norm(v[rows], axis=1)
         rel, vrel = r[rows] - r[0], v[rows] - v[0]
         rng = np.linalg.norm(rel, axis=1)
         close = -1e3 * np.einsum("ij,ij->i", rel, vrel) / np.maximum(rng, 1e-12)        # m/s, > 0 closing
-        t_c, d_c, reached = self._cpa_all()
+        t_c, d_c, reached = self._cpa_now()
         full = self.tg_object_full.isChecked()
         out = []
         for n, i in enumerate(rows):
@@ -3491,6 +3521,78 @@ class SimView(QWidget):
                 reached = ~((ia == last) & (rate < 0))
             self._cpa_all_cache = (g, k0, (t_c, d_c, reached))
         return np.where(np.isfinite(t_c), np.maximum(t_c, self.t), np.nan), d_c, reached
+
+    # ------------------------------------------------------------------ live values while a manoeuvre is edited
+    def _live_track(self) -> Optional[Tuple[int, np.ndarray, np.ndarray, dict]]:
+        """While the run shown is behind the manoeuvres' changes (user, 8 November 2026: the boxes follow the node as
+        it is pulled, not the full propagation that comes after): the node's body row, its path on the truth's
+        records with the node's real-time preview from its start on (km, km/s), and that preview. None otherwise."""
+        if self.truth is None or self.node.edits == getattr(self, "_run_edits", self.node.edits):
+            return None
+        i = self.node.row()
+        c = self.node._preview() if i is not None else None
+        if c is None:
+            return None
+        tr = self.truth
+        r, v = tr.r_km[:, i].copy(), tr.v_kms[:, i].copy()
+        late = tr.t_s >= c["t0"]
+        for a in range(3):
+            r[late, a] = np.interp(tr.t_s[late], c["ts"], c["r"][:, a])
+            v[late, a] = np.interp(tr.t_s[late], c["ts"], c["v"][:, a])
+        return i, r, v, c
+
+    def _live_rv(self, r: np.ndarray, v: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """The states at t (rows: truth rows) with the node's body on its live path (a manoeuvre before t)."""
+        lt = self._live_track()
+        if lt is None or self.t < lt[3]["t0"]:
+            return r, v
+        i, _r, _v, c = lt
+        r, v = r.copy(), v.copy()
+        r[i] = [np.interp(self.t, c["ts"], c["r"][:, a]) for a in range(3)]
+        v[i] = [np.interp(self.t, c["ts"], c["v"][:, a]) for a in range(3)]
+        return r, v
+
+    def _cpa_now(self):
+        """_cpa_all, the closest approaches on the live path while a manoeuvre is edited: the node's body's, every
+        object's when it is OWNSHIP's (the same straight-line refinement about the nearest record); cached per
+        preview and t."""
+        t_c, d_c, reached = self._cpa_all()
+        lt = self._live_track()
+        if lt is None:
+            return t_c, d_c, reached
+        i, r_i, v_i, c = lt
+        key = self._live_cache
+        if key is not None and key[0] is c and key[1] == self.t and key[2] is self.g:
+            return key[3]
+        tr = self.truth
+        rows = np.arange(1, len(tr.ids)) if i == 0 else np.array([i])
+        k0 = int(np.searchsorted(tr.t_s, self.t - 1e-9))
+        ts = tr.t_s[k0:]
+        t_c, d_c, reached = t_c.copy(), d_c.copy(), reached.copy()
+        if len(ts):
+            r0 = (r_i if i == 0 else tr.r_km[:, 0])[k0:]
+            v0 = (v_i if i == 0 else tr.v_kms[:, 0])[k0:]
+            last = len(ts) - 1
+            for s in range(0, len(rows), CPA_LIVE_CHUNK):
+                rr = rows[s:s + CPA_LIVE_CHUNK]
+                ro, vo = tr.r_km[k0:, rr], tr.v_kms[k0:, rr]
+                if i != 0:
+                    ro, vo = r_i[k0:, None], v_i[k0:, None]
+                rel, vrel = ro - r0[:, None], vo - v0[:, None]
+                rng = np.linalg.norm(rel, axis=2)
+                ok = np.isfinite(rng)
+                has = ok.any(axis=0)
+                ia = np.argmin(np.where(ok, rng, np.inf), axis=0)
+                cols = np.arange(len(rr))
+                rel_a, vrel_a = rel[ia, cols], vrel[ia, cols]
+                dt = -np.einsum("ij,ij->i", rel_a, vrel_a) / np.maximum(np.einsum("ij,ij->i", vrel_a, vrel_a), 1e-30)
+                dt = np.clip(np.nan_to_num(dt), ts[np.maximum(ia - 1, 0)] - ts[ia], ts[np.minimum(ia + 1, last)] - ts[ia])
+                j = rr - 1
+                t_c[j] = np.where(has, np.maximum(ts[ia] + dt, self.t), np.nan)
+                d_c[j] = np.where(has, np.linalg.norm(rel_a + vrel_a * dt[:, None], axis=1), np.nan)
+                reached[j] = ~((ia == last) & (np.einsum("ij,ij->i", rel_a, vrel_a) < 0))   # still closing at the end
+        self._live_cache = (c, self.t, self.g, (t_c, d_c, reached))
+        return t_c, d_c, reached
 
     def _hide_unused(self) -> None:
         for name, e in self._dyn.items():
@@ -4132,7 +4234,7 @@ class SimView(QWidget):
         tr, g = self.truth, self.g
         i, j, k = tr.row(self.selected), g.ids.index(self.selected), self._k()
 
-        r, v = sgeo.states_at(tr, self.t)
+        r, v = self._live_rv(*sgeo.states_at(tr, self.t))   # (live while a manoeuvre is edited)
         if not np.isfinite(r[i, 0]):
             self._set_info("\n".join([_kv("name", self.selected), _kv("characterisation", g.classes[j]),
                                       _kv("time", f"{self.t:.2f} s"), _kv("state", "not there at t")]),
@@ -4208,8 +4310,14 @@ class SimView(QWidget):
         return res
 
     def _cpa_lines(self, i: int, j: int) -> List[str]:
-        """The Info rows of the closest approach: time before it, its range."""
-        c = self._cpa(i, j)
+        """The Info rows of the closest approach: time before it, its range (live while a manoeuvre of this body or
+        of OWNSHIP is edited)."""
+        lt = self._live_track()
+        if lt is not None and lt[0] in (0, i):
+            t_c, d_c, ok = self._cpa_now()
+            c = (float(t_c[i - 1]), float(d_c[i - 1]), bool(ok[i - 1])) if np.isfinite(t_c[i - 1]) else None
+        else:
+            c = self._cpa(i, j)
         if c is None:
             return []
         t_cpa, d, reached = c
@@ -4244,7 +4352,7 @@ class SimView(QWidget):
 
     def _show_ship_info(self) -> None:
         tr, g = self.truth, self.g
-        r, v = sgeo.states_at(tr, self.t)
+        r, v = self._live_rv(*sgeo.states_at(tr, self.t))   # (live while a manoeuvre is edited)
         m = tr.attitude("ship", self.t)
         w = engine.ship_rate_dps(tr, self.t)
         k = self._k()
