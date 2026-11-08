@@ -1069,6 +1069,11 @@ class _Labels:
         plotter.add_actor(self.actor, reset_camera=False, render=False)
         self._last: List[str] = []
         self._pts = np.zeros((0, 3))
+        self._shown: Optional[np.ndarray] = None      # the labels written with their text (the others blank)
+        # the mapper draws the points behind the camera too, mirrored onto the screen (user, 8 November 2026: data
+        # boxes of bodies out of sight piled up in the sky): before each render, their texts blanked
+        me = weakref.ref(self)
+        plotter.renderer.AddObserver("StartEvent", lambda *_a: me() is not None and me()._cull())
 
     def rescale(self) -> None:
         """The font at the plotter's UI size."""
@@ -1077,13 +1082,37 @@ class _Labels:
         self.mapper.GetLabelTextProperty().SetFontSize(size)
         self.mapper.Modified()
 
+    def _front(self) -> np.ndarray:
+        """Which points lie in front of the camera."""
+        p = self._plotter()
+        if p is None or not len(self._pts):
+            return np.ones(len(self._pts), bool)
+        cam = p.renderer.GetActiveCamera()
+        fwd = np.asarray(cam.GetDirectionOfProjection(), float)
+        return (self._pts - np.asarray(cam.GetPosition(), float)) @ fwd > 0.0
+
+    def _write(self, shown: np.ndarray) -> None:
+        """The texts, blank where not shown."""
+        self.texts.SetNumberOfValues(len(self._last))
+        for i, t in enumerate(self._last):
+            self.texts.SetValue(i, "" if not shown[i] else (t if self.box else f" {t}"))
+        self._shown = shown
+        self.texts.Modified()
+        self.poly.Modified()
+
+    def _cull(self) -> None:
+        """Before a render: the labels of the points behind the camera blanked (only when that changed)."""
+        if not self.actor.GetVisibility() or len(self._pts) != len(self._last):
+            return
+        shown = self._front()
+        if self._shown is None or not np.array_equal(shown, self._shown):
+            self._write(shown)
+
     def set(self, pts: np.ndarray, texts: List[str]) -> None:
         same = list(texts) == self._last
         if not same:
-            self.texts.SetNumberOfValues(len(texts))
-            for i, t in enumerate(texts):
-                self.texts.SetValue(i, t if self.box else f" {t}")
             self._last = list(texts)
+            self._shown = None
         pts = np.asarray(pts, float).reshape(-1, 3)
         if same and np.array_equal(pts, self._pts):    # (fixed: every text mapper would be rebuilt for nothing)
             self.actor.SetVisibility(True)
@@ -1091,7 +1120,9 @@ class _Labels:
         self._pts = pts.copy()
         self.points.SetData(numpy_to_vtk(pts, deep=True))
         self.points.Modified()
-        self.texts.Modified()
+        shown = self._front() if len(self._pts) == len(self._last) else np.ones(len(self._last), bool)
+        if self._shown is None or not np.array_equal(shown, self._shown):
+            self._write(shown)
         self.poly.Modified()
         self.actor.SetVisibility(True)
 
@@ -1166,6 +1197,9 @@ class SimView(QWidget):
     """3D views (S6) and playback (S7) of the global simulator."""
     run_shown = pyqtSignal()                      # a run (propagation or journal) is shown
     picked = pyqtSignal(str)                      # a body clicked in the view (OWNSHIP, an object id, a multitrack)
+    # an event's mark clicked that belongs to a manoeuvre (user, 8 November 2026): its owner's kind ("ship",
+    # "objects", "groups"), id ("ship" for the ship) and index in the owner's manoeuvres (after picked)
+    manoeuvre_picked = pyqtSignal(str, str, int)
 
     def __init__(self, grid: Optional[cgeo.SphereGrid] = None, get_path: Callable[[], Optional[str]] = lambda: None,
                  parent=None):
@@ -2163,8 +2197,8 @@ class SimView(QWidget):
         """The events' places, drawn at each frame (_draw_markers); L5: those within the run computed so far."""
         tr = self.truth
         t_end = float(tr.t_s[-1])
-        times, pts, labels, rows = [], [], [], []
-        for t, text in self._marker_events():
+        times, pts, labels, rows, refs = [], [], [], [], []
+        for t, text, ref in self._marker_events():
             if t > t_end + 1e-9:
                 continue
             r = sgeo.states_at(tr, t)[0]
@@ -2174,7 +2208,9 @@ class SimView(QWidget):
                 pts.append(r[tr.row(oid)])
                 labels.append(text)
                 rows.append(tr.row(oid))
+                refs.append(ref)
         self._markers = (np.array(times, float), np.array(pts, float).reshape(-1, 3), labels, np.array(rows, int))
+        self._marker_refs = refs
 
     def _body_orbits(self) -> None:
         """Global view: the celestial body selected (user, 29 October 2026): its orbit around its parent (the Moon
@@ -2753,20 +2789,41 @@ class SimView(QWidget):
         if reframe:
             p.render()
 
-    def _marker_events(self) -> List[Tuple[float, str]]:
+    def _marker_events(self) -> List[Tuple[float, str, Tuple[str, str, int]]]:
+        """(time, text, origin) of the events marked on the paths; origin = (owner kind "ship" / "objects" / "groups",
+        owner id, index of the manoeuvre in the owner's list, -1: none), what a click on the mark selects (user,
+        8 November 2026): an impulse or a burn and its node, the start of PN and its homing-guidance line, an
+        appearance or an impact its body only. A group's impulses and burns on its first member (#0)."""
         out = []
         tr = self.truth
+        sc = self.sc or {}
+        owners = {"ship": ("ship", "ship", sc.get("ship", {}))}
+        owners.update({o.get("id"): ("objects", o.get("id"), o) for o in sc.get("objects", [])})
+        groups = {g.get("id"): g for g in sc.get("groups", [])}
+
+        def owner_of(oid: str):
+            if oid in owners:
+                return owners[oid]
+            gid = oid.rsplit("#", 1)[0] if "#" in oid else None
+            return ("groups", gid, groups[gid]) if gid in groups else (None, None, {})
+
+        def pn_index(o: dict) -> int:
+            return next((k for k, m in enumerate(o.get("manoeuvres", [])) if m.get("type") == "pn"), -1)
         for i, oid in enumerate(tr.ids):
+            kind, own, o = owner_of(oid)
+            body = (kind or "", own or oid, -1)
             if i and tr.t_appear_s[i] > 0.0:
-                out.append((float(tr.t_appear_s[i]), f"{oid} appears"))
+                out.append((float(tr.t_appear_s[i]), f"{oid} appears", body))
             if np.isfinite(tr.t_pn_start_s[i]):
-                out.append((float(tr.t_pn_start_s[i]), f"{oid} PN"))
+                out.append((float(tr.t_pn_start_s[i]), f"{oid} PN", (kind or "", own or oid, pn_index(o))))
             if np.isfinite(tr.t_impact_s[i]):
-                out.append((max(float(tr.t_impact_s[i]) - 1e-6, 0.0), f"{oid} impact"))
-        for o in [dict(self.sc.get("ship", {}), id="ship")] + self.sc.get("objects", []):
-            for m in o.get("manoeuvres", []):
-                if m["type"] in ("impulse", "burn"):
-                    out.append((float(m["t_s"]), f"{o['id']} {m['type']}"))
+                out.append((max(float(tr.t_impact_s[i]) - 1e-6, 0.0), f"{oid} impact", body))
+        marked = [(kind, own, o, own) for kind, own, o in owners.values()]
+        marked += [("groups", gid, g, f"{gid}#0") for gid, g in groups.items()]
+        for kind, own, o, row_id in marked:
+            for k, m in enumerate(o.get("manoeuvres", [])):
+                if m.get("type") in ("impulse", "burn"):
+                    out.append((float(m["t_s"]), f"{row_id} {m['type']}", (kind, own, k)))
         return out
 
     def _add_model(self) -> None:
@@ -4423,7 +4480,12 @@ class SimView(QWidget):
         if self.truth is None:
             return
         x, y = obj.GetEventPosition()
-        best = self._pick(x, y)
+        best, best_d = self._pick(x, y, with_distance=True)
+        ref = None
+        hit = self._marker_at(x, y)
+        if hit is not None and hit[0] < best_d:      # an event's mark nearer than any body: its body (and manoeuvre)
+            _d, row, ref = hit
+            best = OWNSHIP if row == 0 else self.truth.ids[row]
         double = obj.GetRepeatCount() >= 1
         members = best[len(MT_SEL):].split("|") if best and best.startswith(MT_SEL) else [best]
         if self.node.target is not None and not any(self.node.owns("ship" if b == OWNSHIP else b) for b in members):
@@ -4432,6 +4494,8 @@ class SimView(QWidget):
         if best is not None:
             self._select(best)
             self.picked.emit(best)                    # the editor's tree follows (user, 29 October 2026)
+            if ref is not None and ref[2] >= 0:       # ... and its action list, the node shown (user, 8 Nov 2026)
+                self.manoeuvre_picked.emit(*ref)
             if double:
                 self.set_centre(members[0])           # (a multitrack: centred on its first member)
             return
@@ -4441,8 +4505,29 @@ class SimView(QWidget):
         if double:
             self.set_centre(body or CENTRAL)
 
-    def _pick(self, x: float, y: float) -> Optional[str]:
-        """The selection key of the body drawn nearest the display point (x, y), within CLICK_PX; None: none."""
+    def _marker_at(self, x: float, y: float) -> Optional[Tuple[float, int, Tuple[str, str, int]]]:
+        """(distance px, truth row, origin) of the event's mark drawn nearest the display point (x, y), within
+        CLICK_PX (global view, events shown, marks still to come as _draw_markers); None: none."""
+        mk = getattr(self, "_markers", None)
+        refs = getattr(self, "_marker_refs", None)
+        if mk is None or refs is None or not len(mk[0]) or not self._global() or not self.cb_events.isChecked():
+            return None
+        t, pts, _labels, rows = mk
+        ren = self.plotter.renderer
+        best = None
+        for k in np.flatnonzero(t >= self.t - 1e-9):
+            w = pts[k]
+            ren.SetWorldPoint(float(w[0]), float(w[1]), float(w[2]), 1.0)
+            ren.WorldToDisplay()
+            dx, dy, _ = ren.GetDisplayPoint()
+            dd = math.hypot(dx - x, dy - y)
+            if dd < CLICK_PX and (best is None or dd < best[0]):
+                best = (dd, int(rows[k]), refs[k])
+        return best
+
+    def _pick(self, x: float, y: float, with_distance: bool = False):
+        """The selection key of the body drawn nearest the display point (x, y), within CLICK_PX; None: none
+        (with_distance: (key, its distance in px, CLICK_PX when none))."""
         if self._global():
             r, _ = sgeo.states_at(self.truth, self.t)
             pts = {(OWNSHIP if i == 0 else oid): r[i] for i, oid in enumerate(self.truth.ids) if np.isfinite(r[i, 0])}
@@ -4461,7 +4546,7 @@ class SimView(QWidget):
             dd = math.hypot(dx - x, dy - y)
             if dd < best_d:
                 best, best_d = oid, dd
-        return best
+        return (best, best_d) if with_distance else best
 
     def _body_under(self, x: float, y: float) -> Optional[str]:
         """The celestial body whose disc on screen holds the display point (x, y) (global view; ship view: as drawn

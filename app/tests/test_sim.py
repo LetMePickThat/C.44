@@ -829,6 +829,82 @@ def test_tree_and_view_selection():
     app.processEvents()
 
 
+def test_manoeuvre_mark_selects_everywhere():
+    """A click on a manoeuvre's mark on a path (user, 8 November 2026) chooses its body in the tree, its line in the
+    action list and shows its node; a group's manoeuvre is marked on its first member; an appearance's mark chooses
+    the body only."""
+    app = _qt()
+    from gui.scenario_tab import ActionList, ScenarioTab
+    from gui.sim_view import OWNSHIP
+    tab = ScenarioTab()
+    objs = [{"id": "A", "class": "KKV", "state": {"type": "relative", "range_km": 300.0, "phi_deg": 30.0,
+                                                   "eps_deg": 10.0, "v_close_mps": 0.0},
+             "manoeuvres": [{"type": "impulse", "t_s": 8.0, "dv_mps": [1.0, 0.0, 0.0], "frame": "pnr"},
+                            {"type": "impulse", "t_s": 14.0, "dv_mps": [0.0, 1.0, 0.0], "frame": "pnr"}]}]
+    grp = [{"id": "G", "class": "DECOY", "n": 3, "around": "A", "pos_sigma_m": 50000.0, "vel_sigma_mps": 0.0,
+            "t_appear_s": 2.0,
+            "manoeuvres": [{"type": "impulse", "t_s": 12.0, "dv_mps": [0.0, 0.0, 1.0], "frame": "pnr"}]}]
+    sc = _orbit_sc(20.0, objs, grp, step=0.1)
+    sc["ship"]["manoeuvres"] = [{"type": "impulse", "t_s": 16.0, "dv_mps": [0.5, 0.0, 0.0], "frame": "pnr"}]
+    tab._set_scenario(sc, None)
+    v = tab.preview
+    v.plotter.ren_win.SetSize(900, 700)
+    tr = prop.propagate(tab.sc)
+    v.show_run(tab.sc, tr, geo.geometry(tab.sc, tr), "test")
+    v.cb_symbols.setChecked(False)
+    v.set_time(1.0)
+    refs = dict(zip(v._markers[2], v._marker_refs))
+    assert refs["A impulse"] in (("objects", "A", 0), ("objects", "A", 1))
+    assert refs["G#0 impulse"] == ("groups", "G", 0) and refs["ship impulse"] == ("ship", "ship", 0)
+
+    def click_mark(label, t_mark):
+        k = next(j for j, (x, t) in enumerate(zip(v._markers[2], v._markers[0])) if x == label and t == t_mark)
+        xy = v._display_xy(v._markers[1][k][None])[0][0]
+
+        class _C:
+            def GetEventPosition(self):
+                return tuple(xy)
+
+            def GetRepeatCount(self):
+                return 0
+        v._on_click(_C(), None)
+        app.processEvents()
+
+    def shown():
+        ml = tab.form_holder.findChild(ActionList)
+        return ml.current, v.node.target["m"] if v.node.target is not None else None
+    click_mark("A impulse", 14.0)
+    assert tab.tree.currentItem() is tab.n_obj.child(0)
+    assert shown() == (tab.sc["objects"][0]["manoeuvres"][1],) * 2
+    click_mark("G#0 impulse", 12.0)
+    assert tab.tree.currentItem() is tab.n_grp.child(0) and v.selected == "G#0"
+    assert shown() == (tab.sc["groups"][0]["manoeuvres"][0],) * 2
+    click_mark("ship impulse", 16.0)
+    assert tab.tree.currentItem() is tab.n_ship and v.selected == OWNSHIP
+    assert shown() == (tab.sc["ship"]["manoeuvres"][0],) * 2
+    click_mark("G#1 appears", 2.0)                      # a body's event: the body only
+    assert tab.tree.currentItem() is tab.n_grp.child(0) and v.selected == "G#1"
+    v.plotter.close()
+    app.processEvents()
+
+
+def test_labels_behind_the_camera_blank():
+    """A label whose point lies behind the camera is not drawn (user, 8 November 2026: vtkLabeledDataMapper drew it
+    mirrored onto the screen, data boxes of bodies out of sight piled up in the sky); it comes back in front."""
+    import pyvista as pv
+    from gui.sim_view import _Labels
+    p = pv.Plotter(off_screen=True, window_size=(400, 300))
+    p.camera.position, p.camera.focal_point, p.camera.up = (0.0, 0.0, 10.0), (0.0, 0.0, 0.0), (0.0, 1.0, 0.0)
+    lab = _Labels(p, "#ffffff", 12, box=True)
+    lab.set(np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 20.0]]), ["front", "behind"])
+    p.ren_win.Render()                                    # (pyvista renders nothing before a show)
+    assert [lab.texts.GetValue(i) for i in range(2)] == ["front", ""] and lab._last == ["front", "behind"]
+    p.camera.position = (0.0, 0.0, 30.0)                 # both in front now
+    p.ren_win.Render()                                    # (pyvista renders nothing before a show)
+    assert [lab.texts.GetValue(i) for i in range(2)] == ["front", "behind"]
+    p.close()
+
+
 def test_event_marks_follow_the_classification():
     """The events' marks on the paths are in their body's colour (its identity) and follow a change of
     classification, which needs no propagation (user, 29 October 2026)."""

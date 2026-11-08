@@ -696,6 +696,8 @@ class ScenarioTab(QWidget):
             if hasattr(self.preview, "scenario_source"):   # L5: a node drag sends the editor's scenario now
                 self.preview.scenario_source = lambda: scn.normalise(self.sc)
             self.preview.picked.connect(self._pick_from_view)
+            if hasattr(self.preview, "manoeuvre_picked"):
+                self.preview.manoeuvre_picked.connect(self._pick_manoeuvre)
         else:
             self.preview = QLabel("3D preview and playback (not built)")
             self.preview.setAlignment(Qt.AlignCenter)
@@ -1052,6 +1054,22 @@ class ScenarioTab(QWidget):
             self.tree.setCurrentItem(item)
         finally:
             self._from_view = False
+
+    def _pick_manoeuvre(self, kind: str, oid: str, k: int) -> None:
+        """An event's mark of a manoeuvre clicked in the 3D view (user, 8 November 2026): after its body (picked, the
+        tree), its line chosen in the action list, which shows its node in the views."""
+        owner = self.sc.get("ship") if kind == "ship" else next(
+            (o for o in self.sc.get(kind, []) if o.get("id") == oid), None)
+        ms = owner.get("manoeuvres", []) if owner is not None else []
+        if not 0 <= k < len(ms):
+            return
+        ml = self.form_holder.findChild(ActionList)
+        if ml is None or ml.owner is not owner:
+            return
+        r = ml._row_of(ms[k])
+        if ml.table.currentRow() == r and ml.current is ms[k]:
+            return                                     # (already the one shown, its node with it)
+        ml.select(r)
 
     def _select_in_view(self, kind: str, i: int) -> None:
         """The unit chosen in the tree selected in the 3D view too, its Info shown (user, 29 October 2026): the ship,
