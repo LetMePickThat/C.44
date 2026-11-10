@@ -1,51 +1,45 @@
 ---
 name: live-architecture
-description: "Live (real-time, KSP-like) simulator, started in the RADARv6_RS fork and now the app (merged 8 Nov 2026, aa86f67): move the whole simulator to a real-time (KSP-like) architecture, no precomputed propagation between edits; decisions of 8 Nov 2026"
+description: "Live scenario editing (fork RADARv6_RS, merged as the app 8 Nov 2026, aa86f67): what was planned (a KSP-like computation front), what was finally merged (an approximate live preview + the real computation on demand), and which live pieces exist unused"
 metadata:
   type: project
 ---
 
-MERGED 8 Nov 2026: the fork RADARv6_RS replaced the app (commit aa86f67 on main, pulled into RADARv6; rollback tag
-avant-RS-2026-11-08 on 8837d94, on GitHub). Work resumes in RADARv6; do not push from RADARv6_RS.
-Started as the fork RADARv6_RS (copy of RADARv6 at commit 8837d94, 8 Nov 2026): the simulator moves to a live architecture
-(user, 8 Nov 2026). Goal: no propagation to wait for between edits; initial states and manoeuvre series projected
-continuously, up to the mission's end date. Decisions (user, 8 Nov 2026):
+MERGED 8 Nov 2026: the fork RADARv6_RS replaced the app (commit aa86f67 on main; rollback tag avant-RS-2026-11-08 on
+8837d94, on GitHub). Do not push from RADARv6_RS.
 
-- A1 going back in time: yes, by replaying the recorded history.
-- A2 an edit in the past: re-simulate (from the last checkpoint before the earliest instant the edit touches).
-- A3 end date: optional in principle; the computation front STOPS at the end date (no projection beyond it).
-- B1 every body is projected. B2 horizon: up to the mission's end date. B3 the projection is the full model (whole
-  fleet, PN, Singer, interactions); to revisit later. B4 projections shown while computing refreshed 2x per second.
-- C1 NO "on rails" bodies (the third-body loss is sensible in lunar orbit): every body always integrated with the
-  full model (RK4 0.1 s, J2, other bodies, PN, Singer); the clock is held at a speed the real-time computation can
-  follow. C2 the time-warp list kept (x1 .. x100000); above what the machine computes, the clock follows the front.
-  Measured on the desktop (full propagation, loading included): moon 37 bodies ~x1000, Jupiter 310 ~x370,
-  TEST_MAX_LOAD 1011 ~x100; after C2-C3 (8 Nov 2026): ~x1300, ~x820, ~x320.
-- Design agreed: the projection IS the same deterministic simulation computed ahead of the clock (a computation
-  front in the background toward the end date); the clock never passes the front; an edit restarts the front from
-  the last checkpoint before the instant it touches; checkpoints = full fleet state (r, v, attitudes, PN, Singer
-  RNG) every 10 s of simulated time (user).
-- D1 the radar is left out for now; in the end the radar model must run inside the live simulator, not from a
-  recorded run. D2 the .npz journal kept for now (fed by the history).
+## What the app does (code at c11b0a2, checked 10 Nov 2026)
+The design changed late on 8 Nov 2026 (user, confirmed 10 Nov 2026): NO computation front in the UI. Instead:
+- While editing: the scenario's PREVIEW (sim/preview.py, compiled in sim/fast_preview.py) recomputed at once at each
+  change, node drag included (gui/sim_view: preview_timer, _PreviewWorker, DRAG_FLEET_HZ 10). Approximate: same forces
+  as sim/propagate but RK4 at two rates (free rows PREVIEW_STEP_S 15 s, finer steps for burns / PN / closing rows),
+  no Singer, attitudes at the free steps, other bodies only above TIDE_MIN_KM. Status bar: "preview (approximate): ...".
+- Once validated: "Record run..." (SimView.run_journal) = the REAL computation (python -m sim.run, full model, separate
+  process, progress bar "real computation: x %"), journal .npz written next to the scenario (the radar's entry point),
+  then the run shown. The camera is kept after an edit (show_run, keep).
 
-Progress: L1 DONE 8 Nov 2026 (sim/propagate.LiveSim; bit-identical to RADARv6 on the 3 scenarios; test_sim 61
-passed, test_window_closes_during_the_playback crashed its worker once, passes alone). L2 DONE 8 Nov 2026 (checkpoints every
-sim.checkpoint_s = 10 s, restore(ck, source); bit-identical restores on the 3 scenarios, numba and not). L3 DONE 8 Nov 2026
-(sim/live.first_change + resume; Singer / group draws seeded by row name, 1b; PN by range edit -> 0, 2b; duration:
-longer goes on, shorter cut (my proposal, user silent); 14 edits bit-identical to full runs). Open: geometry RCS /
-tumble draws still seeded by row rank. L4 DONE 8 Nov 2026 (sim/live.Front;
-bursts of edits bit-identical). test_sim 66 passed after L1-L3. Geometry RCS / tumble draws by name: done (user yes).
-L5 DONE 8 Nov 2026 (L5a geometry by the front, L5b a, L5c, L5d; tool.display.sim_front_refresh_hz = 2; test_sim 66
-passed after adapting 4 tests). Known regression: renaming an object restarts the front from its entry. Not seen by
-the user on screen yet. Next: L6 journal from the history, L7 clean-up.
-Also 8 Nov 2026 (after L5): objects drawn at their size (BODY_SHAPES), scenario editor fixes (targets by name,
-rename_refs, vector boxes in the handles' colours, red Remove); see Choix_architecturaux.
-Node during a drag (changed 8 Nov 2026, user): instant one-body preview only, the front told at the release
-(gui/sim_view.DRAG_SENDS_FRONT). Live edits (8 Nov 2026): sim/live.affected_rows; the view draws the untouched rows'
-planned paths beyond the front from the last complete run (_base, _ahead_of). B (the front computing only the touched
-rows) pending the user's decision.
+## Pieces of the planned live architecture that exist
+- L1 sim/propagate.LiveSim: the full propagation (propagate() = LiveSim(sc).run().truth()); bit-identical to the
+  former code on the 3 scenarios. Used by sim.run.
+- L2 checkpoints every sim.checkpoint_s = 10 s (LiveSim.checkpoint / checkpoint_before / restore). Exist, unused by the UI.
+- L3 sim/live.first_change + resume (Singer / group / RCS / tumble draws seeded by row name; PN by range edit -> 0;
+  duration: longer goes on, shorter cut) and live.affected_rows. Exist, used only by tests/test_sim.py.
+- NOT in the code (never committed): L4 sim/live.Front, L5 front-driven view (tool.display.sim_front_refresh_hz,
+  DRAG_SENDS_FRONT, _base / _ahead_of), the clock held at the front. L6 (journal from the history) and L7 (clean-up)
+  of the former plan are therefore moot as stated; decision B (front computing only the touched rows) moot too.
 
-**Why:** the current app must re-propagate the whole scenario after each edit (waits, camera resets, stale boxes).
-**How to apply:** work in RADARv6; one step at a time with its guard (see Choix_architecturaux, 8 Nov 2026 entries);
-explain each step and ask its values first ([[explain-before-coding]], [[ask-for-every-variable]]), ask before tests
-([[ask-before-tests]]).
+## Former plan (decisions of 8 Nov 2026, kept for reference; superseded by the preview design above)
+A1 going back in time by replaying the history; A2 an edit in the past re-simulated from the last checkpoint before it;
+A3 the front stops at the end date; B1-B4 every body projected up to the end date with the full model, refreshed 2x/s;
+C1 no "on rails" bodies; C2 time-warp list kept, the clock following the front; D1 the radar left out for now (in the
+end the radar model must run inside the live simulator, not from a recorded run); D2 the .npz journal kept.
+Measured speeds (full propagation, desktop, after C2-C3): moon 37 bodies ~x1300, Jupiter 310 ~x820, TEST_MAX_LOAD 1011 ~x320.
+
+## Open
+- Unused L2 / L3 code: KEPT for now (user, 10 Nov 2026; may serve a later live radar, D1). Do not remove it unasked.
+- Preview vs real run gap: not quantified on screen by the user (preview measured < 1 m off at 30 s steps after 1 h
+  in low orbit; 15 s now).
+
+**Why:** the user wants scenario edits without waiting for a full propagation (camera resets, stale boxes).
+**How to apply:** describe the app as preview + Record run; do not tell the user to look for a front. Explain each step
+and ask its values first ([[explain-before-coding]], [[ask-for-every-variable]]), ask before tests ([[ask-before-tests]]).
