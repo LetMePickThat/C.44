@@ -98,12 +98,18 @@ def items(mission: dict, res: dict) -> List[dict]:
         w = [float(fc.get(str(k), {}).get("energy_fraction", 0.0)) * k_w for k in range(4)]
         ts = [float(fc.get(str(k), {}).get("time_fraction", 0.0)) for k in range(4)]
         g = float(r.get("_reuse_g", 1.0))                    # step 5.2 (P4): the revisit asked in its own tier
+        pairs = [(int(key.split(">")[0]), int(key.split(">")[1]), float(v.get("fe_own_reach", 0.0)) * k_w,
+                  float(v.get("ft_own_reach", 0.0)), float(v.get("fe_other", 0.0)) * k_w, float(v.get("ft_other", 0.0)))
+                 for key, v in (r.get("face_overlap") or {}).items()
+                 if float(v.get("sr_reach", 0.0)) > 0 and not r.get("_moved")]     # R3c: a move is not taken back
         out.append({"label": f"search {r['id']}", "sector": r["id"], "kind": "search", "tier": tier,
                     "w": [v / g for v in w], "ts": [v / g for v in ts], "tk": [0.0] * 4,
+                    "pairs": [(k, j) + tuple(x / g for x in c) for k, j, *c in pairs],
                     "rr_s": float(r["rr_target_s"]) * g})
         if g > 1.0:
             out.append({"label": f"margin reuse {r['id']}", "sector": r["id"], "kind": "reuse", "tier": (5, 0),
-                        "w": [v - v / g for v in w], "ts": [v - v / g for v in ts], "tk": [0.0] * 4})
+                        "w": [v - v / g for v in w], "ts": [v - v / g for v in ts], "tk": [0.0] * 4,
+                        "pairs": [(k, j) + tuple(x - x / g for x in c) for k, j, *c in pairs]})
     for t in trk.get("sectors", []):
         sec = secs.get(t["id"], {})
         cf = (t.get("confirmation") or {}).get("faces", {})
@@ -547,27 +553,59 @@ def _report(demands, b, prog, level, y, rho_min) -> dict:
 # ============================================================================= the rule in the exact computation (R3)
 # Pass R3a (user, 10 November 2026): the exact optimiser's power allocation is the final rule, in place of allocate().
 # The demands are the exact plans' needs (items(): energy drawn, S time, Ku time per face, the optimiser's real times,
-# not the fast estimate's lower bound); a share is served by the face that plans it (the moves between faces come with
-# pass R3b); the spare stays with the margin reuse (core/margin.py, decision 2 of R3). The verdict rows (user, 10
+# not the fast estimate's lower bound); a search share in the overlap of two scan cones may be served by either face
+# (pass R3b, _search_rows), the rule only reporting the move until pass R3c re-plans it on its new face; the spare stays with the margin reuse (core/margin.py, decision 2 of R3). The verdict rows (user, 10
 # November 2026): a face's energy load = the draw its plan asks at full service over its own limit (feeder, or the
 # operator's cap face_elec_mw), the ship's = the total asked over the ship's pool; what the rule actually serves is in
 # "partial" (level, range held rho, revisit or tracks tenable).
 _KIND = {"search": "search", "track": "track"}
 
 
+def _search_rows(it: dict) -> List[np.ndarray]:
+    """Pass R3b (B1, decision 1 of R3, user 10 November 2026): the shares of a search volume. The part of face k's
+    load that a neighbour j also reaches under its scan limit (optimizer.face_overlap, plan kept: the plan's own cost
+    where it has the scan bin, else its nearest waveform scaled by range_at) is a share either face may serve, at its
+    cost on k (fe_own_reach, ft_own_reach) or on j (fe_other, ft_other); the rest of k's load stays on k. A direction
+    two neighbours reach is in both pairs: the pairs of a face are scaled down so that they never exceed its load."""
+    rows = []
+    for k in range(4):
+        own = np.array([float(it["w"][k]), float(it["ts"][k]), float(it["tk"][k])])
+        pairs = [p_ for p_ in it.get("pairs", []) if p_[0] == k]
+        if not own.any():
+            continue
+        take = np.array([[p_[2], p_[3], 0.0] for p_ in pairs]).reshape(-1, 3)
+        tot = take.sum(axis=0)
+        f = float(min(1.0, *(own[i] / tot[i] for i in range(3) if tot[i] > 0))) if tot.any() else 1.0
+        for p_, c in zip(pairs, take):
+            r = np.full((4, 3), np.nan)
+            r[k] = c * f
+            r[p_[1]] = (p_[4] * f, p_[5] * f, 0.0)
+            if np.nansum(r[k]) > 0:
+                rows.append(r)
+        rest = np.maximum(own - tot * f, 0.0)
+        if rest.any():
+            r = np.full((4, 3), np.nan)
+            r[k] = rest
+            rows.append(r)
+    return rows
+
+
 def exact_demands(mission: dict, res: dict) -> Tuple[List[Demand], Budgets, List[dict]]:
-    """(demands, budgets, the items they come from) of an assembled exact result: one share per face that serves the
-    item (pass R3a: no move between faces)."""
+    """(demands, budgets, the items they come from) of an assembled exact result: a search volume's shares in the
+    overlaps of the scan cones may move to the neighbouring face (pass R3b), the other needs stay on their face."""
     its = items(mission, res)
     demands = []
     for it in its:
-        rows = []
-        for k in range(4):
-            c = (float(it["w"][k]), float(it.get("ts", [0.0] * 4)[k]), float(it.get("tk", [0.0] * 4)[k]))
-            if any(v > 0 for v in c):
-                r = np.full((4, 3), np.nan)
-                r[k] = c
-                rows.append(r)
+        if it.get("pairs"):
+            rows = _search_rows(it)
+        else:
+            rows = []
+            for k in range(4):
+                c = (float(it["w"][k]), float(it.get("ts", [0.0] * 4)[k]), float(it.get("tk", [0.0] * 4)[k]))
+                if any(v > 0 for v in c):
+                    r = np.full((4, 3), np.nan)
+                    r[k] = c
+                    rows.append(r)
         demands.append(Demand(it["label"], it["tier"], _KIND.get(it["kind"], "other"),
                               np.array(rows) if rows else np.zeros((0, 4, 3)), rr_s=float(it.get("rr_s", 0.0)),
                               n_targets=float(it.get("n_targets", 0.0)), sector=it["sector"]))
@@ -590,11 +628,18 @@ def allocate_rule(mission: dict, res: dict) -> dict:
         tiers_out.append({"tier": tier_name(t), "need_MW": w / 1e6, "served_MW": served / 1e6,
                           "fraction": served / w if w > 0 else 1.0})
     partial = []
+    by_id = {r["id"]: r for r in res.get("sectors", [])}
     for it, rec in zip(its, rep["demands"]):
-        if rec["level"] >= 1.0 - 1e-6:
+        r = by_id.get(rec["sector"]) if rec["kind"] == "search" else None
+        planned = r is not None and "_rho" in r and it["kind"] == "search"      # pass R3c: re-planned at rho x R
+        if rec["level"] >= 1.0 - 1e-6 and not planned:
             continue
         p_ = {"label": rec["label"], "tier": rec["tier"], "served_fraction": float(rec["level"])}
-        if rec["kind"] == "search":
+        if planned:                             # against what was asked: the plan's own cut, then the rule's level
+            f = float(r["_rho"]) ** 4 * float(r["_rr_asked_s"]) / float(r["_rr_tenable_s"])
+            p_.update(served_fraction=float(rec["level"]) * f, rho=float(r["_rho"]) * float(rec["rho"]),
+                      rr_tenable_s=float(rec["rr_tenable_s"]), re_planned=True)
+        elif rec["kind"] == "search":
             p_.update(rho=rec["rho"], rr_tenable_s=rec["rr_tenable_s"])
         elif rec["kind"] == "track":
             p_["tracks_tenable"] = rec["tracks_tenable"]
@@ -607,3 +652,58 @@ def allocate_rule(mission: dict, res: dict) -> dict:
     return {"ship_MW": b.ship_w / 1e6, "need_MW": sum(need) / 1e6, "drawn_MW": rep["ship"]["energy"] / 1e6,
             "status": "OK" if rep["status"] == "OK" else "SHORT", "faces": faces, "tiers": tiers_out,
             "partial": partial, "flags": list(rep["flags"]), "rule": rep}
+
+
+_EXTENSIVE = ("positions", "energy_J_per_refresh", "dissipation_kW", "dissipation_kW_m2", "avg_power_kW")
+
+
+def moved_results(res: dict) -> Tuple[List[dict], List[dict]]:
+    """Pass R3c (user, 10 November 2026: moves at plan kept): the sector results with the moves of the rule applied,
+    and the moves. A search volume whose shares the rule serves on a neighbouring face gets its face totals from the
+    rule's split (energy and S time per face at full service: the served ones over the level), the other extensive
+    figures (positions, energy per refresh, dissipation, mean power) leaving the faces that lose load in proportion
+    of the energy they lose and going to the faces that gain in proportion of the energy they gain; a face that had
+    none of the volume gets the scan limit as its largest scan angle. Marked "_moved" (no move option any more: the
+    rule does not take it back), the plan's own totals under "_faces_planned". The exact re-planning of the moved
+    directions is the flight's (step 6.5)."""
+    rule = (res.get("power_allocation") or {}).get("rule") or {}
+    p_ref = float(res["global"]["face_elec_avail_kW"]) * 1e3
+    k_w = p_ref / rm.CHAIN_EFF
+    by_id = {r["id"]: r for r in res.get("sectors", [])}
+    moved: Dict[str, dict] = {}
+    moves = []
+    for rec in rule.get("demands", []):
+        r = by_id.get(rec.get("sector"))
+        m = float(rec.get("level", 0.0))
+        if rec.get("kind") != "search" or r is None or r.get("_moved") or r.get("status") != "OK" or m <= 0:
+            continue
+        g = float(r.get("_reuse_g", 1.0))
+        old = r.get("faces", {})
+        e_old = {int(k): float(v.get("energy_fraction", 0.0)) for k, v in old.items()}
+        e_new = {int(k): float(v.get("energy", 0.0)) / m * g / k_w for k, v in rec.get("faces", {}).items()}
+        t_new = {int(k): float(v.get("S time", 0.0)) / m * g for k, v in rec.get("faces", {}).items()}
+        tot = sum(e_old.values())
+        if tot <= 0 or all(abs(e_new.get(k, 0.0) - e_old.get(k, 0.0)) <= 1e-6 * tot for k in range(4)):
+            continue
+        lose = {k: max(0.0, 1.0 - e_new.get(k, 0.0) / e) for k, e in e_old.items() if e > 0}
+        gain = {k: max(0.0, e_new.get(k, 0.0) - e_old.get(k, 0.0)) for k in range(4)}
+        g_tot = sum(gain.values())
+        faces = {}
+        for k in range(4):
+            if e_new.get(k, 0.0) <= 0 and t_new.get(k, 0.0) <= 0:
+                continue
+            f = dict(old.get(str(k), {}))
+            for key in _EXTENSIVE:
+                kept = float(f.get(key, 0.0)) * (1.0 - lose.get(k, 0.0))
+                given = sum(float(old[str(i)].get(key, 0.0)) * lose[i] for i in lose)
+                f[key] = kept + (given * gain[k] / g_tot if g_tot > 0 else 0.0)
+            f["energy_fraction"], f["time_fraction"] = e_new.get(k, 0.0), t_new.get(k, 0.0)
+            if "theta_max_deg" not in f:
+                f_ghz = float(r.get("frequency", {}).get("freq_ghz", 0.0))
+                f["theta_max_deg"] = float(rm.band_for_frequency(f_ghz).scan_limit_deg(f_ghz)) if f_ghz else None
+            faces[str(k)] = f
+        moved[r["id"]] = dict(r, faces=faces, _moved=True, _faces_planned=old)
+        moves.append({"sector": r["id"], "moved_share": float(rec.get("moved_share", 0.0)),
+                      "energy_fraction": {str(k): (e_old.get(k, 0.0), e_new.get(k, 0.0)) for k in range(4)
+                                          if e_old.get(k, 0.0) or e_new.get(k, 0.0)}})
+    return [moved.get(r["id"], r) for r in res.get("sectors", [])], moves

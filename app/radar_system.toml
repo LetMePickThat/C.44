@@ -772,6 +772,7 @@ sat_probe_frac    = 0.1         # P7: saturation table, probe of max(1, frac x n
 rr_min_track_s    = 0.1         # P7: default shortest track update period of the margin reuse when the bracket sets no rr_min_s (user, 26 Oct 2026)
 rho_min           = 0.80         # final allocation rule (user, 10 Nov 2026, A2): a tier short of power or time loses range first, down to this share of the range asked, then revisit
 alloc_ratio_bin_db = 0.5        # final allocation rule: shares of a volume scanned by the same faces merged when their cost ratios between faces agree within this (numerical, D)
+confirm_replans   = 4           # final allocation rule, pass R3c (user, 10 Nov 2026; 3 -> 4 the same day: a volume over 4 faces needed one more): exact re-plannings at most of a volume the rule degrades, at rho x R and its revisit tenable, until its level is within 0.005 of 1 (D)
 
 [tool.validation]             # step 5.3: verdict and relaxation advice (core/validation.py)
 verify_bisections = 6           # P2: recomputations of the mission bisecting the verified figure of one advice (D, user, 27 Oct 2026)

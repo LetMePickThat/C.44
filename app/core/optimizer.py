@@ -894,6 +894,10 @@ def parts_at(w, f, theta, tgt, rx_sll: Optional[float] = None, v_span: Optional[
 
 
 GOPT_MAX_ITER = int(P.get("tool.global_opt.max_iterations"))
+CONFIRM_REPLANS = int(P.get("tool.global_opt.confirm_replans"))     # pass R3c: exact re-plannings at rho x R
+CONFIRM_TOL = 0.005                                                 # pass R3c: level within this of 1 (margin.TOL)
+if CONFIRM_REPLANS < 0:
+    raise ValueError(f"{P.path}: tool.global_opt.confirm_replans must be >= 0")
 GOPT_ALTERNATIVES = int(P.get("tool.global_opt.alternatives"))
 FT_ENTRIES_MAX = int(P.get("compute.flight_table_entries_max"))      # step 5.2 (P5)
 FT_BYTES = float(P.get("compute.flight_table_bytes_per_entry"))
@@ -2203,9 +2207,23 @@ def overlaps(d_omega: np.ndarray, masks: Dict[str, np.ndarray], min_sr: float = 
     return out
 
 
-def _assemble(mission: dict, sectors: List[dict], results: List[dict], cancelled: bool, masks: Dict[str, np.ndarray],
-              eps_min: float, eps_max: float, elec: float, cap, p_avg_max: float, sky: Optional[dict], framed: bool,
-              frame_alerts: List[str]) -> dict:
+def _assemble(mission: dict, sectors: List[dict], results: List[dict], cancelled: bool, *args) -> dict:
+    """_assemble_once, then, when the final allocation rule moves search shares to a neighbouring face (pass R3c, plan
+    kept: allocation.moved_results), once more on the moved face totals, so that the tracking, compute, scheduler and
+    heat budgets see the split the rule serves; the moves under power_allocation["moves"]."""
+    out = _assemble_once(mission, sectors, results, cancelled, *args)
+    from . import allocation
+    moved, moves = allocation.moved_results(out)
+    if not moves:
+        return out
+    out = _assemble_once(mission, sectors, moved, cancelled, *args)
+    out["power_allocation"]["moves"] = moves
+    return out
+
+
+def _assemble_once(mission: dict, sectors: List[dict], results: List[dict], cancelled: bool,
+                   masks: Dict[str, np.ndarray], eps_min: float, eps_max: float, elec: float, cap, p_avg_max: float,
+                   sky: Optional[dict], framed: bool, frame_alerts: List[str]) -> dict:
     """Mission totals, warnings and every budget (Ku, compute, power allocation, re-pointing, scheduler) of the search
     results (step 5.2: called again after each pass of the global optimiser)."""
     g = mission.get("global", {})
@@ -2400,6 +2418,97 @@ def _mission_choice(out: dict) -> Dict[str, Tuple[float, float]]:
     return changes
 
 
+def _confirm(mission: dict, sectors: List[dict], results: List[dict], out: dict, keep: Dict[str, dict], args: tuple,
+             parallel: bool, cancel_cb, eps_min: float, eps_max: float, p_avg_max: float, sky: Optional[dict]):
+    """Pass R3c (user, 10 November 2026): confirmation of the rule by the exact computation. The rule assumes a cost
+    proportional to the level m (range m^(1/4), then the revisit); a volume it does not serve in full is re-planned at
+    rho x R and its revisit tenable (allocation.search_effect), the mission assembled again, and the rule's level on
+    that plan read back: below 1, the plan is still too dear; for a volume already re-planned, a probe lets it rise
+    above 1 (h_max: up to the plan asked) to find whether it was cut too much. rho and the revisit are corrected from
+    the level (cost ~ R^n, n = 4 then the secant of the volume's last two plans; ~ 1 / RR once the range is at
+    rho_min; aimed CONFIRM_TOL / 2 low), at most CONFIRM_REPLANS re-plannings, until the plan fits
+    under the load ceiling with at most CONFIRM_TOL of room (probe level in [1, 1 + CONFIRM_TOL]); a
+    volume that can hold its request again gets its first plan back. The result of a re-planned volume keeps what was
+    asked ("_range_asked_km", "_rr_asked_s") and what it was planned for ("_rho", "_rr_tenable_s")."""
+    from . import allocation
+    secs = {sec["id"]: sec for sec in sectors}
+    first = {r["id"]: r for r in results}
+    state: Dict[str, Tuple[float, float]] = {}
+    seen: Dict[str, Tuple[float, float]] = {}        # per volume, the last (rho planned, level read) at the revisit asked
+    history, converged, cancelled = [], True, False
+    for it in range(CONFIRM_REPLANS + 1):
+        demands, b, _its = allocation.exact_demands(mission, out)
+        for d in demands:
+            if d.kind == "search" and d.label == f"search {d.sector}" and d.sector in state:
+                rho_a, rr_a = state[d.sector]
+                d.h_max = rr_a / (rho_a ** 4 * float(secs[d.sector]["rr_target_s"]))   # the plan asked / this one
+        rule = allocation.solve(demands, b) if state else out["power_allocation"]["rule"]
+        want = {}
+        for rec in rule.get("demands", []):
+            sid = rec.get("sector")
+            if rec.get("kind") != "search" or rec.get("label") != f"search {sid}" or sid not in secs:
+                continue
+            m = float(rec["level"])
+            # held: a volume never cut is served in full; a re-planned one fits under the ceiling with at most
+            # CONFIRM_TOL of room left (the probe); the target is aimed CONFIRM_TOL / 2 low, so that the plans
+            # converge from below the ceiling
+            if (sid not in state and m >= 1.0 - 1e-6) or (sid in state and 1.0 - 1e-6 <= m <= 1.0 + CONFIRM_TOL):
+                continue
+            rr0 = float(secs[sid]["rr_target_s"])
+            rho_a, rr_a = state.get(sid, (1.0, rr0))
+            n = 4.0                       # cost ~ R^n: n = 4 at first, then the secant of the last two plans (the
+            prev = seen.get(sid)          # fixed costs per position and the false alarms make it lower)
+            if prev is not None and rr_a == rr0 and abs(rho_a - prev[0]) > 1e-9 and m > 0 and prev[1] > 0:
+                n = min(8.0, max(1.0, math.log(prev[1] / m) / math.log(rho_a / prev[0])))
+            if rr_a == rr0:
+                seen[sid] = (rho_a, m)
+            target = rho_a * (m * (1.0 - CONFIRM_TOL / 2)) ** (1.0 / n) if m > 0 else 0.0
+            if rr_a == rr0 and target >= allocation.RHO_MIN:
+                rho, rr = min(1.0, target), rr0
+            else:                         # range at its floor: the revisit gives way (cost ~ 1 / RR)
+                rho, rr = allocation.search_effect(min(1.0, m * rho_a ** 4 * rr0 / rr_a * (1.0 - CONFIRM_TOL / 2)), rr0)
+            if abs(rho - rho_a) <= 1e-6 and abs(rr - rr_a) <= 1e-6 * rr0:
+                continue
+            want[sid] = (rho, rr)
+        if not want:
+            break
+        if it == CONFIRM_REPLANS:
+            converged = False
+            break
+        todo = []
+        for sid, (rho, rr) in want.items():
+            if rho >= 1.0 - 1e-9 and rr <= float(secs[sid]["rr_target_s"]) * (1.0 + 1e-9):
+                state.pop(sid, None)                       # the request holds again: its first plan
+                continue
+            state[sid] = (rho, rr)
+            todo.append(dict(secs[sid], **keep.get(sid, {}), range_km=float(secs[sid]["range_km"]) * rho,
+                             rr_target_s=rr))
+        history.append({"pass": it + 1, "re-planned": {sid: {"rho": v[0], "rr_tenable_s": v[1]}
+                                                       for sid, v in want.items()}})
+        new = {}
+        if todo:
+            if parallel and len(todo) > 1:
+                again, cancelled = _run_parallel(todo, eps_min, eps_max, p_avg_max, None, cancel_cb, sky=sky)
+            else:
+                again, cancelled = _run_sequential(todo, eps_min, eps_max, p_avg_max, None, cancel_cb, sky)
+            for r in again:
+                rho, rr = state[r["id"]]
+                new[r["id"]] = dict(r, _rho=rho, _rr_tenable_s=rr, _range_asked_km=float(secs[r["id"]]["range_km"]),
+                                    _rr_asked_s=float(secs[r["id"]]["rr_target_s"]))
+        results = [new.get(r["id"], first[r["id"]] if r["id"] in want and r["id"] not in state else r)
+                   for r in results]
+        out = _assemble(mission, sectors, results, cancelled, *args)
+        if cancelled:
+            break
+    out["confirmation"] = {"replans": len(history), "max_replans": CONFIRM_REPLANS, "converged": converged,
+                           "history": history,
+                           "volumes": {sid: {"rho": v[0], "rr_tenable_s": v[1]} for sid, v in state.items()}}
+    if not converged:
+        out["warnings"].append(f"allocation confirmation not converged after {CONFIRM_REPLANS} exact re-plannings "
+                               f"(tool.global_opt.confirm_replans): the last plans are kept")
+    return results, out, cancelled
+
+
 def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] = None, keep_plans: bool = False) -> dict:
     """progress_cb(done, total, sector_id) is called after each sector (optional, e.g. for a UI
     progress bar). cancel_cb() is polled between sectors (every 0.2 s in parallel mode); if it returns True,
@@ -2481,6 +2590,10 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
         out = _assemble(mission, sectors, results, cancelled, *args)
     out["global_opt"] = {"passes": 1 + len(history), "max_passes": GOPT_MAX_ITER, "history": history,
                          "converged": len(history) < GOPT_MAX_ITER - 1}
+    if not cancelled:                        # final allocation rule, pass R3c: the degraded volumes re-planned
+        keep = {sid: {x: v for x, v in k.items() if x != "_force_plan"} for sid, k in applied.items()}
+        results, out, cancelled = _confirm(mission, sectors, results, out, keep, args, parallel, cancel_cb,
+                                           eps_min, eps_max, p_avg_max, sky)
     # step 5.2 (P4, P7): the margin the mission leaves is reused to shorten the revisits (realloc_mode PRIO_SEARCH),
     # up to the load ceiling; a face above the ceiling eats its safety reserve (alert)
     from . import margin

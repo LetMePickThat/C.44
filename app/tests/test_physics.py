@@ -2771,6 +2771,23 @@ def test_rule_time_budget_binds_and_never_shed_tiers_flag_the_mission():
 
 
 
+def test_rule_exact_overlap_share_moves_to_the_neighbour():
+    """Pass R3b: the part of a volume that the neighbouring face also reaches (optimizer.face_overlap) is a share
+    either face may serve; F1 capped at 0.5 MW (0.4 MW under the ceiling): the overlap share goes to F2, the rest on
+    F1 sets the level (0.4 / 0.5 = 0.8, range 0.8^(1/4)); the pairs of a face never exceed its load."""
+    it = {"w": [1e6, 0, 0, 0], "ts": [0.1, 0, 0, 0], "tk": [0, 0, 0, 0],
+          "pairs": [(0, 1, 0.5e6, 0.05, 0.6e6, 0.06), (0, 3, 0.8e6, 0.08, 0.9e6, 0.09)]}
+    rows = alloc_._search_rows(it)
+    assert np.nansum(np.stack(rows)[:, 0], axis=0) == pytest.approx([1e6, 0.1, 0])   # F1's load, pairs scaled 1/1.3
+    it["pairs"] = it["pairs"][:1]
+    d = [alloc_.Demand("V", (4, 1), "search", np.stack(alloc_._search_rows(it)), rr_s=10)]
+    r = alloc_.solve(d, alloc_.Budgets(ship_w=8e6, face_w=[0.5e6, 8e6, 8e6, 8e6], time_max=1.0, ceiling=0.8))
+    v = r["demands"][0]
+    assert r["status"] == "DEGRADED" and v["level"] == pytest.approx(0.8, rel=1e-6)
+    assert v["rho"] == pytest.approx(0.8 ** 0.25, rel=1e-6) and v["moved_share"] > 0
+    assert r["faces"]["1"]["energy"] == pytest.approx(0.8 * 0.6e6, rel=1e-6)
+
+
 def test_live_allocation_from_the_fast_estimate():
     """R2: the rule on the fast estimate. A volume alone: full service, no resource binding. Every face capped by the
     operator below what it needs: its range held at rho < 1, a face's energy binding; the range gauge (c) gives rho
@@ -3236,7 +3253,7 @@ def test_verdict_on_the_frozen_missions(runs):
         json.dumps(v, allow_nan=False)
         states = {r["state"] for r in v["constraints"]}
         assert states <= set(val_.STATES), n
-        assert v["state"] == ("NOK" if "NOK" in states else "ALERT" if "ALERT" in states else "OK"), n
+        assert v["state"] == next((x for x in ("NOK", "DEGRADED", "ALERT") if x in states), "OK"), n   # R3d
         if "verdict" in res:                 # frozen from the refreeze of step 5.3 on
             # the frozen outputs keep their keys sorted (the re-pointing bands Ku before S): the order of the rows,
             # and so the numbers of the advice, is presentation only

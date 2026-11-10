@@ -400,14 +400,16 @@ def _cap_w(g: dict) -> List[float]:
 
 def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.SphereGrid, eps_min: float,
                        eps_max: float, sky: Optional[dict] = None, g: Optional[dict] = None,
-                       f_ghz: float = geo.VIZ_FREQ_GHZ):
+                       f_ghz: float = geo.VIZ_FREQ_GHZ, calib: Optional[dict] = None):
     """The final allocation rule's demands and budgets from the fast estimate (pass R2, user 10 November 2026): the
     always-on of each face (tier 0); each search volume (P1 if self-protection, else P4_n) split in its raster cells,
     each costed on every face whose scan-limit cone contains it (its own scan angle, the ground rule, B1), energy
     drawn from the ship bus (through CHAIN_EFF) and S time (lower bound, energy x pae_sat / peak power: C1, not
     recalibrated, M1); the track brackets (P3 by class) on their owner faces (energy, Ku time); the spare shortens
     the search revisits with realloc_mode PRIO_SEARCH, down to rr_min_s (D1, R2.2). The coverage hole is left out
-    (the gauge shows it). -> (demands, budgets)."""
+    (the gauge shows it). calib (pass R3d, core/calibration.lookup): {sector id: {"e": [4], "t": [4]}}, the ratios
+    exact / estimate per face of the last exact run, applied to the volume's shares on each face (M1).
+    -> (demands, budgets)."""
     from . import allocation as al
     from . import margin
     g = g or {}
@@ -451,6 +453,10 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
                 rows[ok, k, 0] = e / rm.CHAIN_EFF
                 rows[ok, k, 1] = e * rm.BAND_S.pae_sat / table.ppk
                 rows[ok, k, 2] = 0.0
+            c = (calib or {}).get(sid)
+            if c is not None:                          # pass R3d (M1): recalibrated by the exact computation
+                rows[:, :, 0] *= np.asarray(c["e"], float)[None, :]
+                rows[:, :, 1] *= np.asarray(c["t"], float)[None, :]
             tier = (1, 0) if sec.get("self_protection") else (4, int(sec.get("search_priority", 1) or 1))
             h = rr / max(float(sec.get("rr_min_s") or margin.RR_MIN_SEARCH_S), 1e-9) if mode == "PRIO_SEARCH" else 1.0
             demands.append(al.Demand(f"search {sid}", tier, "search", rows, rr_s=rr, h_max=max(1.0, h), sector=sid))
@@ -490,22 +496,24 @@ def _key(obj) -> str:
 
 
 def live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.SphereGrid, eps_min: float, eps_max: float,
-                    sky: Optional[dict] = None, g: Optional[dict] = None) -> dict:
+                    sky: Optional[dict] = None, g: Optional[dict] = None, calib: Optional[dict] = None) -> dict:
     """The final allocation rule on the fast estimate at one instant (the live load and the range gauge share it: one
     computation per set of volumes, instant and mission settings). The rule's result (allocation.solve) plus
     "by_sector" {id: its search record}, "ref_w" (the face reference, power.face_elec_mw: 100 % of the energy bars)
-    and "time_lower_bound" (True: the time is the fast estimate's lower bound, not recalibrated by an exact run)."""
+    and "time_lower_bound" (True: some volume's time is the fast estimate's lower bound, not recalibrated by an exact
+    run), "not_recalibrated" (those volumes; pass R3d, calib as allocation_demands)."""
     from . import allocation as al
     gk = {k: (g or {}).get(k) for k in ("face_elec_mw", "realloc_mode", "load_ceiling")}
-    key = _key([sectors_ship, eps_min, eps_max, sky, gk, id(grid)])
+    key = _key([sectors_ship, eps_min, eps_max, sky, gk, id(grid), calib])
     hit = _LIVE_CACHE.get(key)
     if hit is not None:
         return hit
-    demands, budgets = allocation_demands(table, sectors_ship, grid, eps_min, eps_max, sky, gk)
+    demands, budgets = allocation_demands(table, sectors_ship, grid, eps_min, eps_max, sky, gk, calib=calib)
     out = al.solve(demands, budgets)
     out["by_sector"] = {r["sector"]: r for r in out["demands"] if r["kind"] == "search" and r["sector"] is not None}
     out["ref_w"] = rm.FACE_ELEC_POWER_MW * 1e6
-    out["time_lower_bound"] = True
+    out["not_recalibrated"] = sorted(s for s in out["by_sector"] if s not in (calib or {}))
+    out["time_lower_bound"] = bool(out["not_recalibrated"])
     if len(_LIVE_CACHE) > 8:
         _LIVE_CACHE.clear()
     _LIVE_CACHE[key] = out

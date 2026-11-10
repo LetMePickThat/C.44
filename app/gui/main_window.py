@@ -250,6 +250,12 @@ class MainWindow(QMainWindow):
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if answer != QMessageBox.Yes:
                 return
+        else:                                    # pass R3d (M1): the fast estimate recalibrated by this exact run
+            try:
+                from core import calibration
+                calibration.record(mission, result)
+            except Exception:  # noqa: BLE001 -- the recalibration is a convenience: never blocks the result
+                pass
         self._open_results(mission, result)
 
     def _on_worker_failed(self, message: str) -> None:

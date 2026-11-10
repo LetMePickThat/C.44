@@ -4413,7 +4413,11 @@ class SimView(QWidget):
             secs = [{**sec, "id": raw.get("id") or f"_idx{i}"}
                     for i, (raw, sec) in enumerate(zip(mis.get("sectors", []), res.get("sectors", []))) if sec is not None]
             try:
-                alloc = ce.live_allocation(table, secs, self.grid, e0, e1, sky_ship, gl) if table is not None else None
+                from core import calibration          # pass R3d (M1): the last exact run of each volume
+                calib = {(raw.get("id") or f"_idx{i}"): c for i, raw in enumerate(mis.get("sectors", []))
+                         if (c := calibration.ratios(raw)) is not None}
+                alloc = (ce.live_allocation(table, secs, self.grid, e0, e1, sky_ship, gl, calib=calib)
+                         if table is not None else None)
             except Exception:  # noqa: BLE001 -- the rule refuses a mission mid-edit: no gauge
                 alloc = None
         for i, (raw, sec) in enumerate(zip(mis.get("sectors", []), res.get("sectors", []))):

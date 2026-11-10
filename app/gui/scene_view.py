@@ -759,9 +759,11 @@ class SceneView(QWidget):
         h = QHBoxLayout(bar)
         h.setContentsMargins(4, 0, 4, 2)
         lb = QLabel("Live load:")
-        lb.setToolTip("The final allocation rule at the instant shown (fast estimate). Energy: 100 % = the face "
-                      "reference (ship pool / 4); beyond, power taken from the others' share (darker red). Time: "
-                      "lower bound (energy / peak power), not recalibrated by an exact run")
+        lb.setToolTip("The final allocation rule at the instant shown (fast estimate, recalibrated by the last exact "
+                      "run of each volume when there is one). Energy: 100 % = the face reference (ship pool / 4); "
+                      "beyond, power taken from the others' share (darker red). Time: lower bound (energy / peak "
+                      "power) for a volume not recalibrated")
+        self._load_lbl = lb
         h.addWidget(lb)
         self._load_cols = {}
         for k in range(4):
@@ -772,8 +774,13 @@ class SceneView(QWidget):
         self._load_status.setMinimumWidth(110)
         h.addWidget(self._load_status)
         self._mission_global: dict = {}
+        self._calib: dict = {}
         self._load_ceiling = 1.0
         return bar
+
+    def set_calibration(self, calib: dict) -> None:
+        """Pass R3d (M1): {volume id as drawn: its ratios exact / estimate} (core/calibration), for the live load."""
+        self._calib = dict(calib or {})
 
     def set_mission_global(self, g: dict) -> None:
         """The mission's settings the allocation rule reads (face_elec_mw, realloc_mode, load_ceiling)."""
@@ -789,7 +796,7 @@ class SceneView(QWidget):
             return None
         try:
             return ce.live_allocation(table, [{**d.sec, "id": d.sid} for d in draws], self.grid, *self._eps, sky,
-                                      self._mission_global)
+                                      self._mission_global, calib=self._calib)
         except Exception:  # noqa: BLE001 -- a mission mid-edit the rule refuses: no live load
             return None
 
@@ -803,6 +810,8 @@ class SceneView(QWidget):
                 col.set_bars(None, "")
             self._load_status.setText("")
             return
+        if getattr(self, "_load_lbl", None) is not None:          # pass R3d (M1): shown before any exact run
+            self._load_lbl.setText("Live load (not recalibrated):" if a.get("not_recalibrated") else "Live load:")
         ref = float(a["ref_w"])
         ceil = float(a.get("ceiling", 1.0))
         use = {k: a["faces"][str(k)]["energy"] / ref for k in range(4)}
@@ -834,7 +843,9 @@ class SceneView(QWidget):
                 tip.append(f"  serving shares of a neighbour: {f['moved']['energy'] / 1e6:.2f} MW, "
                            f"S {100 * f['moved']['S time']:.1f} %, Ku {100 * f['moved']['Ku time']:.1f} %")
             tip.append(f"  S time >= {100 * f['S time']:.1f} %, Ku time {100 * f['Ku time']:.1f} % "
-                       f"(ceiling {100 * ceil:.0f} %; time: lower bound, not recalibrated)")
+                       f"(ceiling {100 * ceil:.0f} %" + (f"; not recalibrated: {', '.join(a['not_recalibrated'])}, "
+                                                          f"their time a lower bound)" if a.get("not_recalibrated")
+                                                          else "; recalibrated by the exact runs)"))
             for r in vols.get(k, []):
                 if r["kind"] == "search":
                     tip.append(f"  {r['label']}: range {100 * r['rho']:.0f} %, revisit {r['rr_tenable_s']:.3g} s, "

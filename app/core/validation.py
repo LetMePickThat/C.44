@@ -70,7 +70,13 @@ from .params import P
 VERIFY_BISECTIONS = int(P.get("tool.validation.verify_bisections"))
 VERIFY_EXTENSIONS = 2          # the estimate doubled at most twice when it does not hold yet (method, P2)
 TOL = 1e-9
-STATES = ("OK", "ALERT", "NOK")
+STATES = ("OK", "ALERT", "DEGRADED", "NOK")     # DEGRADED: pass R3d, a search volume held at a reduced range
+TIGHT_TOL = 0.005              # pass R3d (M2): a resource within this of the load ceiling is "at the limit"
+
+
+def overall(counts: Dict[str, int]) -> str:
+    """The state of a set of rows: NOK > DEGRADED > ALERT > OK."""
+    return next((s for s in ("NOK", "DEGRADED", "ALERT") if counts.get(s)), "OK")
 _FACE_RESOURCES = ("energy", "S time", "Ku time", "heat", "compute", "memory", "memory bandwidth", "S beams",
                    "Ku beams")
 
@@ -282,8 +288,12 @@ _RES_STEP = {"energy": "5.2", "S time": "4.3", "Ku time": "4.3", "heat": "4.2", 
              "memory bandwidth": "4.4", "S beams": "4.4", "Ku beams": "4.4"}
 
 
-def _ship(t: _Table, out: dict) -> Optional[dict]:
+def _ship(t: _Table, out: dict, secs: Optional[Dict[str, dict]] = None) -> Optional[dict]:
+    """The ship's rows; a search volume the final rule does not serve in full (pass R3d, decision 6 of R3, user 10
+    November 2026): DEGRADED while its range stays at rho_min or above and its revisit holds, NOK when its revisit
+    gives way or for a tier never shed (P0 to P2)."""
     pa = out.get("power_allocation") or {}
+    secs = secs or {}
     best = None
     if pa:
         v = _ratio(pa.get("need_MW"), pa.get("ship_MW"))
@@ -295,9 +305,18 @@ def _ship(t: _Table, out: dict) -> Optional[dict]:
             note = (f"revisit tenable {p_['rr_tenable_s']:.3g} s" if "rr_tenable_s" in p_ else
                     f"{p_['tracks_tenable']:.3g} tracks tenable" if "tracks_tenable" in p_ else "")
             fr = float(p_["served_fraction"])
+            state = None
+            if "rho" in p_ and pr not in ("P0", "P1", "P2"):
+                sid = p_["label"].split(" ", 1)[1] if p_["label"].startswith("search ") else None
+                rr_asked = float(secs.get(sid, {}).get("rr_target_s", 0.0) or 0.0)
+                held = (float(p_["rho"]) >= allocation.RHO_MIN * (1.0 - 1e-9)
+                        and (rr_asked <= 0 or float(p_["rr_tenable_s"]) <= rr_asked * (1.0 + 1e-9)))
+                state = "DEGRADED" if held else "NOK"
+                note = (f"range held {100 * float(p_['rho']):.1f} % of the range asked, " + note
+                        + (" (re-planned at the reduced range)" if p_.get("re_planned") else ""))
             t.add("ship", p_["label"], "ship power served", "spec", fr, 1.0, _ratio(1.0, fr) if fr > 0 else None,
                   pr, "5.2", (note + "; " if note else "") + ("never shed: mission not tenable"
-                                                               if pr in ("P0", "P1", "P2") else ""))
+                                                               if pr in ("P0", "P1", "P2") else ""), state=state)
     sp = (out.get("tracking") or {}).get("ship_power") or {}
     if "heat_load" in sp:
         t.add("ship", "ship", "heat rejection", "resource", sp.get("heat_MW"), sp.get("heat_rejection_MW"),
@@ -352,10 +371,10 @@ def verdict(mission: dict, out: dict) -> dict:
     _sectors(t, out, secs)
     _tracking(t, out, secs)
     faces = _faces(t, out)
-    ship = _ship(t, out)
+    ship = _ship(t, out, secs)
     _flight(t, out)
     counts = {s: sum(1 for r in t.rows if r["state"] == s) for s in STATES}
-    state = "NOK" if counts["NOK"] else "ALERT" if counts["ALERT"] else "OK"
+    state = overall(counts)
     if out.get("cancelled"):
         state = "INCOMPLETE"
     res = [r for r in t.rows if r["kind"] == "resource" and r["load"] is not None]
@@ -370,7 +389,18 @@ def verdict(mission: dict, out: dict) -> dict:
     return {"state": state, "load_ceiling": ceiling, "counts": counts, "limiting": limiting, "faces": faces,
             "ship": ship, "nok_priorities": failing_p, "saturation": _saturation(out, sat_state),
             "constraints": t.rows, "redundancy": list(out.get("redundancy") or []), "overlap": overlap,
+            "tight": _tight(t.rows, ceiling, out),
             "advice": advice(mission, out, t.rows, ceiling, overlap)}
+
+
+def _tight(rows: List[dict], ceiling: float, out: dict) -> List[str]:
+    """Pass R3d (M2, user 10 November 2026): what has no margin left, a resource within TIGHT_TOL under the load
+    ceiling (above it, the row is already an alert) or a search volume held below its range (rho < 1)."""
+    out_ = [f"{r['object']} {r['quantity']} {100 * r['load']:.1f} %" for r in rows
+            if r["kind"] == "resource" and r["load"] is not None and ceiling - TIGHT_TOL <= r["load"] <= ceiling + TOL]
+    out_ += [f"{p_['label']} range {100 * float(p_['rho']):.1f} %"
+             for p_ in (out.get("power_allocation") or {}).get("partial", []) if "rho" in p_ and p_["rho"] < 1.0]
+    return out_
 
 
 # ----------------------------------------------------------------------------- P3: overlaps between faces
@@ -516,7 +546,7 @@ def merge_montecarlo(mission: dict, v: dict, mc: dict) -> dict:
     out["constraints"] += montecarlo_rows(mission, mc, v["load_ceiling"])
     out["counts"] = {s: sum(1 for r in out["constraints"] if r["state"] == s) for s in STATES}
     if v["state"] != "INCOMPLETE":
-        out["state"] = "NOK" if out["counts"]["NOK"] else "ALERT" if out["counts"]["ALERT"] else "OK"
+        out["state"] = overall(out["counts"])
     out["nok_priorities"] = sorted({r["priority"] for r in out["constraints"] if r["state"] == "NOK" and r["priority"]})
     out["montecarlo"] = {"state": mc.get("state"), "pass": mc.get("pass"), "seed": mc.get("seed"),
                          "runtime_s": mc.get("runtime_s"), "load_ceiling": mc.get("load_ceiling")}
@@ -526,8 +556,8 @@ def merge_montecarlo(mission: dict, v: dict, mc: dict) -> dict:
 def summary_lines(v: dict) -> List[str]:
     """The verdict as text: state, limiting resource, then every constraint in alert or failed."""
     lim = v.get("limiting")
-    lines = [f"VERDICT: {v['state']} ({v['counts']['NOK']} NOK, {v['counts']['ALERT']} alert, {v['counts']['OK']} OK; "
-             f"load ceiling {100 * v['load_ceiling']:.0f} %)"]
+    lines = [f"VERDICT: {v['state']} ({v['counts']['NOK']} NOK, {v['counts'].get('DEGRADED', 0)} degraded, "
+             f"{v['counts']['ALERT']} alert, {v['counts']['OK']} OK; load ceiling {100 * v['load_ceiling']:.0f} %)"]
     if lim:
         lines.append(f"limiting resource: {lim['object']} {lim['resource']} at {100 * lim['load']:.1f} % ({lim['state']})")
     sat = v.get("saturation") or {}
@@ -539,11 +569,14 @@ def summary_lines(v: dict) -> List[str]:
         lines.append(f"Monte-Carlo (step 5.4, seed {m.get('seed')}, {m.get('runtime_s') or 0:.0f} s): {m.get('state')}; "
                      + (f"load ceiling proposed {100 * c['proposed']:.1f} % (transmit time, not applied)"
                         if c.get("proposed") is not None else f"no load ceiling proposed ({c.get('why', '-')})"))
-    for r in sorted((r for r in v["constraints"] if r["state"] != "OK"), key=lambda r: (r["state"] != "NOK", r["id"])):
+    rank = {"NOK": 0, "DEGRADED": 1, "ALERT": 2}
+    for r in sorted((r for r in v["constraints"] if r["state"] != "OK"), key=lambda r: (rank.get(r["state"], 3), r["id"])):
         load = "-" if r["load"] is None else f"{100 * r['load']:.1f} %"
         pr = f" [{r['priority']}]" if r["priority"] else ""
-        lines.append(f"  {r['state']:5s} {r['object']} {r['quantity']}{pr}: load {load}"
+        lines.append(f"  {r['state']:8s} {r['object']} {r['quantity']}{pr}: load {load}"
                      + (f" -- {r['note']}" if r["note"] else ""))
+    if v.get("tight"):
+        lines.append("at the limit (no margin left; information, pass R3d M2): " + "; ".join(v["tight"]))
     if v.get("redundancy"):
         lines.append("redundancies (the plan of A holds the need of B; information):")
         lines.extend("  " + redundancy_text(d) for d in v["redundancy"])

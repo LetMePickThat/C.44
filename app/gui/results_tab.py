@@ -359,8 +359,8 @@ class ResultsTab(QWidget):
         lim = vd.get("limiting")
         sat = vd.get("saturation") or {}
         c = vd["counts"]
-        txt = (f"{vd['state']}: {c['NOK']} NOK, {c['ALERT']} alert, {c['OK']} OK (load ceiling "
-               f"{100 * vd['load_ceiling']:.0f} %)")
+        txt = (f"{vd['state']}: {c['NOK']} NOK, {c.get('DEGRADED', 0)} degraded, {c['ALERT']} alert, {c['OK']} OK "
+               f"(load ceiling {100 * vd['load_ceiling']:.0f} %)")
         if lim:
             txt += f"\nLimiting resource: {lim['object']} {lim['resource']} at {100 * lim['load']:.1f} %"
         if vd.get("nok_priorities"):
@@ -372,11 +372,13 @@ class ResultsTab(QWidget):
             txt += (f"\nMonte-Carlo: {m.get('state')}"
                     + (f"; load ceiling proposed {100 * c['proposed']:.1f} % of the transmit time (not applied)"
                        if c.get("proposed") is not None else ""))
+        if vd.get("tight"):                                  # pass R3d (M2)
+            txt += "\nAt the limit: " + "; ".join(vd["tight"])
         self.lbl_verdict.setText(txt)
-        colour = {"OK": "#2fa35a", "ALERT": "#e08a1e", "NOK": "#d6453d"}
+        colour = {"OK": "#2fa35a", "ALERT": "#e08a1e", "DEGRADED": "#c8551e", "NOK": "#d6453d"}   # R3d: between
         self.lbl_verdict.setStyleSheet(f"color: {colour.get(vd['state'], '#d6453d')}; font-weight: bold;")
         rows = sorted((r for r in vd["constraints"] if r["state"] != "OK"),
-                      key=lambda r: (r["state"] != "NOK", r["object"], r["quantity"]))
+                      key=lambda r: ({"NOK": 0, "DEGRADED": 1}.get(r["state"], 2), r["object"], r["quantity"]))
         self.table_verdict.setRowCount(len(rows))
 
         def num(x) -> str:
