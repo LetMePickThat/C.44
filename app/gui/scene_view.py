@@ -41,6 +41,7 @@ from PyQt5.QtCore import QObject, QTimer, Qt, pyqtSignal
 from PyQt5.QtWidgets import QGroupBox, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 from pyvistaqt import QtInteractor
 
+from core import frames
 from core import geometry as geo
 from core.params import P
 from gui import controls as uc
@@ -50,7 +51,7 @@ from sim import scenario as scn
 
 KM_AXES_PREFIX = "km_axes_"
 KM_AXES_LINES = [f"{KM_AXES_PREFIX}{a}" for a in ("X", "Y", "Z")]   # the 3D axis meshes (labels are 2D actors)
-ICRF_AXES = (("X", "X ICRF (vernal equinox)"), ("Y", "Y ICRF"), ("Z", "Z ICRF (celestial pole)"))
+ICRF_AXES = (("X", "X (node of the equator)"), ("Y", "Y"), ("Z", "Z (pole)"))   # the view frame's axes (H3)
 ICRF_AXIS_NAMES = [f"icrf_axis_{a}" for a, _ in ICRF_AXES]
 SECTOR_LABEL_FONT_SIZE = 13   # shared by _build_sectors (draws) and _label_hit (estimates the on-screen box), x UI size
 FACE_OUTLINE_COLOR = "#9aa0aa"   # the zones' outlines, light on the black of space (view3d.MUTED_COLOR)
@@ -124,10 +125,11 @@ class DisplayBar(QWidget):
         self.cb_scale_axes.setEnabled(False)   # only meaningful in 1:1 scale
         self.cb_scale_axes.toggled.connect(self.scale_axes_changed)
         self.cb_true_scale.toggled.connect(self.cb_scale_axes.setEnabled)
-        self.tg_frame = uc.Toggle("ICRF", off_text="ship", two_way=True,
-                                  tip="Ship: the ship frame. ICRF: the camera in the inertial frame of the mission "
-                                      "navigation (attitude), with the ICRF axes; the ship appears with its attitude")
-        self.tg_frame.toggled.connect(lambda on: self.view_frame_changed.emit("ICRF" if on else "ship"))
+        self.tg_frame = uc.Toggle("equatorial", off_text="ship", two_way=True,
+                                  tip="Ship: the ship frame. Equatorial: the camera in the central body's equatorial "
+                                      "axes (its pole up, as the Scenario Editor's global view; no orbit: ICRF), "
+                                      "with these axes; the ship appears with the attitude of the navigation")
+        self.tg_frame.toggled.connect(lambda on: self.view_frame_changed.emit("equatorial" if on else "ship"))
         self.tg_sky = uc.Toggle("stars", checked=True, tip="The stars, in the ship frame of the mission navigation "
                                 "(only with a navigation)")
         self.tg_sky.toggled.connect(lambda _on: self.sky_changed.emit())
@@ -625,6 +627,7 @@ class SceneView(QWidget):
         self._label_pos: Dict[str, np.ndarray] = {}   # sid -> dragged label point (world coords), only if moved
         self._drag: Optional[dict] = None              # active drag: {"sid", "z"} while the mouse button is down
         self._r_is: Optional[np.ndarray] = None        # ship <- ICRF of the mission navigation (step 3.0)
+        self._r_view: Optional[np.ndarray] = None      # ship <- the view frame (H3: the central body's equator)
         self._install_label_drag()
         self._update_sky()
         # the linked scenario (pass S2)
@@ -816,14 +819,14 @@ class SceneView(QWidget):
             fit_camera_to_actors(self.plotter, [n for n in self._actor_names if n.endswith("_surf")]
                                  + (KM_AXES_LINES if self.display_bar.scale_axes_visible() else []))
         else:
-            set_default_camera(self.plotter, self._r_is if self._icrf_view() else None)
+            set_default_camera(self.plotter, self._r_view if self._icrf_view() else None)
         self.plotter.render()
 
     def _ui_scale_changed(self, scale: float) -> None:
         """The labels at the new UI size: the static ones, the ICRF axes, the km axes, the sectors'."""
         v3.apply_ui_scale(self.plotter, scale)
         add_static_labels(self.plotter)
-        set_icrf_axes(self.plotter, self._r_is if self._icrf_view() else None)
+        set_icrf_axes(self.plotter, self._r_view if self._icrf_view() else None)
         if self._eps is not None:
             ranges = [d.sec.get("range_km") for d in self._sectors if isinstance(d.sec.get("range_km"), (int, float))]
             set_km_axes(self.plotter, max(ranges, default=None) if self.display_bar.true_scale() else None)
@@ -842,12 +845,15 @@ class SceneView(QWidget):
         self.plotter.render()
 
     # ------------------------------------------------------------------ view frame (step 3.0)
-    def set_navigation(self, r_si: Optional[np.ndarray]) -> None:
-        """Attitude of the mission navigation (ship -> ICRF), None if invalid; the ICRF view follows it."""
+    def set_navigation(self, r_si: Optional[np.ndarray], body: Optional[str] = None) -> None:
+        """Attitude of the mission navigation (ship -> ICRF), None if invalid, and its central body; the equatorial
+        view follows them (H3: the central body's equatorial axes, ICRF without a body)."""
         r_is = None if r_si is None else np.asarray(r_si).T
+        r_view = None if r_is is None else r_is @ frames.equator_axes(body if body in frames.BODY_RADIUS_KM else None)
         same = (r_is is None and self._r_is is None) or (
-            r_is is not None and self._r_is is not None and np.array_equal(r_is, self._r_is))
-        self._r_is = r_is
+            r_is is not None and self._r_is is not None and np.array_equal(r_is, self._r_is)
+            and np.array_equal(r_view, self._r_view))
+        self._r_is, self._r_view = r_is, r_view
         self.display_bar.tg_frame.setEnabled(r_is is not None)
         if not same and self.display_bar.icrf():
             self._apply_view_frame()
@@ -859,12 +865,12 @@ class SceneView(QWidget):
 
     def _turn_axis(self) -> np.ndarray:
         """The vertical of the mouse rotation: the one of the default view (set_default_camera)."""
-        return self._r_is[:, 2] if self._icrf_view() else np.array([0.0, 0.0, 1.0])
+        return self._r_view[:, 2] if self._icrf_view() else np.array([0.0, 0.0, 1.0])
 
     def _apply_view_frame(self) -> None:
-        set_icrf_axes(self.plotter, self._r_is if self._icrf_view() else None)
+        set_icrf_axes(self.plotter, self._r_view if self._icrf_view() else None)
         if not self.display_bar.true_scale():
-            set_default_camera(self.plotter, self._r_is if self._icrf_view() else None)
+            set_default_camera(self.plotter, self._r_view if self._icrf_view() else None)
         self.apply_visibility()
 
     # ------------------------------------------------------------------ draggable labels
@@ -1108,7 +1114,7 @@ class SceneView(QWidget):
             fit_camera_to_actors(self.plotter, [n for n in self._actor_names if n.endswith("_surf")]
                                  + (KM_AXES_LINES if self.display_bar.scale_axes_visible() else []))
         else:
-            set_default_camera(self.plotter, self._r_is if self._icrf_view() else None)
+            set_default_camera(self.plotter, self._r_view if self._icrf_view() else None)
         if self._scn_link is not None:
             self._draw_scenario()                      # (unit sphere / km)
         self._update_background()

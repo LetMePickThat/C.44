@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import os
 from typing import Dict, List, Optional
 
@@ -38,6 +39,7 @@ from core import tracking as trk
 from core import trackmodel as tm
 from gui import controls as uc
 from gui import scenario_link as slink
+from sim import attitude as att
 from gui.scene_view import SceneView, SectorDraw
 from gui.widgets import DecimalSpinBox
 
@@ -296,8 +298,11 @@ class PrepTab(QWidget):
         self.ed_nav_epoch.setPlaceholderText("optional, ISO 8601 UTC, e.g. 2055-03-21T12:00:00Z")
         self.cb_att_ref = QComboBox()
         self.cb_att_ref.addItems(frames.ATTITUDE_REFS)
-        self.cb_att_ref.setToolTip("Frame of the yaw / pitch / roll below: icrf (inertial) or rtn (local orbital: "
-                                   "X radial, Y along track, Z orbit normal; needs the orbit)")
+        self.cb_att_ref.setToolTip("Reference of the yaw / pitch / roll below, as in the Scenario Editor: orbital "
+                                   "(0, 0, 0 = nose prograde, the orbit normal along the ship's +Y, its +X toward the "
+                                   "central body; needs the orbit) or equatorial (the central body's equatorial axes; "
+                                   "no orbit: ICRF). Yaw about Y (nose toward +X), then pitch about X (nose up), then "
+                                   "roll about the nose Z")
         self.sb_yaw, self.sb_pitch, self.sb_roll = (self._spin(-180, 180, 1, 0.0), self._spin(-90, 90, 1, 0.0),
                                                     self._spin(-180, 180, 1, 0.0))
         for sb in (self.sb_yaw, self.sb_pitch, self.sb_roll):
@@ -325,11 +330,11 @@ class PrepTab(QWidget):
         form.addRow("Label", self.ed_nav_label)
         form.addRow("Epoch", self.ed_nav_epoch)
         form.addRow("Attitude relative to", self.cb_att_ref)
-        form.addRow("Yaw / pitch / roll (deg, 3-2-1)", att)
+        form.addRow("Yaw / pitch / roll (deg)", att)
         form.addRow("Quaternion ship -> ICRF", self.ed_quat)
         form.addRow("Central body", self.cb_body)
-        form.addRow("r from the body (km, ICRF)", rr)
-        form.addRow("v (km/s, ICRF)", vv)
+        form.addRow("r from the body (km, its equatorial axes)", rr)   # (H1: as the Scenario Editor's orbits;
+        form.addRow("v (km/s, its equatorial axes)", vv)                # the message keeps ICRF)
         form.addRow(self.lbl_nav)
         for sb in (self.sb_yaw, self.sb_pitch, self.sb_roll):
             sb.valueChanged.connect(lambda _v: self._on_nav_changed("angles"))
@@ -543,10 +548,25 @@ class PrepTab(QWidget):
 
     @staticmethod
     def _ref_axes(ref: str, n: "frames.Nav") -> Optional[np.ndarray]:
-        """Matrix ICRF -> the attitude reference frame (None: RTN without a valid orbit)."""
-        if ref == "rtn":
-            return n.rtn() if n.has_orbit else None
-        return np.eye(3)
+        """Matrix reference -> ICRF of the attitude angles (H2, the Scenario Editor's convention, sim/attitude.py):
+        orbital (X = -R, Y = N, Z = T; None without an orbit), equatorial (the central body's axes; no body: ICRF)."""
+        if ref in ("orbital", "rtn"):
+            return att.orbital_reference(n.r, n.v) if n.has_orbit else None
+        return frames.equator_axes(n.body)
+
+    @staticmethod
+    def _euler_of(e: np.ndarray) -> tuple:
+        """(yaw, pitch, roll) deg of a ship -> reference matrix e = sim.attitude.euler(yaw, pitch, roll)."""
+        z = e[:, 2]
+        pitch = math.degrees(math.asin(max(-1.0, min(1.0, float(z[1])))))
+        yaw = math.degrees(math.atan2(float(z[0]), float(z[2])))
+        m = (att.rot_y(math.radians(yaw)) @ att.rot_x(-math.radians(pitch))).T @ e
+        roll = -math.degrees(math.atan2(float(m[1, 0]), float(m[0, 0])))
+        return yaw, pitch, roll
+
+    def _eq(self, body: Optional[str]) -> np.ndarray:
+        """The central body's equatorial axes in ICRF (H1: the orbit shown and typed in them)."""
+        return frames.equator_axes(body if body in frames.BODY_RADIUS_KM else None)
 
     def _load_nav_form(self) -> None:
         """Navigation widgets from the mission (the angles in the message's attitude_ref frame)."""
@@ -557,11 +577,12 @@ class PrepTab(QWidget):
             self.ed_nav_epoch.setText(str(msg.get("epoch") or ""))
             body = msg.get("central_body")
             self.cb_body.setCurrentText(body if body in frames.BODY_RADIUS_KM else "(no orbit)")
+            eq = self._eq(body)
             for sbs, key in ((self.sb_r, "r_km"), (self.sb_v, "v_kms")):
-                vec = msg.get(key) or [0.0, 0.0, 0.0]
+                vec = eq.T @ np.asarray(msg.get(key) or [0.0, 0.0, 0.0], float)   # ICRF -> its equatorial axes
                 for sb, c in zip(sbs, vec):
                     sb.setValue(float(c))
-            self.cb_att_ref.setCurrentText(msg.get("attitude_ref", "icrf"))
+            self.cb_att_ref.setCurrentText(self._att_ref(msg))
             self._show_attitude(msg)
         finally:
             self._updating_nav = False
@@ -573,10 +594,19 @@ class PrepTab(QWidget):
         if frames.validate_nav([msg]):
             return
         n = frames.Nav(msg)
-        a = self._ref_axes(msg.get("attitude_ref", "icrf"), n)
+        a = self._ref_axes(self._att_ref(msg), n)
         if a is not None:
-            for sb, val in zip((self.sb_yaw, self.sb_pitch, self.sb_roll), frames.euler_321_of(a @ n.r_si)):
+            for sb, val in zip((self.sb_yaw, self.sb_pitch, self.sb_roll), self._euler_of(a.T @ n.r_si)):
                 sb.setValue(val)
+
+    @staticmethod
+    def _att_ref(msg: dict) -> str:
+        """The message's attitude reference in the current convention (the former icrf / rtn read as equatorial /
+        orbital; orbital without an orbit: equatorial)."""
+        ref = {"icrf": "equatorial", "rtn": "orbital"}.get(msg.get("attitude_ref"), msg.get("attitude_ref"))
+        if ref not in frames.ATTITUDE_REFS:
+            ref = "orbital" if msg.get("central_body") else "equatorial"
+        return "equatorial" if ref == "orbital" and not msg.get("central_body") else ref
 
     def _on_nav_changed(self, source: str) -> None:
         if self._updating_nav:
@@ -591,9 +621,10 @@ class PrepTab(QWidget):
                 msg.pop(key, None)
         body = self.cb_body.currentText()
         if body in frames.BODY_RADIUS_KM:
+            eq = self._eq(body)                          # (H1: typed in its equatorial axes, kept in ICRF)
             msg["central_body"] = body
-            msg["r_km"] = [sb.value() for sb in self.sb_r]
-            msg["v_kms"] = [sb.value() for sb in self.sb_v]
+            msg["r_km"] = [float(x) for x in eq @ np.array([sb.value() for sb in self.sb_r])]
+            msg["v_kms"] = [float(x) for x in eq @ np.array([sb.value() for sb in self.sb_v])]
         else:
             for key in ("central_body", "r_km", "v_kms"):
                 msg.pop(key, None)
@@ -609,8 +640,8 @@ class PrepTab(QWidget):
             n = frames.Nav(msg) if not frames.validate_nav([msg]) else None
             a = self._ref_axes(msg["attitude_ref"], n) if n is not None else None
             if a is not None:
-                r_ref = frames.euler_321(self.sb_yaw.value(), self.sb_pitch.value(), self.sb_roll.value())
-                msg["q_ship_to_icrf"] = frames.matrix_to_quat(a.T @ r_ref)
+                e = att.euler(self.sb_yaw.value(), self.sb_pitch.value(), self.sb_roll.value())
+                msg["q_ship_to_icrf"] = frames.matrix_to_quat(a @ e)
         self.mission["global"]["nav"] = [msg]
         if source in ("quat", "ref", "orbit"):   # the angles follow the quaternion (kept), in the chosen frame
             self._updating_nav = True
@@ -638,7 +669,7 @@ class PrepTab(QWidget):
                     f"limb {n.limb_depression_deg(0.0):.2f} deg below the local horizontal.")
         self.lbl_nav.setText(text)
         self.lbl_nav.setStyleSheet("color: gray; font-size: 11px;")
-        self.view.set_navigation(n.r_si)
+        self.view.set_navigation(n.r_si, n.body)
 
     def _ship_sector(self, sec: dict) -> Optional[dict]:
         """The sector in the ship frame for the 3D view, the gauges and the alerts (None if its frame is invalid)."""

@@ -14,13 +14,18 @@ Navigation, global key "nav": a LIST of messages (one in mission preparation; th
    "q_ship_to_icrf": [w, x, y, z]   Hamilton, scalar first: v_icrf = R(q) v_ship,
    "central_body": a type of [sky.surface], "r_km": [x, y, z], "v_kms": [x, y, z]
                     (optional orbit: ship position and velocity from the body centre, ICRF axes),
-   "attitude_ref": "icrf" or "rtn" (optional, display only: the frame of the yaw / pitch / roll shown by the GUI)}
+   "attitude_ref": "orbital" or "equatorial" (optional, display only: the reference of the yaw / pitch / roll shown
+                   by the GUI, the Scenario Editor's convention, sim/attitude.py; "icrf" and "rtn", the former ones,
+                   still read)}
   No "nav" = identity attitude, no orbit.
 
 Sector key "frame" (absent = "ship"); angles in every frame: phi about Z from +X toward +Y, eps from the XY plane
 toward +Z; box and cap shapes are described in the sector's frame:
   ship     the ship frame (volumes tied to the ship, e.g. self-protection)
   inertial ICRF axes (X vernal equinox, Z celestial pole): phi = right ascension, eps = declination
+  equatorial the central body's equatorial axes (Z its pole, X the ascending node of its equator on the ICRF equator,
+           sim/scenario.equator_axes; the Earth: ICRF), the Scenario Editor's inertial frame (user, 10 November 2026);
+           needs the orbit (its central body)
   rtn      X radial outward, Z = r x v (orbit normal), Y = Z x X (along track); needs the orbit
   limb     Z local zenith, X = v projected on the local horizontal, Y = Z x X; box only, eps COUNTED FROM THE LIMB of
            the central body at altitude limb_alt_km (sector key, default tool.frames.limb_alt_km): the limb is
@@ -49,11 +54,14 @@ import numpy as np
 
 from .params import P
 
-FRAMES = ("ship", "inertial", "rtn", "limb", "two_dir", "track")
+FRAMES = ("ship", "inertial", "equatorial", "rtn", "limb", "two_dir", "track")
 TRACK_KEYS = ("track_ra_deg", "track_dec_deg", "track_sigma_deg")       # step 3.3, F8
 SKY_FRAMES = ("ship", "inertial")
-ORBIT_FRAMES = ("rtn", "limb")
-ATTITUDE_REFS = ("icrf", "rtn")                  # frames of the yaw / pitch / roll shown by the GUI
+ORBIT_FRAMES = ("rtn", "limb", "equatorial")
+# the references of the yaw / pitch / roll shown by the GUI (user, 10 November 2026: the Scenario Editor's, see
+# sim/attitude.py: "orbital" nose prograde at 0, "equatorial" the central body's axes); the former ones still read
+ATTITUDE_REFS = ("orbital", "equatorial")
+ATTITUDE_REFS_READ = ATTITUDE_REFS + ("icrf", "rtn")
 TWO_DIR_KEYS = ("frame_p_ra_deg", "frame_p_dec_deg", "frame_s_ra_deg", "frame_s_dec_deg")
 SECTOR_FRAME_FIELDS = ("frame", "limb_alt_km") + TWO_DIR_KEYS + TRACK_KEYS   # the operator's frame inputs of a sector
 RESOLVED_FIELDS = ("frame_m", "frame_eps_offset_deg")              # added by resolve_sector()
@@ -160,7 +168,7 @@ def validate_nav(nav) -> List[str]:
     elif abs(math.sqrt(sum(c * c for c in q)) - 1.0) > Q_NORM_TOL:
         errs.append(f"{tag}: |q_ship_to_icrf| = {math.sqrt(sum(c * c for c in q)):.6f}, not a unit quaternion "
                     f"(tolerance {Q_NORM_TOL:g})")
-    if n.get("attitude_ref", "icrf") not in ATTITUDE_REFS:
+    if n.get("attitude_ref", "equatorial") not in ATTITUDE_REFS_READ:
         errs.append(f"{tag}: attitude_ref '{n['attitude_ref']}' unknown ({', '.join(ATTITUDE_REFS)})")
     if n.get("epoch") is not None:
         try:
@@ -170,8 +178,8 @@ def validate_nav(nav) -> List[str]:
     orbit = [k for k in ("central_body", "r_km", "v_kms") if n.get(k) is not None]
     if orbit and len(orbit) < 3:
         errs.append(f"{tag}: the orbit needs central_body, r_km and v_kms together")
-    elif not orbit and n.get("attitude_ref") == "rtn":
-        errs.append(f"{tag}: attitude_ref 'rtn' needs the orbit (central_body, r_km, v_kms)")
+    elif not orbit and n.get("attitude_ref") in ("rtn", "orbital"):
+        errs.append(f"{tag}: attitude_ref '{n['attitude_ref']}' needs the orbit (central_body, r_km, v_kms)")
     if orbit and len(orbit) == 3:
         if n["central_body"] not in BODY_RADIUS_KM:
             errs.append(f"{tag}: central_body '{n['central_body']}' is not a known body (sky.surface, sim.planets, "
@@ -186,6 +194,15 @@ def validate_nav(nav) -> List[str]:
             elif np.linalg.norm(v) == 0 or np.linalg.norm(np.cross(r, v)) <= 1e-9 * np.linalg.norm(r) * np.linalg.norm(v):
                 errs.append(f"{tag}: v_kms is zero or along r_km: no orbit plane")
     return errs
+
+
+def equator_axes(body: Optional[str]) -> np.ndarray:
+    """Columns: the central body's equatorial axes in ICRF (sim/scenario.equator_axes, the one definition of both
+    tools); no body: ICRF."""
+    if not body:
+        return np.eye(3)
+    from sim import scenario as scn                # (late: sim.scenario imports this module)
+    return scn.equator_axes(body)
 
 
 class Nav:
@@ -292,6 +309,8 @@ def sector_matrix(sec: dict, nav: Nav) -> Tuple[Optional[np.ndarray], float]:
         return None, 0.0
     if fr in ("inertial", "track"):
         a = np.eye(3)
+    elif fr == "equatorial":
+        a = equator_axes(nav.body).T            # ICRF -> the central body's equatorial axes
     elif fr == "rtn":
         a = nav.rtn()
     elif fr == "limb":
