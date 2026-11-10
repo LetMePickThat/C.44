@@ -49,3 +49,4 @@ tests must run from a script file, not stdin; the auto-mode classifier may be un
 **How to apply:** read at session start together with [[radar-roadmap]].
 
 Sync (user 2026-10-29, changing machines): the memory is mirrored in app/Documentation/Notes_de_travail/ (MEMORY.md as INDEX.md, no session ids, no tool / vendor mention); update that copy with every memory change and commit it with "c, p".
+Numba cache pitfall (10 Nov 2026): after a pull that changes sim/fast.py, sim/fast_preview.py or sim/propagate.py, delete the *.nbi / *.nbc files of app/**/__pycache__ (numba does not invalidate a cached function when a function it calls in another module changed): else sim.run crashes with an access violation in propagate._rk4_compiled (exit 139). First run after that: ~10 s of compilation.

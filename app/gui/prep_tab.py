@@ -21,7 +21,7 @@ from PyQt5.QtWidgets import (
     QApplication,
     QAbstractItemView, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView,
     QLabel, QLineEdit, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea,
-    QShortcut, QSpinBox,
+    QShortcut, QSlider, QSpinBox,
     QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
@@ -37,6 +37,7 @@ from core import repoint
 from core import tracking as trk
 from core import trackmodel as tm
 from gui import controls as uc
+from gui import scenario_link as slink
 from gui.scene_view import SceneView, SectorDraw
 from gui.widgets import DecimalSpinBox
 
@@ -164,6 +165,7 @@ class PrepTab(QWidget):
         v.addWidget(self.view.view_panel())         # the view's options, as the Scenario Editor's (pass V2)
         v.addWidget(self._build_global_group())
         v.addWidget(self._build_mission_settings_group())
+        v.addWidget(self._build_scenario_group())
         v.addWidget(self._build_nav_group())
         v.addWidget(self._build_sector_list_group())
         v.addWidget(self._build_sector_form_group())
@@ -339,7 +341,196 @@ class PrepTab(QWidget):
         self.ed_nav_label.editingFinished.connect(lambda: self._on_nav_changed("text"))
         self.ed_nav_epoch.editingFinished.connect(lambda: self._on_nav_changed("text"))
         self._load_nav_form()
+        self._show_link()
         return box
+
+    # ------------------------------------------------------------------ a scenario as a use case (pass S1)
+    def _build_scenario_group(self) -> QGroupBox:
+        """A scenario computed by the Scenario Editor (its run, gui/scenario_link.py) gives the navigation and the
+        sky of its ship at an instant t (user, 10 November 2026); the navigation is then read only (Unlink: kept,
+        editable again)."""
+        box = QGroupBox("Scenario (use case)")
+        self._edit_widgets.append(box)
+        self._link: Optional[slink.ScenarioLink] = None
+        self._link_problem = ""                        # a link of the mission file that could not be opened
+        form = QFormLayout(box)
+        self.lbl_scn = QLabel()
+        self.lbl_scn.setWordWrap(True)
+        self.btn_scn_load = QPushButton("Load scenario...")
+        self.btn_scn_load.setToolTip("A scenario of the Scenario Editor: its run gives the navigation and the sky of "
+                                     "the ship at the instant chosen (its run computed first if needed)")
+        self.btn_scn_load.clicked.connect(lambda _c=False: self.load_scenario())
+        self.btn_scn_unlink = QPushButton("Unlink")
+        self.btn_scn_unlink.setToolTip("Forget the scenario: the navigation and the sky of the instant shown are "
+                                       "kept, editable again")
+        self.btn_scn_unlink.clicked.connect(lambda _c=False: self.unlink_scenario())
+        buttons = QHBoxLayout()
+        buttons.addWidget(self.btn_scn_load)
+        buttons.addWidget(self.btn_scn_unlink)
+        buttons.addStretch(1)
+        self.sl_scn_t = QSlider(Qt.Horizontal)        # in tenths of a second
+        self.sl_scn_t.setRange(0, 0)
+        self.sb_scn_t = DecimalSpinBox()
+        self.sb_scn_t.setDecimals(1)
+        self.sb_scn_t.setRange(0.0, 0.0)
+        self.sb_scn_t.setSuffix(" s")
+        self.sl_scn_t.valueChanged.connect(lambda v: self.sb_scn_t.setValue(v / 10.0))
+        self.sb_scn_t.valueChanged.connect(self._on_scn_t)
+        t_row = QHBoxLayout()
+        t_row.addWidget(self.sl_scn_t, 1)
+        t_row.addWidget(self.sb_scn_t)
+        self.lbl_scn_utc = QLabel("")
+        self.lbl_scn_alerts = QLabel("")
+        self.lbl_scn_alerts.setWordWrap(True)
+        self.lbl_scn_alerts.setStyleSheet(f"color: {ALERT_COLOR}; font-size: 11px;")
+        self._scn_timer = QTimer(self)                # the navigation follows the instant (debounced)
+        self._scn_timer.setSingleShot(True)
+        self._scn_timer.setInterval(150)
+        self._scn_timer.timeout.connect(self._apply_scenario_t)
+        form.addRow(self.lbl_scn)
+        form.addRow(buttons)
+        form.addRow("t (from the epoch)", t_row)
+        form.addRow("UTC", self.lbl_scn_utc)
+        form.addRow(self.lbl_scn_alerts)
+        return box
+
+    def _nav_widgets(self) -> list:
+        return [self.ed_nav_label, self.ed_nav_epoch, self.cb_att_ref, self.sb_yaw, self.sb_pitch, self.sb_roll,
+                self.ed_quat, self.cb_body, *self.sb_r, *self.sb_v]
+
+    def _show_link(self) -> None:
+        """The scenario's state; the navigation read only while linked."""
+        if not hasattr(self, "ed_quat"):              # (the navigation group not built yet)
+            return
+        link = self._link
+        if link is not None:
+            text = (f"<b>{link.name}</b> ({os.path.basename(link.path)}), run of {link.duration:g} s: the navigation "
+                    "and the sky below are the ship's at t.")
+        elif self._link_problem:
+            text = f"Scenario not available: {self._link_problem}. The navigation below is the one saved."
+        else:
+            text = "None: the navigation below is typed by hand."
+        self.lbl_scn.setText(text)
+        for w in (self.sl_scn_t, self.sb_scn_t):
+            w.setEnabled(link is not None)
+        self.btn_scn_unlink.setEnabled(link is not None or bool(self._link_problem))
+        for w in self._nav_widgets():
+            w.setEnabled(link is None)
+        if link is None:
+            self.lbl_scn_utc.setText("")
+            self.lbl_scn_alerts.setText("")
+
+    def _set_scn_t(self, t: float) -> None:
+        """The instant's controls at t, over the run (no navigation update)."""
+        dur = self._link.duration if self._link is not None else 0.0
+        for w in (self.sl_scn_t, self.sb_scn_t):
+            w.blockSignals(True)
+        self.sl_scn_t.setRange(0, int(round(10 * dur)))
+        self.sb_scn_t.setRange(0.0, dur)
+        self.sb_scn_t.setValue(min(max(float(t), 0.0), dur))
+        self.sl_scn_t.setValue(int(round(10 * self.sb_scn_t.value())))
+        for w in (self.sl_scn_t, self.sb_scn_t):
+            w.blockSignals(False)
+        if self._link is not None:
+            self.lbl_scn_utc.setText(self._link.utc(self.sb_scn_t.value()))
+            self.lbl_scn_alerts.setText("; ".join(self._link.stale))
+
+    def _on_scn_t(self, t: float) -> None:
+        self.sl_scn_t.blockSignals(True)
+        self.sl_scn_t.setValue(int(round(10 * t)))
+        self.sl_scn_t.blockSignals(False)
+        self._scn_timer.start()
+
+    def _open_link(self, path: str, ask: bool) -> Optional[slink.ScenarioLink]:
+        """The scenario's run, computed first when missing (or recomputed when stale) if the user agrees (ask);
+        None when not available (said when ask)."""
+        try:
+            if not os.path.exists(slink.journal_path(path)):
+                if not ask:
+                    self._link_problem = f"no run computed for {os.path.basename(path)}"
+                    return None
+                if QMessageBox.question(self, "Scenario", f"No run of {os.path.basename(path)} computed yet. "
+                                        "Compute it now?", QMessageBox.Yes | QMessageBox.No,
+                                        QMessageBox.Yes) != QMessageBox.Yes:
+                    return None
+                if not slink.compute(self, path):
+                    return None
+            link = slink.load(path)
+            if link.stale and ask:
+                answer = QMessageBox.question(
+                    self, "Scenario", "The run may not match: " + "; ".join(link.stale) + ".\n\nRecompute it now? "
+                    "(No: use it as it is, with an alert)", QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
+                    QMessageBox.Yes)
+                if answer == QMessageBox.Cancel:
+                    return None
+                if answer == QMessageBox.Yes:
+                    if not slink.compute(self, path):
+                        return None
+                    link = slink.load(path)
+            return link
+        except slink.LinkError as exc:
+            if ask:
+                QMessageBox.critical(self, "Scenario", str(exc))
+            else:
+                self._link_problem = str(exc)
+            return None
+
+    def load_scenario(self, path: Optional[str] = None) -> None:
+        """A scenario as the mission's use case: its ship's navigation and sky at t = 0 (then the instant chosen)."""
+        if self.locked:
+            return
+        if path is None:
+            start = os.path.dirname(self._link.path) if self._link is not None else slink.SCENARIO_DIR
+            path, _ = QFileDialog.getOpenFileName(self, "Load a scenario", start, "Scenario (*.json)")
+            if not path:
+                return
+        link = self._open_link(path, ask=True)
+        if link is None:
+            return
+        self._link, self._link_problem = link, ""
+        self.mission[slink.LINK_KEY] = {"path": slink.relative(link.path, self.path), "t_s": 0.0}
+        self._show_link()
+        self._set_scn_t(0.0)
+        self._apply_scenario_t()
+
+    def _apply_scenario_t(self) -> None:
+        """The mission's navigation and sky: the scenario's ship at t (a change of the mission)."""
+        if self._link is None or self.locked:
+            return
+        t = self.sb_scn_t.value()
+        try:
+            nav, sky, alerts = self._link.nav_sky(t)
+        except Exception as exc:  # noqa: BLE001 -- a bad run: said, the navigation kept
+            self.lbl_scn_alerts.setText(f"navigation at t not available: {exc}")
+            return
+        g = self.mission["global"]
+        g["nav"], g["sky"] = [nav], sky
+        self.mission[slink.LINK_KEY]["t_s"] = float(t)
+        self._load_nav_form()
+        self.lbl_scn_utc.setText(self._link.utc(t))
+        self.lbl_scn_alerts.setText("; ".join(self._link.stale + alerts))
+        self._schedule_refresh()
+
+    def unlink_scenario(self) -> None:
+        """Forget the scenario: the navigation and the sky shown kept, editable again."""
+        if self.locked:
+            return
+        self.mission.pop(slink.LINK_KEY, None)
+        self._link, self._link_problem = None, ""
+        self._show_link()
+        self._schedule_refresh()
+
+    def _relink(self) -> None:
+        """At a mission's opening: its scenario reopened (its run as computed; the navigation kept as saved)."""
+        self._link, self._link_problem = None, ""
+        info = self.mission.get(slink.LINK_KEY)
+        if isinstance(info, dict) and info.get("path"):
+            link = self._open_link(slink.resolve(str(info["path"]), self.path), ask=False)
+            if link is not None:
+                self._link = link
+        self._show_link()
+        if self._link is not None:
+            self._set_scn_t(float(info.get("t_s", 0.0)))
 
     def _nav_msg(self) -> dict:
         nav = self.mission["global"].get("nav")
@@ -1427,6 +1618,7 @@ class PrepTab(QWidget):
         return [("New...", self.new, "SP_FileIcon", True), ("Open...", self.open, "SP_DialogOpenButton", True),
                 ("Save", self.save, "SP_DialogSaveButton", False),
                 ("Save as...", self.save_as, "SP_DialogSaveButton", False),
+                ("Load scenario...", lambda: self.load_scenario(), "SP_DirOpenIcon", True),
                 ("Import CSV...", self._on_import, "SP_DialogOpenButton", True),
                 ("Export CSV...", lambda: self._on_export("csv"), "SP_DialogSaveButton", False)]
 
@@ -1468,6 +1660,8 @@ class PrepTab(QWidget):
         if errs and QMessageBox.question(self, "Mission", f"The mission has {len(errs)} problem(s). Save anyway?",
                                          QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return False
+        if self._link is not None and isinstance(self.mission.get(slink.LINK_KEY), dict):
+            self.mission[slink.LINK_KEY]["path"] = slink.relative(self._link.path, path)   # (relative to the file)
         try:
             md.save_mission_json(path, self.mission)
         except Exception as exc:  # noqa: BLE001
@@ -1480,6 +1674,7 @@ class PrepTab(QWidget):
     def _load(self, mission: dict, path: Optional[str], saved: bool = True) -> None:
         self.set_mission(mission)
         self.path = path
+        self._relink()
         self._saved_sig = self._signature() if saved else None
         self._update_title()
 
