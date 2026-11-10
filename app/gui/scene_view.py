@@ -103,6 +103,8 @@ def _key_sky(sky: Optional[dict]) -> Optional[str]:
                       if isinstance(o, (np.ndarray, np.generic)) else str(o))
 
 
+PROFILE_POLL_MS = 700                    # option (c): poll of the cost profiles computed in the background
+
 class FaceLoadColumn(QWidget):
     """One face's live load: its name, then one bar per resource (energy, S time, Ku time), each with its own fill,
     its hatched parts (moved shares, power lent), its part beyond 100 % drawn over it in a darker red, the load
@@ -796,9 +798,21 @@ class SceneView(QWidget):
             return None
         try:
             return ce.live_allocation(table, [{**d.sec, "id": d.sid} for d in draws], self.grid, *self._eps, sky,
-                                      self._mission_global, calib=self._calib)
+                                      self._mission_global, calib=self._calib, profiles="background")
         except Exception:  # noqa: BLE001 -- a mission mid-edit the rule refuses: no live load
             return None
+
+    def _poll_profiles(self) -> None:
+        """Option (c): a volume's cost profile became ready in the background: the volumes and the live load again."""
+        from core import cost_profile
+        if cost_profile.generation() != self._profile_gen:
+            self._profile_poll_on = False
+            if self._eps is not None:
+                self.set_scene(self._eps[0], self._eps[1], self._sectors)
+        elif cost_profile.pending():
+            QTimer.singleShot(PROFILE_POLL_MS, self._poll_profiles)
+        else:
+            self._profile_poll_on = False
 
     def set_load_ceiling(self, ceiling: float) -> None:
         self.set_mission_global({**self._mission_global, "load_ceiling": ceiling})
@@ -811,7 +825,12 @@ class SceneView(QWidget):
             self._load_status.setText("")
             return
         if getattr(self, "_load_lbl", None) is not None:          # pass R3d (M1): shown before any exact run
-            self._load_lbl.setText("Live load (not recalibrated):" if a.get("not_recalibrated") else "Live load:")
+            self._load_lbl.setText("Live load (estimating...):" if a.get("estimating") else
+                                   "Live load (not recalibrated):" if a.get("not_recalibrated") else "Live load:")
+        if a.get("estimating") and not getattr(self, "_profile_poll_on", False):   # option (c): redrawn when ready
+            from core import cost_profile
+            self._profile_poll_on, self._profile_gen = True, cost_profile.generation()
+            QTimer.singleShot(PROFILE_POLL_MS, self._poll_profiles)
         ref = float(a["ref_w"])
         ceil = float(a.get("ceiling", 1.0))
         use = {k: a["faces"][str(k)]["energy"] / ref for k in range(4)}

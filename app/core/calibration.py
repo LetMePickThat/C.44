@@ -112,7 +112,8 @@ def measure(mission: dict, result: dict) -> Dict[str, dict]:
         if "_rho" in r:                          # re-planned at rho x R: the estimate of that same request
             ask.update(range_km=float(r["_range_asked_km"]) * float(r["_rho"]), rr_target_s=float(r["_rr_tenable_s"]))
         try:
-            demands, _b = ce.allocation_demands(table, [ask], grid, g["eps_min_deg"], g["eps_max_deg"], g.get("sky"))
+            demands, _b = ce.allocation_demands(table, [ask], grid, g["eps_min_deg"], g["eps_max_deg"], g.get("sky"),
+                                                profiles="wait")          # against what the live load shows (c)
         except (KeyError, TypeError, ValueError, ZeroDivisionError):
             continue
         d = next((d for d in demands if d.kind == "search" and d.sector == str(sec["id"])), None)

@@ -4345,6 +4345,17 @@ class SimView(QWidget):
                 self.plotter.remove_actor(self._vol["labels"].actor, render=False)
         self._vol = None
 
+    def _poll_profiles(self) -> None:
+        """Option (c): a volume's cost profile became ready in the background: the range gauge again."""
+        from core import cost_profile
+        if cost_profile.generation() != self._profile_gen:
+            self._profile_poll_on = False
+            self._draw_volumes(force=True)
+        elif cost_profile.pending():
+            QTimer.singleShot(700, self._poll_profiles)
+        else:
+            self._profile_poll_on = False
+
     def _draw_volumes(self, force: bool = False) -> None:
         """V5: the mission's volumes at t. Built once from the navigation at t (the sectors resolved in the ship
         frame); then each one only TURNED with the change of its frame (ship -> sector matrix at t against the one
@@ -4416,10 +4427,15 @@ class SimView(QWidget):
                 from core import calibration          # pass R3d (M1): the last exact run of each volume
                 calib = {(raw.get("id") or f"_idx{i}"): c for i, raw in enumerate(mis.get("sectors", []))
                          if (c := calibration.ratios(raw)) is not None}
-                alloc = (ce.live_allocation(table, secs, self.grid, e0, e1, sky_ship, gl, calib=calib)
+                alloc = (ce.live_allocation(table, secs, self.grid, e0, e1, sky_ship, gl, calib=calib,
+                                            profiles="background")
                          if table is not None else None)
             except Exception:  # noqa: BLE001 -- the rule refuses a mission mid-edit: no gauge
                 alloc = None
+            if alloc and alloc.get("estimating") and not getattr(self, "_profile_poll_on", False):
+                from core import cost_profile          # option (c): the gauge redrawn when the profiles are ready
+                self._profile_poll_on, self._profile_gen = True, cost_profile.generation()
+                QTimer.singleShot(700, self._poll_profiles)
         for i, (raw, sec) in enumerate(zip(mis.get("sectors", []), res.get("sectors", []))):
             if sec is None:
                 continue

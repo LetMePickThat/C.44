@@ -400,7 +400,8 @@ def _cap_w(g: dict) -> List[float]:
 
 def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.SphereGrid, eps_min: float,
                        eps_max: float, sky: Optional[dict] = None, g: Optional[dict] = None,
-                       f_ghz: float = geo.VIZ_FREQ_GHZ, calib: Optional[dict] = None):
+                       f_ghz: float = geo.VIZ_FREQ_GHZ, calib: Optional[dict] = None,
+                       profiles: Optional[str] = None, estimating: Optional[List[str]] = None):
     """The final allocation rule's demands and budgets from the fast estimate (pass R2, user 10 November 2026): the
     always-on of each face (tier 0); each search volume (P1 if self-protection, else P4_n) split in its raster cells,
     each costed on every face whose scan-limit cone contains it (its own scan angle, the ground rule, B1), energy
@@ -409,6 +410,9 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
     the search revisits with realloc_mode PRIO_SEARCH, down to rr_min_s (D1, R2.2). The coverage hole is left out
     (the gauge shows it). calib (pass R3d, core/calibration.lookup): {sector id: {"e": [4], "t": [4]}}, the ratios
     exact / estimate per face of the last exact run, applied to the volume's shares on each face (M1).
+    profiles (option (c), core/cost_profile): None = the table only; "background" = each volume priced by its own
+    profile (the optimiser's laws: cumulative criterion, its candidates and Pfa), the table meanwhile while it is
+    computed in the background (its id appended to estimating); "wait" = the profile computed here.
     -> (demands, budgets)."""
     from . import allocation as al
     from . import margin
@@ -443,8 +447,18 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
             r_want = float(sec.get("range_km", 0.0)) * eta_ratio ** 0.25
             if r_want <= 0.0:
                 continue
-            log_e, _feas = energy_profile_by_theta(table, r_want, _sector_target(sec).rcs_at(f_ghz),
-                                                   sec.get("v_close_max_mps", 1000.0))
+            prof = None
+            if profiles:                              # option (c): the volume's own cost profile
+                from . import cost_profile
+                prof = cost_profile.get(sec, float(weight[mask].sum()), th_grid.tolist(), float(table_freq_ghz()),
+                                        wait=profiles == "wait")
+                if prof is None and estimating is not None:
+                    estimating.append(sid)
+            if prof is not None:
+                log_e = np.asarray(prof["log_e"], float)
+            else:
+                log_e, _feas = energy_profile_by_theta(table, r_want, _sector_target(sec).rcs_at(f_ghz),
+                                                       sec.get("v_close_max_mps", 1000.0))
             rows = np.full((int(mask.sum()), 4, 3), np.nan)
             base = (weight * fac)[mask] / rr
             for k in range(4):
@@ -495,25 +509,38 @@ def _key(obj) -> str:
                       if isinstance(o, (np.ndarray, np.generic)) else str(o))
 
 
+def table_freq_ghz() -> float:
+    """The frequency the table and the cost profiles are computed at (tool.cost_table.freq_ghz)."""
+    return float(params.P.get("tool.cost_table.freq_ghz"))
+
+
 def live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.SphereGrid, eps_min: float, eps_max: float,
-                    sky: Optional[dict] = None, g: Optional[dict] = None, calib: Optional[dict] = None) -> dict:
+                    sky: Optional[dict] = None, g: Optional[dict] = None, calib: Optional[dict] = None,
+                    profiles: Optional[str] = None) -> dict:
     """The final allocation rule on the fast estimate at one instant (the live load and the range gauge share it: one
     computation per set of volumes, instant and mission settings). The rule's result (allocation.solve) plus
     "by_sector" {id: its search record}, "ref_w" (the face reference, power.face_elec_mw: 100 % of the energy bars)
     and "time_lower_bound" (True: some volume's time is the fast estimate's lower bound, not recalibrated by an exact
-    run), "not_recalibrated" (those volumes; pass R3d, calib as allocation_demands)."""
+    run), "not_recalibrated" (those volumes; pass R3d, calib as allocation_demands), "estimating" (the volumes still
+    priced by the table while their cost profile is computed; profiles as allocation_demands). A result with volumes
+    estimating is not kept in the cache (the next call takes the profiles that are ready)."""
     from . import allocation as al
     gk = {k: (g or {}).get(k) for k in ("face_elec_mw", "realloc_mode", "load_ceiling")}
-    key = _key([sectors_ship, eps_min, eps_max, sky, gk, id(grid), calib])
+    key = _key([sectors_ship, eps_min, eps_max, sky, gk, id(grid), calib, profiles])
     hit = _LIVE_CACHE.get(key)
     if hit is not None:
         return hit
-    demands, budgets = allocation_demands(table, sectors_ship, grid, eps_min, eps_max, sky, gk, calib=calib)
+    estimating: List[str] = []
+    demands, budgets = allocation_demands(table, sectors_ship, grid, eps_min, eps_max, sky, gk, calib=calib,
+                                          profiles=profiles, estimating=estimating)
     out = al.solve(demands, budgets)
     out["by_sector"] = {r["sector"]: r for r in out["demands"] if r["kind"] == "search" and r["sector"] is not None}
     out["ref_w"] = rm.FACE_ELEC_POWER_MW * 1e6
     out["not_recalibrated"] = sorted(s for s in out["by_sector"] if s not in (calib or {}))
     out["time_lower_bound"] = bool(out["not_recalibrated"])
+    out["estimating"] = estimating
+    if estimating:
+        return out
     if len(_LIVE_CACHE) > 8:
         _LIVE_CACHE.clear()
     _LIVE_CACHE[key] = out
