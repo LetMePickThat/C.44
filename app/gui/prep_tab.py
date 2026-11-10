@@ -439,6 +439,8 @@ class PrepTab(QWidget):
         self.sl_scn_t.blockSignals(True)
         self.sl_scn_t.setValue(int(round(10 * t)))
         self.sl_scn_t.blockSignals(False)
+        if self._link is not None:
+            self.view.set_scenario(self._link, t)      # the objects follow the slider at once (pass S2)
         self._scn_timer.start()
 
     def _open_link(self, path: str, ask: bool) -> Optional[slink.ScenarioLink]:
@@ -509,6 +511,7 @@ class PrepTab(QWidget):
         self._load_nav_form()
         self.lbl_scn_utc.setText(self._link.utc(t))
         self.lbl_scn_alerts.setText("; ".join(self._link.stale + alerts))
+        self.view.set_scenario(self._link, t)          # its objects at t (pass S2)
         self._schedule_refresh()
 
     def unlink_scenario(self) -> None:
@@ -518,6 +521,7 @@ class PrepTab(QWidget):
         self.mission.pop(slink.LINK_KEY, None)
         self._link, self._link_problem = None, ""
         self._show_link()
+        self.view.set_scenario(None)
         self._schedule_refresh()
 
     def _relink(self) -> None:
@@ -531,6 +535,7 @@ class PrepTab(QWidget):
         self._show_link()
         if self._link is not None:
             self._set_scn_t(float(info.get("t_s", 0.0)))
+        self.view.set_scenario(self._link, self.sb_scn_t.value())
 
     def _nav_msg(self) -> dict:
         nav = self.mission["global"].get("nav")

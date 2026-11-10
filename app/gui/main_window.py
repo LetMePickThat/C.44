@@ -260,6 +260,9 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------ results tab
     def _open_results(self, mission: dict, result: dict) -> None:
         self.results = ResultsTab(mission, result, self.grid)
+        link = getattr(self.prep, "_link", None)      # the linked scenario at the mission's instant (pass S2)
+        if link is not None:
+            self.results.view.set_scenario(link, float(mission.get("scenario_link", {}).get("t_s", 0.0)))
         title = "Results" + (" (partial)" if self.results.partial else "")
         index = self._add_mode(title, self.results, [], None)
         self.prep.set_locked(True)

@@ -119,7 +119,7 @@ COAST_STEPS = (20, 200)                           # ... its step count kept betw
 # the objects and their geometry (points, trajectories, trails, range projection) in the colour of their
 # classification (user, 29 October 2026), the identity frames' colours of the symbology (tools/gen_symbols.py), both
 # read from tool.display.identity_colors
-IDENTITY_COLORS = dict(P.section("tool.display.identity_colors"))
+IDENTITY_COLORS = v3.IDENTITY_COLORS                # (shared: gui/view3d.py)
 if set(IDENTITY_COLORS) != set(scn.IDENTITIES):
     raise ValueError(f"tool.display.identity_colors: one colour per identity expected, {', '.join(scn.IDENTITIES)}")
 OWNSHIP_IDENTITY = "friendly"                     # OWNSHIP is friendly (user): always drawn in that colour
@@ -133,8 +133,7 @@ INFO_WIDEST = ("classification\tsuspect", "reference frame\tjupiter equator", "p
                "block loss\t12.34 dB / pass", "rate x\t-12.345 deg/s", "range\t1234567.890 km", "Sun hidden\t100 %",
                "longitude of ascending node\t359.999 deg", "closest approach in\t> 12345.6 s (after the end)", "closest distance\t< 1234567.890 km",
                "radar cross section (Ku band)\t-123.4 dBsm")
-SYMBOL_DIR = cgeo.MOON_TEXTURE_PATH.parent.parent / "symbols"   # assets/symbols: <classification>_<class>.png
-SYMBOL_PX = 42                                    # px: a symbol on screen in the 3D views (user, 30 October 2026: 28 x 1.5)
+SYMBOL_DIR, SYMBOL_PX = v3.SYMBOL_DIR, v3.SYMBOL_PX   # assets/symbols: <classification>_<class>.png (shared)
 SELECT_PX = 66                                    # px: the square around the selected body (44 x 1.5)
 # multitracks (user, 29 October 2026): objects of one identity and class closer than this on screen (centre to
 # centre, x the UI size) drawn as one symbol with a doubled outline, their number under it in the frame's colour
@@ -1134,19 +1133,7 @@ def _vec_lines(label: str, vec, unit: str, dec: int) -> List[str]:
     return [_kv(f"{label} {a}", f"{float(x):.{dec}f} {unit}".rstrip()) for a, x in zip("xyz", vec)]
 
 
-def symbol_path(identity: str, cls: Optional[str], multi: bool = False) -> Optional[str]:
-    """The symbol of a classification / characterisation couple (tools/gen_symbols.py), "ownship" for the ship,
-    multi: its multitrack (doubled outline); None when its file is missing."""
-    name = "ownship" if identity == "ownship" else f"{'multi_' if multi else ''}{identity}_{cls}"
-    path = SYMBOL_DIR / f"{name}.png"
-    return str(path) if path.exists() else None
-
-
-@lru_cache(maxsize=64)
-def _symbol_texture(path: str) -> pv.Texture:
-    tex = pv.Texture(path)
-    tex.interpolate = True
-    return tex
+symbol_path, _symbol_texture = v3.symbol_path, v3.symbol_texture   # (shared: gui/view3d.py)
 
 
 def _segments(a: np.ndarray, b: np.ndarray) -> pv.PolyData:
@@ -3718,9 +3705,7 @@ class SimView(QWidget):
         dist = np.linalg.norm(rel, axis=1)
         pull = np.minimum(getattr(self, "_model_r_km", 0.0), 0.9 * dist)
         q = q - (pull / np.maximum(dist, 1e-300))[:, None] * rel
-        half = np.maximum((q - pos) @ fwd, 1e-12)[:, None] * k                 # world size of SYMBOL_PX / 2
-        return np.stack([q - half * right - half * up, q + half * right - half * up,
-                         q + half * right + half * up, q - half * right + half * up], axis=1).reshape(-1, 3)
+        return v3.billboard(self.plotter, q, px)        # (shared: gui/view3d.py)
 
     def _place_symbols(self) -> None:
         """After a camera change: every shown symbol (and the selection's square) resized and turned toward the

@@ -942,6 +942,7 @@ rr_t0_ratio          = 3.0      # flag a sector whose revisit is below this x th
 window_size = [2560, 1440]      # main window at start, px; a smaller screen: maximised on its available area (user, 29 Oct 2026)
 grid_res_deg = 0.5              # direction-sphere raster of the 3D views and the fast estimate
 viz_freq_ghz = 2.8              # frequency of the viz-only scan limit and of the fast estimate
+pmiss_scenario_trail_s = 60.0   # mission preparation 3D view: a linked scenario's objects drawn with their trajectories over t +/- this, s (user, 10 Nov 2026)
 sim_fps = 60                   # simulator playback: frames per second aimed at (S7, L2, D; user, 30 Oct 2026: at least 30, ideally 60; was 20)
 sim_box_text_s = 0.2            # simulator playback: the data boxes' texts refreshed at most once per this, their places at every frame, s (30 Oct 2026, D)
 sim_auto_max_cells = 2.0e6      # simulator: automatic re-propagation only below rows x steps (S6, V2, D)

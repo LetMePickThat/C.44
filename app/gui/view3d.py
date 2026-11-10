@@ -10,16 +10,24 @@ aligned with the Scenario Editor's, one component each, one behaviour to maintai
     title, options_grid), the "Recenter view" button (recenter_button) and the "UI size" control (UiSize);
   - the labels at 3D points that follow the UI size and are blanked behind the camera (Labels, apply_ui_scale);
   - the mouse rotation: a turntable on the right button about the view's vertical, the camera turning about the
-    scene's pivot, the left button left to picking (install_rotation; gui/scene_view.install_turntable, lock_pivot).
+    scene's pivot, the left button left to picking (install_rotation; gui/scene_view.install_turntable, lock_pivot);
+  - the objects' symbols (MIL-STD-2525C, tools/gen_symbols.py) as square billboards facing the camera, SYMBOL_PX on
+    screen x the UI size, and the identity colours (symbol_path, symbol_texture, billboard, SymbolLayer;
+    IDENTITY_COLORS, tool.display.identity_colors).
 
 First user: gui/sim_view.py (the Scenario Editor, unchanged on screen); then gui/scene_view.py (pass V2).
 """
 from __future__ import annotations
 
+import math
+import os
 import weakref
-from typing import Callable, List, Optional, Sequence, Tuple, Union
+from functools import lru_cache
+from pathlib import Path
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
+import pyvista as pv
 from PyQt5.QtCore import QObject, Qt, pyqtSignal
 from PyQt5.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QWidget
 from vtkmodules.util.numpy_support import numpy_to_vtk
@@ -41,6 +49,11 @@ OPTION_MARGIN = 5                                 # px left of every switch: a p
 UI_SCALES = (0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0)
 UI_SCALE_START = 1.0                              # (the sizes below: those of the former 150 %, user 30 October 2026)
 UI_BUTTON_PX = 28                                 # the width of the UI size's - and + buttons, px
+SYMBOL_DIR = Path(__file__).resolve().parent.parent / "assets" / "symbols"   # <classification>_<class>.png
+SYMBOL_PX = 42                                    # px: a symbol on screen in the 3D views (user, 30 October 2026: 28 x 1.5)
+# the objects in the colour of their classification (user, 29 October 2026), the identity frames' colours of the
+# symbology (tools/gen_symbols.py), both read from tool.display.identity_colors
+IDENTITY_COLORS = dict(P.section("tool.display.identity_colors"))
 
 
 def rgb(hex_color: str) -> Tuple[int, int, int]:
@@ -283,3 +296,90 @@ class Labels:
             self._write(shown)
         self.poly.Modified()
         self.actor.SetVisibility(True)
+
+
+# ----------------------------------------------------------------------------- symbols
+def symbol_path(identity: str, cls: Optional[str], multi: bool = False) -> Optional[str]:
+    """The symbol of a classification / characterisation couple (tools/gen_symbols.py), "ownship" for the ship,
+    multi: its multitrack (doubled outline); None when its file is missing."""
+    name = "ownship" if identity == "ownship" else f"{'multi_' if multi else ''}{identity}_{cls}"
+    path = SYMBOL_DIR / f"{name}.png"
+    return str(path) if path.exists() else None
+
+
+@lru_cache(maxsize=64)
+def symbol_texture(path: str) -> pv.Texture:
+    tex = pv.Texture(path)
+    tex.interpolate = True
+    return tex
+
+
+def billboard(plotter, q: np.ndarray, px: float) -> np.ndarray:
+    """The four corners (4 n, 3) of a square of px on screen centred on each point of q (n, 3), facing the camera."""
+    cam = plotter.camera
+    pos = np.asarray(cam.GetPosition())
+    fwd = np.asarray(cam.GetDirectionOfProjection())
+    up = np.asarray(cam.GetViewUp(), float)
+    up = up - (up @ fwd) * fwd
+    up /= np.linalg.norm(up)
+    right = np.cross(fwd, up)
+    h_px = max(plotter.ren_win.GetSize()[1], 1)
+    k = 2.0 * math.tan(math.radians(0.5 * cam.GetViewAngle())) / h_px * 0.5 * px
+    q = np.asarray(q, float)
+    half = np.maximum((q - pos) @ fwd, 1e-12)[:, None] * k                 # world size of px / 2
+    return np.stack([q - half * right - half * up, q + half * right - half * up,
+                     q + half * right + half * up, q - half * right + half * up], axis=1).reshape(-1, 3)
+
+
+class SymbolLayer:
+    """Symbols at 3D points (the mission preparation's scenario objects; the Scenario Editor keeps its own placement,
+    on the same billboard): one textured mesh per symbol file, resized and turned toward the camera by place();
+    actor names start with prefix (the owner's visibility rules)."""
+
+    def __init__(self, plotter, prefix: str):
+        self.plotter, self.prefix = plotter, prefix
+        self._items: Dict[str, list] = {}           # name -> [n, mesh, actor, points]
+
+    def names(self) -> List[str]:
+        return list(self._items)
+
+    def set(self, pts: np.ndarray, paths: List[Optional[str]]) -> None:
+        """The symbols of these points (a point without a symbol file: none)."""
+        pts = np.asarray(pts, float).reshape(-1, 3)
+        groups: Dict[str, List[int]] = {}
+        for n, path in enumerate(paths):
+            if path:
+                groups.setdefault(path, []).append(n)
+        px = SYMBOL_PX * getattr(self.plotter, "_ui_scale", 1.0)
+        for name in set(self._items) - {f"{self.prefix}{os.path.basename(p)}" for p in groups}:
+            self._items[name][2].SetVisibility(False)
+            self._items[name][3] = np.zeros((0, 3))
+        for path, rows in groups.items():
+            name = f"{self.prefix}{os.path.basename(path)}"
+            q = pts[rows]
+            corners = billboard(self.plotter, q, px)
+            e = self._items.get(name)
+            if e is not None and e[0] == len(rows):
+                e[1].points = corners
+                e[1].Modified()
+                e[3] = q
+                continue
+            n = len(rows)
+            faces = np.hstack([np.full((n, 1), 4), (4 * np.arange(n))[:, None] + np.arange(4)]).ravel()
+            mesh = pv.PolyData(corners, faces=faces)
+            mesh.active_texture_coordinates = np.tile([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], (n, 1))
+            actor = self.plotter.add_mesh(mesh, texture=symbol_texture(path), lighting=False, name=name,
+                                          render=False)
+            self._items[name] = [n, mesh, actor, q]
+
+    def place(self) -> None:
+        """After a camera or UI size change: every symbol resized and turned toward the camera."""
+        px = SYMBOL_PX * getattr(self.plotter, "_ui_scale", 1.0)
+        for e in self._items.values():
+            if len(e[3]) and e[0] == len(e[3]):
+                e[1].points = billboard(self.plotter, e[3], px)
+                e[1].Modified()
+
+    def set_visible(self, on: bool) -> None:
+        for e in self._items.values():
+            e[2].SetVisibility(bool(on) and len(e[3]) > 0)

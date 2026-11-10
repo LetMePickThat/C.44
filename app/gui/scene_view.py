@@ -9,6 +9,10 @@ Aligned with the Scenario Editor (user, 10 November 2026, pass V2) through the s
 black of space and the stars (in the ship frame, only when the mission has a navigation), the options panel in
 sections over two columns with "Recenter view" and "UI size", the right-button turntable (the left button left to
 the labels' drag and, later, to picking).
+A linked scenario (pass S2, gui/scenario_link.py) adds its objects at the instant t: their MIL-STD symbols on the
+unit sphere at their direction (in 1:1 scale at their range), their trajectories over t +/- SCN_TRAIL_S in the colour
+of their identity, their names, and the data box of the object clicked (name, class, identity, range, range rate,
+face).
 
 The owning tab only says WHAT to draw (set_scene: eps window + one SectorDraw per sector) and which sectors are
 hidden (set_hidden); the view builds the meshes (unit-sphere caps, or true-size volumes in km in 1:1 scale),
@@ -42,6 +46,7 @@ from core.params import P
 from gui import controls as uc
 from gui import view3d as v3                     # (used inside functions only: view3d imports this module)
 from gui.widgets import DecimalSpinBox
+from sim import scenario as scn
 
 KM_AXES_PREFIX = "km_axes_"
 KM_AXES_LINES = [f"{KM_AXES_PREFIX}{a}" for a in ("X", "Y", "Z")]   # the 3D axis meshes (labels are 2D actors)
@@ -49,6 +54,27 @@ ICRF_AXES = (("X", "X ICRF (vernal equinox)"), ("Y", "Y ICRF"), ("Z", "Z ICRF (c
 ICRF_AXIS_NAMES = [f"icrf_axis_{a}" for a, _ in ICRF_AXES]
 SECTOR_LABEL_FONT_SIZE = 13   # shared by _build_sectors (draws) and _label_hit (estimates the on-screen box), x UI size
 FACE_OUTLINE_COLOR = "#9aa0aa"   # the zones' outlines, light on the black of space (view3d.MUTED_COLOR)
+SCN = "scn_"                     # the linked scenario's actors (pass S2)
+SCN_TRAIL_S = float(P.get("tool.display.pmiss_scenario_trail_s"))   # its trajectories over t +/- this (user)
+SCN_LABEL_FONT, SCN_BOX_FONT = 11, 12   # its names, its data box: pt at UI size 100 %
+SCN_PICK = 0.6                   # a click within this x the symbol's size of its centre picks the object
+SCN_ARC_DEG = 2.0                # unit sphere: a trajectory's step longer than this is drawn as an arc along it (D)
+
+
+def _sphere_arcs(u: np.ndarray) -> np.ndarray:
+    """A path of unit directions (m, 3) drawn on the unit sphere: every step longer than SCN_ARC_DEG cut along its
+    great circle (a straight segment would cross the sphere)."""
+    a, b = u[:-1], u[1:]
+    ang = np.arccos(np.clip(np.einsum("ij,ij->i", a, b), -1.0, 1.0))
+    k = np.maximum(1, np.ceil(np.degrees(ang) / SCN_ARC_DEG)).astype(int)     # the pieces of each step
+    step = np.repeat(np.arange(len(k)), k)
+    f = (np.arange(k.sum()) - np.repeat(np.cumsum(k) - k, k) + 1) / np.repeat(k, k)   # 1/k .. 1 in each step
+    w = np.repeat(ang, k)
+    s_w = np.sin(w)
+    small = s_w < 1e-9
+    c0 = np.where(small, 1.0 - f, np.sin((1.0 - f) * w) / np.where(small, 1.0, s_w))   # (slerp; linear when tiny)
+    c1 = np.where(small, f, np.sin(f * w) / np.where(small, 1.0, s_w))
+    return np.concatenate([u[:1], c0[:, None] * a[step] + c1[:, None] * b[step]])
 
 
 # ----------------------------------------------------------------------------- display bar
@@ -64,6 +90,7 @@ class DisplayBar(QWidget):
     altitude_changed = pyqtSignal(float)
     view_frame_changed = pyqtSignal(str)
     sky_changed = pyqtSignal()
+    scenario_changed = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -106,6 +133,20 @@ class DisplayBar(QWidget):
         self.tg_sky.toggled.connect(lambda _on: self.sky_changed.emit())
         self.cb_const = uc.Toggle("constellations", tip="The constellations' lines over the stars")
         self.cb_const.toggled.connect(lambda _on: self.sky_changed.emit())
+        self.tg_scn_objects = uc.Toggle("objects", checked=True, tip="The linked scenario's objects at t: their "
+                                        "symbols at their direction (1:1 scale: at their range); a click on one: "
+                                        "its data box")
+        self.tg_scn_trails = uc.Toggle("trajectories", checked=True,
+                                       tip=f"Their trajectories over t +/- {SCN_TRAIL_S:g} s, in their identity's colour")
+        self.tg_scn_labels = uc.Toggle("labels", tip="Their names")
+        for tg in (self.tg_scn_objects, self.tg_scn_trails, self.tg_scn_labels):
+            tg.toggled.connect(lambda _on: self.scenario_changed.emit())
+        self.set_scenario_enabled(False)
+
+    def set_scenario_enabled(self, on: bool) -> None:
+        """The scenario's switches: only with a linked scenario."""
+        for tg in (self.tg_scn_objects, self.tg_scn_trails, self.tg_scn_labels):
+            tg.setEnabled(on)
 
     def sections(self) -> list:
         """(title, items) of the view's options (view3d.options_grid)."""
@@ -113,7 +154,9 @@ class DisplayBar(QWidget):
                 (v3.title("Mission volumes"), [v3.row(self.bt_show_all, self.bt_hide_all)]),
                 (v3.title("Scale"), [v3.row(self.cb_true_scale), v3.row(self.cb_scale_axes), v3.row(self.cb_background),
                                      v3.row(uc.labelled("altitude (km)", self.sb_altitude))]),
-                (v3.title("Frame and sky"), [v3.row(self.tg_frame), v3.row(self.tg_sky), v3.row(self.cb_const)])]
+                (v3.title("Frame and sky"), [v3.row(self.tg_frame), v3.row(self.tg_sky), v3.row(self.cb_const)]),
+                (v3.title("Scenario"), [v3.row(self.tg_scn_objects), v3.row(self.tg_scn_trails),
+                                        v3.row(self.tg_scn_labels)])]
 
     def face_visible(self, k: int) -> bool:
         return self.cb_faces[k].isChecked()
@@ -515,7 +558,8 @@ def set_reference_scene_visible(plotter, visible: bool) -> None:
     that is not a face zone, a watch sector, the km axes or the background sphere. Hidden in 1:1 scale, where it is
     a ~1 km speck whose labels pile up on the radar; the graduated km axes (and the background sphere) replace it."""
     for key, actor in plotter.actors.items():
-        if not key.startswith(("sec_", "face_", KM_AXES_PREFIX, BACKGROUND_ACTOR)) and key not in getattr(plotter, "_sky_keys", ()):
+        if (not key.startswith(("sec_", "face_", KM_AXES_PREFIX, BACKGROUND_ACTOR, SCN))
+                and key not in getattr(plotter, "_managed_keys", ())):
             actor.SetVisibility(bool(visible))
 
 
@@ -551,6 +595,7 @@ class SceneView(QWidget):
         self.display_bar.altitude_changed.connect(lambda _v: self._update_background())
         self.display_bar.view_frame_changed.connect(lambda _f: self._apply_view_frame())
         self.display_bar.sky_changed.connect(self._update_sky)
+        self.display_bar.scenario_changed.connect(lambda: (self._scn_visibility(), self.plotter.render()))
         self.plotter = QtInteractor(self)
         self.plotter.setMinimumWidth(500)
         self.plotter.interactor.setToolTip("Right drag: turn the view. Drag a label to reposition it (a line keeps it "
@@ -561,7 +606,7 @@ class SceneView(QWidget):
         self.plotter._ui_scale = self.ui_size.scale
         keys = set(self.plotter.actors)
         self.sky = v3.space_background(self.plotter)   # the black of space, the stars under the scene
-        self.plotter._sky_keys = set(self.plotter.actors) - keys
+        self.plotter._managed_keys = set(self.plotter.actors) - keys   # (actors shown by their own rules)
         add_static_scene(self.plotter)
         # before the label drag: its release observer goes on the style
         v3.install_rotation(self.plotter, axis=self._turn_axis)
@@ -582,6 +627,163 @@ class SceneView(QWidget):
         self._r_is: Optional[np.ndarray] = None        # ship <- ICRF of the mission navigation (step 3.0)
         self._install_label_drag()
         self._update_sky()
+        # the linked scenario (pass S2)
+        self._scn_link = None                          # gui/scenario_link.ScenarioLink
+        self._scn_t = 0.0
+        self._scn_ident: List[str] = []                # each object's identity
+        self._scn_rows = np.zeros(0, int)              # the objects shown (present at t)
+        self._scn_q = np.zeros((0, 3))                 # their places in the scene
+        self._scn_state: Optional[tuple] = None        # (range km, range rate m/s, face) of each object at t
+        self._scn_sel: Optional[int] = None            # the object whose data box is shown
+        self._press_xy: Optional[tuple] = None
+        self._scn_sym = v3.SymbolLayer(self.plotter, SCN + "sym_")
+        self._scn_lbl = self._managed(v3.Labels(self.plotter, v3.TEXT_COLOR, SCN_LABEL_FONT))
+        self._scn_box = self._managed(v3.Labels(self.plotter, v3.TEXT_COLOR, SCN_BOX_FONT, box=True))
+        self.plotter.camera.AddObserver("ModifiedEvent", lambda *_a: self._scn_place())
+        self._scn_visibility()
+
+    def _managed(self, lab: "v3.Labels") -> "v3.Labels":
+        """A labels actor shown by its own rule (not by the reference scene's visibility)."""
+        lab.actor.SetVisibility(False)
+        self.plotter._managed_keys |= {k for k, a in self.plotter.actors.items() if a is lab.actor}
+        return lab
+
+    # ------------------------------------------------------------------ the linked scenario (pass S2)
+    def set_scenario(self, link, t: float = 0.0) -> None:
+        """The scenario's objects at t (link: gui/scenario_link.ScenarioLink, None: none)."""
+        if link is not self._scn_link:
+            self._scn_sel = None
+            self._scn_ident = [] if link is None else [
+                scn.identity_of(link.sc, oid, link.truth.group_of[j + 1] or None) for j, oid in enumerate(link.g.ids)]
+        self._scn_link, self._scn_t = link, float(t)
+        self.display_bar.set_scenario_enabled(link is not None)
+        self._draw_scenario()
+        self.plotter.render()
+
+    def _scn_at(self, t: float) -> tuple:
+        """(present, unit directions, range km, range rate m/s, face) of every object at t, linear between the
+        run's records (the face of the nearer one)."""
+        g = self._scn_link.g
+        ts = g.t_s
+        if len(ts) < 2:
+            i, w = 0, 0.0
+            j = 0
+        else:
+            i = int(np.clip(np.searchsorted(ts, t, side="right") - 1, 0, len(ts) - 2))
+            w = float(np.clip((t - ts[i]) / max(ts[i + 1] - ts[i], 1e-12), 0.0, 1.0))
+            j = i + 1
+        present = g.exists[i] & g.exists[j] if w > 0.0 else g.exists[i].copy()
+        d = (1.0 - w) * g.dir_ship[i] + w * g.dir_ship[j]
+        d = d / np.maximum(np.linalg.norm(d, axis=1), 1e-300)[:, None]
+        rng = (1.0 - w) * g.range_km[i] + w * g.range_km[j]
+        rr = (1.0 - w) * g.range_rate_mps[i] + w * g.range_rate_mps[j]
+        face = g.face[i if w < 0.5 else j]
+        return present & np.all(np.isfinite(d), axis=1), d, rng, rr, face
+
+    def _scn_xyz(self, d: np.ndarray, rng: np.ndarray) -> np.ndarray:
+        """Places in the scene: on the unit sphere at the direction, in 1:1 scale at the range (km)."""
+        return d * np.asarray(rng)[..., None] if self.display_bar.true_scale() else d
+
+    def _draw_scenario(self) -> None:
+        link = self._scn_link
+        if link is None:
+            self._scn_rows, self._scn_q, self._scn_state = np.zeros(0, int), np.zeros((0, 3)), None
+            self._scn_sym.set(np.zeros((0, 3)), [])
+            remove_actors(self.plotter, [SCN + "trails"])
+            self._scn_visibility()
+            return
+        g = link.g
+        present, d, rng, rr, face = self._scn_at(self._scn_t)
+        rows = np.flatnonzero(present)
+        self._scn_rows, self._scn_state = rows, (rng, rr, face)
+        self._scn_q = self._scn_xyz(d[rows], rng[rows])
+        self._scn_sym.set(self._scn_q, [v3.symbol_path(self._scn_ident[j], g.classes[j]) for j in rows])
+        # the trajectories over t +/- SCN_TRAIL_S: the records in the window and both ends, where present
+        ts = g.t_s
+        lo, hi = self._scn_t - SCN_TRAIL_S, self._scn_t + SCN_TRAIL_S
+        ks = np.flatnonzero((ts > lo) & (ts < hi))
+        e0, e1 = self._scn_at(max(lo, ts[0])), self._scn_at(min(hi, ts[-1]))
+        ex = np.vstack([e0[0][None], g.exists[ks], e1[0][None]])                   # (m, n)
+        dd = np.concatenate([e0[1][None], g.dir_ship[ks], e1[1][None]])             # (m, n, 3)
+        rr_ = np.vstack([e0[2][None], g.range_km[ks], e1[2][None]])
+        ex = ex & np.all(np.isfinite(dd), axis=2)
+        dd = dd / np.maximum(np.linalg.norm(dd, axis=2), 1e-300)[..., None]
+        xyz = self._scn_xyz(dd, rr_)
+        pts, lines, cols = [], [], []
+        n = 0
+        for j in np.flatnonzero(ex.sum(axis=0) >= 2):                             # its runs of presence
+            edges = np.diff(np.concatenate([[0], ex[:, j].astype(np.int8), [0]]))
+            rgb = v3.rgb(v3.IDENTITY_COLORS.get(self._scn_ident[j], "#888888"))
+            for a, b in zip(np.flatnonzero(edges == 1), np.flatnonzero(edges == -1)):
+                if b - a < 2:
+                    continue
+                seg = xyz[a:b, j] if self.display_bar.true_scale() else _sphere_arcs(xyz[a:b, j])
+                pts.append(seg)
+                lines.append(np.r_[len(seg), np.arange(n, n + len(seg))])
+                cols.append(np.tile(rgb, (len(seg), 1)))
+                n += len(seg)
+        if lines:
+            poly = pv.PolyData(np.concatenate(pts), lines=np.concatenate(lines))
+            poly["rgb"] = np.concatenate(cols).astype(np.uint8)
+            self.plotter.add_mesh(poly, scalars="rgb", rgb=True, line_width=2, name=SCN + "trails", render=False)
+        else:
+            remove_actors(self.plotter, [SCN + "trails"])
+        if self._scn_sel is not None and self._scn_sel not in set(rows.tolist()):
+            self._scn_sel = None                       # (no longer present at t)
+        self._scn_place()
+        self._scn_visibility()
+
+    def _scn_box_text(self, j: int) -> str:
+        g = self._scn_link.g
+        rng, rr, face = self._scn_state
+        f = int(face[j])
+        return "\n".join([g.ids[j], f"{g.classes[j]}, {self._scn_ident[j]}", f"range {rng[j]:.1f} km",
+                          f"range rate {rr[j]:+.0f} m/s", f"face {geo.FACE_NAMES[f] if 0 <= f < 4 else 'none'}"])
+
+    def _scn_place(self) -> None:
+        """After a camera, scale or UI size change: the symbols facing the camera, the names right of them, the data
+        box at the selected symbol's top right corner."""
+        if not len(self._scn_q):
+            return
+        self._scn_sym.place()
+        corners = v3.billboard(self.plotter, self._scn_q, v3.SYMBOL_PX * getattr(self.plotter, "_ui_scale", 1.0))
+        corners = corners.reshape(-1, 4, 3)
+        g = self._scn_link.g
+        self._scn_lbl.set(0.5 * (corners[:, 1] + corners[:, 2]), [g.ids[j] for j in self._scn_rows])
+        if self._scn_sel is not None:
+            k = int(np.flatnonzero(self._scn_rows == self._scn_sel)[0])
+            self._scn_box.set(corners[k, 2][None], [self._scn_box_text(self._scn_sel)])
+
+    def _scn_visibility(self) -> None:
+        bar, on = self.display_bar, self._scn_link is not None
+        objects = on and bar.tg_scn_objects.isChecked() and len(self._scn_q) > 0
+        self._scn_sym.set_visible(objects)
+        self._scn_lbl.actor.SetVisibility(objects and bar.tg_scn_labels.isChecked())
+        self._scn_box.actor.SetVisibility(objects and self._scn_sel is not None)
+        set_actors_visible(self.plotter, [SCN + "trails"], on and bar.tg_scn_trails.isChecked())
+
+    def _pick_scenario(self, x: int, y: int) -> None:
+        """A left click on an object's symbol: its data box (elsewhere: none)."""
+        if self._scn_link is None or not self.display_bar.tg_scn_objects.isChecked() or not len(self._scn_q):
+            return
+        ren = self.plotter.renderer
+        best, best_d = None, SCN_PICK * v3.SYMBOL_PX * getattr(self.plotter, "_ui_scale", 1.0)
+        fwd = np.asarray(self.plotter.camera.GetDirectionOfProjection())
+        pos = np.asarray(self.plotter.camera.GetPosition())
+        for k, q in enumerate(self._scn_q):
+            if (q - pos) @ fwd <= 0.0:
+                continue                                # (behind the camera)
+            ren.SetWorldPoint(*q, 1.0)
+            ren.WorldToDisplay()
+            dx, dy, _dz = ren.GetDisplayPoint()
+            dist = float(np.hypot(dx - x, dy - y))
+            if dist <= best_d:
+                best, best_d = int(self._scn_rows[k]), dist
+        if best != self._scn_sel:
+            self._scn_sel = best
+            self._scn_place()
+            self._scn_visibility()
+            self.plotter.render()
 
     # ------------------------------------------------------------------ "3D view" panel (pass V2)
     def add_panel_row(self, w: QWidget) -> None:
@@ -627,6 +829,7 @@ class SceneView(QWidget):
             set_km_axes(self.plotter, max(ranges, default=None) if self.display_bar.true_scale() else None)
         for sid in list(self._cache):
             self._redraw_label(sid)                    # (renders through apply_visibility)
+        self._scn_place()
         self.apply_visibility()
 
     def _update_sky(self) -> None:
@@ -723,6 +926,7 @@ class SceneView(QWidget):
 
     def _on_label_press(self, obj, _event) -> None:
         x, y = self.plotter.iren.get_event_position()
+        self._press_xy = (x, y)                       # (a click without a drag: picking, pass S2)
         sid = self._label_hit(x, y)
         if sid is None:
             return
@@ -749,7 +953,12 @@ class SceneView(QWidget):
         self._redraw_label(self._drag["sid"])
 
     def _on_label_release(self, _obj, _event) -> None:
-        self._drag = None
+        dragged, self._drag = self._drag is not None, None
+        if not dragged and self._press_xy is not None:
+            x, y = self.plotter.iren.get_event_position()
+            if np.hypot(x - self._press_xy[0], y - self._press_xy[1]) <= CLICK_DRAG_PX:
+                self._pick_scenario(x, y)
+        self._press_xy = None
 
     def _on_label_double_click(self, _obj, _event) -> None:
         x, y = self.plotter.iren.get_event_position()
@@ -808,6 +1017,8 @@ class SceneView(QWidget):
                 actor.SetVisibility(bar.scale_axes_visible())
         for d in self._sectors:
             set_actors_visible(p, sector_actor_names(d.sid), d.sid not in self._hidden)
+        if hasattr(self, "_scn_sym"):
+            self._scn_visibility()
         p.render()
 
     # ------------------------------------------------------------------ internals
@@ -896,6 +1107,8 @@ class SceneView(QWidget):
                                  + (KM_AXES_LINES if self.display_bar.scale_axes_visible() else []))
         else:
             set_default_camera(self.plotter, self._r_is if self._icrf_view() else None)
+        if self._scn_link is not None:
+            self._draw_scenario()                      # (unit sphere / km)
         self._update_background()
         self.apply_visibility()
 
