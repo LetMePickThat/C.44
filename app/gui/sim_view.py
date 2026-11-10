@@ -4418,7 +4418,7 @@ class SimView(QWidget):
         """L5 (user, 29 October 2026, no lists): a click near an object (OWNSHIP included) shows its information; a
         double-click centres the view on it, in the global view also on the Earth, the Moon or the Sun (a click on
         its disc), and on nothing back to the default centre."""
-        if self.truth is None:
+        if self.truth is None or self.read_only:      # (read only: OWNSHIP's Info alone, user 10 November 2026)
             return
         x, y = obj.GetEventPosition()
         best, best_d = self._pick(x, y, with_distance=True)
@@ -4532,7 +4532,7 @@ class SimView(QWidget):
 
     def _on_right_click(self, x: float, y: float) -> None:
         """A right click (not a drag) on a unit other than the one selected: its menu (a body must be selected)."""
-        sel = self._rows_of(self.selected) if self.truth is not None else None
+        sel = self._rows_of(self.selected) if self.truth is not None and not self.read_only else None
         if sel is None:
             return
         key = self._pick(x, y)

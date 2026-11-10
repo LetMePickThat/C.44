@@ -152,3 +152,70 @@ def resolve(link_path: str, mission_path: Optional[str]) -> str:
     if os.path.isabs(link_path) or not mission_path:
         return os.path.abspath(link_path)
     return os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(mission_path)), link_path))
+
+
+# ----------------------------------------------------------------------------- the global view's source: the flight plan
+# (user, 10 November 2026: the radar's use is planned on the ship's flight plan, its navigation, never on the
+# scenario's truth, whose objects cannot be known: the global view shows the ship, the central body and the volumes)
+def ship_only(link: ScenarioLink) -> Tuple[dict, object, object]:
+    """(scenario, truth, geometry) of the linked run reduced to the ship: its states and its attitude as flown, no
+    object; kept on the link (computed once)."""
+    cached = getattr(link, "_ship_only", None)
+    if cached is not None:
+        return cached
+    import copy
+    import dataclasses
+    from sim import geometry as sgeo
+    tr = link.truth
+    sc = copy.deepcopy(link.sc)
+    sc["objects"], sc["groups"] = [], []
+    ship = sc.setdefault("ship", {})
+    ship["manoeuvres"] = [m for m in ship.get("manoeuvres", []) if m.get("type") in ("impulse", "burn")]
+    ship["attitude"] = [w for w in ship.get("attitude", []) if w.get("attitude", {}).get("type") != "target"] or \
+        ship.get("attitude", [])[:1]
+    j = tr.att_ids.index("ship") if "ship" in tr.att_ids else None
+    truth = dataclasses.replace(
+        tr, ids=tr.ids[:1], classes=tr.classes[:1], r_km=tr.r_km[:, :1], v_kms=tr.v_kms[:, :1],
+        t_appear_s=tr.t_appear_s[:1], t_impact_s=tr.t_impact_s[:1], t_pn_start_s=tr.t_pn_start_s[:1],
+        miss_km=tr.miss_km[:1], group_of=tr.group_of[:1],
+        att_ids=["ship"] if j is not None else [], att_q=tr.att_q[:, [j]] if j is not None else tr.att_q[:, :0],
+        att_events=[e for e in tr.att_events if e.get("id", e.get("row")) in ("ship", 0, None)])
+    out = (sc, truth, sgeo.geometry(sc, truth))
+    link._ship_only = out
+    return out
+
+
+def nav_run(nav_msg: dict, name: str = "mission navigation") -> Tuple[dict, object, object]:
+    """(scenario, truth, geometry) of the mission's navigation alone (no linked scenario): the ship on its orbit about
+    the central body at the message's epoch, holding the message's attitude (fixed in the central body's equatorial
+    axes), over one orbital period (its path drawn); computed by the editor's preview. ValueError without an orbit."""
+    import math as _m
+    import numpy as np
+    from sim import attitude as att
+    from sim import preview as pv_
+    from sim import geometry as sgeo
+    n = frames.Nav(nav_msg)
+    if not n.has_orbit:
+        raise ValueError("the navigation has no orbit (central body, r, v): no global view")
+    eq = frames.equator_axes(n.body)
+    r_eq, v_eq = eq.T @ n.r, eq.T @ n.v
+    e = eq.T @ n.r_si                                           # ship -> the central body's equatorial axes
+    z = e[:, 2]
+    pitch = _m.degrees(_m.asin(max(-1.0, min(1.0, float(z[1])))))
+    yaw = _m.degrees(_m.atan2(float(z[0]), float(z[2])))
+    m = (att.rot_y(_m.radians(yaw)) @ att.rot_x(-_m.radians(pitch))).T @ e
+    roll = -_m.degrees(_m.atan2(float(m[1, 0]), float(m[0, 0])))
+    mu = float(scn.bodies()[n.body]["mu_km3_s2"])
+    rn, vn = float(np.linalg.norm(r_eq)), float(np.linalg.norm(v_eq))
+    a = 1.0 / max(2.0 / rn - vn * vn / mu, 1e-12)
+    period = 2.0 * _m.pi * _m.sqrt(a ** 3 / mu) if a > 0 else 3600.0
+    epoch = n.epoch or "2050-01-01T00:00:00Z"
+    sc = {"meta": {"name": name, "epoch_utc": epoch, "duration_s": float(min(max(period, 60.0), 86400.0)), "seed": 1},
+          "central_body": n.body,
+          "ship": {"orbit": {"type": "state", "r_km": [float(x) for x in r_eq], "v_kms": [float(x) for x in v_eq]},
+                   "attitude": [{"t_s": 0.0, "attitude": {"type": "fixed", "frame": "inertial", "yaw_deg": yaw,
+                                                          "pitch_deg": pitch, "roll_deg": roll}}]},
+          "objects": [], "groups": []}
+    sc = scn.normalise(sc)
+    truth = pv_.preview(sc)
+    return sc, truth, sgeo.geometry(sc, truth)

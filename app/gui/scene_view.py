@@ -33,6 +33,7 @@ frame of the mission navigation (set_navigation) and adds the ICRF axes, so the 
 """
 from __future__ import annotations
 
+import json
 import math
 import time
 from dataclasses import dataclass
@@ -53,8 +54,6 @@ from gui import view3d as v3                     # (used inside functions only: 
 from gui.widgets import DecimalSpinBox
 from sim import scenario as scn
 
-KM_AXES_PREFIX = "km_axes_"
-KM_AXES_LINES = [f"{KM_AXES_PREFIX}{a}" for a in ("X", "Y", "Z")]   # the 3D axis meshes (labels are 2D actors)
 ICRF_AXES = (("X", "X (node of the equator)"), ("Y", "Y"), ("Z", "Z (pole)"))   # the view frame's axes (H3)
 ICRF_AXIS_NAMES = [f"icrf_axis_{a}" for a, _ in ICRF_AXES]
 SECTOR_LABEL_FONT_SIZE = 13   # shared by _build_sectors (draws) and _label_hit (estimates the on-screen box), x UI size
@@ -89,10 +88,6 @@ class DisplayBar(QWidget):
     faces_changed = pyqtSignal()
     show_all_sectors = pyqtSignal()
     hide_all_sectors = pyqtSignal()
-    scale_changed = pyqtSignal(bool)
-    scale_axes_changed = pyqtSignal(bool)
-    background_changed = pyqtSignal(bool)
-    altitude_changed = pyqtSignal(float)
     view_frame_changed = pyqtSignal(str)
     sky_changed = pyqtSignal()
     scenario_changed = pyqtSignal()
@@ -110,26 +105,6 @@ class DisplayBar(QWidget):
         self.bt_show_all.clicked.connect(lambda _c=False: self.show_all_sectors.emit())
         self.bt_hide_all = QPushButton("Hide all")
         self.bt_hide_all.clicked.connect(lambda _c=False: self.hide_all_sectors.emit())
-        self.cb_true_scale = uc.Toggle("scale 1:1", tip="Draw each watch volume at its true size (1 unit = 1 km), "
-                                       "from the radar out to its required range, and zoom to fit them all. Off: the "
-                                       "default view of the unit sphere.")
-        self.cb_true_scale.toggled.connect(self.scale_changed)
-        self.cb_background = uc.Toggle("Moon background", tip="A background sphere the size of the Moon (1:1 scale "
-                                       "only), at its true distance: Moon radius + the altitude, along -Z.")
-        self.cb_background.setEnabled(False)   # only meaningful in 1:1 scale
-        self.cb_background.toggled.connect(self.background_changed)
-        self.cb_true_scale.toggled.connect(self.cb_background.setEnabled)
-        self.sb_altitude = DecimalSpinBox()
-        self.sb_altitude.setRange(0.0, 1.0e7)
-        self.sb_altitude.setDecimals(1)
-        self.sb_altitude.setValue(100.0)
-        self.sb_altitude.setMaximumWidth(90)
-        self.sb_altitude.valueChanged.connect(self.altitude_changed)
-        self.cb_scale_axes = uc.Toggle("scale axes", checked=True,
-                                       tip="The X, Y, Z axes graduated in km (1:1 scale only)")
-        self.cb_scale_axes.setEnabled(False)   # only meaningful in 1:1 scale
-        self.cb_scale_axes.toggled.connect(self.scale_axes_changed)
-        self.cb_true_scale.toggled.connect(self.cb_scale_axes.setEnabled)
         self.tg_frame = uc.Toggle("equatorial", off_text="ship", two_way=True,
                                   tip="Ship: the ship frame. Equatorial: the camera in the central body's equatorial "
                                       "axes (its pole up, as the Scenario Editor's global view; no orbit: ICRF), "
@@ -149,45 +124,34 @@ class DisplayBar(QWidget):
         for tg in (self.tg_scn_objects, self.tg_scn_trails, self.tg_scn_labels):
             tg.toggled.connect(lambda _on: self.scenario_changed.emit())
         self.tg_global = uc.Toggle("global", off_text="sphere", two_way=True,
-                                   tip="Sphere: the directions seen from the ship (the unit sphere, or 1:1 around the "
-                                       "ship). Global: the linked scenario's space as in the Scenario Editor's views, "
-                                       "the mission's volumes at their true size from the ship at t")
+                                   tip="Sphere: everything projected on the sphere around the ship (zones, volumes, "
+                                       "the linked scenario's objects). Global: true size, as the Scenario Editor's "
+                                       "views: the central body, the ship on its flight plan (the linked scenario's "
+                                       "navigation, else the mission's) and the volumes from it; no object (the "
+                                       "plan rests on the flight plan, not on a truth that cannot be known)")
         self.tg_global.toggled.connect(self.global_changed)
         self.set_scenario_enabled(False)
 
     def set_scenario_enabled(self, on: bool) -> None:
         """The scenario's switches: only with a linked scenario."""
-        for tg in (self.tg_scn_objects, self.tg_scn_trails, self.tg_scn_labels, self.tg_global):
+        for tg in (self.tg_scn_objects, self.tg_scn_trails, self.tg_scn_labels):
             tg.setEnabled(on)
-        if not on and self.tg_global.isChecked():
-            self.tg_global.setChecked(False)          # (no scenario: back to the sphere)
 
-    def sections(self) -> list:
-        """(title, items) of the view's options (view3d.options_grid)."""
+    def set_global_available(self, on: bool) -> None:
+        """The global mode: with a linked scenario or a navigation with an orbit (its flight plan)."""
+        self.tg_global.setEnabled(on)
+        if not on and self.tg_global.isChecked():
+            self.tg_global.setChecked(False)          # (no flight plan: back to the sphere)
+
+    def sphere_sections(self) -> list:
+        """(title, items) of the sphere mode's own options (view3d.options_grid)."""
         return [(v3.title("Responsibility zones"), [v3.row(cb) for cb in self.cb_faces]),
-                (v3.title("Mission volumes"), [v3.row(self.bt_show_all, self.bt_hide_all)]),
-                (v3.title("Scale"), [v3.row(self.cb_true_scale), v3.row(self.cb_scale_axes), v3.row(self.cb_background),
-                                     v3.row(uc.labelled("altitude (km)", self.sb_altitude))]),
                 (v3.title("Frame and sky"), [v3.row(self.tg_frame), v3.row(self.tg_sky), v3.row(self.cb_const)]),
-                (v3.title("Scenario"), [v3.row(self.tg_global), v3.row(self.tg_scn_objects),
-                                        v3.row(self.tg_scn_trails), v3.row(self.tg_scn_labels)])]
+                (v3.title("Scenario"), [v3.row(self.tg_scn_objects), v3.row(self.tg_scn_trails),
+                                        v3.row(self.tg_scn_labels)])]
 
     def face_visible(self, k: int) -> bool:
         return self.cb_faces[k].isChecked()
-
-    def true_scale(self) -> bool:
-        return self.cb_true_scale.isChecked()
-
-    def scale_axes_visible(self) -> bool:
-        """Graduated km axes shown: 1:1 scale on and the "scale axes" switch on."""
-        return self.cb_true_scale.isChecked() and self.cb_scale_axes.isChecked()
-
-    def background_visible(self) -> bool:
-        """Background (Moon-size) sphere shown: 1:1 scale on and the "Moon background" switch on."""
-        return self.cb_true_scale.isChecked() and self.cb_background.isChecked()
-
-    def altitude_km(self) -> float:
-        return self.sb_altitude.value()
 
     def icrf(self) -> bool:
         return self.tg_frame.isChecked()
@@ -506,77 +470,6 @@ def fit_camera_to_actors(plotter, names) -> None:
     plotter._pivot = tuple(plotter.camera.GetFocalPoint())   # rotations now turn about the centre of the volumes
 
 
-def set_km_axes(plotter, max_range_km: Optional[float]) -> None:
-    """1:1 scale reference: the ship-frame X, Y, Z axes drawn from the radar in km, graduated every round step and
-    labelled in km, so the scale turns with the view and holds at any angle. None removes them. Rebuilt only when
-    the graduation changes."""
-    key = geo.km_axes_step(max_range_km) if max_range_km and max_range_km > 0 else None
-    key = None if key is None else key + (getattr(plotter, "_ui_scale", 1.0),)   # (rebuilt at a new UI size)
-    if key == getattr(plotter, "_km_axes_key", None):
-        return
-    remove_actors(plotter, [k for k in plotter.actors if k.startswith(KM_AXES_PREFIX)])
-    plotter._km_axes_key = key
-    if key is None:
-        return
-    step, n = key[:2]
-    length = step * n
-    tick = 0.025 * length
-    axes = (("X", np.array([1.0, 0, 0]), np.array([0, 0, 1.0]), geo.COLORS["axis_x"]),
-            ("Y", np.array([0, 1.0, 0]), np.array([0, 0, 1.0]), geo.COLORS["axis_y"]),
-            ("Z (nose)", np.array([0, 0, 1.0]), np.array([1.0, 0, 0]), geo.COLORS["axis_z"]))
-    for name, d, t, color in axes:
-        pts = [np.zeros(3), d * length]
-        for k in range(1, n + 1):
-            pts += [d * k * step - t * tick, d * k * step + t * tick]
-        lines = np.hstack([[2, 2 * i, 2 * i + 1] for i in range(n + 1)])
-        tag = name.split()[0]
-        plotter.add_mesh(pv.PolyData(np.array(pts), lines=lines), color=color, line_width=2,
-                         name=f"{KM_AXES_PREFIX}{tag}", render=False)
-        plotter.add_point_labels([d * k * step + t * tick for k in range(1, n + 1)],
-                                 [f"{k * step:g} km" if k == n else f"{k * step:g}" for k in range(1, n + 1)],
-                                 text_color=color, font_size=_ui(plotter, 10), shape=None, show_points=False,
-                                 name=f"{KM_AXES_PREFIX}ticks_{tag}", render=False)
-        plotter.add_point_labels([d * length * 1.08], [name], text_color=color, font_size=_ui(plotter, 13), bold=True,
-                                 shape=None, show_points=False, name=f"{KM_AXES_PREFIX}name_{tag}", render=False)
-
-
-BACKGROUND_ACTOR = "background_sphere"
-
-
-@lru_cache(maxsize=1)
-def _moon_texture() -> pv.Texture:
-    tex = pv.Texture(geo.moon_texture())
-    tex.interpolate = True
-    tex.mipmap = True   # the real texture can be a few k pixels across; mipmaps avoid shimmering at a distance
-    return tex
-
-
-def set_background_sphere(plotter, visible: bool, altitude_km: Optional[float]) -> None:
-    """The Moon-textured background sphere (1:1 scale only): added/updated when visible, removed otherwise.
-    Rebuilt only when the altitude changes."""
-    if not visible:
-        remove_actors(plotter, [BACKGROUND_ACTOR])
-        plotter._background_key = None
-        return
-    key = round(altitude_km, 3)
-    if key != getattr(plotter, "_background_key", None):
-        plotter._background_key = key
-        plotter.add_mesh(geo.build_background_sphere(altitude_km), texture=_moon_texture(),
-                         name=BACKGROUND_ACTOR, render=False)
-    plotter.actors[BACKGROUND_ACTOR].SetVisibility(True)
-    plotter.renderer.ResetCameraClippingRange()
-
-
-def set_reference_scene_visible(plotter, visible: bool) -> None:
-    """Show/hide the unit-scale reference scene (hull, axes, face normals, equator and their labels) -- every actor
-    that is not a face zone, a watch sector, the km axes or the background sphere. Hidden in 1:1 scale, where it is
-    a ~1 km speck whose labels pile up on the radar; the graduated km axes (and the background sphere) replace it."""
-    for key, actor in plotter.actors.items():
-        if (not key.startswith(("sec_", "face_", KM_AXES_PREFIX, BACKGROUND_ACTOR, SCN))
-                and key not in getattr(plotter, "_managed_keys", ())):
-            actor.SetVisibility(bool(visible))
-
-
 # ----------------------------------------------------------------------------- the view
 @dataclass
 class SectorDraw:
@@ -603,10 +496,6 @@ class SceneView(QWidget):
         self.display_bar.faces_changed.connect(self.apply_visibility)
         self.display_bar.show_all_sectors.connect(self.show_all_sectors)
         self.display_bar.hide_all_sectors.connect(self.hide_all_sectors)
-        self.display_bar.scale_changed.connect(self._on_scale_changed)
-        self.display_bar.scale_axes_changed.connect(lambda _on: self.apply_visibility())
-        self.display_bar.background_changed.connect(lambda _on: self._update_background())
-        self.display_bar.altitude_changed.connect(lambda _v: self._update_background())
         self.display_bar.view_frame_changed.connect(lambda _f: self._apply_view_frame())
         self.display_bar.sky_changed.connect(self._update_sky)
         self.display_bar.scenario_changed.connect(lambda: (self._scn_visibility(), self.plotter.render()))
@@ -680,8 +569,7 @@ class SceneView(QWidget):
         self.display_bar.set_scenario_enabled(link is not None)
         self._draw_scenario()
         self.plotter.render()
-        if self._global_shown():
-            self._update_global()
+        self._check_global()
 
     # ------------------------------------------------------------------ the global view
     def _global_shown(self) -> bool:
@@ -691,11 +579,26 @@ class SceneView(QWidget):
         """The mission whose volumes the global view draws (the owner's mission on screen), and the ids of its
         sectors hidden."""
         self._sim_mission = (mission, set(hidden_ids))
+        self._check_global()
+
+    def _nav_msg(self) -> Optional[dict]:
+        """The mission's navigation message with an orbit (the global mode's flight plan without a scenario)."""
+        if self._sim_mission is None:
+            return None
+        nav = self._sim_mission[0].get("global", {}).get("nav")
+        if frames.validate_nav(nav) or not nav:
+            return None
+        return nav[0] if frames.Nav(nav[0]).has_orbit else None
+
+    def _check_global(self) -> None:
+        """The global mode available with a flight plan; shown: brought up to date."""
+        self.display_bar.set_global_available(self._scn_link is not None or self._nav_msg() is not None)
         if self._global_shown():
-            self._sim.set_mission(*self._sim_mission)
+            self._update_global()
 
     def _on_global(self, on: bool) -> None:
-        if on and self._scn_link is not None:
+        self._sphere_box.setVisible(not on)            # (global: the editor view's own panel)
+        if on and (self._scn_link is not None or self._nav_msg() is not None):
             if self._sim is None:
                 from gui.sim_view import SimView             # (late: sim_view imports this module)
                 self._sim = SimView(self.grid, read_only=True)
@@ -717,20 +620,39 @@ class SceneView(QWidget):
             self._sim_page.setSizes([side, max(w - side, 400)])
             self._update_global()
         else:
+            self._sphere_box.setVisible(True)
             self._stack.setCurrentIndex(0)
             self.plotter.render()
 
     def _update_global(self) -> None:
-        """The global view at the linked run and the instant t; its volumes from the mission."""
+        """The global view (user, 10 November 2026): the flight plan only, the linked scenario's ship (its states and
+        attitude as flown, no object) at t, else the mission's navigation alone; the mission's volumes from the ship;
+        Info: OWNSHIP's."""
+        from gui import scenario_link as slink
+        from gui.sim_view import OWNSHIP
         link, sim = self._scn_link, self._sim
-        if link is None:
+        try:
+            if link is not None:
+                key, t = ("link", id(link)), self._scn_t
+                if self._sim_run != key:
+                    sc, truth, g = slink.ship_only(link)
+                    sim.show_run(sc, truth, g, f"flight plan of {link.name}")
+            else:
+                nav = self._nav_msg()
+                if nav is None:
+                    return
+                key, t = ("nav", json.dumps(nav, sort_keys=True, default=str)), 0.0
+                if self._sim_run != key:
+                    sc, truth, g = slink.nav_run(nav)
+                    sim.show_run(sc, truth, g, "mission navigation")
+        except Exception as exc:  # noqa: BLE001 -- a flight plan the model refuses: said, the view kept
+            sim.status.setText(f"global view: {exc}")
             return
-        if self._sim_run is not link:
-            self._sim_run = link
-            sim.show_run(link.sc, link.truth, link.g, f"scenario {link.name}")
+        self._sim_run = key
         if self._sim_mission is not None:
             sim.set_mission(*self._sim_mission)
-        sim.set_time(self._scn_t)
+        sim.set_time(t)
+        sim.select(OWNSHIP)
 
     def close_views(self) -> None:
         """Both plotters closed (the window closes)."""
@@ -761,8 +683,8 @@ class SceneView(QWidget):
         return present & np.all(np.isfinite(d), axis=1), d, rng, rr, face
 
     def _scn_xyz(self, d: np.ndarray, rng: np.ndarray) -> np.ndarray:
-        """Places in the scene: on the unit sphere at the direction, in 1:1 scale at the range (km)."""
-        return d * np.asarray(rng)[..., None] if self.display_bar.true_scale() else d
+        """Places in the scene: on the unit sphere at the direction."""
+        return d
 
     def _draw_scenario(self) -> None:
         link = self._scn_link
@@ -797,7 +719,7 @@ class SceneView(QWidget):
             for a, b in zip(np.flatnonzero(edges == 1), np.flatnonzero(edges == -1)):
                 if b - a < 2:
                     continue
-                seg = xyz[a:b, j] if self.display_bar.true_scale() else _sphere_arcs(xyz[a:b, j])
+                seg = _sphere_arcs(xyz[a:b, j])
                 pts.append(seg)
                 lines.append(np.r_[len(seg), np.arange(n, n + len(seg))])
                 cols.append(np.tile(rgb, (len(seg), 1)))
@@ -875,38 +797,42 @@ class SceneView(QWidget):
         sections over two columns. Built once; the owning tab puts it at the top of its side column."""
         if getattr(self, "_view_panel", None) is not None:
             return self._view_panel
+        bar = self.display_bar
         box = QGroupBox("3D view")
         col = QVBoxLayout(box)
         col.setContentsMargins(8, 4, 8, 6)
         col.setSpacing(4)
-        head = QHBoxLayout()
+        head = QHBoxLayout()                           # the mode (user, 10 November 2026), then what both modes share
+        head.addWidget(bar.tg_global)
         head.addStretch(1)
-        head.addWidget(self.bt_recentre)
+        head.addWidget(bar.bt_show_all)
+        head.addWidget(bar.bt_hide_all)
         col.addLayout(head)
+        self._sphere_box = QWidget()                   # the sphere's own options (global: the editor view's panel)
+        sl = QVBoxLayout(self._sphere_box)
+        sl.setContentsMargins(0, 0, 0, 0)
+        sl.setSpacing(4)
+        top = QHBoxLayout()
+        top.addWidget(self.ui_size.widget(), 1)
+        top.addWidget(self.bt_recentre)
+        sl.addLayout(top)
         for w in self._panel_rows:
-            col.addWidget(v3.row(w))
-        col.addWidget(self.ui_size.widget())
-        col.addLayout(v3.options_grid(self.display_bar.sections()))
+            sl.addWidget(v3.row(w))
+        sl.addLayout(v3.options_grid(bar.sphere_sections()))
+        col.addWidget(self._sphere_box)
         self._view_panel = box
         return box
 
     def recentre(self) -> None:
-        """Back to the default view in the frame chosen (unit sphere), or in 1:1 scale to the view of every volume."""
-        if self.display_bar.true_scale():
-            fit_camera_to_actors(self.plotter, [n for n in self._actor_names if n.endswith("_surf")]
-                                 + (KM_AXES_LINES if self.display_bar.scale_axes_visible() else []))
-        else:
-            set_default_camera(self.plotter, self._r_view if self._icrf_view() else None)
+        """Back to the default view in the frame chosen."""
+        set_default_camera(self.plotter, self._r_view if self._icrf_view() else None)
         self.plotter.render()
 
     def _ui_scale_changed(self, scale: float) -> None:
-        """The labels at the new UI size: the static ones, the ICRF axes, the km axes, the sectors'."""
+        """The labels at the new UI size: the static ones, the frame's axes, the sectors'."""
         v3.apply_ui_scale(self.plotter, scale)
         add_static_labels(self.plotter)
         set_icrf_axes(self.plotter, self._r_view if self._icrf_view() else None)
-        if self._eps is not None:
-            ranges = [d.sec.get("range_km") for d in self._sectors if isinstance(d.sec.get("range_km"), (int, float))]
-            set_km_axes(self.plotter, max(ranges, default=None) if self.display_bar.true_scale() else None)
         for sid in list(self._cache):
             self._redraw_label(sid)                    # (renders through apply_visibility)
         self._scn_place()
@@ -946,8 +872,7 @@ class SceneView(QWidget):
 
     def _apply_view_frame(self) -> None:
         set_icrf_axes(self.plotter, self._r_view if self._icrf_view() else None)
-        if not self.display_bar.true_scale():
-            set_default_camera(self.plotter, self._r_view if self._icrf_view() else None)
+        set_default_camera(self.plotter, self._r_view if self._icrf_view() else None)
         self.apply_visibility()
 
     # ------------------------------------------------------------------ draggable labels
@@ -1093,11 +1018,7 @@ class SceneView(QWidget):
         """Re-applied after every rebuild, since rebuilt actors come back visible; renders."""
         bar, p = self.display_bar, self.plotter
         for k in range(4):
-            set_actors_visible(p, face_actor_names(k), bar.face_visible(k) and not bar.true_scale())
-        set_reference_scene_visible(p, not bar.true_scale())   # ICRF axes included
-        for key, actor in p.actors.items():
-            if key.startswith(KM_AXES_PREFIX):
-                actor.SetVisibility(bar.scale_axes_visible())
+            set_actors_visible(p, face_actor_names(k), bar.face_visible(k))
         for d in self._sectors:
             set_actors_visible(p, sector_actor_names(d.sid), d.sid not in self._hidden)
         if hasattr(self, "_scn_sym"):
@@ -1126,24 +1047,22 @@ class SceneView(QWidget):
                 self.plotter.remove_actor(out_name, render=False)
 
     def _build_sectors(self) -> None:
-        """Only sectors whose geometry / colour / label changed are rebuilt. In 1:1 scale each sector is a true-size
-        volume in km (radar at the origin out to its required range), else a cap on the unit sphere."""
-        true_scale = self.display_bar.true_scale()
+        """Only sectors whose geometry / colour / label changed are rebuilt: each a cap on the unit sphere (true size:
+        the global mode)."""
         eps_min, eps_max = self._eps
         new_names: Set[str] = set()
         new_cache: Dict[str, tuple] = {}
         for d in self._sectors:
             surf_name, out_name, lbl_name, leader_name = sector_actor_names(d.sid)
-            key = (geo.sector_geometry_key(d.sec), eps_min, eps_max, d.sec.get("range_km") if true_scale else None)
+            key = (geo.sector_geometry_key(d.sec), eps_min, eps_max)
             cached = self._cache.get(d.sid)
             # a duplicate id (mid-edit) shares actor names with the earlier sector: always redraw, last one wins
             same_geom = cached is not None and cached[0] == key and d.sid not in new_cache
             if same_geom:
                 poly, outline = cached[2], cached[3]
             else:
-                build = geo.build_sector_volume_km if true_scale else geo.build_sector_overlay
                 try:
-                    poly, outline = build(self.grid, d.sec, eps_min, eps_max)
+                    poly, outline = geo.build_sector_overlay(self.grid, d.sec, eps_min, eps_max)
                 except (KeyError, TypeError, ValueError):
                     continue  # incomplete sector mid-edit: no 3D overlay
             same_mesh = same_geom and cached[1] == d.color
@@ -1179,25 +1098,3 @@ class SceneView(QWidget):
         remove_actors(self.plotter, self._actor_names - new_names)   # incl. the "-labels" actors
         self._actor_names, self._cache = new_names, new_cache
         self._label_pos = {sid: p for sid, p in self._label_pos.items() if sid in new_cache}
-        ranges = [d.sec.get("range_km") for d in self._sectors if isinstance(d.sec.get("range_km"), (int, float))]
-        set_km_axes(self.plotter, max(ranges, default=None) if true_scale else None)
-
-    def _on_scale_changed(self, true_scale: bool) -> None:
-        """1:1 on: redraw the volumes in km and zoom to fit them all; off: back to the default unit-sphere view."""
-        self._label_pos.clear()   # dragged label points are in the old coordinate system (km vs. unit sphere)
-        if self._eps is not None:
-            self._build_sectors()
-        if true_scale:
-            fit_camera_to_actors(self.plotter, [n for n in self._actor_names if n.endswith("_surf")]
-                                 + (KM_AXES_LINES if self.display_bar.scale_axes_visible() else []))
-        else:
-            set_default_camera(self.plotter, self._r_view if self._icrf_view() else None)
-        if self._scn_link is not None:
-            self._draw_scenario()                      # (unit sphere / km)
-        self._update_background()
-        self.apply_visibility()
-
-    def _update_background(self) -> None:
-        bar = self.display_bar
-        set_background_sphere(self.plotter, bar.background_visible(), bar.altitude_km())
-        self.plotter.render()
