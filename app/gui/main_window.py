@@ -262,6 +262,7 @@ class MainWindow(QMainWindow):
         self.results = ResultsTab(mission, result, self.grid)
         link = getattr(self.prep, "_link", None)      # the linked scenario at the mission's instant (pass S2)
         if link is not None:
+            self.results.view.set_mission_volumes(mission)   # (the global view: the computed mission's volumes)
             self.results.view.set_scenario(link, float(mission.get("scenario_link", {}).get("t_s", 0.0)))
         title = "Results" + (" (partial)" if self.results.partial else "")
         index = self._add_mode(title, self.results, [], None)
@@ -292,7 +293,7 @@ class MainWindow(QMainWindow):
         self.work.removeWidget(tab)
         del self._modes[index]
         self.modes.removeTab(index)
-        tab.view.plotter.close()
+        tab.view.close_views()
         tab.deleteLater()
         self.results = None
         self.prep.set_locked(False)
@@ -301,7 +302,7 @@ class MainWindow(QMainWindow):
         if not self.prep.confirm_discard():               # unsaved changes to the mission (pass V3)
             event.ignore()
             return
-        self.prep.view.plotter.close()
+        self.prep.view.close_views()
         if self.results is not None:
-            self.results.view.plotter.close()
+            self.results.view.close_views()
         super().closeEvent(event)

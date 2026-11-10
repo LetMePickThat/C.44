@@ -84,6 +84,7 @@ class NodeTool:
 
     def __init__(self, view):
         self.v = view
+        self.enabled = True                      # False: a read-only view (the mission preparation's global view)
         self.target: Optional[dict] = None       # row_id, owner (the editor's dict), m (the manoeuvre), on_edit
         self._cache: Optional[dict] = None       # the preview of the current values
         self._third = None                       # (run key, ThirdBodies)
@@ -106,6 +107,8 @@ class NodeTool:
         node."""
         self._stop_drag()
         self._glyph = self._screen = None                # (a camera change must not draw the former node)
+        if not self.enabled:
+            row_id = None
         self.target = (dict(row_id=row_id, owner=owner, m=m, on_edit=on_edit, on_release=on_release)
                        if row_id is not None and m is not None and m.get("type") in ("impulse", "burn") else None)
         self.invalidate()

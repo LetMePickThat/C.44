@@ -1157,8 +1157,11 @@ class SimView(QWidget):
     manoeuvre_picked = pyqtSignal(str, str, int)
 
     def __init__(self, grid: Optional[cgeo.SphereGrid] = None, get_path: Callable[[], Optional[str]] = lambda: None,
-                 parent=None):
+                 parent=None, read_only: bool = False):
+        """read_only: a run looked at, never edited (the mission preparation's global view, user 10 November 2026):
+        no manoeuvre node."""
         super().__init__(parent)
+        self.read_only = read_only
         prefetch_maps()                                # E3: the maps decoded while the window opens
         self.grid = grid or cgeo.SphereGrid(float(P.get("tool.display.grid_res_deg")))
         self.get_path = get_path
@@ -1307,9 +1310,9 @@ class SimView(QWidget):
                         _pair(self.cb_object_labels, self.lb_object_partial, self.tg_object_full),
                         _row(self.cb_planned), _row(self.cb_all_orbits),
                         _row(self.cb_trails, self.sp_trail), _row(self.cb_axes),
-                        _row(self.cb_orbit, self.sp_orbit), _row(self.cb_events))
+                        _row(self.cb_orbit, self.sp_orbit), _row(self.cb_events), _row(self.cb_volumes))
         proj_pair = _pair(self.cb_proj, self.lb_proj_partial, self.tg_proj_full)
-        self._ship_only = (_row(self.cb_vectors), _row(self.cb_volumes), _row(self.cb_zones), _row(self.cb_bodies),
+        self._ship_only = (_row(self.cb_vectors), _row(self.cb_zones), _row(self.cb_bodies),
                            _row(self.cb_los)) + proj_pair
         # UI size (user, 29 October 2026): the icons and texts of the 3D view, - / + (shared: gui/view3d.py)
         self.ui_scale = UI_SCALE_START
@@ -1339,6 +1342,7 @@ class SimView(QWidget):
         # the manoeuvre node (user, 29 October 2026): its own presses before the click above
         from gui.maneuver_node import NodeTool
         self.node = NodeTool(self)
+        self.node.enabled = not self.read_only
         self.node.install(self.plotter.iren.interactor)
         self.plotter._ui_scale = self.ui_scale
         self.sky = v3.space_background(self.plotter)       # the black of space, the stars under the scene
@@ -2808,8 +2812,6 @@ class SimView(QWidget):
         sectors hidden; None: no volumes."""
         self.mission = mission
         self._hidden_ids = set(hidden)
-        if self._global():
-            return
         if self.truth is None:
             self._rebuild()
         else:
@@ -2822,15 +2824,29 @@ class SimView(QWidget):
             return
         pts = []
         s_v = getattr(self, "_vol_view", np.eye(3)) if self._orbital() else np.eye(3)   # (the orbital view's turn)
+        origin = self._array_view
+        if self._global() and self.truth is not None:
+            # the global view (user, 10 November 2026: where the volumes lie in space): from the apertures at the
+            # ship's place at t, turned by its attitude at t (ship -> ICRF, the global view's axes)
+            r, _v = sgeo.states_at(self.truth, self.t)
+            s_v = self.truth.attitude("ship", self.t)
+            origin = r[0] + s_v @ sgeo.ARRAY_KM
+            if not np.all(np.isfinite(origin)):
+                for acts in vol["per_sector"]:
+                    for a in acts:
+                        a.SetVisibility(False)
+                return
         for rot, acts, c in zip(vol.get("rot") or [np.eye(3)] * len(vol["per_sector"]), vol["per_sector"],
                                 vol["centres"]):
             rot = s_v @ rot
             u = np.eye(4)
             u[:3, :3] = rot
-            u[:3, 3] = self._array_view
+            u[:3, 3] = origin
+            for a in acts:
+                a.SetVisibility(True)
             for a in acts:
                 _set_user_matrix(a, u)
-            pts.append(rot @ c + self._array_view)
+            pts.append(rot @ c + origin)
         lab = vol.get("labels")
         if lab is not None:
             if pts and self.cb_object_labels.isChecked():
@@ -4333,7 +4349,7 @@ class SimView(QWidget):
         frame); then each one only TURNED with the change of its frame (ship -> sector matrix at t against the one
         it was built with), rebuilt when a frame has turned by more than VOL_REBUILD_DEG (the clipping by the faces
         and the scan window is the ship's) or when asked (force)."""
-        if self._global() or self.mission is None or not self.cb_volumes.isChecked():
+        if self.mission is None or not self.cb_volumes.isChecked():
             if self._vol:
                 self._clear_volumes()
                 self._render()

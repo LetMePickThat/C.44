@@ -9,6 +9,11 @@ metadata:
 
 At the start of the next session, remind the user (in French) of:
 
+**PARKED 10 Nov 2026 (user: back to the 3D view and the tool first, it will clarify the computation method):**
+- Volumes not fixed to the ship: sector frames exist (ship, inertial ICRF, equatorial, rtn, limb, two_dir, track) but the Pmiss evaluates ONE instant (decision 27 Oct). Option A AGREED: profile over time along a linked scenario, each instant its own optimal plan, NO worst-case aggregation (user: worst case loses performance in good attitudes). B (attitude-choice aid) REJECTED: the attitude is imposed by non-radar constraints (lasers, radiators, RCS, exposed surface, thermal). A answers so far: instants on the attitude manoeuvres (waypoints); whole run; exact computation automatic at the flagged instants; flag migrations when they lose performance or exceed budgets; new 'Profile' tab next to Results; per-face timeline + events table, a click sets the Pmiss t. STILL TO ASK: (1a) extra instant each X deg of attitude turn (continuous prograde rotation, no manoeuvre); (1b) slew: start, end + (1a) points; (4) 'performance loss' = verdict state worse OR a volume's margin down by more than Y dB (Y?); (3) cap on the number of exact runs (1-8 min each)?
+- Decouvrement (limb watch) framing AGREED in principle (return on 5.1 / 5.3): emergence range from the limb geometry, rising rate, max RR for a detection delay after emergence. 7 questions open: target altitudes h_t; eps band around the limb; azimuth extent; criterion (delay + cumulative Pd, or a min range); rising rate (ship orbit only, or also the target's own velocity); body mask in the Pmiss; limb clutter (2.5 model or specific).
+- Also still open: 5.4 M5; shared selection in the Pmiss (Q1-Q5 of 10 Nov).
+
 **SCENARIO TOOL DONE FOR V1 (user, 10 Nov 2026)**: the user wanted it completely finished before switching to the Pmiss.
 Work now goes back to the Pmiss (5.4 M5, then the shared selection in the Pmiss, framing proposed 10 Nov 2026, then 5.5-5.7).
 Scenario-tool open questions below (items 0, 2d, 2e, 2f, 2g, 2i on-screen checks) are DEFERRED after V1: do not raise them

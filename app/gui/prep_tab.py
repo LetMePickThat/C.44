@@ -1358,6 +1358,7 @@ class PrepTab(QWidget):
 
     def _refresh_all(self) -> None:
         self._update_title()
+        self.view.set_mission_volumes(self.mission, self._hidden_sector_ids())
         eps_min = self.mission["global"].get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"])
         eps_max = self.mission["global"].get("eps_max_deg", md.GLOBAL_DEFAULTS["eps_max_deg"])
         self._update_gauges(eps_min, eps_max)
@@ -1630,6 +1631,11 @@ class PrepTab(QWidget):
             self._schedule_refresh()
 
     # ------------------------------------------------------------------ import / export / validate / run
+    def _hidden_sector_ids(self) -> set:
+        """The hidden sectors as the global view names them (their id, else "_idx<i>")."""
+        return {(s.get("id") or f"_idx{i}") for i, s in enumerate(self.mission.get("sectors", []))
+                if id(s) in self._hidden_sectors}
+
     # ------------------------------------------------------------------ the mission file (pass V3)
     def _signature(self) -> str:
         return json.dumps(self.mission, sort_keys=True, default=str)

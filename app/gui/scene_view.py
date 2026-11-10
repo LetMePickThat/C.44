@@ -13,6 +13,10 @@ A linked scenario (pass S2, gui/scenario_link.py) adds its objects at the instan
 unit sphere at their direction (in 1:1 scale at their range), their trajectories over t +/- SCN_TRAIL_S in the colour
 of their identity, their names, and the data box of the object clicked (name, class, identity, range, range rate,
 face).
+"global" (user, 10 November 2026: where the volumes lie in real space): the Scenario Editor's view (gui/sim_view.py,
+read only, no playback bar: the instant is the mission's) in place of the sphere, its Info and options column beside
+it: the central body, the orbits, the objects, the ship, and the mission's volumes at their true size from the ship's
+place at t, turned by its attitude at t.
 
 The owning tab only says WHAT to draw (set_scene: eps window + one SectorDraw per sector) and which sectors are
 hidden (set_hidden); the view builds the meshes (unit-sphere caps, or true-size volumes in km in 1:1 scale),
@@ -38,7 +42,7 @@ from typing import Dict, Iterable, List, Optional, Set
 import numpy as np
 import pyvista as pv
 from PyQt5.QtCore import QObject, QTimer, Qt, pyqtSignal
-from PyQt5.QtWidgets import QGroupBox, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QGroupBox, QHBoxLayout, QPushButton, QSplitter, QStackedWidget, QVBoxLayout, QWidget
 from pyvistaqt import QtInteractor
 
 from core import frames
@@ -92,6 +96,7 @@ class DisplayBar(QWidget):
     view_frame_changed = pyqtSignal(str)
     sky_changed = pyqtSignal()
     scenario_changed = pyqtSignal()
+    global_changed = pyqtSignal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -143,12 +148,19 @@ class DisplayBar(QWidget):
         self.tg_scn_labels = uc.Toggle("labels", tip="Their names")
         for tg in (self.tg_scn_objects, self.tg_scn_trails, self.tg_scn_labels):
             tg.toggled.connect(lambda _on: self.scenario_changed.emit())
+        self.tg_global = uc.Toggle("global", off_text="sphere", two_way=True,
+                                   tip="Sphere: the directions seen from the ship (the unit sphere, or 1:1 around the "
+                                       "ship). Global: the linked scenario's space as in the Scenario Editor's views, "
+                                       "the mission's volumes at their true size from the ship at t")
+        self.tg_global.toggled.connect(self.global_changed)
         self.set_scenario_enabled(False)
 
     def set_scenario_enabled(self, on: bool) -> None:
         """The scenario's switches: only with a linked scenario."""
-        for tg in (self.tg_scn_objects, self.tg_scn_trails, self.tg_scn_labels):
+        for tg in (self.tg_scn_objects, self.tg_scn_trails, self.tg_scn_labels, self.tg_global):
             tg.setEnabled(on)
+        if not on and self.tg_global.isChecked():
+            self.tg_global.setChecked(False)          # (no scenario: back to the sphere)
 
     def sections(self) -> list:
         """(title, items) of the view's options (view3d.options_grid)."""
@@ -157,8 +169,8 @@ class DisplayBar(QWidget):
                 (v3.title("Scale"), [v3.row(self.cb_true_scale), v3.row(self.cb_scale_axes), v3.row(self.cb_background),
                                      v3.row(uc.labelled("altitude (km)", self.sb_altitude))]),
                 (v3.title("Frame and sky"), [v3.row(self.tg_frame), v3.row(self.tg_sky), v3.row(self.cb_const)]),
-                (v3.title("Scenario"), [v3.row(self.tg_scn_objects), v3.row(self.tg_scn_trails),
-                                        v3.row(self.tg_scn_labels)])]
+                (v3.title("Scenario"), [v3.row(self.tg_global), v3.row(self.tg_scn_objects),
+                                        v3.row(self.tg_scn_trails), v3.row(self.tg_scn_labels)])]
 
     def face_visible(self, k: int) -> bool:
         return self.cb_faces[k].isChecked()
@@ -598,11 +610,17 @@ class SceneView(QWidget):
         self.display_bar.view_frame_changed.connect(lambda _f: self._apply_view_frame())
         self.display_bar.sky_changed.connect(self._update_sky)
         self.display_bar.scenario_changed.connect(lambda: (self._scn_visibility(), self.plotter.render()))
+        self.display_bar.global_changed.connect(self._on_global)
         self.plotter = QtInteractor(self)
         self.plotter.setMinimumWidth(500)
         self.plotter.interactor.setToolTip("Right drag: turn the view. Drag a label to reposition it (a line keeps it "
                                            "linked to its volume); double-click a moved label to snap it back.")
-        v.addWidget(self.plotter.interactor)
+        self._stack = QStackedWidget()                 # the sphere (0) or the global view (1, built when first asked)
+        self._stack.addWidget(self.plotter.interactor)
+        v.addWidget(self._stack)
+        self._sim = None                               # gui/sim_view.SimView, read only
+        self._sim_run = None                           # the run it shows
+        self._sim_mission: Optional[tuple] = None      # (mission, hidden sector ids) for its volumes
         self.ui_size = v3.UiSize(self)                 # the view's icons and texts (shared: gui/view3d.py)
         self.ui_size.changed.connect(self._ui_scale_changed)
         self.plotter._ui_scale = self.ui_size.scale
@@ -662,6 +680,65 @@ class SceneView(QWidget):
         self.display_bar.set_scenario_enabled(link is not None)
         self._draw_scenario()
         self.plotter.render()
+        if self._global_shown():
+            self._update_global()
+
+    # ------------------------------------------------------------------ the global view
+    def _global_shown(self) -> bool:
+        return self._sim is not None and self._stack.currentIndex() == 1
+
+    def set_mission_volumes(self, mission: dict, hidden_ids=()) -> None:
+        """The mission whose volumes the global view draws (the owner's mission on screen), and the ids of its
+        sectors hidden."""
+        self._sim_mission = (mission, set(hidden_ids))
+        if self._global_shown():
+            self._sim.set_mission(*self._sim_mission)
+
+    def _on_global(self, on: bool) -> None:
+        if on and self._scn_link is not None:
+            if self._sim is None:
+                from gui.sim_view import SimView             # (late: sim_view imports this module)
+                self._sim = SimView(self.grid, read_only=True)
+                for i in range(self._sim.play_bar.count()):   # (the instant is the mission's: no playback)
+                    w = self._sim.play_bar.itemAt(i).widget()
+                    if w is not None:
+                        w.setVisible(False)
+                page = QSplitter(Qt.Horizontal)
+                page.addWidget(self._sim.side_panel)
+                page.addWidget(self._sim)
+                page.setStretchFactor(0, 0)
+                page.setStretchFactor(1, 1)
+                page.setChildrenCollapsible(False)
+                self._stack.addWidget(page)
+                self._sim_page = page
+            self._stack.setCurrentIndex(1)
+            w = self._sim_page.width()                   # (the column at its content's width, as in the editor)
+            side = self._sim.side_width()
+            self._sim_page.setSizes([side, max(w - side, 400)])
+            self._update_global()
+        else:
+            self._stack.setCurrentIndex(0)
+            self.plotter.render()
+
+    def _update_global(self) -> None:
+        """The global view at the linked run and the instant t; its volumes from the mission."""
+        link, sim = self._scn_link, self._sim
+        if link is None:
+            return
+        if self._sim_run is not link:
+            self._sim_run = link
+            sim.show_run(link.sc, link.truth, link.g, f"scenario {link.name}")
+        if self._sim_mission is not None:
+            sim.set_mission(*self._sim_mission)
+        sim.set_time(self._scn_t)
+
+    def close_views(self) -> None:
+        """Both plotters closed (the window closes)."""
+        if self._sim is not None:
+            if hasattr(self._sim, "stop_background"):
+                self._sim.stop_background()
+            self._sim.plotter.close()
+        self.plotter.close()
 
     def _scn_at(self, t: float) -> tuple:
         """(present, unit directions, range km, range rate m/s, face) of every object at t, linear between the
