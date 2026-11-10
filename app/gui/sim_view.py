@@ -297,10 +297,15 @@ _WORKERS = set()                                  # the workers alive, whatever 
 
 @atexit.register
 def _stop_workers() -> None:
-    """A thread still running at the exit would abort the tool."""
+    """A thread still running at the exit would abort the tool. The preview worker waits for its next job on a
+    condition and never reads `cancelled`: its own stop() (10 November 2026: waiting for it without it kept the process
+    alive after the tool's window was closed, and a sequential pytest session from ending)."""
     for w in list(_WORKERS):
-        w.cancelled = True
-        w.wait()
+        if hasattr(w, "stop"):
+            w.stop()
+        else:
+            w.cancelled = True
+            w.wait()
 
 
 class SimWorker(QThread):

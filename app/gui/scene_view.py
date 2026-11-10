@@ -1030,8 +1030,10 @@ class SceneView(QWidget):
         for k in range(4):
             surf_name, out_name = face_actor_names(k)
             if scene.surfaces[k].n_points:
+                # both sides drawn (user, 10 November 2026): a zone seen from inside the sphere, on its far side,
+                # keeps its colour (back faces were culled: the far half of the sphere showed black)
                 self.plotter.add_mesh(scene.surfaces[k], color=geo.FACE_COLORS[k], opacity=self.face_opacity,
-                                      culling="back", name=surf_name, render=False)
+                                      culling=None, name=surf_name, render=False)
             else:
                 self.plotter.remove_actor(surf_name, render=False)
             if scene.outlines[k].n_points:
@@ -1065,7 +1067,7 @@ class SceneView(QWidget):
             if poly.n_points:
                 if not (same_mesh and has_actor(self.plotter, surf_name)):
                     self.plotter.add_mesh(poly, color=d.color, opacity=self.sector_opacity,
-                                          culling=None if true_scale else "back", name=surf_name, render=False)
+                                          culling=None, name=surf_name, render=False)   # (both sides, as the zones)
                 new_names.add(surf_name)
             if outline.n_points:
                 if not (same_mesh and has_actor(self.plotter, out_name)):

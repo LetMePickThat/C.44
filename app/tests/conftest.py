@@ -10,14 +10,26 @@ not in the repository) at the end of each run; during a run, tests/.progress.txt
 share of the total computation done (weighted by the last known durations; a new test counts as the longest known
 one, a prudent estimate), the elapsed time,
 the estimated time left and the tests running. The longest tests are started first.
+
+Numba cache (10 November 2026): the compiled kernels of the tests go to tests/.numba_cache/<process> (local, not in
+the repository), one folder per test process, never to the application's __pycache__: several processes writing the
+same numba cache at once (pytest-xdist) left it inconsistent, and `python -m sim.run` then crashed reading it (access
+violation in sim/propagate._rk4_compiled; the cache written by a sequential run was sound). Set before numba is
+imported; the subprocesses of a test inherit it.
 """
 import json
 import os
 import time
 
-import pytest
-
 _HERE = os.path.dirname(os.path.abspath(__file__))
+_WORKER = os.environ.get("PYTEST_XDIST_WORKER")
+if _WORKER:                     # (a worker: its own folder, not the one it inherits from the controller)
+    os.environ["NUMBA_CACHE_DIR"] = os.path.join(_HERE, ".numba_cache", _WORKER)
+else:
+    os.environ.setdefault("NUMBA_CACHE_DIR", os.path.join(_HERE, ".numba_cache", "main"))
+
+import pytest  # noqa: E402
+
 DURATIONS = os.path.join(_HERE, ".test_durations.json")
 PROGRESS = os.path.join(_HERE, ".progress.txt")
 
