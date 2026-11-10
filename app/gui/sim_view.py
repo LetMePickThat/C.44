@@ -72,6 +72,7 @@ from core.params import P
 from gui import scene_view as sv
 from gui import controls as uc
 from gui import sky as gsky
+from gui import view3d as v3
 from sim import attitude as att
 from sim import encounter as enc
 from sim import engine
@@ -97,7 +98,7 @@ PROP_TIP_NEEDED = "The scenario changed and is too large for the automatic propa
 MAX_VIEW_MARGIN = float(P.get("tool.display.sim_max_view_margin"))   # farthest zoom out: the solar system (user)
 FARTHEST_APHELION_KM = max(el[0] * (1.0 + el[1]) for el, _r in eph.PLANET_ELEMENTS.values()) * eph.AU_KM
 MIN_CAMERA_KM = 1e-3 * float(P.get("tool.display.sim_min_camera_m"))   # nearest zoom in, to any focal point (user)
-TURN_DEG_PX = float(P.get("tool.display.mouse_turn_deg_px"))   # mouse rotation (user)
+TURN_DEG_PX = v3.TURN_DEG_PX                      # mouse rotation (shared: gui/view3d.py)
 SPEEDS = (1, 10, 100, 1000, 10000, 100000)     # x10 000 and x100 000: the Moon on its orbit (user)
 VOL_REBUILD_DEG = 5.0                             # V5: a volume is turned in place, rebuilt past this turn of its frame
 RING_STEP_FRAC = 0.25                             # V4: range rings spaced this share of the visible half-height apart
@@ -124,12 +125,9 @@ if set(IDENTITY_COLORS) != set(scn.IDENTITIES):
 OWNSHIP_IDENTITY = "friendly"                     # OWNSHIP is friendly (user): always drawn in that colour
 SHIP_COLOR = IDENTITY_COLORS[OWNSHIP_IDENTITY]    # its point, trajectory and trail
 KM_PER_MODEL_UNIT = 1e-3 / cgeo._M                # 1:1: the model's scene units to km (its true size)
-OPTION_COLUMNS = 2                                # the view's switches: two columns, one grid for its sections (user)
-PAIR_NAME = "optionPair"
-PAIR_PAD = 2                                      # px above and under the switches in a pair's frame
-OPTION_MARGIN = 5                                 # px left of every switch: a pair's frame fits in it, all aligned
-BG_COLOR = "#000000"                              # background of the 3D views: the black of space (user, 29 October 2026)
-TEXT_COLOR = "#e6e6e6"
+# the view's options panel, background and text colours: shared with the mission preparation (gui/view3d.py)
+OPTION_COLUMNS, PAIR_NAME, PAIR_PAD, OPTION_MARGIN = v3.OPTION_COLUMNS, v3.PAIR_NAME, v3.PAIR_PAD, v3.OPTION_MARGIN
+BG_COLOR, TEXT_COLOR = v3.BG_COLOR, v3.TEXT_COLOR
 # the widest Info lines of an object or the ship (side_width: the column fits them and the bodies' facts)
 INFO_WIDEST = ("classification\tsuspect", "reference frame\tjupiter equator", "position x\t-1234567.890 km", "velocity x\t-12.34567 km/s",
                "block loss\t12.34 dB / pass", "rate x\t-12.345 deg/s", "range\t1234567.890 km", "Sun hidden\t100 %",
@@ -167,16 +165,12 @@ NODE_DOWN = ((0.0, -1.0), (-0.87, 0.5), (0.87, 0.5), (0.0, -1.0))
 EQ_NODE_UP = ((0.0, 1.0), (-0.7, 0.0), (0.0, -0.4), (0.7, 0.0), (0.0, 1.0))  # the equatorial nodes: kites
 EQ_NODE_DOWN = ((0.0, -1.0), (-0.7, 0.0), (0.0, 0.4), (0.7, 0.0), (0.0, -1.0))
 CPA_CROSS = ((-1.0, -1.0), (1.0, 1.0), _UP, (-1.0, 1.0), (1.0, -1.0))
-# "UI size" of the view's options (user, 29 October 2026): the icons and texts of the 3D view (symbols, the
-# selection's square, labels: ids, range and azimuth marks, sectors, axes, events, bodies) x one of these
-UI_SCALES = (0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0)
-UI_SCALE_START = 1.0                              # (the sizes below: those of the former 150 %, user 30 October 2026)
-UI_BUTTON_PX = 28                                 # the width of the UI size's - and + buttons, px
+UI_SCALES, UI_SCALE_START, UI_BUTTON_PX = v3.UI_SCALES, v3.UI_SCALE_START, v3.UI_BUTTON_PX   # "UI size" (view3d)
 PLAY_BUTTON_PX = 40                               # the width of the |<, play / pause and >| buttons, px
 BOX_GAP = 0.15                                    # data box: its gap to the symbol, share of the symbol's size (D)
 CPA_LIVE_CHUNK = 64                               # live closest approaches: objects per vectorised pass (memory)
 CPA_REFINE_ITER = 40                             # golden-section steps refining the closest approach between records
-MUTED_COLOR = "#9aa0aa"
+MUTED_COLOR = v3.MUTED_COLOR
 EARTH_COLOR = "#4a78b5"
 ATM_COLOR = "#8cc4ff"                             # the Earth's atmosphere: a halo seen at the limb
 ATM_SHELLS = tuple(1.0 + 0.04 * (k / 10) ** 1.5 for k in range(1, 11))   # its shells' radii / the Earth's: denser
@@ -482,9 +476,7 @@ def eph_sun_radius_km() -> float:
     return sgeo.SUN_RADIUS_KM
 
 
-def _rgb(hex_color: str) -> Tuple[int, int, int]:
-    h = hex_color.lstrip("#")
-    return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+_rgb = v3.rgb
 
 
 COLOR_CACHE = TEXTURE_DIR / ".orbit_colors.json"   # E2: the maps' dominant colours (local, not in the repository)
@@ -1006,34 +998,7 @@ def _view_button_style(color: str) -> str:
             f"QToolButton:checked {{ background: {color}; color: white; }}")
 
 
-def _row(*widgets: QWidget) -> QWidget:
-    """Widgets side by side on one line of the options."""
-    w = QWidget()
-    lay = QHBoxLayout(w)
-    lay.setContentsMargins(OPTION_MARGIN, 0, 0, 0)
-    for x in widgets:
-        lay.addWidget(x)
-    lay.addStretch(1)
-    return w
-
-
-def _pair(first: QWidget, off_label: QLabel, second: QWidget) -> Tuple[QFrame, QWidget, QWidget]:
-    """Settings working as a pair, in a small frame over the whole line (user, 30 October 2026): (the frame, the
-    widget of the first column, the one of the second), the two-way switch in line with that column's switches, the
-    name of its off side before it."""
-    frame = QFrame()
-    frame.setObjectName(PAIR_NAME)
-    frame.setStyleSheet(f"#{PAIR_NAME} {{ border: 1px solid {MUTED_COLOR}; border-radius: 3px; }}")
-    frame.setAttribute(Qt.WA_TransparentForMouseEvents)     # (it lies over the switches)
-    left = QWidget()
-    lay = QHBoxLayout(left)
-    lay.setContentsMargins(OPTION_MARGIN, PAIR_PAD, 0, PAIR_PAD)
-    lay.addWidget(first)
-    lay.addStretch(1)
-    lay.addWidget(off_label)
-    right = _row(second)
-    right.layout().setContentsMargins(OPTION_MARGIN, PAIR_PAD, 0, PAIR_PAD)
-    return frame, left, right
+_row, _pair, _title = v3.row, v3.pair, v3.title   # the options panel (shared: gui/view3d.py)
 
 
 def _add_atmosphere(p, name: str):
@@ -1129,103 +1094,7 @@ def _place_halo(p, act, centre, radius_km: float) -> None:
     act.SetScale(float(radius_km))
 
 
-class _Labels:
-    """Text labels at 3D points, always on top (vtkLabeledDataMapper): one actor, its points and texts updated in
-    place (pyvista's add_point_labels rebuilds its whole pipeline at each call)."""
-
-    def __init__(self, plotter, color: str, size: int, box: bool = False):
-        # box: a data box (several lines, its top-left corner at the point, user 29 October 2026)
-        self.box = box
-        # the view's "UI size" (plotter._ui_scale) applies to every label of the plotter (rescale)
-        self.base_size = size
-        if not hasattr(plotter, "_ui_labels"):
-            plotter._ui_labels = weakref.WeakSet()
-        plotter._ui_labels.add(self)
-        self._plotter = weakref.ref(plotter)
-        from vtkmodules.vtkCommonCore import vtkPoints, vtkStringArray
-        from vtkmodules.vtkCommonDataModel import vtkPolyData
-        from vtkmodules.vtkRenderingCore import vtkActor2D
-        from vtkmodules.vtkRenderingLabel import vtkLabeledDataMapper
-        self.points, self.texts = vtkPoints(), vtkStringArray()
-        self.points.SetDataTypeToDouble()             # float32 (VTK's default): 30 m steps at the Moon, labels shake zoomed in
-        self.texts.SetName("labels")
-        self.poly = vtkPolyData()
-        self.poly.SetPoints(self.points)
-        self.poly.GetPointData().AddArray(self.texts)
-        self.mapper = vtkLabeledDataMapper()
-        self.mapper.SetInputData(self.poly)
-        self.mapper.SetLabelModeToLabelFieldData()
-        self.mapper.SetFieldDataName("labels")
-        tp = self.mapper.GetLabelTextProperty()
-        tp.SetColor(*(c / 255.0 for c in _rgb(color)))
-        tp.SetFontSize(max(1, round(size * getattr(plotter, "_ui_scale", 1.0))))
-        tp.SetShadow(False)
-        tp.SetBold(False)
-        tp.SetItalic(False)
-        tp.SetJustificationToLeft()
-        if box:
-            tp.SetVerticalJustificationToTop()
-        self.actor = vtkActor2D()
-        self.actor.SetMapper(self.mapper)
-        plotter.add_actor(self.actor, reset_camera=False, render=False)
-        self._last: List[str] = []
-        self._pts = np.zeros((0, 3))
-        self._shown: Optional[np.ndarray] = None      # the labels written with their text (the others blank)
-        # the mapper draws the points behind the camera too, mirrored onto the screen (user, 8 November 2026: data
-        # boxes of bodies out of sight piled up in the sky): before each render, their texts blanked
-        me = weakref.ref(self)
-        plotter.renderer.AddObserver("StartEvent", lambda *_a: me() is not None and me()._cull())
-
-    def rescale(self) -> None:
-        """The font at the plotter's UI size."""
-        p = self._plotter()
-        size = max(1, round(self.base_size * getattr(p, "_ui_scale", 1.0)))
-        self.mapper.GetLabelTextProperty().SetFontSize(size)
-        self.mapper.Modified()
-
-    def _front(self) -> np.ndarray:
-        """Which points lie in front of the camera."""
-        p = self._plotter()
-        if p is None or not len(self._pts):
-            return np.ones(len(self._pts), bool)
-        cam = p.renderer.GetActiveCamera()
-        fwd = np.asarray(cam.GetDirectionOfProjection(), float)
-        return (self._pts - np.asarray(cam.GetPosition(), float)) @ fwd > 0.0
-
-    def _write(self, shown: np.ndarray) -> None:
-        """The texts, blank where not shown."""
-        self.texts.SetNumberOfValues(len(self._last))
-        for i, t in enumerate(self._last):
-            self.texts.SetValue(i, "" if not shown[i] else (t if self.box else f" {t}"))
-        self._shown = shown
-        self.texts.Modified()
-        self.poly.Modified()
-
-    def _cull(self) -> None:
-        """Before a render: the labels of the points behind the camera blanked (only when that changed)."""
-        if not self.actor.GetVisibility() or len(self._pts) != len(self._last):
-            return
-        shown = self._front()
-        if self._shown is None or not np.array_equal(shown, self._shown):
-            self._write(shown)
-
-    def set(self, pts: np.ndarray, texts: List[str]) -> None:
-        same = list(texts) == self._last
-        if not same:
-            self._last = list(texts)
-            self._shown = None
-        pts = np.asarray(pts, float).reshape(-1, 3)
-        if same and np.array_equal(pts, self._pts):    # (fixed: every text mapper would be rebuilt for nothing)
-            self.actor.SetVisibility(True)
-            return
-        self._pts = pts.copy()
-        self.points.SetData(numpy_to_vtk(pts, deep=True))
-        self.points.Modified()
-        shown = self._front() if len(self._pts) == len(self._last) else np.ones(len(self._last), bool)
-        if self._shown is None or not np.array_equal(shown, self._shown):
-            self._write(shown)
-        self.poly.Modified()
-        self.actor.SetVisibility(True)
+_Labels = v3.Labels                               # labels at 3D points (shared: gui/view3d.py)
 
 
 BODY_SEL = "<body>"                               # a celestial body's selection key: BODY_SEL + its name
@@ -1278,13 +1147,6 @@ def _symbol_texture(path: str) -> pv.Texture:
     tex = pv.Texture(path)
     tex.interpolate = True
     return tex
-
-
-def _title(text: str) -> QLabel:
-    """A section title among the view's switches."""
-    lb = QLabel(f"{text}:")
-    lb.setStyleSheet("font-weight: bold;")
-    return lb
 
 
 def _segments(a: np.ndarray, b: np.ndarray) -> pv.PolyData:
@@ -1457,31 +1319,21 @@ class SimView(QWidget):
         proj_pair = _pair(self.cb_proj, self.lb_proj_partial, self.tg_proj_full)
         self._ship_only = (_row(self.cb_vectors), _row(self.cb_volumes), _row(self.cb_zones), _row(self.cb_bodies),
                            _row(self.cb_los)) + proj_pair
-        # UI size (user, 29 October 2026): the icons and texts of the 3D view, - / +
+        # UI size (user, 29 October 2026): the icons and texts of the 3D view, - / + (shared: gui/view3d.py)
         self.ui_scale = UI_SCALE_START
-        self.bt_ui_minus = QPushButton("-")                  # plain buttons, seen as clickable (user, 30 October 2026)
-        self.bt_ui_minus.clicked.connect(lambda _c=False: self.set_ui_scale(-1))
-        self.bt_ui_minus.setToolTip("Smaller icons and texts in the 3D view")
-        self.bt_ui_plus = QPushButton("+")
-        self.bt_ui_plus.clicked.connect(lambda _c=False: self.set_ui_scale(1))
-        self.bt_ui_plus.setToolTip("Larger icons and texts in the 3D view")
-        for b in (self.bt_ui_minus, self.bt_ui_plus):
-            b.setFixedWidth(UI_BUTTON_PX)
-        self.lb_ui = QLabel()
+        self.ui_size = v3.UiSize(self)
+        self.ui_size.changed.connect(self._ui_scale_changed)
+        self.bt_ui_minus, self.bt_ui_plus, self.lb_ui = self.ui_size.minus, self.ui_size.plus, self.ui_size.label
         self._array_view = np.zeros(3)                       # the apertures in the view's frame (_frame_ship)
-        self.bt_recentre = QPushButton("Recenter view")      # a plain button (user, 30 October 2026)
-        self.bt_recentre.clicked.connect(lambda _c=False: self.recentre())
-        self.bt_recentre.setToolTip("Global view: back to the central body or the body double-clicked, level with "
+        self.bt_recentre = v3.recenter_button(self.recentre, "Global view: back to the central body or the body double-clicked, level with "
                                     "the central body's equator; zoom and direction of view kept. Ship view: back "
                                     "to the view at start. Orbital view: on the ship, from the zenith, 0 deg up, "
                                     "90 deg to the right; zoom kept")
 
         self.plotter = QtInteractor(self)
         self.plotter.setMinimumWidth(400)
-        sv.lock_pivot(self.plotter)
         # right drag: turntable about the view's vertical; the left button picks and centres (user, 29 October 2026)
-        sv.install_turntable(self.plotter, TURN_DEG_PX, button="right", axis=self._turn_axis,
-                             on_click=self._on_right_click)
+        v3.install_rotation(self.plotter, axis=self._turn_axis, on_click=self._on_right_click)
         self.target_key: Optional[str] = None          # the target's selection key (_rows_of)
         self._glyphs: Dict[str, tuple] = {}
         self._poly_color: Dict[str, Optional[str]] = {}  # the colour each dynamic actor has (_poly)
@@ -1496,9 +1348,8 @@ class SimView(QWidget):
         from gui.maneuver_node import NodeTool
         self.node = NodeTool(self)
         self.node.install(self.plotter.iren.interactor)
-        self.plotter.set_background(BG_COLOR)
         self.plotter._ui_scale = self.ui_scale
-        self.sky = gsky.Sky(self.plotter, BG_COLOR)        # the stars under the scene (their own renderer)
+        self.sky = v3.space_background(self.plotter)       # the black of space, the stars under the scene
         self._apply_profile(self.view_mode)
         self.plotter.renderer.SetNearClippingPlaneTolerance(NEAR_TOL)
         self.plotter.renderer.AddObserver("StartEvent", lambda *_a: self._clip())
@@ -1522,32 +1373,9 @@ class SimView(QWidget):
         head.addStretch(1)
         head.addWidget(self.bt_recentre)
         vcol.addLayout(head)
-        vcol.addWidget(_row(QLabel("UI size"), self.bt_ui_minus, self.lb_ui, self.bt_ui_plus))
-        self._show_ui_scale()
-        grid = QGridLayout()
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setVerticalSpacing(4)
-        line = 0
-        for title, ws in ((_title("General display options"), self._common), (self._ship_titles[0], self._ship_only[:-3] + (proj_pair,))):
-            grid.addWidget(title, line, 0, 1, OPTION_COLUMNS)
-            line += 1
-            col = 0
-            for w in ws:
-                if isinstance(w, tuple):
-                    line += 1 if col else 0
-                    col = 0
-                    grid.addWidget(w[0], line, 0, 1, OPTION_COLUMNS)
-                    grid.addWidget(w[1], line, 0)
-                    grid.addWidget(w[2], line, 1)
-                    line += 1
-                else:
-                    grid.addWidget(w, line, col)
-                    col = (col + 1) % OPTION_COLUMNS
-                    line += 0 if col else 1
-            line += 1 if col else 0
-        for col in range(OPTION_COLUMNS):
-            grid.setColumnStretch(col, 1)
-        vcol.addLayout(grid)
+        vcol.addWidget(self.ui_size.widget())
+        vcol.addLayout(v3.options_grid(((_title("General display options"), self._common),
+                                        (self._ship_titles[0], self._ship_only[:-3] + (proj_pair,)))))
 
         # ---- L1 playback
         play = QHBoxLayout()
@@ -4266,22 +4094,16 @@ class SimView(QWidget):
 
     def set_ui_scale(self, step: int) -> None:
         """UI size one step down (-1) or up (+1) among UI_SCALES: the labels, symbols and the selection's square."""
-        k = int(np.argmin([abs(x - self.ui_scale) for x in UI_SCALES]))
-        self.ui_scale = UI_SCALES[int(np.clip(k + step, 0, len(UI_SCALES) - 1))]
-        self.plotter._ui_scale = self.ui_scale
-        for lab in list(getattr(self.plotter, "_ui_labels", ())):
-            lab.rescale()
-        self._show_ui_scale()
+        self.ui_size.step(step)                       # (-> _ui_scale_changed)
+
+    def _ui_scale_changed(self, scale: float) -> None:
+        self.ui_scale = scale
+        v3.apply_ui_scale(self.plotter, scale)
         self._place_symbols()
         if self.truth is not None:
             self._draw_frame()
         else:
             self._render()
-
-    def _show_ui_scale(self) -> None:
-        self.lb_ui.setText(f"{100 * self.ui_scale:.0f} %")
-        self.bt_ui_minus.setEnabled(self.ui_scale > UI_SCALES[0])
-        self.bt_ui_plus.setEnabled(self.ui_scale < UI_SCALES[-1])
 
     def _show_sky(self) -> None:
         self.sky.set_visible(self.tg_sky.isChecked(), self.cb_const.isChecked())

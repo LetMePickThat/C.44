@@ -1,0 +1,285 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+VIEW3D -- the parts of a 3D view shared by the two tools (user, 10 November 2026: the Radar Mission Preparation's view
+aligned with the Scenario Editor's, one component each, one behaviour to maintain):
+
+  - the background: the black of space (BG_COLOR), light texts (TEXT_COLOR), the stars under the scene (gui/sky.py)
+    -- space_background;
+  - the view's options panel: switches in sections over OPTION_COLUMNS columns, pairs in a small frame (row, pair,
+    title, options_grid), the "Recenter view" button (recenter_button) and the "UI size" control (UiSize);
+  - the labels at 3D points that follow the UI size and are blanked behind the camera (Labels, apply_ui_scale);
+  - the mouse rotation: a turntable on the right button about the view's vertical, the camera turning about the
+    scene's pivot, the left button left to picking (install_rotation; gui/scene_view.install_turntable, lock_pivot).
+
+First user: gui/sim_view.py (the Scenario Editor, unchanged on screen); then gui/scene_view.py (pass V2).
+"""
+from __future__ import annotations
+
+import weakref
+from typing import Callable, List, Optional, Sequence, Tuple, Union
+
+import numpy as np
+from PyQt5.QtCore import QObject, Qt, pyqtSignal
+from PyQt5.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QWidget
+from vtkmodules.util.numpy_support import numpy_to_vtk
+
+from core.params import P
+from gui import scene_view as sv
+from gui import sky as gsky
+
+BG_COLOR = "#000000"                              # background of the 3D views: the black of space (user, 29 October 2026)
+TEXT_COLOR = "#e6e6e6"
+MUTED_COLOR = "#9aa0aa"
+TURN_DEG_PX = float(P.get("tool.display.mouse_turn_deg_px"))   # mouse rotation (user)
+OPTION_COLUMNS = 2                                # the view's switches: two columns, one grid for its sections (user)
+PAIR_NAME = "optionPair"
+PAIR_PAD = 2                                      # px above and under the switches in a pair's frame
+OPTION_MARGIN = 5                                 # px left of every switch: a pair's frame fits in it, all aligned
+# "UI size" of the view's options (user, 29 October 2026): the icons and texts of the 3D view (symbols, the
+# selection's square, labels: ids, range and azimuth marks, sectors, axes, events, bodies) x one of these
+UI_SCALES = (0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0)
+UI_SCALE_START = 1.0                              # (the sizes below: those of the former 150 %, user 30 October 2026)
+UI_BUTTON_PX = 28                                 # the width of the UI size's - and + buttons, px
+
+
+def rgb(hex_color: str) -> Tuple[int, int, int]:
+    h = hex_color.lstrip("#")
+    return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+
+
+# ----------------------------------------------------------------------------- background
+def space_background(plotter) -> gsky.Sky:
+    """The black of space behind the scene and the stars under it (their own renderer); returns the sky."""
+    plotter.set_background(BG_COLOR)
+    return gsky.Sky(plotter, BG_COLOR)
+
+
+# ----------------------------------------------------------------------------- mouse
+def install_rotation(plotter, axis: Callable[[], Sequence[float]], on_click: Optional[Callable] = None) -> None:
+    """The mouse rotation of both tools (user, 29 October 2026): right drag = turntable about the view's vertical
+    axis(), TURN_DEG_PX per pixel, the camera turning about the scene's pivot; a right click without a drag calls
+    on_click; the left button is left to picking."""
+    sv.lock_pivot(plotter)
+    sv.install_turntable(plotter, TURN_DEG_PX, button="right", axis=axis, on_click=on_click)
+
+
+# ----------------------------------------------------------------------------- options panel
+def row(*widgets: QWidget) -> QWidget:
+    """Widgets side by side on one line of the options."""
+    w = QWidget()
+    lay = QHBoxLayout(w)
+    lay.setContentsMargins(OPTION_MARGIN, 0, 0, 0)
+    for x in widgets:
+        lay.addWidget(x)
+    lay.addStretch(1)
+    return w
+
+
+def pair(first: QWidget, off_label: QLabel, second: QWidget) -> Tuple[QFrame, QWidget, QWidget]:
+    """Settings working as a pair, in a small frame over the whole line (user, 30 October 2026): (the frame, the
+    widget of the first column, the one of the second), the two-way switch in line with that column's switches, the
+    name of its off side before it."""
+    frame = QFrame()
+    frame.setObjectName(PAIR_NAME)
+    frame.setStyleSheet(f"#{PAIR_NAME} {{ border: 1px solid {MUTED_COLOR}; border-radius: 3px; }}")
+    frame.setAttribute(Qt.WA_TransparentForMouseEvents)     # (it lies over the switches)
+    left = QWidget()
+    lay = QHBoxLayout(left)
+    lay.setContentsMargins(OPTION_MARGIN, PAIR_PAD, 0, PAIR_PAD)
+    lay.addWidget(first)
+    lay.addStretch(1)
+    lay.addWidget(off_label)
+    right = row(second)
+    right.layout().setContentsMargins(OPTION_MARGIN, PAIR_PAD, 0, PAIR_PAD)
+    return frame, left, right
+
+
+def title(text: str) -> QLabel:
+    """A section title among the view's switches."""
+    lb = QLabel(f"{text}:")
+    lb.setStyleSheet("font-weight: bold;")
+    return lb
+
+
+Item = Union[QWidget, Tuple[QFrame, QWidget, QWidget]]
+
+
+def options_grid(sections: Sequence[Tuple[QLabel, Sequence[Item]]]) -> QGridLayout:
+    """The view's switches (user, 30 October 2026): one grid for all its sections, OPTION_COLUMNS columns, each
+    section under its title; a pair (see pair) on a whole line, its two widgets in the two columns."""
+    grid = QGridLayout()
+    grid.setContentsMargins(0, 0, 0, 0)
+    grid.setVerticalSpacing(4)
+    line = 0
+    for head, ws in sections:
+        grid.addWidget(head, line, 0, 1, OPTION_COLUMNS)
+        line += 1
+        col = 0
+        for w in ws:
+            if isinstance(w, tuple):
+                line += 1 if col else 0
+                col = 0
+                grid.addWidget(w[0], line, 0, 1, OPTION_COLUMNS)
+                grid.addWidget(w[1], line, 0)
+                grid.addWidget(w[2], line, 1)
+                line += 1
+            else:
+                grid.addWidget(w, line, col)
+                col = (col + 1) % OPTION_COLUMNS
+                line += 0 if col else 1
+        line += 1 if col else 0
+    for col in range(OPTION_COLUMNS):
+        grid.setColumnStretch(col, 1)
+    return grid
+
+
+def recenter_button(slot: Callable[[], None], tip: str) -> QPushButton:
+    """The view's "Recenter view" (a plain button, user 30 October 2026)."""
+    b = QPushButton("Recenter view")
+    b.clicked.connect(lambda _c=False: slot())
+    b.setToolTip(tip)
+    return b
+
+
+class UiSize(QObject):
+    """The view's "UI size" (user, 29 October 2026): - / + among UI_SCALES and the percentage between them; changed
+    sends the new scale (the owner applies it: apply_ui_scale, then its own symbols)."""
+    changed = pyqtSignal(float)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.scale = UI_SCALE_START
+        self.minus = QPushButton("-")                 # plain buttons, seen as clickable (user, 30 October 2026)
+        self.minus.clicked.connect(lambda _c=False: self.step(-1))
+        self.minus.setToolTip("Smaller icons and texts in the 3D view")
+        self.plus = QPushButton("+")
+        self.plus.clicked.connect(lambda _c=False: self.step(1))
+        self.plus.setToolTip("Larger icons and texts in the 3D view")
+        for b in (self.minus, self.plus):
+            b.setFixedWidth(UI_BUTTON_PX)
+        self.label = QLabel()
+        self.show()
+
+    def widget(self) -> QWidget:
+        """Its line of the options panel."""
+        return row(QLabel("UI size"), self.minus, self.label, self.plus)
+
+    def step(self, k: int) -> None:
+        """One step down (-1) or up (+1)."""
+        i = int(np.argmin([abs(x - self.scale) for x in UI_SCALES]))
+        self.scale = UI_SCALES[int(np.clip(i + k, 0, len(UI_SCALES) - 1))]
+        self.show()
+        self.changed.emit(self.scale)
+
+    def show(self) -> None:
+        self.label.setText(f"{100 * self.scale:.0f} %")
+        self.minus.setEnabled(self.scale > UI_SCALES[0])
+        self.plus.setEnabled(self.scale < UI_SCALES[-1])
+
+
+def apply_ui_scale(plotter, scale: float) -> None:
+    """The plotter's labels (Labels) at this UI size."""
+    plotter._ui_scale = scale
+    for lab in list(getattr(plotter, "_ui_labels", ())):
+        lab.rescale()
+
+
+# ----------------------------------------------------------------------------- labels
+class Labels:
+    """Text labels at 3D points, always on top (vtkLabeledDataMapper): one actor, its points and texts updated in
+    place (pyvista's add_point_labels rebuilds its whole pipeline at each call)."""
+
+    def __init__(self, plotter, color: str, size: int, box: bool = False):
+        # box: a data box (several lines, its top-left corner at the point, user 29 October 2026)
+        self.box = box
+        # the view's "UI size" (plotter._ui_scale) applies to every label of the plotter (rescale)
+        self.base_size = size
+        if not hasattr(plotter, "_ui_labels"):
+            plotter._ui_labels = weakref.WeakSet()
+        plotter._ui_labels.add(self)
+        self._plotter = weakref.ref(plotter)
+        from vtkmodules.vtkCommonCore import vtkPoints, vtkStringArray
+        from vtkmodules.vtkCommonDataModel import vtkPolyData
+        from vtkmodules.vtkRenderingCore import vtkActor2D
+        from vtkmodules.vtkRenderingLabel import vtkLabeledDataMapper
+        self.points, self.texts = vtkPoints(), vtkStringArray()
+        self.points.SetDataTypeToDouble()             # float32 (VTK's default): 30 m steps at the Moon, labels shake zoomed in
+        self.texts.SetName("labels")
+        self.poly = vtkPolyData()
+        self.poly.SetPoints(self.points)
+        self.poly.GetPointData().AddArray(self.texts)
+        self.mapper = vtkLabeledDataMapper()
+        self.mapper.SetInputData(self.poly)
+        self.mapper.SetLabelModeToLabelFieldData()
+        self.mapper.SetFieldDataName("labels")
+        tp = self.mapper.GetLabelTextProperty()
+        tp.SetColor(*(c / 255.0 for c in rgb(color)))
+        tp.SetFontSize(max(1, round(size * getattr(plotter, "_ui_scale", 1.0))))
+        tp.SetShadow(False)
+        tp.SetBold(False)
+        tp.SetItalic(False)
+        tp.SetJustificationToLeft()
+        if box:
+            tp.SetVerticalJustificationToTop()
+        self.actor = vtkActor2D()
+        self.actor.SetMapper(self.mapper)
+        plotter.add_actor(self.actor, reset_camera=False, render=False)
+        self._last: List[str] = []
+        self._pts = np.zeros((0, 3))
+        self._shown: Optional[np.ndarray] = None      # the labels written with their text (the others blank)
+        # the mapper draws the points behind the camera too, mirrored onto the screen (user, 8 November 2026: data
+        # boxes of bodies out of sight piled up in the sky): before each render, their texts blanked
+        me = weakref.ref(self)
+        plotter.renderer.AddObserver("StartEvent", lambda *_a: me() is not None and me()._cull())
+
+    def rescale(self) -> None:
+        """The font at the plotter's UI size."""
+        p = self._plotter()
+        size = max(1, round(self.base_size * getattr(p, "_ui_scale", 1.0)))
+        self.mapper.GetLabelTextProperty().SetFontSize(size)
+        self.mapper.Modified()
+
+    def _front(self) -> np.ndarray:
+        """Which points lie in front of the camera."""
+        p = self._plotter()
+        if p is None or not len(self._pts):
+            return np.ones(len(self._pts), bool)
+        cam = p.renderer.GetActiveCamera()
+        fwd = np.asarray(cam.GetDirectionOfProjection(), float)
+        return (self._pts - np.asarray(cam.GetPosition(), float)) @ fwd > 0.0
+
+    def _write(self, shown: np.ndarray) -> None:
+        """The texts, blank where not shown."""
+        self.texts.SetNumberOfValues(len(self._last))
+        for i, t in enumerate(self._last):
+            self.texts.SetValue(i, "" if not shown[i] else (t if self.box else f" {t}"))
+        self._shown = shown
+        self.texts.Modified()
+        self.poly.Modified()
+
+    def _cull(self) -> None:
+        """Before a render: the labels of the points behind the camera blanked (only when that changed)."""
+        if not self.actor.GetVisibility() or len(self._pts) != len(self._last):
+            return
+        shown = self._front()
+        if self._shown is None or not np.array_equal(shown, self._shown):
+            self._write(shown)
+
+    def set(self, pts: np.ndarray, texts: List[str]) -> None:
+        same = list(texts) == self._last
+        if not same:
+            self._last = list(texts)
+            self._shown = None
+        pts = np.asarray(pts, float).reshape(-1, 3)
+        if same and np.array_equal(pts, self._pts):    # (fixed: every text mapper would be rebuilt for nothing)
+            self.actor.SetVisibility(True)
+            return
+        self._pts = pts.copy()
+        self.points.SetData(numpy_to_vtk(pts, deep=True))
+        self.points.Modified()
+        shown = self._front() if len(self._pts) == len(self._last) else np.ones(len(self._last), bool)
+        if self._shown is None or not np.array_equal(shown, self._shown):
+            self._write(shown)
+        self.poly.Modified()
+        self.actor.SetVisibility(True)
