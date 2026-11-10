@@ -80,6 +80,9 @@ class ScenarioWindow(QMainWindow):
         self.showMaximized()
 
     def closeEvent(self, event) -> None:
+        if not self.scenario._confirm_discard():          # unsaved changes (pass V3, as the mission preparation)
+            event.ignore()
+            return
         if hasattr(self.scenario.preview, "stop_background"):
             self.scenario.preview.stop_background()
         view = getattr(self.scenario.preview, "plotter", None)

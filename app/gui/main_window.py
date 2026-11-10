@@ -57,6 +57,7 @@ class OptimizeWorker(QThread):
         self.progress.emit(done, total, sector_id)
 
 
+TITLE = "Radar Mission Preparation"
 WINDOW_SIZE = tuple(int(x) for x in P.get("tool.display.window_size"))   # at start (user)
 FRAME_MARGIN = (16, 48)                          # px kept for the window frame and its title bar
 PREP_TAB, RESULTS_TAB = range(2)                 # the working modes, in order
@@ -73,7 +74,7 @@ class MainWindow(QMainWindow):
     def __init__(self, mission: Optional[dict] = None, path: Optional[str] = None):
         """mission: a mission to start on (with a new scenario); path: a file to open (sim/document.py)."""
         super().__init__()
-        self.setWindowTitle("Radar Mission Preparation")
+        self.setWindowTitle(TITLE)
         self.resize(*WINDOW_SIZE)                 # fitted to the screen by show_default()
         self.grid = geo.SphereGrid(res_deg=GRID_RES_DEG)
         self.results: Optional[ResultsTab] = None
@@ -83,6 +84,7 @@ class MainWindow(QMainWindow):
         # (user, 29 October 2026) the scenario is a separate tool (scenario_tool.py, gui/scenario_window.py)
         self.prep = PrepTab(mission if mission is not None else md.empty_mission(), self.grid)
         self.prep.run_requested.connect(self._run)
+        self.prep.title_changed.connect(lambda name: self.setWindowTitle(f"{TITLE} - {name}"))
 
         # B14: the header (menu, modes, main action), the working area of each mode, the status bar
         self.menu = QMenu(self)
@@ -103,7 +105,7 @@ class MainWindow(QMainWindow):
         hl.addWidget(self.modes)
         hl.addStretch(1)
         hl.addLayout(self.actions_box)
-        self._add_mode("Mission preparation", self.prep, [], self.prep.b_run)
+        self._add_mode("Mission preparation", self.prep, [self.prep.file_label], self.prep.b_run)
         self.modes.setTabsClosable(True)
         for index in (PREP_TAB,):                           # only the results can be closed
             for side in (QTabBar.LeftSide, QTabBar.RightSide):
@@ -124,10 +126,8 @@ class MainWindow(QMainWindow):
         self.modes.setCurrentIndex(PREP_TAB)
         self._on_mode_changed(PREP_TAB)
         if path:
-            try:
-                self.prep.set_mission(md.load_mission(path))
-            except Exception as exc:  # noqa: BLE001 -- bad path / file: say so and stay on the mission shown
-                QMessageBox.critical(self, "Open", f"Could not open {path}: {exc}")
+            self.prep.open_path(path)                     # (a bad file: said, the mission shown kept)
+        self.setWindowTitle(f"{TITLE} - {self.prep.file_label.text()}")
 
     # ------------------------------------------------------------------ B14 header, modes, menu, status bar
     def _add_mode(self, title: str, widget: QWidget, status: List[QWidget], primary: Optional[QWidget]) -> int:
@@ -182,17 +182,14 @@ class MainWindow(QMainWindow):
                 act.setIcon(ic)
             act.setEnabled(enabled)
         self.menu.addSeparator()
-        self.menu.addAction("About...", lambda: uc.show_about(self, "Radar Mission Preparation"))
+        self.menu.addAction("About...", lambda: uc.show_about(self, TITLE))
 
     def _shortcut(self, cmd: str) -> None:
-        """In the mission preparation Ctrl+O imports and Ctrl+S exports the mission (JSON); the results: Ctrl+S
-        exports them."""
+        """In the mission preparation Ctrl+N / O / S / Shift+S act on the mission file (pass V3, as the Scenario
+        Editor); in the results Ctrl+S exports them."""
         current = self.work.currentWidget()
         if current is self.prep:
-            if cmd == "open" and not self.prep.locked:
-                self.prep._on_import()
-            elif cmd in ("save", "save_as"):
-                self.prep._on_export("json")
+            getattr(self.prep, cmd)()                     # (New / Open refused while the mission is locked)
         elif current is self.results and cmd in ("save", "save_as"):
             self.results.export_json()
 
@@ -298,6 +295,9 @@ class MainWindow(QMainWindow):
         self.prep.set_locked(False)
 
     def closeEvent(self, event) -> None:
+        if not self.prep.confirm_discard():               # unsaved changes to the mission (pass V3)
+            event.ignore()
+            return
         self.prep.view.plotter.close()
         if self.results is not None:
             self.results.view.plotter.close()

@@ -40,6 +40,22 @@ MODEL_ATTRIBUTIONS = (                            # the ship's model, the moons'
     "Schenk, P. (2010) New Moons – First Global Topographic Maps of (Saturn's) Icy Moons")
 
 
+def file_title(path, modified: bool) -> str:
+    """The document's name as both tools show it (title bar, status bar; pass V3, user 10 November 2026): its file
+    name, "(not saved)" before a first save, " *" when it has unsaved changes."""
+    import os
+    return (os.path.basename(path) if path else "(not saved)") + (" *" if modified else "")
+
+
+def confirm_discard(parent: QWidget, tool: str, modified: bool) -> bool:
+    """Before New, Open, an import or closing the window (pass V3): True when there is nothing unsaved or the user
+    agrees to discard it."""
+    if not modified:
+        return True
+    return QMessageBox.question(parent, tool, "Discard the unsaved changes?",
+                                QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes
+
+
 def show_about(parent: QWidget, tool: str) -> None:
     """File > About (user, 29 October 2026): a box in the middle of the window with the attributions."""
     box = QMessageBox(parent)

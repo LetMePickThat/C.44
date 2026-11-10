@@ -10,6 +10,8 @@ open the mission is locked (set_locked), so the results always describe the miss
 from __future__ import annotations
 
 import copy
+import json
+import os
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -95,11 +97,17 @@ PANEL_VIEW_MIN_W = 700                 # px left at least to the 3D view when th
 
 class PrepTab(QWidget):
     run_requested = pyqtSignal(dict)   # frozen (deep) copy of a valid mission to optimise
+    title_changed = pyqtSignal(str)    # the file name, " *" when modified (pass V3)
 
     def __init__(self, mission: dict, grid: geo.SphereGrid, parent=None):
         super().__init__(parent)
         self.mission: dict = mission
         self.grid = grid
+        # the mission file (pass V3, user 10 November 2026, as the Scenario Editor): its path (None before a first
+        # save), the mission as last saved or opened (modified = the mission on screen differs from it)
+        self.path: Optional[str] = None
+        self._saved_sig = self._signature()
+        self.file_label = QLabel()
         self.cost_table = ce.load_table()
         self.locked = False
         self._cur_index: int = -1
@@ -128,6 +136,7 @@ class PrepTab(QWidget):
         self._build_ui()
         self._reload_sector_list()
         self._schedule_refresh()
+        self._update_title()
 
     # ------------------------------------------------------------------ UI construction
     def _build_ui(self) -> None:
@@ -1121,6 +1130,7 @@ class PrepTab(QWidget):
         self._debounce.start()
 
     def _refresh_all(self) -> None:
+        self._update_title()
         eps_min = self.mission["global"].get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"])
         eps_max = self.mission["global"].get("eps_max_deg", md.GLOBAL_DEFAULTS["eps_max_deg"])
         self._update_gauges(eps_min, eps_max)
@@ -1393,9 +1403,91 @@ class PrepTab(QWidget):
             self._schedule_refresh()
 
     # ------------------------------------------------------------------ import / export / validate / run
+    # ------------------------------------------------------------------ the mission file (pass V3)
+    def _signature(self) -> str:
+        return json.dumps(self.mission, sort_keys=True, default=str)
+
+    @property
+    def modified(self) -> bool:
+        return self._signature() != self._saved_sig
+
+    def _update_title(self) -> None:
+        self.file_label.setText(uc.file_title(self.path, self.modified))
+        self.title_changed.emit(self.file_label.text())
+
+    def _dir(self) -> str:
+        """The file dialogs' folder: the current file's."""
+        return os.path.dirname(self.path) if self.path else ""
+
+    def confirm_discard(self) -> bool:
+        return uc.confirm_discard(self, "Mission", self.modified)
+
+    def file_commands(self) -> list:
+        """(text, slot, icon, edits the mission) of the mission in the window's menu; the CSV in import / export."""
+        return [("New...", self.new, "SP_FileIcon", True), ("Open...", self.open, "SP_DialogOpenButton", True),
+                ("Save", self.save, "SP_DialogSaveButton", False),
+                ("Save as...", self.save_as, "SP_DialogSaveButton", False),
+                ("Import CSV...", self._on_import, "SP_DialogOpenButton", True),
+                ("Export CSV...", lambda: self._on_export("csv"), "SP_DialogSaveButton", False)]
+
+    def new(self) -> None:
+        if self.locked or not self.confirm_discard():
+            return
+        self._load(md.empty_mission(), None)
+
+    def open(self) -> None:
+        if self.locked or not self.confirm_discard():
+            return
+        path, _ = QFileDialog.getOpenFileName(self, "Open a mission", self._dir(), "Mission (*.json)")
+        if path:
+            self.open_path(path)
+
+    def open_path(self, path: str) -> bool:
+        """A mission file (JSON; a CSV is imported: no file, unsaved)."""
+        try:
+            mission = md.load_mission(path)
+        except Exception as exc:  # noqa: BLE001 -- bad path / file: say so and keep the mission shown
+            QMessageBox.critical(self, "Open", f"Could not open {path}: {exc}")
+            return False
+        csv = path.lower().endswith(".csv")
+        self._load(mission, None if csv else path, saved=not csv)
+        return True
+
+    def save(self) -> bool:
+        return self.save_as() if self.path is None else self._write(self.path)
+
+    def save_as(self) -> bool:
+        path, _ = QFileDialog.getSaveFileName(self, "Save the mission", self.path or self._dir() or "mission.json",
+                                              "Mission (*.json)")
+        if not path:
+            return False
+        return self._write(path if path.lower().endswith(".json") else path + ".json")
+
+    def _write(self, path: str) -> bool:
+        errs = md.validate_mission(self.mission)
+        if errs and QMessageBox.question(self, "Mission", f"The mission has {len(errs)} problem(s). Save anyway?",
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+            return False
+        try:
+            md.save_mission_json(path, self.mission)
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.critical(self, "Save", f"Save failed: {exc}")
+            return False
+        self.path, self._saved_sig = path, self._signature()
+        self._update_title()
+        return True
+
+    def _load(self, mission: dict, path: Optional[str], saved: bool = True) -> None:
+        self.set_mission(mission)
+        self.path = path
+        self._saved_sig = self._signature() if saved else None
+        self._update_title()
+
     def _on_import(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Import a mission", "",
-                                               "Mission (*.json *.csv)")
+        """A CSV mission (or a JSON one): shown unsaved, with no file (Save asks where)."""
+        if self.locked or not self.confirm_discard():
+            return
+        path, _ = QFileDialog.getOpenFileName(self, "Import a mission", self._dir(), "Mission (*.csv *.json)")
         if not path:
             return
         try:
@@ -1403,10 +1495,10 @@ class PrepTab(QWidget):
         except Exception as exc:  # noqa: BLE001
             QMessageBox.critical(self, "Import", f"Import failed: {exc}")
             return
-        self.set_mission(mission)
+        self._load(mission, None, saved=False)
 
     def set_mission(self, mission: dict) -> None:
-        """Show and edit this mission (an import, the file given to the tool at start)."""
+        """Show and edit this mission (its file and state: _load)."""
         self.mission = mission
         self.mission.setdefault("global", dict(md.GLOBAL_DEFAULTS))
         self.mission.setdefault("sectors", [])
@@ -1422,7 +1514,8 @@ class PrepTab(QWidget):
 
     def _on_export(self, fmt: str) -> None:
         ext = "json" if fmt == "json" else "csv"
-        path, _ = QFileDialog.getSaveFileName(self, "Export the mission", f"mission.{ext}",
+        stem = os.path.splitext(self.path)[0] if self.path else "mission"
+        path, _ = QFileDialog.getSaveFileName(self, "Export the mission", f"{stem}.{ext}",
                                                f"Mission (*.{ext})")
         if not path:
             return

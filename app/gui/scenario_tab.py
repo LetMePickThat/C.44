@@ -826,10 +826,7 @@ class ScenarioTab(QWidget):
 
     # ------------------------------------------------------------------ files
     def _confirm_discard(self) -> bool:
-        if not self.modified:
-            return True
-        return QMessageBox.question(self, "Scenario", "Discard the unsaved changes?",
-                                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes
+        return uc.confirm_discard(self, "Scenario", self.modified)
 
     def new(self) -> None:
         """P1: a new file, its properties asked first (Cancel: no file created)."""
@@ -937,8 +934,7 @@ class ScenarioTab(QWidget):
             self.preview.propagate_loaded()
 
     def _update_title(self) -> None:
-        name = os.path.basename(self.path) if self.path else "(not saved)"
-        self.file_label.setText(name + (" *" if self.modified else ""))
+        self.file_label.setText(uc.file_title(self.path, self.modified))
         self.title_changed.emit(self.file_label.text())
 
     # ------------------------------------------------------------------ tree
