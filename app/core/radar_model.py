@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.36.0
+# Radar Performance Model - V6.37.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,18 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.36.0 -> V6.37.0 (final allocation rule in the exact computation, pass R3, user 10 November 2026)
+#   - the ship's resources (energy pool, each face's limit, S and Ku time) are shared by the final rule
+#     (allocation.solve, allocate_rule) in place of the pro-rata sharing: range lost first down to rho_min, then the
+#     revisit; search shares in the overlaps of the scan cones may move to the neighbouring face (face_overlap costs,
+#     applied at plan kept); the load ceiling is a hard constraint;
+#   - a volume the rule does not serve in full is re-planned at rho x R (and its revisit tenable) until the plan fits
+#     under the ceiling (secant on the cost law, tool.global_opt.confirm_replans);
+#   - verdict: a face's energy row = its need over its own limit (feeder or operator cap); new state DEGRADED (range
+#     held at rho_min or above, revisit held); the list of what has no margin left (M2);
+#   - fast estimate: priced per volume by the optimiser's laws (core/cost_profile.py), recalibrated by the exact run
+#     (core/calibration.py), the processing in the always-on at its static share until an exact run measures it.
 #
 # Changes V6.35.0 -> V6.36.0 (user, 30 October 2026)
 #   - the ship turns about its centre of gravity (ship.model_cg_z_m, 59.3 m behind the apertures), no longer about the
@@ -697,7 +709,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.36.0"
+MODEL_VERSION = "6.37.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

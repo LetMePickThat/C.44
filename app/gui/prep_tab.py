@@ -1429,8 +1429,9 @@ class PrepTab(QWidget):
         self.view.set_mission_global(self.mission["global"])
         try:                                     # pass R3d (M1): ratios of the last exact run of each volume
             from core import calibration
-            self.view.set_calibration({self._draw_sid(i, s): c for i, s in enumerate(self.mission["sectors"])
-                                       if (c := calibration.ratios(s)) is not None})
+            secs = self.mission["sectors"]
+            self.view.set_calibration(calibration.view_calibration(secs, [self._draw_sid(i, s)
+                                                                          for i, s in enumerate(secs)]))
         except Exception:  # noqa: BLE001 -- a volume mid-edit: not recalibrated
             self.view.set_calibration({})
         draws = []

@@ -391,47 +391,47 @@
       },
       "S": {
        "beams_max": 512,
-       "beams_mean": 0.23110872738283655,
+       "beams_mean": 1.348762485164357,
        "beams_peak": 171.31669988760558,
-       "bits_per_s": 54674640572.651276,
-       "buffer_peak_GB": 0.1713166998876056,
-       "face_input_peak_tbps": 39.2,
-       "link_trsa_peak_tbps": 0.2,
-       "open_windows_mean": 0.001394761239098247,
+       "bits_per_s": 438280214347.2367,
+       "buffer_peak_GB": 0.2569750498314084,
+       "face_input_peak_tbps": 58.8,
+       "link_trsa_peak_tbps": 0.3,
+       "open_windows_mean": 0.007918665554992557,
        "ops_per_s": {
-        "banks": 1479095855.2501538,
-        "beamforming": 2264865528351.7983,
-        "cfar": 924434909.5313461,
-        "compression": 9782583161.62936,
+        "banks": 12208571929.952747,
+        "beamforming": 18694375767740.15,
+        "cfar": 7630357456.220468,
+        "compression": 83197896063.1278,
         "nulling": 0.0,
-        "repointing": 1852.7702560240964,
+        "repointing": 10802.770256024096,
         "tracks": 0.0
        },
-       "ops_total_per_s": 2277051644130.9795,
+       "ops_total_per_s": 18797412603992.22,
        "transport": "raw"
       }
      },
-     "bits_per_s": 54677094798.74838,
-     "bus_draw_MW_actual": 0.07082370478933742,
-     "capacity_ops_per_s": 3.9999997266145265e+18,
-     "face_heat_kW_actual": 66.91334172808993,
+     "bits_per_s": 438282668573.3338,
+     "bus_draw_MW_actual": 0.07082424050358052,
+     "capacity_ops_per_s": 3.999997808586657e+18,
+     "face_heat_kW_actual": 66.9299481119782,
      "jammers_nulled": 0,
-     "load": 5.693589892407494e-07,
+     "load": 4.6994517649027664e-06,
      "memory": {
       "bandwidth_TB_per_s": 50.0,
-      "buffers_peak_TB": 0.00017144169988760557,
+      "buffers_peak_TB": 0.0002571000498314084,
       "capacity_TB": 4.0,
-      "flight_tables_TB": 4.032e-09,
-      "traffic_TB_per_s": 0.007296857434999652
+      "flight_tables_TB": 4.992e-09,
+      "traffic_TB_per_s": 0.058600515430167394
      },
-     "non_tx_kW_actual": 66.88002550821275,
-     "ops_total_per_s": 2277435801308.521,
+     "non_tx_kW_actual": 66.88020989210104,
+     "ops_total_per_s": 18797796761169.76,
      "power_kW": {
       "ceiling": 50.0,
-      "ops": 2.277435801308521e-05,
+      "ops": 0.00018797796761169761,
       "static": 10.0,
-      "total": 10.000025508212753,
-      "transport": 2.733854739937419e-06
+      "total": 10.00020989210104,
+      "transport": 2.1914133428666693e-05
      }
     },
     "3": {
@@ -459,47 +459,47 @@
       },
       "S": {
        "beams_max": 512,
-       "beams_mean": 1.2325326918946518,
+       "beams_mean": 0.11487893411313138,
        "beams_peak": 171.31669988760558,
-       "bits_per_s": 487444201158.50757,
+       "bits_per_s": 103838627383.92216,
        "buffer_peak_GB": 0.3426333997752112,
        "face_input_peak_tbps": 78.4,
        "link_trsa_peak_tbps": 0.4,
-       "open_windows_mean": 0.00909120897208403,
+       "open_windows_mean": 0.002567304656189719,
        "ops_per_s": {
-        "banks": 11554213455.661028,
-        "beamforming": 17692389353980.95,
-        "cfar": 7221383409.788142,
-        "compression": 78939969902.53407,
+        "banks": 824737380.958431,
+        "beamforming": 1262879114592.5977,
+        "cfar": 515460863.09901947,
+        "compression": 5524657001.035662,
         "nulling": 0.0,
-        "repointing": 9887.227160950073,
+        "repointing": 937.2271609500733,
         "tracks": 0.0
        },
-       "ops_total_per_s": 17790104930636.16,
+       "ops_total_per_s": 1269743970774.918,
        "transport": "raw"
       }
      },
-     "bits_per_s": 487503439752.3302,
-     "bus_draw_MW_actual": 0.07847841659377908,
-     "capacity_ops_per_s": 3.999997562482801e+18,
-     "face_heat_kW_actual": 68.45945858780112,
+     "bits_per_s": 103897865977.74481,
+     "bus_draw_MW_actual": 0.07847788087953597,
+     "capacity_ops_per_s": 3.9999994805106703e+18,
+     "face_heat_kW_actual": 68.44285220391282,
      "jammers_nulled": 0,
-     "load": 4.449847068439333e-06,
+     "load": 3.197541583565499e-07,
      "memory": {
       "bandwidth_TB_per_s": 50.0,
       "buffers_peak_TB": 0.0003436333997752112,
       "capacity_TB": 4.0,
-      "flight_tables_TB": 6.336e-09,
-      "traffic_TB_per_s": 0.06454869723336626
+      "flight_tables_TB": 5.376e-09,
+      "traffic_TB_per_s": 0.01324503923819851
      },
-     "non_tx_kW_actual": 66.88020236894626,
-     "ops_total_per_s": 17799377427178.57,
+     "non_tx_kW_actual": 66.88001798505798,
+     "ops_total_per_s": 1279016467317.3264,
      "power_kW": {
       "ceiling": 50.0,
-      "ops": 0.0001779937742717857,
+      "ops": 1.2790164673173263e-05,
       "static": 10.0,
-      "total": 10.00020236894626,
-      "transport": 2.437517198761651e-05
+      "total": 10.000017985057973,
+      "transport": 5.19489329888724e-06
      }
     }
    },
@@ -518,11 +518,11 @@
    },
    "sectors": {
     "A1_TRIM": {
-     "processing_s": 4.219845200281251e-07,
+     "processing_s": 4.219864652169972e-07,
      "reselect_ops": 15000.0
     },
     "A2_VEILLE": {
-     "processing_s": 1.7302366784253346e-08,
+     "processing_s": 1.730237003848001e-08,
      "reselect_ops": 27000.0
     },
     "A3_HIBAND": {
@@ -530,19 +530,19 @@
      "reselect_ops": 5000.0
     },
     "A4_SEARCH": {
-     "processing_s": 4.219863858498583e-07,
+     "processing_s": 4.21984440661718e-07,
      "reselect_ops": 21000.0
     },
     "A5_SHORT": {
-     "processing_s": 3.075976317200595e-08,
+     "processing_s": 3.0759638240932866e-08,
      "reselect_ops": 24000.0
     },
     "B1_TRIM": {
-     "processing_s": 4.219845200281251e-07,
+     "processing_s": 4.219864652169972e-07,
      "reselect_ops": 21000.0
     },
     "B2_AUTOPROT": {
-     "processing_s": 6.33073529729964e-07,
+     "processing_s": 6.330736487983427e-07,
      "reselect_ops": 15000.0
     },
     "B3_EDGE": {
@@ -550,7 +550,7 @@
      "reselect_ops": 3000.0
     },
     "B4_FINE": {
-     "processing_s": 8.441869186579934e-07,
+     "processing_s": 8.441830272945812e-07,
      "reselect_ops": 12000.0
     },
     "B5_LONG": {
@@ -558,6 +558,13 @@
      "reselect_ops": 12000.0
     }
    }
+  },
+  "confirmation": {
+   "converged": true,
+   "history": [],
+   "max_replans": 4,
+   "replans": 0,
+   "volumes": {}
   },
   "faces_total": {
    "0": {
@@ -583,23 +590,23 @@
     "time_margin_s": 1.0
    },
    "2": {
-    "avg_power_kW": 0.0662,
-    "dissipation_kW": 0.016,
+    "avg_power_kW": 0.0827,
+    "dissipation_kW": 0.0321,
     "energy_fraction": 0.0,
     "ku_duty_pct": 12.6183,
-    "p_available_kW": 1783.5538,
-    "positions": 199.0,
+    "p_available_kW": 1783.5442,
+    "positions": 216.9,
     "power_margin": 1.0,
     "time_fraction": 0.0,
     "time_margin_s": 1.0
    },
    "3": {
-    "avg_power_kW": 2.7231,
-    "dissipation_kW": 0.5625,
+    "avg_power_kW": 2.7066,
+    "dissipation_kW": 0.5464,
     "energy_fraction": 0.0015,
-    "ku_duty_pct": 12.5995,
-    "p_available_kW": 1780.8969,
-    "positions": 218.1,
+    "ku_duty_pct": 12.5997,
+    "p_available_kW": 1780.9134,
+    "positions": 200.2,
     "power_margin": 0.9985,
     "time_fraction": 0.0002,
     "time_margin_s": 0.9998
@@ -721,46 +728,523 @@
    "passes": 3
   },
   "power_allocation": {
+   "drawn_MW": 0.325180209832452,
    "faces": {
     "0": {
-     "alloc_MW": 2.0,
+     "alloc_MW": 0.10501121913327723,
      "always_on_MW": 0.0708917513142079,
      "cap_MW": 2.0,
+     "capped": true,
      "load": 0.052505609671649835,
      "need_MW": 0.10501121934329967
     },
     "1": {
-     "alloc_MW": 2.0,
+     "alloc_MW": 0.07075376870271356,
      "always_on_MW": 0.0707537688442211,
      "cap_MW": 2.0,
+     "capped": true,
      "load": 0.03537688442211055,
      "need_MW": 0.0707537688442211
     },
     "2": {
-     "alloc_MW": 2.0,
-     "always_on_MW": 0.07075448692666071,
+     "alloc_MW": 0.07090438848224372,
+     "always_on_MW": 0.07075502264090382,
      "cap_MW": 2.0,
-     "load": 0.03544687688580643,
-     "need_MW": 0.07089375377161286
+     "capped": true,
+     "load": 0.03545219431202624,
+     "need_MW": 0.07090438862405248
     },
     "3": {
-     "alloc_MW": 2.0,
-     "always_on_MW": 0.07078674231913154,
+     "alloc_MW": 0.07851083351421755,
+     "always_on_MW": 0.07078620660488848,
      "cap_MW": 2.0,
-     "load": 0.03926443080299315,
-     "need_MW": 0.0785288616059863
+     "capped": true,
+     "load": 0.039255416835619616,
+     "need_MW": 0.07851083367123923
     }
    },
    "flags": [],
-   "need_MW": 0.3251876035651199,
+   "moves": [
+    {
+     "energy_fraction": {
+      "2": [
+       0.0,
+       5.352154820112532e-06
+      ],
+      "3": [
+       9.270204096949982e-06,
+       0.0
+      ]
+     },
+     "moved_share": 0.0,
+     "sector": "B2_AUTOPROT"
+    }
+   ],
+   "need_MW": 0.3251802104828125,
    "partial": [],
+   "rule": {
+    "binding": [],
+    "ceiling": 0.8,
+    "demands": [
+     {
+      "faces": {
+       "0": {
+        "Ku time": 0.00016666666633333337,
+        "S time": 3.333333326666667e-05,
+        "energy": 70891.7511724244,
+        "share": 0.2503356935426978
+       },
+       "1": {
+        "Ku time": 0.00016666666633333337,
+        "S time": 3.333333326666667e-05,
+        "energy": 70753.76870271357,
+        "share": 0.24984844450905805
+       },
+       "2": {
+        "Ku time": 0.00016666666633333337,
+        "S time": 3.333333326666667e-05,
+        "energy": 70755.02249939377,
+        "share": 0.2498528719643869
+       },
+       "3": {
+        "Ku time": 0.00016666666633333337,
+        "S time": 3.333333326666667e-05,
+        "energy": 70786.20646331606,
+        "share": 0.24996298998385733
+       }
+      },
+      "kind": "other",
+      "label": "always-on",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "sector": null,
+      "tier": "always-on",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "2": {
+        "Ku time": 0.0,
+        "S time": 1.4835520548216162e-06,
+        "energy": 20.356018454634505,
+        "share": 1.0
+       }
+      },
+      "kind": "search",
+      "label": "search A1_TRIM",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "rho": 1.0,
+      "rr_tenable_s": 10.0,
+      "sector": "A1_TRIM",
+      "tier": "P4_1 search",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "2": {
+        "Ku time": 0.0,
+        "S time": 2.996422326762092e-06,
+        "energy": 41.1925675078706,
+        "share": 1.0
+       }
+      },
+      "kind": "search",
+      "label": "search B1_TRIM",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "rho": 1.0,
+      "rr_tenable_s": 10.0,
+      "sector": "B1_TRIM",
+      "tier": "P4_1 search",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "2": {
+        "Ku time": 0.0,
+        "S time": 6.463948545674568e-07,
+        "energy": 8.500396172838004,
+        "share": 0.14249387708212596
+       },
+       "3": {
+        "Ku time": 0.0,
+        "S time": 3.86822809360824e-06,
+        "energy": 51.15407001828699,
+        "share": 0.8575061229178741
+       }
+      },
+      "kind": "search",
+      "label": "search A2_VEILLE",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "rho": 1.0,
+      "rr_tenable_s": 300.0,
+      "sector": "A2_VEILLE",
+      "tier": "P4_1 search",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "2": {
+        "Ku time": 0.0,
+        "S time": 2.5138144466508732e-08,
+        "energy": 10.099138176309648,
+        "share": 1.0
+       }
+      },
+      "kind": "search",
+      "label": "search B2_AUTOPROT",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "rho": 1.0,
+      "rr_tenable_s": 0.2,
+      "sector": "B2_AUTOPROT",
+      "tier": "P4_1 search",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "0": {
+        "Ku time": 0.0,
+        "S time": 9.802316504202918e-06,
+        "energy": 132.38097266196834,
+        "share": 1.0
+       }
+      },
+      "kind": "search",
+      "label": "search A3_HIBAND",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "rho": 1.0,
+      "rr_tenable_s": 10.0,
+      "sector": "A3_HIBAND",
+      "tier": "P4_1 search",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "0": {
+        "Ku time": 0.0,
+        "S time": 1.3286260917072598e-07,
+        "energy": 1.7757842433498507,
+        "share": 1.0
+       }
+      },
+      "kind": "search",
+      "label": "search B3_EDGE",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "rho": 1.0,
+      "rr_tenable_s": 10.0,
+      "sector": "B3_EDGE",
+      "tier": "P4_1 search",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "3": {
+        "Ku time": 0.0,
+        "S time": 1.3446476664942443e-06,
+        "energy": 18.602124174761297,
+        "share": 1.0
+       }
+      },
+      "kind": "search",
+      "label": "search A4_SEARCH",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "rho": 1.0,
+      "rr_tenable_s": 10.0,
+      "sector": "A4_SEARCH",
+      "tier": "P4_1 search",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "3": {
+        "Ku time": 0.0,
+        "S time": 7.672442433570066e-08,
+        "energy": 1.2050230363022032,
+        "share": 1.0
+       }
+      },
+      "kind": "search",
+      "label": "search B4_FINE",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "rho": 1.0,
+      "rr_tenable_s": 10.0,
+      "sector": "B4_FINE",
+      "tier": "P4_1 search",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "0": {
+        "Ku time": 0.0,
+        "S time": 0.0009726114515885048,
+        "energy": 12628.415546875243,
+        "share": 0.8189208453079275
+       },
+       "3": {
+        "Ku time": 0.0,
+        "S time": 0.00021514184545617267,
+        "energy": 2792.3856443885534,
+        "share": 0.18107915469207253
+       }
+      },
+      "kind": "search",
+      "label": "search A5_SHORT",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "rho": 1.0,
+      "rr_tenable_s": 5.0,
+      "sector": "A5_SHORT",
+      "tier": "P4_1 search",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "0": {
+        "Ku time": 0.0,
+        "S time": 9.081876731951856e-07,
+        "energy": 11.94121102277259,
+        "share": 1.0
+       }
+      },
+      "kind": "search",
+      "label": "search B5_LONG",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "rho": 1.0,
+      "rr_tenable_s": 10.0,
+      "sector": "B5_LONG",
+      "tier": "P4_1 search",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "2": {
+        "Ku time": 1.728660528688165e-08,
+        "S time": 2.470867629322199e-06,
+        "energy": 34.3066304901966,
+        "share": 1.0
+       }
+      },
+      "kind": "other",
+      "label": "confirmation A1_TRIM",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "sector": "A1_TRIM",
+      "tier": "P2 confirmation / initiation",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "2": {
+        "Ku time": 1.5848761636260774e-08,
+        "S time": 2.4464808087766386e-06,
+        "energy": 34.025316373457414,
+        "share": 1.0
+       }
+      },
+      "kind": "other",
+      "label": "confirmation B1_TRIM",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "sector": "B1_TRIM",
+      "tier": "P2 confirmation / initiation",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "2": {
+        "Ku time": 2.9472441551398807e-08,
+        "S time": 0.0,
+        "energy": 0.8859156746184946,
+        "share": 0.14863708112027418
+       },
+       "3": {
+        "Ku time": 1.9502713432555767e-07,
+        "S time": 0.0,
+        "energy": 5.074344496944139,
+        "share": 0.8513629188797257
+       }
+      },
+      "kind": "other",
+      "label": "confirmation A2_VEILLE",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "sector": "A2_VEILLE",
+      "tier": "P2 confirmation / initiation",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "3": {
+        "Ku time": 2.5454278356013023e-08,
+        "S time": 1.64023454958037e-07,
+        "energy": 73.88883590994278,
+        "share": 1.0
+       }
+      },
+      "kind": "other",
+      "label": "confirmation B2_AUTOPROT",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "sector": "B2_AUTOPROT",
+      "tier": "P2 confirmation / initiation",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "0": {
+        "Ku time": 1.2197847347582497e-07,
+        "S time": 2.4525312408263226e-05,
+        "energy": 327.34285711994727,
+        "share": 1.0
+       }
+      },
+      "kind": "other",
+      "label": "confirmation B3_EDGE",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "sector": "B3_EDGE",
+      "tier": "P2 confirmation / initiation",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "3": {
+        "Ku time": 1.3757446737739739e-08,
+        "S time": 2.165291590367259e-06,
+        "energy": 30.34336826607597,
+        "share": 1.0
+       }
+      },
+      "kind": "other",
+      "label": "confirmation A4_SEARCH",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "sector": "A4_SEARCH",
+      "tier": "P2 confirmation / initiation",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "3": {
+        "Ku time": 6.855086718455208e-09,
+        "S time": 5.928939007856366e-07,
+        "energy": 9.53168123941928,
+        "share": 1.0
+       }
+      },
+      "kind": "other",
+      "label": "confirmation B4_FINE",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "sector": "B4_FINE",
+      "tier": "P2 confirmation / initiation",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "0": {
+        "Ku time": 4.728798890859522e-06,
+        "S time": 0.0016131941396067323,
+        "energy": 21017.611588929554,
+        "share": 0.8158993749574699
+       },
+       "3": {
+        "Ku time": 1.071349460117003e-06,
+        "S time": 0.0003641468335492895,
+        "energy": 4742.441959371218,
+        "share": 0.1841006250425301
+       }
+      },
+      "kind": "other",
+      "label": "confirmation A5_SHORT",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "sector": "A5_SHORT",
+      "tier": "P2 confirmation / initiation",
+      "unserved_share": 0.0
+     }
+    ],
+    "faces": {
+     "0": {
+      "Ku time": 0.0001715174436976687,
+      "Ku time load": 0.0001715174436976687,
+      "S time": 0.0026545076036567357,
+      "S time load": 0.0026545076036567357,
+      "energy": 105011.21913327722,
+      "energy cap": 2000000.0,
+      "energy load": 0.05250560956663861,
+      "moved": {
+       "Ku time": 0.0,
+       "S time": 0.0,
+       "energy": 0.0
+      }
+     },
+     "1": {
+      "Ku time": 0.00016666666633333337,
+      "Ku time load": 0.00016666666633333337,
+      "S time": 3.333333326666667e-05,
+      "S time load": 3.333333326666667e-05,
+      "energy": 70753.76870271357,
+      "energy cap": 2000000.0,
+      "energy load": 0.03537688435135678,
+      "moved": {
+       "Ku time": 0.0,
+       "S time": 0.0,
+       "energy": 0.0
+      }
+     },
+     "2": {
+      "Ku time": 0.00016672927414180792,
+      "Ku time load": 0.00016672927414180792,
+      "S time": 4.3402189085383184e-05,
+      "S time load": 4.3402189085383184e-05,
+      "energy": 70904.38848224371,
+      "energy cap": 2000000.0,
+      "energy load": 0.03545219424112186,
+      "moved": {
+       "Ku time": 0.0,
+       "S time": 0.0,
+       "energy": 0.0
+      }
+     },
+     "3": {
+      "Ku time": 0.00016797910973958817,
+      "Ku time load": 0.00016797910973958817,
+      "S time": 0.000620833821402678,
+      "S time load": 0.000620833821402678,
+      "energy": 78510.83351421755,
+      "energy cap": 2000000.0,
+      "energy load": 0.03925541675710877,
+      "moved": {
+       "Ku time": 0.0,
+       "S time": 0.0,
+       "energy": 0.0
+      }
+     }
+    },
+    "flags": [],
+    "ship": {
+     "cap": 8000000.0,
+     "energy": 325180.209832452,
+     "energy load": 0.0406475262290565
+    },
+    "status": "OK"
+   },
    "ship_MW": 8.0,
    "status": "OK",
    "tiers": [
     {
      "fraction": 1.0,
-     "need_MW": 0.2831867494042212,
-     "served_MW": 0.2831867494042212,
+     "need_MW": 0.2831867494042213,
+     "served_MW": 0.2831867494042213,
      "tier": "always-on"
     },
     {
@@ -771,8 +1255,8 @@
     },
     {
      "fraction": 1.0,
-     "need_MW": 0.015725401610476395,
-     "served_MW": 0.015725401610476395,
+     "need_MW": 0.015718008528168907,
+     "served_MW": 0.015718008528168907,
      "tier": "P4_1 search"
     }
    ]
@@ -1029,12 +1513,11 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 59.68948385452294,
+       "end_s": 59.91637566763781,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration Ku": 0.0,
         "confirmation A1_TRIM": 0.0,
-        "confirmation A2_VEILLE": 0.0,
         "confirmation B1_TRIM": 0.0
        },
        "pause_time_s": 0.0,
@@ -1045,24 +1528,25 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 4.337705102767077e-05,
+      "load": 4.340218917218756e-05,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
        "P2": 4.917348447933534e-06,
-       "P4_1": 5.126369246403904e-06
+       "P4_1": 5.151507390920689e-06
       },
       "mean_wait_s": {
-       "calibration S": 1.6668252606620374e-07,
-       "confirmation A1_TRIM": 1.6668890203035176e-07,
-       "confirmation B1_TRIM": 1.6668890203035176e-07,
-       "search A1_TRIM": 1.6669057627925053e-07,
-       "search A2_VEILLE": 1.6669057627925053e-07,
-       "search B1_TRIM": 1.6669057627925053e-07
+       "calibration S": 1.6668252606973417e-07,
+       "confirmation A1_TRIM": 1.6668890203388236e-07,
+       "confirmation B1_TRIM": 1.6668890203388236e-07,
+       "search A1_TRIM": 1.666905804732548e-07,
+       "search A2_VEILLE": 1.666905804732548e-07,
+       "search B1_TRIM": 1.666905804732548e-07,
+       "search B2_AUTOPROT": 1.666905804732548e-07
       },
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 59.428823564754936,
+       "end_s": 59.999838081052665,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
@@ -1070,14 +1554,16 @@
         "confirmation B1_TRIM": 0.0,
         "search A1_TRIM": 0.0,
         "search A2_VEILLE": 0.0,
-        "search B1_TRIM": 0.0
+        "search B1_TRIM": 0.0,
+        "search B2_AUTOPROT": 0.0
        },
        "pause_time_s": 0.0,
        "recharge_pauses": 0,
        "revisit_spread_s": {
         "search A1_TRIM": 0.0,
         "search A2_VEILLE": 0.0,
-        "search B1_TRIM": 0.0
+        "search B1_TRIM": 0.0,
+        "search B2_AUTOPROT": 0.0
        }
       }
      }
@@ -1086,30 +1572,28 @@
      "Ku": {
       "capacity": 0.9973454923910342,
       "feasible": true,
-      "load": 0.00016797911007554635,
+      "load": 0.00016795365579713942,
       "load_by_priority": {
        "P0": 0.0001666666666666667,
-       "P2": 1.3124434088796554e-06
+       "P2": 1.2869891304727338e-06
       },
       "mean_wait_s": {
-       "calibration Ku": 4.167363485356925e-06,
-       "confirmation A2_VEILLE": 4.168063632976731e-06,
-       "confirmation A4_SEARCH": 4.168063632976731e-06,
-       "confirmation A5_SHORT": 4.168063632976731e-06,
-       "confirmation B2_AUTOPROT": 4.168063632976731e-06,
-       "confirmation B4_FINE": 4.168063632976731e-06
+       "calibration Ku": 4.167363485351074e-06,
+       "confirmation A2_VEILLE": 4.1680635268580046e-06,
+       "confirmation A4_SEARCH": 4.1680635268580046e-06,
+       "confirmation A5_SHORT": 4.1680635268580046e-06,
+       "confirmation B4_FINE": 4.1680635268580046e-06
       },
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 59.99582782100624,
+       "end_s": 59.25057517579414,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration Ku": 0.0,
         "confirmation A2_VEILLE": 0.0,
-        "confirmation A4_SEARCH": 0.03375171388356758,
+        "confirmation A4_SEARCH": 0.0,
         "confirmation A5_SHORT": 0.0,
-        "confirmation B2_AUTOPROT": 0.04669169045712701,
         "confirmation B4_FINE": 0.0
        },
        "pause_time_s": 0.0,
@@ -1120,39 +1604,35 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.0006208773631879437,
+      "load": 0.0006206697991890596,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
-       "P2": 0.0003670690432295385,
-       "P4_1": 0.00022047498662507191
+       "P2": 0.00036690501977425244,
+       "P4_1": 0.00022043144608147375
       },
       "mean_wait_s": {
-       "calibration S": 3.7772185448176537e-07,
-       "confirmation A4_SEARCH": 3.7787315579138356e-07,
-       "confirmation A5_SHORT": 3.7787315579138356e-07,
-       "confirmation B2_AUTOPROT": 3.7787315579138356e-07,
-       "confirmation B4_FINE": 3.7787315579138356e-07,
-       "search A2_VEILLE": 3.780953108391514e-07,
-       "search A4_SEARCH": 3.780953108391514e-07,
-       "search A5_SHORT": 3.780953108391514e-07,
-       "search B2_AUTOPROT": 3.780953108391514e-07,
-       "search B4_FINE": 3.780953108391514e-07
+       "calibration S": 3.7772185422828536e-07,
+       "confirmation A4_SEARCH": 3.7787309353292463e-07,
+       "confirmation A5_SHORT": 3.7787309353292463e-07,
+       "confirmation B4_FINE": 3.7787309353292463e-07,
+       "search A2_VEILLE": 3.7809517001638864e-07,
+       "search A4_SEARCH": 3.7809517001638864e-07,
+       "search A5_SHORT": 3.7809517001638864e-07,
+       "search B4_FINE": 3.7809517001638864e-07
       },
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 59.99677545948324,
+       "end_s": 59.98260846439317,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
         "confirmation A4_SEARCH": 0.0,
         "confirmation A5_SHORT": 0.0,
-        "confirmation B2_AUTOPROT": 0.00028310070543424715,
-        "confirmation B4_FINE": 0.0009464218094095145,
+        "confirmation B4_FINE": 0.0,
         "search A2_VEILLE": 0.0,
         "search A4_SEARCH": 0.0,
         "search A5_SHORT": 0.0,
-        "search B2_AUTOPROT": 0.0,
         "search B4_FINE": 0.0
        },
        "pause_time_s": 0.0,
@@ -1161,7 +1641,6 @@
         "search A2_VEILLE": 0.0,
         "search A4_SEARCH": 0.0,
         "search A5_SHORT": 0.0,
-        "search B2_AUTOPROT": 0.0,
         "search B4_FINE": 0.0
        }
       }
@@ -1179,7 +1658,7 @@
      "go_cfar_advised": false,
      "id": "A1_TRIM",
      "latency_ok": true,
-     "latency_q95_s": 0.040028129102594165,
+     "latency_q95_s": 0.04002812910453935,
      "latency_required_s": 66.66666666666667,
      "priority": "P4_1",
      "scan": {
@@ -1202,7 +1681,7 @@
      "go_cfar_advised": false,
      "id": "B1_TRIM",
      "latency_ok": true,
-     "latency_q95_s": 0.04002812720765593,
+     "latency_q95_s": 0.04002812720960112,
      "latency_required_s": 66.66666666666667,
      "priority": "P4_1",
      "scan": {
@@ -1225,7 +1704,7 @@
      "go_cfar_advised": false,
      "id": "A2_VEILLE",
      "latency_ok": true,
-     "latency_q95_s": 0.04003482408632865,
+     "latency_q95_s": 0.040034824086331904,
      "latency_required_s": 100.0,
      "priority": "P4_1",
      "scan": {
@@ -1260,23 +1739,10 @@
      "go_cfar_advised": false,
      "id": "B2_AUTOPROT",
      "latency_ok": true,
-     "latency_q95_s": 0.00040091044735872383,
+     "latency_q95_s": 0.0,
      "latency_required_s": 0.3333333333333333,
      "priority": "P4_1",
-     "scan": {
-      "3": {
-       "frame_tx_s": 7.289278565245038e-09,
-       "mean_step_deg": 6.619415515797937,
-       "plan_positions": 17.9,
-       "pointing_rate_hz": 10.0,
-       "pointings": 20,
-       "uniformity": {
-        "10%": 1.0,
-        "25%": 1.0,
-        "50%": 0.8
-       }
-      }
-     }
+     "scan": {}
     },
     {
      "confirm_mode": null,
@@ -1329,7 +1795,7 @@
      "go_cfar_advised": false,
      "id": "A4_SEARCH",
      "latency_ok": true,
-     "latency_q95_s": 0.04002812545228193,
+     "latency_q95_s": 0.040028125450336745,
      "latency_required_s": 66.66666666666667,
      "priority": "P4_1",
      "scan": {
@@ -1352,7 +1818,7 @@
      "go_cfar_advised": false,
      "id": "B4_FINE",
      "latency_ok": true,
-     "latency_q95_s": 0.030021619020936897,
+     "latency_q95_s": 0.030021619017045535,
      "latency_required_s": 50.0,
      "priority": "P4_1",
      "scan": {
@@ -1375,7 +1841,7 @@
      "go_cfar_advised": false,
      "id": "A5_SHORT",
      "latency_ok": true,
-     "latency_q95_s": 0.010010135432709944,
+     "latency_q95_s": 0.010010135432585013,
      "latency_required_s": 25.0,
      "priority": "P4_1",
      "scan": {
@@ -3205,6 +3671,19 @@
     ]
    },
    {
+    "_faces_planned": {
+     "3": {
+      "avg_power_kW": 0.016534521431401925,
+      "dissipation_kW": 0.016107824104139943,
+      "dissipation_kW_m2": 0.0012114425035453162,
+      "energy_J_per_refresh": 3.306904286280385,
+      "energy_fraction": 9.270204096949982e-06,
+      "positions": 17.9,
+      "theta_max_deg": 49.0,
+      "time_fraction": 4.354054359816176e-08
+     }
+    },
+    "_moved": true,
     "beam_spacing_hpbw": 2.0,
     "environment": {
      "burn_through_best_km": null,
@@ -3227,15 +3706,15 @@
      }
     },
     "faces": {
-     "3": {
+     "2": {
       "avg_power_kW": 0.016534521431401925,
       "dissipation_kW": 0.016107824104139943,
       "dissipation_kW_m2": 0.0012114425035453162,
       "energy_J_per_refresh": 3.306904286280385,
-      "energy_fraction": 9.270204096949982e-06,
+      "energy_fraction": 5.352154820112532e-06,
       "positions": 17.9,
-      "theta_max_deg": 49.0,
-      "time_fraction": 4.354054359816176e-08
+      "theta_max_deg": 75.0,
+      "time_fraction": 2.513814451678502e-08
      }
     },
     "flags": [
@@ -6567,7 +7046,7 @@
    "confirm_p_min": 0.9995,
    "faces": {
     "0": {
-     "alloc_MW": 2.0,
+     "alloc_MW": 0.10501121913327723,
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
@@ -6617,7 +7096,7 @@
      }
     },
     "1": {
-     "alloc_MW": 2.0,
+     "alloc_MW": 0.07075376870271356,
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
@@ -6667,39 +7146,39 @@
      }
     },
     "2": {
-     "alloc_MW": 2.0,
+     "alloc_MW": 0.07090438848224372,
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
      "burn_through_energy": 0.0,
      "burn_through_ku_time": 0.0,
-     "bus_draw_MW": 0.11314052519852784,
+     "bus_draw_MW": 0.11314086584914937,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 2.0,
      "confirm_energy": 3.668280502301974e-05,
      "confirm_ku_time": 6.260780859975684e-08,
      "confirm_s_time": 4.917348447933534e-06,
-     "coolant_flow_L_s": 5.345665810993859,
+     "coolant_flow_L_s": 5.346486910993858,
      "cooling_capacity_kW": 15899.520000000002,
-     "dissipation_kW": 0.03266296066389954,
-     "dissipation_kW_m2": 0.0024565266285535587,
-     "face_heat_kW": 106.91331621987717,
+     "dissipation_kW": 0.048762960663899534,
+     "dissipation_kW_m2": 0.0036673806943157195,
+     "face_heat_kW": 106.92973821987717,
      "heat_burst_deficit_MJ": 0.0,
      "heat_burst_ok": true,
-     "heat_flux_W_cm2": 0.8069173123707672,
-     "heat_load": 0.00672431093642306,
-     "load": 0.03544687688580643,
-     "max_contiguous_tx_s": 0.32386052005311255,
+     "heat_flux_W_cm2": 0.8070412557350951,
+     "heat_load": 0.006725343797792459,
+     "load": 0.03545219431202624,
+     "max_contiguous_tx_s": 0.3238605116098191,
      "max_contiguous_tx_thermal_s": Infinity,
      "non_tx_kW": 106.88,
-     "p_left_kW": 1929.1062462283871,
+     "p_left_kW": 1929.0956113759473,
      "peak_MW": {
       "Ku": 14.134615384615383,
       "S": 12.25
      },
      "peak_ok": true,
-     "pumps_kW": 0.0006532592132779909,
+     "pumps_kW": 0.0009752592132779907,
      "search_energy": 0.0,
      "search_s_time": 0.0,
      "status": "OK",
@@ -6708,7 +7187,7 @@
      "store_obs_deficit_MJ": 0.00023480739459515824,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
-     "total_energy": 0.03544687688580643,
+     "total_energy": 0.03545219431202624,
      "total_ku_time": 0.00016672927447526644,
      "total_s_time": 3.8250681781266874e-05,
      "transient_MW_per_us": {
@@ -6717,48 +7196,48 @@
      }
     },
     "3": {
-     "alloc_MW": 2.0,
+     "alloc_MW": 0.07851083351421755,
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
      "burn_through_energy": 0.0,
      "burn_through_ku_time": 0.0,
-     "bus_draw_MW": 0.12079504989825277,
+     "bus_draw_MW": 0.12079470924763122,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 2.0,
      "confirm_energy": 0.002576291535254467,
      "confirm_ku_time": 1.3124434088796554e-06,
      "confirm_s_time": 0.0003670690432295385,
-     "coolant_flow_L_s": 5.422962810942742,
+     "coolant_flow_L_s": 5.422141710942743,
      "cooling_capacity_kW": 15899.520000000002,
-     "dissipation_kW": 1.5482904106420123,
-     "dissipation_kW_m2": 0.11644433159667371,
-     "face_heat_kW": 108.45925621885486,
+     "dissipation_kW": 1.5321904106420126,
+     "dissipation_kW_m2": 0.11523347753091157,
+     "face_heat_kW": 108.44283421885486,
      "heat_burst_deficit_MJ": 0.0,
      "heat_burst_ok": true,
-     "heat_flux_W_cm2": 0.8185851362973589,
-     "heat_load": 0.00682154280247799,
-     "load": 0.03926443080299315,
-     "max_contiguous_tx_s": 0.32385972521731476,
+     "heat_flux_W_cm2": 0.8184611929330308,
+     "heat_load": 0.006820509941108589,
+     "load": 0.039255416835619616,
+     "max_contiguous_tx_s": 0.3238597336605673,
      "max_contiguous_tx_thermal_s": Infinity,
      "non_tx_kW": 106.88,
-     "p_left_kW": 1921.4711383940137,
+     "p_left_kW": 1921.4891663287608,
      "peak_MW": {
       "Ku": 14.134615384615383,
       "S": 12.25
      },
      "peak_ok": true,
-     "pumps_kW": 0.030965808212840246,
+     "pumps_kW": 0.030643808212840247,
      "search_energy": 0.0015,
      "search_s_time": 0.00019999999999999998,
      "status": "OK",
-     "store_burst_deficit_MJ": 1.770023494339892,
+     "store_burst_deficit_MJ": 1.7700234201142404,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 0.0017504190398058136,
+     "store_obs_deficit_MJ": 0.0017504189754058133,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
-     "total_energy": 0.03926443080299315,
+     "total_energy": 0.039255416835619616,
      "total_ku_time": 0.00016797911007554637,
      "total_s_time": 0.0006004023765628719,
      "transient_MW_per_us": {
@@ -8343,7 +8822,7 @@
      "id": "A1_TRIM.confirmation latency",
      "kind": "spec",
      "limit": 66.66666666666667,
-     "load": 0.0006004219365389125,
+     "load": 0.0006004219365680902,
      "note": "95 % quantile",
      "object": "A1_TRIM",
      "priority": "P2",
@@ -8351,7 +8830,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.040028129102594165
+     "value": 0.04002812910453935
     },
     {
      "family": "confirmation",
@@ -8388,7 +8867,7 @@
      "id": "B1_TRIM.confirmation latency",
      "kind": "spec",
      "limit": 66.66666666666667,
-     "load": 0.0006004219081148389,
+     "load": 0.0006004219081440168,
      "note": "95 % quantile",
      "object": "B1_TRIM",
      "priority": "P2",
@@ -8396,7 +8875,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.04002812720765593
+     "value": 0.04002812720960112
     },
     {
      "family": "confirmation",
@@ -8433,7 +8912,7 @@
      "id": "A2_VEILLE.confirmation latency",
      "kind": "spec",
      "limit": 100.0,
-     "load": 0.0004003482408632865,
+     "load": 0.00040034824086331906,
      "note": "95 % quantile",
      "object": "A2_VEILLE",
      "priority": "P2",
@@ -8441,7 +8920,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.04003482408632865
+     "value": 0.040034824086331904
     },
     {
      "family": "confirmation",
@@ -8478,7 +8957,7 @@
      "id": "B2_AUTOPROT.confirmation latency",
      "kind": "spec",
      "limit": 0.3333333333333333,
-     "load": 0.0012027313420761715,
+     "load": 0.0,
      "note": "95 % quantile",
      "object": "B2_AUTOPROT",
      "priority": "P2",
@@ -8486,7 +8965,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.00040091044735872383
+     "value": 0.0
     },
     {
      "family": "confirmation",
@@ -8598,7 +9077,7 @@
      "id": "A4_SEARCH.confirmation latency",
      "kind": "spec",
      "limit": 66.66666666666667,
-     "load": 0.0006004218817842289,
+     "load": 0.0006004218817550511,
      "note": "95 % quantile",
      "object": "A4_SEARCH",
      "priority": "P2",
@@ -8606,7 +9085,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.04002812545228193
+     "value": 0.040028125450336745
     },
     {
      "family": "confirmation",
@@ -8643,7 +9122,7 @@
      "id": "B4_FINE.confirmation latency",
      "kind": "spec",
      "limit": 50.0,
-     "load": 0.000600432380418738,
+     "load": 0.0006004323803409107,
      "note": "95 % quantile",
      "object": "B4_FINE",
      "priority": "P2",
@@ -8651,7 +9130,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.030021619020936897
+     "value": 0.030021619017045535
     },
     {
      "family": "confirmation",
@@ -8688,7 +9167,7 @@
      "id": "A5_SHORT.confirmation latency",
      "kind": "spec",
      "limit": 25.0,
-     "load": 0.00040040541730839774,
+     "load": 0.0004004054173034005,
      "note": "95 % quantile",
      "object": "A5_SHORT",
      "priority": "P2",
@@ -8696,7 +9175,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.010010135432709944
+     "value": 0.010010135432585013
     },
     {
      "family": "confirmation",
@@ -9279,7 +9758,7 @@
      "id": "F3.energy",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.03544687688580643,
+     "load": 0.03545219431202624,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -9287,14 +9766,14 @@
      "state": "OK",
      "step": "5.2",
      "unit": "",
-     "value": 0.03544687688580643
+     "value": 0.03545219431202624
     },
     {
      "family": "face",
      "id": "F3.S time",
      "kind": "resource",
      "limit": 1.0,
-     "load": 4.337705102767077e-05,
+     "load": 4.340218917218756e-05,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -9302,7 +9781,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 4.337705102767077e-05
+     "value": 4.340218917218756e-05
     },
     {
      "family": "face",
@@ -9324,7 +9803,7 @@
      "id": "F3.heat",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.00672431093642306,
+     "load": 0.006725343797792459,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -9332,14 +9811,14 @@
      "state": "OK",
      "step": "4.2",
      "unit": "",
-     "value": 0.00672431093642306
+     "value": 0.006725343797792459
     },
     {
      "family": "face",
      "id": "F3.compute",
      "kind": "resource",
      "limit": 1.0,
-     "load": 5.693589892407494e-07,
+     "load": 4.6994517649027664e-06,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -9347,14 +9826,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 5.693589892407494e-07
+     "value": 4.6994517649027664e-06
     },
     {
      "family": "face",
      "id": "F3.memory",
      "kind": "resource",
      "limit": 1.0,
-     "load": 4.286143297190139e-05,
+     "load": 6.42762604578521e-05,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -9362,14 +9841,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 4.286143297190139e-05
+     "value": 6.42762604578521e-05
     },
     {
      "family": "face",
      "id": "F3.memory bandwidth",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.00014593714869999303,
+     "load": 0.001172010308603348,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -9377,7 +9856,7 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.00014593714869999303
+     "value": 0.001172010308603348
     },
     {
      "family": "face",
@@ -9414,7 +9893,7 @@
      "id": "F3.S TRSA link",
      "kind": "resource",
      "limit": 4.0,
-     "load": 0.05,
+     "load": 0.075,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -9422,14 +9901,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 0.2
+     "value": 0.3
     },
     {
      "family": "face",
      "id": "F3.S processor input",
      "kind": "resource",
      "limit": 400.0,
-     "load": 0.098,
+     "load": 0.147,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -9437,7 +9916,7 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 39.2
+     "value": 58.8
     },
     {
      "family": "face",
@@ -9474,7 +9953,7 @@
      "id": "F3.processing power",
      "kind": "resource",
      "limit": 50.0,
-     "load": 0.20000051016425505,
+     "load": 0.2000041978420208,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -9482,7 +9961,7 @@
      "state": "OK",
      "step": "4.4",
      "unit": "kW",
-     "value": 10.000025508212753
+     "value": 10.00020989210104
     },
     {
      "family": "face",
@@ -9552,7 +10031,7 @@
      "id": "F4.energy",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.03926443080299315,
+     "load": 0.039255416835619616,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -9560,14 +10039,14 @@
      "state": "OK",
      "step": "5.2",
      "unit": "",
-     "value": 0.03926443080299315
+     "value": 0.039255416835619616
     },
     {
      "family": "face",
      "id": "F4.S time",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.0006208773631879437,
+     "load": 0.0006206697991890596,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -9575,14 +10054,14 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.0006208773631879437
+     "value": 0.0006206697991890596
     },
     {
      "family": "face",
      "id": "F4.Ku time",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.0001684261987015488,
+     "load": 0.00016840067667472748,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -9590,14 +10069,14 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.0001684261987015488
+     "value": 0.00016840067667472748
     },
     {
      "family": "face",
      "id": "F4.heat",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.00682154280247799,
+     "load": 0.006820509941108589,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -9605,14 +10084,14 @@
      "state": "OK",
      "step": "4.2",
      "unit": "",
-     "value": 0.00682154280247799
+     "value": 0.006820509941108589
     },
     {
      "family": "face",
      "id": "F4.compute",
      "kind": "resource",
      "limit": 1.0,
-     "load": 4.449847068439333e-06,
+     "load": 3.197541583565499e-07,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -9620,14 +10099,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 4.449847068439333e-06
+     "value": 3.197541583565499e-07
     },
     {
      "family": "face",
      "id": "F4.memory",
      "kind": "resource",
      "limit": 1.0,
-     "load": 8.59099339438028e-05,
+     "load": 8.590969394380279e-05,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -9635,14 +10114,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 8.59099339438028e-05
+     "value": 8.590969394380279e-05
     },
     {
      "family": "face",
      "id": "F4.memory bandwidth",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.0012909739446673252,
+     "load": 0.0002649007847639702,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -9650,7 +10129,7 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.0012909739446673252
+     "value": 0.0002649007847639702
     },
     {
      "family": "face",
@@ -9747,7 +10226,7 @@
      "id": "F4.processing power",
      "kind": "resource",
      "limit": 50.0,
-     "load": 0.2000040473789252,
+     "load": 0.20000035970115945,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -9755,14 +10234,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "kW",
-     "value": 10.00020236894626
+     "value": 10.000017985057973
     },
     {
      "family": "face",
      "id": "F4.storage (observation)",
      "kind": "resource",
      "limit": 4.0,
-     "load": 0.0004376047599514534,
+     "load": 0.0004376047438514533,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -9770,7 +10249,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.0017504190398058136
+     "value": 0.0017504189754058133
     },
     {
      "family": "face",
@@ -9785,7 +10264,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 1.770023494339892
+     "value": 1.7700234201142404
     },
     {
      "family": "face",
@@ -9825,7 +10304,7 @@
      "id": "ship.energy",
      "kind": "resource",
      "limit": 8.0,
-     "load": 0.040648450445639986,
+     "load": 0.04064752631035156,
      "note": "",
      "object": "ship",
      "priority": null,
@@ -9833,7 +10312,7 @@
      "state": "OK",
      "step": "5.2",
      "unit": "MW",
-     "value": 0.3251876035651199
+     "value": 0.3251802104828125
     },
     {
      "family": "ship",
@@ -9883,6 +10362,7 @@
    ],
    "counts": {
     "ALERT": 0,
+    "DEGRADED": 0,
     "NOK": 2,
     "OK": 132
    },
@@ -9925,8 +10405,8 @@
      "energy_own_MW": 0.011948297249299694,
      "energy_own_reach_MW": 0.004832304786603845,
      "face": "F1",
-     "margin_energy_MW": 6.07481239643488,
-     "margin_s_time": 0.7993791226368121,
+     "margin_energy_MW": 1.5214891663287609,
+     "margin_s_time": 0.799379330200811,
      "neighbour": "F4",
      "relief_energy": 0.0024161523933019227,
      "relief_s_time": 0.000393819776742961,
@@ -9938,12 +10418,12 @@
      "takeable": 1.0
     },
     {
-     "energy_on": "ship",
+     "energy_on": "face",
      "energy_other_MW": 0.0,
      "energy_own_MW": 1.2422097002187887e-05,
      "energy_own_reach_MW": 0.0,
      "face": "F3",
-     "margin_energy_MW": 6.07481239643488,
+     "margin_energy_MW": 1.529246231155779,
      "margin_s_time": 0.7999666666666667,
      "neighbour": "F2",
      "relief_energy": 0.0,
@@ -9956,15 +10436,15 @@
      "takeable": 0.0
     },
     {
-     "energy_on": "ship",
+     "energy_on": "face",
      "energy_other_MW": 7.128621068698815e-06,
      "energy_own_MW": 2.0457096500633006e-05,
      "energy_own_reach_MW": 6.557228580442676e-06,
      "face": "F3",
-     "margin_energy_MW": 6.07481239643488,
-     "margin_s_time": 0.7993791226368121,
+     "margin_energy_MW": 1.5214891663287609,
+     "margin_s_time": 0.799379330200811,
      "neighbour": "F4",
-     "relief_energy": -7.142406103201742e-08,
+     "relief_energy": 3.278614290221338e-06,
      "relief_s_time": 5.272520288030701e-07,
      "s_time_other": 5.745139451240977e-07,
      "s_time_own": 1.6061858383028402e-06,
@@ -9974,7 +10454,7 @@
      "takeable": 1.0
     },
     {
-     "energy_on": "ship",
+     "energy_on": "face",
      "energy_other_MW": 0.002854543274789601,
      "energy_own_MW": 0.002651045771865797,
      "energy_own_reach_MW": 0.002635007670042176,
@@ -9982,7 +10462,7 @@
      "margin_energy_MW": 1.4949887806567004,
      "margin_s_time": 0.7973454923910342,
      "neighbour": "F1",
-     "relief_energy": -2.7441950593428148e-05,
+     "relief_energy": 0.001317503835021088,
      "relief_s_time": 0.0002147754294089585,
      "s_time_other": 0.0002327213197548392,
      "s_time_own": 0.00021601807898688003,
@@ -9992,15 +10472,15 @@
      "takeable": 1.0
     },
     {
-     "energy_on": "ship",
+     "energy_on": "face",
      "energy_other_MW": 2.1112632158259276e-05,
      "energy_own_MW": 5.635309613626996e-05,
      "energy_own_reach_MW": 2.6544179681626466e-05,
      "face": "F4",
-     "margin_energy_MW": 6.07481239643488,
-     "margin_s_time": 0.7999566229489724,
+     "margin_energy_MW": 1.5290956113759475,
+     "margin_s_time": 0.7999565978108278,
      "neighbour": "F3",
-     "relief_energy": 6.789434404208987e-07,
+     "relief_energy": 1.3272089840813233e-05,
      "relief_s_time": 8.47353029300819e-07,
      "s_time_other": 9.577990675016636e-07,
      "s_time_own": 3.231489145230227e-06,
@@ -10093,11 +10573,12 @@
     "state_at_spec": "nominal"
    },
    "ship": {
-    "load": 0.040648450445639986,
+    "load": 0.04064752631035156,
     "object": "ship",
     "resource": "energy"
    },
-   "state": "NOK"
+   "state": "NOK",
+   "tight": []
   },
   "warnings": [
    "sectors A1_TRIM / B1_TRIM share 0.182 sr: each is budgeted independently there -- fine for intentional layered coverage (different RCS/range/RR on the same sky), check for a duplicated requirement if not",

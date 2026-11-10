@@ -148,7 +148,8 @@ def _executor() -> ProcessPoolExecutor:
     global _pool
     if _pool is None:
         import atexit
-        _pool = ProcessPoolExecutor(max_workers=1)
+        from .optimizer import _mark_pool_worker
+        _pool = ProcessPoolExecutor(max_workers=1, initializer=_mark_pool_worker)   # (stops when the tool is gone)
         atexit.register(shutdown)                 # (a profile still running at the exit: at most its 3-5 s)
     return _pool
 

@@ -655,3 +655,25 @@ test_every_parameter_is_read_by_the_code (gui.sim_view and gui.maneuver_node imp
 the test depended on the order of the parallel tests). Nereid GM 1.7 km3/s2 (estimate, user). N3 86.2 min on the
 desktop (suite 37.6 min): 320 passed, 14 failed before the refreeze (the 10 snapshot tests and the 4 above); the 18
 tests passed afterwards.
+
+## 2026-11-10 -- final allocation rule in the exact computation (pass R3), model V6.37.0
+
+The ship's resources are shared by the final allocation rule (core/allocation.solve, allocate_rule) in place of the
+pro-rata sharing (allocate(), removed): range first down to rho_min 0.8 then the revisit, search shares in the overlaps
+of the scan cones moved to the neighbouring face at plan kept (face_overlap costs), load ceiling hard; degraded volumes
+re-planned at rho x R until the plan fits (secant on the cost law, confirm_replans 4); a face's energy row = its need
+over its own limit (feeder or operator cap) instead of need / pro-rata share; verdict state DEGRADED and the 'at the
+limit' list; the always-on of the fast estimate at the processing's static share. 3606 values differ:
+- mission_example, veille500, synthetic_mix, environment: no key figure changed (face energy rows, allocation keys);
+- mission_example_csv: face energy rows -72 to -76 % (operator cap 2 MW: need of the face / 2 MW instead of the ship's
+  load / pro-rata share);
+- mission_redundancy_demo: +-0.02 %; mission_sky_demo, mission_frames: energy and S time moved between faces (moves in
+  the overlaps, F1 / F2 +-5 to 11 %, S time +-17 to 57 %), totals nearly unchanged;
+- mission_target_library (deliberately ~3x overloaded, F1 energy 299 %): its five volumes re-planned at rho_min x R
+  (F1 228 %), the revisits giving way (T_KKV 72.6 s for 20 s asked, T_SHIP 2788 s for 120 s); confirmation not
+  converged after 4 re-plannings (said by an alert); waveform sets changed for T_KKV, T_KKV_RETRO, T_SHIP, T_DEBRIS,
+  T_DECOY (shorter or longer dwells at the reduced range); verdict NOK as before (14 NOK).
+Bug found by this N3 and fixed before the refreeze: a re-planned volume's range was composed twice (0.8 x 0.8 = 0.64,
+below rho_min); range and revisit are now derived from one level on the request. N3 94.1 min on the desktop (suite
+41.8 min): 337 passed, 11 failed before the refreeze (9 snapshot tests, test_tracking_loads_add_up,
+test_verdict_on_the_frozen_missions); cases recomputed after the fix (61 min), 12 tests passed after the refreeze.

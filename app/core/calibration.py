@@ -154,6 +154,10 @@ def record(mission: dict, result: dict) -> Dict[str, dict]:
     order = max((v.get("order", 0) for v in c.values()), default=0)
     for i, v in enumerate(got.values()):
         c[v["fp"]] = {"e": v["e"], "t": v["t"], "order": order + i + 1}
+    faces = (result.get("power_allocation") or {}).get("faces", {})
+    if all(str(k) in faces for k in range(4)):           # option (c): the always-on the exact run counted
+        c[mission_key(mission.get("sectors", []))] = {
+            "always_on_w": [float(faces[str(k)]["always_on_MW"]) * 1e6 for k in range(4)], "order": order + len(got) + 1}
     try:
         _save()
     except OSError:
@@ -169,6 +173,30 @@ def lookup(sectors: List[dict]) -> Dict[str, dict]:
         v = c.get(fingerprint(sec))
         if v is not None:
             out[str(sec.get("id", f"#{i + 1}"))] = {"e": v["e"], "t": v["t"]}
+    return out
+
+
+def mission_key(sectors: List[dict]) -> str:
+    """The set of volumes of a mission (their fingerprints, in any order): the always-on of the faces depends on the
+    processing load of all of them (step 4.4)."""
+    return "mission:" + hashlib.sha1("|".join(sorted(fingerprint(s) for s in sectors)).encode("utf-8")).hexdigest()
+
+
+def always_on(sectors: List[dict]) -> Optional[List[float]]:
+    """Each face's always-on (W drawn from the bus) measured by the last exact run of this set of volumes (option (c),
+    user 10 November 2026), None when there is none."""
+    v = _load().get(mission_key(sectors))
+    return None if v is None else list(v["always_on_w"])
+
+
+def view_calibration(sectors: List[dict], ids: List[str]) -> dict:
+    """The calib argument of the fast estimate for a mission's volumes (as the operator defines them) under the ids
+    the view gives them: each volume's ratios, and the faces' always-on under cost_estimate.ALWAYS_ON_KEY."""
+    from .cost_estimate import ALWAYS_ON_KEY
+    out = {i: c for i, s in zip(ids, sectors) if (c := ratios(s)) is not None}
+    on = always_on(sectors)
+    if on is not None:
+        out[ALWAYS_ON_KEY] = on
     return out
 
 

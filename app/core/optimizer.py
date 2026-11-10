@@ -1576,8 +1576,21 @@ _IN_POOL_WORKER = False
 
 
 def _mark_pool_worker() -> None:
+    """Initializer of a worker process (the optimiser's pool, the cost profiles'): marked as such (no nested
+    parallelism), and stopped by itself as soon as the process that started it is gone (user, 10 November 2026: 25
+    workers of closed tools and of crashed runs were left behind, idle but holding their memory)."""
     global _IN_POOL_WORKER
     _IN_POOL_WORKER = True
+    import multiprocessing
+    import threading
+    parent = multiprocessing.parent_process()
+    if parent is None:
+        return
+
+    def watch() -> None:
+        parent.join()                                  # (returns when the parent process has ended)
+        os._exit(0)
+    threading.Thread(target=watch, name="parent-watch", daemon=True).start()
 
 
 def _freq_parallel_ok(n_freqs: int) -> bool:

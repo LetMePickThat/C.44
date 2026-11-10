@@ -100,7 +100,9 @@ FARTHEST_APHELION_KM = max(el[0] * (1.0 + el[1]) for el, _r in eph.PLANET_ELEMEN
 MIN_CAMERA_KM = 1e-3 * float(P.get("tool.display.sim_min_camera_m"))   # nearest zoom in, to any focal point (user)
 TURN_DEG_PX = v3.TURN_DEG_PX                      # mouse rotation (shared: gui/view3d.py)
 SPEEDS = (1, 10, 100, 1000, 10000, 100000)     # x10 000 and x100 000: the Moon on its orbit (user)
-VOL_REBUILD_DEG = 5.0                             # V5: a volume is turned in place, rebuilt past this turn of its frame
+VOL_REBUILD_DEG = 0.5                             # V5: a volume is turned in place, rebuilt past this turn of its frame
+#   or this move of the central body seen from the ship (G1, user 10 November 2026: 5 deg let a volume low on the
+#   horizon pass through the ground until the next rebuild; was 5)
 RING_STEP_FRAC = 0.25                             # V4: range rings spaced this share of the visible half-height apart
 RING_COVER = 1.1                                  # ... out to this x the farthest corner of the 3D view
 RING_MIN_SIN_EL = 0.2                             # (a view almost in the rings' plane: at most 5 x the half-height)
@@ -290,6 +292,27 @@ VOL = "vol_"                                      # prefix of the mission-volume
 
 class _Cancelled(Exception):
     pass
+
+
+def _ground_view(nav) -> Optional[Tuple[np.ndarray, float]]:
+    """G1 (user, 10 November 2026): the central body seen from the ship at the navigation of a volume build: the
+    direction of its centre in the ship frame and its apparent radius (deg); None without an orbit. The volumes are
+    cut by the ground (the useful range): they are rebuilt when it has moved by more than VOL_REBUILD_DEG."""
+    if nav is None or not nav.has_orbit or not nav.body_radius_km:
+        return None
+    d = float(np.linalg.norm(nav.r))
+    if d <= 0.0:
+        return None
+    u = nav.r_si.T @ (-np.asarray(nav.r, float) / d)
+    return u, math.degrees(math.asin(min(1.0, float(nav.body_radius_km) / d)))
+
+
+def _ground_moved(ref, now) -> bool:
+    """True when the central body seen from the ship has turned or grown by more than VOL_REBUILD_DEG since ref."""
+    if ref is None or now is None:
+        return (ref is None) != (now is None)
+    ang = math.degrees(math.acos(float(np.clip(ref[0] @ now[0], -1.0, 1.0))))
+    return ang > VOL_REBUILD_DEG or abs(ref[1] - now[1]) > VOL_REBUILD_DEG
 
 
 _WORKERS = set()                                  # the workers alive, whatever became of their views
@@ -4372,14 +4395,14 @@ class SimView(QWidget):
             msg = [self._navigation.message(self.t)] if self.truth is not None else mis.get("global", {}).get("nav")
             nav = frames.parse_nav(msg)
             if self._vol is not None and not force:
-                turns, rebuild = [], False
+                turns, rebuild = [], _ground_moved(self._vol.get("ground"), _ground_view(nav))
                 for raw, m_ref, off_ref in self._vol["frames"]:
                     m_t, off_t = frames.sector_matrix(raw, nav)
                     rot = np.eye(3) if m_t is None else m_t.T @ m_ref
                     rebuild |= (math.degrees(float(np.linalg.norm(att.rotvec(rot)))) > VOL_REBUILD_DEG
                                 or abs(off_t - off_ref) > VOL_REBUILD_DEG)
                     turns.append(rot)
-                if not rebuild:
+                if not rebuild or getattr(self, "defer_rebuild", False):   # (light playback: turned, rebuilt later)
                     self._vol["rot"] = turns
                     self._place_volumes()
                     return
@@ -4416,7 +4439,7 @@ class SimView(QWidget):
             sky_ship = engine.sky_at(self.sc, self.truth, self.t) if self.truth is not None else None
         except Exception:  # noqa: BLE001 -- no sky: the volumes at their full range
             sky_ship = None
-        vol = {"actors": [], "frames": [], "per_sector": [], "centres": [], "texts": []}
+        vol = {"actors": [], "frames": [], "per_sector": [], "centres": [], "texts": [], "ground": _ground_view(nav)}
         alloc = None
         if self.range_gauge:                         # gauge (c): the final allocation rule over every volume (R2)
             from core import cost_estimate as ce
@@ -4425,8 +4448,8 @@ class SimView(QWidget):
                     for i, (raw, sec) in enumerate(zip(mis.get("sectors", []), res.get("sectors", []))) if sec is not None]
             try:
                 from core import calibration          # pass R3d (M1): the last exact run of each volume
-                calib = {(raw.get("id") or f"_idx{i}"): c for i, raw in enumerate(mis.get("sectors", []))
-                         if (c := calibration.ratios(raw)) is not None}
+                raws = mis.get("sectors", [])
+                calib = calibration.view_calibration(raws, [raw.get("id") or f"_idx{i}" for i, raw in enumerate(raws)])
                 alloc = (ce.live_allocation(table, secs, self.grid, e0, e1, sky_ship, gl, calib=calib,
                                             profiles="background")
                          if table is not None else None)

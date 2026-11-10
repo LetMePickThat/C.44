@@ -62,6 +62,8 @@ SECTOR_LABEL_FONT_SIZE = 13   # shared by _build_sectors (draws) and _label_hit 
 FACE_OUTLINE_COLOR = "#9aa0aa"   # the zones' outlines, light on the black of space (view3d.MUTED_COLOR)
 SCN = "scn_"                     # the linked scenario's actors (pass S2)
 PLAY_SPEEDS = (1, 10, 100, 1000)                 # the playback's speeds (as the Scenario Editor's first ones)
+PLAY_HEAVY_S = 2.0                               # light playback (user, 10 November 2026): the volumes, the gauge and the
+#   live load rebuilt at most this often while playing (D), at once on pause; never during a slider drag (on release)
 PLAY_TICK_MS = 200                               # one displayed instant at most this often (the live load: ~50 ms per volume)
 LOAD_OK, LOAD_HIGH, LOAD_OVER = "#3cb371", "#e08a1e", "#c0392b"   # the live load: under the ceiling, at it, above 100 %
 LOAD_BEYOND = "#6e0f0f"          # the energy bar's part beyond 100 % of the face reference, drawn over it again (user)
@@ -728,7 +730,9 @@ class SceneView(QWidget):
         self.cb_speed.setCurrentIndex(2)
         self.sl_play = QSlider(Qt.Horizontal)
         self.sl_play.setRange(0, 10000)
-        self.sl_play.valueChanged.connect(lambda v: self.set_instant(v / 10000.0 * self._play_end(), from_slider=True))
+        self.sl_play.valueChanged.connect(self._on_slider)        # coalesced: the latest position only
+        self.sl_play.sliderPressed.connect(self._on_slider_pressed)
+        self.sl_play.sliderReleased.connect(self._on_slider_released)
         self.lb_play = QLabel("")
         self.bt_use = QPushButton("Use this instant")
         self.bt_use.setToolTip("Put the instant shown into the mission: its navigation and sky are the ship's there "
@@ -887,9 +891,43 @@ class SceneView(QWidget):
         link = self._scn_link
         return float(link.duration) if link is not None else 0.0
 
-    def set_instant(self, t: float, from_slider: bool = False) -> None:
+    def _on_slider(self, v: int) -> None:
+        """Playback slider (perf, user 10 November 2026: a drag queued every intermediate instant, ~3 s each): the
+        latest position only, taken when the event loop is free."""
+        self._slider_t = v / 10000.0 * self._play_end()
+        if not getattr(self, "_slider_due", False):
+            self._slider_due = True
+            QTimer.singleShot(0, self._apply_slider)
+
+    def _apply_slider(self) -> None:
+        self._slider_due = False
+        self.set_instant(self._slider_t, from_slider=True)
+
+    def _on_slider_pressed(self) -> None:
+        self._dragging = True
+
+    def _on_slider_released(self) -> None:
+        self._dragging = False
+        self.settle()
+
+    def _light(self) -> bool:
+        """Light playback: while the slider is dragged, or while playing between two full rebuilds (PLAY_HEAVY_S)."""
+        if getattr(self, "_dragging", False):
+            return True
+        return self._playing and time.perf_counter() - getattr(self, "_last_heavy", 0.0) < PLAY_HEAVY_S
+
+    def settle(self) -> None:
+        """The full display at the instant shown (after a drag, on pause): volumes, gauge, live load rebuilt."""
+        if getattr(self, "_light_pending", False) and self._scn_link is not None:
+            self.set_instant(self._play_t, from_slider=True, heavy=True)
+
+    def set_instant(self, t: float, from_slider: bool = False, heavy: bool = False) -> None:
         """The DISPLAY at the instant t of the linked run: volumes resolved with the ship's navigation there, the
-        scenario's objects, the global view, the gauge, the live load (the mission itself unchanged)."""
+        scenario's objects, the global view, the gauge, the live load (the mission itself unchanged). Light playback
+        (user, 10 November 2026: a drag or a fast playback stalled on the rebuilds): during a drag, and while playing
+        between two full rebuilds, only the ship, the objects and the instant follow, the volumes already built turn
+        with their frames; the rest is rebuilt on release, on pause, or every PLAY_HEAVY_S while playing."""
+        light = not heavy and self._light()
         if self._scn_link is None or self.instant_source is None:
             return
         t = min(max(float(t), 0.0), self._play_end())
@@ -906,12 +944,26 @@ class SceneView(QWidget):
         self._sky_ship = g.get("sky")
         n = frames.Nav(g["nav"][0]) if g.get("nav") else None
         self.set_navigation(None if n is None else n.r_si, None if n is None else n.body)
-        if self._eps is not None:
+        self._light_pending = light
+        if light:
+            if self._sim is not None:
+                self._sim.defer_rebuild = True
+            try:
+                self.set_scenario(self._scn_link, t)
+            finally:
+                if self._sim is not None:
+                    self._sim.defer_rebuild = False
+            return
+        self._last_heavy = time.perf_counter()
+        if self._eps is not None and not self._global_shown():
             self._in_instant = True
             try:
                 self.set_scene(self._eps[0], self._eps[1], draws)
             finally:
                 self._in_instant = False
+            self._sphere_stale = None
+        elif self._eps is not None:          # (perf: the sphere hidden in the global mode, rebuilt when shown again)
+            self._sphere_stale = draws
         self._show_load(draws, g.get("sky"))
         self.set_scenario(self._scn_link, t)
 
@@ -925,6 +977,7 @@ class SceneView(QWidget):
             self._play_timer.start()
         else:
             self._play_timer.stop()
+            self.settle()
 
     def _play_tick(self) -> None:
         now = time.perf_counter()
@@ -981,6 +1034,14 @@ class SceneView(QWidget):
         else:
             self._sphere_box.setVisible(True)
             self._stack.setCurrentIndex(0)
+            stale = getattr(self, "_sphere_stale", None)
+            if stale is not None and self._eps is not None:      # the instants played meanwhile
+                self._sphere_stale = None
+                self._in_instant = True
+                try:
+                    self.set_scene(self._eps[0], self._eps[1], stale)
+                finally:
+                    self._in_instant = False
             self.plotter.render()
 
     def _update_global(self) -> None:
@@ -1008,7 +1069,10 @@ class SceneView(QWidget):
             sim.status.setText(f"global view: {exc}")
             return
         if self._sim_mission is not None:
-            sim.set_mission(*self._sim_mission)
+            mkey = json.dumps([self._sim_mission[0], sorted(self._sim_mission[1])], sort_keys=True, default=str)
+            if mkey != getattr(self, "_sim_mission_key", None) or self._sim_run != key:
+                self._sim_mission_key = mkey          # (perf: handed over at every instant, it forced a rebuild of
+                sim.set_mission(*self._sim_mission)   # every volume, the 0.5 deg rule never applied)
         new_run = self._sim_run != key
         self._sim_run = key
         sim.set_time(t)

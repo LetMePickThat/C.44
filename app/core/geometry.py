@@ -377,6 +377,182 @@ def build_sector_split_smooth(grid: SphereGrid, sec: dict, eps_min: float = -90.
 GAUGE_GREEN, GAUGE_RED = "#3cb371", "#d6453d"     # range gauge: the range held, the shortfall (D)
 
 
+# ----------------------------------------------------------------------------- the ground's horizon (G2, G3)
+# User, 10 November 2026 (pass on the geometry): a volume cut by the ground (the useful range, step 3.1 P4 Q9) was drawn
+# by placing each vertex of its mesh at the range its direction needs. Across a body's horizon that range jumps (just
+# below, the ray meets the ground at the horizon distance; just above, it misses it and goes to the full range), so
+# every triangle and outline segment astride the horizon joined a ground point to a far point: fans of slivers. Now the
+# meshes are cut along the horizon (limb_margin_deg = 0), the ground side refined near it (the ground distance falls
+# steeply there and coarse chords passed under the surface), the two sides joined by the tangent cone between the
+# horizon distance and the full range, and the outline densified with a clean step at the crossing.
+LIMB_BAND_DEG = 3.0                    # G2: the ground side is refined within this of the horizon
+LIMB_REFINE_DEG = 0.25                 # G2: ... to edges of at most this (unit sphere)
+LIMB_LINE_STEP_DEG = 0.1               # G3: the outline densified to this
+_LIMB_TOL_DEG = 1e-3                   # a point of a cut lies on the horizon within this
+
+
+def limb_function(sky: Optional[dict], sec: dict):
+    """(margin_of(d) -> deg above the horizon of the nearest surface body (min over the bodies; > 0: sky),
+    limb_range_of(d) -> the useful range at the horizon of the body there (km: its horizon distance - guard, within
+    the required range)) for the mission sky in the ship frame; None without a surface."""
+    from . import cost_estimate as ce
+    from . import optimizer as mo
+    surf = ce._sky_surfaces(sky)
+    if not surf:
+        return None
+    cs = np.array([s_.c for s_ in surf], float)
+    rad = np.degrees(np.arcsin(np.clip([s_.radius_km / s_.dist_km for s_ in surf], 0.0, 1.0)))
+    d_h = np.sqrt(np.maximum([s_.dist_km ** 2 - s_.radius_km ** 2 for s_ in surf], 0.0))
+    r_req = float(sec.get("range_km", 0.0))
+    guard = mo.surface_guard_km(sec)
+
+    def margins(d):
+        d = np.asarray(d, float).reshape(-1, 3)
+        return np.degrees(np.arccos(np.clip(d @ cs.T, -1.0, 1.0))) - rad[None, :]
+
+    def margin_of(d):
+        return margins(d).min(axis=1)
+
+    def limb_range_of(d):
+        j = np.argmin(margins(d), axis=1)
+        return np.clip(d_h[j] - guard, 0.0, r_req)
+    return margin_of, limb_range_of
+
+
+def _unit(poly: pv.PolyData) -> np.ndarray:
+    return poly.points / np.linalg.norm(poly.points, axis=1)[:, None]
+
+
+def _refine_near_limb(poly: pv.PolyData, margin_of) -> pv.PolyData:
+    """G2: the cells within LIMB_BAND_DEG of the horizon subdivided to LIMB_REFINE_DEG, back on the unit sphere."""
+    if not poly.n_points:
+        return poly
+    tri = poly.triangulate()
+    m = margin_of(_unit(tri))
+    near = m > -LIMB_BAND_DEG
+    cells = tri.faces.reshape(-1, 4)[:, 1:]
+    band = np.flatnonzero(near[cells].any(axis=1))
+    if not len(band):
+        return poly
+    rest = np.setdiff1d(np.arange(len(cells)), band)
+    fine = tri.extract_cells(band).extract_surface(algorithm="dataset_surface").triangulate()
+    fine = fine.subdivide_adaptive(max_edge_len=math.radians(LIMB_REFINE_DEG), max_n_passes=12)
+    fine.points = _unit(fine)
+    if not len(rest):
+        return fine
+    out = tri.extract_cells(rest).extract_surface(algorithm="dataset_surface")
+    return out.append_polydata(fine)
+
+
+def split_at_limb(poly: pv.PolyData, limb) -> List[Tuple[str, pv.PolyData]]:
+    """A unit-sphere mesh cut along the horizon: [("sky", ...), ("ground", ... refined near the horizon)]; the whole
+    mesh as ("sky", ...) without a surface."""
+    if limb is None or not poly.n_points:
+        return [("sky", poly)]
+    margin_of = limb[0]
+    m = margin_of(_unit(poly))
+    out = []
+    up = _cut(poly, m)
+    if up.n_points:
+        out.append(("sky", up))
+    down = _cut(poly, -m)
+    if down.n_points:
+        out.append(("ground", _refine_near_limb(down, margin_of)))
+    return out
+
+
+def _on_limb(poly: pv.PolyData, margin_of) -> np.ndarray:
+    return np.abs(margin_of(_unit(poly))) <= _LIMB_TOL_DEG
+
+
+def _boundary_segments(cap: pv.PolyData) -> Tuple[np.ndarray, np.ndarray]:
+    edges = cap.extract_feature_edges(boundary_edges=True, feature_edges=False, manifold_edges=False,
+                                      non_manifold_edges=False)
+    if not edges.n_points:
+        return np.zeros((0, 3)), np.zeros((0, 2), np.int64)
+    return np.asarray(edges.points), edges.lines.reshape(-1, 3)[:, 1:]
+
+
+def _walls_except_limb(cap_unit: pv.PolyData, placed: pv.PolyData, margin_of) -> pv.PolyData:
+    """Walls from the cap's free edges down to the radar, but for the edges on the horizon (G2: joined by the tangent
+    cone instead). cap_unit: the cap on the unit sphere (its directions), placed: the same cap at range."""
+    pts, seg = _boundary_segments(placed)
+    if not len(seg):
+        return pv.PolyData()
+    if margin_of is not None:
+        on = np.abs(margin_of(pts / np.linalg.norm(pts, axis=1)[:, None])) <= _LIMB_TOL_DEG
+        seg = seg[~(on[seg[:, 0]] & on[seg[:, 1]])]
+    if not len(seg):
+        return pv.PolyData()
+    o = len(pts)
+    tris = np.hstack([np.full((len(seg), 1), 3), np.full((len(seg), 1), o), seg]).astype(np.int64).ravel()
+    return pv.PolyData(np.vstack([pts, [[0.0, 0.0, 0.0]]]), tris)
+
+
+def _limb_wall(sky_placed: pv.PolyData, limb) -> pv.PolyData:
+    """G2: the tangent cone between the horizon distance and the range the sky side reaches, along the sky side's
+    edges on the horizon."""
+    if limb is None or not sky_placed.n_points:
+        return pv.PolyData()
+    margin_of, limb_range_of = limb
+    pts, seg = _boundary_segments(sky_placed)
+    if not len(seg):
+        return pv.PolyData()
+    u = pts / np.linalg.norm(pts, axis=1)[:, None]
+    on = np.abs(margin_of(u)) <= _LIMB_TOL_DEG
+    seg = seg[on[seg[:, 0]] & on[seg[:, 1]]]
+    if not len(seg):
+        return pv.PolyData()
+    low = u * limb_range_of(u)[:, None]
+    n = len(pts)
+    a, b = seg[:, 0], seg[:, 1]
+    tris = np.vstack([np.column_stack([np.full(len(seg), 3), a, b, n + b]),
+                      np.column_stack([np.full(len(seg), 3), a, n + b, n + a])]).astype(np.int64).ravel()
+    return pv.PolyData(np.vstack([pts, low]), tris)
+
+
+def place_outline(outline: pv.PolyData, r_of, limb) -> pv.PolyData:
+    """G3: an outline on the unit sphere placed at r_of(directions) (km), densified to LIMB_LINE_STEP_DEG and, where it
+    crosses a horizon, stepped there (the ground side at the horizon distance, the sky side at its own range) instead
+    of a segment from a ground point to a far point."""
+    if not outline.n_points:
+        return outline
+    if limb is None:
+        out = outline.copy()
+        out.points = _unit(out) * np.asarray(r_of(_unit(out)), float)[:, None]
+        return out
+    margin_of, limb_range_of = limb
+    u0 = _unit(outline)
+    seg = outline.lines.reshape(-1, 3)[:, 1:]
+    pts, lines = [], []
+    for a, b in seg:
+        pa, pb = u0[a], u0[b]
+        ang = math.degrees(math.acos(float(np.clip(pa @ pb, -1.0, 1.0))))
+        n = max(1, int(math.ceil(ang / LIMB_LINE_STEP_DEG)))
+        t = np.linspace(0.0, 1.0, n + 1)
+        q = pa[None, :] * (1.0 - t)[:, None] + pb[None, :] * t[:, None]
+        q = q / np.linalg.norm(q, axis=1)[:, None]
+        m = margin_of(q)
+        r = np.asarray(r_of(q), float)
+        for i in range(n):
+            p0, p1 = q[i] * r[i], q[i + 1] * r[i + 1]
+            if (m[i] > 0.0) != (m[i + 1] > 0.0) and m[i] != m[i + 1]:
+                f = m[i] / (m[i] - m[i + 1])
+                c = q[i] * (1.0 - f) + q[i + 1] * f
+                c = c / np.linalg.norm(c)
+                r_lo = float(limb_range_of(c[None, :])[0])
+                r_hi = float(r[i] if m[i] > 0 else r[i + 1])       # (the sky side's range is continuous there)
+                lo, hi = c * r_lo, c * max(r_hi, r_lo)
+                c0, c1 = (hi, lo) if m[i] > 0 else (lo, hi)
+                chain = [p0, c0, c1, p1]
+            else:
+                chain = [p0, p1]
+            k = len(pts)
+            pts.extend(chain)
+            lines.extend([[2, k + j, k + j + 1] for j in range(len(chain) - 1)])
+    return pv.PolyData(np.asarray(pts, float), lines=np.asarray(lines, np.int64).ravel())
+
+
 def held_ratio_function(grid: SphereGrid, sec: dict, eps_min: float, eps_max: float, sky: Optional[dict] = None,
                         alloc: Optional[dict] = None, sid: Optional[str] = None):
     """The range gauge's ratio_of(d) for a watched volume, definition (c) (pass R2, user 10 November 2026): the share
@@ -401,6 +577,7 @@ def held_ratio_function(grid: SphereGrid, sec: dict, eps_min: float, eps_max: fl
         return np.minimum(np.where(ok, rho, 0.0), np.clip(np.asarray(useful_of(d), float), 0.0, 1.0))
     ratio_of.eps_window = (eps_min, eps_max)
     ratio_of.useful_of = useful_of
+    ratio_of.limb = limb_function(sky, sec)                   # G2: the shells cut along the horizon
     return ratio_of
 
 
@@ -429,6 +606,7 @@ def build_range_gauge(grid: SphereGrid, sec: dict, ratio_of, radius: float,
     if not req.n_points:
         return pv.PolyData(), pv.PolyData()
     useful_of = getattr(ratio_of, "useful_of", None) or (lambda d_: np.ones(len(d_)))
+    limb = getattr(ratio_of, "limb", None)
     dr = req.points / np.linalg.norm(req.points, axis=1)[:, None]
     rho = np.asarray(ratio_of(dr), float)
     u_req = np.asarray(useful_of(dr), float)
@@ -448,20 +626,27 @@ def build_range_gauge(grid: SphereGrid, sec: dict, ratio_of, radius: float,
         piece = _cut(piece, np.asarray(useful_of(dg), float) - 0.01)   # (no volume where the ground is within guard)
         if not piece.n_points:
             continue
-        dg = piece.points / np.linalg.norm(piece.points, axis=1)[:, None]
-        rg = np.clip(np.asarray(ratio_of(dg, face=k), float), 0.0, 1.0)
-        if normalise:                                          # (sphere: the range held over the range needed)
-            rg = np.clip(rg / np.maximum(np.asarray(useful_of(dg), float), 1e-6), 0.0, 1.0)
-        piece.points = dg * (rg * radius)[:, None]
         piece.cell_data.clear()
-        pieces.append(piece)
+        for _side, sub in (split_at_limb(piece, limb) if not normalise else [("sky", piece)]):
+            dg = sub.points / np.linalg.norm(sub.points, axis=1)[:, None]
+            rg = np.clip(np.asarray(ratio_of(dg, face=k), float), 0.0, 1.0)
+            if normalise:                                      # (sphere: the range held over the range needed)
+                rg = np.clip(rg / np.maximum(np.asarray(useful_of(dg), float), 1e-6), 0.0, 1.0)
+            sub.points = dg * (rg * radius)[:, None]
+            pieces.append(sub)
     green = pv.PolyData()
     for piece in pieces:
         green = piece if not green.n_points else green.append_polydata(piece)
     red = _cut(req, 0.999 * u_req - rho)                       # short of the range needed (the ground: not needed)
-    if red.n_points:
-        dd = red.points / np.linalg.norm(red.points, axis=1)[:, None]
-        red.points = dd * (radius if normalise else np.asarray(useful_of(dd), float)[:, None] * radius)
+    if red.n_points and not normalise:
+        reds = pv.PolyData()
+        for _side, sub in split_at_limb(red, limb):           # G2: cut along the horizon
+            dd = sub.points / np.linalg.norm(sub.points, axis=1)[:, None]
+            sub.points = dd * np.asarray(useful_of(dd), float)[:, None] * radius
+            reds = sub if not reds.n_points else reds.append_polydata(sub)
+        red = reds
+    elif red.n_points:
+        red.points = red.points / np.linalg.norm(red.points, axis=1)[:, None] * radius
     return green, red
 
 
@@ -499,10 +684,10 @@ def build_sector_volumes_km_smooth(grid: SphereGrid, sec: dict, eps_min: float =
     executed, outline, _hole = build_sector_split_smooth(grid, sec, eps_min, eps_max, radius=1.0)
     r = float(sec["range_km"])
     useful_of = useful_ratio_function(sec, sky)
+    limb = limb_function(sky, sec)                         # G2, G3: the horizon of the ground bodies
 
-    def at_range(poly: pv.PolyData) -> None:              # each point at the range its direction needs (the ground)
-        dd = poly.points / np.linalg.norm(poly.points, axis=1)[:, None]
-        poly.points = dd * (np.asarray(useful_of(dd), float) * r)[:, None]
+    def r_of(d):
+        return np.asarray(useful_of(d), float) * r
     parts = []
     for k in range(4):
         if not executed.n_points:
@@ -510,12 +695,22 @@ def build_sector_volumes_km_smooth(grid: SphereGrid, sec: dict, eps_min: float =
         ids = np.flatnonzero(executed.cell_data["face"] == k)
         if not len(ids):
             continue
-        cap = executed.extract_cells(ids).extract_surface(algorithm="dataset_surface")
-        at_range(cap)
-        walls = _walls(cap)
-        parts.append((k, cap if not walls.n_points else cap.append_polydata(walls)))
+        cap0 = executed.extract_cells(ids).extract_surface(algorithm="dataset_surface")
+        cap0.cell_data.clear()
+        vol = pv.PolyData()
+        for side, sub in split_at_limb(cap0, limb):         # each side at the range its directions need
+            cap = sub.copy()
+            cap.points = _unit(sub) * r_of(_unit(sub))[:, None]
+            walls = _walls_except_limb(sub, cap, None if limb is None else limb[0])
+            piece = cap if not walls.n_points else cap.append_polydata(walls)
+            if side == "sky":
+                cone = _limb_wall(cap, limb)
+                piece = piece if not cone.n_points else piece.append_polydata(cone)
+            vol = piece if not vol.n_points else vol.append_polydata(piece)
+        if vol.n_points:
+            parts.append((k, vol))
     if outline.n_points:
-        at_range(outline)
+        outline = place_outline(outline, r_of, limb)
     return parts, outline
 
 

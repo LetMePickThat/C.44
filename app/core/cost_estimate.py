@@ -409,7 +409,8 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
     recalibrated, M1); the track brackets (P3 by class) on their owner faces (energy, Ku time); the spare shortens
     the search revisits with realloc_mode PRIO_SEARCH, down to rr_min_s (D1, R2.2). The coverage hole is left out
     (the gauge shows it). calib (pass R3d, core/calibration.lookup): {sector id: {"e": [4], "t": [4]}}, the ratios
-    exact / estimate per face of the last exact run, applied to the volume's shares on each face (M1).
+    exact / estimate per face of the last exact run, applied to the volume's shares on each face (M1); under
+    ALWAYS_ON_KEY, each face's always-on measured by that run (else always_on_static_w).
     profiles (option (c), core/cost_profile): None = the table only; "background" = each volume priced by its own
     profile (the optimiser's laws: cumulative criterion, its candidates and Pfa), the table meanwhile while it is
     computed in the background (its id appended to estimating); "wait" = the profile computed here.
@@ -418,11 +419,11 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
     from . import margin
     g = g or {}
     p_avail = rm.face_elec_avail_w(rm.FACE_ELEC_POWER_MW)
-    non_tx = rm.non_tx_power_w() / rm.CHAIN_EFF
+    on = (calib or {}).get(ALWAYS_ON_KEY)
     demands = []
     for k in range(4):
         r = np.full((1, 4, 3), np.nan)
-        r[0, k] = (non_tx, 0.0, 0.0)
+        r[0, k] = (float(on[k]) if on else always_on_static_w(), 0.0, 0.0)
         demands.append(al.Demand(f"always-on {geo.FACE_NAMES[k]}", (0, 0), "other", r))
     reach, theta = _face_reach(grid)
     covered = reach.any(axis=0)
@@ -507,6 +508,18 @@ _LIVE_CACHE: Dict[str, dict] = {}
 def _key(obj) -> str:
     return json.dumps(obj, sort_keys=True, default=lambda o: np.asarray(o, float).round(9).tolist()
                       if isinstance(o, (np.ndarray, np.generic)) else str(o))
+
+
+ALWAYS_ON_KEY = "__always_on__"         # calib: each face's always-on (W drawn) measured by the last exact run
+
+
+def always_on_static_w() -> float:
+    """The always-on of a face drawn from the bus before any exact run (user, 10 November 2026, option (c)): the
+    receive chains, converters and control, and the processing at its static share (compute.static_frac x
+    power.dbf_kw), not at its ceiling: what the exact computation counts for a lightly loaded processor (step 4.4);
+    after an exact run, the always-on it measured (core/calibration.always_on)."""
+    ceiling = float(params.P.get("power.dbf_kw")) * 1e3
+    return (rm.non_tx_power_w() - ceiling * (1.0 - float(params.P.get("compute.static_frac")))) / rm.CHAIN_EFF
 
 
 def table_freq_ghz() -> float:

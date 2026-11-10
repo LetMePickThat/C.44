@@ -14,17 +14,14 @@ and the target class for the tracks):
   5  margin reuse (pass P4): the part of a search drawn by its revisit shortened below the one asked (core/margin.py),
      or (pass P7, realloc_mode PRIO_TRACK) the part of a track bracket drawn by its faster cadence; the first given
      back
-Enough power (sum of the needs within the ship total, each face within its feeder and the operator's cap): every face
-gets a share of the ship total proportional to its need (water-filling under the caps), so the energy load of a face
-is need / allocation. Shortfall: the tiers are served in order over all the faces (a P1 volume on one face before a P3
-track on another), each tier pro rata of its needs within the room left on each face; the last tier served is only in
-part: its search volumes get a tenable revisit (RR / served share, the energy goes with the revisit), its tracks a
-tenable number; a tier P0 to P2 not served in full makes the mission not tenable. Spare power is shared pro rata.
+Until model V6.37.0 these needs were shared pro rata (allocate(): water-filling of the ship total, the tiers in
+order on a shortfall, the last one in part with a tenable revisit); since pass R3 (user, 10 November 2026) every
+allocation is the final rule below.
 
 The FINAL rule (passes R1 and R2, user 10 November 2026) is solve() at the end of this module: range first, moves
 between faces in the overlaps, energy and S / Ku time together under the load ceiling, spare to the revisits, no
-under-use. The fast estimate uses it (core/cost_estimate.live_allocation), and since pass R3a the exact computation
-(allocate_rule(), at the end); allocate() above is kept for the before / after comparison of pass R3e, then removed.
+under-use. The fast estimate uses it (core/cost_estimate.live_allocation), and since pass R3 (model V6.37.0) the
+exact computation (allocate_rule(), at the end); the pro-rata sharing above (allocate()) was removed then.
 """
 from __future__ import annotations
 
@@ -144,87 +141,6 @@ def items(mission: dict, res: dict) -> List[dict]:
                         "tk": [float(bt.get("faces", {}).get(str(k), {}).get("ku_time_fraction", 0.0))
                                for k in range(4)]})
     return out
-
-
-def _water_fill(need: List[float], caps: List[float], total: float) -> List[float]:
-    """Share total pro rata of need, no face above its cap (the excess goes to the others)."""
-    alloc = [0.0] * 4
-    free = [k for k in range(4) if need[k] > 0]
-    left = total
-    while free and left > 1e-9:
-        s = sum(need[k] for k in free)
-        scale = left / s
-        capped = [k for k in free if need[k] * scale >= caps[k] - alloc[k]]
-        if not capped:
-            for k in free:
-                alloc[k] += need[k] * scale
-            break
-        for k in capped:
-            left -= caps[k] - alloc[k]
-            alloc[k] = caps[k]
-            free.remove(k)
-    return alloc
-
-
-def allocate(mission: dict, res: dict) -> dict:
-    its = items(mission, res)
-    caps = _caps(res)
-    need = [sum(it["w"][k] for it in its) for k in range(4)]
-    flags: List[str] = []
-    short = sum(need) > SHIP_W or any(need[k] > caps[k] for k in range(4))
-    served = {id(it): [1.0] * 4 for it in its}
-    tiers_out = []
-    if not short:
-        alloc = _water_fill(need, caps, SHIP_W)
-        for t in sorted({it["tier"] for it in its}):
-            w = sum(sum(it["w"]) for it in its if it["tier"] == t)
-            tiers_out.append({"tier": tier_name(t), "need_MW": w / 1e6, "served_MW": w / 1e6, "fraction": 1.0})
-    else:
-        alloc = [0.0] * 4
-        left = SHIP_W
-        for t in sorted({it["tier"] for it in its}):
-            members = [it for it in its if it["tier"] == t]
-            req = [sum(it["w"][k] for it in members) for k in range(4)]
-            room = [min(req[k], max(0.0, caps[k] - alloc[k])) for k in range(4)]
-            tot = sum(room)
-            share = min(1.0, left / tot) if tot > 0 else 0.0
-            got = [room[k] * share for k in range(4)]
-            for k in range(4):
-                alloc[k] += got[k]
-                for it in members:
-                    served[id(it)][k] = got[k] / req[k] if req[k] > 0 else 1.0
-            left -= sum(got)
-            tiers_out.append({"tier": tier_name(t), "need_MW": sum(req) / 1e6, "served_MW": sum(got) / 1e6,
-                              "fraction": sum(got) / sum(req) if sum(req) > 0 else 1.0})
-        if left > 1e-6:                                     # spare power pro rata of the needs, under the caps
-            extra = _water_fill([need[k] if caps[k] - alloc[k] > 0 else 0.0 for k in range(4)],
-                                [caps[k] - alloc[k] for k in range(4)], left)
-            alloc = [alloc[k] + extra[k] for k in range(4)]
-    partial = []
-    for it in its:
-        fr = min((served[id(it)][k] for k in range(4) if it["w"][k] > 0), default=1.0)
-        if fr >= 1.0 - 1e-9:
-            continue
-        rec = {"label": it["label"], "tier": tier_name(it["tier"]), "served_fraction": fr}
-        if it["kind"] == "search":
-            rec["rr_tenable_s"] = it["rr_s"] / fr if fr > 0 else math.inf
-            flags.append(f"{it['label']}: ship power short, revisit tenable {rec['rr_tenable_s']:.3g} s "
-                         f"(wanted {it['rr_s']:g} s)")
-        elif it["kind"] == "track":
-            rec["tracks_tenable"] = it["n_targets"] * fr
-            flags.append(f"{it['label']}: ship power short, {rec['tracks_tenable']:.3g} tracks tenable "
-                         f"of {it['n_targets']:g}")
-        else:
-            flags.append(f"{it['label']}: ship power short, only {100 * fr:.0f} % served")
-        if it["tier"][0] <= 2:
-            flags.append(f"mission not tenable: {it['label']} ({tier_name(it['tier'])}) is never shed")
-        partial.append(rec)
-    faces = {str(k): {"need_MW": need[k] / 1e6, "cap_MW": caps[k] / 1e6 if math.isfinite(caps[k]) else None,
-                      "alloc_MW": alloc[k] / 1e6, "always_on_MW": its[0]["w"][k] / 1e6,
-                      "load": need[k] / alloc[k] if alloc[k] > 0 else (0.0 if need[k] == 0 else math.inf)}
-             for k in range(4)}
-    return {"ship_MW": SHIP_W / 1e6, "need_MW": sum(need) / 1e6, "status": "SHORT" if short else "OK",
-            "faces": faces, "tiers": tiers_out, "partial": partial, "flags": flags}
 
 
 # ============================================================================= final allocation rule (pass R1)
@@ -551,7 +467,8 @@ def _report(demands, b, prog, level, y, rho_min) -> dict:
 
 
 # ============================================================================= the rule in the exact computation (R3)
-# Pass R3a (user, 10 November 2026): the exact optimiser's power allocation is the final rule, in place of allocate().
+# Pass R3a (user, 10 November 2026): the exact optimiser's power allocation is the final rule, in place of the
+# pro-rata sharing (allocate(), removed in pass R3e).
 # The demands are the exact plans' needs (items(): energy drawn, S time, Ku time per face, the optimiser's real times,
 # not the fast estimate's lower bound); a search share in the overlap of two scan cones may be served by either face
 # (pass R3b, _search_rows), the rule only reporting the move until pass R3c re-plans it on its new face; the spare stays with the margin reuse (core/margin.py, decision 2 of R3). The verdict rows (user, 10
@@ -615,7 +532,7 @@ def exact_demands(mission: dict, res: dict) -> Tuple[List[Demand], Budgets, List
 
 def allocate_rule(mission: dict, res: dict) -> dict:
     """The final rule on an assembled exact result (pass R3a), in the keys the verdict, the margin reuse and the
-    report read (those of allocate()), the rule's own report under "rule"."""
+    report read (those of the former pro-rata allocate()), the rule's own report under "rule"."""
     demands, b, its = exact_demands(mission, res)
     rep = solve(demands, b)
     need = [sum(it["w"][k] for it in its) for k in range(4)]
@@ -635,10 +552,11 @@ def allocate_rule(mission: dict, res: dict) -> dict:
         if rec["level"] >= 1.0 - 1e-6 and not planned:
             continue
         p_ = {"label": rec["label"], "tier": rec["tier"], "served_fraction": float(rec["level"])}
-        if planned:                             # against what was asked: the plan's own cut, then the rule's level
+        if planned:                             # against what was asked: the plan's own cut, then the rule's level,
             f = float(r["_rho"]) ** 4 * float(r["_rr_asked_s"]) / float(r["_rr_tenable_s"])
-            p_.update(served_fraction=float(rec["level"]) * f, rho=float(r["_rho"]) * float(rec["rho"]),
-                      rr_tenable_s=float(rec["rr_tenable_s"]), re_planned=True)
+            m_tot = float(rec["level"]) * f     # composed as ONE level on the request (the range never below rho_min,
+            rho, rr = search_effect(m_tot, float(r["_rr_asked_s"]))   # the revisit giving way beyond: N3 10 Nov)
+            p_.update(served_fraction=m_tot, rho=rho, rr_tenable_s=rr, re_planned=True)
         elif rec["kind"] == "search":
             p_.update(rho=rec["rho"], rr_tenable_s=rec["rr_tenable_s"])
         elif rec["kind"] == "track":

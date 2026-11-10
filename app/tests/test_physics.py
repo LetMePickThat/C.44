@@ -2662,31 +2662,6 @@ def test_mission_settings_keys():
 from core import allocation as alloc_  # noqa: E402
 
 
-def test_power_allocation_pro_rata_and_priority_tiers(monkeypatch):
-    """P1: enough power -> each face gets a share pro rata of its need (under its cap); shortfall -> the tiers in order
-    over all the faces (a P1 volume before a P3 track on another face), the last one in part with a tenable revisit."""
-    mission = {"sectors": [{"id": "SP", "self_protection": True}, {"id": "S4", "search_priority": 1},
-                           {"id": "T", "target_type": "KKV"}]}
-    k = 1.0 / rm.CHAIN_EFF
-    res = {"global": {"face_elec_avail_kW": 1000.0, "face_elec_cap_mw": None},
-           "compute": {"faces": {str(f): {"non_tx_kW_actual": 0.0} for f in range(4)}},
-           "sectors": [{"id": "SP", "status": "OK", "rr_target_s": 20.0, "faces": {"1": {"energy_fraction": 1.0}}},
-                       {"id": "S4", "status": "OK", "rr_target_s": 60.0, "faces": {"2": {"energy_fraction": 2.0}}}],
-           "tracking": {"faces": {str(f): {"pumps_kW": 0.0} for f in range(4)},
-                        "sectors": [{"id": "T", "at": [{"n_targets": 4.0, "faces": {"2": {"energy_fraction": 1.0}}}]}]}}
-    a = alloc_.allocate(mission, res)
-    need = [0.0, 1.0 * k, 3.0 * k, 0.0]
-    assert a["status"] == "OK" and a["faces"]["1"]["alloc_MW"] / a["faces"]["2"]["alloc_MW"] == pytest.approx(1 / 3)
-    assert sum(v["alloc_MW"] for v in a["faces"].values()) == pytest.approx(alloc_.SHIP_W / 1e6)
-    monkeypatch.setattr(alloc_, "SHIP_W", 2.5e6 * k)          # P1 (1) and the KKV tracks (1) served, search in part
-    b = alloc_.allocate(mission, res)
-    part = {p["label"]: p for p in b["partial"]}
-    assert b["status"] == "SHORT" and set(part) == {"search S4"}
-    assert part["search S4"]["served_fraction"] == pytest.approx(0.25)
-    assert part["search S4"]["rr_tenable_s"] == pytest.approx(240.0)
-    assert sum(need) > 2.5 * k
-
-
 # ----------------------------------------------------------------------------- final allocation rule (pass R1)
 def _share(costs):
     """One share of a demand: {face: (energy W, S time, Ku time)} at full service, NaN elsewhere."""
@@ -2788,6 +2763,115 @@ def test_rule_exact_overlap_share_moves_to_the_neighbour():
     assert r["faces"]["1"]["energy"] == pytest.approx(0.8 * 0.6e6, rel=1e-6)
 
 
+def _exact_res(cap=None):
+    """A minimal assembled exact result: a P1 volume on F2, a P4 volume and a KKV track bracket on F3."""
+    return {"global": {"face_elec_avail_kW": 1000.0, "face_elec_cap_mw": cap},
+            "compute": {"faces": {str(f): {"non_tx_kW_actual": 0.0} for f in range(4)}},
+            "sectors": [{"id": "SP", "status": "OK", "rr_target_s": 5.0,
+                         "faces": {"1": {"energy_fraction": 1.0, "time_fraction": 0.1}}},
+                        {"id": "S4", "status": "OK", "rr_target_s": 10.0,
+                         "faces": {"2": {"energy_fraction": 2.0, "time_fraction": 0.2}}}],
+            "tracking": {"faces": {str(f): {"pumps_kW": 0.0} for f in range(4)},
+                         "sectors": [{"id": "T", "at": [{"n_targets": 4.0, "faces": {"2": {
+                             "energy_fraction": 1.0, "ku_time_fraction": 0.1}}}]}]}}
+
+
+_EXACT_MISSION = {"sectors": [{"id": "SP", "self_protection": True, "rr_target_s": 5.0},
+                              {"id": "S4", "search_priority": 1, "rr_target_s": 10.0},
+                              {"id": "T", "target_type": "KKV", "tracking": [{"rr_s": 1.0}]}]}
+
+
+def test_allocate_rule_on_an_exact_result():
+    """Pass R3a: the exact needs as the rule's demands. Enough power: every need served, a face's energy row = its
+    need over its own limit (the feeder). F3 capped by the operator at 3 MW (2.4 MW under the ceiling): the P3
+    tracks first (1.06 MW), the P4 volume served at m = (2.4 - 1.06) / 2.12, its range m^(1/4), its revisit kept."""
+    k_w = 1e6 / rm.CHAIN_EFF
+    a = alloc_.allocate_rule(_EXACT_MISSION, _exact_res())
+    assert a["status"] == "OK" and a["partial"] == [] and a["rule"]["status"] == "OK"
+    f2 = a["faces"]["2"]
+    assert f2["need_MW"] == pytest.approx(3.0 * k_w / 1e6) and not f2["capped"]
+    assert f2["load"] == pytest.approx(f2["need_MW"] / rm.FACE_FEEDER_MAX_MW)
+    b = alloc_.allocate_rule(_EXACT_MISSION, _exact_res(cap=3.0))
+    part = {p_["label"]: p_ for p_ in b["partial"]}
+    m = (2.4e6 - k_w) / (2.0 * k_w)
+    assert b["status"] == "SHORT" and set(part) == {"search S4"} and b["faces"]["2"]["capped"]
+    assert part["search S4"]["served_fraction"] == pytest.approx(m, rel=1e-5)
+    assert part["search S4"]["rho"] == pytest.approx(m ** 0.25, rel=1e-5)
+    assert part["search S4"]["rr_tenable_s"] == pytest.approx(10.0)
+
+
+def test_moved_results_shift_the_face_totals():
+    """Pass R3c (moves at plan kept): the rule serves 40 % of F1's load of volume A on F2 at a dearer cost; A's face
+    totals follow the rule's split, its positions leave F1 for F2 in proportion of the energy F1 loses, A is marked
+    moved (no move back) with its plan's own totals kept."""
+    k_w = 1e6 / rm.CHAIN_EFF
+    res = {"global": {"face_elec_avail_kW": 1000.0},
+           "sectors": [{"id": "A", "status": "OK", "frequency": {"freq_ghz": 2.8},
+                        "faces": {"0": {"energy_fraction": 1.0, "time_fraction": 0.1, "positions": 100.0,
+                                        "dissipation_kW": 10.0, "theta_max_deg": 50.0}}}],
+           "power_allocation": {"rule": {"demands": [
+               {"kind": "search", "sector": "A", "level": 1.0, "moved_share": 0.4,
+                "faces": {"0": {"energy": 0.6 * k_w, "S time": 0.06}, "1": {"energy": 0.5 * k_w, "S time": 0.05}}}]}}}
+    out, moves = alloc_.moved_results(res)
+    f = out[0]["faces"]
+    assert out[0]["_moved"] and out[0]["_faces_planned"]["0"]["energy_fraction"] == 1.0 and len(moves) == 1
+    assert f["0"]["energy_fraction"] == pytest.approx(0.6) and f["1"]["energy_fraction"] == pytest.approx(0.5)
+    assert f["0"]["positions"] == pytest.approx(60.0) and f["1"]["positions"] == pytest.approx(40.0)
+    assert f["1"]["time_fraction"] == pytest.approx(0.05) and f["1"]["theta_max_deg"] > 50.0
+    assert alloc_.moved_results({**res, "sectors": out})[1] == []        # moved once: never again
+
+
+def test_verdict_degraded_search_volume():
+    """Pass R3d (decision 6 of R3): a search volume held at rho_min or above with its revisit: DEGRADED; its revisit
+    given way: NOK; a self-protection volume (P1, never shed): NOK; the mission state NOK > DEGRADED > ALERT > OK;
+    the volumes below their range in the 'at the limit' list (M2)."""
+    out = {"power_allocation": {"ship_MW": 8.0, "need_MW": 4.0, "partial": [
+        {"label": "search S4", "tier": "P4_1 search", "served_fraction": 0.6, "rho": 0.88, "rr_tenable_s": 10.0},
+        {"label": "search S5", "tier": "P4_1 search", "served_fraction": 0.3, "rho": 0.8, "rr_tenable_s": 25.0},
+        {"label": "search SP", "tier": "P1 self-protection search", "served_fraction": 0.9, "rho": 0.97,
+         "rr_tenable_s": 5.0}]}}
+    t = val_._Table(0.8)
+    val_._ship(t, out, {"S4": {"rr_target_s": 10.0}, "S5": {"rr_target_s": 10.0}, "SP": {"rr_target_s": 5.0}})
+    st = {r["object"]: r["state"] for r in t.rows}
+    assert st == {"ship": "OK", "search S4": "DEGRADED", "search S5": "NOK", "search SP": "NOK"}
+    assert val_.overall({"ALERT": 2, "DEGRADED": 1}) == "DEGRADED" and val_.overall({"OK": 3}) == "OK"
+    assert val_.overall({"NOK": 1, "DEGRADED": 1}) == "NOK"
+    tight = val_._tight([{"kind": "resource", "load": 0.797, "object": "F1", "quantity": "energy"}], 0.8, out)
+    assert tight[0] == "F1 energy 79.7 %" and len(tight) == 4
+
+
+def test_fingerprints_of_the_recalibration_and_the_cost_profile():
+    """Pass R3d (M3) and option (c): the recalibration of a volume holds while its geometry and requirements stay
+    (its name aside); its cost profile does not depend on its geometry (the attitude never recomputes it), only on
+    its requirements and its positions by factors of 2."""
+    from core import calibration as cal, cost_profile as cp
+    sec = dict(md.new_sector([]), id="A")
+    assert cal.fingerprint(dict(sec, id="B", name="x")) == cal.fingerprint(sec)
+    assert cal.fingerprint(dict(sec, range_km=sec["range_km"] + 1)) != cal.fingerprint(sec)
+    moved = dict(sec, **{k: float(sec[k]) + 5.0 for k in ("phi_min_deg", "phi_max_deg", "eps0_deg", "phi0_deg")
+                         if k in sec})
+    assert moved != sec and cal.fingerprint(moved) != cal.fingerprint(sec)
+    th = [0, 20, 40]
+    assert cp.key(moved, 1000.0, th, 2.8) == cp.key(sec, 1000.0, th, 2.8) == cp.key(sec, 1100.0, th, 2.8)
+    assert cp.key(dict(sec, rr_target_s=sec["rr_target_s"] * 2), 1000.0, th, 2.8) != cp.key(sec, 1000.0, th, 2.8)
+    assert cp.key(sec, 3000.0, th, 2.8) != cp.key(sec, 1000.0, th, 2.8)
+
+
+def test_fast_estimate_always_on():
+    """Option (c), user 10 November 2026: the fast estimate's always-on has the processing at its static share
+    (compute.static_frac x power.dbf_kw) until an exact run measures it (calib ALWAYS_ON_KEY)."""
+    from core import geometry as geo
+    dbf = float(params.P.get("power.dbf_kw")) * 1e3
+    want = (rm.non_tx_power_w() - dbf * (1.0 - float(params.P.get("compute.static_frac")))) / rm.CHAIN_EFF
+    assert ce.always_on_static_w() == pytest.approx(want) and want < rm.non_tx_power_w() / rm.CHAIN_EFF
+    grid = geo.SphereGrid(res_deg=tb.GRID_RES_DEG)
+    d, _b = ce.allocation_demands(ce.load_table(), [], grid, -90.0, 90.0)
+    assert [float(np.nansum(x.rows[:, :, 0])) for x in d] == pytest.approx([want] * 4)
+    d, _b = ce.allocation_demands(ce.load_table(), [], grid, -90.0, 90.0,
+                                  calib={ce.ALWAYS_ON_KEY: [1.0, 2.0, 3.0, 4.0]})
+    assert [float(np.nansum(x.rows[:, :, 0])) for x in d] == [1.0, 2.0, 3.0, 4.0]
+
+
 def test_live_allocation_from_the_fast_estimate():
     """R2: the rule on the fast estimate. A volume alone: full service, no resource binding. Every face capped by the
     operator below what it needs: its range held at rho < 1, a face's energy binding; the range gauge (c) gives rho
@@ -2800,7 +2884,7 @@ def test_live_allocation_from_the_fast_estimate():
     r = a["by_sector"]["A"]
     assert a["status"] == "OK" and r["rho"] == 1.0 and a["binding"] == []
     need = max(f["energy"] for f in r["faces"].values())
-    cap_mw = (rm.non_tx_power_w() / rm.CHAIN_EFF + 0.5 * need) / 0.8 / 1e6   # always-on + half the search, each face
+    cap_mw = (ce.always_on_static_w() + 0.5 * need) / 0.8 / 1e6   # always-on (static processing) + half the search
     b = ce.live_allocation(table, [sec], grid, -90.0, 90.0, None, {"face_elec_mw": cap_mw})
     rb = b["by_sector"]["A"]
     assert b["status"] == "DEGRADED" and rb["rho"] < 1.0 and any(x.endswith("energy") for x in b["binding"])
