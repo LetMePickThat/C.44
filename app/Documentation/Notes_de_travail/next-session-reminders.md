@@ -9,14 +9,21 @@ metadata:
 
 At the start of the next session, remind the user (in French) of:
 
+**SCENARIO TOOL DONE FOR V1 (user, 10 Nov 2026)**: the user wanted it completely finished before switching to the Pmiss.
+Work now goes back to the Pmiss (5.4 M5, then the shared selection in the Pmiss, framing proposed 10 Nov 2026, then 5.5-5.7).
+Scenario-tool open questions below (items 0, 2d, 2e, 2f, 2g, 2i on-screen checks) are DEFERRED after V1: do not raise them
+unless the user comes back to the scenario tool. The Pmiss scene_view symbols (item 1) may now be raised.
+
 0. **RS merged (8 Nov 2026)**: RADARv6_RS is now the app (aa86f67, rollback tag avant-RS-2026-11-08); work in RADARv6.
    Not yet seen by the user on screen: objects at their size (ship / KKV cylinders, debris / decoy spheres), the
    scenario editor fixes (targets by name, rename carries references, coloured vector boxes, red Remove) and the live
    editing as merged: approximate preview at each edit (sim/preview) + "Record run..." for the real computation
    (NO computation front: dropped late on 8 Nov 2026, notes corrected 10 Nov 2026, see [[live-architecture]]).
-   Full battery N3 launched 10 Nov 2026 at the user's request (results to report; refreeze = user's decision).
+   N3 of 10 Nov 2026 STOPPED by the user after 7/14 items: self-test PASSED; model, mission_example, mission_example_csv,
+   mission_veille500, mission_redundancy_demo identical to their snapshots (0 differences); not checked: synthetic_mix,
+   sky_demo, target_library, environment, frames, impact report, pytest suite. cost_table.json restored from git.
    Unused live code (LiveSim checkpoints, live.first_change / resume / affected_rows): KEPT for now (user, 10 Nov 2026).
-1. [DONE 2026-11-08, committed] **Symbology**: open questions settled by the user: colours MIL-STD-2525C "medium" (strict norm), suspect = dashed RED diamond, render unchanged (coloured outline, 28 % fill, light glyph), NO legend in the UI, data boxes of close objects keep merging into the multitrack's box. Colours in radar_system.toml [tool.display.identity_colors] (single source for gen_symbols.py and sim_view.py); symbols regenerated. Pmiss scene_view symbols: DEFERRED until the scenario tool is finished (user, 2026-11-08); do not raise before.
+1. [DONE 2026-11-08, committed] **Symbology**: open questions settled by the user: colours MIL-STD-2525C "medium" (strict norm), suspect = dashed RED diamond, render unchanged (coloured outline, 28 % fill, light glyph), NO legend in the UI, data boxes of close objects keep merging into the multitrack's box. Colours in radar_system.toml [tool.display.identity_colors] (single source for gen_symbols.py and sim_view.py); symbols regenerated. Pmiss scene_view symbols: were DEFERRED until the scenario tool is finished (user, 2026-11-08); scenario tool done 10 Nov 2026: may be raised now.
 2. [DONE 2026-10-29, committed with the scenario-tool work] **Simplified window B14** (header = menu + mode switch + main action; view controls over the 3D views, "Layers" menu; "+", right-click, Del on trees; Validate/auto removed; Run -> "Record run..."). Step 2 (mission preparation as tree + properties, B15) TRIED AND ROLLED BACK: user found it less readable than the former layout (do not propose it again as is). Step 3 (results as a state of the mission, stale on edit instead of the lock): user has NO OPINION YET, ask again later. Also fixed: ResultsTab used an undefined `mission`.
 2b. [DONE 2026-10-29, committed] **Scenario is now a SEPARATE TOOL** (user: UI problems come from the workflow): scenario_tool.py + "Radar scenario.bat" + gui/scenario_window.py; Pmiss tool = mission prep + results, options column on the LEFT of the 3D view, nav typed by hand. Merge attempts (single file + 3 columns, then 2 tabs sharing one view) ROLLED BACK from the UI; sim/document.py kept (unused by the UI, 2 tests) for a later merge with a rethought workflow. Scenario ship view draws the cited mission file live (SimView.set_mission). Tests to run: GUI tests of test_sim.py + document tests (ask first).
 2c. [DONE 2026-10-29 late evening] The whole of tests/test_sim.py (37 tests, simulator, GUI and document tests) PASSES after the manoeuvre-node work; stale tests fixed: test_scenario_editor_forms (4 forms), test_no_propagation_for_non_physical_changes (the renamed object's group must follow, around). Open UI point still: data boxes of close objects (a KKV group) overlap each other (proposal: box of the selected object + one per group).

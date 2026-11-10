@@ -9,6 +9,6 @@
 - [Global scenario simulator](global-scenario-simulator.md) — future scenario sim feeds the radar sim object positions in the ship frame; radar never computes where bodies are
 - [Mission params later](mission-params-later.md) — RR targets and standard mission values are set in the operator's mission prep (Pmiss), not while building the tool
 - [Ask before tests](ask-before-tests.md) — ask before ANY test; full battery at most once a day or every 2 days on the user's call; model work first
-- [Next-session reminders](next-session-reminders.md) — SAY AT SESSION START: RS merged as the app (live preview + Record run, not yet seen on screen; N3 launched 10 Nov 2026); load-ceiling late-dwell criterion; perf P1-P3 done (Jupiter 2.6 s)
+- [Next-session reminders](next-session-reminders.md) — SAY AT SESSION START: scenario tool DONE for V1 (10 Nov 2026), back to the Pmiss (5.4 M5, shared selection); its open questions deferred; partial N3 of 10 Nov (5 cases = snapshots); load-ceiling late-dwell criterion
 - [Live architecture](live-architecture.md) — scenario editing as merged 8 Nov 2026 (aa86f67, rollback tag avant-RS-2026-11-08): approximate live preview + real computation on demand; the planned computation front (L4-L7) was dropped, L1-L3 exist (L2-L3 unused by the UI)
 - [VTK rendering checks](vtk-rendering-checks.md) — real window needed for pixel captures; OIT bypasses MSAA on translucent lines
