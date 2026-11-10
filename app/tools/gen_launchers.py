@@ -19,8 +19,8 @@ ROOT = os.path.dirname(APP)
 SOURCE = os.path.join(HERE, "launcher.cs")
 CSC = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "Microsoft.NET", "Framework64", "v4.0.30319", "csc.exe")
 LAUNCHERS: Tuple[Tuple[str, Optional[str]], ...] = (
-    ("Mission Scenario Editor", os.path.join(APP, "assets", "icons", "mission_scenario_editor.ico")),
-    ("Radar mission prep", None),       # (no icon drawn for this tool yet)
+    ("Scenario Editor", os.path.join(APP, "assets", "icons", "scenario_editor.ico")),
+    ("Radar Mission Preparation", os.path.join(APP, "assets", "icons", "radar_mission_preparation.ico")),
 )
 
 

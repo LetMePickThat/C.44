@@ -5,7 +5,7 @@ MAIN -- entry point of the mission-preparation tool: opens the main window (gui/
 or on the mission file given on the command line; the window imports / exports missions itself; the results open
 once a calculation finishes. The scenario is a separate tool: scenario_tool.py.
 Usage: python main.py [mission.json | mission.csv]   (--new, kept for old shortcuts, is the same as no argument)
-Without a terminal: double-click "Radar mission prep.bat" (installs the packages on first start, then runs this file
+Without a terminal: double-click "Radar Mission Preparation.bat" (installs the packages on first start, then runs this file
 with pythonw, i.e. without a console window).
 """
 from __future__ import annotations
@@ -16,10 +16,14 @@ import sys
 import tempfile
 import traceback
 
+from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication, QMessageBox
 
 from core import mission as md
 from gui.main_window import MainWindow
+
+ICON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "icons", "radar_mission_preparation.ico")
+APP_ID = "TLW.RadarMissionPreparation"
 
 
 def prefer_high_performance_gpu() -> None:
@@ -64,7 +68,7 @@ def prefer_high_performance_gpu() -> None:
 ERROR_LOG = os.path.join(tempfile.gettempdir(), "radar_mission_prep_error.log")
 
 
-def install_error_dialog(tool: str = "Radar mission preparation") -> None:
+def install_error_dialog(tool: str = "Radar Mission Preparation") -> None:
     """Started without a console (pythonw, double-click), an uncaught error would be silent: show it in a dialog
     and append the traceback to ERROR_LOG. With a hook installed, PyQt also no longer aborts the whole application
     on an error raised inside a Qt slot: the action fails, the window stays open."""
@@ -86,7 +90,14 @@ def install_error_dialog(tool: str = "Radar mission preparation") -> None:
 def main() -> int:
     install_error_dialog()
     prefer_high_performance_gpu()
+    if sys.platform == "win32":            # its own taskbar entry, with its icon (else grouped under Python's)
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
+        except Exception:  # noqa: BLE001 -- only the taskbar's icon is lost
+            pass
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon(ICON))         # the window's title bar and the taskbar (user, 10 November 2026)
     arg = sys.argv[1] if len(sys.argv) > 1 else None
     path = arg if arg and arg != "--new" else None     # a single mission file, or a former mission / scenario file
     win = MainWindow(md.empty_mission(), path)

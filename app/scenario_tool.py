@@ -5,7 +5,7 @@ SCENARIO_TOOL -- entry point of the scenario tool, separate from the mission pre
 opens the scenario window (gui/scenario_window.py) on a new scenario, or on the scenario file given on the command
 line.
 Usage: python scenario_tool.py [scenario.json]
-Without a terminal: double-click "Mission Scenario Editor.bat".
+Without a terminal: double-click "Scenario Editor.bat".
 """
 from __future__ import annotations
 
@@ -18,8 +18,8 @@ from PyQt5.QtWidgets import QApplication
 from main import install_error_dialog, prefer_high_performance_gpu
 from gui.scenario_window import ScenarioWindow
 
-ICON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "icons", "mission_scenario_editor.ico")
-APP_ID = "TLW.MissionScenarioEditor"
+ICON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "icons", "scenario_editor.ico")
+APP_ID = "TLW.ScenarioEditor"
 
 
 def set_app_id() -> None:
@@ -34,7 +34,7 @@ def set_app_id() -> None:
 
 
 def main() -> int:
-    install_error_dialog("Mission Scenario Editor")
+    install_error_dialog("Scenario Editor")
     prefer_high_performance_gpu()
     set_app_id()
     app = QApplication(sys.argv)

@@ -1,10 +1,10 @@
 @echo off
-rem Radar mission preparation -- double-click this file to start the tool.
+rem Radar Mission Preparation -- double-click this file to start the tool.
 rem Drop a mission file (.json or .csv) on it to open that mission directly.
 rem Missing Python packages: the user is told and asked; only on yes, the installation by pip.
 setlocal
 cd /d "%~dp0"
-set "TITLE=Radar mission preparation"
+set "TITLE=Radar Mission Preparation"
 
 rem 1. A working Python 3 (python on PATH or Microsoft Store first, else the py launcher of python.org installs).
 set "PY="

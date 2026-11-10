@@ -2085,7 +2085,7 @@ def test_every_parameter_is_read_by_the_code():
     spec = importlib.util.spec_from_file_location("robustness", os.path.join(tb.ROOT, "tools", "robustness.py"))
     spec.loader.exec_module(importlib.util.module_from_spec(spec))   # robustness test (on demand)
     import sim.propagate  # noqa: F401                               # phase 6: the truth (pass S2)
-    import gui.sim_view  # noqa: F401                                # phase 6: the 3D views (Mission Scenario Editor)
+    import gui.sim_view  # noqa: F401                                # phase 6: the 3D views (Scenario Editor)
     import gui.maneuver_node  # noqa: F401                           # ... and their manoeuvre node
     from sim import scenario as scn                                  # phase 6: [sim] is read when a scenario is
     from gui.scenario_tab import new_scenario                        # validated and normalised

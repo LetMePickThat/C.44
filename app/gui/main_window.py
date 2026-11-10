@@ -73,7 +73,7 @@ class MainWindow(QMainWindow):
     def __init__(self, mission: Optional[dict] = None, path: Optional[str] = None):
         """mission: a mission to start on (with a new scenario); path: a file to open (sim/document.py)."""
         super().__init__()
-        self.setWindowTitle("Radar mission preparation")
+        self.setWindowTitle("Radar Mission Preparation")
         self.resize(*WINDOW_SIZE)                 # fitted to the screen by show_default()
         self.grid = geo.SphereGrid(res_deg=GRID_RES_DEG)
         self.results: Optional[ResultsTab] = None
@@ -182,7 +182,7 @@ class MainWindow(QMainWindow):
                 act.setIcon(ic)
             act.setEnabled(enabled)
         self.menu.addSeparator()
-        self.menu.addAction("About...", lambda: uc.show_about(self, "Radar mission preparation"))
+        self.menu.addAction("About...", lambda: uc.show_about(self, "Radar Mission Preparation"))
 
     def _shortcut(self, cmd: str) -> None:
         """In the mission preparation Ctrl+O imports and Ctrl+S exports the mission (JSON); the results: Ctrl+S

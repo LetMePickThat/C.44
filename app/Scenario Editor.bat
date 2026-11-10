@@ -1,10 +1,10 @@
 @echo off
-rem Mission Scenario Editor -- started by the .exe of the same name in the folder above, or double-click this file.
+rem Scenario Editor -- started by the .exe of the same name in the folder above, or double-click this file.
 rem Drop a scenario file (.json) on it to open that scenario directly.
 rem Missing Python packages: the user is told and asked; only on yes, the installation by pip.
 setlocal
 cd /d "%~dp0"
-set "TITLE=Mission Scenario Editor"
+set "TITLE=Scenario Editor"
 
 rem 1. A working Python 3 (python on PATH or Microsoft Store first, else the py launcher of python.org installs).
 set "PY="
