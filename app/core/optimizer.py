@@ -2264,8 +2264,8 @@ def _assemble(mission: dict, sectors: List[dict], results: List[dict], cancelled
     from . import compute                    # step 4.4: data, beams, processing load, power, latency
     out["compute"] = compute.budget(mission, out)
     warn.extend(out["compute"]["flags"])
-    from . import allocation                 # step 5.2 (P1): the ship's power shared by the faces, by priority
-    out["power_allocation"] = allocation.allocate(mission, out)
+    from . import allocation                 # step 5.2: the ship's resources shared by the faces (final rule, R3a)
+    out["power_allocation"] = allocation.allocate_rule(mission, out)
     warn.extend(out["power_allocation"]["flags"])
     _energy_verdict(out)
     from . import repoint                    # step 4.5: navigation pointing error, migration between faces
@@ -2308,10 +2308,10 @@ def ranges_at_rr(sec: dict, r: dict, eps_min: float, eps_max: float, sky: Option
 
 
 def _energy_verdict(out: dict) -> None:
-    """Step 5.2 (P6, user, 26 October 2026): the energy load of a face in the verdict is its need over the share of the
-    ship's power the allocation gives it (need / alloc, the same for every face when the power suffices, above 1 for
-    the faces whose tiers are not served); the face's own feeder or operator cap stays a separate check (allocation
-    flags). The other resources of the verdict (time, heat) are unchanged."""
+    """Step 5.2 (P6, user, 26 October 2026; pass R3a, user, 10 November 2026): the energy load of a face in the verdict
+    is the draw its plan asks at full service over its own limit (feeder, or the operator's cap), the final rule
+    deciding what is served (power_allocation "partial"); the ship's pool is the ship row. The other resources of the
+    verdict (time, heat) are unchanged."""
     from . import tracking
     pa = out.get("power_allocation", {}).get("faces", {})
     trk = out.get("tracking", {})
@@ -2324,12 +2324,12 @@ def _energy_verdict(out: dict) -> None:
         worst = max(loads, key=loads.get)
         f.update({"total_energy": loads["e"], "load": loads[worst], "binding": tracking._RES_NAME[worst],
                   "status": "OK" if loads[worst] <= 1.0 else "OVER-SUBSCRIBED", "alloc_MW": float(a["alloc_MW"]),
-                  "p_left_kW": max(0.0, float(a["alloc_MW"]) - float(a["need_MW"])) * 1e3})
+                  "p_left_kW": max(0.0, float(a["cap_MW"]) - float(a["need_MW"])) * 1e3})
         if worst == "e" and loads["e"] > 1.0:
             trk.setdefault("advice", []).append(
-                f"face F{int(k) + 1}: needs {float(a['need_MW']):.2f} MW, the ship's power gives it "
-                f"{float(a['alloc_MW']):.2f} MW (allocation by priority tier, step 5.2): lower its load or its "
-                f"revisits, or free power on the other faces")
+                f"face F{int(k) + 1}: needs {float(a['need_MW']):.2f} MW, its limit is {float(a['cap_MW']):.2f} MW "
+                f"(feeder or operator cap; the final rule serves {float(a['alloc_MW']):.2f} MW): lower its load or "
+                f"its revisits, or raise its cap")
 
 
 def _couplings(mission: dict, out: dict) -> Dict[str, dict]:

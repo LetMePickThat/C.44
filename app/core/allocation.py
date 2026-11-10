@@ -23,8 +23,8 @@ tenable number; a tier P0 to P2 not served in full makes the mission not tenable
 
 The FINAL rule (passes R1 and R2, user 10 November 2026) is solve() at the end of this module: range first, moves
 between faces in the overlaps, energy and S / Ku time together under the load ceiling, spare to the revisits, no
-under-use. The fast estimate uses it (core/cost_estimate.live_allocation); allocate() above stays the exact
-computation's until pass R3.
+under-use. The fast estimate uses it (core/cost_estimate.live_allocation), and since pass R3a the exact computation
+(allocate_rule(), at the end); allocate() above is kept for the before / after comparison of pass R3e, then removed.
 """
 from __future__ import annotations
 
@@ -71,7 +71,8 @@ def _caps(res: dict) -> List[float]:
 
 
 def items(mission: dict, res: dict) -> List[dict]:
-    """Every need of the faces: (label, sector, kind, tier, W drawn per face)."""
+    """Every need of the faces: (label, sector, kind, tier, W drawn per face, S and Ku transmit time per face as
+    shares of the face's time: "ts", "tk", pass R3)."""
     secs = {s["id"]: s for s in mission.get("sectors", [])}
     p_ref = float(res["global"]["face_elec_avail_kW"]) * 1e3
     k_w = p_ref / rm.CHAIN_EFF
@@ -80,49 +81,62 @@ def items(mission: dict, res: dict) -> List[dict]:
     trk = res.get("tracking", {})
     tf = trk.get("faces", {})
     always = [0.0] * 4
+    cal_s, cal_ku = rm.array_errors("S")["cal_time_frac"], rm.array_errors("Ku")["cal_time_frac"]   # step 3.4 (E1)
     for k in range(4):
         f = tf.get(str(k), {})
         non_tx = comp.get(str(k), {}).get("non_tx_kW_actual")
         non_tx = (rm.non_tx_power_w() / 1e3) if non_tx is None else non_tx
         always[k] = (non_tx + f.get("pumps_kW", 0.0)) * 1e3 / rm.CHAIN_EFF
-    out.append({"label": "always-on", "sector": None, "kind": "always", "tier": (0, 0), "w": always})
+    out.append({"label": "always-on", "sector": None, "kind": "always", "tier": (0, 0), "w": always,
+                "ts": [cal_s] * 4, "tk": [cal_ku] * 4})
     for r in res.get("sectors", []):
         if r.get("status") != "OK":
             continue
         sec = secs.get(r["id"], {})
         tier = (1, 0) if sec.get("self_protection") else (4, int(sec.get("search_priority", 1)))
-        w = [float(r.get("faces", {}).get(str(k), {}).get("energy_fraction", 0.0)) * k_w for k in range(4)]
+        fc = r.get("faces", {})
+        w = [float(fc.get(str(k), {}).get("energy_fraction", 0.0)) * k_w for k in range(4)]
+        ts = [float(fc.get(str(k), {}).get("time_fraction", 0.0)) for k in range(4)]
         g = float(r.get("_reuse_g", 1.0))                    # step 5.2 (P4): the revisit asked in its own tier
         out.append({"label": f"search {r['id']}", "sector": r["id"], "kind": "search", "tier": tier,
-                    "w": [v / g for v in w], "rr_s": float(r["rr_target_s"]) * g})
+                    "w": [v / g for v in w], "ts": [v / g for v in ts], "tk": [0.0] * 4,
+                    "rr_s": float(r["rr_target_s"]) * g})
         if g > 1.0:
             out.append({"label": f"margin reuse {r['id']}", "sector": r["id"], "kind": "reuse", "tier": (5, 0),
-                        "w": [v - v / g for v in w]})
+                        "w": [v - v / g for v in w], "ts": [v - v / g for v in ts], "tk": [0.0] * 4})
     for t in trk.get("sectors", []):
         sec = secs.get(t["id"], {})
         cf = (t.get("confirmation") or {}).get("faces", {})
         w = [float(cf.get(str(k), {}).get("energy_fraction", 0.0)) * k_w for k in range(4)]
         if any(w):
             out.append({"label": f"confirmation {t['id']}", "sector": t["id"], "kind": "confirm", "tier": (2, 0),
-                        "w": w})
+                        "w": w, "ts": [float(cf.get(str(k), {}).get("s_time_fraction", 0.0)) for k in range(4)],
+                        "tk": [float(cf.get(str(k), {}).get("ku_time_fraction", 0.0)) for k in range(4)]})
         rank = CLASS_RANK.get(sec.get("target_type") or "", len(CLASS_RANK))
         brs = sec.get("tracking", [])
         for i, a in enumerate(t.get("at", [])):
-            w = [float(a.get("faces", {}).get(str(k), {}).get("energy_fraction", 0.0)) * k_w for k in range(4)]
+            af = a.get("faces", {})
+            w = [float(af.get(str(k), {}).get("energy_fraction", 0.0)) * k_w for k in range(4)]
+            tk = [float(af.get(str(k), {}).get("ku_time_fraction", 0.0)) for k in range(4)]
             b = brs[i] if i < len(brs) else {}
             if b.get("_reuse_h", 1.0) > 1.0:                 # step 5.2 (P7): the cadence asked in its own tier
                 w0 = [min(v, float(e) * k_w) for v, e in zip(w, b["_e_nominal"])]
+                tk0 = [t_ * v0 / v if v > 0 else t_ for t_, v, v0 in zip(tk, w, w0)]   # time goes as the energy
                 out.append({"label": f"margin reuse {t['id']}/{i}", "sector": t["id"], "kind": "reuse",
-                            "tier": (5, 0), "w": [v - v0 for v, v0 in zip(w, w0)]})
-                w = w0
+                            "tier": (5, 0), "w": [v - v0 for v, v0 in zip(w, w0)], "ts": [0.0] * 4,
+                            "tk": [t_ - t0 for t_, t0 in zip(tk, tk0)]})
+                w, tk = w0, tk0
             if any(w):
                 out.append({"label": f"tracks {t['id']}/{i}", "sector": t["id"], "kind": "track", "tier": (3, rank),
-                            "w": w, "n_targets": float(a.get("n_targets", 0.0))})
+                            "w": w, "ts": [0.0] * 4, "tk": tk, "n_targets": float(a.get("n_targets", 0.0)),
+                            "rr_s": float(b.get("rr_s", 0.0) or 0.0)})
         bt = t.get("ku_burn_through") or {}
         w = [float(bt.get("faces", {}).get(str(k), {}).get("energy_fraction", 0.0)) * k_w for k in range(4)]
         if any(w):
             out.append({"label": f"burn-through {t['id']}", "sector": t["id"], "kind": "burn_through",
-                        "tier": (3, 9), "w": w})
+                        "tier": (3, 9), "w": w, "ts": [0.0] * 4,
+                        "tk": [float(bt.get("faces", {}).get(str(k), {}).get("ku_time_fraction", 0.0))
+                               for k in range(4)]})
     return out
 
 
@@ -528,3 +542,68 @@ def _report(demands, b, prog, level, y, rho_min) -> dict:
     return {"status": status, "demands": out_d, "faces": faces,
             "ship": {"energy": ship_use, "energy load": ship_use / b.ship_w, "cap": b.ship_w},
             "ceiling": b.ceiling, "binding": binding, "flags": flags}
+
+
+# ============================================================================= the rule in the exact computation (R3)
+# Pass R3a (user, 10 November 2026): the exact optimiser's power allocation is the final rule, in place of allocate().
+# The demands are the exact plans' needs (items(): energy drawn, S time, Ku time per face, the optimiser's real times,
+# not the fast estimate's lower bound); a share is served by the face that plans it (the moves between faces come with
+# pass R3b); the spare stays with the margin reuse (core/margin.py, decision 2 of R3). The verdict rows (user, 10
+# November 2026): a face's energy load = the draw its plan asks at full service over its own limit (feeder, or the
+# operator's cap face_elec_mw), the ship's = the total asked over the ship's pool; what the rule actually serves is in
+# "partial" (level, range held rho, revisit or tracks tenable).
+_KIND = {"search": "search", "track": "track"}
+
+
+def exact_demands(mission: dict, res: dict) -> Tuple[List[Demand], Budgets, List[dict]]:
+    """(demands, budgets, the items they come from) of an assembled exact result: one share per face that serves the
+    item (pass R3a: no move between faces)."""
+    its = items(mission, res)
+    demands = []
+    for it in its:
+        rows = []
+        for k in range(4):
+            c = (float(it["w"][k]), float(it.get("ts", [0.0] * 4)[k]), float(it.get("tk", [0.0] * 4)[k]))
+            if any(v > 0 for v in c):
+                r = np.full((4, 3), np.nan)
+                r[k] = c
+                rows.append(r)
+        demands.append(Demand(it["label"], it["tier"], _KIND.get(it["kind"], "other"),
+                              np.array(rows) if rows else np.zeros((0, 4, 3)), rr_s=float(it.get("rr_s", 0.0)),
+                              n_targets=float(it.get("n_targets", 0.0)), sector=it["sector"]))
+    ceiling = float(mission.get("global", {}).get("load_ceiling", LOAD_CEILING))
+    return demands, Budgets(ship_w=SHIP_W, face_w=_caps(res), time_max=1.0, ceiling=ceiling), its
+
+
+def allocate_rule(mission: dict, res: dict) -> dict:
+    """The final rule on an assembled exact result (pass R3a), in the keys the verdict, the margin reuse and the
+    report read (those of allocate()), the rule's own report under "rule"."""
+    demands, b, its = exact_demands(mission, res)
+    rep = solve(demands, b)
+    need = [sum(it["w"][k] for it in its) for k in range(4)]
+    caps = [min(float(b.face_w[k]), b.ship_w) for k in range(4)]
+    tiers_out = []
+    for t in sorted({it["tier"] for it in its}):
+        ds = [(it, rec) for it, rec in zip(its, rep["demands"]) if it["tier"] == t]
+        w = sum(sum(it["w"]) for it, _ in ds)
+        served = sum(sum(it["w"]) * min(1.0, rec["level"]) for it, rec in ds)
+        tiers_out.append({"tier": tier_name(t), "need_MW": w / 1e6, "served_MW": served / 1e6,
+                          "fraction": served / w if w > 0 else 1.0})
+    partial = []
+    for it, rec in zip(its, rep["demands"]):
+        if rec["level"] >= 1.0 - 1e-6:
+            continue
+        p_ = {"label": rec["label"], "tier": rec["tier"], "served_fraction": float(rec["level"])}
+        if rec["kind"] == "search":
+            p_.update(rho=rec["rho"], rr_tenable_s=rec["rr_tenable_s"])
+        elif rec["kind"] == "track":
+            p_["tracks_tenable"] = rec["tracks_tenable"]
+        partial.append(p_)
+    faces = {str(k): {"need_MW": need[k] / 1e6, "cap_MW": caps[k] / 1e6,
+                      "capped": caps[k] < b.ship_w * (1.0 - 1e-9),          # an operator cap below the ship's pool
+                      "alloc_MW": rep["faces"][str(k)]["energy"] / 1e6,    # what the rule serves (W drawn)
+                      "always_on_MW": its[0]["w"][k] / 1e6, "load": need[k] / caps[k] if caps[k] > 0 else math.inf}
+             for k in range(4)}
+    return {"ship_MW": b.ship_w / 1e6, "need_MW": sum(need) / 1e6, "drawn_MW": rep["ship"]["energy"] / 1e6,
+            "status": "OK" if rep["status"] == "OK" else "SHORT", "faces": faces, "tiers": tiers_out,
+            "partial": partial, "flags": list(rep["flags"]), "rule": rep}

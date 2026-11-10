@@ -968,10 +968,10 @@ def test_no_frequency_above_scan_break_when_it_leaves_sky_unscanned(runs):
 def test_tracking_loads_add_up(runs):
     for res in runs.values():
         for k, f in res["tracking"]["faces"].items():
-            # step 5.2 (P6): the energy load is the face's need over the share of the ship's power it is allocated;
+            # step 5.2 (P6, pass R3a): the energy load is the face's need over its own limit (feeder or operator cap);
             # step 3.4: the calibration time adds to the S and Ku times
             a = res["power_allocation"]["faces"][k]
-            assert f["total_energy"] == pytest.approx(a["need_MW"] / a["alloc_MW"], rel=1e-12)
+            assert f["total_energy"] == pytest.approx(a["need_MW"] / a["cap_MW"], rel=1e-12)
             assert f["alloc_MW"] == pytest.approx(a["alloc_MW"], rel=1e-12)
             assert f["total_ku_time"] == pytest.approx(f["confirm_ku_time"] + f["at_ku_time"] + f["calibration_ku_time"],
                                                        abs=1e-12)

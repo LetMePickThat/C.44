@@ -408,7 +408,7 @@ def _overlap(out: dict, rows: List[dict], ceiling: float) -> List[dict]:
         capped_j, capped_k = _capped(pa, j), _capped(pa, k)
         fj = pa_f.get(str(j), {})
         if capped_j:
-            m_e = ceiling * float(fj.get("alloc_MW", 0.0)) - float(fj.get("need_MW", 0.0))
+            m_e = ceiling * float(fj.get("cap_MW", 0.0)) - float(fj.get("need_MW", 0.0))   # R3a: its own limit
             de = e_oth
         else:
             m_e = ceiling * ship_mw - need_tot
@@ -420,8 +420,8 @@ def _overlap(out: dict, rows: List[dict], ceiling: float) -> List[dict]:
             lim.append(max(m_e, 0.0) / de)
         x = min(lim) if v["sr_reach"] > 0 else 0.0
         fk = pa_f.get(str(k), {})
-        if capped_k and float(fk.get("alloc_MW", 0.0)) > 0:
-            relief_e, e_on = x * e_own / float(fk["alloc_MW"]), "face"
+        if capped_k and float(fk.get("cap_MW", 0.0)) > 0:
+            relief_e, e_on = x * e_own / float(fk["cap_MW"]), "face"
         else:
             relief_e, e_on = x * (e_own - e_oth) / ship_mw, "ship"
         res.append({"face": f"F{k + 1}", "neighbour": f"F{j + 1}", "sr": v["sr"], "sr_reach": v["sr_reach"],
@@ -575,8 +575,11 @@ def _safe(x: float, up: bool, integer: bool = False) -> float:
 
 
 def _capped(pa: dict, k: int) -> bool:
-    """A face held at its cap (feeder or operator): its pro rata share of the ship total is above the cap."""
+    """A face held at its own cap (operator): pass R3a, the final rule's flag (a cap below the ship's pool); before,
+    its pro rata share of the ship total above the cap."""
     f = pa.get("faces", {}).get(str(k), {})
+    if "capped" in f:
+        return bool(f["capped"])
     need_tot = float(pa.get("need_MW") or 0.0)
     cap, need = f.get("cap_MW"), float(f.get("need_MW", 0.0) or 0.0)
     if cap is None or need <= 0 or need_tot <= 0:
@@ -614,7 +617,7 @@ def _items(mission: dict, out: dict) -> Dict[tuple, dict]:
         x["ship"] += sum(it["w"]) / ship_w
         for k in range(4):
             if it["w"][k] > 0:
-                alloc = float(faces.get(str(k), {}).get("alloc_MW", 0.0)) * 1e6
+                alloc = float(faces.get(str(k), {}).get("cap_MW", 0.0)) * 1e6     # R3a: the face's own limit
                 x["share"][(k, "energy")] = (it["w"][k] / alloc if capped[k] and alloc > 0
                                              else sum(it["w"]) / ship_w)
     for r in out.get("sectors", []):
