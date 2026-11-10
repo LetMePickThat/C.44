@@ -2,8 +2,13 @@
 # -*- coding: utf-8 -*-
 """
 SCENE_VIEW -- the 3D coverage view shared by the mission-preparation and results tabs: the display controls (one
-check box per face responsibility zone, show/hide every watch volume, 1:1 scale and its graduated km axes) in a
-panel over the view (its "Layers" menu, B14), and a PyVista plotter holding the static ship scene, the face layer and the watch-sector overlays.
+switch per face responsibility zone, show/hide every watch volume, 1:1 scale and its graduated km axes, the view's
+frame, the sky) in the "3D view" panel of the tab's side column, and a PyVista plotter holding the static ship
+scene, the face layer and the watch-sector overlays.
+Aligned with the Scenario Editor (user, 10 November 2026, pass V2) through the shared parts of gui/view3d.py: the
+black of space and the stars (in the ship frame, only when the mission has a navigation), the options panel in
+sections over two columns with "Recenter view" and "UI size", the right-button turntable (the left button left to
+the labels' drag and, later, to picking).
 
 The owning tab only says WHAT to draw (set_scene: eps window + one SectorDraw per sector) and which sectors are
 hidden (set_hidden); the view builds the meshes (unit-sphere caps, or true-size volumes in km in 1:1 scale),
@@ -29,23 +34,27 @@ from typing import Dict, Iterable, List, Optional, Set
 import numpy as np
 import pyvista as pv
 from PyQt5.QtCore import QObject, QTimer, Qt, pyqtSignal
-from PyQt5.QtWidgets import QCheckBox, QComboBox, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QGroupBox, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 from pyvistaqt import QtInteractor
 
 from core import geometry as geo
 from core.params import P
 from gui import controls as uc
+from gui import view3d as v3                     # (used inside functions only: view3d imports this module)
 from gui.widgets import DecimalSpinBox
 
 KM_AXES_PREFIX = "km_axes_"
 KM_AXES_LINES = [f"{KM_AXES_PREFIX}{a}" for a in ("X", "Y", "Z")]   # the 3D axis meshes (labels are 2D actors)
 ICRF_AXES = (("X", "X ICRF (vernal equinox)"), ("Y", "Y ICRF"), ("Z", "Z ICRF (celestial pole)"))
 ICRF_AXIS_NAMES = [f"icrf_axis_{a}" for a, _ in ICRF_AXES]
-SECTOR_LABEL_FONT_SIZE = 13   # shared by _build_sectors (draws) and _label_hit (estimates the on-screen box)
+SECTOR_LABEL_FONT_SIZE = 13   # shared by _build_sectors (draws) and _label_hit (estimates the on-screen box), x UI size
+FACE_OUTLINE_COLOR = "#9aa0aa"   # the zones' outlines, light on the black of space (view3d.MUTED_COLOR)
 
 
 # ----------------------------------------------------------------------------- display bar
 class DisplayBar(QWidget):
+    """The view's switches (pass V2, user 10 November 2026: as the Scenario Editor's, in the "3D view" panel of the
+    tab's side column, built by SceneView.view_panel; replaces the "Layers" menu over the view, B14)."""
     faces_changed = pyqtSignal()
     show_all_sectors = pyqtSignal()
     hide_all_sectors = pyqtSignal()
@@ -54,27 +63,27 @@ class DisplayBar(QWidget):
     background_changed = pyqtSignal(bool)
     altitude_changed = pyqtSignal(float)
     view_frame_changed = pyqtSignal(str)
+    sky_changed = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        # B14 (user, 29 October 2026): the controls in a panel over the 3D view (install): the frame, and the
-        # "Layers" menu of the faces' zones, the volumes and the scale
         self.cb_faces = []
         for k in range(4):
-            cb = QCheckBox(geo.FACE_NAMES[k])
-            cb.setChecked(True)
-            cb.setStyleSheet(f"color: {geo.FACE_COLORS[k]}; font-weight: bold;")
+            cb = uc.Toggle(geo.FACE_NAMES[k], checked=True, color=geo.FACE_COLORS[k],
+                           tip=f"Responsibility zone of face {geo.FACE_NAMES[k]}")
             cb.toggled.connect(self.faces_changed)
             self.cb_faces.append(cb)
-        self.cb_true_scale = QCheckBox("Scale 1:1")
-        self.cb_true_scale.setToolTip("Draw each watch volume at its true size (1 unit = 1 km), from the radar out to "
-                                      "its required range, and zoom to fit them all. Untick to return to the "
-                                      "default view of the unit sphere.")
+        self.bt_show_all = QPushButton("Show all")
+        self.bt_show_all.clicked.connect(lambda _c=False: self.show_all_sectors.emit())
+        self.bt_hide_all = QPushButton("Hide all")
+        self.bt_hide_all.clicked.connect(lambda _c=False: self.hide_all_sectors.emit())
+        self.cb_true_scale = uc.Toggle("scale 1:1", tip="Draw each watch volume at its true size (1 unit = 1 km), "
+                                       "from the radar out to its required range, and zoom to fit them all. Off: the "
+                                       "default view of the unit sphere.")
         self.cb_true_scale.toggled.connect(self.scale_changed)
-        self.cb_background = QCheckBox("Background")
+        self.cb_background = uc.Toggle("Moon background", tip="A background sphere the size of the Moon (1:1 scale "
+                                       "only), at its true distance: Moon radius + the altitude, along -Z.")
         self.cb_background.setEnabled(False)   # only meaningful in 1:1 scale
-        self.cb_background.setToolTip("Show a background sphere the size of the Moon (1:1 scale only), at its "
-                                      "true distance: Moon radius + the altitude box, along -Z.")
         self.cb_background.toggled.connect(self.background_changed)
         self.cb_true_scale.toggled.connect(self.cb_background.setEnabled)
         self.sb_altitude = DecimalSpinBox()
@@ -83,29 +92,28 @@ class DisplayBar(QWidget):
         self.sb_altitude.setValue(100.0)
         self.sb_altitude.setMaximumWidth(90)
         self.sb_altitude.valueChanged.connect(self.altitude_changed)
-        self.cb_scale_axes = QCheckBox("Scale axes")
-        self.cb_scale_axes.setChecked(True)
+        self.cb_scale_axes = uc.Toggle("scale axes", checked=True,
+                                       tip="The X, Y, Z axes graduated in km (1:1 scale only)")
         self.cb_scale_axes.setEnabled(False)   # only meaningful in 1:1 scale
-        self.cb_scale_axes.setToolTip("Show / hide the X, Y, Z axes graduated in km (1:1 scale only)")
         self.cb_scale_axes.toggled.connect(self.scale_axes_changed)
         self.cb_true_scale.toggled.connect(self.cb_scale_axes.setEnabled)
-        self.cb_view_frame = QComboBox()
-        self.cb_view_frame.addItems(["ship", "ICRF"])
-        self.cb_view_frame.setToolTip("Ship: the ship frame. ICRF: the camera in the inertial frame of the mission "
+        self.tg_frame = uc.Toggle("ICRF", off_text="ship", two_way=True,
+                                  tip="Ship: the ship frame. ICRF: the camera in the inertial frame of the mission "
                                       "navigation (attitude), with the ICRF axes; the ship appears with its attitude")
-        self.cb_view_frame.currentTextChanged.connect(self.view_frame_changed)
+        self.tg_frame.toggled.connect(lambda on: self.view_frame_changed.emit("ICRF" if on else "ship"))
+        self.tg_sky = uc.Toggle("stars", checked=True, tip="The stars, in the ship frame of the mission navigation "
+                                "(only with a navigation)")
+        self.tg_sky.toggled.connect(lambda _on: self.sky_changed.emit())
+        self.cb_const = uc.Toggle("constellations", tip="The constellations' lines over the stars")
+        self.cb_const.toggled.connect(lambda _on: self.sky_changed.emit())
 
-    def install(self, host: QWidget, view: QWidget) -> uc.Overlay:
-        """The panel over the view (top right corner): the frame and the "Layers" menu."""
-        menu, _acts = uc.layers_menu(host, [
-            ("Responsibility zones", self.cb_faces),
-            ("Mission volumes", [("Show all", self.show_all_sectors.emit), ("Hide all", self.hide_all_sectors.emit)]),
-            ("Scale", [self.cb_true_scale, self.cb_background, self.cb_scale_axes,
-                       uc.labelled("Altitude (km)", self.sb_altitude)])])
-        self.overlay = uc.Overlay(host, view, "top_right", "light")
-        self.overlay.add(uc.labelled("Frame", self.cb_view_frame))
-        self.overlay.add(uc.menu_button("Layers", menu, "SP_FileDialogListView"))
-        return self.overlay
+    def sections(self) -> list:
+        """(title, items) of the view's options (view3d.options_grid)."""
+        return [(v3.title("Responsibility zones"), [v3.row(cb) for cb in self.cb_faces]),
+                (v3.title("Mission volumes"), [v3.row(self.bt_show_all, self.bt_hide_all)]),
+                (v3.title("Scale"), [v3.row(self.cb_true_scale), v3.row(self.cb_scale_axes), v3.row(self.cb_background),
+                                     v3.row(uc.labelled("altitude (km)", self.sb_altitude))]),
+                (v3.title("Frame and sky"), [v3.row(self.tg_frame), v3.row(self.tg_sky), v3.row(self.cb_const)])]
 
     def face_visible(self, k: int) -> bool:
         return self.cb_faces[k].isChecked()
@@ -114,15 +122,18 @@ class DisplayBar(QWidget):
         return self.cb_true_scale.isChecked()
 
     def scale_axes_visible(self) -> bool:
-        """Graduated km axes shown: 1:1 scale on and the "Scale axes" box ticked."""
+        """Graduated km axes shown: 1:1 scale on and the "scale axes" switch on."""
         return self.cb_true_scale.isChecked() and self.cb_scale_axes.isChecked()
 
     def background_visible(self) -> bool:
-        """Background (Moon-size) sphere shown: 1:1 scale on and the "Background" box ticked."""
+        """Background (Moon-size) sphere shown: 1:1 scale on and the "Moon background" switch on."""
         return self.cb_true_scale.isChecked() and self.cb_background.isChecked()
 
     def altitude_km(self) -> float:
         return self.sb_altitude.value()
+
+    def icrf(self) -> bool:
+        return self.tg_frame.isChecked()
 
 
 # ----------------------------------------------------------------------------- plotter helpers (no render)
@@ -158,16 +169,27 @@ def remove_actors(plotter, names) -> None:
         plotter.remove_actor(key, render=False)
 
 
+def _ui(plotter, size: float) -> int:
+    """A font size at the view's UI size (view3d.UiSize)."""
+    return max(1, round(size * getattr(plotter, "_ui_scale", 1.0)))
+
+
+def add_static_labels(plotter) -> None:
+    """The labels of the static scene (axes, face normals) at the view's UI size; again at each UI size change (the
+    same names: replaced)."""
+    for ax in geo.build_axes():
+        plotter.add_point_labels([ax["label_pos"]], [ax["text"]], text_color=ax["color"], font_size=_ui(plotter, 12),
+                                 shape=None, show_points=False, name=f"lbl_axis_{ax['text']}", render=False)
+    for n in geo.build_face_normals():
+        plotter.add_point_labels([n["label_pos"]], [n["name"]], text_color=n["color"], font_size=_ui(plotter, 14),
+                                 shape=None, show_points=False, name=f"lbl_normal_{n['k']}", render=False)
+
+
 def add_static_scene(plotter) -> None:
     """The parts of the scene that never change (axes, hull, face normals, equator)."""
     for ax in geo.build_axes():
-        if ax.get("no_line"):
-            plotter.add_point_labels([ax["label_pos"]], [ax["text"]], text_color=ax["color"],
-                                     font_size=12, shape=None, show_points=False, render=False)
-            continue
-        plotter.add_mesh(ax["line"], color=ax["color"], line_width=2, name=f"axis_{ax['text']}", render=False)
-        plotter.add_point_labels([ax["label_pos"]], [ax["text"]], text_color=ax["color"],
-                                 font_size=12, shape=None, show_points=False, render=False)
+        if not ax.get("no_line"):
+            plotter.add_mesh(ax["line"], color=ax["color"], line_width=2, name=f"axis_{ax['text']}", render=False)
     ship = geo.build_ship()
     for i, part in enumerate(ship["hull"]):
         plotter.add_mesh(part["mesh"], color=part["color"], smooth_shading=True, name=f"hull_{i}", render=False,
@@ -176,13 +198,11 @@ def add_static_scene(plotter) -> None:
         plotter.add_mesh(d["mesh"], color=d["color"], name=f"hull_array_{d['k']}", render=False)
     for n in geo.build_face_normals():
         plotter.add_mesh(n["mesh"], color=n["color"], line_width=3, name=f"normal_{n['k']}", render=False)
-        plotter.add_point_labels([n["label_pos"]], [n["name"]], text_color=n["color"],
-                                 font_size=14, shape=None, show_points=False, render=False)
+    add_static_labels(plotter)
     ang = np.linspace(0, 2 * math.pi, 181)
     eq_pts = np.stack([np.cos(ang), np.sin(ang), np.zeros_like(ang)], axis=1)
     plotter.add_mesh(pv.lines_from_points(eq_pts), color=geo.COLORS["muted"], opacity=0.45,
                      line_width=1, name="equator", render=False)
-    plotter.set_background("white")
 
 
 def set_default_camera(plotter, r_view: Optional[np.ndarray] = None) -> None:
@@ -211,7 +231,7 @@ def set_icrf_axes(plotter, r_is: Optional[np.ndarray], length: float = 1.6) -> N
         tip = r_is[:, k] * length
         plotter.add_mesh(pv.Line((0, 0, 0), tuple(tip)), color=geo.COLORS["muted"], line_width=2, name=name,
                          render=False)
-        plotter.add_point_labels([tuple(tip * 1.08)], [text], text_color=geo.COLORS["muted"], font_size=11,
+        plotter.add_point_labels([tuple(tip * 1.08)], [text], text_color=geo.COLORS["muted"], font_size=_ui(plotter, 11),
                                  shape=None, show_points=False, name=name + "_label", render=False)
 
 
@@ -434,13 +454,14 @@ def set_km_axes(plotter, max_range_km: Optional[float]) -> None:
     labelled in km, so the scale turns with the view and holds at any angle. None removes them. Rebuilt only when
     the graduation changes."""
     key = geo.km_axes_step(max_range_km) if max_range_km and max_range_km > 0 else None
+    key = None if key is None else key + (getattr(plotter, "_ui_scale", 1.0),)   # (rebuilt at a new UI size)
     if key == getattr(plotter, "_km_axes_key", None):
         return
     remove_actors(plotter, [k for k in plotter.actors if k.startswith(KM_AXES_PREFIX)])
     plotter._km_axes_key = key
     if key is None:
         return
-    step, n = key
+    step, n = key[:2]
     length = step * n
     tick = 0.025 * length
     axes = (("X", np.array([1.0, 0, 0]), np.array([0, 0, 1.0]), geo.COLORS["axis_x"]),
@@ -456,13 +477,12 @@ def set_km_axes(plotter, max_range_km: Optional[float]) -> None:
                          name=f"{KM_AXES_PREFIX}{tag}", render=False)
         plotter.add_point_labels([d * k * step + t * tick for k in range(1, n + 1)],
                                  [f"{k * step:g} km" if k == n else f"{k * step:g}" for k in range(1, n + 1)],
-                                 text_color=color, font_size=10, shape=None, show_points=False,
+                                 text_color=color, font_size=_ui(plotter, 10), shape=None, show_points=False,
                                  name=f"{KM_AXES_PREFIX}ticks_{tag}", render=False)
-        plotter.add_point_labels([d * length * 1.08], [name], text_color=color, font_size=13, bold=True,
+        plotter.add_point_labels([d * length * 1.08], [name], text_color=color, font_size=_ui(plotter, 13), bold=True,
                                  shape=None, show_points=False, name=f"{KM_AXES_PREFIX}name_{tag}", render=False)
 
 
-TURN_DEG_PX = float(P.get("tool.display.mouse_turn_deg_px"))   # mouse rotation of the 3D views (user)
 BACKGROUND_ACTOR = "background_sphere"
 
 
@@ -495,7 +515,7 @@ def set_reference_scene_visible(plotter, visible: bool) -> None:
     that is not a face zone, a watch sector, the km axes or the background sphere. Hidden in 1:1 scale, where it is
     a ~1 km speck whose labels pile up on the radar; the graduated km axes (and the background sphere) replace it."""
     for key, actor in plotter.actors.items():
-        if not key.startswith(("sec_", "face_", KM_AXES_PREFIX, BACKGROUND_ACTOR)):
+        if not key.startswith(("sec_", "face_", KM_AXES_PREFIX, BACKGROUND_ACTOR)) and key not in getattr(plotter, "_sky_keys", ()):
             actor.SetVisibility(bool(visible))
 
 
@@ -510,8 +530,8 @@ class SectorDraw:
 
 
 class SceneView(QWidget):
-    """Display bar + plotter. Re-exposes the bar's show/hide-all buttons; everything else (faces, 1:1 scale,
-    km axes) is handled here."""
+    """Plotter + its "3D view" panel (view_panel, placed by the owning tab in its side column). Re-exposes the bar's
+    show/hide-all buttons; everything else (faces, 1:1 scale, km axes, frame, sky, UI size) is handled here."""
     show_all_sectors = pyqtSignal()
     hide_all_sectors = pyqtSignal()
 
@@ -530,17 +550,25 @@ class SceneView(QWidget):
         self.display_bar.background_changed.connect(lambda _on: self._update_background())
         self.display_bar.altitude_changed.connect(lambda _v: self._update_background())
         self.display_bar.view_frame_changed.connect(lambda _f: self._apply_view_frame())
+        self.display_bar.sky_changed.connect(self._update_sky)
         self.plotter = QtInteractor(self)
         self.plotter.setMinimumWidth(500)
-        self.plotter.interactor.setToolTip("Drag a label to reposition it (a line keeps it linked to its volume); "
-                                           "double-click a moved label to snap it back.")
+        self.plotter.interactor.setToolTip("Right drag: turn the view. Drag a label to reposition it (a line keeps it "
+                                           "linked to its volume); double-click a moved label to snap it back.")
         v.addWidget(self.plotter.interactor)
-        self.display_bar.install(self, self.plotter.interactor)
+        self.ui_size = v3.UiSize(self)                 # the view's icons and texts (shared: gui/view3d.py)
+        self.ui_size.changed.connect(self._ui_scale_changed)
+        self.plotter._ui_scale = self.ui_size.scale
+        keys = set(self.plotter.actors)
+        self.sky = v3.space_background(self.plotter)   # the black of space, the stars under the scene
+        self.plotter._sky_keys = set(self.plotter.actors) - keys
         add_static_scene(self.plotter)
-        lock_pivot(self.plotter)
         # before the label drag: its release observer goes on the style
-        install_turntable(self.plotter, TURN_DEG_PX, axis=self._turn_axis)
+        v3.install_rotation(self.plotter, axis=self._turn_axis)
         set_default_camera(self.plotter)
+        self.bt_recentre = v3.recenter_button(self.recentre, "Back to the default view (unit sphere), or in 1:1 scale "
+                                              "to the view of every volume; in the frame chosen")
+        self._panel_rows: List[QWidget] = []
 
         self._eps: Optional[tuple] = None             # eps window of the scene on screen
         self._face_key: Optional[tuple] = None        # eps window of the face layer on screen
@@ -553,6 +581,62 @@ class SceneView(QWidget):
         self._drag: Optional[dict] = None              # active drag: {"sid", "z"} while the mouse button is down
         self._r_is: Optional[np.ndarray] = None        # ship <- ICRF of the mission navigation (step 3.0)
         self._install_label_drag()
+        self._update_sky()
+
+    # ------------------------------------------------------------------ "3D view" panel (pass V2)
+    def add_panel_row(self, w: QWidget) -> None:
+        """A line of the owner's at the top of the panel (e.g. the results' "Colour by"); before view_panel()."""
+        self._panel_rows.append(w)
+
+    def view_panel(self) -> QGroupBox:
+        """The view's options, as the Scenario Editor's (gui/view3d.py): Recenter view, UI size, the switches in
+        sections over two columns. Built once; the owning tab puts it at the top of its side column."""
+        if getattr(self, "_view_panel", None) is not None:
+            return self._view_panel
+        box = QGroupBox("3D view")
+        col = QVBoxLayout(box)
+        col.setContentsMargins(8, 4, 8, 6)
+        col.setSpacing(4)
+        head = QHBoxLayout()
+        head.addStretch(1)
+        head.addWidget(self.bt_recentre)
+        col.addLayout(head)
+        for w in self._panel_rows:
+            col.addWidget(v3.row(w))
+        col.addWidget(self.ui_size.widget())
+        col.addLayout(v3.options_grid(self.display_bar.sections()))
+        self._view_panel = box
+        return box
+
+    def recentre(self) -> None:
+        """Back to the default view in the frame chosen (unit sphere), or in 1:1 scale to the view of every volume."""
+        if self.display_bar.true_scale():
+            fit_camera_to_actors(self.plotter, [n for n in self._actor_names if n.endswith("_surf")]
+                                 + (KM_AXES_LINES if self.display_bar.scale_axes_visible() else []))
+        else:
+            set_default_camera(self.plotter, self._r_is if self._icrf_view() else None)
+        self.plotter.render()
+
+    def _ui_scale_changed(self, scale: float) -> None:
+        """The labels at the new UI size: the static ones, the ICRF axes, the km axes, the sectors'."""
+        v3.apply_ui_scale(self.plotter, scale)
+        add_static_labels(self.plotter)
+        set_icrf_axes(self.plotter, self._r_is if self._icrf_view() else None)
+        if self._eps is not None:
+            ranges = [d.sec.get("range_km") for d in self._sectors if isinstance(d.sec.get("range_km"), (int, float))]
+            set_km_axes(self.plotter, max(ranges, default=None) if self.display_bar.true_scale() else None)
+        for sid in list(self._cache):
+            self._redraw_label(sid)                    # (renders through apply_visibility)
+        self.apply_visibility()
+
+    def _update_sky(self) -> None:
+        """The stars in the ship frame of the mission navigation (they turn with its attitude); none without one."""
+        bar, nav = self.display_bar, self._r_is is not None
+        bar.tg_sky.setEnabled(nav)
+        bar.cb_const.setEnabled(nav)
+        self.sky.set_rotation(self._r_is)
+        self.sky.set_visible(nav and bar.tg_sky.isChecked(), bar.cb_const.isChecked())
+        self.plotter.render()
 
     # ------------------------------------------------------------------ view frame (step 3.0)
     def set_navigation(self, r_si: Optional[np.ndarray]) -> None:
@@ -561,12 +645,14 @@ class SceneView(QWidget):
         same = (r_is is None and self._r_is is None) or (
             r_is is not None and self._r_is is not None and np.array_equal(r_is, self._r_is))
         self._r_is = r_is
-        self.display_bar.cb_view_frame.setEnabled(r_is is not None)
-        if not same and self.display_bar.cb_view_frame.currentText() == "ICRF":
+        self.display_bar.tg_frame.setEnabled(r_is is not None)
+        if not same and self.display_bar.icrf():
             self._apply_view_frame()
+        if not same:
+            self._update_sky()
 
     def _icrf_view(self) -> bool:
-        return self.display_bar.cb_view_frame.currentText() == "ICRF" and self._r_is is not None
+        return self.display_bar.icrf() and self._r_is is not None
 
     def _turn_axis(self) -> np.ndarray:
         """The vertical of the mouse rotation: the one of the default view (set_default_camera)."""
@@ -623,8 +709,9 @@ class SceneView(QWidget):
             ren.WorldToDisplay()
             dx, dy, _dz = ren.GetDisplayPoint()
             lines = text.split("\n")
-            w = 10 + max(len(ln) for ln in lines) * SECTOR_LABEL_FONT_SIZE * 0.56
-            h = 10 + len(lines) * SECTOR_LABEL_FONT_SIZE * 1.3
+            font = _ui(self.plotter, SECTOR_LABEL_FONT_SIZE)
+            w = 10 + max(len(ln) for ln in lines) * font * 0.56
+            h = 10 + len(lines) * font * 1.3
             x0, x1 = dx - 6, dx + w
             y0, y1 = dy - 6, dy + h
             if x0 <= x <= x1 and y0 <= y <= y1:
@@ -681,7 +768,8 @@ class SceneView(QWidget):
         _surf_name, _out_name, lbl_name, leader_name = sector_actor_names(sid)
         anchor = poly.points.mean(axis=0)
         point = self._label_pos.get(sid, anchor)
-        self.plotter.add_point_labels([point], [text], name=lbl_name, text_color="white", font_size=SECTOR_LABEL_FONT_SIZE,
+        self.plotter.add_point_labels([point], [text], name=lbl_name, text_color="white",
+                                      font_size=_ui(self.plotter, SECTOR_LABEL_FONT_SIZE),
                                       bold=True, shape_color="black", shape_opacity=0.75, show_points=False,
                                       render=False)
         self._actor_names.add(lbl_name)
@@ -736,7 +824,7 @@ class SceneView(QWidget):
             else:
                 self.plotter.remove_actor(surf_name, render=False)
             if scene.outlines[k].n_points:
-                self.plotter.add_mesh(scene.outlines[k], color=geo.COLORS["fg"], line_width=1, name=out_name,
+                self.plotter.add_mesh(scene.outlines[k], color=FACE_OUTLINE_COLOR, line_width=1, name=out_name,
                                       render=False)
             else:
                 self.plotter.remove_actor(out_name, render=False)
@@ -777,11 +865,12 @@ class SceneView(QWidget):
             point = self._label_pos.get(d.sid, anchor)
             if text is not None:
                 rebuild_label = not (same_mesh and cached[4] == text and has_actor(self.plotter, lbl_name))
+                font = _ui(self.plotter, SECTOR_LABEL_FONT_SIZE)
                 if rebuild_label:
                     # Fixed white-on-near-opaque-black readout: text_color=d.color (the sector's own colour, e.g.
                     # green) used to sit on a translucent grey box over the same-coloured sector mesh -- unreadable.
                     self.plotter.add_point_labels([point], [text], name=lbl_name,
-                                                  text_color="white", font_size=SECTOR_LABEL_FONT_SIZE, bold=True,
+                                                  text_color="white", font_size=font, bold=True,
                                                   shape_color="black", shape_opacity=0.75,
                                                   show_points=False, render=False)
                 new_names.add(lbl_name)

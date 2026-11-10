@@ -148,7 +148,7 @@ class ResultsTab(QWidget):
             banner.setWordWrap(True)
             banner.setStyleSheet("background: #d6453d; color: white; font-weight: bold; padding: 6px;")
             lv.addWidget(banner)
-        self.cb_metric = QComboBox()                   # B14: in the panel over the 3D view
+        self.cb_metric = QComboBox()                   # in the view's "3D view" panel (pass V2)
         self.cb_metric.addItems(["Achieved RR / target RR", "Energy % of this sector (worst face)",
                                  "Energy % of the face total (most loaded face)"])
         self.cb_metric.currentIndexChanged.connect(lambda _i: self._update_scene())
@@ -156,7 +156,7 @@ class ResultsTab(QWidget):
         self.view.set_navigation(frames.parse_nav(self.mission.get("global", {}).get("nav")).r_si)
         self.view.show_all_sectors.connect(lambda: self._set_all_sectors_visible(True))
         self.view.hide_all_sectors.connect(lambda: self._set_all_sectors_visible(False))
-        self.view.display_bar.overlay.row.insertWidget(0, uc.labelled("Colour by", self.cb_metric))
+        self.view.add_panel_row(uc.labelled("Colour by", self.cb_metric))
         lv.addWidget(self.view)
         splitter.addWidget(left)
 
@@ -166,6 +166,7 @@ class ResultsTab(QWidget):
         panel.setWidget(inner)
         v = QVBoxLayout(inner)
 
+        v.addWidget(self.view.view_panel())         # the view's options, at the top of the side column (pass V2)
         v.addWidget(self._build_verdict_group())
         v.addWidget(self._build_sector_table_group())
         v.addWidget(self._build_bin_table_group())

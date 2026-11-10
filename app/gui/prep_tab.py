@@ -152,6 +152,7 @@ class PrepTab(QWidget):
         self.lbl_locked.setStyleSheet("background: #e08a1e; color: white; font-weight: bold; padding: 6px;")
         self.lbl_locked.setVisible(False)
         v.addWidget(self.lbl_locked)
+        v.addWidget(self.view.view_panel())         # the view's options, as the Scenario Editor's (pass V2)
         v.addWidget(self._build_global_group())
         v.addWidget(self._build_mission_settings_group())
         v.addWidget(self._build_nav_group())
