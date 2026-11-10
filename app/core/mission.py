@@ -73,6 +73,8 @@ FACE_FEEDER_MAX_MW: float = P.get("power.face_feeder_max_mw")   # largest mean p
 _SECTOR_DEFAULTS_NEED: Dict[str, object] = {**P.section(_MD + ".sector"), "tracking": []}
 SECTOR_DEFAULTS_BOX: Dict[str, object] = {"shape": "box", **P.section(_MD + ".box"), **_SECTOR_DEFAULTS_NEED}
 SECTOR_DEFAULTS_CAP: Dict[str, object] = {"shape": "cap", **P.section(_MD + ".cap"), **_SECTOR_DEFAULTS_NEED}
+SECTOR_DEFAULTS_RECT: Dict[str, object] = {"shape": "rect", **P.section(_MD + ".rect"), **_SECTOR_DEFAULTS_NEED}
+SHAPES = ("rect", "cap", "box")       # rect: a watched volume in real space; box: phi / eps limits (the ship frame)
 BRACKET_DEFAULTS: Dict[str, float] = dict(P.section(_MD + ".bracket"))
 BRACKET_FIELDS = tuple(BRACKET_DEFAULTS)
 CONFIRM_MODE_CHOICES = ("auto", "KU1+7", "KU7", "S2")   # = tracking.CONFIRM_MODES, plus automatic selection
@@ -94,7 +96,7 @@ def new_sector_id(existing: List[str]) -> str:
 
 
 def new_sector(existing_ids: List[str], shape: str = "box") -> dict:
-    template = SECTOR_DEFAULTS_BOX if shape == "box" else SECTOR_DEFAULTS_CAP
+    template = {"box": SECTOR_DEFAULTS_BOX, "cap": SECTOR_DEFAULTS_CAP, "rect": SECTOR_DEFAULTS_RECT}[shape]
     sec = copy.deepcopy(template)
     sec["id"] = new_sector_id(existing_ids)
     return sec
@@ -208,8 +210,18 @@ def validate_sector(sec: dict, index: int) -> List[str]:
         tag = f"sector {sid}"
 
     shape = sec.get("shape")
-    if shape not in ("box", "cap"):
-        errs.append(f"{tag}: unknown shape '{shape}' (expected box or cap)")
+    if shape not in SHAPES:
+        errs.append(f"{tag}: unknown shape '{shape}' (expected {', '.join(SHAPES)})")
+    elif shape == "rect":
+        for f in ("phi0_deg", "eps0_deg", "half_width_deg", "half_height_deg"):
+            if f not in sec:
+                errs.append(f"{tag}: missing field '{f}' for a rect shape")
+        if "eps0_deg" in sec and not (-90.0 <= sec["eps0_deg"] <= 90.0):
+            errs.append(f"{tag}: eps0_deg ({sec['eps0_deg']}) outside [-90, 90] deg")
+        if "half_width_deg" in sec and not (0.0 < sec["half_width_deg"] <= 180.0):
+            errs.append(f"{tag}: half_width_deg ({sec['half_width_deg']}) must be in ]0, 180] deg")
+        if "half_height_deg" in sec and not (0.0 < sec["half_height_deg"] <= 90.0):
+            errs.append(f"{tag}: half_height_deg ({sec['half_height_deg']}) must be in ]0, 90] deg")
     elif shape == "box":
         for f in ("phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg"):
             if f not in sec:
@@ -431,7 +443,7 @@ def save_mission_json(path: str, mission: dict) -> None:
 
 _CSV_FIELDS = [
     "id", "shape", "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg",
-    "phi0_deg", "eps0_deg", "radius_deg", "target_type", "rcs_m2", "swerling", "fluctuation", "depol_db", "length_m",
+    "phi0_deg", "eps0_deg", "radius_deg", "half_width_deg", "half_height_deg", "rot_deg", "target_type", "rcs_m2", "swerling", "fluctuation", "depol_db", "length_m",
     "rotation_dps", "accel_max_mps2", "optics_diameter_m", "optics_f_ratio", "optics_retro_eff", "jammer_type",
     "jammer_erp_dbw_mhz", "objects_per_rr", "tec_tecu", "b_parallel_nt", "range_km", "rr_target_s",
     "v_close_min_mps", "v_close_max_mps", "res_max_m", "range_min_km", "fa_per_rr", "allow_ambiguous", "rx_sll_db",

@@ -98,6 +98,8 @@ def main() -> int:
             pass
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon(ICON))         # the window's title bar and the taskbar (user, 10 November 2026)
+    from gui import controls as uc
+    app._wheel = uc.wheel_scrolls_page(app)   # the wheel scrolls the page, never changes a value (user)
     arg = sys.argv[1] if len(sys.argv) > 1 else None
     path = arg if arg and arg != "--new" else None     # a single mission file, or a former mission / scenario file
     win = MainWindow(md.empty_mission(), path)

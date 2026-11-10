@@ -264,8 +264,36 @@ def _estimate_at_faces(sec: dict, grid: geo.SphereGrid, face_sel: Dict[int, Tupl
     return out
 
 
+def useful_range_km(sec: dict, surfaces, d: np.ndarray) -> np.ndarray:
+    """The range a direction needs (user, 10 November 2026, the exact budget's rule, step 3.1 P4 Q9): the sector's
+    required range, brought back to d - guard where the pointing meets a surface at d (<= 0: no volume there)."""
+    from . import environment as env
+    from . import optimizer as mo
+    d = np.asarray(d, float).reshape(-1, 3)
+    r = np.full(len(d), float(sec.get("range_km", 0.0)))
+    if surfaces:
+        guard = mo.surface_guard_km(sec)
+        for s_ in surfaces:
+            r = np.minimum(r, env.surface_distance_km(s_, d) - guard)
+    return r
+
+
+def _cell_dirs(grid: geo.SphereGrid) -> np.ndarray:
+    p, e = np.radians(grid.phi), np.radians(grid.eps)
+    return np.stack([np.cos(e) * np.cos(p), np.cos(e) * np.sin(p), np.sin(e)], axis=-1)
+
+
+def _sky_surfaces(sky: Optional[dict]):
+    from . import environment as env
+    try:
+        return env.surfaces(sky)
+    except (KeyError, TypeError, ValueError):
+        return ()
+
+
 def estimate_sector_faces(table: CostTable, sec: dict, grid: geo.SphereGrid, eps_min: float, eps_max: float,
-                           p_avg_max_w: float, f_ghz: float = geo.VIZ_FREQ_GHZ) -> Dict[int, FaceBudgetEstimate]:
+                           p_avg_max_w: float, f_ghz: float = geo.VIZ_FREQ_GHZ,
+                           sky: Optional[dict] = None) -> Dict[int, FaceBudgetEstimate]:
     """Approximate per-face energy budget for one sector: bins the sector's scanned directions by face
     ownership, then for each raster cell interpolates energy continuously in scan angle (per cell) and
     in RCS/speed (once per sector, both fixed at the sector level) -- no solve() calls, table lookups only."""
@@ -284,6 +312,17 @@ def estimate_sector_faces(table: CostTable, sec: dict, grid: geo.SphereGrid, eps
     th_grid = np.array(table.TH, dtype=float)
     log_e_at_th, feas_at_th = energy_profile_by_theta(table, r_want, rcs, v)
 
+    # the ground (sky: the mission sky in the ship frame): a pointing meeting a surface costed at d - guard (E ~ R^4),
+    # none where that is <= 0 -- the exact budget's rule (step 3.1, P4 Q9; user, 10 November 2026)
+    surf = _sky_surfaces(sky)
+    fac = np.ones(grid.phi.shape)
+    if surf:
+        r_req = float(sec.get("range_km", 0.0)) or 1.0
+        r_eff = useful_range_km(sec, surf, _cell_dirs(grid).reshape(-1, 3)).reshape(grid.phi.shape)
+        fac = np.clip(r_eff / r_req, 0.0, 1.0) ** 4
+        mask = mask & (r_eff > 0.0)
+        if not mask.any():
+            return {}
     face_sel: Dict[int, Tuple[np.ndarray, np.ndarray]] = {}
     npos_all = 0.0
     for k in range(4):
@@ -297,7 +336,7 @@ def estimate_sector_faces(table: CostTable, sec: dict, grid: geo.SphereGrid, eps
     for k, (sel, w_sel) in face_sel.items():
         npos_total = float(w_sel.sum())
         theta_sel = np.clip(grid.theta[sel], th_grid[0], th_grid[-1])
-        e_cell = np.exp(np.interp(theta_sel, th_grid, log_e_at_th))
+        e_cell = np.exp(np.interp(theta_sel, th_grid, log_e_at_th)) * fac[sel]
         e_tot = float((w_sel * e_cell).sum())
         search_power_w = e_tot / rr
         nearest_idx = np.argmin(np.abs(theta_sel[:, None] - th_grid[None, :]), axis=1)
@@ -315,4 +354,159 @@ def estimate_sector_faces(table: CostTable, sec: dict, grid: geo.SphereGrid, eps
             at_ku_time_fraction=at_ku_time,
             at_unreachable_tracks=at_unreach,
         )
+    return out
+
+
+# ----------------------------------------------------------------------------- range gauge (user, 10 November 2026)
+_TABLE_CACHE: Dict[str, Optional[CostTable]] = {}
+
+
+def cached_table(path: str = DEFAULT_TABLE_PATH) -> Optional[CostTable]:
+    """The cost table, read once."""
+    if path not in _TABLE_CACHE:
+        _TABLE_CACHE[path] = load_table(path)
+    return _TABLE_CACHE[path]
+
+
+def _face_reach(grid: geo.SphereGrid) -> Tuple[np.ndarray, np.ndarray]:
+    """(reach (4, n_phi, n_eps): the face's scan-limit cone contains the direction, theta (4, ...): its scan angle
+    there, deg) of every raster cell, for every face (B1: a direction in the overlap of two cones can be served by
+    either); cached on the grid."""
+    cached = grid.__dict__.get("_face_reach")
+    if cached is not None:
+        return cached
+    from . import optimizer as mo
+    d = _cell_dirs(grid)
+    sin_lim = math.sin(math.radians(rm.SECTOR_RADIUS_DEG))
+    reach = np.zeros((4,) + grid.phi.shape, bool)
+    theta = np.full((4,) + grid.phi.shape, 90.0)
+    for k, pk in enumerate(mo.FACE_PHI):
+        n, eu, ev = (np.asarray(x) for x in mo.face_frame(pk))
+        w, u, v = d @ n, d @ eu, d @ ev
+        reach[k] = (w > 0) & (np.sqrt(u * u + v * v) <= sin_lim)
+        theta[k] = np.degrees(np.arccos(np.clip(w, 0.0, 1.0)))
+    grid.__dict__["_face_reach"] = (reach, theta)
+    return reach, theta
+
+
+def _cap_w(g: dict) -> List[float]:
+    """Each face's energy limit (W drawn): its feeder, or the mission's optional cap (face_elec_mw, a number for all,
+    a list of 4; 0 / absent = none)."""
+    cap = g.get("face_elec_mw")
+    caps = ([float(c) for c in cap] if isinstance(cap, (list, tuple)) and len(cap) == 4 else
+            [float(cap)] * 4 if isinstance(cap, (int, float)) and cap else [math.inf] * 4)
+    return [min(rm.FACE_FEEDER_MAX_MW, c if c > 0 else math.inf) * 1e6 for c in caps]
+
+
+def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.SphereGrid, eps_min: float,
+                       eps_max: float, sky: Optional[dict] = None, g: Optional[dict] = None,
+                       f_ghz: float = geo.VIZ_FREQ_GHZ):
+    """The final allocation rule's demands and budgets from the fast estimate (pass R2, user 10 November 2026): the
+    always-on of each face (tier 0); each search volume (P1 if self-protection, else P4_n) split in its raster cells,
+    each costed on every face whose scan-limit cone contains it (its own scan angle, the ground rule, B1), energy
+    drawn from the ship bus (through CHAIN_EFF) and S time (lower bound, energy x pae_sat / peak power: C1, not
+    recalibrated, M1); the track brackets (P3 by class) on their owner faces (energy, Ku time); the spare shortens
+    the search revisits with realloc_mode PRIO_SEARCH, down to rr_min_s (D1, R2.2). The coverage hole is left out
+    (the gauge shows it). -> (demands, budgets)."""
+    from . import allocation as al
+    from . import margin
+    g = g or {}
+    p_avail = rm.face_elec_avail_w(rm.FACE_ELEC_POWER_MW)
+    non_tx = rm.non_tx_power_w() / rm.CHAIN_EFF
+    demands = []
+    for k in range(4):
+        r = np.full((1, 4, 3), np.nan)
+        r[0, k] = (non_tx, 0.0, 0.0)
+        demands.append(al.Demand(f"always-on {geo.FACE_NAMES[k]}", (0, 0), "other", r))
+    reach, theta = _face_reach(grid)
+    covered = reach.any(axis=0)
+    weight = grid.w * grid.d_omega / rm.beam_cell_area_uv(f_ghz)
+    surf = _sky_surfaces(sky)
+    th_grid = np.array(table.TH, dtype=float)
+    mode = g.get("realloc_mode") or margin.MODE_DEFAULT
+    for i, sec in enumerate(sectors_ship):
+        sid = str(sec.get("id", f"#{i + 1}"))
+        try:
+            mask = grid.sector_mask(sec) & grid.scanned(eps_min, eps_max) & covered
+            fac = np.ones(grid.phi.shape)
+            if surf:
+                r_req = float(sec.get("range_km", 0.0)) or 1.0
+                r_eff = useful_range_km(sec, surf, _cell_dirs(grid).reshape(-1, 3)).reshape(grid.phi.shape)
+                fac = np.clip(r_eff / r_req, 0.0, 1.0) ** 4
+                mask = mask & (r_eff > 0.0)
+            if not mask.any():
+                continue
+            rr = float(sec.get("rr_target_s", 1.0) or 1.0)
+            eta_ratio = rm.rx_beam("S", table.rx_sll_db).eta / rm.rx_beam("S", sec.get("rx_sll_db")).eta
+            r_want = float(sec.get("range_km", 0.0)) * eta_ratio ** 0.25
+            if r_want <= 0.0:
+                continue
+            log_e, _feas = energy_profile_by_theta(table, r_want, _sector_target(sec).rcs_at(f_ghz),
+                                                   sec.get("v_close_max_mps", 1000.0))
+            rows = np.full((int(mask.sum()), 4, 3), np.nan)
+            base = (weight * fac)[mask] / rr
+            for k in range(4):
+                ok = reach[k][mask]
+                e = np.exp(np.interp(np.clip(theta[k][mask][ok], th_grid[0], th_grid[-1]), th_grid, log_e)) * base[ok]
+                rows[ok, k, 0] = e / rm.CHAIN_EFF
+                rows[ok, k, 1] = e * rm.BAND_S.pae_sat / table.ppk
+                rows[ok, k, 2] = 0.0
+            tier = (1, 0) if sec.get("self_protection") else (4, int(sec.get("search_priority", 1) or 1))
+            h = rr / max(float(sec.get("rr_min_s") or margin.RR_MIN_SEARCH_S), 1e-9) if mode == "PRIO_SEARCH" else 1.0
+            demands.append(al.Demand(f"search {sid}", tier, "search", rows, rr_s=rr, h_max=max(1.0, h), sector=sid))
+            brackets = sec.get("tracking") or []
+            if brackets:
+                face_sel = {}
+                for k in range(4):
+                    sel = mask & (grid.owner == k)
+                    if sel.any():
+                        face_sel[k] = (sel, weight[sel])
+                npos = float(sum(w_.sum() for _s, w_ in face_sel.values()))
+                at = _estimate_at_faces(sec, grid, face_sel, npos, p_avail)
+                t_rows = []
+                for k, (pw, ku, _un) in at.items():
+                    if pw > 0 or ku > 0:
+                        r = np.full((4, 3), np.nan)
+                        r[k] = (pw / rm.CHAIN_EFF, 0.0, ku)
+                        t_rows.append(r)
+                if t_rows:
+                    rank = al.CLASS_RANK.get(sec.get("target_type") or "", len(al.CLASS_RANK))
+                    demands.append(al.Demand(f"tracks {sid}", (3, rank), "track", np.array(t_rows),
+                                             rr_s=float(brackets[0].get("rr_s") or 1.0),
+                                             n_targets=float(sum(b_.get("n_targets", 0.0) for b_ in brackets)),
+                                             sector=sid))
+        except (KeyError, TypeError, ValueError, ZeroDivisionError):
+            continue                                   # (a sector mid-edit: left out)
+    budgets = al.Budgets(face_w=_cap_w(g), ceiling=float(g.get("load_ceiling") or al.LOAD_CEILING))
+    return demands, budgets
+
+
+_LIVE_CACHE: Dict[str, dict] = {}
+
+
+def _key(obj) -> str:
+    return json.dumps(obj, sort_keys=True, default=lambda o: np.asarray(o, float).round(9).tolist()
+                      if isinstance(o, (np.ndarray, np.generic)) else str(o))
+
+
+def live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.SphereGrid, eps_min: float, eps_max: float,
+                    sky: Optional[dict] = None, g: Optional[dict] = None) -> dict:
+    """The final allocation rule on the fast estimate at one instant (the live load and the range gauge share it: one
+    computation per set of volumes, instant and mission settings). The rule's result (allocation.solve) plus
+    "by_sector" {id: its search record}, "ref_w" (the face reference, power.face_elec_mw: 100 % of the energy bars)
+    and "time_lower_bound" (True: the time is the fast estimate's lower bound, not recalibrated by an exact run)."""
+    from . import allocation as al
+    gk = {k: (g or {}).get(k) for k in ("face_elec_mw", "realloc_mode", "load_ceiling")}
+    key = _key([sectors_ship, eps_min, eps_max, sky, gk, id(grid)])
+    hit = _LIVE_CACHE.get(key)
+    if hit is not None:
+        return hit
+    demands, budgets = allocation_demands(table, sectors_ship, grid, eps_min, eps_max, sky, gk)
+    out = al.solve(demands, budgets)
+    out["by_sector"] = {r["sector"]: r for r in out["demands"] if r["kind"] == "search" and r["sector"] is not None}
+    out["ref_w"] = rm.FACE_ELEC_POWER_MW * 1e6
+    out["time_lower_bound"] = True
+    if len(_LIVE_CACHE) > 8:
+        _LIVE_CACHE.clear()
+    _LIVE_CACHE[key] = out
     return out

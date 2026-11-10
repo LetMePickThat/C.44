@@ -42,8 +42,10 @@ from typing import Dict, Iterable, List, Optional, Set
 
 import numpy as np
 import pyvista as pv
-from PyQt5.QtCore import QObject, QTimer, Qt, pyqtSignal
-from PyQt5.QtWidgets import QGroupBox, QHBoxLayout, QPushButton, QSplitter, QStackedWidget, QVBoxLayout, QWidget
+from PyQt5.QtCore import QObject, QRectF, QTimer, Qt, pyqtSignal
+from PyQt5.QtGui import QBrush, QColor, QPainter, QPen
+from PyQt5.QtWidgets import (QComboBox, QGroupBox, QHBoxLayout, QLabel, QPushButton, QSlider, QSplitter,
+                             QStackedWidget, QVBoxLayout, QWidget)
 from pyvistaqt import QtInteractor
 
 from core import frames
@@ -59,10 +61,21 @@ ICRF_AXIS_NAMES = [f"icrf_axis_{a}" for a, _ in ICRF_AXES]
 SECTOR_LABEL_FONT_SIZE = 13   # shared by _build_sectors (draws) and _label_hit (estimates the on-screen box), x UI size
 FACE_OUTLINE_COLOR = "#9aa0aa"   # the zones' outlines, light on the black of space (view3d.MUTED_COLOR)
 SCN = "scn_"                     # the linked scenario's actors (pass S2)
+PLAY_SPEEDS = (1, 10, 100, 1000)                 # the playback's speeds (as the Scenario Editor's first ones)
+PLAY_TICK_MS = 200                               # one displayed instant at most this often (the live load: ~50 ms per volume)
+LOAD_OK, LOAD_HIGH, LOAD_OVER = "#3cb371", "#e08a1e", "#c0392b"   # the live load: under the ceiling, at it, above 100 %
+LOAD_BEYOND = "#6e0f0f"          # the energy bar's part beyond 100 % of the face reference, drawn over it again (user)
+LOAD_LENT = "#8a8f99"            # the hatching of the power a face lends to the others (user, 10 November 2026)
 SCN_TRAIL_S = float(P.get("tool.display.pmiss_scenario_trail_s"))   # its trajectories over t +/- this (user)
 SCN_LABEL_FONT, SCN_BOX_FONT = 11, 12   # its names, its data box: pt at UI size 100 %
 SCN_PICK = 0.6                   # a click within this x the symbol's size of its centre picks the object
 SCN_ARC_DEG = 2.0                # unit sphere: a trajectory's step longer than this is drawn as an arc along it (D)
+
+
+def _anchor(poly: pv.PolyData, outline: pv.PolyData) -> np.ndarray:
+    """A sector label's anchor: the middle of its executed volumes, else of its outline (a volume all hole)."""
+    pts = poly.points if poly.n_points else outline.points
+    return pts.mean(axis=0) if len(pts) else np.zeros(3)
 
 
 def _sphere_arcs(u: np.ndarray) -> np.ndarray:
@@ -82,6 +95,85 @@ def _sphere_arcs(u: np.ndarray) -> np.ndarray:
 
 
 # ----------------------------------------------------------------------------- display bar
+def _key_sky(sky: Optional[dict]) -> Optional[str]:
+    """The sky as a cache key (the ground rule of the gauge depends on it)."""
+    if not sky:
+        return None
+    return json.dumps(sky, sort_keys=True, default=lambda o: np.asarray(o, float).round(6).tolist()
+                      if isinstance(o, (np.ndarray, np.generic)) else str(o))
+
+
+class FaceLoadColumn(QWidget):
+    """One face's live load: its name, then one bar per resource (energy, S time, Ku time), each with its own fill,
+    its hatched parts (moved shares, power lent), its part beyond 100 % drawn over it in a darker red, the load
+    ceiling marked on the time bars (pass R2, user 10 November 2026)."""
+
+    ROW_H = 18
+
+    def __init__(self, k: int, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self.k = k
+        self.bars: Optional[List[dict]] = None
+        self.setMinimumWidth(130)
+        self.setMinimumHeight(self.ROW_H * 4 + 2)
+
+    def set_bars(self, bars: Optional[List[dict]], tip: str) -> None:
+        self.bars = bars
+        self.setToolTip(tip)
+        self.update()
+
+    def paintEvent(self, _ev) -> None:  # noqa: N802 -- Qt override
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, False)
+        w, rh = self.width(), self.ROW_H
+        f = p.font()
+        f.setBold(True)
+        p.setFont(f)
+        p.setPen(QColor(geo.FACE_COLORS[self.k]))
+        p.drawText(QRectF(0, 0, w, rh), Qt.AlignLeft | Qt.AlignVCenter, geo.FACE_NAMES[self.k])
+        f.setBold(False)
+        p.setFont(f)
+        x0 = 22.0
+        bw = max(10.0, w - x0 - 2)
+        text_col = self.palette().color(self.foregroundRole())
+        for i, b in enumerate(self.bars or ({"name": n, "val": 0.0} for n in ("E", "S", "Ku"))):
+            y = rh * (i + 1) + 1
+            r = QRectF(x0, y, bw, rh - 3)
+            p.setPen(text_col)
+            p.drawText(QRectF(0, y, x0 - 3, rh - 3), Qt.AlignRight | Qt.AlignVCenter, b["name"])
+            p.setPen(QPen(QColor("#5a5f69")))
+            p.setBrush(QBrush(self.palette().color(self.backgroundRole()).darker(115)))
+            p.drawRect(r)
+            if self.bars is None:
+                continue
+            val = max(0.0, float(b["val"]))
+            fill = min(val, 1.0)
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(b["color"]))
+            p.drawRect(QRectF(x0, y, bw * fill, rh - 3))
+            if val > 1.0:                                  # the part beyond 100 %, drawn over the bar again
+                p.setBrush(QColor(LOAD_BEYOND))
+                p.drawRect(QRectF(x0, y, bw * min(val - 1.0, 1.0), rh - 3))
+            mv = min(float(b.get("moved", 0.0)), fill)
+            if mv > 0:                                     # shares moved from a neighbour, served here
+                p.setBrush(QBrush(QColor("#1b1d22"), Qt.BDiagPattern))
+                p.drawRect(QRectF(x0 + bw * (fill - mv), y, bw * mv, rh - 3))
+            ln = min(float(b.get("lent", 0.0)), 1.0 - fill)
+            if ln > 0:                                     # power lent to the other faces
+                p.setBrush(QBrush(QColor(LOAD_LENT), Qt.FDiagPattern))
+                p.drawRect(QRectF(x0 + bw * fill, y, bw * ln, rh - 3))
+            if b.get("ceiling"):
+                p.setPen(QPen(QColor("#f0f0f0"), 1, Qt.DashLine))
+                xc = x0 + bw * min(float(b["ceiling"]), 1.0)
+                p.drawLine(int(xc), int(y), int(xc), int(y + rh - 3))
+            txt = f"{100 * val:.0f} %"
+            p.setPen(QColor("#000000"))                    # (a shadow: readable on any fill)
+            p.drawText(r.translated(1, 1), Qt.AlignCenter, txt)
+            p.setPen(QColor("#ffffff"))
+            p.drawText(r, Qt.AlignCenter, txt)
+        p.end()
+
+
 class DisplayBar(QWidget):
     """The view's switches (pass V2, user 10 November 2026: as the Scenario Editor's, in the "3D view" panel of the
     tab's side column, built by SceneView.view_panel; replaces the "Layers" menu over the view, B14)."""
@@ -92,6 +184,7 @@ class DisplayBar(QWidget):
     sky_changed = pyqtSignal()
     scenario_changed = pyqtSignal()
     global_changed = pyqtSignal(bool)
+    gauge_changed = pyqtSignal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -130,6 +223,11 @@ class DisplayBar(QWidget):
                                        "navigation, else the mission's) and the volumes from it; no object (the "
                                        "plan rests on the flight plan, not on a truth that cannot be known)")
         self.tg_global.toggled.connect(self.global_changed)
+        self.tg_gauge = uc.Toggle("range gauge", tip="Each watched volume filled in green up to the range held in each "
+                                  "direction, in red where it falls short (coverage hole included); capacity: the "
+                                  "volume alone on its faces, all their power, shared equally between its beam "
+                                  "positions. Sphere: the range over the required one; global: in km")
+        self.tg_gauge.toggled.connect(self.gauge_changed)
         self.set_scenario_enabled(False)
 
     def set_scenario_enabled(self, on: bool) -> None:
@@ -161,6 +259,13 @@ class DisplayBar(QWidget):
 def face_actor_names(k: int) -> tuple:
     """Plotter actor names of face k's responsibility zone (surface, outline)."""
     return f"face_surf_{k}", f"face_outline_{k}"
+
+
+HOLE_COLOR, HOLE_OPACITY = "#8a8a8a", 0.35    # a watched volume's coverage hole on the sphere (E3, D)
+
+
+def sector_hole_name(sid: str) -> str:
+    return f"sec_{sid}_hole"
 
 
 def sector_actor_names(sid: str) -> tuple:
@@ -486,8 +591,12 @@ class SceneView(QWidget):
     show_all_sectors = pyqtSignal()
     hide_all_sectors = pyqtSignal()
 
-    def __init__(self, grid: geo.SphereGrid, face_opacity: float, sector_opacity: float, parent=None):
+    def __init__(self, grid: geo.SphereGrid, face_opacity: float, sector_opacity: float, parent=None,
+                 exec_face_colours: bool = False):
+        """exec_face_colours: the executed volumes in their face's colour (the preparation), else in the sector's (the
+        results' "Colour by")."""
         super().__init__(parent)
+        self.exec_face_colours = exec_face_colours
         self.grid = grid
         self.face_opacity, self.sector_opacity = face_opacity, sector_opacity
         v = QVBoxLayout(self)
@@ -500,6 +609,7 @@ class SceneView(QWidget):
         self.display_bar.sky_changed.connect(self._update_sky)
         self.display_bar.scenario_changed.connect(lambda: (self._scn_visibility(), self.plotter.render()))
         self.display_bar.global_changed.connect(self._on_global)
+        self.display_bar.gauge_changed.connect(self._on_gauge)
         self.plotter = QtInteractor(self)
         self.plotter.setMinimumWidth(500)
         self.plotter.interactor.setToolTip("Right drag: turn the view. Drag a label to reposition it (a line keeps it "
@@ -507,6 +617,8 @@ class SceneView(QWidget):
         self._stack = QStackedWidget()                 # the sphere (0) or the global view (1, built when first asked)
         self._stack.addWidget(self.plotter.interactor)
         v.addWidget(self._stack)
+        v.addWidget(self._build_play_bar())            # (user, 10 November 2026)
+        v.addWidget(self._build_load_bar())
         self._sim = None                               # gui/sim_view.SimView, read only
         self._sim_run = None                           # the run it shows
         self._sim_mission: Optional[tuple] = None      # (mission, hidden sector ids) for its volumes
@@ -535,6 +647,7 @@ class SceneView(QWidget):
         self._drag: Optional[dict] = None              # active drag: {"sid", "z"} while the mouse button is down
         self._r_is: Optional[np.ndarray] = None        # ship <- ICRF of the mission navigation (step 3.0)
         self._r_view: Optional[np.ndarray] = None      # ship <- the view frame (H3: the central body's equator)
+        self._sky_ship: Optional[dict] = None          # the mission sky in the ship frame (the ground rule)
         self._install_label_drag()
         self._update_sky()
         # the linked scenario (pass S2)
@@ -566,6 +679,15 @@ class SceneView(QWidget):
             self._scn_ident = [] if link is None else [
                 scn.identity_of(link.sc, oid, link.truth.group_of[j + 1] or None) for j, oid in enumerate(link.g.ids)]
         self._scn_link, self._scn_t = link, float(t)
+        self._play_bar.setVisible(link is not None)
+        if link is not None and not self._playing and abs(self._play_t - self._scn_t) > 1e-9:
+            self._play_t = self._scn_t                 # (the mission's instant changed: the display follows)
+            self.sl_play.blockSignals(True)
+            self.sl_play.setValue(int(round(10000 * self._scn_t / max(self._play_end(), 1e-9))))
+            self.sl_play.blockSignals(False)
+            self.lb_play.setText(f"{self._scn_t:8.1f} s  {link.utc(self._scn_t)}")
+        if link is None and self._playing:
+            self.toggle_play()
         self.display_bar.set_scenario_enabled(link is not None)
         self._draw_scenario()
         self.plotter.render()
@@ -579,7 +701,220 @@ class SceneView(QWidget):
         """The mission whose volumes the global view draws (the owner's mission on screen), and the ids of its
         sectors hidden."""
         self._sim_mission = (mission, set(hidden_ids))
+        try:                                                # the sky in the ship frame (the ground rule)
+            self._sky_ship = frames.resolve(mission)[0].get("global", {}).get("sky")
+        except (ValueError, KeyError, TypeError):
+            self._sky_ship = None
         self._check_global()
+
+    # ------------------------------------------------------------------ playback and live load (user, 10 November 2026)
+    def _build_play_bar(self) -> QWidget:
+        """The linked scenario's playback, as the Scenario Editor's bar: it moves the DISPLAY only (views, volumes,
+        gauge, live load); "Use this instant" puts the instant shown into the mission (its navigation)."""
+        bar = QWidget()
+        h = QHBoxLayout(bar)
+        h.setContentsMargins(4, 2, 4, 2)
+        self.bt_back, self.bt_play, self.bt_fwd = QPushButton("|<"), QPushButton(), QPushButton(">|")
+        self.bt_play.setIcon(uc.std_icon(self.bt_play, "SP_MediaPlay"))
+        for b in (self.bt_back, self.bt_play, self.bt_fwd):
+            b.setFixedWidth(40)
+        self.bt_back.clicked.connect(lambda _c=False: self.set_instant(0.0))
+        self.bt_fwd.clicked.connect(lambda _c=False: self.set_instant(self._play_end()))
+        self.bt_play.clicked.connect(lambda _c=False: self.toggle_play())
+        self.cb_speed = QComboBox()
+        self.cb_speed.addItems([f"x{s}" for s in PLAY_SPEEDS])
+        self.cb_speed.setCurrentIndex(2)
+        self.sl_play = QSlider(Qt.Horizontal)
+        self.sl_play.setRange(0, 10000)
+        self.sl_play.valueChanged.connect(lambda v: self.set_instant(v / 10000.0 * self._play_end(), from_slider=True))
+        self.lb_play = QLabel("")
+        self.bt_use = QPushButton("Use this instant")
+        self.bt_use.setToolTip("Put the instant shown into the mission: its navigation and sky are the ship's there "
+                               "(the playback alone moves only the display)")
+        self.bt_use.clicked.connect(lambda _c=False: self.use_instant and self.use_instant(self._play_t))
+        for w in (self.bt_back, self.bt_play, self.bt_fwd, self.cb_speed):
+            h.addWidget(w)
+        h.addWidget(self.sl_play, 1)
+        h.addWidget(self.lb_play)
+        h.addWidget(self.bt_use)
+        self._play_t = 0.0
+        self._playing = False
+        self._play_timer = QTimer(self)
+        self._play_timer.setInterval(PLAY_TICK_MS)
+        self._play_timer.timeout.connect(self._play_tick)
+        self.instant_source = None                     # t -> (draws, global with nav and sky at t) (the owner)
+        self.use_instant = None                        # t -> None: the mission's instant set to t (the owner)
+        self._play_bar = bar
+        bar.setVisible(False)
+        return bar
+
+    def _build_load_bar(self) -> QWidget:
+        """The live load (pass R2, user 10 November 2026): the final allocation rule on the fast estimate at the
+        instant shown; one column per face, one bar per resource (energy: 100 % = the face reference
+        power.face_elec_mw, the part beyond drawn again in a darker red over the bar; S time, Ku time: share of the
+        time, the load ceiling marked); hatched: on the face serving them, the shares moved from a neighbouring face
+        (overlap of the cones), on the energy bar of a face lending power, the part it lends (between its use and
+        100 %)."""
+        bar = QWidget()
+        h = QHBoxLayout(bar)
+        h.setContentsMargins(4, 0, 4, 2)
+        lb = QLabel("Live load:")
+        lb.setToolTip("The final allocation rule at the instant shown (fast estimate). Energy: 100 % = the face "
+                      "reference (ship pool / 4); beyond, power taken from the others' share (darker red). Time: "
+                      "lower bound (energy / peak power), not recalibrated by an exact run")
+        h.addWidget(lb)
+        self._load_cols = {}
+        for k in range(4):
+            col = FaceLoadColumn(k)
+            h.addWidget(col, 1)
+            self._load_cols[k] = col
+        self._load_status = QLabel("")
+        self._load_status.setMinimumWidth(110)
+        h.addWidget(self._load_status)
+        self._mission_global: dict = {}
+        self._load_ceiling = 1.0
+        return bar
+
+    def set_mission_global(self, g: dict) -> None:
+        """The mission's settings the allocation rule reads (face_elec_mw, realloc_mode, load_ceiling)."""
+        self._mission_global = dict(g or {})
+        self._load_ceiling = float(self._mission_global.get("load_ceiling") or 1.0)
+
+    def _allocation(self, draws: List["SectorDraw"], sky: Optional[dict]) -> Optional[dict]:
+        """The final allocation rule over every volume of the mission (hidden ones included: the radar executes
+        them; hiding is the display's), at the instant shown; None without the fast-estimate table."""
+        from core import cost_estimate as ce
+        table = ce.cached_table()
+        if table is None or self._eps is None:
+            return None
+        try:
+            return ce.live_allocation(table, [{**d.sec, "id": d.sid} for d in draws], self.grid, *self._eps, sky,
+                                      self._mission_global)
+        except Exception:  # noqa: BLE001 -- a mission mid-edit the rule refuses: no live load
+            return None
+
+    def set_load_ceiling(self, ceiling: float) -> None:
+        self.set_mission_global({**self._mission_global, "load_ceiling": ceiling})
+
+    def _show_load(self, draws: List["SectorDraw"], sky: Optional[dict]) -> None:
+        a = self._allocation(draws, sky)
+        if a is None:
+            for col in self._load_cols.values():
+                col.set_bars(None, "")
+            self._load_status.setText("")
+            return
+        ref = float(a["ref_w"])
+        ceil = float(a.get("ceiling", 1.0))
+        use = {k: a["faces"][str(k)]["energy"] / ref for k in range(4)}
+        borrow = sum(max(0.0, u - 1.0) for u in use.values())
+        spare = sum(max(0.0, 1.0 - u) for u in use.values())
+        lend = min(1.0, borrow / spare) if spare > 0 else 0.0
+        vols = {}
+        for r in a["demands"]:
+            for k in r.get("faces", {}):
+                vols.setdefault(int(k), []).append(r)
+        for k, col in self._load_cols.items():
+            f = a["faces"][str(k)]
+            bars = []
+            e_load = f["energy load"]                 # (against the face's feeder or the operator's cap)
+            st = LOAD_OVER if use[k] > 1.0 else LOAD_HIGH if e_load >= ceil * (1 - 1e-3) else LOAD_OK
+            bars.append({"name": "E", "val": use[k], "moved": f["moved"]["energy"] / ref,
+                         "lent": max(0.0, 1.0 - use[k]) * lend, "color": st, "ceiling": None})
+            for name, key in (("S", "S time"), ("Ku", "Ku time")):
+                v = f[key]
+                bars.append({"name": name, "val": v, "moved": f["moved"][key], "lent": 0.0, "ceiling": ceil,
+                             "color": LOAD_OVER if v > 1.0 else LOAD_HIGH if v >= ceil * (1 - 1e-3) else LOAD_OK})
+            tip = [f"{geo.FACE_NAMES[k]}: energy {f['energy'] / 1e6:.2f} MW drawn ({100 * use[k]:.0f} % of the "
+                   f"{ref / 1e6:g} MW reference; limit {f['energy cap'] / 1e6:g} MW)"]
+            if use[k] > 1.0:
+                tip.append(f"  {(use[k] - 1.0) * ref / 1e6:.2f} MW taken from the other faces' share")
+            elif bars[0]["lent"] > 0:
+                tip.append(f"  {bars[0]['lent'] * ref / 1e6:.2f} MW lent to the other faces")
+            if any(f["moved"].values()):
+                tip.append(f"  serving shares of a neighbour: {f['moved']['energy'] / 1e6:.2f} MW, "
+                           f"S {100 * f['moved']['S time']:.1f} %, Ku {100 * f['moved']['Ku time']:.1f} %")
+            tip.append(f"  S time >= {100 * f['S time']:.1f} %, Ku time {100 * f['Ku time']:.1f} % "
+                       f"(ceiling {100 * ceil:.0f} %; time: lower bound, not recalibrated)")
+            for r in vols.get(k, []):
+                if r["kind"] == "search":
+                    tip.append(f"  {r['label']}: range {100 * r['rho']:.0f} %, revisit {r['rr_tenable_s']:.3g} s, "
+                               f"{100 * r['faces'][str(k)]['share']:.0f} % here")
+                elif r["kind"] == "track":
+                    tip.append(f"  {r['label']}: {r['tracks_tenable']:.3g} tracks")
+            col.set_bars(bars, "\n".join(tip))
+        n_bad = sum(1 for r in a["demands"] if r["level"] < 1.0 - 1e-6)
+        st = a["status"]
+        self._load_status.setText(st if not n_bad else f"{st} ({n_bad})")
+        self._load_status.setStyleSheet(f"color: {LOAD_OK if st == 'OK' else LOAD_HIGH if st == 'DEGRADED' else LOAD_OVER};"
+                                        " font-weight: bold;")
+        lines = [f"allocation: {st}; binding: {', '.join(a['binding']) or 'none'}"]
+        lines += [f"{r['label']}: range {100 * r['rho']:.0f} %, revisit {r['rr_tenable_s']:.3g} s"
+                  for r in a["demands"] if r["kind"] == "search"]
+        lines += a["flags"]
+        self._load_status.setToolTip("\n".join(lines))
+
+    def _play_end(self) -> float:
+        link = self._scn_link
+        return float(link.duration) if link is not None else 0.0
+
+    def set_instant(self, t: float, from_slider: bool = False) -> None:
+        """The DISPLAY at the instant t of the linked run: volumes resolved with the ship's navigation there, the
+        scenario's objects, the global view, the gauge, the live load (the mission itself unchanged)."""
+        if self._scn_link is None or self.instant_source is None:
+            return
+        t = min(max(float(t), 0.0), self._play_end())
+        self._play_t = t
+        if not from_slider:
+            self.sl_play.blockSignals(True)
+            self.sl_play.setValue(int(round(10000 * t / max(self._play_end(), 1e-9))))
+            self.sl_play.blockSignals(False)
+        self.lb_play.setText(f"{t:8.1f} s  {self._scn_link.utc(t)}")
+        try:
+            draws, g = self.instant_source(t)
+        except Exception:  # noqa: BLE001 -- an instant the model refuses: the display kept
+            return
+        self._sky_ship = g.get("sky")
+        n = frames.Nav(g["nav"][0]) if g.get("nav") else None
+        self.set_navigation(None if n is None else n.r_si, None if n is None else n.body)
+        if self._eps is not None:
+            self._in_instant = True
+            try:
+                self.set_scene(self._eps[0], self._eps[1], draws)
+            finally:
+                self._in_instant = False
+        self._show_load(draws, g.get("sky"))
+        self.set_scenario(self._scn_link, t)
+
+    def toggle_play(self) -> None:
+        self._playing = not self._playing
+        self.bt_play.setIcon(uc.std_icon(self.bt_play, "SP_MediaPause" if self._playing else "SP_MediaPlay"))
+        if self._playing:
+            if self._play_t >= self._play_end():
+                self._play_t = 0.0
+            self._play_wall = time.perf_counter()
+            self._play_timer.start()
+        else:
+            self._play_timer.stop()
+
+    def _play_tick(self) -> None:
+        now = time.perf_counter()
+        dt = (now - self._play_wall) * PLAY_SPEEDS[self.cb_speed.currentIndex()]
+        self._play_wall = now
+        t = self._play_t + dt
+        if t >= self._play_end():
+            t = self._play_end()
+            self.toggle_play()
+        self.set_instant(t)
+
+    def _on_gauge(self, on: bool) -> None:
+        """The range gauge in both modes: the sectors rebuilt, the global view told."""
+        self._cache = {}
+        if self._eps is not None:
+            self._build_sectors()
+        if self._sim is not None:
+            self._sim.range_gauge = on
+            self._sim._draw_volumes(force=True)
+        self.apply_visibility()
 
     def _nav_msg(self) -> Optional[dict]:
         """The mission's navigation message with an orbit (the global mode's flight plan without a scenario)."""
@@ -602,22 +937,16 @@ class SceneView(QWidget):
             if self._sim is None:
                 from gui.sim_view import SimView             # (late: sim_view imports this module)
                 self._sim = SimView(self.grid, read_only=True)
+                self._sim.range_gauge = self.display_bar.tg_gauge.isChecked()
                 for i in range(self._sim.play_bar.count()):   # (the instant is the mission's: no playback)
                     w = self._sim.play_bar.itemAt(i).widget()
                     if w is not None:
                         w.setVisible(False)
-                page = QSplitter(Qt.Horizontal)
-                page.addWidget(self._sim.side_panel)
-                page.addWidget(self._sim)
-                page.setStretchFactor(0, 0)
-                page.setStretchFactor(1, 1)
-                page.setChildrenCollapsible(False)
-                self._stack.addWidget(page)
-                self._sim_page = page
+                # the view alone (user, 10 November 2026: no Info, no options column of the editor in the RMP)
+                self._sim.side_panel.setParent(None)
+                self._sim.side_panel.hide()
+                self._stack.addWidget(self._sim)
             self._stack.setCurrentIndex(1)
-            w = self._sim_page.width()                   # (the column at its content's width, as in the editor)
-            side = self._sim.side_width()
-            self._sim_page.setSizes([side, max(w - side, 400)])
             self._update_global()
         else:
             self._sphere_box.setVisible(True)
@@ -627,7 +956,7 @@ class SceneView(QWidget):
     def _update_global(self) -> None:
         """The global view (user, 10 November 2026): the flight plan only, the linked scenario's ship (its states and
         attitude as flown, no object) at t, else the mission's navigation alone; the mission's volumes from the ship;
-        Info: OWNSHIP's."""
+        the view alone, centred on OWNSHIP."""
         from gui import scenario_link as slink
         from gui.sim_view import OWNSHIP
         link, sim = self._scn_link, self._sim
@@ -648,11 +977,35 @@ class SceneView(QWidget):
         except Exception as exc:  # noqa: BLE001 -- a flight plan the model refuses: said, the view kept
             sim.status.setText(f"global view: {exc}")
             return
-        self._sim_run = key
         if self._sim_mission is not None:
             sim.set_mission(*self._sim_mission)
+        new_run = self._sim_run != key
+        self._sim_run = key
         sim.set_time(t)
         sim.select(OWNSHIP)
+        if new_run or sim.centre != OWNSHIP:           # centred on OWNSHIP, always (user, 10 November 2026): framed
+            sim.set_centre(OWNSHIP)                    # at a new run, then followed (the zoom chosen kept)
+            self._frame_volumes()
+
+    def _frame_volumes(self) -> None:
+        """The camera at a distance where the mission's farthest volume fits the view (OWNSHIP alone framed the view
+        to a few tens of km, the volumes out of it); its direction kept."""
+        sim = self._sim
+        ranges = [float(s_.get("range_km", 0.0)) for s_ in (self._sim_mission or ({}, ()))[0].get("sectors", [])
+                  if isinstance(s_.get("range_km"), (int, float))]
+        r_max = max(ranges, default=0.0)
+        if r_max <= 0.0:
+            return
+        cam = sim.plotter.camera
+        f, pos = np.asarray(cam.GetFocalPoint(), float), np.asarray(cam.GetPosition(), float)
+        u = pos - f
+        n = float(np.linalg.norm(u))
+        if n <= 0.0:
+            return
+        d = 1.2 * r_max / math.tan(math.radians(0.5 * cam.GetViewAngle()))
+        cam.SetPosition(*(f + u / n * d))
+        sim.plotter.renderer.ResetCameraClippingRange()
+        sim.plotter.render()
 
     def close_views(self) -> None:
         """Both plotters closed (the window closes)."""
@@ -804,6 +1157,7 @@ class SceneView(QWidget):
         col.setSpacing(4)
         head = QHBoxLayout()                           # the mode (user, 10 November 2026), then what both modes share
         head.addWidget(bar.tg_global)
+        head.addWidget(bar.tg_gauge)
         head.addStretch(1)
         head.addWidget(bar.bt_show_all)
         head.addWidget(bar.bt_hide_all)
@@ -902,7 +1256,7 @@ class SceneView(QWidget):
         cached = self._cache.get(sid)
         if cached is None or cached[4] is None:   # cached[4] = label text, None = no label drawn
             return None
-        anchor = cached[2].points.mean(axis=0)
+        anchor = _anchor(cached[2], cached[3])
         return anchor, self._label_pos.get(sid, anchor), cached[4]
 
     def _label_hit(self, x: int, y: int) -> Optional[str]:
@@ -981,9 +1335,9 @@ class SceneView(QWidget):
         cached = self._cache.get(sid)
         if cached is None or cached[4] is None:
             return
-        _key, color, poly, _outline, text = cached
+        _key, color, poly, _outline, text = cached[:5]
         _surf_name, _out_name, lbl_name, leader_name = sector_actor_names(sid)
-        anchor = poly.points.mean(axis=0)
+        anchor = _anchor(poly, _outline)
         point = self._label_pos.get(sid, anchor)
         self.plotter.add_point_labels([point], [text], name=lbl_name, text_color="white",
                                       font_size=_ui(self.plotter, SECTOR_LABEL_FONT_SIZE),
@@ -1009,6 +1363,8 @@ class SceneView(QWidget):
         self._build_faces()
         self._build_sectors()
         self.apply_visibility()
+        if not getattr(self, "_in_instant", False):
+            self._show_load(self._sectors, self._sky_ship)
 
     def set_hidden(self, sids: Set[str]) -> None:
         self._hidden = set(sids)
@@ -1020,7 +1376,7 @@ class SceneView(QWidget):
         for k in range(4):
             set_actors_visible(p, face_actor_names(k), bar.face_visible(k))
         for d in self._sectors:
-            set_actors_visible(p, sector_actor_names(d.sid), d.sid not in self._hidden)
+            set_actors_visible(p, sector_actor_names(d.sid) + (sector_hole_name(d.sid),), d.sid not in self._hidden)
         if hasattr(self, "_scn_sym"):
             self._scn_visibility()
         p.render()
@@ -1030,7 +1386,7 @@ class SceneView(QWidget):
         if self._face_key == self._eps:
             return  # the face layer only depends on the eps window, not on the watch sectors
         self._face_key = self._eps
-        scene = geo.build_face_sectors(self.grid, *self._eps)
+        scene = geo.build_face_sectors_smooth(self.grid, *self._eps)   # (smooth edges, 10 November 2026)
         for k in range(4):
             surf_name, out_name = face_actor_names(k)
             if scene.surfaces[k].n_points:
@@ -1047,36 +1403,63 @@ class SceneView(QWidget):
                 self.plotter.remove_actor(out_name, render=False)
 
     def _build_sectors(self) -> None:
-        """Only sectors whose geometry / colour / label changed are rebuilt: each a cap on the unit sphere (true size:
-        the global mode)."""
+        """Only sectors whose geometry / colour / label changed are rebuilt (E3, user 10 November 2026): the WHOLE
+        watched volume's outline in its colour, its executed volumes (the parts the faces scan at this attitude) in
+        the colour of their face (exec_face_colours; else the sector's colour: the results' "Colour by"), its
+        coverage hole in grey; on the unit sphere (true size: the global mode)."""
         eps_min, eps_max = self._eps
         new_names: Set[str] = set()
         new_cache: Dict[str, tuple] = {}
+        gauge = self.display_bar.tg_gauge.isChecked()
+        alloc = self._allocation(self._sectors, self._sky_ship) if gauge else None   # (gauge (c): all the volumes)
         for d in self._sectors:
             surf_name, out_name, lbl_name, leader_name = sector_actor_names(d.sid)
-            key = (geo.sector_geometry_key(d.sec), eps_min, eps_max)
+            rho = (alloc or {}).get("by_sector", {}).get(d.sid, {}).get("rho") if gauge else None
+            key = (geo.sector_geometry_key(d.sec), eps_min, eps_max, gauge,
+                   None if rho is None else round(float(rho), 4), d.sec.get("range_km") if gauge else None,
+                   _key_sky(self._sky_ship) if gauge else None)
             cached = self._cache.get(d.sid)
             # a duplicate id (mid-edit) shares actor names with the earlier sector: always redraw, last one wins
             same_geom = cached is not None and cached[0] == key and d.sid not in new_cache
+            hole_name = sector_hole_name(d.sid)
             if same_geom:
-                poly, outline = cached[2], cached[3]
+                poly, outline, hole = cached[2], cached[3], cached[5]
             else:
                 try:
-                    poly, outline = geo.build_sector_overlay(self.grid, d.sec, eps_min, eps_max)
+                    poly, outline, hole = geo.build_sector_split_smooth(self.grid, d.sec, eps_min, eps_max)
+                    ratio_of = (geo.held_ratio_function(self.grid, d.sec, eps_min, eps_max, self._sky_ship, alloc,
+                                                        d.sid) if gauge else None)
+                    if ratio_of is not None:                # the range gauge in place of the executed volumes
+                        poly, hole = geo.build_range_gauge(self.grid, d.sec, ratio_of, 1.015, normalise=True)
+                        poly.cell_data.pop("face", None) if poly.n_points else None
                 except (KeyError, TypeError, ValueError):
                     continue  # incomplete sector mid-edit: no 3D overlay
             same_mesh = same_geom and cached[1] == d.color
             if poly.n_points:
                 if not (same_mesh and has_actor(self.plotter, surf_name)):
-                    self.plotter.add_mesh(poly, color=d.color, opacity=self.sector_opacity,
-                                          culling=None, name=surf_name, render=False)   # (both sides, as the zones)
+                    if gauge:
+                        self.plotter.add_mesh(poly, color=geo.GAUGE_GREEN, opacity=0.6, culling=None, lighting=False,
+                                              name=surf_name, render=False)
+                    elif self.exec_face_colours and "face" in poly.cell_data:
+                        rgb = np.array([v3.rgb(geo.FACE_COLORS[k]) for k in poly.cell_data["face"]], np.uint8)
+                        self.plotter.add_mesh(poly, scalars=rgb, rgb=True, preference="cell",
+                                              opacity=self.sector_opacity, culling=None, name=surf_name, render=False)
+                    else:
+                        self.plotter.add_mesh(poly, color=d.color, opacity=self.sector_opacity,
+                                              culling=None, name=surf_name, render=False)   # (both sides, as the zones)
                 new_names.add(surf_name)
+            if hole.n_points:
+                if not (same_mesh and has_actor(self.plotter, hole_name)):
+                    self.plotter.add_mesh(hole, color=geo.GAUGE_RED if gauge else HOLE_COLOR,
+                                          opacity=0.45 if gauge else HOLE_OPACITY, culling=None, name=hole_name,
+                                          render=False)
+                new_names.add(hole_name)
             if outline.n_points:
                 if not (same_mesh and has_actor(self.plotter, out_name)):
                     self.plotter.add_mesh(outline, color=d.color, line_width=2, name=out_name, render=False)
                 new_names.add(out_name)
-            text = d.text if poly.n_points else None
-            anchor = poly.points.mean(axis=0)
+            text = d.text if (poly.n_points or outline.n_points) else None
+            anchor = _anchor(poly, outline)
             point = self._label_pos.get(d.sid, anchor)
             if text is not None:
                 rebuild_label = not (same_mesh and cached[4] == text and has_actor(self.plotter, lbl_name))
@@ -1094,7 +1477,7 @@ class SceneView(QWidget):
                         self.plotter.add_mesh(pv.Line(anchor, point), color=d.color, line_width=1, name=leader_name,
                                               render=False)
                     new_names.add(leader_name)
-            new_cache[d.sid] = (key, d.color, poly, outline, text)
+            new_cache[d.sid] = (key, d.color, poly, outline, text, hole)
         remove_actors(self.plotter, self._actor_names - new_names)   # incl. the "-labels" actors
         self._actor_names, self._cache = new_names, new_cache
         self._label_pos = {sid: p for sid, p in self._label_pos.items() if sid in new_cache}

@@ -2687,6 +2687,112 @@ def test_power_allocation_pro_rata_and_priority_tiers(monkeypatch):
     assert sum(need) > 2.5 * k
 
 
+# ----------------------------------------------------------------------------- final allocation rule (pass R1)
+def _share(costs):
+    """One share of a demand: {face: (energy W, S time, Ku time)} at full service, NaN elsewhere."""
+    r = np.full((4, 3), np.nan)
+    for f, c in costs.items():
+        r[f] = c
+    return r
+
+
+_B8 = alloc_.Budgets(ship_w=8e6, face_w=[8e6] * 4, time_max=1.0, ceiling=0.8)
+
+
+def test_rule_enough_resources_serves_every_demand_at_least_cost():
+    """Every demand at full service; a share two faces scan goes to the cheaper face (B2), nothing moved."""
+    d = [alloc_.Demand("V", (4, 1), "search", np.array([_share({0: (1e6, 0.1, 0), 1: (3e6, 0.3, 0)})]), rr_s=10)]
+    r = alloc_.solve(d, _B8)
+    v = r["demands"][0]
+    assert r["status"] == "OK" and v["level"] == 1.0 and v["rho"] == 1.0 and v["rr_tenable_s"] == 10
+    assert set(v["faces"]) == {"0"} and v["moved_share"] == 0.0
+    assert r["faces"]["0"]["energy"] == pytest.approx(1e6) and r["binding"] == []
+
+
+def test_rule_ship_short_serves_the_tiers_in_order_and_loses_range_first():
+    """Ship pool short (6.4 MW under the ceiling): P1 in full, the P4 volumes at a common level m = 0.6, their range
+    m^(1/4) (A1, A4), their revisit kept; m below rho_min^4: range at rho_min, the revisit stretched (A2)."""
+    d = [alloc_.Demand("P1", (1, 0), "search", np.array([_share({0: (4e6, 0.1, 0)})]), rr_s=2),
+         alloc_.Demand("V1", (4, 1), "search", np.array([_share({1: (2e6, 0.1, 0)})]), rr_s=10),
+         alloc_.Demand("V2", (4, 1), "search", np.array([_share({2: (2e6, 0.1, 0)})]), rr_s=10)]
+    r = alloc_.solve(d, _B8)
+    p1, v1, v2 = r["demands"]
+    assert r["status"] == "DEGRADED" and p1["level"] == 1.0 and "ship energy" in r["binding"]
+    assert v1["level"] == pytest.approx(0.6, rel=1e-6) and v2["level"] == pytest.approx(0.6, rel=1e-6)
+    assert v1["rho"] == pytest.approx(0.6 ** 0.25, rel=1e-6) and v1["rr_tenable_s"] == 10
+    assert r["ship"]["energy"] == pytest.approx(6.4e6, rel=1e-6)
+    d[0] = alloc_.Demand("P1", (1, 0), "search", np.array([_share({0: (5.6e6, 0.1, 0)})]), rr_s=2)
+    v = alloc_.solve(d, _B8)["demands"][1]                       # 0.8 MW for 4 MW: m = 0.2 < 0.8^4
+    assert v["level"] == pytest.approx(0.2, rel=1e-6) and v["rho"] == pytest.approx(alloc_.RHO_MIN)
+    assert v["rr_tenable_s"] == pytest.approx(10 * alloc_.RHO_MIN ** 4 / 0.2, rel=1e-6)
+    assert alloc_.search_effect(0.5, 10.0, 0.8) == (pytest.approx(0.5 ** 0.25), 10.0)
+
+
+def test_rule_moves_overlap_shares_to_the_neighbouring_face():
+    """A face capped by the operator (1 MW under the ceiling): the overlap shares it cannot serve go to the neighbour
+    at their higher cost (B1), the volume at full service."""
+    b = alloc_.Budgets(ship_w=8e6, face_w=[8e6, 1.25e6, 8e6, 8e6], ceiling=0.8)
+    d = [alloc_.Demand("V", (4, 1), "search", np.array([_share({1: (1e6, 0.1, 0), 2: (2e6, 0.2, 0)})] * 2), rr_s=10)]
+    v = alloc_.solve(d, b)["demands"][0]
+    assert v["level"] == 1.0
+    assert v["faces"]["1"]["energy"] == pytest.approx(1e6, rel=1e-6)
+    assert v["faces"]["2"]["energy"] == pytest.approx(2e6, rel=1e-6)
+    assert v["moved_share"] == pytest.approx(2 / 3, rel=1e-6)
+
+
+def test_rule_progressive_filling_and_spare_to_the_revisits():
+    """Same tier: a volume on a capped face held at what the face allows, the other rising on what it cannot use (no
+    under-use); the spare shortens the revisit of the one allowed to (D1), up to the ship pool here."""
+    b = alloc_.Budgets(ship_w=8e6, face_w=[8e6, 1.25e6, 8e6, 8e6], ceiling=0.8)
+    d = [alloc_.Demand("V1", (4, 1), "search", np.array([_share({1: (2e6, 0.1, 0)})]), rr_s=10),
+         alloc_.Demand("V2", (4, 1), "search", np.array([_share({2: (2e6, 0.1, 0)})]), rr_s=10, h_max=5)]
+    r = alloc_.solve(d, b)
+    v1, v2 = r["demands"]
+    assert v1["level"] == pytest.approx(0.5, rel=1e-6) and v1["rho"] == pytest.approx(0.5 ** 0.25, rel=1e-6)
+    assert v2["level"] == pytest.approx(2.7, rel=1e-6) and v2["rr_tenable_s"] == pytest.approx(10 / 2.7, rel=1e-6)
+    assert r["ship"]["energy"] == pytest.approx(6.4e6, rel=1e-6)
+    d[1].h_max = 2.0                                             # its floor reached first: the rest left free
+    r = alloc_.solve(d, b)
+    assert r["demands"][1]["level"] == pytest.approx(2.0) and r["ship"]["energy"] == pytest.approx(5e6, rel=1e-6)
+
+
+def test_rule_time_budget_binds_and_never_shed_tiers_flag_the_mission():
+    """The Ku time of a face is a resource of its own (C1): a track bracket held at 0.8 / 1.6 of its load; a P2
+    confirmation not served in full makes the mission not tenable; a share no face scans is reported."""
+    d = [alloc_.Demand("T", (3, 0), "track", np.array([_share({0: (1e5, 0, 1.6)})]), rr_s=1, n_targets=10)]
+    r = alloc_.solve(d, _B8)
+    t = r["demands"][0]
+    assert t["level"] == pytest.approx(0.5, rel=1e-6) and t["tracks_tenable"] == pytest.approx(5, rel=1e-6)
+    assert r["binding"] == ["F1 Ku time"] and r["status"] == "DEGRADED"
+    d = [alloc_.Demand("C", (2, 0), "other", np.array([_share({3: (9e6, 0, 0)}), _share({})]))]
+    r = alloc_.solve(d, _B8)
+    assert r["status"] == "NOT_TENABLE" and r["demands"][0]["unserved_share"] == pytest.approx(0.5)
+    assert any("never shed" in f for f in r["flags"]) and any("scanned by no face" in f for f in r["flags"])
+
+
+
+def test_live_allocation_from_the_fast_estimate():
+    """R2: the rule on the fast estimate. A volume alone: full service, no resource binding. Every face capped by the
+    operator below what it needs: its range held at rho < 1, a face's energy binding; the range gauge (c) gives rho
+    in a direction a face scans, 0 in the coverage hole (the aft cap)."""
+    from core import geometry as geo
+    table = ce.load_table()
+    grid = geo.SphereGrid(res_deg=tb.GRID_RES_DEG)
+    sec = dict(md.new_sector([]), id="A")
+    a = ce.live_allocation(table, [sec], grid, -90.0, 90.0, None, {})
+    r = a["by_sector"]["A"]
+    assert a["status"] == "OK" and r["rho"] == 1.0 and a["binding"] == []
+    need = max(f["energy"] for f in r["faces"].values())
+    cap_mw = (rm.non_tx_power_w() / rm.CHAIN_EFF + 0.5 * need) / 0.8 / 1e6   # always-on + half the search, each face
+    b = ce.live_allocation(table, [sec], grid, -90.0, 90.0, None, {"face_elec_mw": cap_mw})
+    rb = b["by_sector"]["A"]
+    assert b["status"] == "DEGRADED" and rb["rho"] < 1.0 and any(x.endswith("energy") for x in b["binding"])
+    ratio_of = geo.held_ratio_function(grid, sec, -90.0, 90.0, None, b, "A")
+    i, j = np.argwhere(grid.sector_mask(sec) & grid.scanned())[0]
+    p, e = np.radians(grid.phi[i, j]), np.radians(grid.eps[i, j])
+    d = np.array([[np.cos(e) * np.cos(p), np.cos(e) * np.sin(p), np.sin(e)], [0.0, 0.0, -1.0]])
+    assert ratio_of(d) == pytest.approx([rb["rho"], 0.0])
+
 def test_mission_choice_relieves_the_most_loaded_face():
     """B: a sector moves to an alternative plan when it lowers the most loaded face of the mission, even at a higher
     cost of its own; no alternative better for the mission -> no change."""

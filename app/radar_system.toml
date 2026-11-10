@@ -770,6 +770,8 @@ sat_stretch_stage = 4.0         # P7: the factors up to this in a first tracking
 sat_stretch_search = [2.0, 4.0, 8.0, 16.0]       # P7: search revisits y x these probed for the derived rr_max (range at range_min_km)
 sat_probe_frac    = 0.1         # P7: saturation table, probe of max(1, frac x n) more tracks per bracket (linear cost per track)
 rr_min_track_s    = 0.1         # P7: default shortest track update period of the margin reuse when the bracket sets no rr_min_s (user, 26 Oct 2026)
+rho_min           = 0.80         # final allocation rule (user, 10 Nov 2026, A2): a tier short of power or time loses range first, down to this share of the range asked, then revisit
+alloc_ratio_bin_db = 0.5        # final allocation rule: shares of a volume scanned by the same faces merged when their cost ratios between faces agree within this (numerical, D)
 
 [tool.validation]             # step 5.3: verdict and relaxation advice (core/validation.py)
 verify_bisections = 6           # P2: recomputations of the mission bisecting the verified figure of one advice (D, user, 27 Oct 2026)
@@ -1088,6 +1090,13 @@ eps_max_deg = 60.0
 phi0_deg = 0.0
 eps0_deg = 20.0
 radius_deg = 15.0
+
+[tool.mission_defaults.rect]     # a watched volume in real space (user, 10 November 2026): centre, half-openings
+phi0_deg = 0.0                  # its centre in its frame (D)
+eps0_deg = 20.0
+half_width_deg = 30.0           # half-opening across, measured on the sky through the centre (D)
+half_height_deg = 15.0          # half-opening up / down (D)
+rot_deg = 0.0                   # turn of the rectangle about its centre, from the frame's north (D)
 
 [tool.mission_defaults.bracket]
 r_min_km = 0.0

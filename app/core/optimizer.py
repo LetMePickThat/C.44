@@ -234,7 +234,8 @@ def validate_frequencies(sec: dict, excl) -> List[str]:
 
 # ----------------------------------------------------------------------------- geometry
 SECTOR_GEOMETRY_FIELDS = ("shape", "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg",
-                          "phi0_deg", "eps0_deg", "radius_deg", "frame_m", "frame_eps_offset_deg")
+                          "phi0_deg", "eps0_deg", "radius_deg", "half_width_deg", "half_height_deg", "rot_deg",
+                          "frame_m", "frame_eps_offset_deg")
 MASK_CACHE_SIZE = P.get(_T + "mask_cache_size")   # sector masks kept per sphere raster (the same sector is masked several times per run)
 
 
@@ -321,6 +322,8 @@ class Sphere:
             p, e = np.radians(phi), np.radians(eps)
             cosang = np.sin(e) * math.sin(e0) + np.cos(e) * math.cos(e0) * np.cos(p - p0)
             return np.degrees(np.arccos(np.clip(cosang, -1, 1))) <= rad
+        if shape == "rect":
+            return rect_mask(sec, phi, eps)
         p1, p2 = sec["phi_min_deg"] % 360.0, sec["phi_max_deg"] % 360.0
         if sec["phi_max_deg"] - sec["phi_min_deg"] >= 360.0:
             mphi = np.ones(phi.shape, bool)
@@ -329,6 +332,44 @@ class Sphere:
         else:
             mphi = (phi >= p1) | (phi <= p2)
         return mphi & (eps >= sec["eps_min_deg"] + eps_off) & (eps <= sec["eps_max_deg"] + eps_off)
+
+
+def rect_mask(sec: dict, phi: np.ndarray, eps: np.ndarray) -> np.ndarray:
+    """A watched volume of shape "rect" (user, 10 November 2026: a patch of sky in real space, the same shape
+    wherever it lies, no pole): its centre (phi0_deg, eps0_deg) in the sector's frame, half_width_deg across and
+    half_height_deg up / down measured on the sky in the frame of its centre (X the centre, Y east, Z north, turned
+    by rot_deg about the centre): a direction is in it when its azimuth from the centre's meridian and its elevation
+    over the centre's great circle are within the half-openings. phi, eps: the directions in the sector's frame."""
+    p0, e0 = math.radians(sec["phi0_deg"]), math.radians(sec["eps0_deg"])
+    c = np.array([math.cos(e0) * math.cos(p0), math.cos(e0) * math.sin(p0), math.sin(e0)])
+    east = np.array([-math.sin(p0), math.cos(p0), 0.0])
+    north = np.cross(c, east)
+    r = math.radians(float(sec.get("rot_deg", 0.0)))
+    e1, n1 = math.cos(r) * east + math.sin(r) * north, -math.sin(r) * east + math.cos(r) * north
+    p, e = np.radians(phi), np.radians(eps)
+    d = np.stack([np.cos(e) * np.cos(p), np.cos(e) * np.sin(p), np.sin(e)], axis=-1)
+    x, y, z = d @ c, d @ e1, d @ n1
+    az = np.degrees(np.arctan2(y, x))
+    el = np.degrees(np.arcsin(np.clip(z, -1.0, 1.0)))
+    return (np.abs(az) <= float(sec["half_width_deg"])) & (np.abs(el) <= float(sec["half_height_deg"]))
+
+
+def split_by_face(sph: "Sphere", sec_ship: dict, eps_min: float = -90.0, eps_max: float = 90.0) -> dict:
+    """E2 (user, 10 November 2026): a watched volume (sec_ship: the sector resolved in the ship frame at the
+    navigation's instant, core/frames.resolve_sector) split into the volumes the faces execute: {"faces": {k: share
+    of the volume's solid angle that face k scans}, "hole": share no face scans (scan limits, eps window), "sr": the
+    volume's solid angle}. The executed volumes change with the attitude, the watched one does not."""
+    m = sph.mask(sec_ship)
+    tot = float((sph.d_omega * m).sum())
+    if tot <= 0.0:
+        return {"faces": {}, "hole": 0.0, "sr": 0.0}
+    scanned = sph.scanned(eps_min, eps_max)
+    faces = {}
+    for k in range(len(FACE_PHI)):
+        share = float((sph.d_omega * (m & scanned & (sph.owner == k))).sum()) / tot
+        if share > 0.0:
+            faces[k] = share
+    return {"faces": faces, "hole": max(0.0, 1.0 - sum(faces.values())), "sr": tot}
 
 
 def grid_spacing(sec: dict) -> float:

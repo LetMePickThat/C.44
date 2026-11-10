@@ -68,6 +68,23 @@ class ScenarioLink:
         return nav, sky, list(frames.sky_nav_alerts(sky, frames.parse_nav([nav])))
 
 
+def check_scenario(path: str) -> None:
+    """LinkError when the file is not a scenario (before offering to compute its run): a mission file is said as such
+    (10 November 2026: a mission picked in "Load scenario..." offered a run that could only fail)."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError) as exc:
+        raise LinkError(f"{os.path.basename(path)}: {exc}") from None
+    if isinstance(data, dict) and "sectors" in data and "ship" not in data:
+        raise LinkError(f"{os.path.basename(path)} is a mission file, not a scenario: open it with File > Open... "
+                        "(its scenario, if it names one, is reopened with it)")
+    try:
+        srun.load_scenario(path)
+    except scn.ScenarioError as exc:
+        raise LinkError(f"{os.path.basename(path)} is not a valid scenario: {exc}") from None
+
+
 def journal_path(path: str) -> str:
     """The journal of the scenario at path (next to it, sim/engine.journal_paths)."""
     return engine.journal_paths(path)[0]

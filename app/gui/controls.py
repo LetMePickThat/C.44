@@ -11,7 +11,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from PyQt5.QtCore import QEvent, QObject, QRect, QSize, Qt
 from PyQt5.QtGui import QColor, QIcon, QPainter, QPalette, QPen
-from PyQt5.QtWidgets import (QCheckBox, QFrame, QHBoxLayout, QHeaderView, QLabel, QMenu, QMessageBox, QSlider,
+from PyQt5.QtWidgets import (QAbstractScrollArea, QAbstractSpinBox, QApplication, QComboBox, QCheckBox, QFrame, QHBoxLayout, QHeaderView, QLabel, QMenu, QMessageBox, QSlider,
                              QStyle, QStyleOptionSlider, QTableWidget, QTableWidgetItem, QToolButton, QToolTip,
                              QWidget, QWidgetAction)
 
@@ -54,6 +54,29 @@ def confirm_discard(parent: QWidget, tool: str, modified: bool) -> bool:
         return True
     return QMessageBox.question(parent, tool, "Discard the unsaved changes?",
                                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes
+
+
+class _WheelScrollsPage(QObject):
+    """The wheel never changes a value (user, 10 November 2026: scrolling the mission preparation's long columns kept
+    changing the spin box or list under the pointer): over a spin box, a list or a slider it scrolls the page that
+    holds it, as anywhere else; the values change by the keyboard, the arrows or the mouse."""
+
+    def eventFilter(self, obj, event) -> bool:
+        if event.type() != QEvent.Wheel or not isinstance(obj, (QAbstractSpinBox, QComboBox, QSlider)):
+            return False
+        w = obj.parentWidget()
+        while w is not None and not isinstance(w, QAbstractScrollArea):
+            w = w.parentWidget()
+        if w is not None:
+            QApplication.sendEvent(w.viewport(), event)   # (the page scrolls)
+        return True                                       # (the value stays)
+
+
+def wheel_scrolls_page(app: QApplication) -> QObject:
+    """Installs _WheelScrollsPage on the application; keep the returned object alive."""
+    f = _WheelScrollsPage(app)
+    app.installEventFilter(f)
+    return f
 
 
 def show_about(parent: QWidget, tool: str) -> None:

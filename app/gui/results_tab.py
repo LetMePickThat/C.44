@@ -399,7 +399,8 @@ class ResultsTab(QWidget):
         v = QVBoxLayout(box)
         self.table_sectors = QTableWidget()
         cols = ["id", "status", "WF", "energy % (worst face)", "time on air % (worst face)",
-                "worst range (km)", "best range (km)", "target RR (s)", "RR alone (s)", "RR in mission (s)", "flags"]
+                "worst range (km)", "best range (km)", "target RR (s)", "RR alone (s)", "RR in mission (s)",
+                "executed by face / hole", "flags"]
         self.table_sectors.setColumnCount(len(cols))
         self.table_sectors.setHorizontalHeaderLabels(cols)
         self.table_sectors.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
@@ -559,12 +560,26 @@ class ResultsTab(QWidget):
         self.view.set_hidden(self._hidden_sectors)
 
     # ------------------------------------------------------------------ tables
+    def _split_text(self, sid: str) -> str:
+        """E4 (user, 10 November 2026): the watched volume's executed volumes, the share of its solid angle each face
+        scans at the mission's attitude, and its coverage hole."""
+        sec = self.sectors_by_id.get(sid)
+        if sec is None:
+            return "-"
+        try:
+            cov = mo.split_by_face(self.grid, sec, self.eps_min, self.eps_max)
+        except (KeyError, TypeError, ValueError):
+            return "-"
+        parts = ", ".join(f"{geo.FACE_NAMES[k]} {100 * v:.0f} %" for k, v in sorted(cov["faces"].items()))
+        return f"{parts or 'none'}; hole {100 * cov['hole']:.0f} %"
+
     def _fill_tables(self) -> None:
         secs = self.result["sectors"]
         self.table_sectors.setRowCount(len(secs))
         for i, r in enumerate(secs):
             if r["status"] != "OK":
-                vals = [r["id"], r["status"], "-", "-", "-", "-", "-", "-", "-", "-", r.get("note", "")]
+                vals = [r["id"], r["status"], "-", "-", "-", "-", "-", "-", "-", "-", self._split_text(r["id"]),
+                        r.get("note", "")]
             else:
                 w, rg = r["wf"], r["range_km"]
                 n_wf = len(r.get("wf_set", [w]))
@@ -575,7 +590,7 @@ class ResultsTab(QWidget):
                         str(rg["at_worst_scan"]), str(rg["at_best_scan"]),
                         f"{r['rr_target_s']:.0f}", f"{r['rr_alone_s']:.0f}",
                         f"{r.get('rr_est_mission_s', r['rr_target_s']):.0f}",
-                        "; ".join(r.get("flags", [])) or "-"]
+                        self._split_text(r["id"]), "; ".join(r.get("flags", [])) or "-"]
             for c, val in enumerate(vals):
                 item = QTableWidgetItem(str(val))
                 if c == 0:   # tick box = show the sector's volume in 3D

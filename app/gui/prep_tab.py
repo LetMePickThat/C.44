@@ -148,7 +148,9 @@ class PrepTab(QWidget):
         splitter = QSplitter(Qt.Horizontal)
         outer.addWidget(splitter)
 
-        self.view = SceneView(self.grid, face_opacity=0.28, sector_opacity=0.5)
+        self.view = SceneView(self.grid, face_opacity=0.28, sector_opacity=0.5, exec_face_colours=True)
+        self.view.instant_source = self._instant                      # the playback (user, 10 November 2026)
+        self.view.use_instant = lambda t: self._set_scn_t_and_apply(t)
         self.view.show_all_sectors.connect(lambda: self._set_all_sectors_visible(True))
         self.view.hide_all_sectors.connect(lambda: self._set_all_sectors_visible(False))
         splitter.addWidget(self.view)
@@ -440,6 +442,13 @@ class PrepTab(QWidget):
             self.lbl_scn_utc.setText(self._link.utc(self.sb_scn_t.value()))
             self.lbl_scn_alerts.setText("; ".join(self._link.stale))
 
+    def _set_scn_t_and_apply(self, t: float) -> None:
+        """"Use this instant": the mission's instant set to the one shown, its navigation and sky applied."""
+        if self._link is None or self.locked:
+            return
+        self._set_scn_t(t)
+        self._apply_scenario_t()
+
     def _on_scn_t(self, t: float) -> None:
         self.sl_scn_t.blockSignals(True)
         self.sl_scn_t.setValue(int(round(10 * t)))
@@ -452,6 +461,7 @@ class PrepTab(QWidget):
         """The scenario's run, computed first when missing (or recomputed when stale) if the user agrees (ask);
         None when not available (said when ask)."""
         try:
+            slink.check_scenario(path)                    # (a mission or an invalid file: said, no run offered)
             if not os.path.exists(slink.journal_path(path)):
                 if not ask:
                     self._link_problem = f"no run computed for {os.path.basename(path)}"
@@ -692,8 +702,9 @@ class PrepTab(QWidget):
                                      "duplicate or delete it (Del key)")
         # B14 (user, 29 October 2026): "+" over the list adds a sector; right-click and the Del key on a sector
         add = QMenu(self)
-        add.addAction("Box sector", lambda: self._add_sector("box"))
+        add.addAction("Watched volume (rect, real space)", lambda: self._add_sector("rect"))
         add.addAction("Cap sector", lambda: self._add_sector("cap"))
+        add.addAction("Box sector (phi / eps limits)", lambda: self._add_sector("box"))
         self.btn_add_sector = uc.menu_button("+", add, tip="Add a watch sector", arrow=False)
         self._edit_widgets.append(self.btn_add_sector)
         head = QHBoxLayout()
@@ -729,7 +740,10 @@ class PrepTab(QWidget):
         self.ed_id.setEditable(True)
         self.ed_id.editTextChanged.connect(self._on_id_changed)
         self.cb_shape = QComboBox()
-        self.cb_shape.addItems(["box", "cap"])
+        self.cb_shape.addItems(list(md.SHAPES))
+        self.cb_shape.setToolTip("rect: a watched volume in real space, a centre and half-openings measured on the "
+                                 "sky (the same shape wherever it lies); cap: a cone about a centre; box: limits in "
+                                 "phi and eps of the frame (narrows toward its poles: for the ship frame)")
         self.cb_shape.currentTextChanged.connect(self._on_shape_changed)
         self.cb_frame = QComboBox()
         self.cb_frame.addItems(frames.FRAMES)
@@ -787,6 +801,18 @@ class PrepTab(QWidget):
         fc.addRow("eps0 (deg)", self.sb_eps0)
         fc.addRow("radius (deg)", self.sb_radius)
         v.addWidget(self.grp_cap)
+
+        self.grp_rect = QGroupBox("Zone (rect: centre and half-openings)")
+        fr_ = QFormLayout(self.grp_rect)
+        self.sb_rect = {k: self._spin(lo, hi, 1, md.SECTOR_DEFAULTS_RECT[k]) for k, lo, hi in (
+            ("phi0_deg", 0, 360), ("eps0_deg", -90, 90), ("half_width_deg", 0.1, 180),
+            ("half_height_deg", 0.1, 90), ("rot_deg", -180, 180))}
+        for k, text in (("phi0_deg", "centre phi0 (deg)"), ("eps0_deg", "centre eps0 (deg)"),
+                        ("half_width_deg", "half width (deg)"), ("half_height_deg", "half height (deg)"),
+                        ("rot_deg", "rotation (deg)")):
+            fr_.addRow(text, self.sb_rect[k])
+        self.grp_rect.setVisible(False)
+        v.addWidget(self.grp_rect)
 
         common = QFormLayout()
         # step 5.1: target class of the library (its values shown; an edited RCS / Swerling becomes an override)
@@ -871,7 +897,7 @@ class PrepTab(QWidget):
         for sb in (self.sb_phi_min, self.sb_phi_max, self.sb_box_eps_min, self.sb_box_eps_max,
                    self.sb_phi0, self.sb_eps0, self.sb_radius, self.sb_rcs, self.sb_range,
                    self.sb_rr, self.sb_vmin, self.sb_vmax, self.sb_limb_alt, *self.sb_two_dir.values(),
-                   *self.sb_track.values()):
+                   *self.sb_track.values(), *self.sb_rect.values()):
             sb.valueChanged.connect(self._on_field_changed)
         self.grp_limb.setVisible(False)
         self.grp_two_dir.setVisible(False)
@@ -1102,7 +1128,8 @@ class PrepTab(QWidget):
             for w in (self.ed_id, self.cb_shape, self.cb_frame, self.grp_limb, self.grp_two_dir, self.grp_track,
                       self.sb_rcs,
                       self.sb_swerling, self.sb_range,
-                      self.sb_rr, self.sb_vmin, self.sb_vmax, self.cb_rx_sll, self.grp_box, self.grp_cap, self.grp_at):
+                      self.sb_rr, self.sb_vmin, self.sb_vmax, self.cb_rx_sll, self.grp_box, self.grp_cap, self.grp_rect,
+                      self.grp_at):
                 w.setEnabled(enabled)
             self._fill_at_table(sec)
             if not sec:
@@ -1112,6 +1139,9 @@ class PrepTab(QWidget):
             self.cb_shape.setCurrentText(shape)
             self.grp_box.setVisible(shape == "box")
             self.grp_cap.setVisible(shape == "cap")
+            self.grp_rect.setVisible(shape == "rect")
+            for k, sb in self.sb_rect.items():
+                sb.setValue(sec.get(k, md.SECTOR_DEFAULTS_RECT[k]))
             fr = sec.get("frame", "ship")
             self.cb_frame.setCurrentText(fr)
             self.grp_limb.setVisible(fr == "limb")
@@ -1228,6 +1258,7 @@ class PrepTab(QWidget):
         sec["shape"] = shape
         self.grp_box.setVisible(shape == "box")
         self.grp_cap.setVisible(shape == "cap")
+        self.grp_rect.setVisible(shape == "rect")
         self._sync_form_to_model()
 
     def _on_frame_changed(self, fr: str) -> None:
@@ -1290,18 +1321,25 @@ class PrepTab(QWidget):
                 sec[k] = sb.value()
             else:
                 sec.pop(k, None)
+        rect_keys = tuple(self.sb_rect)
         if sec["shape"] == "box":
             sec["phi_min_deg"] = self.sb_phi_min.value()
             sec["phi_max_deg"] = self.sb_phi_max.value()
             sec["eps_min_deg"] = self.sb_box_eps_min.value()
             sec["eps_max_deg"] = self.sb_box_eps_max.value()
-            for f in ("phi0_deg", "eps0_deg", "radius_deg"):
+            for f in ("phi0_deg", "eps0_deg", "radius_deg") + rect_keys:
+                sec.pop(f, None)
+        elif sec["shape"] == "rect":
+            for k, sb in self.sb_rect.items():
+                sec[k] = sb.value()
+            for f in ("phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg", "radius_deg"):
                 sec.pop(f, None)
         else:
             sec["phi0_deg"] = self.sb_phi0.value()
             sec["eps0_deg"] = self.sb_eps0.value()
             sec["radius_deg"] = self.sb_radius.value()
-            for f in ("phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg"):
+            for f in ("phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg", "half_width_deg",
+                      "half_height_deg", "rot_deg"):
                 sec.pop(f, None)
         # a class sector keeps its class values until the operator edits them (they then become sector overrides)
         if sec.get("target_type") is None or self.sb_rcs.value() != getattr(self, "_target_shown", (None, None))[0]:
@@ -1366,7 +1404,29 @@ class PrepTab(QWidget):
         self._update_alerts(eps_min, eps_max)
         self._update_scene(eps_min, eps_max)
 
+    def _instant(self, t: float) -> tuple:
+        """The playback's display at t (user, 10 November 2026): the sectors resolved with the linked scenario's
+        navigation at t, and that global (nav and sky at t); the mission unchanged."""
+        nav, sky, _alerts = self._link.nav_sky(t)
+        g = dict(self.mission["global"], nav=[nav], sky=sky)
+        draws = []
+        for i, sec in enumerate(self.mission["sectors"]):
+            if frames.validate_sector(sec, g, ""):
+                continue
+            try:
+                ship = frames.resolve_sector(sec, g)
+            except (KeyError, TypeError, ValueError):
+                continue
+            draws.append(SectorDraw(self._draw_sid(i, sec), ship, geo.sector_color(i), self._sector_text(sec)))
+        return draws, g
+
+    def _sector_text(self, sec: dict) -> str:
+        return (f"{sec.get('id', '?')}\nR={sec.get('range_km', 0):.0f} km  RCS={sec.get('rcs_m2', 0):g} m2\n"
+                f"RR={sec.get('rr_target_s', 0):.0f} s  V={sec.get('v_close_min_mps', 0):.0f}"
+                f"-{sec.get('v_close_max_mps', 0):.0f} m/s")
+
     def _update_scene(self, eps_min: float, eps_max: float) -> None:
+        self.view.set_mission_global(self.mission["global"])
         draws = []
         for i, sec in enumerate(self.mission["sectors"]):
             sid = self._draw_sid(i, sec)
@@ -1383,13 +1443,18 @@ class PrepTab(QWidget):
         p_avg_max = rm.face_elec_avail_w(rm.FACE_ELEC_POWER_MW)       # the optimiser's reference (step 4.1)
         self._unreachable = {}
         self._at_unreachable = {}
+        try:                                                          # the sky in the ship frame: the ground rule
+            sky_ship = frames.resolve(self.mission)[0].get("global", {}).get("sky")
+        except (ValueError, KeyError, TypeError):
+            sky_ship = None
         if self.cost_table is not None:
             for sec in self.mission["sectors"]:
                 ship = self._ship_sector(sec)
                 if ship is None:
                     continue
                 try:
-                    faces = ce.estimate_sector_faces(self.cost_table, ship, self.grid, eps_min, eps_max, p_avg_max)
+                    faces = ce.estimate_sector_faces(self.cost_table, ship, self.grid, eps_min, eps_max, p_avg_max,
+                                                     sky=sky_ship)
                 except (KeyError, TypeError, ZeroDivisionError):
                     continue
                 worst = 0.0
@@ -1462,11 +1527,11 @@ class PrepTab(QWidget):
             except (KeyError, TypeError):
                 continue
             masks[sid] = m
-            tot_om = float((self.grid.d_omega * m).sum())
-            scanned_om = float((self.grid.d_omega * (m & scanned_all)).sum())
-            if tot_om > 0 and scanned_om / tot_om < 0.995:
-                pct = 100 * (1 - scanned_om / tot_om)
-                self.list_alerts.addItem(f"{sid}: {pct:.0f} % outside the scanned zone (scan limit or eps window)")
+            cov = mo.split_by_face(self.grid, ship, eps_min, eps_max)    # E2: the executed volumes per face
+            if cov["sr"] > 0 and cov["hole"] > 0.005:
+                parts = ", ".join(f"{geo.FACE_NAMES[k]} {100 * s:.0f} %" for k, s in sorted(cov["faces"].items()))
+                self.list_alerts.addItem(f"{sid}: coverage hole {100 * cov['hole']:.0f} % (no face scans it at this "
+                                         f"attitude: scan limits or eps window){'; executed: ' + parts if parts else ''}")
             if sid in self._unreachable:
                 self.list_alerts.addItem(f"{sid}: {self._unreachable[sid]:.0f} % of positions can't reach the "
                                          "required range even at full power (budget shown is a floor, not the real cost)")

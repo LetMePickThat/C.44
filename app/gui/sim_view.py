@@ -1162,6 +1162,7 @@ class SimView(QWidget):
         no manoeuvre node."""
         super().__init__(parent)
         self.read_only = read_only
+        self.range_gauge = False                  # the mission preparation's range gauge (user, 10 November 2026)
         prefetch_maps()                                # E3: the maps decoded while the window opens
         self.grid = grid or cgeo.SphereGrid(float(P.get("tool.display.grid_res_deg")))
         self.get_path = get_path
@@ -4378,28 +4379,74 @@ class SimView(QWidget):
             else:
                 m2.setdefault("global", {})["nav"] = msg
             m2["global"].pop("sky", None)
-            res, _ = frames.resolve(m2)
+            frames.parse_nav(m2["global"].get("nav"))     # (a navigation the model refuses: no volume at all)
         except (OSError, ValueError, KeyError) as exc:
             self.status.setText(f"mission volumes: {exc}")
             return
+        # each sector resolved alone (10 November 2026): a sector its frame refuses at t (a limb above the ship) is
+        # left out and said, the others drawn
+        resolved, skipped = [], []
+        for i, sec_raw in enumerate(m2.get("sectors", [])):
+            errs = frames.validate_sector(sec_raw, m2["global"], str(sec_raw.get("id", f"#{i + 1}")))
+            try:
+                resolved.append(None if errs else frames.resolve_sector(sec_raw, m2["global"]))
+            except (ValueError, KeyError, TypeError) as exc:
+                errs = [str(exc)]
+                resolved.append(None)
+            if errs:
+                skipped.append(errs[0])
+        res = {"global": m2["global"], "sectors": resolved}
+        if skipped:
+            self.status.setText("mission volumes not drawn: " + "; ".join(skipped))
         self._clear_volumes()
         gl = res.get("global", {})
         e0, e1 = float(gl.get("eps_min_deg", -90.0)), float(gl.get("eps_max_deg", 90.0))
+        try:                                         # the sky at t in the ship frame: the ground rule (P4 Q9)
+            sky_ship = engine.sky_at(self.sc, self.truth, self.t) if self.truth is not None else None
+        except Exception:  # noqa: BLE001 -- no sky: the volumes at their full range
+            sky_ship = None
         vol = {"actors": [], "frames": [], "per_sector": [], "centres": [], "texts": []}
+        alloc = None
+        if self.range_gauge:                         # gauge (c): the final allocation rule over every volume (R2)
+            from core import cost_estimate as ce
+            table = ce.cached_table()
+            secs = [{**sec, "id": raw.get("id") or f"_idx{i}"}
+                    for i, (raw, sec) in enumerate(zip(mis.get("sectors", []), res.get("sectors", []))) if sec is not None]
+            try:
+                alloc = ce.live_allocation(table, secs, self.grid, e0, e1, sky_ship, gl) if table is not None else None
+            except Exception:  # noqa: BLE001 -- the rule refuses a mission mid-edit: no gauge
+                alloc = None
         for i, (raw, sec) in enumerate(zip(mis.get("sectors", []), res.get("sectors", []))):
+            if sec is None:
+                continue
             if (raw.get("id") or f"_idx{i}") in self._hidden_ids:
                 continue
+            # E3 (user, 10 November 2026): the executed volumes, one per face in its colour, and the outline of
+            # the WHOLE watched volume at its range in the sector's colour (its coverage hole: inside it, not filled)
             try:
-                poly, outline = cgeo.build_sector_volume_km(self.grid, sec, e0, e1)
+                ratio_of = (cgeo.held_ratio_function(self.grid, sec, e0, e1, sky_ship, alloc, raw.get("id") or f"_idx{i}")
+                            if self.range_gauge else None)
+                if ratio_of is not None:                     # the range gauge (km): held range, shortfall
+                    green, red = cgeo.build_range_gauge(self.grid, sec, ratio_of, float(sec["range_km"]))
+                    parts = [("green", green, None), ("red", red, None)]
+                    outline = cgeo.build_sector_outline_km_smooth(self.grid, sec)
+                else:
+                    parts, outline = cgeo.build_sector_volumes_km_smooth(self.grid, sec, e0, e1, sky_ship)
+                    parts = [(k, p_, None) for k, p_ in parts]
             except (KeyError, TypeError, ValueError):
                 continue
             col = cgeo.sector_color(i)
             acts = []
-            if poly.n_points:
-                acts.append(self.plotter.add_mesh(poly, color=col, opacity=0.2, culling=None,
-                                                  name=f"{VOL}{i}_s", render=False))
+            for k, poly_k, _out_k in parts:
+                if poly_k.n_points:
+                    color = {"green": cgeo.GAUGE_GREEN, "red": cgeo.GAUGE_RED}.get(k) or cgeo.FACE_COLORS[k]
+                    gauge = k in ("green", "red")                 # (gauge: unlit, its colours kept at any range)
+                    acts.append(self.plotter.add_mesh(poly_k, color=color, opacity=0.5 if gauge else 0.2, culling=None,
+                                                      lighting=not gauge, name=f"{VOL}{i}_s{k}", render=False))
             if outline.n_points:
                 acts.append(self.plotter.add_mesh(outline, color=col, line_width=2, name=f"{VOL}{i}_o", render=False))
+            polys = [p_ for _k, p_, _o in parts if p_.n_points]
+            poly = polys[0] if polys else pv.PolyData()
             m_ref, off_ref = frames.sector_matrix(raw, nav)
             vol["frames"].append((raw, np.eye(3) if m_ref is None else m_ref, off_ref))
             vol["per_sector"].append(acts)

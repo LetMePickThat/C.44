@@ -1,0 +1,161 @@
+{
+  "global": {
+    "eps_min_deg": -90.0,
+    "eps_max_deg": 90.0,
+    "face_elec_mw": 0.0,
+    "nav": [
+      {
+        "label": "Jauge de portee - orbite basse terrestre, nez prograde puis lacet 90 deg a mi-orbite t = 0 s",
+        "epoch": "2050-03-20T00:00:00Z",
+        "q_ship_to_icrf": [
+          0.0,
+          0.0,
+          0.3288666467385832,
+          0.9443763702374811
+        ],
+        "central_body": "earth",
+        "r_km": [
+          6778.0,
+          0.0,
+          0.0
+        ],
+        "v_kms": [
+          0.0,
+          4.763356027412082,
+          6.009859605267923
+        ],
+        "w_ship_dps": [
+          3.7354489474414503e-08,
+          0.05842593848951738,
+          -7.030324158394579e-12
+        ]
+      }
+    ],
+    "sky": {
+      "bodies": [
+        {
+          "id": "SUN",
+          "type": "sun",
+          "phi_deg": 179.471325037,
+          "eps_deg": -0.988487033,
+          "angular_radius_deg": 0.267631814
+        },
+        {
+          "id": "EARTH",
+          "type": "earth",
+          "phi_deg": 0.0,
+          "eps_deg": -0.000501258,
+          "angular_radius_deg": 70.043629352,
+          "closing_mps": -0.006622,
+          "closing_spread_mps": 7208.155486
+        },
+        {
+          "id": "MOON",
+          "type": "moon",
+          "phi_deg": 150.137054183,
+          "eps_deg": -34.916301801,
+          "angular_radius_deg": 0.278625047,
+          "closing_mps": -4343.37642,
+          "closing_spread_mps": 26.711576
+        }
+      ],
+      "galactic": {
+        "pole_phi_deg": 26.809193331,
+        "pole_eps_deg": 13.551354044,
+        "centre_phi_deg": 81.86689608,
+        "centre_eps_deg": -67.177644517
+      }
+    }
+  },
+  "sectors": [
+    {
+      "shape": "rect",
+      "phi0_deg": 0.0,
+      "eps0_deg": 0.0,
+      "half_width_deg": 30.0,
+      "half_height_deg": 20.0,
+      "rot_deg": 0.0,
+      "rcs_m2": 1000.0,
+      "swerling": 1,
+      "range_km": 8000.0,
+      "rr_target_s": 30.0,
+      "v_close_min_mps": 1000.0,
+      "v_close_max_mps": 5000.0,
+      "confirm_mode": "auto",
+      "new_targets_per_rr": 1.0,
+      "rx_sll_db": -25.0,
+      "fa_per_rr": 10.0,
+      "frame": "inertial",
+      "surface_guard_km": 10.0,
+      "tracking": [],
+      "id": "S01"
+    },
+    {
+      "shape": "rect",
+      "phi0_deg": 180.0,
+      "eps0_deg": 30.0,
+      "half_width_deg": 25.0,
+      "half_height_deg": 20.0,
+      "rot_deg": 0.0,
+      "rcs_m2": 1000.0,
+      "swerling": 1,
+      "range_km": 3000.0,
+      "rr_target_s": 30.0,
+      "v_close_min_mps": 1000.0,
+      "v_close_max_mps": 5000.0,
+      "confirm_mode": "auto",
+      "new_targets_per_rr": 1.0,
+      "rx_sll_db": -25.0,
+      "fa_per_rr": 10.0,
+      "frame": "inertial",
+      "surface_guard_km": 10.0,
+      "tracking": [],
+      "id": "S02"
+    },
+    {
+      "shape": "box",
+      "phi_min_deg": 0.0,
+      "phi_max_deg": 360.0,
+      "eps_min_deg": 0.0,
+      "eps_max_deg": 5.0,
+      "rcs_m2": 1000.0,
+      "swerling": 1,
+      "range_km": 3000.0,
+      "rr_target_s": 10.0,
+      "v_close_min_mps": 1000.0,
+      "v_close_max_mps": 5000.0,
+      "confirm_mode": "auto",
+      "new_targets_per_rr": 1.0,
+      "rx_sll_db": -25.0,
+      "fa_per_rr": 10.0,
+      "frame": "limb",
+      "surface_guard_km": 10.0,
+      "tracking": [],
+      "id": "S03"
+    },
+    {
+      "shape": "cap",
+      "phi0_deg": 0.0,
+      "eps0_deg": 80.0,
+      "radius_deg": 20.0,
+      "rcs_m2": 1000.0,
+      "swerling": 1,
+      "range_km": 300.0,
+      "rr_target_s": 2.0,
+      "v_close_min_mps": 1000.0,
+      "v_close_max_mps": 5000.0,
+      "confirm_mode": "auto",
+      "new_targets_per_rr": 1.0,
+      "rx_sll_db": -25.0,
+      "fa_per_rr": 10.0,
+      "frame": "ship",
+      "surface_guard_km": 10.0,
+      "tracking": [],
+      "id": "S04"
+    }
+  ],
+  "scenario_link": {
+    "path": "gauge_demo.json",
+    "t_s": 0.0
+  }
+}

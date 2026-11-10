@@ -39,6 +39,8 @@ def main() -> int:
     set_app_id()
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon(ICON))         # the window's title bar and the taskbar (user, 30 October 2026)
+    from gui import controls as uc
+    app._wheel = uc.wheel_scrolls_page(app)   # the wheel scrolls the page, never changes a value (user, 10 Nov 2026)
     win = ScenarioWindow(sys.argv[1] if len(sys.argv) > 1 else None)
     win.show_default()                     # maximised on its screen
     return app.exec_()
