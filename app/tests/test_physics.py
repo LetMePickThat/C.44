@@ -3767,3 +3767,64 @@ def test_intermittent_filter_and_kappa():
     s2 = st.with_kappa(4.0)
     assert s2.kappa == 4.0 and s2.noise_theta == pytest.approx(st.noise_theta / 2.0)
     assert s2.p_cross is st.p_cross and st.kappa == 1.0
+
+
+# ----------------------------------------------------------------------------- time profile (option A, pass T1)
+from core import time_profile as tprof  # noqa: E402
+
+
+def test_profile_availability_and_longest_outage():
+    """P3 (user, 10 November 2026): each instant holds until the middle of the next interval; shares of the time held /
+    degraded / lost, the longest run of lost instants and its ratio to the revisit asked."""
+    ts = [0.0, 10.0, 20.0, 30.0, 40.0]
+    st = ["held", "lost", "lost", "degraded", "held"]
+    a = tprof.availability(ts, 40.0, st, 5.0, [0.0, 0.5, 1.0, 0.0, 0.2])
+    # durations: 5, 10, 10, 10, 5 (of 40); covered 1, 0.5, 0, 1, 0.8
+    assert a["covered_mean"] == pytest.approx((5 + 5 + 0 + 10 + 4) / 40) and a["covered_min"] == 0.0
+    assert a["held"] == pytest.approx(10 / 40) and a["lost"] == pytest.approx(20 / 40)
+    assert a["degraded"] == pytest.approx(10 / 40)
+    assert a["longest_outage_s"] == pytest.approx(20.0) and a["outage_over_rr"] == pytest.approx(4.0)
+
+
+def test_profile_events_and_flags():
+    """P4, P5: a state worse than before, or a range down by more than flag_drop_db in energy, flags the instant;
+    at most flag_max of them, the worst first; every state change is an event."""
+    ts = [0.0, 10.0, 20.0, 30.0]
+    vols = {"A": {"state": ["held", "degraded", "degraded", "held"], "rho": [1.0, 0.95, 0.85, 1.0]},
+            "B": {"state": ["held", "held", "held", "held"], "rho": [1.0, 1.0, 1.0, 1.0]}}
+    ev = tprof.events(ts, vols)
+    what = [(e["t_s"], e["object"], e["what"], e["flagged"]) for e in ev]
+    assert (10.0, "A", "held -> degraded", True) in what and (30.0, "A", "degraded -> held", False) in what
+    drop = 40.0 * math.log10(0.95 / 0.85)                      # 1.93 dB > 0.5: flagged without a state change
+    assert drop > tprof.FLAG_DROP_DB and any(e["t_s"] == 20.0 and e["flagged"] for e in ev)
+    assert not any(e["object"] == "B" for e in ev)
+
+
+def test_profile_sampling_keeps_turns_and_the_time_step():
+    """P1: the journal's instants kept at least every sample_max_s, at each attitude waypoint, and when the attitude
+    has turned by sample_turn_deg (a fake scenario turning 0.1 deg/s about Z after t = 300 s, a still orbit)."""
+    import types
+
+    class FakeNav:
+        def __init__(self, sc, truth):
+            pass
+
+        def state(self, t):
+            a = math.radians(0.1 * max(0.0, t - 300.0))
+            m = np.array([[math.cos(a), -math.sin(a), 0.0], [math.sin(a), math.cos(a), 0.0], [0.0, 0.0, 1.0]])
+            return m, np.zeros(3), np.array([7000.0, 0.0, 0.0]), np.zeros(3)
+    truth = types.SimpleNamespace(t_s=np.arange(0.0, 601.0, 1.0), body=types.SimpleNamespace(radius_km=6371.0))
+    link = types.SimpleNamespace(truth=truth, sc={"ship": {"attitude": [{"t_s": 0.0}, {"t_s": 300.0}]}})
+    from sim import engine
+    real = engine.Navigation
+    engine.Navigation = FakeNav
+    try:
+        ts = tprof.sample_instants(link)
+    finally:
+        engine.Navigation = real
+    gaps = np.diff(ts)
+    assert ts[0] == 0.0 and ts[-1] == 600.0 and 300.0 in ts and gaps.max() <= tprof.SAMPLE_MAX_S + 1e-9
+    after = [t for t in ts if t > 300.0]       # 2 deg at 0.1 deg/s: every 20 s once turning (+ one journal step of 1 s:
+    assert np.diff(after).max() <= 21.0 + 1e-9 and np.diff(after).max() < 30.0   # 2.0 deg reached within rounding)
+    assert len([t for t in ts if t < 300.0]) == 5
+

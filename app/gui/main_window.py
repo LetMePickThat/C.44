@@ -26,6 +26,7 @@ from core.params import P
 from gui import controls as uc
 from gui.results_tab import ResultsTab
 from gui.prep_tab import PrepTab
+from gui.profile_tab import ProfileTab
 
 GRID_RES_DEG = P.get("tool.display.grid_res_deg")   # direction-sphere raster of the 3D views and the fast estimate (shared by both tabs)
 
@@ -60,7 +61,7 @@ class OptimizeWorker(QThread):
 TITLE = "Radar Mission Preparation"
 WINDOW_SIZE = tuple(int(x) for x in P.get("tool.display.window_size"))   # at start (user)
 FRAME_MARGIN = (16, 48)                          # px kept for the window frame and its title bar
-PREP_TAB, RESULTS_TAB = range(2)                 # the working modes, in order
+PREP_TAB, PROFILE_TAB, RESULTS_TAB = range(3)    # the working modes, in order (Profile: option A, 10 Nov 2026)
 MODE_STYLE = ("QTabBar {qproperty-drawBase: 0} QTabBar::tab {padding: 5px 14px; border: 1px solid #c8c8c8;"
               " background: #f6f6f6; margin-right: -1px}"
               " QTabBar::tab:selected {background: #2b579a; color: white; border-color: #2b579a}"
@@ -106,8 +107,12 @@ class MainWindow(QMainWindow):
         hl.addStretch(1)
         hl.addLayout(self.actions_box)
         self._add_mode("Mission preparation", self.prep, [self.prep.file_label], self.prep.b_run)
+        # the mission along its linked scenario's flight plan (option A, passes T1-T3, user 10 November 2026)
+        self.profile = ProfileTab(lambda: (self.prep.mission, getattr(self.prep, "_link", None), self.prep.path))
+        self.profile.instant_picked.connect(self._on_profile_instant)
+        self._add_mode("Profile", self.profile, [], None)
         self.modes.setTabsClosable(True)
-        for index in (PREP_TAB,):                           # only the results can be closed
+        for index in (PREP_TAB, PROFILE_TAB):               # only the results can be closed
             for side in (QTabBar.LeftSide, QTabBar.RightSide):
                 self.modes.setTabButton(index, side, None)
         self.modes.tabCloseRequested.connect(self._on_tab_close_requested)
@@ -157,6 +162,8 @@ class MainWindow(QMainWindow):
             return
         mode = self._modes[index]
         self.work.setCurrentWidget(mode["widget"])
+        if mode["widget"] is self.profile:
+            self.profile.refresh_availability()
         shown = set(map(id, mode["status"]))
         for m in self._modes:
             for w in m["status"]:
@@ -275,6 +282,13 @@ class MainWindow(QMainWindow):
         self.prep.set_locked(True)
         self.modes.setCurrentIndex(index)
 
+    def _on_profile_instant(self, t: float) -> None:
+        """A click on the profile: the mission preparation shows that instant of the flight plan."""
+        view = self.prep.view
+        if getattr(view, "_scn_link", None) is not None:
+            view.set_instant(t, heavy=True)
+            self.modes.setCurrentIndex(PREP_TAB)
+
     def _on_tab_close_requested(self, index: int) -> None:
         tab = self._modes[index]["widget"] if 0 <= index < len(self._modes) else None
         if tab is None or tab is not self.results:
@@ -309,6 +323,7 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         self.prep.view.close_views()
+        self.profile.close_worker()
         if self.results is not None:
             self.results.view.close_views()
         super().closeEvent(event)

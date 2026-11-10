@@ -774,6 +774,12 @@ rho_min           = 0.80         # final allocation rule (user, 10 Nov 2026, A2)
 alloc_ratio_bin_db = 0.5        # final allocation rule: shares of a volume scanned by the same faces merged when their cost ratios between faces agree within this (numerical, D)
 confirm_replans   = 4           # final allocation rule, pass R3c (user, 10 Nov 2026; 3 -> 4 the same day: a volume over 4 faces needed one more): exact re-plannings at most of a volume the rule degrades, at rho x R and its revisit tenable, until its level is within 0.005 of 1 (D)
 
+[tool.profile]                # the mission along its linked scenario's flight plan (core/time_profile.py; option A, decisions P1-P5 of the user, 10 Nov 2026)
+sample_turn_deg = 2.0           # P1: an instant kept when the attitude, or the central body seen from the ship, has moved by this
+sample_max_s    = 60.0          # P1: and at least this often
+flag_drop_db    = 0.5           # P4: a range drop (energy, 40 log10 rho) above this flags the instant for the exact computation
+flag_max        = 8             # P5: exact computations at most per profile (the strongest losses first)
+
 [tool.validation]             # step 5.3: verdict and relaxation advice (core/validation.py)
 verify_bisections = 6           # P2: recomputations of the mission bisecting the verified figure of one advice (D, user, 27 Oct 2026)
 
