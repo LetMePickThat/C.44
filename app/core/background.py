@@ -50,6 +50,17 @@ class Tracker:
 
 RELIEF = Tracker("relief", 60.0)
 REDUNDANCY = Tracker("redundancy check", 60.0)
+ESTIMATE = Tracker("estimate", 2.0)          # the fast estimate in its worker process (cost_estimate, 12 Nov 2026)
+_GEN = [0]
+
+
+def bump() -> None:
+    """A background result the views show changed (they are redrawn: core.cost_profile.generation)."""
+    _GEN[0] += 1
+
+
+def generation() -> int:
+    return _GEN[0]
 
 
 def status() -> List[dict]:
@@ -60,7 +71,7 @@ def status() -> List[dict]:
     if pr is not None:
         done, total, frac = pr
         out.append({"label": "cost profiles", "detail": f"{done}/{total}", "fraction": frac})
-    for tr in (RELIEF, REDUNDANCY):
+    for tr in (ESTIMATE, RELIEF, REDUNDANCY):
         p = tr.progress()
         if p is not None:
             out.append({"label": tr.label, "detail": f"x{p[0]}" if p[0] > 1 else "", "fraction": p[1]})
@@ -70,4 +81,5 @@ def status() -> List[dict]:
 def pending() -> int:
     """Background jobs of every kind (the views keep polling while any runs)."""
     from . import cost_profile
-    return cost_profile.pending() + REDUNDANCY.pending()        # (cost_profile.pending counts the reliefs too)
+    return cost_profile.pending() + REDUNDANCY.pending()        # (cost_profile.pending counts the reliefs and the
+                                                                # estimates too)

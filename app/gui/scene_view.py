@@ -868,9 +868,9 @@ class SceneView(QWidget):
         if table is None or self._eps is None:
             return None
         try:
-            return ce.live_allocation(table, [{**d.sec, "id": d.sid} for d in draws], self.grid, *self._eps, sky,
-                                      self._mission_global, calib=self._calib, profiles="background",
-                                      relief="background")
+            return ce.live_allocation_async(table, [{**d.sec, "id": d.sid} for d in draws], self.grid, *self._eps,
+                                            sky, self._mission_global, calib=self._calib, relief="background",
+                                            tag="view")      # (its worker process: the window never waits, 12 Nov)
         except Exception:  # noqa: BLE001 -- a mission mid-edit the rule refuses: no live load
             return None
 
@@ -943,6 +943,12 @@ class SceneView(QWidget):
             for col in self._load_cols.values():
                 col.set_bars(None, "")
             self._load_status.setText("")
+            from core import background                # (the first estimate still in its worker: redrawn when ready)
+            if background.pending() and not getattr(self, "_profile_poll_on", False):
+                from core import cost_profile
+                self._profile_poll_on, self._profile_gen = True, cost_profile.generation()
+                QTimer.singleShot(PROFILE_POLL_MS, self._poll_profiles)
+            self._update_badge()
             return
         if not self._achieved_fixed and a.get("achieved") != self._achieved:     # the labels' second line
             self._achieved = dict(a.get("achieved") or {})

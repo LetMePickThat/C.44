@@ -766,12 +766,23 @@ _RIM_TOL_DEG = 0.25                    # a point of a cut lies on the coverage h
                                        # green walls between the red ones along the dead zone: stripes)
 
 
+def scan_margin(k: int, d: np.ndarray) -> np.ndarray:
+    """Signed margin (deg, > 0 inside) of ship-frame unit directions to face k's scan-limit cone, in front of it --
+    what the face CAN scan (face_margin adds the +/-45 deg planes that share the sphere between the faces)."""
+    sin_lim = math.sin(math.radians(rm.SECTOR_RADIUS_DEG))
+    n, eu, ev = mo.face_frame(FACE_PHI_DEG[k])
+    w, u, v = d @ np.asarray(n), d @ np.asarray(eu), d @ np.asarray(ev)
+    return np.degrees(np.minimum(w, sin_lim - np.sqrt(u * u + v * v)))
+
+
 def _coverage_margin(d: np.ndarray, eps_win) -> np.ndarray:
-    """Signed margin (deg, > 0 covered) of unit directions to the faces' coverage (any face's zone, the eps window)."""
+    """Signed margin (deg, > 0 covered) of unit directions to the faces' coverage: some face's scan-limit cone, the
+    eps window (user, 12 November 2026: with the faces' shared zones, a seam between two faces had a margin 0 and was
+    taken for the dead zone's edge: walls left out there, dark stripes on a cone, red lines down to the ship)."""
     d = np.asarray(d, float).reshape(-1, 3)
     eps = np.degrees(np.arcsin(np.clip(d[:, 2], -1.0, 1.0)))
     m_win = np.minimum(eps - eps_win[0], eps_win[1] - eps)
-    return np.max([np.minimum(face_margin(k, d), m_win) for k in range(4)], axis=0)
+    return np.max([np.minimum(scan_margin(k, d), m_win) for k in range(4)], axis=0)
 
 
 def _gauge_walls(shell: pv.PolyData, limb, floor_of, skip_of=None) -> pv.PolyData:

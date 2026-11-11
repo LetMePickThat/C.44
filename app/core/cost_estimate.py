@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import threading
 import math
 import os
 from dataclasses import dataclass
@@ -729,3 +730,136 @@ def _live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Spher
         _LIVE_CACHE.clear()
     _LIVE_CACHE[key] = out
     return out
+
+
+# ----------------------------------------------------------------------------- the fast estimate off the window's thread
+# (user, 12 November 2026: the window froze ~2-4 s at each edit of a large mission). One worker process, kept, computes
+# live_allocation (its cost profiles and reliefs in its own background); the views get at once the result of their
+# inputs when known, else the last one they were given (marked "stale"), and are redrawn when a new result differs.
+ASYNC_RESUBMIT_S = 3.0                   # a result still estimating (profiles, relief): asked again this often
+_A_LOCK = threading.Lock()
+_A: Dict[str, dict] = {"jobs": {}, "cache": {}, "args": {}, "last": {}, "tag_key": {}, "digest": {}}
+_A_POOL = None
+_A_GRIDS: Dict[float, geo.SphereGrid] = {}
+
+
+def _live_task(sectors_ship, res_deg, eps_min, eps_max, sky, g, calib, relief):
+    """Worker side: the fast estimate as live_allocation computes it (profiles and relief in the worker's own
+    background)."""
+    grid = _A_GRIDS.get(res_deg)
+    if grid is None:
+        grid = _A_GRIDS[res_deg] = geo.SphereGrid(res_deg=res_deg)
+    table = cached_table()
+    if table is None:
+        return None
+    return live_allocation(table, sectors_ship, grid, eps_min, eps_max, sky, g, calib=calib, profiles="background",
+                           relief=relief)
+
+
+def _digest(res: Optional[dict]) -> str:
+    if res is None:
+        return ""
+    return _key({k: res.get(k) for k in ("status", "estimating", "relief_pending", "faces", "by_sector", "achieved",
+                                         "relief", "out_of_reach", "no_confirmation")})
+
+
+def _a_submit(key: str) -> None:
+    """(under _A_LOCK) the inputs of key sent to the worker."""
+    global _A_POOL
+    from . import background
+    if _A_POOL is None:
+        import atexit
+        from concurrent.futures import ProcessPoolExecutor
+        from .optimizer import _mark_pool_worker
+        _A_POOL = ProcessPoolExecutor(max_workers=1, initializer=_mark_pool_worker)
+        atexit.register(lambda: _A_POOL.shutdown(wait=False, cancel_futures=True))
+    fut = _A_POOL.submit(_live_task, *_A["args"][key])
+    _A["jobs"][key] = fut
+    background.ESTIMATE.start(key)
+    fut.add_done_callback(lambda f_, k_=key: _a_done(k_, f_))
+
+
+def _a_done(key: str, fut) -> None:
+    from . import background
+    try:
+        res = fut.result()
+    except Exception:  # noqa: BLE001 -- a mission mid-edit the rule refuses: no result
+        res = None
+    with _A_LOCK:
+        _A["jobs"].pop(key, None)
+        background.ESTIMATE.done(key)
+        if res is not None:
+            if len(_A["cache"]) > 32:
+                for k_ in list(_A["cache"])[:16]:
+                    if k_ not in _A["tag_key"].values():
+                        _A["cache"].pop(k_, None)
+            _A["cache"][key] = res
+            d = _digest(res)
+            if d != _A["digest"].get(key):         # (redrawn only when it changed)
+                _A["digest"][key] = d
+                background.bump()
+        live = key in _A["tag_key"].values()
+        again = live and res is not None and bool(res.get("estimating") or res.get("relief_pending"))
+    if again:
+        t = threading.Timer(ASYNC_RESUBMIT_S, _a_resubmit, args=(key,))
+        t.daemon = True
+        t.start()
+
+
+def _a_resubmit(key: str) -> None:
+    with _A_LOCK:
+        if key in _A["tag_key"].values() and key not in _A["jobs"]:
+            try:
+                _a_submit(key)
+            except RuntimeError:                   # (the worker shut down: the tool is closing)
+                _A["jobs"].pop(key, None)
+
+
+def async_pending() -> int:
+    """Estimates being computed, and the live ones still estimating (asked again): the views keep polling."""
+    with _A_LOCK:
+        n = len(_A["jobs"])
+        for key in set(_A["tag_key"].values()):
+            r = _A["cache"].get(key)
+            if key not in _A["jobs"] and r is not None and (r.get("estimating") or r.get("relief_pending")):
+                n += 1
+        return n
+
+
+def live_allocation_async(table: CostTable, sectors_ship: List[dict], grid: geo.SphereGrid, eps_min: float,
+                          eps_max: float, sky: Optional[dict] = None, g: Optional[dict] = None,
+                          calib: Optional[dict] = None, relief: Optional[str] = "background",
+                          tag: str = "view") -> Optional[dict]:
+    """live_allocation (profiles "background") computed in the worker process: the result of these inputs when known,
+    else the last one given to `tag` with "stale": True (None the first time); the views poll core.background and
+    are redrawn when a result differs (core.cost_profile.generation)."""
+    gk = {k: (g or {}).get(k) for k in ("face_elec_mw", "realloc_mode", "load_ceiling", "spectrum_exclusions_ghz")}
+    res_deg = float(getattr(grid, "res_deg", 1.0))
+    key = _key([sectors_ship, eps_min, eps_max, sky, gk, res_deg, calib, relief])
+    with _A_LOCK:
+        _A["tag_key"][tag] = key
+        hit = _A["cache"].get(key)
+        if hit is None and key not in _A["jobs"]:
+            _A["args"][key] = ([dict(s) for s in sectors_ship], res_deg, eps_min, eps_max, sky, dict(g or {}),
+                               dict(calib or {}), relief)
+            try:
+                _a_submit(key)
+            except Exception:  # noqa: BLE001 -- no worker process (frozen install): computed here
+                _A["jobs"].pop(key, None)
+                hit = None
+                sync = True
+            else:
+                sync = False
+        else:
+            sync = False
+        if hit is not None:
+            _A["last"][tag] = hit
+            return hit
+        last = _A["last"].get(tag)
+    if sync:
+        out = live_allocation(table, sectors_ship, grid, eps_min, eps_max, sky, g, calib=calib,
+                              profiles="background", relief=relief)
+        with _A_LOCK:
+            _A["last"][tag] = out
+        return out
+    return None if last is None else dict(last, stale=True)

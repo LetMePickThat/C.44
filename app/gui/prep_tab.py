@@ -1553,9 +1553,9 @@ class PrepTab(QWidget):
                     calib = calibration.view_calibration(secs_, [self._draw_sid(i, s_) for i, s_ in enumerate(secs_)])
                 except Exception:  # noqa: BLE001 -- a volume mid-edit: not recalibrated
                     calib = {}
-                alloc = ce.live_allocation(self.cost_table, ships, self.grid, eps_min, eps_max, sky_ship,
-                                           self.mission["global"], calib=calib, profiles="background",
-                                           relief="background")
+                alloc = ce.live_allocation_async(self.cost_table, ships, self.grid, eps_min, eps_max, sky_ship,
+                                                 self.mission["global"], calib=calib, relief="background",
+                                                 tag="prep") or {}
                 pending = set(alloc.get("estimating", []))
                 self._unreachable = {sid: (None, None) for sid in pending}   # (the table's verdict never shown:
                 for sid, o in (alloc.get("out_of_reach") or {}).items():    # single-look, ~x150 too pessimistic)
@@ -1568,7 +1568,7 @@ class PrepTab(QWidget):
                 if served and red.round_served(served) != red.round_served(getattr(self, "_served", {}) or {}):
                     self._served = served                                # B: the findings again with them
                     self._schedule_redundancy_check()
-                if pending or alloc.get("relief_pending"):                                  # the alerts again once the profiles are ready
+                if pending or alloc.get("relief_pending") or alloc.get("stale") or not alloc:                                  # the alerts again once the profiles are ready
                     from core import cost_profile
                     gen = cost_profile.generation()
                     QTimer.singleShot(700, lambda g=gen, e=(eps_min, eps_max): self._profiles_ready(g, e))

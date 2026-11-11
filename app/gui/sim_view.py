@@ -4515,13 +4515,13 @@ class SimView(QWidget):
                 from core import calibration          # pass R3d (M1): the last exact run of each volume
                 raws = mis.get("sectors", [])
                 calib = calibration.view_calibration(raws, [raw.get("id") or f"_idx{i}" for i, raw in enumerate(raws)])
-                alloc = (ce.live_allocation(table, secs, self.grid, e0, e1, sky_ship, gl, calib=calib,
-                                            profiles="background", relief="background")
+                alloc = (ce.live_allocation_async(table, secs, self.grid, e0, e1, sky_ship, gl, calib=calib,
+                                                  relief="background", tag="global")
                          if table is not None else None)
             except Exception:  # noqa: BLE001 -- the rule refuses a mission mid-edit: no gauge
                 alloc = None
-            if alloc and (alloc.get("estimating") or alloc.get("relief_pending")) \
-                    and not getattr(self, "_profile_poll_on", False):
+            if (not alloc or alloc.get("stale") or alloc.get("estimating") or alloc.get("relief_pending")) \
+                    and table is not None and not getattr(self, "_profile_poll_on", False):
                 from core import cost_profile          # option (c): the gauge redrawn when the profiles are ready
                 self._profile_poll_on, self._profile_gen = True, cost_profile.generation()
                 QTimer.singleShot(700, self._poll_profiles)

@@ -234,10 +234,10 @@ def get(sec: dict, positions: float, th: Sequence[float], f_ghz: float, wait: bo
 
 def pending() -> int:
     """Profiles being computed, and the reliefs (core/redundancy, A): the views poll both."""
-    from . import redundancy
+    from . import redundancy, cost_estimate
     with _lock:
         n = len(_jobs)
-    return n + redundancy.relief_pending()
+    return n + redundancy.relief_pending() + cost_estimate.async_pending()
 
 
 def progress() -> Optional[Tuple[int, int, float]]:
@@ -254,8 +254,8 @@ def progress() -> Optional[Tuple[int, int, float]]:
 
 
 def generation() -> int:
-    from . import redundancy
-    return _generation + redundancy.relief_generation()
+    from . import redundancy, background
+    return _generation + redundancy.relief_generation() + background.generation()
 
 
 def shutdown() -> None:
