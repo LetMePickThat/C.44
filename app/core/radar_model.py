@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.38.0
+# Radar Performance Model - V6.39.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,11 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.38.0 -> V6.39.0 (user, 12 November 2026)
+#   - Ku confirmation: sequential clusters of 4 and 5 rings (61, 91 beams) offered beside 7, 19 and 37
+#     ([tool.confirmation] ku_cluster_rings): the weak first detections of long-range volumes leave an S angle error
+#     the 37 beams did not cover (MOONTEST S01, 15000 km, RR 30 s, 5000 m/s: confirmation now possible).
 #
 # Changes V6.37.0 -> V6.38.0 (user, 11 November 2026)
 #   - compute budget: a search look listens until the echo of its volume's range is back (a single pulse's 1 ms
@@ -717,7 +722,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.38.0"
+MODEL_VERSION = "6.39.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

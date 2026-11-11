@@ -389,9 +389,9 @@ def achieved_text(a: dict) -> str:
     """The 3D label's second line: the worst range held over the directions that see the sky, the range the ground
     leaves where it cuts the volume (terrain mask), the revisit held."""
     parts = []
-    rl = a.get("relief")                               # (user, 11 November 2026: the part another volume serves)
-    if rl and a.get("worst_km") is None and not a.get("ground_km"):
-        return f"need met by {', '.join(rl['by'])}"
+    rl = a.get("relief")                               # (user, 11 November 2026: the part another volume serves;
+    if rl and a.get("worst_km") is None and not a.get("ground_km"):     # who serves it: relief_text, a line of its own)
+        return f"need met  RR {a['rr_s']:.3g} s"
     lim = {"reach": " (reach limit)", "power": " (power limit)"}.get(a.get("limit"), "")
     if a.get("worst_km") is not None:
         parts.append(f"worst {a['worst_km']:.0f} km" + lim)
@@ -399,9 +399,37 @@ def achieved_text(a: dict) -> str:
     g = a.get("ground_km")
     if g:
         parts.append(f"ground {g[0]:.0f}-{g[1]:.0f} km")
-    parts.append(f"RR {a['rr_s']:.3g} s" + lim + (f"  ({100 * rl['share']:.0f} % by {', '.join(rl['by'])})"
-                                                    if rl else ""))
+    parts.append(f"RR {a['rr_s']:.3g} s" + lim)
     return ", ".join(parts[:-1]) + "  " + parts[-1] if len(parts) > 1 else parts[0]
+
+
+RELIEF_TOTAL_SHARE = 0.995          # a share served by others at least this: "totally" (display rounding only)
+
+
+def relief_text(a: dict) -> Optional[str]:
+    """The 3D label's line under the achieved one when other volumes meet part of the need (user, 12 November 2026):
+    'handled totally by SP' or 'handled partially by SP (21 %)'; None when no other volume serves it."""
+    rl = a.get("relief")
+    if not rl or not rl.get("by"):
+        return None
+    by = ", ".join(rl["by"])
+    share = float(rl.get("share", 0.0) or 0.0)
+    if share >= RELIEF_TOTAL_SHARE or (a.get("worst_km") is None and not a.get("ground_km")):
+        return f"handled totally by {by}"
+    return f"handled partially by {by} ({100 * share:.0f} %)"
+
+
+def label_extra_lines(a: Optional[dict]) -> list:
+    """The 3D label's lines under the achieved one: [(text, ok)] -- who handles the need, the confirmation alert."""
+    if not a:
+        return []
+    out = []
+    t = relief_text(a)
+    if t:
+        out.append((t, True))
+    if a.get("confirm") is False:
+        out.append((no_confirmation_text(a), False))
+    return out
 
 
 def no_confirmation_text(a: dict) -> str:

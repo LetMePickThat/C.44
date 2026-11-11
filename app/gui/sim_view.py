@@ -2933,8 +2933,8 @@ class SimView(QWidget):
                 if a:
                     lines.append((v3.achieved_text(a),
                                   LABEL_OK if a["ok"] else LABEL_NOK))
-                if a and a.get("confirm") is False:
-                    lines.append((v3.no_confirmation_text(a), LABEL_NOK))
+                for t, ok_ in v3.label_extra_lines(a):
+                    lines.append((t, LABEL_OK if ok_ else LABEL_NOK))
                 ll.put(sid, pt, lines)
             ll.keep(ids[:len(pts)])
             ll.set_all_visible(shown)

@@ -121,6 +121,18 @@ def _energy_text(served_w: float, base_w: float, asked_w: float) -> str:
 
 LOAD_BASE = "#8a8f99"                            # the always-on part of the energy bar (grey)
 
+# The ESTIMATE badge's names of the background tasks (core/background.status labels): (shown, what it is for). The
+# badge shows the first one running in this order (the most specific), the others counted.
+BADGE_ORDER = ("cost profiles", "relief", "redundancy check", "estimate")
+BADGE_ACTIVITY = {
+    "cost profiles": ("volume costs", "time and energy per position of each volume edited (the generic table is "
+                                      "used meanwhile)"),
+    "relief": ("overlaps", "the parts of a volume another volume already covers (taken out of its budget)"),
+    "redundancy check": ("redundancy check", "the volumes whose need another volume meets"),
+    "estimate": ("face loads", "the fast estimate: resources of each face, range and revisit of each volume "
+                               "(the figures shown meanwhile are the previous ones)"),
+}
+
 class FaceLoadColumn(QWidget):
     """One face's live load: its name, then one bar per resource (energy, S time, Ku time), each with its own fill,
     its hatched parts (moved shares, power lent), its part beyond 100 % drawn over it in a darker red, the load
@@ -833,8 +845,8 @@ class SceneView(QWidget):
     def _label_text(self, sid: str, asked: str, ach: Optional[str]) -> str:
         """The label's text as cached (its lines; a change redraws it)."""
         text = asked if ach is None else f"{asked}\n{ach}"
-        if (self._achieved.get(sid) or {}).get("confirm") is False:
-            text += "\n" + v3.no_confirmation_text(self._achieved[sid])
+        for t, _ok in v3.label_extra_lines(self._achieved.get(sid)):
+            text += "\n" + t
         return text
 
     def _refresh_labels(self) -> None:
@@ -903,7 +915,8 @@ class SceneView(QWidget):
         lb = getattr(self, "_load_badge", None)
         if lb is None:
             return
-        uc.set_source(lb, "estimating", detail="updating", tip="The fast estimate is being updated", progress=0.0)
+        uc.set_source(lb, "estimating", detail="updating the view", tip="The fast estimate is being updated",
+                      progress=0.0)
         lb.repaint()
 
     def _update_badge(self) -> None:
@@ -917,13 +930,19 @@ class SceneView(QWidget):
         gauge = " (the range gauge uses the same figures)"
         st = background.status()
         if st or a.get("estimating"):
-            parts = [(s_["label"] + (" " + s_["detail"] if s_["detail"] else "")) for s_ in st]
-            tip = ("Being computed in the background: " + ", ".join(parts) if parts else "Being computed")
+            # (user, 12 November 2026: "ESTIMATE · computing · estimate" said nothing) the badge names the most
+            # specific task running, the others counted; the tooltip says each and what it is for
+            st = sorted(st, key=lambda s_: BADGE_ORDER.index(s_["label"]) if s_["label"] in BADGE_ORDER else 99)
+            if a.get("estimating") and not any(s_["label"] == "cost profiles" for s_ in st):
+                st.insert(0, {"label": "cost profiles", "detail": "", "fraction": 0.0})
+            names = [BADGE_ACTIVITY.get(s_["label"], (s_["label"], ""))[0]
+                     + (" " + s_["detail"] if s_["detail"] else "") for s_ in st]
+            detail = names[0] + (f"  +{len(names) - 1}" if len(names) > 1 else "")
+            tip = "Being computed:\n" + "\n".join(
+                f"- {n}: {BADGE_ACTIVITY.get(s_['label'], ('', ''))[1]}" for n, s_ in zip(names, st))
             if a.get("estimating"):
-                tip += ("; cost profiles of " + ", ".join(a["estimating"]) + " still being computed: the generic "
-                        "table meanwhile" + gauge)
-            frac = min((s_["fraction"] for s_ in st), default=0.0)
-            uc.set_source(lb, "estimating", detail=", ".join(parts), tip=tip, progress=frac)
+                tip += "\nVolumes whose costs are not known yet: " + ", ".join(a["estimating"]) + gauge
+            uc.set_source(lb, "estimating", detail=detail, tip=tip, progress=st[0]["fraction"])
         elif a.get("not_recalibrated"):
             uc.set_source(lb, "estimate", tip="Fast estimate (~20 %); not recalibrated by an exact calculation: "
                           + ", ".join(a["not_recalibrated"]) + gauge)
@@ -1574,8 +1593,8 @@ class SceneView(QWidget):
         sec = next((d.sec for d in self._sectors if d.sid == sid), {})
         asked, ach, ok = self.label_lines(sid, sec)
         lines = [(asked, LABEL_ASKED)] + ([(ach, LABEL_OK if ok else LABEL_NOK)] if ach else [])
-        if (self._achieved.get(sid) or {}).get("confirm") is False:      # (a line of its own: range and RR held)
-            lines.append((v3.no_confirmation_text(self._achieved[sid]), LABEL_NOK))
+        for t, ok_ in v3.label_extra_lines(self._achieved.get(sid)):   # (who handles the need, the confirmation)
+            lines.append((t, LABEL_OK if ok_ else LABEL_NOK))
         self._line_labels.put(sid, point, lines)
         self._line_labels.set_visible(sid, sid not in self._hidden)
         remove_actors(self.plotter, [lbl_name, lbl_name + "_2"])     # (the former single-colour labels)

@@ -523,7 +523,15 @@ class ResultsTab(QWidget):
                 obj = obj.split(" ", 1)[1] if obj.startswith("search ") else obj
                 (no_conf if "confirmation" in str(row.get("quantity", "")) else bad).add(obj)
         out = {}
+        relief = self.result.get("relief") or {}
         for r in self.result.get("sectors", []):
+            rl = relief.get(r.get("id"))
+            if r.get("status") == "RELIEVED":           # (need met in full by other volumes: user, 12 Nov 2026)
+                by = list(r.get("relieved_by") or (rl or {}).get("by") or [])
+                out[r["id"]] = {"worst_km": None, "ground_km": None,
+                                "rr_s": float(r.get("rr_target_s", 0) or 0), "ok": r["id"] not in bad,
+                                "confirm": r["id"] not in no_conf, "relief": {"share": 1.0, "by": by}}
+                continue
             if r.get("status") != "OK":
                 continue
             rg = r.get("range_km") or {}
@@ -532,6 +540,8 @@ class ResultsTab(QWidget):
                 continue
             out[r["id"]] = {"worst_km": float(worst), "rr_s": float(r.get("rr_est_mission_s", r.get("rr_target_s", 0))),
                             "ok": r["id"] not in bad, "confirm": r["id"] not in no_conf}
+            if rl:
+                out[r["id"]]["relief"] = {"share": float(rl.get("share", 0.0)), "by": list(rl.get("by", []))}
         return out
 
     def _e_pct(self, k, frac: float) -> float:

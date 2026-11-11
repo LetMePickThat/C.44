@@ -858,6 +858,9 @@ ku_pri_s        = [0.5e-3, 1e-3, 2e-3, 5e-3]   # 5 ms: a 2 ms pulse needs PRI >=
 ku_sig_bw_mhz   = [25.0, 50.0, 100.0, 200.0]   # range accuracy, cells, migration; 200 = Ku hardware ceiling (B4)
 ku_integrations = ["COHERENT", "NONCOHERENT"]  # both offered, the optimiser chooses (step 3.2 E5)
 ku_cluster_tx   = ["sequential", "superposition", "partition"]   # ways of sending the 7-beam cluster (step 3.2 C1)
+ku_cluster_rings = [2, 3, 4, 5]  # larger sequential clusters offered beside the 7-beam one: hexagonal rings (19, 37,
+                                # 61, 91 beams; K9 (c'): 2, 3; 4, 5 added by the user, 12 Nov 2026: MOONTEST S01 at
+                                # 15000 km failed by 5.9e-4 for 5e-4 with 37 beams, 2.5e-4 with 61, 3.7e-5 with 91)
 ku_freq_step_mhz   = 10.0       # Ku centre grid: usable_lo + k x step, signal inside the band and the exclusions (A2)
 ku_freq_coarse_mhz = 50.0       # Ku centres evaluated: valid ones on this step + the centre-most of each free fragment (A5)
 ku_freq_quiet_centres = 3       # A8 (25 Oct 2026): no Ku exclusion and no jammer -> this many Ku centres over the core

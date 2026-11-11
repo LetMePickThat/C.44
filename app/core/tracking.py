@@ -97,6 +97,10 @@ KU_PRI = tuple(P.get(_T + "ku_pri_s"))
 KU_BW = tuple(P.get(_T + "ku_sig_bw_mhz"))
 KU_INTEGRATIONS = tuple(P.get(_T + "ku_integrations"))     # both offered, the optimiser chooses (E5)
 KU_CLUSTER_TX = tuple(P.get(_T + "ku_cluster_tx"))         # cluster sent as: sequential | superposition | partition (C1)
+KU_CLUSTER_RINGS = tuple(int(r) for r in P.get(_T + "ku_cluster_rings"))   # K9 (c'): larger sequential clusters
+if any(r < 2 for r in KU_CLUSTER_RINGS):
+    raise ValueError(f"{P.path}: tool.confirmation.ku_cluster_rings: ring counts of 2 or more (1 ring: the 7-beam "
+                     f"cluster, always offered)")
 KU_DUTY_MAX = BAND.duty_max                          # Ku TRM duty ceiling
 N_SNR_Q = P.get(_T + "n_snr_quantiles")              # quantiles of the detected-echo SNR
 GH_NODES, GH_WEIGHTS = np.polynomial.hermite_e.hermegauss(P.get(_T + "gh_nodes"))
@@ -303,10 +307,12 @@ def attempt_shift(a: int, spacing: float) -> np.ndarray:
 
 def cluster_variants() -> Tuple[ClusterTx, ...]:
     """The ways of sending the cluster that tool.confirmation.ku_cluster_tx offers; K9 (c') (return on 3.2 from step
-    5.4): also the sequential clusters of 2 and 3 rings (19, 37 beams) for the weak first detections."""
+    5.4): also the sequential clusters of tool.confirmation.ku_cluster_rings rings (2, 3, 4, 5: 19, 37, 61, 91 beams;
+    4 and 5 added by the user, 12 November 2026: long-range volumes whose weak first detection leaves an S angle error
+    the 37 beams do not cover) for the weak first detections."""
     hexs = tuple((float(x), float(y), 1.0, 1.0) for x, y in _CLUSTER_XY)
     out = [ClusterTx("sequential", hexs, 1.0, float(CLUSTER_N))]
-    for rings in (2, 3):
+    for rings in sorted(set(KU_CLUSTER_RINGS)):
         big = tuple((float(x), float(y), 1.0, 1.0) for x, y in hex_rings_xy(rings, rm.BEAM_SPACING_HPBW))
         out.append(ClusterTx(f"sequential x{len(big)}", big, 1.0, float(len(big))))
     if "superposition" in KU_CLUSTER_TX:

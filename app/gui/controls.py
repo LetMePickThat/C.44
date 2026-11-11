@@ -440,7 +440,7 @@ class _Follow(QObject):
 SOURCE_STYLES = {                       # (user, 11 November 2026: estimates and exact results told apart at a glance)
     "estimate": ("ESTIMATE", "#6b7280"),                     # fast estimate, not recalibrated
     "recalibrated": ("ESTIMATE \u00b7 recalibrated", "#2b579a"),   # fast estimate corrected by exact runs
-    "estimating": ("ESTIMATE \u00b7 computing", "#b7791f"),   # cost profiles still being computed (table meanwhile)
+    "estimating": ("ESTIMATE", "#b7791f"),      # being computed: the detail says what (scene_view.BADGE_ACTIVITY)
     "exact": ("EXACT", "#2f8a4f"),                            # an exact calculation
     "outdated": ("EXACT · OUTDATED", "#a8432f"),           # an exact result, the mission edited since
 }
