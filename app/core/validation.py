@@ -129,6 +129,9 @@ def _sectors(t: _Table, out: dict, secs: Dict[str, dict]) -> None:
         sid = r["id"]
         sec = secs.get(sid, {})
         pr = _search_priority(sec)
+        if r.get("status") == "RELIEVED":            # (relieved in full: its need met by another volume, OK)
+            t.add("sector", sid, "plan", "spec", "RELIEVED", "OK", 0.0, pr, "3.1", r.get("note", ""), state="OK")
+            continue
         if r.get("status") != "OK":
             t.add("sector", sid, "plan", "spec", r.get("status"), "OK", None, pr, "3.1", r.get("note", ""))
             continue

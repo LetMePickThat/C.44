@@ -138,47 +138,47 @@
       },
       "S": {
        "beams_max": 512,
-       "beams_mean": 0.3799373654715243,
-       "beams_peak": 12.487751483592406,
-       "bits_per_s": 1291040575442.1562,
-       "buffer_peak_GB": 0.012487751483592406,
+       "beams_mean": 14.302107089652845,
+       "beams_peak": 24.975502967184813,
+       "bits_per_s": 50141022924534.375,
+       "buffer_peak_GB": 0.9630556293069132,
        "face_input_peak_tbps": 39.2,
        "link_trsa_peak_tbps": 0.2,
-       "open_windows_mean": 0.03293470855719787,
+       "open_windows_mean": 1.2791077276666931,
        "ops_per_s": {
-        "banks": 2434818405.728594,
-        "beamforming": 3723386181620.9385,
-        "cfar": 1521761503.5803707,
-        "compression": 16082669661.443459,
+        "banks": 91680591008.8574,
+        "beamforming": 140160649478597.86,
+        "cfar": 57300369380.53588,
+        "compression": 793685968875.0425,
         "nulling": 0.0,
-        "repointing": 3292.5416676274585,
+        "repointing": 3292.542810774953,
         "tracks": 0.0
        },
-       "ops_total_per_s": 3743425434484.2324,
+       "ops_total_per_s": 141103316411154.84,
        "transport": "raw"
       }
      },
-     "bits_per_s": 1292242993311.9333,
-     "bus_draw_MW_actual": 0.0851166088838467,
-     "capacity_ops_per_s": 3.999993538785033e+18,
-     "face_heat_kW_actual": 69.71323603582235,
+     "bits_per_s": 50142225342404.15,
+     "bus_draw_MW_actual": 0.08512064389895085,
+     "capacity_ops_per_s": 3.9997492888732877e+18,
+     "face_heat_kW_actual": 69.71695013384955,
      "jammers_nulled": 0,
-     "load": 9.829292491719198e-07,
+     "load": 3.5325114505425003e-05,
      "memory": {
       "bandwidth_TB_per_s": 50.0,
-      "buffers_peak_TB": 2.2487751483592405e-05,
+      "buffers_peak_TB": 0.0009730556293069132,
       "capacity_TB": 4.0,
       "flight_tables_TB": 4.992e-09,
-      "traffic_TB_per_s": 0.16229178259119723
+      "traffic_TB_per_s": 6.296383915676087
      },
-     "non_tx_kW_actual": 66.88010392925611,
-     "ops_total_per_s": 3931710645770.5034,
+     "non_tx_kW_actual": 66.88392002728334,
+     "ops_total_per_s": 141291601622441.12,
      "power_kW": {
       "ceiling": 50.0,
-      "ops": 3.9317106457705034e-05,
+      "ops": 0.0014129160162244113,
       "static": 10.0,
-      "total": 10.000103929256122,
-      "transport": 6.461214966559667e-05
+      "total": 10.003920027283344,
+      "transport": 0.0025071112671202073
      }
     },
     "1": {
@@ -206,47 +206,47 @@
       },
       "S": {
        "beams_max": 512,
-       "beams_mean": 0.2794109660286054,
-       "beams_peak": 9.022400446895512,
-       "bits_per_s": 1458424575442.156,
-       "buffer_peak_GB": 0.010826880536274614,
+       "beams_mean": 14.443069418016407,
+       "beams_peak": 18.044800893791024,
+       "bits_per_s": 75798090392779.22,
+       "buffer_peak_GB": 0.9630556293069132,
        "face_input_peak_tbps": 39.2,
        "link_trsa_peak_tbps": 0.2,
-       "open_windows_mean": 0.03720470855719787,
+       "open_windows_mean": 1.933624754917837,
        "ops_per_s": {
-        "banks": 1791449449.2939122,
-        "beamforming": 2738227467080.333,
-        "cfar": 1119655905.8086956,
-        "compression": 11827495598.455828,
+        "banks": 92567038019.08911,
+        "beamforming": 141542080296560.78,
+        "cfar": 57854398761.93069,
+        "compression": 818544081634.293,
         "nulling": 0.0,
-        "repointing": 3719.541667627458,
+        "repointing": 3623.0382382904118,
         "tracks": 0.0
        },
-       "ops_total_per_s": 2752966071753.433,
+       "ops_total_per_s": 142511045818599.12,
        "transport": "raw"
       }
      },
-     "bits_per_s": 1542997163680.2473,
-     "bus_draw_MW_actual": 0.09257384532135285,
-     "capacity_ops_per_s": 3.999992285014182e+18,
-     "face_heat_kW_actual": 71.6191891715581,
+     "bits_per_s": 75882662981017.31,
+     "bus_draw_MW_actual": 0.09201079698925907,
+     "capacity_ops_per_s": 3.999620586685095e+18,
+     "face_heat_kW_actual": 71.50955373564643,
      "jammers_nulled": 0,
-     "load": 4.013590809142813e-06,
+     "load": 3.895679818663971e-05,
      "memory": {
       "bandwidth_TB_per_s": 50.0,
-      "buffers_peak_TB": 5.082688053627461e-05,
+      "buffers_peak_TB": 0.0010030556293069133,
       "capacity_TB": 4.0,
       "flight_tables_TB": 3.648e-09,
-      "traffic_TB_per_s": 0.19354134059137149
+      "traffic_TB_per_s": 9.514326884662479
      },
-     "non_tx_kW_actual": 66.8802376931809,
-     "ops_total_per_s": 16054332271775.082,
+     "non_tx_kW_actual": 66.88535225726923,
+     "ops_total_per_s": 155812412018620.78,
      "power_kW": {
       "ceiling": 50.0,
-      "ops": 0.00016054332271775082,
+      "ops": 0.0015581241201862077,
       "static": 10.0,
-      "total": 10.000237693180901,
-      "transport": 7.714985818401237e-05
+      "total": 10.005352257269235,
+      "transport": 0.0037941331490508657
      }
     },
     "2": {
@@ -274,47 +274,47 @@
       },
       "S": {
        "beams_max": 512,
-       "beams_mean": 0.08160498252850172,
+       "beams_mean": 4.35080995118305,
        "beams_peak": 9.022400446895512,
-       "bits_per_s": 354552575442.1564,
-       "buffer_peak_GB": 0.010826880536274614,
+       "bits_per_s": 18903145686141.668,
+       "buffer_peak_GB": 0.4815278146534566,
        "face_input_peak_tbps": 39.2,
        "link_trsa_peak_tbps": 0.2,
-       "open_windows_mean": 0.00904470855719787,
+       "open_windows_mean": 0.48222310423830783,
        "ops_per_s": {
-        "banks": 525491154.89324844,
-        "beamforming": 799728828779.3169,
-        "cfar": 328431971.8082803,
-        "compression": 3454581665.8192983,
+        "banks": 27992289322.650726,
+        "beamforming": 42637937521593.88,
+        "cfar": 17495180826.656704,
+        "compression": 246577069789.1986,
         "nulling": 0.0,
-        "repointing": 903.5416676274587,
+        "repointing": 903.5428107749533,
         "tracks": 0.0
        },
-       "ops_total_per_s": 804037334475.3794,
+       "ops_total_per_s": 42930002062435.93,
        "transport": "raw"
       }
      },
-     "bits_per_s": 355749527279.2623,
-     "bus_draw_MW_actual": 0.08085340946929988,
-     "capacity_ops_per_s": 3.999998221252364e+18,
-     "face_heat_kW_actual": 68.83964574217353,
+     "bits_per_s": 18904342637978.773,
+     "bus_draw_MW_actual": 0.08085483416044277,
+     "capacity_ops_per_s": 3.99990547828681e+18,
+     "face_heat_kW_actual": 68.84089243147633,
      "jammers_nulled": 0,
-     "load": 2.478668513327187e-07,
+     "load": 1.0779612649963512e-05,
      "memory": {
       "bandwidth_TB_per_s": 50.0,
-      "buffers_peak_TB": 2.082688053627461e-05,
+      "buffers_peak_TB": 0.0004915278146534566,
       "capacity_TB": 4.0,
       "flight_tables_TB": 2.88e-09,
-      "traffic_TB_per_s": 0.044633427599246836
+      "traffic_TB_per_s": 2.371745976373995
      },
-     "non_tx_kW_actual": 66.88002770214601,
-     "ops_total_per_s": 991466964438.299,
+     "non_tx_kW_actual": 66.88137639144881,
+     "ops_total_per_s": 43117431692398.85,
      "power_kW": {
       "ceiling": 50.0,
-      "ops": 9.914669644382988e-06,
+      "ops": 0.0004311743169239885,
       "static": 10.0,
-      "total": 10.000027702146008,
-      "transport": 1.7787476363963118e-05
+      "total": 10.001376391448822,
+      "transport": 0.0009452171318989388
      }
     },
     "3": {
@@ -342,47 +342,47 @@
       },
       "S": {
        "beams_max": 512,
-       "beams_mean": 0.08160498252850172,
+       "beams_mean": 4.35080995118305,
        "beams_peak": 9.022400446895512,
-       "bits_per_s": 354552575442.1564,
-       "buffer_peak_GB": 0.010826880536274614,
+       "bits_per_s": 18903145686141.668,
+       "buffer_peak_GB": 0.4815278146534566,
        "face_input_peak_tbps": 39.2,
        "link_trsa_peak_tbps": 0.2,
-       "open_windows_mean": 0.00904470855719787,
+       "open_windows_mean": 0.48222310423830783,
        "ops_per_s": {
-        "banks": 525491154.89324844,
-        "beamforming": 799728828779.3169,
-        "cfar": 328431971.8082803,
-        "compression": 3454581665.8192983,
+        "banks": 27992289322.650726,
+        "beamforming": 42637937521593.88,
+        "cfar": 17495180826.656704,
+        "compression": 246577069789.1986,
         "nulling": 0.0,
-        "repointing": 903.5416676274587,
+        "repointing": 903.5428107749533,
         "tracks": 0.0
        },
-       "ops_total_per_s": 804037334475.3794,
+       "ops_total_per_s": 42930002062435.93,
        "transport": "raw"
       }
      },
-     "bits_per_s": 355749527279.2623,
-     "bus_draw_MW_actual": 0.08085340946929988,
-     "capacity_ops_per_s": 3.999998221252364e+18,
-     "face_heat_kW_actual": 68.83964574217353,
+     "bits_per_s": 18904342637978.773,
+     "bus_draw_MW_actual": 0.08085483416044277,
+     "capacity_ops_per_s": 3.99990547828681e+18,
+     "face_heat_kW_actual": 68.84089243147633,
      "jammers_nulled": 0,
-     "load": 2.478668513327187e-07,
+     "load": 1.0779612649963512e-05,
      "memory": {
       "bandwidth_TB_per_s": 50.0,
-      "buffers_peak_TB": 2.082688053627461e-05,
+      "buffers_peak_TB": 0.0004915278146534566,
       "capacity_TB": 4.0,
       "flight_tables_TB": 2.88e-09,
-      "traffic_TB_per_s": 0.044633427599246836
+      "traffic_TB_per_s": 2.371745976373995
      },
-     "non_tx_kW_actual": 66.88002770214601,
-     "ops_total_per_s": 991466964438.299,
+     "non_tx_kW_actual": 66.88137639144881,
+     "ops_total_per_s": 43117431692398.85,
      "power_kW": {
       "ceiling": 50.0,
-      "ops": 9.914669644382988e-06,
+      "ops": 0.0004311743169239885,
       "static": 10.0,
-      "total": 10.000027702146008,
-      "transport": 1.7787476363963118e-05
+      "total": 10.001376391448822,
+      "transport": 0.0009452171318989388
      }
     }
    },
@@ -394,15 +394,15 @@
    },
    "sectors": {
     "S01": {
-     "processing_s": 3.075968747227038e-08,
+     "processing_s": 1.0274480571479733e-06,
      "reselect_ops": 33000.0
     },
     "S02": {
-     "processing_s": 1.7302382064165748e-08,
+     "processing_s": 9.248952641081759e-07,
      "reselect_ops": 12000.0
     },
     "S03": {
-     "processing_s": 2.6698668190121068e-08,
+     "processing_s": 1.189228723539189e-06,
      "reselect_ops": 45000.0
     }
    }
@@ -416,44 +416,44 @@
   },
   "faces_total": {
    "0": {
-    "avg_power_kW": 12.7618,
-    "dissipation_kW": 2.6169,
+    "avg_power_kW": 12.7615,
+    "dissipation_kW": 2.6168,
     "energy_fraction": 0.0072,
     "ku_duty_pct": 12.5285,
-    "p_available_kW": 1770.8582,
+    "p_available_kW": 1770.8585,
     "positions": 1561.9,
     "power_margin": 0.9928,
     "time_fraction": 0.001,
     "time_margin_s": 0.999
    },
    "1": {
-    "avg_power_kW": 19.6652,
-    "dissipation_kW": 4.0059,
-    "energy_fraction": 0.011,
-    "ku_duty_pct": 12.4797,
-    "p_available_kW": 1763.9548,
-    "positions": 1225.0,
-    "power_margin": 0.989,
+    "avg_power_kW": 19.1119,
+    "dissipation_kW": 3.8934,
+    "energy_fraction": 0.0107,
+    "ku_duty_pct": 12.4836,
+    "p_available_kW": 1764.5081,
+    "positions": 1109.2,
+    "power_margin": 0.9893,
     "time_fraction": 0.0016,
     "time_margin_s": 0.9984
    },
    "2": {
-    "avg_power_kW": 9.3823,
-    "dissipation_kW": 1.8942,
+    "avg_power_kW": 9.382,
+    "dissipation_kW": 1.8941,
     "energy_fraction": 0.0053,
     "ku_duty_pct": 12.5524,
-    "p_available_kW": 1774.2377,
+    "p_available_kW": 1774.238,
     "positions": 1084.2,
     "power_margin": 0.9947,
     "time_fraction": 0.0008,
     "time_margin_s": 0.9992
    },
    "3": {
-    "avg_power_kW": 9.3823,
-    "dissipation_kW": 1.8942,
+    "avg_power_kW": 9.382,
+    "dissipation_kW": 1.8941,
     "energy_fraction": 0.0053,
     "ku_duty_pct": 12.5524,
-    "p_available_kW": 1774.2377,
+    "p_available_kW": 1774.238,
     "positions": 1084.2,
     "power_margin": 0.9947,
     "time_fraction": 0.0008,
@@ -478,13 +478,13 @@
     {
      "couplings": {
       "S01": {
-       "_eclipse_rho": 0.001628
+       "_eclipse_rho": 0.001583
       },
       "S02": {
-       "_eclipse_rho": 0.001628
+       "_eclipse_rho": 0.001583
       },
       "S03": {
-       "_eclipse_rho": 0.001628
+       "_eclipse_rho": 0.001583
       }
      },
      "mission_choice": [],
@@ -498,13 +498,13 @@
     {
      "couplings": {
       "S01": {
-       "_eclipse_rho": 0.001631
+       "_eclipse_rho": 0.001586
       },
       "S02": {
-       "_eclipse_rho": 0.001631
+       "_eclipse_rho": 0.001586
       },
       "S03": {
-       "_eclipse_rho": 0.001631
+       "_eclipse_rho": 0.001586
       }
      },
      "mission_choice": [],
@@ -519,44 +519,610 @@
    "max_passes": 3,
    "passes": 3
   },
-  "power_allocation": {
-   "drawn_MW": 0.3392104256677682,
+  "margin_reuse": {
+   "assemblies": 3,
+   "fa_frozen_per_s": true,
    "faces": {
     "0": {
-     "alloc_MW": 0.08503169651205283,
-     "always_on_MW": 0.07081264801818436,
-     "cap_MW": 2.0,
-     "capped": true,
-     "load": 0.04251584834105811,
-     "need_MW": 0.08503169668211621
+     "binding_nominal": "memory bandwidth",
+     "binding_real": "memory bandwidth",
+     "nominal": 0.12592767831352172,
+     "real": 0.7970999161235656,
+     "resources_nominal": {
+      "Ku beams": 0.03125,
+      "Ku time": 0.00016985955483967232,
+      "S beams": 0.04878027923278284,
+      "S time": 0.0011183760201611491,
+      "compute": 3.5325114505425003e-05,
+      "energy": 0.042517709485243055,
+      "heat": 0.006900398886668666,
+      "memory": 0.0002432651553267283,
+      "memory bandwidth": 0.12592767831352172
+     },
+     "resources_real": {
+      "Ku beams": 0.0,
+      "Ku time": 0.00016776785230441585,
+      "S beams": 0.21951125654752277,
+      "S time": 0.00531059116957469,
+      "compute": 0.000232095547745479,
+      "energy": 0.07001300050888455,
+      "heat": 0.007586220087147284,
+      "memory": 0.0010834388309702773,
+      "memory bandwidth": 0.7970999161235656
+     }
     },
     "1": {
-     "alloc_MW": 0.09262185298706509,
-     "always_on_MW": 0.07085232299434434,
-     "cap_MW": 2.0,
-     "capped": true,
-     "load": 0.04631092658615439,
-     "need_MW": 0.09262185317230878
+     "binding_nominal": "memory bandwidth",
+     "binding_real": "memory bandwidth",
+     "nominal": 0.19028653769324957,
+     "real": 0.7999999503813874,
+     "resources_nominal": {
+      "Ku beams": 0.03125,
+      "Ku time": 0.00019630673398102663,
+      "S beams": 0.03524375174568559,
+      "S time": 0.0015862403550246716,
+      "compute": 3.895679818663971e-05,
+      "energy": 0.046019749334867445,
+      "heat": 0.007013054575130393,
+      "memory": 0.0002507648193267283,
+      "memory bandwidth": 0.19028653769324957
+     },
+     "resources_real": {
+      "Ku beams": 0.03125,
+      "Ku time": 0.0002553963406407358,
+      "S beams": 0.15859688285558518,
+      "S time": 0.006563746406856623,
+      "compute": 0.00016062369689669715,
+      "energy": 0.07926130287554607,
+      "heat": 0.007863333259670733,
+      "memory": 0.0010934384949702774,
+      "memory bandwidth": 0.7999999503813874
+     }
     },
     "2": {
-     "alloc_MW": 0.08077843808432514,
-     "always_on_MW": 0.07079444759088475,
-     "cap_MW": 2.0,
-     "capped": true,
-     "load": 0.04038921912294101,
-     "need_MW": 0.08077843824588202
+     "binding_nominal": "memory bandwidth",
+     "binding_real": "memory bandwidth",
+     "nominal": 0.047434919527479906,
+     "real": 0.1994645354934387,
+     "resources_nominal": {
+      "Ku beams": 0.03125,
+      "Ku time": 0.00016972011523071247,
+      "S beams": 0.017621875872842797,
+      "S time": 0.0007974058827555995,
+      "compute": 1.0779612649963512e-05,
+      "energy": 0.04038977510514529,
+      "heat": 0.006845459236506983,
+      "memory": 0.00012288267366336415,
+      "memory bandwidth": 0.047434919527479906
+     },
+     "resources_real": {
+      "Ku beams": 0.0,
+      "Ku time": 0.00016776785230441585,
+      "S beams": 0.052865627618528394,
+      "S time": 0.003246474426888907,
+      "compute": 4.513768419238557e-05,
+      "energy": 0.05633385284173164,
+      "heat": 0.007233212449180855,
+      "memory": 0.0003611465809900925,
+      "memory bandwidth": 0.1994645354934387
+     }
     },
     "3": {
-     "alloc_MW": 0.08077843808432514,
-     "always_on_MW": 0.07079444759088475,
+     "binding_nominal": "memory bandwidth",
+     "binding_real": "memory bandwidth",
+     "nominal": 0.047434919527479906,
+     "real": 0.1994645354934387,
+     "resources_nominal": {
+      "Ku beams": 0.03125,
+      "Ku time": 0.00016972011523071247,
+      "S beams": 0.017621875872842797,
+      "S time": 0.0007974058827555996,
+      "compute": 1.0779612649963512e-05,
+      "energy": 0.04038977510514529,
+      "heat": 0.006845459236506983,
+      "memory": 0.00012288267366336415,
+      "memory bandwidth": 0.047434919527479906
+     },
+     "resources_real": {
+      "Ku beams": 0.0,
+      "Ku time": 0.00016776785230441585,
+      "S beams": 0.052865627618528394,
+      "S time": 0.0032464744268889075,
+      "compute": 4.513768419238557e-05,
+      "energy": 0.05633385284173164,
+      "heat": 0.007233212449180855,
+      "memory": 0.0003611465809900925,
+      "memory bandwidth": 0.1994645354934387
+     }
+    }
+   },
+   "flags": [
+    "at the real revisits: sector S01: S waveform WF-S01-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
+    "at the real revisits: sector S01: S waveform WF-S01-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
+    "at the real revisits: sector S01: S waveform WF-S01-3: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
+    "at the real revisits: sector S01: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
+    "at the real revisits: sector S02: S waveform WF-S02: its harmonics (13.225-13.725 GHz) cover 12 % of the Ku channel 13.8 GHz / 200 MHz on the same face",
+    "at the real revisits: sector S03: S waveform WF-S03-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
+    "at the real revisits: sector S03: S waveform WF-S03-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
+    "at the real revisits: sector S03: S waveform WF-S03-3: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
+    "at the real revisits: sector S03: S waveform WF-S03-4: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
+    "at the real revisits: sector S03: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)"
+   ],
+   "load_ceiling": 0.8,
+   "power_allocation": {
+    "drawn_MW": 0.5238840170880197,
+    "faces": {
+     "0": {
+      "alloc_MW": 0.1400260007377171,
+      "always_on_MW": 0.07106533180220158,
+      "cap_MW": 2.0,
+      "capped": true,
+      "load": 0.07001300050888455,
+      "need_MW": 0.1400260010177691
+     },
+     "1": {
+      "alloc_MW": 0.15852260543404695,
+      "always_on_MW": 0.07115379333964338,
+      "cap_MW": 2.0,
+      "capped": true,
+      "load": 0.07926130287554607,
+      "need_MW": 0.15852260575109214
+     },
+     "2": {
+      "alloc_MW": 0.11266770545812785,
+      "always_on_MW": 0.07092841680144105,
+      "cap_MW": 2.0,
+      "capped": true,
+      "load": 0.05633385284173164,
+      "need_MW": 0.11266770568346328
+     },
+     "3": {
+      "alloc_MW": 0.11266770545812785,
+      "always_on_MW": 0.07092841680144105,
+      "cap_MW": 2.0,
+      "capped": true,
+      "load": 0.05633385284173164,
+      "need_MW": 0.11266770568346328
+     }
+    },
+    "flags": [],
+    "need_MW": 0.5238840181357878,
+    "partial": [],
+    "rule": {
+     "binding": [],
+     "ceiling": 0.8,
+     "demands": [
+      {
+       "faces": {
+        "0": {
+         "Ku time": 0.00016666666633333337,
+         "S time": 3.333333326666667e-05,
+         "energy": 71065.33166007091,
+         "share": 0.2501631328332907
+        },
+        "1": {
+         "Ku time": 0.00016666666633333337,
+         "S time": 3.333333326666667e-05,
+         "energy": 71153.79319733579,
+         "share": 0.2504745338326315
+        },
+        "2": {
+         "Ku time": 0.00016666666633333337,
+         "S time": 3.333333326666667e-05,
+         "energy": 70928.41665958423,
+         "share": 0.24968116666703888
+        },
+        "3": {
+         "Ku time": 0.00016666666633333337,
+         "S time": 3.333333326666667e-05,
+         "energy": 70928.41665958423,
+         "share": 0.24968116666703888
+        }
+       },
+       "kind": "other",
+       "label": "always-on",
+       "level": 1.0,
+       "moved_share": 0.0,
+       "sector": null,
+       "tier": "always-on",
+       "unserved_share": 0.0
+      },
+      {
+       "faces": {
+        "0": {
+         "Ku time": 0.0,
+         "S time": 0.0002710987234404679,
+         "energy": 3575.2248436826867,
+         "share": 1.0
+        }
+       },
+       "kind": "search",
+       "label": "search S01",
+       "level": 1.0,
+       "moved_share": 0.0,
+       "rho": 1.0,
+       "rr_tenable_s": 20.0,
+       "sector": "S01",
+       "tier": "P4_1 search",
+       "unserved_share": 0.0
+      },
+      {
+       "faces": {
+        "0": {
+         "Ku time": 0.0,
+         "S time": 0.0017930180151170803,
+         "energy": 23646.155435419856,
+         "share": 1.0
+        }
+       },
+       "kind": "other",
+       "label": "margin reuse S01",
+       "level": 1.0,
+       "moved_share": 0.0,
+       "sector": "S01",
+       "tier": "P5 margin reuse",
+       "unserved_share": 0.0
+      },
+      {
+       "faces": {
+        "1": {
+         "Ku time": 0.0,
+         "S time": 0.0008337875748399702,
+         "energy": 10878.476540054,
+         "share": 1.0
+        }
+       },
+       "kind": "search",
+       "label": "search S02",
+       "level": 1.0,
+       "moved_share": 0.0,
+       "rho": 1.0,
+       "rr_tenable_s": 5.0,
+       "sector": "S02",
+       "tier": "P4_1 search",
+       "unserved_share": 0.0
+      },
+      {
+       "faces": {
+        "1": {
+         "Ku time": 0.0,
+         "S time": 0.00267252491085274,
+         "energy": 34868.59293987614,
+         "share": 1.0
+        }
+       },
+       "kind": "other",
+       "label": "margin reuse S02",
+       "level": 1.0,
+       "moved_share": 0.0,
+       "sector": "S02",
+       "tier": "P5 margin reuse",
+       "unserved_share": 0.0
+      },
+      {
+       "faces": {
+        "0": {
+         "Ku time": 0.0,
+         "S time": 0.0007640725478941214,
+         "energy": 9925.441763929777,
+         "share": 0.25373927462893403
+        },
+        "1": {
+         "Ku time": 0.0,
+         "S time": 0.0007191194437455541,
+         "energy": 9340.369506225881,
+         "share": 0.23878217611319794
+        },
+        "2": {
+         "Ku time": 0.0,
+         "S time": 0.0007640725478941211,
+         "energy": 9925.441763929775,
+         "share": 0.253739274628934
+        },
+        "3": {
+         "Ku time": 0.0,
+         "S time": 0.0007640725478941212,
+         "energy": 9925.441763929775,
+         "share": 0.253739274628934
+        }
+       },
+       "kind": "search",
+       "label": "search S03",
+       "level": 1.0,
+       "moved_share": 0.0,
+       "rho": 1.0,
+       "rr_tenable_s": 120.0,
+       "sector": "S03",
+       "tier": "P4_1 search",
+       "unserved_share": 0.0
+      },
+      {
+       "faces": {
+        "0": {
+         "Ku time": 0.0,
+         "S time": 0.002449068539235172,
+         "energy": 31813.847034613882,
+         "share": 0.2537392746289341
+        },
+        "1": {
+         "Ku time": 0.0,
+         "S time": 0.0023049811310241995,
+         "energy": 29938.525033488324,
+         "share": 0.23878217611319796
+        },
+        "2": {
+         "Ku time": 0.0,
+         "S time": 0.0024490685392351713,
+         "energy": 31813.84703461387,
+         "share": 0.25373927462893403
+        },
+        "3": {
+         "Ku time": 0.0,
+         "S time": 0.0024490685392351717,
+         "energy": 31813.84703461387,
+         "share": 0.25373927462893403
+        }
+       },
+       "kind": "other",
+       "label": "margin reuse S03",
+       "level": 1.0,
+       "moved_share": 0.0,
+       "sector": "S03",
+       "tier": "P5 margin reuse",
+       "unserved_share": 0.0
+      },
+      {
+       "faces": {
+        "1": {
+         "Ku time": 8.705331698675752e-05,
+         "S time": 0.0,
+         "energy": 2342.848217066797,
+         "share": 1.0
+        }
+       },
+       "kind": "other",
+       "label": "confirmation S02",
+       "level": 1.0,
+       "moved_share": 0.0,
+       "sector": "S02",
+       "tier": "P2 confirmation / initiation",
+       "unserved_share": 0.0
+      }
+     ],
+     "faces": {
+      "0": {
+       "Ku time": 0.00016666666633333337,
+       "Ku time load": 0.00016666666633333337,
+       "S time": 0.005310591158953508,
+       "S time load": 0.005310591158953508,
+       "energy": 140026.00073771708,
+       "energy cap": 2000000.0,
+       "energy load": 0.07001300036885855,
+       "moved": {
+        "Ku time": 0.0,
+        "S time": 0.0,
+        "energy": 0.0
+       }
+      },
+      "1": {
+       "Ku time": 0.0002537199833200909,
+       "Ku time load": 0.0002537199833200909,
+       "S time": 0.006563746393729131,
+       "S time load": 0.006563746393729131,
+       "energy": 158522.60543404694,
+       "energy cap": 2000000.0,
+       "energy load": 0.07926130271702347,
+       "moved": {
+        "Ku time": 0.0,
+        "S time": 0.0,
+        "energy": 0.0
+       }
+      },
+      "2": {
+       "Ku time": 0.00016666666633333337,
+       "Ku time load": 0.00016666666633333337,
+       "S time": 0.0032464744203959586,
+       "S time load": 0.0032464744203959586,
+       "energy": 112667.70545812785,
+       "energy cap": 2000000.0,
+       "energy load": 0.056333852729063924,
+       "moved": {
+        "Ku time": 0.0,
+        "S time": 0.0,
+        "energy": 0.0
+       }
+      },
+      "3": {
+       "Ku time": 0.00016666666633333337,
+       "Ku time load": 0.00016666666633333337,
+       "S time": 0.0032464744203959594,
+       "S time load": 0.0032464744203959594,
+       "energy": 112667.70545812785,
+       "energy cap": 2000000.0,
+       "energy load": 0.056333852729063924,
+       "moved": {
+        "Ku time": 0.0,
+        "S time": 0.0,
+        "energy": 0.0
+       }
+      }
+     },
+     "flags": [],
+     "ship": {
+      "cap": 8000000.0,
+      "energy": 523884.0170880197,
+      "energy load": 0.06548550213600246
+     },
+     "status": "OK"
+    },
+    "ship_MW": 8.0,
+    "status": "OK",
+    "tiers": [
+     {
+      "fraction": 1.0,
+      "need_MW": 0.2840759587447271,
+      "served_MW": 0.2840759587447271,
+      "tier": "always-on"
+     },
+     {
+      "fraction": 1.0,
+      "need_MW": 0.0023428482217524933,
+      "served_MW": 0.0023428482217524933,
+      "tier": "P2 confirmation / initiation"
+     },
+     {
+      "fraction": 1.0,
+      "need_MW": 0.05357039628889269,
+      "served_MW": 0.05357039628889269,
+      "tier": "P4_1 search"
+     },
+     {
+      "fraction": 1.0,
+      "need_MW": 0.18389481488041556,
+      "served_MW": 0.18389481488041556,
+      "tier": "P5 margin reuse"
+     }
+    ]
+   },
+   "realloc_mode": "PRIO_SEARCH",
+   "sectors": {
+    "S01": {
+     "g": 7.613893242882861,
+     "limited_by": "F1 memory bandwidth",
+     "range_km_at_rr_real": [
+      6492,
+      6463,
+      6413,
+      6341,
+      7425,
+      7280,
+      7102,
+      6885,
+      6626,
+      7939,
+      7853
+     ],
+     "range_km_nominal": [
+      5124,
+      5101,
+      5062,
+      5004,
+      5860,
+      5746,
+      5605,
+      5434,
+      5230,
+      6266,
+      6198
+     ],
+     "rr_min_s": 1.0,
+     "rr_real_s": 2.626777045855632,
+     "rr_target_s": 20.0
+    },
+    "S02": {
+     "g": 4.205282726077659,
+     "limited_by": "F2 memory bandwidth",
+     "range_km_at_rr_real": [
+      776,
+      772,
+      766,
+      757
+     ],
+     "range_km_nominal": [
+      574,
+      572,
+      567,
+      561
+     ],
+     "rr_min_s": 1.0,
+     "rr_real_s": 1.1889807001546333,
+     "rr_target_s": 5.0
+    },
+    "S03": {
+     "g": 4.205282726077659,
+     "limited_by": "F2 memory bandwidth",
+     "range_km_at_rr_real": [
+      12289,
+      12234,
+      12139,
+      12002,
+      11820,
+      11589,
+      11305,
+      10961,
+      10548,
+      11862,
+      11173,
+      10353,
+      12100,
+      10590,
+      10238
+     ],
+     "range_km_nominal": [
+      9756,
+      9713,
+      9638,
+      9529,
+      9384,
+      9201,
+      8976,
+      8702,
+      8374,
+      9419,
+      8871,
+      8221,
+      9607,
+      8408,
+      8122
+     ],
+     "rr_min_s": 1.0,
+     "rr_real_s": 28.5355368037112,
+     "rr_target_s": 120.0
+    }
+   },
+   "ship_energy": {
+    "nominal": 0.04232925225760027,
+    "real": 0.06548550226697347
+   }
+  },
+  "power_allocation": {
+   "drawn_MW": 0.3386340173835342,
+   "faces": {
+    "0": {
+     "alloc_MW": 0.08503541880041528,
+     "always_on_MW": 0.07081668303328856,
      "cap_MW": 2.0,
      "capped": true,
-     "load": 0.04038921912294101,
-     "need_MW": 0.08077843824588202
+     "load": 0.042517709485243055,
+     "need_MW": 0.08503541897048611
+    },
+    "1": {
+     "alloc_MW": 0.09203949848565592,
+     "always_on_MW": 0.07085535347737881,
+     "cap_MW": 2.0,
+     "capped": true,
+     "load": 0.046019749334867445,
+     "need_MW": 0.09203949866973489
+    },
+    "2": {
+     "alloc_MW": 0.0807795500487315,
+     "always_on_MW": 0.07079587228202763,
+     "cap_MW": 2.0,
+     "capped": true,
+     "load": 0.04038977510514529,
+     "need_MW": 0.08077955021029058
+    },
+    "3": {
+     "alloc_MW": 0.0807795500487315,
+     "always_on_MW": 0.07079587228202763,
+     "cap_MW": 2.0,
+     "capped": true,
+     "load": 0.04038977510514529,
+     "need_MW": 0.08077955021029058
     }
    },
    "flags": [],
-   "need_MW": 0.33921042634618903,
+   "need_MW": 0.3386340180608022,
    "partial": [],
    "rule": {
     "binding": [],
@@ -567,26 +1133,26 @@
        "0": {
         "Ku time": 0.00016666666633333337,
         "S time": 3.333333326666667e-05,
-        "energy": 70812.64787655907,
-        "share": 0.24999711025871887
+        "energy": 70816.68289165519,
+        "share": 0.2500026045144391
        },
        "1": {
         "Ku time": 0.00016666666633333337,
         "S time": 3.333333326666667e-05,
-        "energy": 70852.3228526397,
-        "share": 0.2501371788717021
+        "energy": 70855.35333566811,
+        "share": 0.2501391219468604
        },
        "2": {
         "Ku time": 0.00016666666633333337,
         "S time": 3.333333326666667e-05,
-        "energy": 70794.44744929585,
-        "share": 0.24993285543478955
+        "energy": 70795.8721404359,
+        "share": 0.24992913676935022
        },
        "3": {
         "Ku time": 0.00016666666633333337,
         "S time": 3.333333326666667e-05,
-        "energy": 70794.44744929585,
-        "share": 0.24993285543478955
+        "energy": 70795.8721404359,
+        "share": 0.24992913676935022
        }
       },
       "kind": "other",
@@ -639,27 +1205,27 @@
       "faces": {
        "0": {
         "Ku time": 0.0,
-        "S time": 0.0007640966789100407,
-        "energy": 9925.754490663458,
-        "share": 0.25000000000000006
+        "S time": 0.0007640725478941215,
+        "energy": 9925.441763929779,
+        "share": 0.25373927462893414
        },
        "1": {
         "Ku time": 0.0,
-        "S time": 0.0007640966789100404,
-        "energy": 9925.754490663454,
-        "share": 0.24999999999999994
+        "S time": 0.000719119443745554,
+        "energy": 9340.36950622588,
+        "share": 0.23878217611319794
        },
        "2": {
         "Ku time": 0.0,
-        "S time": 0.0007640966789100404,
-        "energy": 9925.754490663454,
-        "share": 0.24999999999999994
+        "S time": 0.0007640725478941212,
+        "energy": 9925.441763929772,
+        "share": 0.253739274628934
        },
        "3": {
         "Ku time": 0.0,
-        "S time": 0.0007640966789100403,
-        "energy": 9925.754490663456,
-        "share": 0.25
+        "S time": 0.0007640725478941212,
+        "energy": 9925.441763929772,
+        "share": 0.253739274628934
        }
       },
       "kind": "search",
@@ -746,11 +1312,11 @@
      "0": {
       "Ku time": 0.0001698595544999532,
       "Ku time load": 0.0001698595544999532,
-      "S time": 0.0011184001489403165,
-      "S time load": 0.0011184001489403165,
-      "energy": 85031.69651205283,
+      "S time": 0.0011183760179243971,
+      "S time load": 0.0011183760179243971,
+      "energy": 85035.41880041528,
       "energy cap": 2000000.0,
-      "energy load": 0.04251584825602642,
+      "energy load": 0.04251770940020764,
       "moved": {
        "Ku time": 0.0,
        "S time": 0.0,
@@ -760,11 +1326,11 @@
      "1": {
       "Ku time": 0.00019630673358841317,
       "Ku time load": 0.00019630673358841317,
-      "S time": 0.0016312175870166771,
-      "S time load": 0.0016312175870166771,
-      "energy": 92621.85298706508,
+      "S time": 0.001586240351852191,
+      "S time load": 0.001586240351852191,
+      "energy": 92039.49848565592,
       "energy cap": 2000000.0,
-      "energy load": 0.046310926493532543,
+      "energy load": 0.04601974924282796,
       "moved": {
        "Ku time": 0.0,
        "S time": 0.0,
@@ -774,11 +1340,11 @@
      "2": {
       "Ku time": 0.00016972011489127224,
       "Ku time load": 0.00016972011489127224,
-      "S time": 0.000797430012176707,
-      "S time load": 0.000797430012176707,
-      "energy": 80778.43808432514,
+      "S time": 0.0007974058811607878,
+      "S time load": 0.0007974058811607878,
+      "energy": 80779.5500487315,
       "energy cap": 2000000.0,
-      "energy load": 0.04038921904216257,
+      "energy load": 0.04038977502436575,
       "moved": {
        "Ku time": 0.0,
        "S time": 0.0,
@@ -788,11 +1354,11 @@
      "3": {
       "Ku time": 0.00016972011489127224,
       "Ku time load": 0.00016972011489127224,
-      "S time": 0.000797430012176707,
-      "S time load": 0.000797430012176707,
-      "energy": 80778.43808432514,
+      "S time": 0.0007974058811607879,
+      "S time load": 0.0007974058811607879,
+      "energy": 80779.5500487315,
       "energy cap": 2000000.0,
-      "energy load": 0.04038921904216257,
+      "energy load": 0.04038977502436575,
       "moved": {
        "Ku time": 0.0,
        "S time": 0.0,
@@ -803,8 +1369,8 @@
     "flags": [],
     "ship": {
      "cap": 8000000.0,
-     "energy": 339210.4256677682,
-     "energy load": 0.042401303208471026
+     "energy": 338634.0173835342,
+     "energy load": 0.04232925217294178
     },
     "status": "OK"
    },
@@ -813,8 +1379,8 @@
    "tiers": [
     {
      "fraction": 1.0,
-     "need_MW": 0.2832538661942982,
-     "served_MW": 0.2832538661942982,
+     "need_MW": 0.28326378107472266,
+     "served_MW": 0.28326378107472266,
      "tier": "always-on"
     },
     {
@@ -825,8 +1391,8 @@
     },
     {
      "fraction": 1.0,
-     "need_MW": 0.05415671945470395,
-     "served_MW": 0.05415671945470395,
+     "need_MW": 0.05357039628889269,
+     "served_MW": 0.05357039628889269,
      "tier": "P4_1 search"
     }
    ]
@@ -849,38 +1415,16 @@
     "note": "",
     "pieces": null,
     "sector": "S01"
-   },
-   {
+   }
+  ],
+  "relief": {
+   "S03": {
     "by": [
      "S02"
     ],
-    "caveat": "",
-    "detail": "S02 detects S03's target from 12793 km (worst scan angle), revisit 5 s: 12793 km guaranteed at 5000 m/s, vs 8000 km for S03's own spec (8000 km, revisit 120 s)",
-    "faces": {
-     "0": {
-      "energy_fraction": 0.0052602681350647955,
-      "time_fraction": 0.0007640966804382342
-     },
-     "1": {
-      "energy_fraction": 0.005260268135064795,
-      "time_fraction": 0.0007640966804382338
-     },
-     "2": {
-      "energy_fraction": 0.005260268135064795,
-      "time_fraction": 0.0007640966804382339
-     },
-     "3": {
-      "energy_fraction": 0.005260268135064795,
-      "time_fraction": 0.0007640966804382338
-     }
-    },
-    "fraction": 0.020775274985649406,
-    "full": false,
-    "note": "no earlier box sector in the same frame meets the need over its whole overlap with S03 (coverage depends on the scan angle, or the covering sector is a cap or in another frame)",
-    "pieces": null,
-    "sector": "S03"
+    "share": 0.020775274985649406
    }
-  ],
+  },
   "repointing": {
    "accel_max_dps2": 15.0,
    "bands": {
@@ -918,7 +1462,7 @@
   "scheduler": {
    "eclipse_db": {
     "Ku": 0.0008526330048229274,
-    "S": 0.007090072281158658
+    "S": 0.0068944238850597375
    },
    "faces": {
     "0": {
@@ -953,17 +1497,17 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.0011184001511771167,
+      "load": 0.0011183760201611491,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
        "P2": 4.987141342288388e-05,
-       "P4_1": 0.0010351954044208996
+       "P4_1": 0.0010351712734049318
       },
       "mean_wait_s": {
-       "calibration S": 2.027782367576906e-07,
-       "confirmation S01": 2.0279511027348432e-07,
-       "search S01": 2.030154028937629e-07,
-       "search S03": 2.030154028937629e-07
+       "calibration S": 2.027761959438922e-07,
+       "confirmation S01": 2.027930692898664e-07,
+       "search S01": 2.0301335478865817e-07,
+       "search S03": 2.0301335478865817e-07
       },
       "stretch": {},
       "timeline": {
@@ -1017,15 +1561,15 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.0016312175902791124,
+      "load": 0.0015862403550246716,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
-       "P4_1": 0.0015978842569457793
+       "P4_1": 0.0015529070216913385
       },
       "mean_wait_s": {
-       "calibration S": 2.113276042399532e-07,
-       "search S02": 2.116728887795155e-07,
-       "search S03": 2.116728887795155e-07
+       "calibration S": 2.1105792715631528e-07,
+       "search S02": 2.1139324765652776e-07,
+       "search S03": 2.1139324765652776e-07
       },
       "stretch": {},
       "timeline": {
@@ -1034,13 +1578,13 @@
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
-        "search S02": 4.5317193382743426e-05,
+        "search S02": 0.00023673599858708982,
         "search S03": 0.0
        },
        "pause_time_s": 0.0,
        "recharge_pauses": 0,
        "revisit_spread_s": {
-        "search S02": 4.5317193382743426e-05,
+        "search S02": 0.00023673599858708982,
         "search S03": 0.0
        }
       }
@@ -1076,14 +1620,14 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.0007974300137715672,
+      "load": 0.0007974058827555995,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
-       "P4_1": 0.0007640966804382339
+       "P4_1": 0.0007640725494222661
       },
       "mean_wait_s": {
-       "calibration S": 1.989834121784909e-07,
-       "search S03": 1.9914221415706866e-07
+       "calibration S": 1.989813713646925e-07,
+       "search S03": 1.991401669052757e-07
       },
       "stretch": {},
       "timeline": {
@@ -1131,14 +1675,14 @@
      "S": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.0007974300137715671,
+      "load": 0.0007974058827555996,
       "load_by_priority": {
        "P0": 3.3333333333333335e-05,
-       "P4_1": 0.0007640966804382338
+       "P4_1": 0.0007640725494222662
       },
       "mean_wait_s": {
-       "calibration S": 1.989834121784909e-07,
-       "search S03": 1.9914221415706866e-07
+       "calibration S": 1.9898137136469252e-07,
+       "search S03": 1.9914016690527572e-07
       },
       "stretch": {},
       "timeline": {
@@ -1167,7 +1711,7 @@
      "go_cfar_advised": false,
      "id": "S01",
      "latency_ok": true,
-     "latency_q95_s": 0.10006951230049183,
+     "latency_q95_s": 0.1000705089888615,
      "latency_required_s": 100.0,
      "priority": "P4_1",
      "scan": {
@@ -1190,7 +1734,7 @@
      "go_cfar_advised": false,
      "id": "S02",
      "latency_ok": true,
-     "latency_q95_s": 0.006682875123847898,
+     "latency_q95_s": 0.006683782716729941,
      "latency_required_s": 2.0,
      "priority": "P4_1",
      "scan": {
@@ -1213,12 +1757,12 @@
      "go_cfar_advised": false,
      "id": "S03",
      "latency_ok": true,
-     "latency_q95_s": 0.10686777751307659,
+     "latency_q95_s": 0.10686894004313194,
      "latency_required_s": 160.0,
      "priority": "P4_1",
      "scan": {
       "0": {
-       "frame_tx_s": 0.10644829999999998,
+       "frame_tx_s": 0.10642869999999999,
        "mean_step_deg": 33.30741219774893,
        "plan_positions": 1084.2,
        "pointing_rate_hz": 9.175,
@@ -1230,19 +1774,19 @@
        }
       },
       "1": {
-       "frame_tx_s": 0.10644829999999998,
-       "mean_step_deg": 33.30741219774893,
-       "plan_positions": 1084.2,
-       "pointing_rate_hz": 9.175,
-       "pointings": 1101,
+       "frame_tx_s": 0.1011101,
+       "mean_step_deg": 33.96327814767213,
+       "plan_positions": 968.4,
+       "pointing_rate_hz": 8.233333333333333,
+       "pointings": 988,
        "uniformity": {
-        "10%": 0.92,
-        "25%": 0.92,
+        "10%": 0.9166666666666666,
+        "25%": 0.9166666666666666,
         "50%": 1.0
        }
       },
       "2": {
-       "frame_tx_s": 0.10644829999999998,
+       "frame_tx_s": 0.10642869999999999,
        "mean_step_deg": 33.30741219774893,
        "plan_positions": 1084.2,
        "pointing_rate_hz": 9.175,
@@ -1254,7 +1798,7 @@
        }
       },
       "3": {
-       "frame_tx_s": 0.10644829999999998,
+       "frame_tx_s": 0.10642869999999999,
        "mean_step_deg": 33.30741219774893,
        "plan_positions": 1084.2,
        "pointing_rate_hz": 9.175,
@@ -1270,7 +1814,7 @@
    ],
    "slots": {
     "Ku": 0.00019630673398102663,
-    "S": 0.0016312175902791124
+    "S": 0.0015862403550246716
    }
   },
   "sectors": [
@@ -1327,7 +1871,7 @@
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.0024860309521354635,
+       "energy_max": 0.002485749732196579,
        "freq_ghz": 2.695,
        "groups": 11,
        "occupied_ghz": [
@@ -1337,7 +1881,7 @@
        "range_worst_km": 5044,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.00035274138299277985,
+       "time_max": 0.00035270043691054367,
        "unscanned_pct": 0.0
       },
       {
@@ -1359,7 +1903,7 @@
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.0024782648929531394,
+       "energy_max": 0.002477985416312182,
        "freq_ghz": 2.845,
        "groups": 11,
        "occupied_ghz": [
@@ -1369,7 +1913,7 @@
        "range_worst_km": 5191,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.0003505547196870901,
+       "time_max": 0.00035051402743187834,
        "unscanned_pct": 0.0
       }
      ],
@@ -2196,7 +2740,7 @@
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.005861876140185856,
+       "energy_max": 0.005861876140185852,
        "freq_ghz": 2.845,
        "groups": 4,
        "occupied_ghz": [
@@ -2206,7 +2750,7 @@
        "range_worst_km": 594,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.0008462947292592058,
+       "time_max": 0.0008462947292592054,
        "unscanned_pct": 0.0
       }
      ],
@@ -2558,166 +3102,166 @@
     "fa_per_rr": 10.0,
     "face_overlap": {
      "0>1": {
-      "fe_other": 0.003994530639378537,
-      "fe_own": 0.0018051648279747935,
-      "fe_own_reach": 0.0018051648279747935,
-      "ft_other": 0.0005811873772051685,
-      "ft_own": 0.0002621372050341599,
-      "ft_own_reach": 0.0002621372050341599,
+      "fe_other": 0.003994424223723744,
+      "fe_own": 0.0018051065041013836,
+      "fe_own_reach": 0.0018051065041013836,
+      "ft_other": 0.0005811718829120908,
+      "ft_own": 0.00026212871298296876,
+      "ft_own_reach": 0.00026212871298296876,
       "sr": 0.9646080024275971,
       "sr_reach": 0.9646080024275971
      },
      "0>2": {
-      "fe_other": 0.0002153828776810662,
-      "fe_own": 8.518244913021327e-05,
-      "fe_own_reach": 8.518244913021327e-05,
-      "ft_other": 3.1351498863166215e-05,
-      "ft_own": 1.2388427899988922e-05,
-      "ft_own_reach": 1.2388427899988922e-05,
+      "fe_other": 0.00021538287786995242,
+      "fe_own": 8.517522429694557e-05,
+      "fe_own_reach": 8.517522429694557e-05,
+      "ft_other": 3.135149889066835e-05,
+      "ft_own": 1.2387375952469502e-05,
+      "ft_own_reach": 1.2387375952469502e-05,
       "sr": 0.0297014505505254,
       "sr_reach": 0.0297014505505254
      },
      "0>3": {
-      "fe_other": 0.003994530639378532,
-      "fe_own": 0.001805164827974794,
-      "fe_own_reach": 0.001805164827974794,
-      "ft_other": 0.0005811873772051681,
-      "ft_own": 0.00026213720503415997,
-      "ft_own_reach": 0.00026213720503415997,
+      "fe_other": 0.003994424223723741,
+      "fe_own": 0.0018051065041013838,
+      "fe_own_reach": 0.0018051065041013838,
+      "ft_other": 0.0005811718829120903,
+      "ft_own": 0.0002621287129829688,
+      "ft_own_reach": 0.0002621287129829688,
       "sr": 0.964608002427597,
       "sr_reach": 0.964608002427597
      },
      "1>0": {
-      "fe_other": 0.003994530639378534,
-      "fe_own": 0.0018051648279747941,
-      "fe_own_reach": 0.0018051648279747941,
-      "ft_other": 0.0005811873772051685,
-      "ft_own": 0.00026213720503415997,
-      "ft_own_reach": 0.00026213720503415997,
-      "sr": 0.964608002427597,
-      "sr_reach": 0.964608002427597
+      "fe_other": 0.0036535109904779314,
+      "fe_own": 0.0017363874996570538,
+      "fe_own_reach": 0.0017363874996570538,
+      "ft_other": 0.0005315481499179219,
+      "ft_own": 0.00025216596405329807,
+      "ft_own_reach": 0.00025216596405329807,
+      "sr": 0.9171062295996611,
+      "sr_reach": 0.9171062295996611
      },
      "1>2": {
-      "fe_other": 0.003994530639378538,
-      "fe_own": 0.0018051648279747937,
-      "fe_own_reach": 0.0018051648279747937,
-      "ft_other": 0.0005811873772051687,
-      "ft_own": 0.00026213720503415997,
-      "ft_own_reach": 0.00026213720503415997,
-      "sr": 0.9646080024275971,
-      "sr_reach": 0.9646080024275971
+      "fe_other": 0.0036535109904779323,
+      "fe_own": 0.0017363874996570538,
+      "fe_own_reach": 0.0017363874996570538,
+      "ft_other": 0.0005315481499179222,
+      "ft_own": 0.000252165964053298,
+      "ft_own_reach": 0.000252165964053298,
+      "sr": 0.9171062295996611,
+      "sr_reach": 0.9171062295996611
      },
      "1>3": {
-      "fe_other": 0.00021538287768106622,
-      "fe_own": 8.518244913021327e-05,
-      "fe_own_reach": 8.518244913021327e-05,
-      "ft_other": 3.1351498863166215e-05,
-      "ft_own": 1.2388427899988922e-05,
-      "ft_own_reach": 1.2388427899988922e-05,
+      "fe_other": 0.00021538287786995242,
+      "fe_own": 8.517522429694557e-05,
+      "fe_own_reach": 8.517522429694557e-05,
+      "ft_other": 3.135149889066835e-05,
+      "ft_own": 1.2387375952469502e-05,
+      "ft_own_reach": 1.2387375952469502e-05,
       "sr": 0.029701450550525407,
       "sr_reach": 0.029701450550525407
      },
      "2>0": {
-      "fe_other": 0.00021538287768106622,
-      "fe_own": 8.518244913021327e-05,
-      "fe_own_reach": 8.518244913021327e-05,
-      "ft_other": 3.1351498863166215e-05,
-      "ft_own": 1.2388427899988922e-05,
-      "ft_own_reach": 1.2388427899988922e-05,
+      "fe_other": 0.00021538287786995242,
+      "fe_own": 8.517522429694557e-05,
+      "fe_own_reach": 8.517522429694557e-05,
+      "ft_other": 3.135149889066835e-05,
+      "ft_own": 1.2387375952469502e-05,
+      "ft_own_reach": 1.2387375952469502e-05,
       "sr": 0.029701450550525407,
       "sr_reach": 0.029701450550525407
      },
      "2>1": {
-      "fe_other": 0.003994530639378534,
-      "fe_own": 0.0018051648279747941,
-      "fe_own_reach": 0.0018051648279747941,
-      "ft_other": 0.0005811873772051683,
-      "ft_own": 0.00026213720503416,
-      "ft_own_reach": 0.00026213720503416,
+      "fe_other": 0.0039944242237237425,
+      "fe_own": 0.0018051065041013836,
+      "fe_own_reach": 0.0018051065041013836,
+      "ft_other": 0.0005811718829120907,
+      "ft_own": 0.0002621287129829688,
+      "ft_own_reach": 0.0002621287129829688,
       "sr": 0.964608002427597,
       "sr_reach": 0.964608002427597
      },
      "2>3": {
-      "fe_other": 0.003994530639378538,
-      "fe_own": 0.0018051648279747935,
-      "fe_own_reach": 0.0018051648279747935,
-      "ft_other": 0.0005811873772051687,
-      "ft_own": 0.0002621372050341599,
-      "ft_own_reach": 0.0002621372050341599,
+      "fe_other": 0.003994424223723745,
+      "fe_own": 0.0018051065041013834,
+      "fe_own_reach": 0.0018051065041013834,
+      "ft_other": 0.0005811718829120911,
+      "ft_own": 0.00026212871298296876,
+      "ft_own_reach": 0.00026212871298296876,
       "sr": 0.9646080024275971,
       "sr_reach": 0.9646080024275971
      },
      "3>0": {
-      "fe_other": 0.003994530639378536,
-      "fe_own": 0.0018051648279747935,
-      "fe_own_reach": 0.0018051648279747935,
-      "ft_other": 0.0005811873772051686,
-      "ft_own": 0.0002621372050341599,
-      "ft_own_reach": 0.0002621372050341599,
+      "fe_other": 0.003994424223723744,
+      "fe_own": 0.0018051065041013834,
+      "fe_own_reach": 0.0018051065041013834,
+      "ft_other": 0.0005811718829120909,
+      "ft_own": 0.00026212871298296876,
+      "ft_own_reach": 0.00026212871298296876,
       "sr": 0.9646080024275971,
       "sr_reach": 0.9646080024275971
      },
      "3>1": {
-      "fe_other": 0.00021538287768106622,
-      "fe_own": 8.518244913021327e-05,
-      "fe_own_reach": 8.518244913021327e-05,
-      "ft_other": 3.1351498863166215e-05,
-      "ft_own": 1.2388427899988922e-05,
-      "ft_own_reach": 1.2388427899988922e-05,
+      "fe_other": 0.00021538287786995242,
+      "fe_own": 8.517522429694557e-05,
+      "fe_own_reach": 8.517522429694557e-05,
+      "ft_other": 3.135149889066835e-05,
+      "ft_own": 1.23873759524695e-05,
+      "ft_own_reach": 1.23873759524695e-05,
       "sr": 0.029701450550525407,
       "sr_reach": 0.029701450550525407
      },
      "3>2": {
-      "fe_other": 0.003994530639378533,
-      "fe_own": 0.0018051648279747941,
-      "fe_own_reach": 0.0018051648279747941,
-      "ft_other": 0.0005811873772051682,
-      "ft_own": 0.00026213720503416,
-      "ft_own_reach": 0.00026213720503416,
+      "fe_other": 0.0039944242237237425,
+      "fe_own": 0.0018051065041013836,
+      "fe_own_reach": 0.0018051065041013836,
+      "ft_other": 0.0005811718829120906,
+      "ft_own": 0.0002621287129829688,
+      "ft_own_reach": 0.0002621287129829688,
       "sr": 0.964608002427597,
       "sr_reach": 0.964608002427597
      }
     },
     "faces": {
      "0": {
-      "avg_power_kW": 9.38231945106427,
-      "dissipation_kW": 1.8941719827695749,
-      "dissipation_kW_m2": 0.14245750599933626,
-      "energy_J_per_refresh": 1125878.3341277123,
-      "energy_fraction": 0.0052602681350647955,
+      "avg_power_kW": 9.382023846118669,
+      "dissipation_kW": 1.8941128617804548,
+      "dissipation_kW_m2": 0.14245305960865007,
+      "energy_J_per_refresh": 1125842.8615342402,
+      "energy_fraction": 0.005260102401923431,
       "positions": 1084.2,
       "theta_max_deg": 75.0,
-      "time_fraction": 0.0007640966804382342
+      "time_fraction": 0.0007640725494222664
      },
      "1": {
-      "avg_power_kW": 9.382319451064268,
-      "dissipation_kW": 1.8941719827695744,
-      "dissipation_kW_m2": 0.14245750599933624,
-      "energy_J_per_refresh": 1125878.334127712,
-      "energy_fraction": 0.005260268135064795,
-      "positions": 1084.2,
+      "avg_power_kW": 8.828984293417982,
+      "dissipation_kW": 1.7816137306168105,
+      "dissipation_kW_m2": 0.13399218815745695,
+      "energy_J_per_refresh": 1059478.1152101578,
+      "energy_fraction": 0.004950036607247049,
+      "positions": 968.4,
       "theta_max_deg": 75.0,
-      "time_fraction": 0.0007640966804382338
+      "time_fraction": 0.000719119445183793
      },
      "2": {
-      "avg_power_kW": 9.382319451064268,
-      "dissipation_kW": 1.8941719827695744,
-      "dissipation_kW_m2": 0.14245750599933624,
-      "energy_J_per_refresh": 1125878.334127712,
-      "energy_fraction": 0.005260268135064795,
+      "avg_power_kW": 9.382023846118663,
+      "dissipation_kW": 1.894112861780454,
+      "dissipation_kW_m2": 0.14245305960865,
+      "energy_J_per_refresh": 1125842.8615342397,
+      "energy_fraction": 0.005260102401923429,
       "positions": 1084.2,
       "theta_max_deg": 75.0,
-      "time_fraction": 0.0007640966804382339
+      "time_fraction": 0.0007640725494222661
      },
      "3": {
-      "avg_power_kW": 9.382319451064268,
-      "dissipation_kW": 1.8941719827695744,
-      "dissipation_kW_m2": 0.14245750599933624,
-      "energy_J_per_refresh": 1125878.334127712,
-      "energy_fraction": 0.005260268135064795,
+      "avg_power_kW": 9.382023846118663,
+      "dissipation_kW": 1.894112861780454,
+      "dissipation_kW_m2": 0.14245305960865,
+      "energy_J_per_refresh": 1125842.8615342397,
+      "energy_fraction": 0.005260102401923429,
       "positions": 1084.2,
       "theta_max_deg": 75.0,
-      "time_fraction": 0.0007640966804382338
+      "time_fraction": 0.0007640725494222662
      }
     },
     "flags": [],
@@ -2729,7 +3273,7 @@
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.005583074307620102,
+       "energy_max": 0.005582445139196912,
        "freq_ghz": 2.695,
        "groups": 15,
        "occupied_ghz": [
@@ -2739,13 +3283,13 @@
        "range_worst_km": 8025,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.0008103827321035172,
+       "time_max": 0.000810291124153887,
        "unscanned_pct": 0.1
       },
       {
        "chosen": true,
        "degraded": false,
-       "energy_max": 0.0052602681350647955,
+       "energy_max": 0.005260102401923431,
        "freq_ghz": 2.77,
        "groups": 15,
        "occupied_ghz": [
@@ -2755,13 +3299,13 @@
        "range_worst_km": 8122,
        "short_pct": 0.0,
        "spacing": 1.7,
-       "time_max": 0.0007640966804382342,
+       "time_max": 0.0007640725494222664,
        "unscanned_pct": 0.1
       },
       {
        "chosen": false,
        "degraded": false,
-       "energy_max": 0.005563613862484985,
+       "energy_max": 0.005563031265949051,
        "freq_ghz": 2.845,
        "groups": 15,
        "occupied_ghz": [
@@ -2771,7 +3315,7 @@
        "range_worst_km": 8089,
        "short_pct": 0.0,
        "spacing": 1.4,
-       "time_max": 0.0008072607042800948,
+       "time_max": 0.000807175877273285,
        "unscanned_pct": 0.1
       }
      ],
@@ -2792,7 +3336,7 @@
     "id": "S03",
     "mismatch_db_per_pass_max": 0.9898686031516308,
     "pd_cumulative": 0.9,
-    "positions_total": 4336.7,
+    "positions_total": 4220.9,
     "range_km": {
      "at_best_scan": 9769,
      "at_worst_scan": 8122,
@@ -2804,7 +3348,7 @@
      "achieved": 1.7743151612725794,
      "requested": 2.0
     },
-    "rr_alone_s": 0.6312321762077755,
+    "rr_alone_s": 0.6312122882308118,
     "rr_est_mission_s": 120.0,
     "rr_target_s": 120,
     "rx_beams_per_position": 9.022400446895512,
@@ -2812,7 +3356,7 @@
     "rx_sll_held_up_to_deg": 75.0,
     "s_min_unsaturated_range_km": 16.029362973676353,
     "sky": {
-     "above_budget_pct": 0.9785620718051675,
+     "above_budget_pct": 0.9726563731368135,
      "adc_margin_db_min": null,
      "band": "S",
      "blind_rise_db": 10.0,
@@ -2823,10 +3367,10 @@
      "limbs": [],
      "main_lobe_surface": false,
      "masked_by_structure_pct": 0.0,
-     "rise_db": 0.22823144268042922,
+     "rise_db": 0.22823144649014437,
      "structure_rise_k_max": 0.0010570105863367332,
      "surfaces": {},
-     "t_sys_budget_k": 152.25926437754555,
+     "t_sys_budget_k": 152.2592645111103,
      "t_sys_cold_k": 144.46431510192332,
      "worst_rise_db": 0.2282330821735551
     },
@@ -2884,9 +3428,9 @@
     },
     "wf_by_bin": [
      {
-      "elec_J_per_position": 556.2089525083936,
-      "pae_at_scale": 0.7964761444576526,
-      "positions": 52.7,
+      "elec_J_per_position": 556.2089529941616,
+      "pae_at_scale": 0.7964761444607301,
+      "positions": 39.5,
       "pulse_scale": 0.452,
       "range_km_at_bin_max": 9756,
       "theta_hi_deg": 5.0,
@@ -2930,9 +3474,9 @@
       }
      },
      {
-      "elec_J_per_position": 566.1837534877818,
-      "pae_at_scale": 0.7965382263480257,
-      "positions": 156.6,
+      "elec_J_per_position": 566.1837539823001,
+      "pae_at_scale": 0.7965382263510493,
+      "positions": 117.4,
       "pulse_scale": 0.46,
       "range_km_at_bin_max": 9713,
       "theta_hi_deg": 10.0,
@@ -2976,9 +3520,9 @@
       }
      },
      {
-      "elec_J_per_position": 584.0322319019891,
-      "pae_at_scale": 0.7966440208383415,
-      "positions": 255.6,
+      "elec_J_per_position": 584.0322324121636,
+      "pae_at_scale": 0.7966440208412732,
+      "positions": 215.9,
       "pulse_scale": 0.475,
       "range_km_at_bin_max": 9638,
       "theta_hi_deg": 15.0,
@@ -3022,9 +3566,9 @@
       }
      },
      {
-      "elec_J_per_position": 611.0597784594527,
-      "pae_at_scale": 0.7967924578427641,
-      "positions": 346.9,
+      "elec_J_per_position": 611.0597789933365,
+      "pae_at_scale": 0.7967924578455664,
+      "positions": 323.2,
       "pulse_scale": 0.497,
       "range_km_at_bin_max": 9529,
       "theta_hi_deg": 20.0,
@@ -3068,8 +3612,8 @@
       }
      },
      {
-      "elec_J_per_position": 649.4078057604294,
-      "pae_at_scale": 0.7969818656588138,
+      "elec_J_per_position": 649.4078063279534,
+      "pae_at_scale": 0.7969818656614513,
       "positions": 427.8,
       "pulse_scale": 0.528,
       "range_km_at_bin_max": 9384,
@@ -3114,8 +3658,8 @@
       }
      },
      {
-      "elec_J_per_position": 702.4587204464697,
-      "pae_at_scale": 0.7972098004580906,
+      "elec_J_per_position": 702.4587210605314,
+      "pae_at_scale": 0.7972098004605297,
       "positions": 494.8,
       "pulse_scale": 0.571,
       "range_km_at_bin_max": 9201,
@@ -3160,8 +3704,8 @@
       }
      },
      {
-      "elec_J_per_position": 775.5659431022015,
-      "pae_at_scale": 0.7974728132179707,
+      "elec_J_per_position": 775.5659437803943,
+      "pae_at_scale": 0.7974728132201805,
       "positions": 548.0,
       "pulse_scale": 0.631,
       "range_km_at_bin_max": 8976,
@@ -3206,8 +3750,8 @@
       }
      },
      {
-      "elec_J_per_position": 877.4082285826544,
-      "pae_at_scale": 0.7977661481438736,
+      "elec_J_per_position": 877.4082293501849,
+      "pae_at_scale": 0.7977661481458276,
       "positions": 584.0,
       "pulse_scale": 0.714,
       "range_km_at_bin_max": 8702,
@@ -3252,8 +3796,8 @@
       }
      },
      {
-      "elec_J_per_position": 1022.6293626698489,
-      "pae_at_scale": 0.7980833720685637,
+      "elec_J_per_position": 1022.6293635647705,
+      "pae_at_scale": 0.7980833720702409,
       "positions": 447.3,
       "pulse_scale": 0.833,
       "range_km_at_bin_max": 8374,
@@ -3298,10 +3842,10 @@
       }
      },
      {
-      "elec_J_per_position": 1277.7065280763288,
-      "pae_at_scale": 0.7984660014197854,
+      "elec_J_per_position": 1277.549317570046,
+      "pae_at_scale": 0.7984658126515788,
       "positions": 335.5,
-      "pulse_scale": 0.521,
+      "pulse_scale": 0.52,
       "range_km_at_bin_max": 9419,
       "theta_hi_deg": 50.0,
       "theta_lo_deg": 45.0,
@@ -3344,8 +3888,8 @@
       }
      },
      {
-      "elec_J_per_position": 1622.8285422901868,
-      "pae_at_scale": 0.7987922322359243,
+      "elec_J_per_position": 1622.628785985949,
+      "pae_at_scale": 0.7987920835517478,
       "positions": 259.2,
       "pulse_scale": 0.661,
       "range_km_at_bin_max": 8871,
@@ -3390,11 +3934,11 @@
       }
      },
      {
-      "elec_J_per_position": 2200.0466656197445,
-      "pae_at_scale": 0.7991091098063378,
+      "elec_J_per_position": 2199.775751276787,
+      "pae_at_scale": 0.7991090000883669,
       "positions": 196.3,
       "pulse_scale": 0.897,
-      "range_km_at_bin_max": 8220,
+      "range_km_at_bin_max": 8221,
       "theta_hi_deg": 60.0,
       "theta_lo_deg": 55.0,
       "wf": {
@@ -3436,8 +3980,8 @@
       }
      },
      {
-      "elec_J_per_position": 3536.9163483057937,
-      "pae_at_scale": 0.7994458449657881,
+      "elec_J_per_position": 3536.916351406296,
+      "pae_at_scale": 0.7994458449662739,
       "positions": 142.5,
       "pulse_scale": 0.481,
       "range_km_at_bin_max": 9607,
@@ -3482,8 +4026,8 @@
       }
      },
      {
-      "elec_J_per_position": 6025.150809514064,
-      "pae_at_scale": 0.7996746969392193,
+      "elec_J_per_position": 6025.150814797296,
+      "pae_at_scale": 0.7996746969395045,
       "positions": 67.4,
       "pulse_scale": 0.819,
       "range_km_at_bin_max": 8408,
@@ -3528,8 +4072,8 @@
       }
      },
      {
-      "elec_J_per_position": 13838.612856323762,
-      "pae_at_scale": 0.79985836730745,
+      "elec_J_per_position": 13838.612868461114,
+      "pae_at_scale": 0.7998583673075742,
       "positions": 22.3,
       "pulse_scale": 0.941,
       "range_km_at_bin_max": 8122,
@@ -3597,7 +4141,7 @@
       "name": "WF-S03-1",
       "pae": 0.7984031936127745,
       "pfa": 2.23872e-10,
-      "positions": 3313.7,
+      "positions": 3197.9,
       "positions_per_dwell": 1.0,
       "pri_ms": 1.0,
       "pulses_per_block": 1,
@@ -3757,48 +4301,48 @@
    "confirm_p_min": 0.9995,
    "faces": {
     "0": {
-     "alloc_MW": 0.08503169651205283,
+     "alloc_MW": 0.08503541880041528,
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
      "burn_through_energy": 0.0,
      "burn_through_ku_time": 0.0,
-     "bus_draw_MW": 0.127433346329754,
+     "bus_draw_MW": 0.12743334421391161,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 2.0,
      "confirm_energy": 0.00038054911262897255,
      "confirm_ku_time": 3.192888173005622e-06,
      "confirm_s_time": 4.987141342288388e-05,
-     "coolant_flow_L_s": 5.485656605328311,
+     "coolant_flow_L_s": 5.485651505328311,
      "cooling_capacity_kW": 15899.520000000002,
-     "dissipation_kW": 2.7775804966335365,
-     "dissipation_kW_m2": 0.20889718244288202,
-     "face_heat_kW": 109.71313210656622,
+     "dissipation_kW": 2.7774804966335367,
+     "dissipation_kW_m2": 0.20888966161017544,
+     "face_heat_kW": 109.71303010656621,
      "heat_burst_deficit_MJ": 0.0,
      "heat_burst_ok": true,
-     "heat_flux_W_cm2": 0.8280486362348011,
-     "heat_load": 0.006900405301956676,
-     "load": 0.04251584834105811,
-     "max_contiguous_tx_s": 0.32385908054739715,
+     "heat_flux_W_cm2": 0.82804786640024,
+     "heat_load": 0.006900398886668666,
+     "load": 0.042517709485243055,
+     "max_contiguous_tx_s": 0.32385908059983953,
      "max_contiguous_tx_thermal_s": Infinity,
      "non_tx_kW": 106.88,
-     "p_left_kW": 1914.9683033178837,
+     "p_left_kW": 1914.964581029514,
      "peak_MW": {
       "Ku": 14.134615384615383,
       "S": 12.25
      },
      "peak_ok": true,
-     "pumps_kW": 0.05555160993267073,
+     "pumps_kW": 0.05554960993267074,
      "search_energy": 0.0072,
      "search_s_time": 0.001,
      "status": "OK",
-     "store_burst_deficit_MJ": 1.3543077682072953,
+     "store_burst_deficit_MJ": 1.3543077679065598,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 0.01169833551825568,
+     "store_obs_deficit_MJ": 0.011698335527993034,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
-     "total_energy": 0.04251584834105811,
+     "total_energy": 0.042517709485243055,
      "total_ku_time": 0.00016985955483967232,
      "total_s_time": 0.0010832047467562173,
      "transient_MW_per_us": {
@@ -3807,48 +4351,48 @@
      }
     },
     "1": {
-     "alloc_MW": 0.09262185298706509,
+     "alloc_MW": 0.09203949848565592,
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
      "burn_through_energy": 0.0,
      "burn_through_ku_time": 0.0,
-     "bus_draw_MW": 0.13489044125557037,
+     "bus_draw_MW": 0.13432198211777616,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 2.0,
      "confirm_energy": 0.0005115713995160438,
      "confirm_ku_time": 2.964006731435995e-05,
      "confirm_s_time": 0.0,
-     "coolant_flow_L_s": 5.580947573918859,
+     "coolant_flow_L_s": 5.57521007391886,
      "cooling_capacity_kW": 15899.520000000002,
-     "dissipation_kW": 4.646030861154123,
-     "dissipation_kW_m2": 0.34942020856428224,
-     "face_heat_kW": 111.6189514783772,
+     "dissipation_kW": 4.533530861154124,
+     "dissipation_kW_m2": 0.3409592717693604,
+     "face_heat_kW": 111.5042014783772,
      "heat_burst_deficit_MJ": 0.0,
      "heat_burst_ok": true,
-     "heat_flux_W_cm2": 0.842432612896821,
-     "heat_load": 0.0070202717741401745,
-     "load": 0.04631092658615439,
-     "max_contiguous_tx_s": 0.3238581006910442,
+     "heat_flux_W_cm2": 0.8415665490156472,
+     "heat_load": 0.007013054575130393,
+     "load": 0.046019749334867445,
+     "max_contiguous_tx_s": 0.32385815968834397,
      "max_contiguous_tx_thermal_s": Infinity,
      "non_tx_kW": 106.88,
-     "p_left_kW": 1907.3781468276911,
+     "p_left_kW": 1907.9605013302653,
      "peak_MW": {
       "Ku": 14.134615384615383,
       "S": 12.25
      },
      "peak_ok": true,
-     "pumps_kW": 0.09292061722308245,
-     "search_energy": 0.011,
+     "pumps_kW": 0.09067061722308249,
+     "search_energy": 0.0107,
      "search_s_time": 0.0016,
      "status": "OK",
-     "store_burst_deficit_MJ": 2.0722867648831103,
+     "store_burst_deficit_MJ": 2.0080759508802917,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 0.01169838036106443,
+     "store_obs_deficit_MJ": 0.011698377673201782,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
-     "total_energy": 0.04631092658615439,
+     "total_energy": 0.046019749334867445,
      "total_ku_time": 0.00019630673398102663,
      "total_s_time": 0.0016333333333333334,
      "transient_MW_per_us": {
@@ -3857,48 +4401,48 @@
      }
     },
     "2": {
-     "alloc_MW": 0.08077843808432514,
+     "alloc_MW": 0.0807795500487315,
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
      "burn_through_energy": 0.0,
      "burn_through_ku_time": 0.0,
-     "bus_draw_MW": 0.12317022755748183,
+     "bus_draw_MW": 0.12317022544163947,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 2.0,
      "confirm_energy": 3.086291674902677e-05,
      "confirm_ku_time": 3.0534485640457777e-06,
      "confirm_s_time": 0.0,
-     "coolant_flow_L_s": 5.441980902001375,
+     "coolant_flow_L_s": 5.441975802001376,
      "cooling_capacity_kW": 15899.520000000002,
-     "dissipation_kW": 1.9211941568897286,
-     "dissipation_kW_m2": 0.14448979850859847,
-     "face_heat_kW": 108.83961804002752,
+     "dissipation_kW": 1.9210941568897286,
+     "dissipation_kW_m2": 0.14448227767589186,
+     "face_heat_kW": 108.83951604002752,
      "heat_burst_deficit_MJ": 0.0,
      "heat_burst_ok": true,
-     "heat_flux_W_cm2": 0.821455878215399,
-     "heat_load": 0.0068454656517949915,
-     "load": 0.04038921912294101,
-     "max_contiguous_tx_s": 0.323859529657159,
+     "heat_flux_W_cm2": 0.8214551083808379,
+     "heat_load": 0.006845459236506983,
+     "load": 0.04038977510514529,
+     "max_contiguous_tx_s": 0.32385952970960147,
      "max_contiguous_tx_thermal_s": Infinity,
      "non_tx_kW": 106.88,
-     "p_left_kW": 1919.221561754118,
+     "p_left_kW": 1919.2204497897094,
      "peak_MW": {
       "Ku": 14.134615384615383,
       "S": 12.25
      },
      "peak_ok": true,
-     "pumps_kW": 0.03842388313779457,
+     "pumps_kW": 0.03842188313779457,
      "search_energy": 0.0053,
      "search_s_time": 0.0008,
      "status": "OK",
-     "store_burst_deficit_MJ": 0.92630472778231,
+     "store_burst_deficit_MJ": 0.9263047275415772,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 0.011698314964983527,
+     "store_obs_deficit_MJ": 0.011698314974720882,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
-     "total_energy": 0.04038921912294101,
+     "total_energy": 0.04038977510514529,
      "total_ku_time": 0.00016972011523071247,
      "total_s_time": 0.0008333333333333334,
      "transient_MW_per_us": {
@@ -3907,48 +4451,48 @@
      }
     },
     "3": {
-     "alloc_MW": 0.08077843808432514,
+     "alloc_MW": 0.0807795500487315,
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
      "burn_through_energy": 0.0,
      "burn_through_ku_time": 0.0,
-     "bus_draw_MW": 0.12317022755748183,
+     "bus_draw_MW": 0.12317022544163947,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 2.0,
      "confirm_energy": 3.0862916749026766e-05,
      "confirm_ku_time": 3.053448564045778e-06,
      "confirm_s_time": 0.0,
-     "coolant_flow_L_s": 5.441980902001375,
+     "coolant_flow_L_s": 5.441975802001376,
      "cooling_capacity_kW": 15899.520000000002,
-     "dissipation_kW": 1.9211941568897286,
-     "dissipation_kW_m2": 0.14448979850859847,
-     "face_heat_kW": 108.83961804002752,
+     "dissipation_kW": 1.9210941568897286,
+     "dissipation_kW_m2": 0.14448227767589186,
+     "face_heat_kW": 108.83951604002752,
      "heat_burst_deficit_MJ": 0.0,
      "heat_burst_ok": true,
-     "heat_flux_W_cm2": 0.821455878215399,
-     "heat_load": 0.0068454656517949915,
-     "load": 0.04038921912294101,
-     "max_contiguous_tx_s": 0.323859529657159,
+     "heat_flux_W_cm2": 0.8214551083808379,
+     "heat_load": 0.006845459236506983,
+     "load": 0.04038977510514529,
+     "max_contiguous_tx_s": 0.32385952970960147,
      "max_contiguous_tx_thermal_s": Infinity,
      "non_tx_kW": 106.88,
-     "p_left_kW": 1919.221561754118,
+     "p_left_kW": 1919.2204497897094,
      "peak_MW": {
       "Ku": 14.134615384615383,
       "S": 12.25
      },
      "peak_ok": true,
-     "pumps_kW": 0.03842388313779457,
+     "pumps_kW": 0.03842188313779457,
      "search_energy": 0.0053,
      "search_s_time": 0.0008,
      "status": "OK",
-     "store_burst_deficit_MJ": 0.92630472778231,
+     "store_burst_deficit_MJ": 0.9263047275415772,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 0.011698314964983527,
+     "store_obs_deficit_MJ": 0.011698314974720882,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
-     "total_energy": 0.04038921912294101,
+     "total_energy": 0.04038977510514529,
      "total_ku_time": 0.00016972011523071247,
      "total_s_time": 0.0008333333333333334,
      "transient_MW_per_us": {
@@ -3988,7 +4532,7 @@
          "s_time_fraction": 4.987141342288388e-05
         }
        },
-       "mission_max_load": 0.0115,
+       "mission_max_load": 0.0112,
        "why_not": ""
       }
      },
@@ -4084,7 +4628,7 @@
          "s_time_fraction": 0.0
         }
        },
-       "mission_max_load": 0.0115,
+       "mission_max_load": 0.0112,
        "why_not": ""
       },
       "KU7": {
@@ -4096,7 +4640,7 @@
          "s_time_fraction": 0.0
         }
        },
-       "mission_max_load": 0.0116,
+       "mission_max_load": 0.0113,
        "why_not": ""
       },
       "S2": {
@@ -4208,7 +4752,7 @@
          "s_time_fraction": 0.0
         }
        },
-       "mission_max_load": 0.0115,
+       "mission_max_load": 0.0112,
        "why_not": ""
       },
       "KU7": {
@@ -4235,34 +4779,34 @@
          "s_time_fraction": 0.0
         }
        },
-       "mission_max_load": 0.0115,
+       "mission_max_load": 0.0112,
        "why_not": ""
       },
       "S2": {
        "admissible": true,
        "faces": {
         "0": {
-         "energy_fraction": 0.0001323510574502199,
+         "energy_fraction": 0.0001323468891745826,
          "ku_time_fraction": 2.475215038754893e-08,
-         "s_time_fraction": 1.9199461211923833e-05
+         "s_time_fraction": 1.9198854304185687e-05
         },
         "1": {
-         "energy_fraction": 0.0001323510574502199,
+         "energy_fraction": 0.00013234688917458258,
          "ku_time_fraction": 2.4752150387548924e-08,
-         "s_time_fraction": 1.9199461211923823e-05
+         "s_time_fraction": 1.9198854304185677e-05
         },
         "2": {
-         "energy_fraction": 0.0001323510574502199,
+         "energy_fraction": 0.00013234688917458255,
          "ku_time_fraction": 2.475215038754892e-08,
-         "s_time_fraction": 1.9199461211923823e-05
+         "s_time_fraction": 1.9198854304185677e-05
         },
         "3": {
-         "energy_fraction": 0.00013235105745021985,
+         "energy_fraction": 0.00013234688917458258,
          "ku_time_fraction": 2.4752150387548924e-08,
-         "s_time_fraction": 1.9199461211923823e-05
+         "s_time_fraction": 1.919885430418568e-05
         }
        },
-       "mission_max_load": 0.0116,
+       "mission_max_load": 0.0113,
        "why_not": ""
       }
      },
@@ -4382,18 +4926,18 @@
    },
    "ship_power": {
     "budget_MW": 8.0,
-    "draw_MW": 0.508664242700288,
-    "heat_MW": 0.4668606869528393,
-    "heat_load": 0.07781011449213987,
+    "draw_MW": 0.5080957772149667,
+    "heat_MW": 0.4667145074675179,
+    "heat_load": 0.07778575124458632,
     "heat_rejection_MW": 6.0,
     "heat_status": "OK",
-    "load": 0.063583030337536,
+    "load": 0.06351197215187084,
     "status": "OK",
     "suggested_allocation_MW": [
-     2.004,
-     2.121,
-     1.937,
-     1.937
+     2.006,
+     2.115,
+     1.939,
+     1.939
     ]
    }
   },
@@ -4570,7 +5114,7 @@
      "id": "S01.confirmation latency",
      "kind": "spec",
      "limit": 100.0,
-     "load": 0.0010006951230049183,
+     "load": 0.001000705089888615,
      "note": "95 % quantile",
      "object": "S01",
      "priority": "P2",
@@ -4578,7 +5122,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.10006951230049183
+     "value": 0.1000705089888615
     },
     {
      "family": "confirmation",
@@ -4615,7 +5159,7 @@
      "id": "S02.confirmation latency",
      "kind": "spec",
      "limit": 2.0,
-     "load": 0.003341437561923949,
+     "load": 0.0033418913583649706,
      "note": "95 % quantile",
      "object": "S02",
      "priority": "P2",
@@ -4623,7 +5167,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.006682875123847898
+     "value": 0.006683782716729941
     },
     {
      "family": "confirmation",
@@ -4660,7 +5204,7 @@
      "id": "S03.confirmation latency",
      "kind": "spec",
      "limit": 160.0,
-     "load": 0.0006679236094567287,
+     "load": 0.0006679308752695747,
      "note": "95 % quantile",
      "object": "S03",
      "priority": "P2",
@@ -4668,14 +5212,14 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.10686777751307659
+     "value": 0.10686894004313194
     },
     {
      "family": "face",
      "id": "F1.energy",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.04251584834105811,
+     "load": 0.042517709485243055,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -4683,14 +5227,14 @@
      "state": "OK",
      "step": "5.2",
      "unit": "",
-     "value": 0.04251584834105811
+     "value": 0.042517709485243055
     },
     {
      "family": "face",
      "id": "F1.S time",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.0011184001511771167,
+     "load": 0.0011183760201611491,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -4698,7 +5242,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.0011184001511771167
+     "value": 0.0011183760201611491
     },
     {
      "family": "face",
@@ -4720,7 +5264,7 @@
      "id": "F1.heat",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.006900405301956676,
+     "load": 0.006900398886668666,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -4728,14 +5272,14 @@
      "state": "OK",
      "step": "4.2",
      "unit": "",
-     "value": 0.006900405301956676
+     "value": 0.006900398886668666
     },
     {
      "family": "face",
      "id": "F1.compute",
      "kind": "resource",
      "limit": 1.0,
-     "load": 9.829292491719198e-07,
+     "load": 3.5325114505425003e-05,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -4743,14 +5287,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 9.829292491719198e-07
+     "value": 3.5325114505425003e-05
     },
     {
      "family": "face",
      "id": "F1.memory",
      "kind": "resource",
      "limit": 1.0,
-     "load": 5.623185870898101e-06,
+     "load": 0.0002432651553267283,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -4758,14 +5302,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 5.623185870898101e-06
+     "value": 0.0002432651553267283
     },
     {
      "family": "face",
      "id": "F1.memory bandwidth",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.0032458356518239445,
+     "load": 0.12592767831352172,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -4773,14 +5317,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.0032458356518239445
+     "value": 0.12592767831352172
     },
     {
      "family": "face",
      "id": "F1.S beams",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.02439013961639142,
+     "load": 0.04878027923278284,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -4788,7 +5332,7 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.02439013961639142
+     "value": 0.04878027923278284
     },
     {
      "family": "face",
@@ -4870,7 +5414,7 @@
      "id": "F1.processing power",
      "kind": "resource",
      "limit": 50.0,
-     "load": 0.20000207858512245,
+     "load": 0.2000784005456669,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -4878,14 +5422,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "kW",
-     "value": 10.000103929256122
+     "value": 10.003920027283344
     },
     {
      "family": "face",
      "id": "F1.storage (observation)",
      "kind": "resource",
      "limit": 4.0,
-     "load": 0.00292458387956392,
+     "load": 0.0029245838819982584,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -4893,7 +5437,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.01169833551825568
+     "value": 0.011698335527993034
     },
     {
      "family": "face",
@@ -4908,7 +5452,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 1.3543077682072953
+     "value": 1.3543077679065598
     },
     {
      "family": "face",
@@ -4948,7 +5492,7 @@
      "id": "F2.energy",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.04631092658615439,
+     "load": 0.046019749334867445,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -4956,14 +5500,14 @@
      "state": "OK",
      "step": "5.2",
      "unit": "",
-     "value": 0.04631092658615439
+     "value": 0.046019749334867445
     },
     {
      "family": "face",
      "id": "F2.S time",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.0016312175902791124,
+     "load": 0.0015862403550246716,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -4971,7 +5515,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.0016312175902791124
+     "value": 0.0015862403550246716
     },
     {
      "family": "face",
@@ -4993,7 +5537,7 @@
      "id": "F2.heat",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.0070202717741401745,
+     "load": 0.007013054575130393,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -5001,14 +5545,14 @@
      "state": "OK",
      "step": "4.2",
      "unit": "",
-     "value": 0.0070202717741401745
+     "value": 0.007013054575130393
     },
     {
      "family": "face",
      "id": "F2.compute",
      "kind": "resource",
      "limit": 1.0,
-     "load": 4.013590809142813e-06,
+     "load": 3.895679818663971e-05,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -5016,14 +5560,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 4.013590809142813e-06
+     "value": 3.895679818663971e-05
     },
     {
      "family": "face",
      "id": "F2.memory",
      "kind": "resource",
      "limit": 1.0,
-     "load": 1.2707632134068652e-05,
+     "load": 0.0002507648193267283,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -5031,14 +5575,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 1.2707632134068652e-05
+     "value": 0.0002507648193267283
     },
     {
      "family": "face",
      "id": "F2.memory bandwidth",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.00387082681182743,
+     "load": 0.19028653769324957,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -5046,14 +5590,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.00387082681182743
+     "value": 0.19028653769324957
     },
     {
      "family": "face",
      "id": "F2.S beams",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.017621875872842797,
+     "load": 0.03524375174568559,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -5061,7 +5605,7 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.017621875872842797
+     "value": 0.03524375174568559
     },
     {
      "family": "face",
@@ -5143,7 +5687,7 @@
      "id": "F2.processing power",
      "kind": "resource",
      "limit": 50.0,
-     "load": 0.20000475386361802,
+     "load": 0.20010704514538472,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -5151,14 +5695,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "kW",
-     "value": 10.000237693180901
+     "value": 10.005352257269235
     },
     {
      "family": "face",
      "id": "F2.storage (observation)",
      "kind": "resource",
      "limit": 4.0,
-     "load": 0.0029245950902661074,
+     "load": 0.0029245944183004455,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -5166,7 +5710,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.01169838036106443
+     "value": 0.011698377673201782
     },
     {
      "family": "face",
@@ -5181,7 +5725,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 2.0722867648831103
+     "value": 2.0080759508802917
     },
     {
      "family": "face",
@@ -5221,7 +5765,7 @@
      "id": "F3.energy",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.04038921912294101,
+     "load": 0.04038977510514529,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -5229,14 +5773,14 @@
      "state": "OK",
      "step": "5.2",
      "unit": "",
-     "value": 0.04038921912294101
+     "value": 0.04038977510514529
     },
     {
      "family": "face",
      "id": "F3.S time",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.0007974300137715672,
+     "load": 0.0007974058827555995,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -5244,7 +5788,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.0007974300137715672
+     "value": 0.0007974058827555995
     },
     {
      "family": "face",
@@ -5266,7 +5810,7 @@
      "id": "F3.heat",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.0068454656517949915,
+     "load": 0.006845459236506983,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -5274,14 +5818,14 @@
      "state": "OK",
      "step": "4.2",
      "unit": "",
-     "value": 0.0068454656517949915
+     "value": 0.006845459236506983
     },
     {
      "family": "face",
      "id": "F3.compute",
      "kind": "resource",
      "limit": 1.0,
-     "load": 2.478668513327187e-07,
+     "load": 1.0779612649963512e-05,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -5289,14 +5833,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 2.478668513327187e-07
+     "value": 1.0779612649963512e-05
     },
     {
      "family": "face",
      "id": "F3.memory",
      "kind": "resource",
      "limit": 1.0,
-     "load": 5.207440134068653e-06,
+     "load": 0.00012288267366336415,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -5304,14 +5848,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 5.207440134068653e-06
+     "value": 0.00012288267366336415
     },
     {
      "family": "face",
      "id": "F3.memory bandwidth",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.0008926685519849367,
+     "load": 0.047434919527479906,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -5319,7 +5863,7 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.0008926685519849367
+     "value": 0.047434919527479906
     },
     {
      "family": "face",
@@ -5416,7 +5960,7 @@
      "id": "F3.processing power",
      "kind": "resource",
      "limit": 50.0,
-     "load": 0.20000055404292016,
+     "load": 0.20002752782897645,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -5424,14 +5968,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "kW",
-     "value": 10.000027702146008
+     "value": 10.001376391448822
     },
     {
      "family": "face",
      "id": "F3.storage (observation)",
      "kind": "resource",
      "limit": 4.0,
-     "load": 0.0029245787412458817,
+     "load": 0.0029245787436802204,
      "note": "",
      "object": "F3",
      "priority": null,
@@ -5439,7 +5983,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.011698314964983527
+     "value": 0.011698314974720882
     },
     {
      "family": "face",
@@ -5454,7 +5998,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.92630472778231
+     "value": 0.9263047275415772
     },
     {
      "family": "face",
@@ -5494,7 +6038,7 @@
      "id": "F4.energy",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.04038921912294101,
+     "load": 0.04038977510514529,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -5502,14 +6046,14 @@
      "state": "OK",
      "step": "5.2",
      "unit": "",
-     "value": 0.04038921912294101
+     "value": 0.04038977510514529
     },
     {
      "family": "face",
      "id": "F4.S time",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.0007974300137715671,
+     "load": 0.0007974058827555996,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -5517,7 +6061,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.0007974300137715671
+     "value": 0.0007974058827555996
     },
     {
      "family": "face",
@@ -5539,7 +6083,7 @@
      "id": "F4.heat",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.0068454656517949915,
+     "load": 0.006845459236506983,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -5547,14 +6091,14 @@
      "state": "OK",
      "step": "4.2",
      "unit": "",
-     "value": 0.0068454656517949915
+     "value": 0.006845459236506983
     },
     {
      "family": "face",
      "id": "F4.compute",
      "kind": "resource",
      "limit": 1.0,
-     "load": 2.478668513327187e-07,
+     "load": 1.0779612649963512e-05,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -5562,14 +6106,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 2.478668513327187e-07
+     "value": 1.0779612649963512e-05
     },
     {
      "family": "face",
      "id": "F4.memory",
      "kind": "resource",
      "limit": 1.0,
-     "load": 5.207440134068653e-06,
+     "load": 0.00012288267366336415,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -5577,14 +6121,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 5.207440134068653e-06
+     "value": 0.00012288267366336415
     },
     {
      "family": "face",
      "id": "F4.memory bandwidth",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.0008926685519849367,
+     "load": 0.047434919527479906,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -5592,7 +6136,7 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.0008926685519849367
+     "value": 0.047434919527479906
     },
     {
      "family": "face",
@@ -5689,7 +6233,7 @@
      "id": "F4.processing power",
      "kind": "resource",
      "limit": 50.0,
-     "load": 0.20000055404292016,
+     "load": 0.20002752782897645,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -5697,14 +6241,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "kW",
-     "value": 10.000027702146008
+     "value": 10.001376391448822
     },
     {
      "family": "face",
      "id": "F4.storage (observation)",
      "kind": "resource",
      "limit": 4.0,
-     "load": 0.0029245787412458817,
+     "load": 0.0029245787436802204,
      "note": "",
      "object": "F4",
      "priority": null,
@@ -5712,7 +6256,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.011698314964983527
+     "value": 0.011698314974720882
     },
     {
      "family": "face",
@@ -5727,7 +6271,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.92630472778231
+     "value": 0.9263047275415772
     },
     {
      "family": "face",
@@ -5767,7 +6311,7 @@
      "id": "ship.energy",
      "kind": "resource",
      "limit": 8.0,
-     "load": 0.04240130329327363,
+     "load": 0.04232925225760027,
      "note": "",
      "object": "ship",
      "priority": null,
@@ -5775,14 +6319,14 @@
      "state": "OK",
      "step": "5.2",
      "unit": "MW",
-     "value": 0.33921042634618903
+     "value": 0.3386340180608022
     },
     {
      "family": "ship",
      "id": "ship.heat rejection",
      "kind": "resource",
      "limit": 6.0,
-     "load": 0.07781011449213987,
+     "load": 0.07778575124458632,
      "note": "",
      "object": "ship",
      "priority": null,
@@ -5790,7 +6334,7 @@
      "state": "OK",
      "step": "4.2",
      "unit": "MW",
-     "value": 0.4668606869528393
+     "value": 0.4667145074675179
     },
     {
      "family": "flight",
@@ -5831,28 +6375,28 @@
    },
    "faces": {
     "0": {
-     "load": 0.20000207858512245,
+     "load": 0.2000784005456669,
      "resource": "processing power",
      "state": "OK"
     },
     "1": {
-     "load": 0.20000475386361802,
+     "load": 0.20010704514538472,
      "resource": "processing power",
      "state": "OK"
     },
     "2": {
-     "load": 0.20000055404292016,
+     "load": 0.20002752782897645,
      "resource": "processing power",
      "state": "OK"
     },
     "3": {
-     "load": 0.20000055404292016,
+     "load": 0.20002752782897645,
      "resource": "processing power",
      "state": "OK"
     }
    },
    "limiting": {
-    "load": 0.20000475386361802,
+    "load": 0.20010704514538472,
     "object": "F2",
     "resource": "processing power",
     "state": "OK"
@@ -5862,216 +6406,216 @@
    "overlap": [
     {
      "energy_on": "face",
-     "energy_other_MW": 0.008621860756186457,
-     "energy_own_MW": 0.004758822944272213,
-     "energy_own_reach_MW": 0.004253385065466617,
+     "energy_other_MW": 0.008621670951096257,
+     "energy_own_MW": 0.004758718916645121,
+     "energy_own_reach_MW": 0.004253281037839525,
      "face": "F1",
-     "margin_energy_MW": 1.5073781468276912,
-     "margin_s_time": 0.798368782409721,
+     "margin_energy_MW": 1.5079605013302653,
+     "margin_s_time": 0.7984137596449754,
      "neighbour": "F2",
-     "relief_energy": 0.0021266925327333083,
-     "relief_s_time": 0.0003451797872528929,
-     "s_time_other": 0.0007024531717284997,
-     "s_time_own": 0.0003856502312217612,
-     "s_time_own_reach": 0.0003451797872528929,
+     "relief_energy": 0.0021266405189197626,
+     "relief_s_time": 0.00034517129520170175,
+     "s_time_other": 0.000702437677435422,
+     "s_time_own": 0.00038564173917057006,
+     "s_time_own_reach": 0.00034517129520170175,
      "sr": 1.5783375219762594,
      "sr_reach": 1.3652989341716073,
      "takeable": 1.0
     },
     {
      "energy_on": "face",
-     "energy_other_MW": 0.0003841612082895032,
-     "energy_own_MW": 0.00015193311991763098,
-     "energy_own_reach_MW": 0.00015193311991763098,
+     "energy_other_MW": 0.0003841612086264045,
+     "energy_own_MW": 0.00015192023356051804,
+     "energy_own_reach_MW": 0.00015192023356051804,
      "face": "F1",
-     "margin_energy_MW": 1.519221561754118,
-     "margin_s_time": 0.7992025699862285,
+     "margin_energy_MW": 1.5192204497897095,
+     "margin_s_time": 0.7992025941172445,
      "neighbour": "F3",
-     "relief_energy": 7.596655995881549e-05,
-     "relief_s_time": 1.2388427899988922e-05,
-     "s_time_other": 3.1351498863166215e-05,
-     "s_time_own": 1.2388427899988922e-05,
-     "s_time_own_reach": 1.2388427899988922e-05,
+     "relief_energy": 7.596011678025902e-05,
+     "relief_s_time": 1.2387375952469502e-05,
+     "s_time_other": 3.135149889066835e-05,
+     "s_time_own": 1.2387375952469502e-05,
+     "s_time_own_reach": 1.2387375952469502e-05,
      "sr": 0.0297014505505254,
      "sr_reach": 0.0297014505505254,
      "takeable": 1.0
     },
     {
      "energy_on": "face",
-     "energy_other_MW": 0.008621860756186449,
-     "energy_own_MW": 0.004758822944272214,
-     "energy_own_reach_MW": 0.0042533850654666175,
+     "energy_other_MW": 0.008621670951096248,
+     "energy_own_MW": 0.004758718916645123,
+     "energy_own_reach_MW": 0.004253281037839525,
      "face": "F1",
-     "margin_energy_MW": 1.519221561754118,
-     "margin_s_time": 0.7992025699862285,
+     "margin_energy_MW": 1.5192204497897095,
+     "margin_s_time": 0.7992025941172445,
      "neighbour": "F4",
-     "relief_energy": 0.0021266925327333088,
-     "relief_s_time": 0.00034517978725289296,
-     "s_time_other": 0.0007024531717284992,
-     "s_time_own": 0.00038565023122176127,
-     "s_time_own_reach": 0.00034517978725289296,
+     "relief_energy": 0.0021266405189197626,
+     "relief_s_time": 0.0003451712952017018,
+     "s_time_other": 0.0007024376774354214,
+     "s_time_own": 0.0003856417391705701,
+     "s_time_own_reach": 0.0003451712952017018,
      "sr": 1.5783375219762594,
      "sr_reach": 1.365298934171607,
      "takeable": 1.0
     },
     {
      "energy_on": "face",
-     "energy_other_MW": 0.0071247247390083404,
-     "energy_own_MW": 0.005498704134568142,
-     "energy_own_reach_MW": 0.003219728090472402,
+     "energy_other_MW": 0.006516475272836247,
+     "energy_own_MW": 0.005376031516234054,
+     "energy_own_reach_MW": 0.003097055472138314,
      "face": "F2",
-     "margin_energy_MW": 1.5149683033178838,
-     "margin_s_time": 0.7988815998488229,
+     "margin_energy_MW": 1.514964581029514,
+     "margin_s_time": 0.7988816239798389,
      "neighbour": "F1",
-     "relief_energy": 0.001609864045236201,
-     "relief_s_time": 0.00026213720503415997,
-     "s_time_other": 0.0005811873772051685,
-     "s_time_own": 0.0004469256957545379,
-     "s_time_own_reach": 0.00026213720503415997,
-     "sr": 1.012109775255533,
-     "sr_reach": 0.964608002427597,
+     "relief_energy": 0.001548527736069157,
+     "relief_s_time": 0.00025216596405329807,
+     "s_time_other": 0.0005315481499179219,
+     "s_time_own": 0.000436954454773676,
+     "s_time_own_reach": 0.00025216596405329807,
+     "sr": 0.9646080024275971,
+     "sr_reach": 0.9171062295996611,
      "takeable": 1.0
     },
     {
      "energy_on": "face",
-     "energy_other_MW": 0.0071247247390083465,
-     "energy_own_MW": 0.0054987041345681414,
-     "energy_own_reach_MW": 0.003219728090472401,
+     "energy_other_MW": 0.006516475272836249,
+     "energy_own_MW": 0.0053760315162340545,
+     "energy_own_reach_MW": 0.003097055472138314,
      "face": "F2",
-     "margin_energy_MW": 1.519221561754118,
-     "margin_s_time": 0.7992025699862285,
+     "margin_energy_MW": 1.5192204497897095,
+     "margin_s_time": 0.7992025941172445,
      "neighbour": "F3",
-     "relief_energy": 0.0016098640452362005,
-     "relief_s_time": 0.00026213720503415997,
-     "s_time_other": 0.0005811873772051687,
-     "s_time_own": 0.0004469256957545379,
-     "s_time_own_reach": 0.00026213720503415997,
-     "sr": 1.0121097752555333,
-     "sr_reach": 0.9646080024275971,
+     "relief_energy": 0.001548527736069157,
+     "relief_s_time": 0.000252165964053298,
+     "s_time_other": 0.0005315481499179222,
+     "s_time_own": 0.000436954454773676,
+     "s_time_own_reach": 0.000252165964053298,
+     "sr": 0.9646080024275971,
+     "sr_reach": 0.9171062295996611,
      "takeable": 1.0
     },
     {
      "energy_on": "face",
-     "energy_other_MW": 0.00038416120828950326,
-     "energy_own_MW": 0.00015193311991763098,
-     "energy_own_reach_MW": 0.00015193311991763098,
+     "energy_other_MW": 0.0003841612086264045,
+     "energy_own_MW": 0.00015192023356051804,
+     "energy_own_reach_MW": 0.00015192023356051804,
      "face": "F2",
-     "margin_energy_MW": 1.519221561754118,
-     "margin_s_time": 0.7992025699862285,
+     "margin_energy_MW": 1.5192204497897095,
+     "margin_s_time": 0.7992025941172445,
      "neighbour": "F4",
-     "relief_energy": 7.596655995881549e-05,
-     "relief_s_time": 1.2388427899988922e-05,
-     "s_time_other": 3.1351498863166215e-05,
-     "s_time_own": 1.2388427899988922e-05,
-     "s_time_own_reach": 1.2388427899988922e-05,
+     "relief_energy": 7.596011678025902e-05,
+     "relief_s_time": 1.2387375952469502e-05,
+     "s_time_other": 3.135149889066835e-05,
+     "s_time_own": 1.2387375952469502e-05,
+     "s_time_own_reach": 1.2387375952469502e-05,
      "sr": 0.029701450550525407,
      "sr_reach": 0.029701450550525407,
      "takeable": 1.0
     },
     {
      "energy_on": "face",
-     "energy_other_MW": 0.00038416120828950326,
-     "energy_own_MW": 0.00015193311991763098,
-     "energy_own_reach_MW": 0.00015193311991763098,
+     "energy_other_MW": 0.0003841612086264045,
+     "energy_own_MW": 0.00015192023356051804,
+     "energy_own_reach_MW": 0.00015192023356051804,
      "face": "F3",
-     "margin_energy_MW": 1.5149683033178838,
-     "margin_s_time": 0.7988815998488229,
+     "margin_energy_MW": 1.514964581029514,
+     "margin_s_time": 0.7988816239798389,
      "neighbour": "F1",
-     "relief_energy": 7.596655995881549e-05,
-     "relief_s_time": 1.2388427899988922e-05,
-     "s_time_other": 3.1351498863166215e-05,
-     "s_time_own": 1.2388427899988922e-05,
-     "s_time_own_reach": 1.2388427899988922e-05,
+     "relief_energy": 7.596011678025902e-05,
+     "relief_s_time": 1.2387375952469502e-05,
+     "s_time_other": 3.135149889066835e-05,
+     "s_time_own": 1.2387375952469502e-05,
+     "s_time_own_reach": 1.2387375952469502e-05,
      "sr": 0.029701450550525407,
      "sr_reach": 0.029701450550525407,
      "takeable": 1.0
     },
     {
      "energy_on": "face",
-     "energy_other_MW": 0.0071247247390083404,
-     "energy_own_MW": 0.003219728090472402,
-     "energy_own_reach_MW": 0.003219728090472402,
+     "energy_other_MW": 0.007124534933918141,
+     "energy_own_MW": 0.003219624062845309,
+     "energy_own_reach_MW": 0.003219624062845309,
      "face": "F3",
-     "margin_energy_MW": 1.5073781468276912,
-     "margin_s_time": 0.798368782409721,
+     "margin_energy_MW": 1.5079605013302653,
+     "margin_s_time": 0.7984137596449754,
      "neighbour": "F2",
-     "relief_energy": 0.001609864045236201,
-     "relief_s_time": 0.00026213720503416,
-     "s_time_other": 0.0005811873772051683,
-     "s_time_own": 0.00026213720503416,
-     "s_time_own_reach": 0.00026213720503416,
+     "relief_energy": 0.0016098120314226546,
+     "relief_s_time": 0.0002621287129829688,
+     "s_time_other": 0.0005811718829120907,
+     "s_time_own": 0.0002621287129829688,
+     "s_time_own_reach": 0.0002621287129829688,
      "sr": 0.964608002427597,
      "sr_reach": 0.964608002427597,
      "takeable": 1.0
     },
     {
      "energy_on": "face",
-     "energy_other_MW": 0.0071247247390083465,
-     "energy_own_MW": 0.0032197280904724007,
-     "energy_own_reach_MW": 0.0032197280904724007,
+     "energy_other_MW": 0.007124534933918145,
+     "energy_own_MW": 0.003219624062845309,
+     "energy_own_reach_MW": 0.003219624062845309,
      "face": "F3",
-     "margin_energy_MW": 1.519221561754118,
-     "margin_s_time": 0.7992025699862285,
+     "margin_energy_MW": 1.5192204497897095,
+     "margin_s_time": 0.7992025941172445,
      "neighbour": "F4",
-     "relief_energy": 0.0016098640452362003,
-     "relief_s_time": 0.0002621372050341599,
-     "s_time_other": 0.0005811873772051687,
-     "s_time_own": 0.0002621372050341599,
-     "s_time_own_reach": 0.0002621372050341599,
+     "relief_energy": 0.0016098120314226546,
+     "relief_s_time": 0.00026212871298296876,
+     "s_time_other": 0.0005811718829120911,
+     "s_time_own": 0.00026212871298296876,
+     "s_time_own_reach": 0.00026212871298296876,
      "sr": 0.9646080024275971,
      "sr_reach": 0.9646080024275971,
      "takeable": 1.0
     },
     {
      "energy_on": "face",
-     "energy_other_MW": 0.007124724739008343,
-     "energy_own_MW": 0.0032197280904724007,
-     "energy_own_reach_MW": 0.0032197280904724007,
+     "energy_other_MW": 0.007124534933918143,
+     "energy_own_MW": 0.003219624062845309,
+     "energy_own_reach_MW": 0.003219624062845309,
      "face": "F4",
-     "margin_energy_MW": 1.5149683033178838,
-     "margin_s_time": 0.7988815998488229,
+     "margin_energy_MW": 1.514964581029514,
+     "margin_s_time": 0.7988816239798389,
      "neighbour": "F1",
-     "relief_energy": 0.0016098640452362003,
-     "relief_s_time": 0.0002621372050341599,
-     "s_time_other": 0.0005811873772051686,
-     "s_time_own": 0.0002621372050341599,
-     "s_time_own_reach": 0.0002621372050341599,
+     "relief_energy": 0.0016098120314226546,
+     "relief_s_time": 0.00026212871298296876,
+     "s_time_other": 0.0005811718829120909,
+     "s_time_own": 0.00026212871298296876,
+     "s_time_own_reach": 0.00026212871298296876,
      "sr": 0.9646080024275971,
      "sr_reach": 0.9646080024275971,
      "takeable": 1.0
     },
     {
      "energy_on": "face",
-     "energy_other_MW": 0.00038416120828950326,
-     "energy_own_MW": 0.00015193311991763098,
-     "energy_own_reach_MW": 0.00015193311991763098,
+     "energy_other_MW": 0.0003841612086264045,
+     "energy_own_MW": 0.00015192023356051804,
+     "energy_own_reach_MW": 0.00015192023356051804,
      "face": "F4",
-     "margin_energy_MW": 1.5073781468276912,
-     "margin_s_time": 0.798368782409721,
+     "margin_energy_MW": 1.5079605013302653,
+     "margin_s_time": 0.7984137596449754,
      "neighbour": "F2",
-     "relief_energy": 7.596655995881549e-05,
-     "relief_s_time": 1.2388427899988922e-05,
-     "s_time_other": 3.1351498863166215e-05,
-     "s_time_own": 1.2388427899988922e-05,
-     "s_time_own_reach": 1.2388427899988922e-05,
+     "relief_energy": 7.596011678025902e-05,
+     "relief_s_time": 1.23873759524695e-05,
+     "s_time_other": 3.135149889066835e-05,
+     "s_time_own": 1.23873759524695e-05,
+     "s_time_own_reach": 1.23873759524695e-05,
      "sr": 0.029701450550525407,
      "sr_reach": 0.029701450550525407,
      "takeable": 1.0
     },
     {
      "energy_on": "face",
-     "energy_other_MW": 0.007124724739008339,
-     "energy_own_MW": 0.003219728090472402,
-     "energy_own_reach_MW": 0.003219728090472402,
+     "energy_other_MW": 0.007124534933918141,
+     "energy_own_MW": 0.003219624062845309,
+     "energy_own_reach_MW": 0.003219624062845309,
      "face": "F4",
-     "margin_energy_MW": 1.519221561754118,
-     "margin_s_time": 0.7992025699862285,
+     "margin_energy_MW": 1.5192204497897095,
+     "margin_s_time": 0.7992025941172445,
      "neighbour": "F3",
-     "relief_energy": 0.001609864045236201,
-     "relief_s_time": 0.00026213720503416,
-     "s_time_other": 0.0005811873772051682,
-     "s_time_own": 0.00026213720503416,
-     "s_time_own_reach": 0.00026213720503416,
+     "relief_energy": 0.0016098120314226546,
+     "relief_s_time": 0.0002621287129829688,
+     "s_time_other": 0.0005811718829120906,
+     "s_time_own": 0.0002621287129829688,
+     "s_time_own_reach": 0.0002621287129829688,
      "sr": 0.964608002427597,
      "sr_reach": 0.964608002427597,
      "takeable": 1.0
@@ -6095,48 +6639,18 @@
      "note": "",
      "pieces": null,
      "sector": "S01"
-    },
-    {
-     "by": [
-      "S02"
-     ],
-     "caveat": "",
-     "detail": "S02 detects S03's target from 12793 km (worst scan angle), revisit 5 s: 12793 km guaranteed at 5000 m/s, vs 8000 km for S03's own spec (8000 km, revisit 120 s)",
-     "faces": {
-      "0": {
-       "energy_fraction": 0.0052602681350647955,
-       "time_fraction": 0.0007640966804382342
-      },
-      "1": {
-       "energy_fraction": 0.005260268135064795,
-       "time_fraction": 0.0007640966804382338
-      },
-      "2": {
-       "energy_fraction": 0.005260268135064795,
-       "time_fraction": 0.0007640966804382339
-      },
-      "3": {
-       "energy_fraction": 0.005260268135064795,
-       "time_fraction": 0.0007640966804382338
-      }
-     },
-     "fraction": 0.020775274985649406,
-     "full": false,
-     "note": "no earlier box sector in the same frame meets the need over its whole overlap with S03 (coverage depends on the scan angle, or the covering sector is a cap or in another frame)",
-     "pieces": null,
-     "sector": "S03"
     }
    ],
    "saturation": {
     "brackets": {},
     "first_shed": null,
     "load_ceiling": null,
-    "mode": "NONE",
+    "mode": "PRIO_SEARCH",
     "p2_unreachable": [],
     "state_at_spec": "nominal"
    },
    "ship": {
-    "load": 0.04240130329327363,
+    "load": 0.04232925225760027,
     "object": "ship",
     "resource": "energy"
    },
@@ -6145,7 +6659,17 @@
   },
   "warnings": [
    "sectors S01 / S03 share 1.360 sr: each is budgeted independently there -- fine for intentional layered coverage (different RCS/range/RR on the same sky), check for a duplicated requirement if not",
-   "sectors S02 / S03 share 0.214 sr: each is budgeted independently there -- fine for intentional layered coverage (different RCS/range/RR on the same sky), check for a duplicated requirement if not"
+   "at the real revisits: sector S01: S waveform WF-S01-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
+   "at the real revisits: sector S01: S waveform WF-S01-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
+   "at the real revisits: sector S01: S waveform WF-S01-3: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
+   "at the real revisits: sector S01: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
+   "at the real revisits: sector S02: S waveform WF-S02: its harmonics (13.225-13.725 GHz) cover 12 % of the Ku channel 13.8 GHz / 200 MHz on the same face",
+   "at the real revisits: sector S03: S waveform WF-S03-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
+   "at the real revisits: sector S03: S waveform WF-S03-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
+   "at the real revisits: sector S03: S waveform WF-S03-3: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
+   "at the real revisits: sector S03: S waveform WF-S03-4: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
+   "at the real revisits: sector S03: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
+   "S03: 2 % of its volume served by S02 (need met there): taken out of its budget"
   ]
  },
  "validation": []

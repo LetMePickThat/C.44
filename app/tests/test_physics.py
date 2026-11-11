@@ -1846,7 +1846,9 @@ def test_inertial_frame_with_identity_attitude_is_the_ship_frame():
         vd.pop("counts")
     diffs = [d for d in tb.differences(ref, got)
              if not d[0].startswith("/repointing/sectors/")
-             and not (d[0].startswith("/compute/faces/") and d[0].endswith(repoint_paths))]
+             and not (d[0].startswith("/compute/faces/") and d[0].endswith(repoint_paths))
+             # (the reallocation's nominal compute share of a face carries that re-pointing work too: PRIO_SEARCH)
+             and not (d[0].startswith("/margin_reuse/faces/") and d[0].endswith("/compute"))]
     assert diffs == []
 
 
@@ -2880,12 +2882,14 @@ def test_live_allocation_from_the_fast_estimate():
     table = ce.load_table()
     grid = geo.SphereGrid(res_deg=tb.GRID_RES_DEG)
     sec = dict(md.new_sector([]), id="A")
-    a = ce.live_allocation(table, [sec], grid, -90.0, 90.0, None, {})
+    # (realloc_mode NONE: with PRIO_SEARCH, the default since 11 November 2026, the spare shortens the revisit and
+    # the need read below would be the one at that revisit, ~30 x the need at the revisit asked)
+    a = ce.live_allocation(table, [sec], grid, -90.0, 90.0, None, {"realloc_mode": "NONE"})
     r = a["by_sector"]["A"]
     assert a["status"] == "OK" and r["rho"] == 1.0 and a["binding"] == []
     need = max(f["energy"] for f in r["faces"].values())
     cap_mw = (ce.always_on_static_w() + 0.5 * need) / 0.8 / 1e6   # always-on (static processing) + half the search
-    b = ce.live_allocation(table, [sec], grid, -90.0, 90.0, None, {"face_elec_mw": cap_mw})
+    b = ce.live_allocation(table, [sec], grid, -90.0, 90.0, None, {"face_elec_mw": cap_mw, "realloc_mode": "NONE"})
     rb = b["by_sector"]["A"]
     assert b["status"] == "DEGRADED" and rb["rho"] < 1.0 and any(x.endswith("energy") for x in b["binding"])
     ratio_of = geo.held_ratio_function(grid, sec, -90.0, 90.0, None, b, "A")

@@ -12,6 +12,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from PyQt5.QtCore import QEvent, QSize, QTimer, Qt, pyqtSignal
@@ -841,7 +842,9 @@ class ScenarioTab(QWidget):
             return
         path, _ = QFileDialog.getOpenFileName(self, "Open a scenario", SCENARIO_DIR, "Scenario (*.json)")   # (always)
         if path:
-            self.open_path(path)
+            from gui import controls as _uc
+            with _uc.busy(self, f"Opening {os.path.basename(path)}..."):
+                self.open_path(path)
 
     @staticmethod
     def _empty_scenario() -> dict:
@@ -905,7 +908,10 @@ class ScenarioTab(QWidget):
             self._write(self.path)
 
     def save_as(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(self, "Save the scenario", self._dir(), "Scenario (*.json)")
+        # the name typed in the scenario's properties as the file's name (user, 11 November 2026)
+        name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", str((self.sc.get("meta") or {}).get("name") or "")).strip(" .")
+        start = os.path.join(self._dir(), (name or "scenario") + ".json")
+        path, _ = QFileDialog.getSaveFileName(self, "Save the scenario", start, "Scenario (*.json)")
         if path:
             self._write(path if path.endswith(".json") else path + ".json")
 

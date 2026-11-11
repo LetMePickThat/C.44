@@ -248,14 +248,28 @@ def relief_code(cells: np.ndarray) -> str:
     return f"{c.shape[0]}x{c.shape[1]}:" + base64.b64encode(zlib.compress(np.packbits(c).tobytes(), 9)).decode()
 
 
-def relief_cells(code: str, phi: np.ndarray, eps: np.ndarray) -> np.ndarray:
-    """The cells of relief_code() at the directions (phi, eps) of another raster (the nearest cell of its own)."""
+def relief_grid(code: str, grow: int = 0) -> np.ndarray:
+    """The (n_phi, n_eps) cells of relief_code(), grown by `grow` cells (phi wraps): the 3D gauge's smooth outline
+    lies in the volume's edge cells, which the relief (cells whose centre is inside) does not always hold."""
     import base64
     import zlib
     shape, data = code.split(":", 1)
     n_phi, n_eps = (int(x) for x in shape.split("x"))
     bits = np.unpackbits(np.frombuffer(zlib.decompress(base64.b64decode(data)), np.uint8))[:n_phi * n_eps]
     c = bits.astype(bool).reshape(n_phi, n_eps)
+    for _ in range(grow):
+        g = c.copy()
+        g |= np.roll(c, 1, axis=0) | np.roll(c, -1, axis=0)
+        g[:, 1:] |= c[:, :-1]
+        g[:, :-1] |= c[:, 1:]
+        c = g
+    return c
+
+
+def relief_cells(code: str, phi: np.ndarray, eps: np.ndarray, grow: int = 0) -> np.ndarray:
+    """The cells of relief_code() at the directions (phi, eps) of another raster (the nearest cell of its own)."""
+    c = relief_grid(code, grow)
+    n_phi, n_eps = c.shape
     i = np.clip((np.asarray(phi) % 360.0 / 360.0 * n_phi).astype(int), 0, n_phi - 1)
     j = np.clip(((np.asarray(eps) + 90.0) / 180.0 * n_eps).astype(int), 0, n_eps - 1)
     return c[i, j]
@@ -2282,7 +2296,8 @@ def _assemble_once(mission: dict, sectors: List[dict], results: List[dict], canc
     for r in results:
         if r["status"] != "OK":
             continue
-        r["rr_est_mission_s"] = r["rr_target_s"] * max(dil[int(k)] for k in r["faces"])
+        # (a volume relieved in full by another one has no face of its own: its revisit as asked)
+        r["rr_est_mission_s"] = r["rr_target_s"] * max((dil[int(k)] for k in r["faces"]), default=1.0)
     # overlaps (only among sectors actually computed, in case of an early cancellation)
     warn = [f"sectors {a} / {b} share {ov:.3f} sr: each is budgeted independently there -- fine for intentional "
             f"layered coverage (different RCS/range/RR on the same sky), check for a duplicated requirement if not"
@@ -2552,7 +2567,8 @@ def _confirm(mission: dict, sectors: List[dict], results: List[dict], out: dict,
 
 
 def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] = None, keep_plans: bool = False,
-        stage_cb=None, _reuse: Optional[Dict[str, dict]] = None) -> dict:
+        stage_cb=None, _reuse: Optional[Dict[str, dict]] = None,
+        _relieved: Optional[Dict[str, dict]] = None) -> dict:
     """progress_cb(done, total, sector_id) is called after each sector (optional, e.g. for a UI
     progress bar). cancel_cb() is polled between sectors (every 0.2 s in parallel mode); if it returns True,
     run() stops early and returns the partial result with "cancelled": True (sectors not computed are absent).
@@ -2595,6 +2611,18 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
         got = {r["id"]: r for r in results}
         results = [reuse[sec["id"]] if sec["id"] in reuse else got[sec["id"]] for sec in sectors
                    if sec["id"] in reuse or sec["id"] in got]
+    # a volume relieved in full (user, 11 November 2026): no search of its own, but its targets still appear and must
+    # be confirmed and tracked (P2, P3): "RELIEVED", with its own plan's frequency and lattice for the Ku budget
+    for i_, r_ in enumerate(results):
+        rel = (_relieved or {}).get(r_["id"])
+        if rel is not None and r_.get("status") != "OK":
+            first = rel.get("first") or {}
+            if first.get("status") != "OK":            # (no plan of its own either: nothing to confirm with)
+                continue
+            # its own plan kept for the Ku budget (frequencies, scan groups); its search costs nothing (faces empty)
+            results[i_] = dict(first, status="RELIEVED", relieved_by=list(rel.get("by", [])), faces={},
+                               positions_total=0.0,
+                               note="need met by " + ", ".join(rel.get("by", [])) + " (relief): no search of its own")
     first_plans = {r["id"]: r for r in results}       # (the sectors' own plans, before the global passes)
     sph = _sphere(eps_min, eps_max)
     done_ids = {r["id"] for r in results}
@@ -2676,7 +2704,8 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
         mr = margin.reuse_tracks(mission, out, lambda mis, res: _assemble(mis, mis["sectors"], res, cancelled, *args))
         out["margin_reuse"] = mr
         out["warnings"].extend(mr["flags"])
-    if not cancelled and P.get("tool.redundancy.relief") and not any(s.get("_relief") for s in sectors):
+    from . import redundancy as _red
+    if not cancelled and _red.RELIEF_ON and not any(s.get("_relief") for s in sectors):
         # A and B (user, 11 November 2026): the directions of a volume whose need a volume of the same or higher
         # priority meets, with what this run serves it, taken out of its budget; the volumes relieved planned again
         # (the others' own plans kept), the global passes and the allocation on the new set
@@ -2696,10 +2725,16 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
                 stage_cb("Relief: " + ", ".join(f"{sid} without its {100 * v['share']:.0f} % served by "
                                                 f"{', '.join(v['by'])}" for sid, v in sorted(rl.items()))
                          + ": planned again")
+            ext: Dict[str, list] = {}                # coverer -> [(share of its positions, range it listens to)]
+            for v in rl.values():
+                for a_id, f_ in (v.get("listen") or {}).items():
+                    ext.setdefault(a_id, []).append((f_, v.get("range_km", 0.0)))
             mis2 = dict(mission, sectors=[dict(s, _relief=rl[s["id"]]["code"]) if s["id"] in rl else s
-                                          for s in sectors])
+                                          for s in sectors],
+                        **{"global": dict(mission.get("global", {}), _listen_ext=ext)})
             out2 = run(mis2, None, cancel_cb, workers, keep_plans, stage_cb,
-                       _reuse={sid: r for sid, r in first_plans.items() if sid not in rl})
+                       _reuse={sid: r for sid, r in first_plans.items() if sid not in rl},
+                       _relieved={sid: {"by": v["by"], "first": first_plans.get(sid)} for sid, v in rl.items()})
             out2["relief"] = {sid: {"share": v["share"], "by": list(v["by"])} for sid, v in rl.items()}
             out2.setdefault("warnings", []).extend(
                 f"{sid}: {100 * v['share']:.0f} % of its volume served by {', '.join(v['by'])} (need met there): "

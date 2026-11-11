@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.37.0
+# Radar Performance Model - V6.38.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,14 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.37.0 -> V6.38.0 (user, 11 November 2026)
+#   - compute budget: a search look listens until the echo of its volume's range is back (a single pulse's 1 ms
+#     "PRI" between two pointings was counted as its listening, ~150 km): listening time, samples, range cells,
+#     buffers and transport follow the range (core/compute.look_cost, listen_km);
+#   - relief (core/redundancy.relief, [tool.redundancy] relief): the directions of a volume whose need a volume of the
+#     same or higher priority meets, with what it is served, are taken out of its budget; the covering volume listens
+#     to the relieved volume's range on the share of its positions in their common volume only (compute budget).
 #
 # Changes V6.36.0 -> V6.37.0 (final allocation rule in the exact computation, pass R3, user 10 November 2026)
 #   - the ship's resources (energy pool, each face's limit, S and Ku time) are shared by the final rule
@@ -709,7 +717,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.37.0"
+MODEL_VERSION = "6.38.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

@@ -619,8 +619,8 @@ def _clutter_gain(sp: _LookSpace, clutter: Optional[List[dict]], tgt: rm.Target)
             rho = np.ones(nv)
             if w.integration == "COHERENT" and ppb >= 2 and c["closing_mps"] is not None and c["spread_mps"] is not None:
                 pv = rm.oscillator_phase_var(sp.f, t_b, rm.C_MPS * w.pri_s / 2e3, w.sig_bw_mhz)
-                rho = env.doppler_residual(c["closing_mps"], c["spread_mps"], v_lo, v_hi, sp.f, w.pri_s, ppb,
-                                           w.doppler_window_db, pv)
+                rho = np.asarray(env.doppler_residual(c["closing_mps"], c["spread_mps"], v_lo, v_hi, sp.f, w.pri_s,
+                                                      ppb, w.doppler_window_db, pv), float)   # (a tuple: 11 Nov 2026)
             a[j] += beta * c["y"] * rho
     if not a.any():
         return np.ones(len(sp.det))
@@ -1639,9 +1639,11 @@ def budget(mission: dict, res: dict) -> dict:
     n_cands: Dict[str, int] = {}
     jobs = []                                         # (sector, its result, its S positions per face, Ku frequency)
     for r in res["sectors"]:
-        if r["status"] != "OK":
+        if r["status"] not in ("OK", "RELIEVED") or (r["status"] == "RELIEVED" and not r.get("wf")):
             continue
-        sec = secs[r["id"]]
+        # (user, 11 November 2026: the relief takes the search, not the targets; they are confirmed and tracked over
+        # the volume's whole extent, whoever detects them)
+        sec = {k_: v_ for k_, v_ in secs[r["id"]].items() if k_ != "_relief"}
         m = sph.mask(sec)
         sec_s = dict(sec, _grid_spacing=r.get("beam_spacing_hpbw", rm.BEAM_SPACING_HPBW))   # its lattice (P5)
         P, _, _, _ = mo.search_positions(sec_s, sph, m, r["wf"]["freq_ghz"], sky)    # blinded positions left out

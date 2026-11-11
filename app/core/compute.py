@@ -98,16 +98,28 @@ def dof(band: str) -> int:
     return rm.N_TRSA if NULLING_DOF == "trsa" else channels(band)
 
 
-def look_cost(band: str, wf: dict, beams: float, nulled: int = 0) -> Dict[str, float]:
+def look_cost(band: str, wf: dict, beams: float, nulled: int = 0,
+              listen_km: Optional[float] = None) -> Dict[str, float]:
     """Operations per function, transported bits, buffer bytes and listening time of ONE look (dwell) of a face.
-    wf: n_pulses, pri_ms, sig_bw_mhz, velocity_hypotheses, acceleration_hypotheses, coherent_blocks, pulses_per_block."""
+    wf: n_pulses, pri_ms, sig_bw_mhz, velocity_hypotheses, acceleration_hypotheses, coherent_blocks, pulses_per_block.
+    listen_km (V6.38.0, user 11 November 2026): the range the look listens to; the listening lasts until its echo is
+    back (a single pulse's "PRI" is the 1 ms between two pointings, the receive windows staying open in parallel:
+    its listening was counted 1 ms, ~150 km); None: N x PRI as before (the Ku looks, gated on a known range)."""
     n = max(1, int(wf["n_pulses"]))
     pri = float(wf["pri_ms"]) * 1e-3
     bw = float(wf["sig_bw_mhz"]) * 1e6
     fs = ADC_OVERSAMPLING[band] * bw
     t = n * pri
-    n_p = fs * pri
-    c_r = RANGE_OSR * bw * pri
+    pri_rx = pri                                  # (the receive window per pulse)
+    if listen_km:
+        t_echo = 2.0 * float(listen_km) * 1e3 / rm.C_MPS
+        if n == 1:
+            pri_rx = max(pri, t_echo)
+            t = pri_rx
+        else:                                     # (a range-ambiguous train: the last pulse's echo still to come)
+            t = max(t, (n - 1) * pri + t_echo)
+    n_p = fs * pri_rx
+    c_r = RANGE_OSR * bw * pri_rx
     h = max(1, int(wf.get("velocity_hypotheses", 1))) * max(1, int(wf.get("acceleration_hypotheses", 1)))
     ppb = max(1, int(wf.get("pulses_per_block", n)))
     blocks = max(1, int(wf.get("coherent_blocks", 1)))
@@ -155,12 +167,19 @@ def _streams(mission: dict, res: dict, nulled: List[int]) -> Dict[int, Dict[str,
     out = {k: {"S": [], "Ku": []} for k in range(4)}
     from . import optimizer as mo                  # here: core.optimizer imports this module
     g = mission.get("global", {})
+    secs = {s_.get("id"): s_ for s_ in mission.get("sectors", [])}
+    ext_all = g.get("_listen_ext") or {}           # (the relief: a volume listening further for another's need)
     n_dirs = mo._sphere(g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)).phi.size
     for r in res.get("sectors", []):
         if r.get("status") != "OK":
             continue
         tot = float(r.get("positions_total") or 0.0)
         rr = float(r["rr_target_s"])
+        r_own = float((secs.get(r["id"]) or {}).get("range_km") or 0.0) or None
+        # the relief (user, 11 November 2026): the share of its positions in another volume's directions it relieves
+        # listens to that volume's range (only in their common volume)
+        ext = [(float(f_), max(float(rb), r_own or 0.0)) for f_, rb in ext_all.get(r["id"], []) if f_ > 0]
+        f_ext = min(1.0, sum(f_ for f_, _r in ext))
         for kk, f in r.get("faces", {}).items():
             k = int(kk)
             share = float(f["positions"]) / tot if tot > 0 else 0.0
@@ -173,7 +192,11 @@ def _streams(mission: dict, res: dict, nulled: List[int]) -> Dict[int, Dict[str,
                     float(w.get("b_tx", 1)) if w.get("tx_mode") == "partition" else ppd)
                 rate = float(b["positions"]) * share / ppd / rr
                 if rate > 0:
-                    looks.append((rate, look_cost("S", w, beams, nulled[k]), beams))
+                    if f_ext < 1.0:
+                        looks.append((rate * (1.0 - f_ext), look_cost("S", w, beams, nulled[k], r_own), beams))
+                    norm = f_ext / max(sum(x for x, _y in ext), 1e-12)     # (shares summing over 1: scaled)
+                    for f_, r_l in ext:
+                        looks.append((rate * f_ * norm, look_cost("S", w, beams, nulled[k], r_l), beams))
                     pointings += rate * ppd
             mask = n_dirs * share / rr if r.get("frame", "ship") != "ship" else 0.0
             if looks:

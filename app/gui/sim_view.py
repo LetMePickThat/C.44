@@ -115,7 +115,10 @@ RING_POINTS = 121
 RING_HIDDEN_DOT_PX = tuple(float(x) for x in P.get("tool.display.sim_ring_hidden_dot_px"))
 RING_HIDDEN_BISECT = 12                           # the ends of a hidden arc refined to 2^-this of a ring's step (D)
 RING_COLOR = "#4a5266"
-PATH_MAX_PTS = 400                                # L3, global view: points of a whole-run path (trail, planned)
+PATH_MAX_PTS = 400                                # L3, global view: points of a whole-run path (trail, planned) at least
+PATH_TURN_DEG = 1.0                               # ... finer, so that a path turns at most this per segment (user, 11
+PATH_BUDGET_PTS = 400_000                         # Nov 2026: a longer scenario showed an orbit's segments again), within
+                                                  # this many points for all the paths together (frame time)
 COAST_STEP_S = 10.0                               # L3: RK4 step of the orbital velocity vector's free fall, s (D)
 COAST_STEPS = (20, 200)                           # ... its step count kept between these (smooth, 1000+ objects)
 # the objects and their geometry (points, trajectories, trails, range projection) in the colour of their
@@ -1164,6 +1167,35 @@ def _vec_lines(label: str, vec, unit: str, dec: int) -> List[str]:
 symbol_path, _symbol_texture = v3.symbol_path, v3.symbol_texture   # (shared: gui/view3d.py)
 
 
+def _path_stride(truth, n_records: float) -> int:
+    """Every how many truth records the global view's paths are drawn: at most PATH_TURN_DEG of turn per segment for
+    the fastest-turning body (each body's median turn per record: an impulse is not a turn), at least
+    PATH_MAX_PTS points per path, at most PATH_BUDGET_PTS for all the paths."""
+    count = max(1, math.ceil(n_records / PATH_MAX_PTS))
+    try:
+        v = np.asarray(truth.v_kms, float)
+        if len(v) < 3:
+            return count
+        k = np.arange(0, len(v) - 1, max(1, (len(v) - 1) // 2000))       # (a sample of the records: periodic paths)
+        a, b = v[k], v[k + 1]
+        na, nb = np.linalg.norm(a, axis=2), np.linalg.norm(b, axis=2)
+        ok = (na > 1e-9) & (nb > 1e-9)
+        cosang = np.einsum("ijk,ijk->ij", a, b) / np.where(ok, na * nb, 1.0)
+        ang = np.where(ok, np.degrees(np.arccos(np.clip(cosang, -1.0, 1.0))), np.nan)
+        if not np.isfinite(ang).any():
+            return count
+        with np.errstate(all="ignore"):
+            per_body = np.nanmedian(ang, axis=0)                  # (each body's usual turn: an impulse is not one)
+        if not np.isfinite(per_body).any():
+            return count
+        per_rec = float(np.nanmax(per_body))                      # (deg of turn per record, the fastest body)
+        turn = max(1, int(PATH_TURN_DEG / max(per_rec, 1e-9))) if per_rec > 0 else count
+        budget = max(1, math.ceil(n_records * v.shape[1] / PATH_BUDGET_PTS))
+        return max(1, min(count, max(turn, budget)))
+    except (AttributeError, ValueError, IndexError):
+        return count
+
+
 def _segments(a: np.ndarray, b: np.ndarray) -> pv.PolyData:
     pts = np.empty((2 * len(a), 3))
     pts[0::2], pts[1::2] = a, b
@@ -1806,7 +1838,7 @@ class SimView(QWidget):
         self._cpa_cache = {}                          # the closest approaches of the run shown
         # global view: the paths through every n-th truth record, n fixed for the run (no shimmer while playing)
         n_all = float(sc["meta"]["duration_s"]) / prop.LOG_STEP_S + 1.0      # (L5: the live run grows)
-        self._path_stride = max(1, math.ceil(max(len(truth.t_s), n_all) / PATH_MAX_PTS))
+        self._path_stride = _path_stride(truth, max(len(truth.t_s), n_all))
         self._coast_third = None                      # the other bodies' grid of the orbital vectors (_coast)
         self.progress.setValue(1000)
         self.status.setText(f"{label}: {len(g.ids)} objects, {float(sc['meta']['duration_s']):g} s")

@@ -388,7 +388,9 @@ GAUGE_GREEN, GAUGE_RED = "#3cb371", "#d6453d"     # range gauge: the range held,
 LIMB_BAND_DEG = 3.0                    # G2: the ground side is refined within this of the horizon
 LIMB_REFINE_DEG = 0.25                 # G2: ... to edges of at most this (unit sphere)
 LIMB_LINE_STEP_DEG = 0.1               # G3: the outline densified to this
-_LIMB_TOL_DEG = 1e-3                   # a point of a cut lies on the horizon within this
+_LIMB_TOL_DEG = 0.1                    # a point of a cut lies on the horizon within this (the cut is linear between
+                                       # the raster's points and the refinement puts its points back on the sphere:
+                                       # up to ~0.05 deg off along a small horizon; 1e-3 left walls down to the ship)
 
 
 def limb_function(sky: Optional[dict], sec: dict):
@@ -398,6 +400,10 @@ def limb_function(sky: Optional[dict], sec: dict):
     from . import cost_estimate as ce
     from . import optimizer as mo
     surf = ce._sky_surfaces(sky)
+    r_req0 = float(sec.get("range_km", 0.0) or 0.0)
+    # only the bodies whose surface the volume can reach (user, 11 November 2026: the Earth in the axis of a 2000 km
+    # volume seen from the Moon cut it along its horizon for nothing, and that cut drew a cone down to the ship)
+    surf = [s_ for s_ in surf if s_.dist_km - s_.radius_km < r_req0]
     if not surf:
         return None
     cs = np.array([s_.c for s_ in surf], float)
@@ -427,21 +433,62 @@ def _refine_near_limb(poly: pv.PolyData, margin_of) -> pv.PolyData:
     """G2: the cells within LIMB_BAND_DEG of the horizon subdivided to LIMB_REFINE_DEG, back on the unit sphere."""
     if not poly.n_points:
         return poly
-    tri = poly.triangulate()
-    m = margin_of(_unit(tri))
-    near = m > -LIMB_BAND_DEG
-    cells = tri.faces.reshape(-1, 4)[:, 1:]
-    band = np.flatnonzero(near[cells].any(axis=1))
-    if not len(band):
-        return poly
-    rest = np.setdiff1d(np.arange(len(cells)), band)
-    fine = tri.extract_cells(band).extract_surface(algorithm="dataset_surface").triangulate()
-    fine = fine.subdivide_adaptive(max_edge_len=math.radians(LIMB_REFINE_DEG), max_n_passes=12)
-    fine.points = _unit(fine)
-    if not len(rest):
-        return fine
-    out = tri.extract_cells(rest).extract_surface(algorithm="dataset_surface")
-    return out.append_polydata(fine)
+    tri = poly.triangulate().clean(tolerance=0.0)
+    pts = _unit(tri)
+    cells = tri.faces.reshape(-1, 4)[:, 1:].copy()
+    # conforming (user, 11 November 2026): refining the band's cells alone left hanging points where they met the
+    # coarse ones, a crack along the band's edge whose walls drew a cone down to the ship; refining the whole piece
+    # cost x5 triangles. The band's cells are split in 4, their neighbours in 2 or 3 on the edges split (no crack).
+    lim = math.radians(LIMB_REFINE_DEG)
+    for _ in range(6):
+        near = margin_of(pts) > -LIMB_BAND_DEG
+        a, b, c = pts[cells[:, 0]], pts[cells[:, 1]], pts[cells[:, 2]]
+        longest = np.max([np.linalg.norm(b - a, axis=1), np.linalg.norm(c - b, axis=1),
+                          np.linalg.norm(a - c, axis=1)], axis=0)
+        mark = near[cells].any(axis=1) & (longest > lim)
+        if not mark.any():
+            break
+        pts, cells = _refine_pass(pts, cells, mark)
+    faces = np.column_stack([np.full(len(cells), 3), cells]).astype(np.int64).ravel()
+    return pv.PolyData(pts, faces)
+
+
+def _refine_pass(pts: np.ndarray, cells: np.ndarray, mark: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """One conforming refinement of a unit-sphere triangle mesh: every edge of a marked triangle split at its middle
+    (on the sphere); a triangle with 3 edges split -> 4, 2 -> 3, 1 -> 2 (the same middle point on both sides)."""
+    e = np.sort(np.stack([cells[:, [0, 1]], cells[:, [1, 2]], cells[:, [2, 0]]], axis=1), axis=2)
+    uniq, inv = np.unique(e.reshape(-1, 2), axis=0, return_inverse=True)
+    inv = inv.reshape(-1, 3)
+    split = np.zeros(len(uniq), bool)
+    split[inv[mark].ravel()] = True
+    ids = np.flatnonzero(split)
+    mid_of = np.full(len(uniq), -1, np.int64)
+    mid_of[ids] = len(pts) + np.arange(len(ids))
+    mid = pts[uniq[ids, 0]] + pts[uniq[ids, 1]]
+    pts = np.vstack([pts, mid / np.linalg.norm(mid, axis=1)[:, None]])
+    m = mid_of[inv]                                            # (n, 3): middle of edges 01, 12, 20, or -1
+    cnt = (m >= 0).sum(axis=1)
+    out = [cells[cnt == 0]]
+    sel = cnt == 3
+    if sel.any():
+        v, q = cells[sel], m[sel]
+        out += [np.column_stack([v[:, 0], q[:, 0], q[:, 2]]), np.column_stack([q[:, 0], v[:, 1], q[:, 1]]),
+                np.column_stack([q[:, 2], q[:, 1], v[:, 2]]), np.column_stack([q[:, 0], q[:, 1], q[:, 2]])]
+    for n_split in (1, 2):
+        sel = cnt == n_split
+        if not sel.any():
+            continue
+        v, q = cells[sel], m[sel]
+        # rotate: 1 split -> the split edge first (01); 2 split -> the unsplit edge last (20)
+        k = np.argmax(q >= 0, axis=1) if n_split == 1 else (np.argmin(q >= 0, axis=1) + 1) % 3
+        r = (k[:, None] + np.arange(3)[None, :]) % 3
+        v, q = np.take_along_axis(v, r, axis=1), np.take_along_axis(q, r, axis=1)
+        if n_split == 1:
+            out += [np.column_stack([v[:, 0], q[:, 0], v[:, 2]]), np.column_stack([q[:, 0], v[:, 1], v[:, 2]])]
+        else:
+            out += [np.column_stack([q[:, 0], v[:, 1], q[:, 1]]), np.column_stack([v[:, 0], q[:, 0], q[:, 1]]),
+                    np.column_stack([v[:, 0], q[:, 1], v[:, 2]])]
+    return pts, np.vstack(out)
 
 
 def split_at_limb(poly: pv.PolyData, limb) -> List[Tuple[str, pv.PolyData]]:
@@ -566,6 +613,7 @@ def held_ratio_function(grid: SphereGrid, sec: dict, eps_min: float, eps_max: fl
     rho = float(rec["rho"]) if rec else 0.0
     useful_of = useful_ratio_function(sec, sky)
     rc = (alloc.get("reach") or {}).get(str(sid if sid is not None else sec.get("id")))
+    code = ((alloc.get("relief") or {}).get(str(sid if sid is not None else sec.get("id"))) or {}).get("code")
 
     def ratio_of(d, face=None, ignore_ground=False):
         d = np.asarray(d, float).reshape(-1, 3)
@@ -576,13 +624,20 @@ def held_ratio_function(grid: SphereGrid, sec: dict, eps_min: float, eps_max: fl
         else:                               # (directions known to be face's)
             ok = np.ones(len(d), bool)
         held = np.where(ok, rho, 0.0)
+        rel = None
+        if code:                              # (the relief, user 11 November 2026: where another volume meets the need,
+            dphi = np.degrees(np.arctan2(d[:, 1], d[:, 0])) % 360.0   # it is held: drawn green, not red)
+            deps = np.degrees(np.arcsin(np.clip(d[:, 2], -1.0, 1.0)))
+            rel = mo.relief_cells(code, dphi, deps, grow=1)   # (its smooth outline in the edge cells: no red rim)
+            held = np.where(rel, 1.0, held)
         if not ignore_ground:                 # (ignore_ground: a point of the sky side ON the horizon, its tangent ray
             held = np.minimum(held, np.clip(np.asarray(useful_of(d), float), 0.0, 1.0))   # grazing the ground)
         if rc and rc.get("r_want_km"):                 # (the range reachable at full pulse at the face's scan angle)
             _o, w_, _u, _v = mo.face_of(d[:, 0], d[:, 1], d[:, 2])
             th = np.degrees(np.arccos(np.clip(w_, 0.0, 1.0)))
             cap = np.interp(np.clip(th, rc["th"][0], rc["th"][-1]), rc["th"], rc["r_reach_km"]) / rc["r_want_km"]
-            held = np.minimum(held, np.clip(cap, 0.0, 1.0))
+            capped = np.minimum(held, np.clip(cap, 0.0, 1.0))
+            held = capped if rel is None else np.where(rel, held, capped)   # (its own reach: not the coverer's)
         return held
     ratio_of.eps_window = (eps_min, eps_max)
     ratio_of.useful_of = useful_of
@@ -622,56 +677,45 @@ def build_range_gauge(grid: SphereGrid, sec: dict, ratio_of, radius: float,
     # green: the covered part (cut smoothly by the faces' margins, as the executed volumes; the ratio jumps to 0 at a
     # coverage edge and a cut on it drew slivers down to the ship), at the range held there
     eps_win = getattr(ratio_of, "eps_window", None) or (-90.0, 90.0)
-    green, _outline, _hole = build_sector_split_smooth(grid, sec, eps_win[0], eps_win[1], radius=1.0)
+    # ONE piece (user, 11 November 2026: dark stripes on a cone): the requested volume cut by the faces' coverage, not
+    # face by face; the face pieces met with small notches along the volume's outline, whose walls folded on themselves
+    # (a double layer from the ship to the rim at each seam); each point takes the face that scans it best
+    dq = req.points / np.linalg.norm(req.points, axis=1)[:, None]
+    covered = _cut(req, _coverage_margin(dq, eps_win))
     sides: Dict[str, List[pv.PolyData]] = {}
-    for k in range(4):                                         # face by face (the ground cut and the horizon)
-        if not green.n_points:
-            break
-        ids = np.flatnonzero(green.cell_data["face"] == k)
-        if not len(ids):
-            continue
-        piece = green.extract_cells(ids).extract_surface(algorithm="dataset_surface")
-        dg = piece.points / np.linalg.norm(piece.points, axis=1)[:, None]
-        piece = _cut(piece, np.asarray(useful_of(dg), float) - 0.01)   # (no volume where the ground is within guard)
-        if not piece.n_points:
-            continue
-        piece.cell_data.clear()
-        for side, sub in (split_at_limb(piece, limb) if not normalise else [("sky", piece)]):
-            sub = sub.triangulate()
-            sub.cell_data["gauge_face"] = np.full(sub.n_cells, k, np.int8)
-            sides.setdefault(side, []).append(sub)
-    # one shell per side of the horizon (user, 11 November 2026: needles and dust): the faces' pieces merged, the pin
-    # holes where they meet filled, each point at the best range of the faces it belongs to (one shell, no step at a
-    # seam), so that the walls stand only on the volume's outline and along the horizon
+    if covered.n_points:
+        dg = covered.points / np.linalg.norm(covered.points, axis=1)[:, None]
+        piece = _cut(covered, np.asarray(useful_of(dg), float) - 0.01)   # (no volume where the ground is within guard)
+        if piece.n_points:
+            piece.cell_data.clear()
+            piece.point_data.clear()
+            for side, sub in (split_at_limb(piece, limb) if not normalise else [("sky", piece)]):
+                sides.setdefault(side, []).append(sub.triangulate())
     green = pv.PolyData()
     for side, subs in sides.items():
         m = subs[0]
         for s_ in subs[1:]:
             m = m.append_polydata(s_)
-        m = m.clean(tolerance=1e-7, absolute=False)
-        if not m.n_cells:
-            continue
-        tri = m.faces.reshape(-1, 4)[:, 1:]                    # (the triangles alone: clean() turns the ones it
-        lab = np.asarray(m.cell_data["gauge_face"])[m.n_cells - len(tri):]   # collapses into lines, listed first)
-        m = pv.PolyData(np.asarray(m.points, float), m.faces).clean(tolerance=0.0)
+        m = pv.PolyData(np.asarray(m.points, float), m.faces).clean(tolerance=1e-7, absolute=False)
         if not m.n_cells or m.n_points < 3:
             continue
-        tri = m.faces.reshape(-1, 4)[:, 1:] if m.n_cells == len(lab) else None
-        if tri is None:                                        # (the second clean dropped unused points only)
-            continue
+        m = pv.PolyData(np.asarray(m.points, float), m.faces)
         dg = m.points / np.linalg.norm(m.points, axis=1)[:, None]
-        rg = np.full(m.n_points, -1.0)
+        best = np.argmax([face_margin(k, dg) for k in range(4)], axis=0)    # (the face that scans it best)
+        rg = np.zeros(m.n_points)
         edge = (np.abs(limb[0](dg)) <= _LIMB_TOL_DEG) if (side == "sky" and limb is not None) else None
-        for k in np.unique(lab):
-            pk = np.unique(tri[lab == k])
-            v = np.clip(np.asarray(ratio_of(dg[pk], face=int(k)), float), 0.0, 1.0)
+        for k in range(4):
+            pk = np.flatnonzero(best == k)
+            if not len(pk):
+                continue
+            v = np.clip(np.asarray(ratio_of(dg[pk], face=k), float), 0.0, 1.0)
             if edge is not None and edge[pk].any():           # (the sky side's edge on the horizon: the sky's range,
                 e = edge[pk]                                   # not the ground its tangent ray grazes: it drooped)
                 try:
-                    v[e] = np.clip(np.asarray(ratio_of(dg[pk][e], face=int(k), ignore_ground=True), float), 0.0, 1.0)
+                    v[e] = np.clip(np.asarray(ratio_of(dg[pk][e], face=k, ignore_ground=True), float), 0.0, 1.0)
                 except TypeError:                              # (a ratio_of without the option)
                     pass
-            rg[pk] = np.maximum(rg[pk], v)
+            rg[pk] = v
         rg = np.clip(rg, 0.0, 1.0)
         if side == "ground" and limb is not None:              # (a point ON the horizon: its tangent ray misses the
             rg = np.minimum(rg, _limb_share(limb, dg, sec))   # ground numerically, it took the full range: needles)
@@ -679,7 +723,7 @@ def build_range_gauge(grid: SphereGrid, sec: dict, ratio_of, radius: float,
             rg = np.clip(rg / np.maximum(np.asarray(useful_of(dg), float), 1e-6), 0.0, 1.0)
         m.cell_data.clear()
         m.point_data["gauge_r"] = rg
-        m = m.fill_holes(math.radians(1.5 * float(getattr(grid, "res_deg", 1.0))))   # (pin holes: at most a cell or so)
+        m = m.fill_holes(math.radians(2.5 * float(getattr(grid, "res_deg", 1.0))))   # (pin holes: at most a cell or so)
         r_pts = np.asarray(m.point_data["gauge_r"], float)
         m.points = m.points / np.linalg.norm(m.points, axis=1)[:, None] * (r_pts * radius)[:, None]
         m.point_data.clear()
@@ -700,8 +744,13 @@ def build_range_gauge(grid: SphereGrid, sec: dict, ratio_of, radius: float,
     elif red.n_points:
         red.points = red.points / np.linalg.norm(red.points, axis=1)[:, None] * radius
     if not normalise:                                          # the volume's limits (user, 11 November 2026)
-        green = _gauge_walls(green, limb, lambda d_: np.zeros(len(d_)))
-        red = _gauge_walls(red, limb, lambda d_: np.clip(np.asarray(ratio_of(d_), float), 0.0, 1.0) * radius)
+        # along the faces' coverage hole the walls are the missing part's (red, down to the ship), not the held
+        # part's (user, 11 November 2026: the hole's side was drawn green)
+        def rim(d_):
+            return np.abs(_coverage_margin(d_, eps_win)) <= _RIM_TOL_DEG
+        green = _gauge_walls(green, limb, lambda d_: np.zeros(len(d_)), skip_of=rim)
+        red = _gauge_walls(red, limb, lambda d_: np.where(rim(d_), 0.0, np.clip(np.asarray(ratio_of(d_), float),
+                                                                                 0.0, 1.0) * radius))
     return green, red
 
 
@@ -713,7 +762,19 @@ def _limb_share(limb, d: np.ndarray, sec: dict) -> np.ndarray:
     return np.clip(np.asarray(limb[1](d), float) / r_req, 0.0, 1.0)
 
 
-def _gauge_walls(shell: pv.PolyData, limb, floor_of) -> pv.PolyData:
+_RIM_TOL_DEG = 0.25                    # a point of a cut lies on the coverage hole's edge within this (0.05 left
+                                       # green walls between the red ones along the dead zone: stripes)
+
+
+def _coverage_margin(d: np.ndarray, eps_win) -> np.ndarray:
+    """Signed margin (deg, > 0 covered) of unit directions to the faces' coverage (any face's zone, the eps window)."""
+    d = np.asarray(d, float).reshape(-1, 3)
+    eps = np.degrees(np.arcsin(np.clip(d[:, 2], -1.0, 1.0)))
+    m_win = np.minimum(eps - eps_win[0], eps_win[1] - eps)
+    return np.max([np.minimum(face_margin(k, d), m_win) for k in range(4)], axis=0)
+
+
+def _gauge_walls(shell: pv.PolyData, limb, floor_of, skip_of=None) -> pv.PolyData:
     """The range gauge as volumes, not only their outer face (user, 11 November 2026): the shell (all faces merged,
     so that no wall stands at a seam between two faces) closed by walls from its free edges down to floor_of(d) (km;
     0: the radar, for the part held; the range held, for the part short of it), and along the horizon by the tangent
@@ -731,6 +792,9 @@ def _gauge_walls(shell: pv.PolyData, limb, floor_of) -> pv.PolyData:
     r = np.linalg.norm(pts, axis=1)
     u = pts / np.maximum(r, 1e-12)[:, None]
     low = np.minimum(np.asarray(floor_of(u), float), r)
+    if skip_of is not None and len(seg):                      # (edges whose walls another shell draws)
+        sk = np.asarray(skip_of(u), bool)
+        seg = seg[~(sk[seg[:, 0]] & sk[seg[:, 1]])]
     if limb is not None:                                       # an edge on the horizon: the cone down to its distance
         margin_of, limb_range_of = limb
         on = np.abs(margin_of(u)) <= _LIMB_TOL_DEG

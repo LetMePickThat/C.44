@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from PyQt5.QtCore import QEvent, QObject, QRect, QSize, Qt
-from PyQt5.QtGui import QColor, QIcon, QPainter, QPalette, QPen
+from PyQt5.QtGui import QColor, QFont, QFontMetrics, QIcon, QPainter, QPalette, QPen
 from PyQt5.QtWidgets import (QAbstractScrollArea, QAbstractSpinBox, QApplication, QComboBox, QCheckBox, QFrame, QHBoxLayout, QHeaderView, QLabel, QMenu, QMessageBox, QSlider,
                              QStyle, QStyleOptionSlider, QTableWidget, QTableWidgetItem, QToolButton, QToolTip,
                              QWidget, QWidgetAction)
@@ -446,18 +446,67 @@ SOURCE_STYLES = {                       # (user, 11 November 2026: estimates and
 }
 
 
+BADGE_WIDEST = "ESTIMATE \u00b7 computing \u00b7 cost profiles 10/10"   # (its width: the badge never resizes)
+
+
 def source_badge(kind: str = "estimate", detail: str = "", tip: str = "") -> QLabel:
-    """A small coloured badge saying where the figures next to it come from (U3); set_source() changes it."""
+    """A small coloured badge saying where the figures next to it come from (U3); set_source() changes it. Its width
+    is fixed (user, 11 November 2026: the face bars beside it moved with its text); a longer text is cut ("...") and
+    given whole in the tooltip."""
     lb = QLabel()
+    f = QFont(lb.font())
+    f.setBold(True)
+    w = QFontMetrics(f).horizontalAdvance(f" {BADGE_WIDEST} ") + 12
+    lb.setFixedWidth(w)
+    lb.setProperty("elide_w", w - 12)
+    lb.setAlignment(Qt.AlignCenter)
     set_source(lb, kind, detail, tip)
     return lb
+
+
+class busy:
+    """`with busy(parent, "Opening ..."):` a small window saying what is being done, painted BEFORE the work starts,
+    and the wait cursor (user, 11 November 2026: the window froze with nothing said while a file was loaded)."""
+
+    def __init__(self, parent, text: str):
+        self.parent, self.text, self.dlg = parent, text, None
+
+    def __enter__(self):
+        from PyQt5.QtWidgets import QProgressDialog
+        self.dlg = QProgressDialog(self.text, None, 0, 0, self.parent)
+        self.dlg.setWindowTitle("Please wait")
+        self.dlg.setWindowModality(Qt.WindowModal)
+        self.dlg.setMinimumDuration(0)
+        self.dlg.setCancelButton(None)
+        self.dlg.show()
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        for _ in range(3):                             # (shown and painted before the window freezes)
+            QApplication.processEvents()
+        return self
+
+    def __exit__(self, *exc):
+        QApplication.restoreOverrideCursor()
+        if self.dlg is not None:
+            self.dlg.close()
+            self.dlg.deleteLater()
+        return False
 
 
 def set_source(lb: QLabel, kind: str, detail: str = "", tip: str = "", progress: Optional[float] = None) -> None:
     """progress (0-1): the badge is its own progress bar (user, 11 November 2026): the base colour up to the share
     done, a darker shade of it beyond."""
     text, colour = SOURCE_STYLES.get(kind, SOURCE_STYLES["estimate"])
-    lb.setText(f" {text}{' \u00b7 ' + detail if detail else ''} ")
+    full = f" {text}{' \u00b7 ' + detail if detail else ''} "
+    ew = lb.property("elide_w")
+    if ew:                                             # (fixed width: cut, the whole text in the tooltip)
+        f = QFont(lb.font())
+        f.setBold(True)
+        shown = QFontMetrics(f).elidedText(full, Qt.ElideRight, int(ew))
+        lb.setText(shown)
+        if shown != full:
+            tip = (full.strip() + ("\n" + tip if tip else ""))
+    else:
+        lb.setText(full)
     bg = colour
     if progress is not None:
         f = min(max(float(progress), 0.0), 1.0)

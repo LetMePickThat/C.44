@@ -64,6 +64,7 @@ from .params import P
 
 # Values from radar_system.toml [tool.redundancy].
 COVER_FULL = P.get("tool.redundancy.cover_full")        # fraction of B's scanned solid angle above which B is fully redundant
+RELIEF_ON = bool(P.get("tool.redundancy.relief"))       # A (11 Nov 2026): relief of the needs another volume meets
 COVER_MIN = P.get("tool.redundancy.cover_min")          # partial overlaps below this fraction are not reported
 RANGE_TOL = P.get("tool.redundancy.range_tol")          # same tolerance as the optimiser's "short of range"
 MIN_PIECE_DEG = P.get("tool.redundancy.min_piece_deg")  # trimmed boxes thinner than this (phi or eps) are dropped
@@ -315,12 +316,14 @@ def relief(sectors_ship: List[dict], grid, eps_min: float, eps_max: float, sky: 
     order = sorted(range(len(secs)), key=lambda i: (rank(secs[i]), i))
     active: Dict[int, np.ndarray] = {}
     out: Dict[str, dict] = {}
+    wpos = grid.w * grid.d_omega                       # (the search positions go as w dOmega)
     for pos, j in enumerate(order):
         sb, mb = secs[j], masks[j]
         if mb is None or not mb.any():
             continue
         relieved = np.zeros_like(mb)
         by = []
+        listen: Dict[str, float] = {}                  # coverer -> the share of ITS positions that listen further
         for i in order[:pos]:
             ma = active.get(i)
             if ma is None:
@@ -337,12 +340,14 @@ def relief(sectors_ship: List[dict], grid, eps_min: float, eps_max: float, sky: 
             if met.any():
                 relieved |= met
                 by.append(str(sa["id"]))
+                listen[str(sa["id"])] = float((wpos * met).sum() / max(float((wpos * masks[i]).sum()), 1e-12))
         share = float((grid.d_omega * relieved).sum() / max(float((grid.d_omega * mb).sum()), 1e-12))
         if share < COVER_MIN:
             relieved[:] = False
         active[j] = mb & ~relieved
         if relieved.any():
-            out[str(sb["id"])] = {"code": mo.relief_code(relieved), "share": share, "by": by}
+            out[str(sb["id"])] = {"code": mo.relief_code(relieved), "share": share, "by": by, "listen": listen,
+                                  "range_km": float(sb.get("range_km", 0.0) or 0.0)}
     return out
 
 

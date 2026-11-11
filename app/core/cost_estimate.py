@@ -432,17 +432,58 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
     surf = _sky_surfaces(sky)
     th_grid = np.array(table.TH, dtype=float)
     mode = g.get("realloc_mode") or margin.MODE_DEFAULT
+    def add_tracks(sec: dict, sid: str, msk: np.ndarray) -> None:
+        """The volume's track brackets (P3) on the faces of its directions msk (user, 11 November 2026: the WHOLE
+        volume for a relieved one: its targets appear there whoever detects them)."""
+        brackets = sec.get("tracking") or []
+        if brackets:
+            face_sel = {}
+            for k in range(4):
+                sel = msk & (grid.owner == k)
+                if sel.any():
+                    face_sel[k] = (sel, weight[sel])
+            npos = float(sum(w_.sum() for _s, w_ in face_sel.values()))
+            at = _estimate_at_faces(sec, grid, face_sel, npos, p_avail)
+            t_rows = []
+            for k, (pw, ku, _un) in at.items():
+                if pw > 0 or ku > 0:
+                    r = np.full((4, 3), np.nan)
+                    r[k] = (pw / rm.CHAIN_EFF, 0.0, ku)
+                    t_rows.append(r)
+            if t_rows:
+                rank = al.CLASS_RANK.get(sec.get("target_type") or "", len(al.CLASS_RANK))
+                demands.append(al.Demand(f"tracks {sid}", (3, rank), "track", np.array(t_rows),
+                                         rr_s=float(brackets[0].get("rr_s") or 1.0),
+                                         n_targets=float(sum(b_.get("n_targets", 0.0) for b_ in brackets)),
+                                         sector=sid))
+
     for i, sec in enumerate(sectors_ship):
         sid = str(sec.get("id", f"#{i + 1}"))
         try:
             mask = grid.sector_mask(sec) & grid.scanned(eps_min, eps_max) & covered
+            mask_all = None                            # (a relieved volume: its whole volume, for its tracks)
+            if sec.get("_relief"):
+                mask_all = grid.sector_mask({k_: v_ for k_, v_ in sec.items() if k_ != "_relief"})                     & grid.scanned(eps_min, eps_max) & covered
             fac = np.ones(grid.phi.shape)
             if surf:
                 r_req = float(sec.get("range_km", 0.0)) or 1.0
                 r_eff = useful_range_km(sec, surf, _cell_dirs(grid).reshape(-1, 3)).reshape(grid.phi.shape)
                 fac = np.clip(r_eff / r_req, 0.0, 1.0) ** 4
                 mask = mask & (r_eff > 0.0)
-            if not mask.any():
+                if mask_all is not None:
+                    mask_all = mask_all & (r_eff > 0.0)
+            if not mask.any():                         # (relieved in full: no search of its own, its tracks kept)
+                if mask_all is not None and mask_all.any():
+                    add_tracks(sec, sid, mask_all)
+                    if profiles:                       # ... and the check of its confirmation (its targets, its
+                        from . import cost_profile     # range), not of its reach (the covering volume's)
+                        prof = cost_profile.get(sec, float(weight[mask_all].sum()), th_grid.tolist(),
+                                                float(table_freq_ghz()), wait=profiles == "wait")
+                        if prof is None and estimating is not None:
+                            estimating.append(sid)
+                        elif prof is not None and reach_out is not None:
+                            reach_out[sid] = {"confirm_ok_spacings": prof.get("confirm_ok_spacings"),
+                                              "confirm_max_km": prof.get("confirm_max_km")}
                 continue
             rr = float(sec.get("rr_target_s", 1.0) or 1.0)
             eta_ratio = rm.rx_beam("S", table.rx_sll_db).eta / rm.rx_beam("S", sec.get("rx_sll_db")).eta
@@ -484,27 +525,7 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
             tier = (1, 0) if sec.get("self_protection") else (4, int(sec.get("search_priority", 1) or 1))
             h = rr / max(float(sec.get("rr_min_s") or margin.RR_MIN_SEARCH_S), 1e-9) if mode == "PRIO_SEARCH" else 1.0
             demands.append(al.Demand(f"search {sid}", tier, "search", rows, rr_s=rr, h_max=max(1.0, h), sector=sid))
-            brackets = sec.get("tracking") or []
-            if brackets:
-                face_sel = {}
-                for k in range(4):
-                    sel = mask & (grid.owner == k)
-                    if sel.any():
-                        face_sel[k] = (sel, weight[sel])
-                npos = float(sum(w_.sum() for _s, w_ in face_sel.values()))
-                at = _estimate_at_faces(sec, grid, face_sel, npos, p_avail)
-                t_rows = []
-                for k, (pw, ku, _un) in at.items():
-                    if pw > 0 or ku > 0:
-                        r = np.full((4, 3), np.nan)
-                        r[k] = (pw / rm.CHAIN_EFF, 0.0, ku)
-                        t_rows.append(r)
-                if t_rows:
-                    rank = al.CLASS_RANK.get(sec.get("target_type") or "", len(al.CLASS_RANK))
-                    demands.append(al.Demand(f"tracks {sid}", (3, rank), "track", np.array(t_rows),
-                                             rr_s=float(brackets[0].get("rr_s") or 1.0),
-                                             n_targets=float(sum(b_.get("n_targets", 0.0) for b_ in brackets)),
-                                             sector=sid))
+            add_tracks(sec, sid, mask_all if mask_all is not None else mask)
         except (KeyError, TypeError, ValueError, ZeroDivisionError):
             continue                                   # (a sector mid-edit: left out)
     budgets = al.Budgets(face_w=_cap_w(g), ceiling=float(g.get("load_ceiling") or al.LOAD_CEILING))
@@ -544,7 +565,8 @@ def live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Sphere
     (core/redundancy.relief, judged with the shares the rule serves without it) and the rule again. Adds "relief"
     {id: {"share", "by"}} and "relief_pending" (True: still computed, the volumes budgeted in full meanwhile)."""
     raw = _live_allocation(table, sectors_ship, grid, eps_min, eps_max, sky, g, calib, profiles)
-    if not relief or not params.P.get("tool.redundancy.relief"):
+    from . import redundancy as _red
+    if not relief or not _red.RELIEF_ON:
         return raw
     if raw.get("estimating"):                          # (the shares served still priced by the table: wait for them)
         return dict(raw, relief={}, relief_pending=True, served={})
@@ -563,11 +585,12 @@ def live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Sphere
         return dict(raw, relief={}, relief_pending=False, served=served)
     secs = [dict(s, _relief=rl[str(s.get("id"))]["code"]) if str(s.get("id")) in rl else s for s in sectors_ship]
     out = dict(_live_allocation(table, secs, grid, eps_min, eps_max, sky, g, calib, profiles))
-    out["relief"] = {sid: {"share": v["share"], "by": list(v["by"])} for sid, v in rl.items()}
+    out["relief"] = {sid: {"share": v["share"], "by": list(v["by"]), "code": v["code"]} for sid, v in rl.items()}
     out["relief_pending"] = False
     out["served"] = served
     ach = {k: dict(v) for k, v in (out.get("achieved") or {}).items()}
     for sid, v in out["relief"].items():
+        v = {"share": v["share"], "by": v["by"]}
         if sid in ach:
             ach[sid]["relief"] = v
         else:                                          # (relieved in full: nothing of its own left to search)

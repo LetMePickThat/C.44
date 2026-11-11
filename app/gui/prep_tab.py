@@ -136,7 +136,7 @@ class PrepTab(QWidget):
         self._debounce = QTimer(self)
         self._debounce.setSingleShot(True)
         self._debounce.setInterval(DEBOUNCE_MS)
-        self._debounce.timeout.connect(self._refresh_all)
+        self._debounce.timeout.connect(self._refresh_begin)
 
         self._build_ui()
         self._reload_sector_list()
@@ -1079,8 +1079,8 @@ class PrepTab(QWidget):
             item.setForeground(QColor())
             item.setToolTip("")
             return
-        met = "need met" if f.full else f"{100 * f.fraction:.0f} % of need met"
-        item.setText(f"{self._sector_label(sec)}   ! {met} by {', '.join(f.by)}")
+        # always the share, never a bare "!" (user, 11 November 2026: read as a missing figure); the red says the alert
+        item.setText(f"{self._sector_label(sec)}   {100 * f.fraction:.0f} % of need met by {', '.join(f.by)}")
         item.setForeground(QColor(ALERT_COLOR))
         item.setToolTip("Double-click the matching alert to resolve")
 
@@ -1425,6 +1425,20 @@ class PrepTab(QWidget):
     def _schedule_refresh(self) -> None:
         self._debounce.start()
 
+    def _refresh_begin(self) -> None:
+        """An estimated recalculation (user, 11 November 2026: the window froze before the badge was drawn): the badge
+        says 'updating' and the wait cursor shows, painted; the work starts at the next turn of the event loop."""
+        if hasattr(self.view, "_badge_busy"):
+            self.view._badge_busy()
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QTimer.singleShot(30, self._refresh_end)
+
+    def _refresh_end(self) -> None:
+        try:
+            self._refresh_all()
+        finally:
+            QApplication.restoreOverrideCursor()
+
     def _refresh_all(self) -> None:
         self._update_title()
         if hasattr(self, "_calc_kind"):
@@ -1531,8 +1545,17 @@ class PrepTab(QWidget):
             try:
                 ships = [{**s_, "id": s_.get("id")} for s_ in (self._ship_sector(x) for x in self.mission["sectors"])
                          if s_ is not None]
+                # (the view's calibration: the same inputs as the live load, so that one computation serves both,
+                # user 11 November 2026: it was computed twice per edit, ~1.8 s each on a large mission)
+                try:
+                    from core import calibration
+                    secs_ = self.mission["sectors"]
+                    calib = calibration.view_calibration(secs_, [self._draw_sid(i, s_) for i, s_ in enumerate(secs_)])
+                except Exception:  # noqa: BLE001 -- a volume mid-edit: not recalibrated
+                    calib = {}
                 alloc = ce.live_allocation(self.cost_table, ships, self.grid, eps_min, eps_max, sky_ship,
-                                           self.mission["global"], profiles="background", relief="background")
+                                           self.mission["global"], calib=calib, profiles="background",
+                                           relief="background")
                 pending = set(alloc.get("estimating", []))
                 self._unreachable = {sid: (None, None) for sid in pending}   # (the table's verdict never shown:
                 for sid, o in (alloc.get("out_of_reach") or {}).items():    # single-look, ~x150 too pessimistic)
@@ -1821,7 +1844,8 @@ class PrepTab(QWidget):
         path, _ = QFileDialog.getOpenFileName(self, "Open a mission", slink.SCENARIO_DIR,   # (user, 11 Nov 2026: always)
                                               "Mission (*.json *.csv);;Mission (*.json);;Mission as CSV (*.csv)")
         if path:
-            self.open_path(path)
+            with uc.busy(self, f"Opening {os.path.basename(path)}..."):
+                self.open_path(path)
 
     def open_path(self, path: str) -> bool:
         """The work file (user, 11 November 2026: one file for the Scenario Editor and the mission preparation,
