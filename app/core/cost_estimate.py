@@ -464,7 +464,8 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
                     if reach_out is not None:
                         reach_out[sid] = {"th": th_grid.tolist(), "r_reach_km": reach_km.tolist(),
                                           "r_want_km": float(sec.get("range_km", 0.0)),
-                                          "confirm_ok_spacings": prof.get("confirm_ok_spacings")}
+                                          "confirm_ok_spacings": prof.get("confirm_ok_spacings"),
+                                          "confirm_max_km": prof.get("confirm_max_km")}
             else:
                 log_e, _feas = energy_profile_by_theta(table, r_want, _sector_target(sec).rcs_at(f_ghz),
                                                        sec.get("v_close_max_mps", 1000.0))
@@ -537,7 +538,49 @@ def table_freq_ghz() -> float:
 
 def live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.SphereGrid, eps_min: float, eps_max: float,
                     sky: Optional[dict] = None, g: Optional[dict] = None, calib: Optional[dict] = None,
-                    profiles: Optional[str] = None) -> dict:
+                    profiles: Optional[str] = None, relief: Optional[str] = None) -> dict:
+    """_live_allocation() (below), and with relief (user, 11 November 2026, A and B: "background" or "wait", as
+    profiles; None: none) the directions of a volume whose need another one already meets taken out of its demand
+    (core/redundancy.relief, judged with the shares the rule serves without it) and the rule again. Adds "relief"
+    {id: {"share", "by"}} and "relief_pending" (True: still computed, the volumes budgeted in full meanwhile)."""
+    raw = _live_allocation(table, sectors_ship, grid, eps_min, eps_max, sky, g, calib, profiles)
+    if not relief or not params.P.get("tool.redundancy.relief"):
+        return raw
+    if raw.get("estimating"):                          # (the shares served still priced by the table: wait for them)
+        return dict(raw, relief={}, relief_pending=True, served={})
+    from . import redundancy
+    served = {}
+    for sid, rec in raw.get("by_sector", {}).items():
+        sec = next((s for s in sectors_ship if str(s.get("id")) == sid), {})
+        served[sid] = (float(rec.get("rho", 1.0)), float(rec.get("rr_tenable_s", sec.get("rr_target_s", 1.0))))
+    try:
+        rl = redundancy.relief_cached(sectors_ship, grid, eps_min, eps_max, sky, g, served, wait=relief == "wait")
+    except Exception:  # noqa: BLE001 -- a relief the model refuses: none (budgeted in full)
+        rl = {}
+    if rl is None:
+        return dict(raw, relief={}, relief_pending=True, served=served)
+    if not rl:
+        return dict(raw, relief={}, relief_pending=False, served=served)
+    secs = [dict(s, _relief=rl[str(s.get("id"))]["code"]) if str(s.get("id")) in rl else s for s in sectors_ship]
+    out = dict(_live_allocation(table, secs, grid, eps_min, eps_max, sky, g, calib, profiles))
+    out["relief"] = {sid: {"share": v["share"], "by": list(v["by"])} for sid, v in rl.items()}
+    out["relief_pending"] = False
+    out["served"] = served
+    ach = {k: dict(v) for k, v in (out.get("achieved") or {}).items()}
+    for sid, v in out["relief"].items():
+        if sid in ach:
+            ach[sid]["relief"] = v
+        else:                                          # (relieved in full: nothing of its own left to search)
+            sec = next((s for s in sectors_ship if str(s.get("id")) == sid), {})
+            ach[sid] = {"worst_km": None, "ground_km": None, "rr_s": float(sec.get("rr_target_s", 0.0) or 0.0),
+                        "limit": None, "ok": True, "confirm": True, "relief": v}
+    out["achieved"] = ach
+    return out
+
+
+def _live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.SphereGrid, eps_min: float,
+                     eps_max: float, sky: Optional[dict] = None, g: Optional[dict] = None,
+                     calib: Optional[dict] = None, profiles: Optional[str] = None) -> dict:
     """The final allocation rule on the fast estimate at one instant (the live load and the range gauge share it: one
     computation per set of volumes, instant and mission settings). The rule's result (allocation.solve) plus
     "by_sector" {id: its search record}, "ref_w" (the face reference, power.face_elec_mw: 100 % of the energy bars)
@@ -583,8 +626,11 @@ def live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Sphere
             continue
         if not okl:
             out["no_confirmation"].append(sid)
+            cm = rc.get("confirm_max_km")
+            out.setdefault("confirm_max_km", {})[sid] = cm
             out["flags"].append(f"{sid}: its detections cannot be confirmed (no admissible confirmation mode at any "
-                                f"beam spacing): mission not tenable")
+                                f"beam spacing)" + (f"; confirmation possible up to ~{cm:.0f} km" if cm else "")
+                                + ": mission not tenable")
         elif len(okl) < n_sp:
             out["confirmation_depends"].append(sid)
             rng = f"{min(okl):g}" if min(okl) == max(okl) else f"{min(okl):g}-{max(okl):g}"
@@ -619,15 +665,41 @@ def live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Sphere
         if sec is None:
             continue
         r_want = float(sec.get("range_km", 0.0) or 0.0)
-        worst = float(rec.get("rho", 1.0)) * r_want
+        # out of reach, the profile prices the full pulse, i.e. the range reachable: the allocation's share rho then
+        # applies to that range, not to the one asked (user, 11 November 2026: S01's label did not move with its
+        # priority, min(rho R, reach) staying at the reach while rho >= 0.8)
+        rho = float(rec.get("rho", 1.0))
         o = out["out_of_reach"].get(sid)
-        if o is not None:
-            worst = min(worst, float(o.get("worst_km", worst)))
+        reach_w = min(r_want, float(o.get("worst_km", r_want))) if o is not None else r_want
+        worst = rho * reach_w
+        limit = "reach" if reach_w < r_want * (1.0 - 1e-6) else ("power" if rho < 1.0 - 1e-6 else None)
         rr_asked = float(sec.get("rr_target_s", 0.0) or 0.0)
         rr = float(rec.get("rr_tenable_s", rr_asked))
-        out["achieved"][sid] = {"worst_km": worst, "rr_s": rr,
-                                "ok": worst >= r_want * (1.0 - 1e-6) and rr <= rr_asked * (1.0 + 1e-9)
-                                and sid not in out["no_confirmation"]}
+        # the terrain mask (user, 11 November 2026): where the ground cuts the volume the range needed is the ground's
+        # (step 3.1 P4 Q9, already in the costs); the label says it, and the volume is held when the range held covers
+        # the range NEEDED in every direction
+        ground = None
+        need_max = r_want
+        try:
+            surf = _sky_surfaces(sky)
+            if surf:
+                cells = grid.sector_mask(sec) & grid.scanned(eps_min, eps_max)
+                need = useful_range_km(sec, surf, _cell_dirs(grid)[cells].reshape(-1, 3))
+                need = need[need > 0.0]
+                cut = need < r_want * (1.0 - 1e-6)
+                if len(need) and cut.any():
+                    ground = (float(need[cut].min()), float(need[cut].max()), float(cut.mean()))
+                    need_max = float(need.max())
+        except (KeyError, TypeError, ValueError):
+            pass
+        sky_part = ground is None or ground[2] < 1.0 - 1e-9
+        out["achieved"][sid] = {"worst_km": worst if sky_part else None, "ground_km": ground, "rr_s": rr,
+                                "limit": limit if sky_part else ("power" if rho < 1.0 - 1e-6 else None),
+                                "ok": rho * r_want >= need_max * (1.0 - 1e-6)
+                                and worst >= (need_max if not sky_part else r_want) * (1.0 - 1e-6)
+                                and rr <= rr_asked * (1.0 + 1e-9),           # (range and revisit only)
+                                "confirm": sid not in out["no_confirmation"],   # (said on a line of its own)
+                                "confirm_max_km": (out.get("confirm_max_km") or {}).get(sid)}
     if estimating:
         return out
     if len(_LIVE_CACHE) > 8:

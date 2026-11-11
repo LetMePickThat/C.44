@@ -4,7 +4,8 @@ description: "things the user asked to be reminded of at the START of the next s
 metadata:
   node_type: memory
   type: project
-  modified: 2026-10-30T13:38:46.206Z
+  modified: 2026-11-11T02:07:54.328Z
+  originSessionId: 4cab080b-3d2d-433f-9bf7-8468a15bf664
 ---
 
 At the start of the next session, remind the user (in French) of:
@@ -12,6 +13,8 @@ At the start of the next session, remind the user (in French) of:
 **DONE 10 Nov 2026 night, committed and pushed**: final allocation rule R1-R4 (model V6.37.0), per-volume cost profile (option (c)), geometry pass G1-G3, light playback; N3 + refreeze done (JOURNAL). Values confirmed by the user: DEGRADED colour #c8551e, horizon band 3 deg / refine 0.25 deg / outline 0.1 deg, PLAY_HEAVY_S 2 s. Known leftovers: geometry 'much better, not perfect' (ask what remains); the redundancy check slows the display for tens of seconds after each load / edit; gauge_demo.npz / .summary.json untracked (a scenario recording: ask whether to commit).
 
 **11 Nov 2026, committed and pushed (c020a38), NOT TESTED**: UI U1-U5, ONE WORK FILE shared by the Scenario Editor and the RMP (sim/document: mission / scenario / results / profile, section-wise saves, reload on activation), File menu simplified, one Calculate button (exact / flight plan), source badges, live load stacked (served / asked), fast estimate: confirmation feasibility per beam spacing + range out of reach (NOT_TENABLE / DEGRADED, alerts, gauge), gauge as volumes + edges and ON at start, two-line 3D labels (view3d.LineLabels), per-face budget removed, calculation dialog with stages, pause fixed, realloc_mode default PRIO_SEARCH, Save prompt, Global at start, scenarios/ cleaned. TODO: GUI tests + N3 + refreeze (ask first); check on screen the global-mode labels and the two tools on one file; then T3 (exact runs at flagged profile instants); parked: single-look first-detection criterion for volumes where a target appears without approach (limb, unmasking).
+
+**11 Nov 2026 evening, committed and pushed, NOT TESTED (no N3)**: labels 3rd line (no Ku confirmation beyond ~X km, profile format 4), reach/power limit on labels, worst = rho x min(R, reachable); RELIEF A+B (core/redundancy.relief, key "_relief" in masks, fast estimate + exact run, [tool.redundancy] relief = true; order (tier, list place)); gauge render fix at the horizon (needles, dust); redundancy check in a process + ESTIMATE badge as progress of every background computation (core/background.py); Flight plan group hidden; spinboxes commit on Enter; no selection square / orbital nodes in RMP global view, double-click OWNSHIP recentres. TODO: user's on-screen check (badge, gauge near the Moon); exact run with relief = false to compare S04 revisite 7.3 s (asked 2 s); maybe skip the relief pass under a gain threshold (+47 % exact time on gauge_demo); speed up the final redundancy test of the exact run; GUI tests + N3 + refreeze (ask first).
 
 **TIME PROFILE (option A), 10 Nov 2026 night**: framed P1-P5 (user 'recos'), then T1 (core/time_profile.py, [tool.profile]) and T2 (gui/profile_tab.py, 2nd mode 'Profile') coded, tested (3 tests) and committed. The coverage hole is a measure of its own (user, after the first profile: states from the resources only, lost only when entirely uncovered; covered share mean / min shown). Demo: 223 instants in 109 s. NEXT: ask the user's on-screen check of the Profile tab, then T3 (exact runs at the flagged instants, at most 8, each opening a Results tab).
 

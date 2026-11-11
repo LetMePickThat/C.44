@@ -34,7 +34,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 CACHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".profile_cache.json")
 CACHE_MAX = 1024
-PROFILE_FORMAT = 3                                # 2: + the range reachable at full pulse; 3: + the confirmation
+PROFILE_FORMAT = 4                                # 2: + reach at full pulse; 3: + the confirmation; 4: + its range
 _GEOMETRY = ("id", "name", "label", "colour", "color", "visible", "hidden", "note", "comment", "shape",
              "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg", "phi0_deg", "eps0_deg", "radius_deg",
              "half_width_deg", "half_height_deg", "rot_deg", "track_ra_deg", "track_dec_deg", "track_sigma_deg",
@@ -43,6 +43,8 @@ _lock = threading.Lock()
 _cache: Optional[Dict[str, dict]] = None
 _jobs: Dict[str, Future] = {}
 _pool: Optional[ProcessPoolExecutor] = None
+_batch = {"total": 0, "done": 0, "last": 0.0}      # the profiles asked since the worker was last idle (progress)
+_durations: List[float] = []                      # (the last profiles' durations: the running one's share)
 _generation = 0                                   # +1 each time a profile becomes ready (the views refresh)
 
 
@@ -117,7 +119,29 @@ def compute(sec: dict, positions: float, th: Sequence[float], f_ghz: float) -> O
             ok = True                                  # (a volume mid-edit: not judged here)
         if ok:
             confirm_ok.append(float(sp))
-    return {"log_e": log_e, "feasible": feas, "r_reach_km": r_reach, "confirm_ok_spacings": confirm_ok}
+    # none: the longest range at which the confirmation is still possible (user, 11 November 2026), by bisection
+    # (the range only enters through the spacing of the approach looks, v RR / R: shorter, easier)
+    r_conf = None
+    if not confirm_ok:
+        def ok_at(r_km: float) -> bool:
+            for sp in P.get("search_grid.beam_spacing_options_hpbw"):
+                try:
+                    if trk.confirmation_feasible(dict(sec, range_km=r_km, _grid_spacing=float(sp)), None,
+                                                 f_s_ghz=f_ghz)[0]:
+                        return True
+                except (KeyError, TypeError, ValueError, ZeroDivisionError):
+                    return False
+            return False
+        lo, hi = 10.0, float(sec.get("range_km", 0.0) or 0.0)
+        if hi > lo and ok_at(lo):
+            for _ in range(10):                        # (log bisection: ~1 % of the ratio hi / lo)
+                mid = math.sqrt(lo * hi)
+                lo, hi = (mid, hi) if ok_at(mid) else (lo, mid)
+            r_conf = lo
+        else:
+            r_conf = 0.0
+    return {"log_e": log_e, "feasible": feas, "r_reach_km": r_reach, "confirm_ok_spacings": confirm_ok,
+            "confirm_max_km": r_conf}
 
 
 def _load() -> Dict[str, dict]:
@@ -151,8 +175,14 @@ def _done(k: str, fut: Future) -> None:
         res = fut.result()
     except Exception:  # noqa: BLE001 -- a failed profile: the table stays
         res = None
+    import time
     with _lock:
         _jobs.pop(k, None)
+        now = time.monotonic()
+        _batch["done"] += 1
+        _durations.append(now - _batch["last"])
+        del _durations[:-8]
+        _batch["last"] = now
         c = _load()
         c[k] = {"profile": res, "order": max((v.get("order", 0) for v in c.values()), default=0) + 1}
         _save()
@@ -185,6 +215,10 @@ def get(sec: dict, positions: float, th: Sequence[float], f_ghz: float, wait: bo
             except Exception:  # noqa: BLE001 -- no worker process (frozen install): computed here, once
                 fut = None
             if fut is not None:
+                if not _jobs:                         # (a new batch: the progress from zero)
+                    import time
+                    _batch.update(total=0, done=0, last=time.monotonic())
+                _batch["total"] += 1
                 _jobs[k] = fut
                 fut.add_done_callback(lambda f_, k_=k: _done(k_, f_))
                 return None
@@ -199,12 +233,29 @@ def get(sec: dict, positions: float, th: Sequence[float], f_ghz: float, wait: bo
 
 
 def pending() -> int:
+    """Profiles being computed, and the reliefs (core/redundancy, A): the views poll both."""
+    from . import redundancy
     with _lock:
-        return len(_jobs)
+        n = len(_jobs)
+    return n + redundancy.relief_pending()
+
+
+def progress() -> Optional[Tuple[int, int, float]]:
+    """(done, total, fraction) of the profiles being computed, None when none is; the running profile's share is
+    its elapsed time over the mean duration of the last ones (an estimate, kept below its end)."""
+    import time
+    with _lock:
+        if not _jobs:
+            return None
+        done, total = _batch["done"], max(_batch["total"], 1)
+        mean = sum(_durations) / len(_durations) if _durations else 30.0
+        run = min(0.95, (time.monotonic() - _batch["last"]) / max(mean, 1.0))
+        return done, total, min(1.0, (done + run) / total)
 
 
 def generation() -> int:
-    return _generation
+    from . import redundancy
+    return _generation + redundancy.relief_generation()
 
 
 def shutdown() -> None:

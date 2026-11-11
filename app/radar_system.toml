@@ -874,6 +874,8 @@ cover_min      = 0.01           # partial overlaps below this fraction are not r
 range_tol      = 0.01           # same tolerance as the optimiser's "short of range"
 min_piece_deg  = 1.0            # trimmed boxes thinner than this are dropped
 plan_cache_max = 256
+relief         = true           # A (11 Nov 2026): a volume's directions whose need a volume of the same or higher
+                                # priority already meets (with what it is served) are taken out of its budget
 
 [tool.cost_table]             # grid of core/cost_table.json (tools/gen_cost_table.py), at power.face_elec_mw
 freq_ghz  = 2.8

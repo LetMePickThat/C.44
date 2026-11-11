@@ -49,6 +49,7 @@ No Qt dependency: gui.prep_tab.RedundancyWorker runs find_redundancies() on a ba
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
@@ -138,17 +139,22 @@ def guaranteed_range_km(range_km: float, rr_s: float, v_mps: float) -> float:
 
 
 def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dict,
-             cells: np.ndarray) -> Tuple[np.ndarray, np.ndarray, Optional[float], np.ndarray]:
+             cells: np.ndarray, served: Optional[Tuple[float, float]] = None
+             ) -> Tuple[np.ndarray, np.ndarray, Optional[float], np.ndarray]:
     """Subsets of `cells` (directions inside both sectors) where sector A, as planned, (1) meets sector B's need and
     (2) falls short of its own range; (3) A's worst reach on B's target where it meets the need (km, None if
-    nowhere); (4) per cell, which REASON_* code explains why it is not met (REASON_NONE where it is)."""
+    nowhere); (4) per cell, which REASON_* code explains why it is not met (REASON_NONE where it is).
+    served (user, 11 November 2026, B): (rho, revisit) A is actually given by the allocation (its range share and the
+    revisit it holds); None: its reference power, its revisit asked."""
+    rho_a = float(served[0]) if served else 1.0
     if plan is None:
         z = np.zeros_like(cells)
         return z, z, None, np.where(cells, REASON_NO_WAVEFORM, REASON_NONE).astype(np.int8)
     v_b = sec_b["v_close_max_mps"]
     tgt_b = mo.sector_target(sec_b)                      # B's target: class + sector values (step 2.4)
     g_need = sec_b["range_km"] * (1.0 - RANGE_TOL)          # A's cumulative reach on B's need (step 2.3)
-    cum = (float(v_b), float(sec_a["rr_target_s"]), float(sec_b["range_km"]))   # A's revisit, B's target and range
+    rr_a = float(served[1]) if served else float(sec_a["rr_target_s"])
+    cum = (float(v_b), rr_a, float(sec_b["range_km"]))     # A's revisit (as served), B's target and range
     res_b = sec_b.get("res_max_m", mo.RES_MAX_M_DEFAULT)
     f = plan["freq_ghz"]
     nb = len(plan["wf"])
@@ -173,7 +179,7 @@ def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dic
                         plan["pfa"][i], cum,        # A's echoes and false-alarm setting, B's RX weighting and need
                         spacing=plan.get("beam_spacing_hpbw"))           # A's lattice (step 3.1, P5)
         if r is not None:
-            reach[i] = r * plan["pulse_scale"][i] ** 0.25
+            reach[i] = r * plan["pulse_scale"][i] ** 0.25 * rho_a          # (A's served share of its range, B)
             ok[i] = reach[i] >= g_need
         reason[i] = REASON_NONE if ok[i] else REASON_RANGE
     bins = np.minimum((grid.theta / mo.THETA_BIN_DEG).astype(int), nb - 1)
@@ -206,7 +212,9 @@ def _pair_note(sa_id: str, sb_id: str, om_met: float, om_inter: float, reason_ce
 
 
 def find_redundancies(mission: dict, grid: geo.SphereGrid,
-                      plans: Optional[Dict[str, Optional[dict]]] = None) -> Tuple[List[Finding], Dict[Tuple[str, str], str]]:
+                      plans: Optional[Dict[str, Optional[dict]]] = None,
+                      served: Optional[Dict[str, Tuple[float, float]]] = None
+                      ) -> Tuple[List[Finding], Dict[Tuple[str, str], str]]:
     """Step 3.0: computed on the mission turned into the ship frame (core/frames.py); nothing if its frames are invalid.
     plans: the waveform plan of each sector by id (step 5.3 P3: the plans of a finished run); a sector without one is
     planned here alone, at the reference power (core.optimizer.sector_plan). grid: any core.optimizer.Sphere."""
@@ -246,7 +254,8 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid,
             if not inter.any():
                 continue
             plan_a = plans[sa["id"]] if sa["id"] in plans else _plan(sa, eps_min, eps_max, p_avg_max_w, g.get("sky"))
-            met, short, worst, reason_cells = need_met(grid, sa, plan_a, sb, inter)
+            met, short, worst, reason_cells = need_met(grid, sa, plan_a, sb, inter,
+                                                       (served or {}).get(str(sa["id"])))
             om_met = float((grid.d_omega * met).sum())
             om_inter = float((grid.d_omega * inter).sum())
             pair_notes[(sa["id"], sb["id"])] = _pair_note(sa["id"], sb["id"], om_met, om_inter, reason_cells,
@@ -274,6 +283,185 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid,
         out.append(Finding(index=j, sid=sb["id"], by=by, fraction=frac, full=full, pieces=pieces, note=note,
                            caveat="; ".join(short_notes) if pieces else "", detail="\n".join(details)))
     return out, pair_notes
+
+
+def rank(sec: dict) -> Tuple[int, int]:
+    """The allocation tier of a volume's search (core/allocation: P1 self-protection, else P4_n)."""
+    return (1, 0) if sec.get("self_protection") else (4, int(sec.get("search_priority", 1) or 1))
+
+
+def relief(sectors_ship: List[dict], grid, eps_min: float, eps_max: float, sky: Optional[dict] = None,
+           g: Optional[dict] = None, served: Optional[Dict[str, Tuple[float, float]]] = None,
+           plans: Optional[Dict[str, Optional[dict]]] = None) -> Dict[str, dict]:
+    """A (user, 11 November 2026): the directions of each volume whose need another volume already meets, taken out
+    of its demand. The volumes in the order (tier, place in the list): a volume is relieved only by one before it
+    (never by a lower priority; between equals, the first in the list keeps the load), and only where that one still
+    searches itself (not relieved there), so a direction is never left to nobody. A meeting the need is judged with
+    what the allocation serves it (served: {id: (rho, revisit)}, B) and its plan (plans, else planned alone at the
+    reference power). A relief under tool.redundancy.cover_min of the volume is ignored. Sectors in the ship frame.
+    -> {id: {"code": the "_relief" key (core.optimizer.relief_code), "share": of its scanned solid angle,
+    "by": [ids]}}."""
+    served, plans = served or {}, plans or {}
+    p_avg = rm.face_elec_avail_w(rm.FACE_ELEC_POWER_MW)
+    secs = [{k: v for k, v in s.items() if k != "_relief"} for s in sectors_ship]
+    secs = mo.with_spectrum({"global": dict(g or {}), "sectors": secs})["sectors"]
+    scanned = grid.scanned(eps_min, eps_max)
+    masks: Dict[int, Optional[np.ndarray]] = {}
+    for i, s in enumerate(secs):
+        try:
+            masks[i] = grid.mask(s) & scanned if not md.validate_sector(s, i) else None
+        except (KeyError, TypeError, ValueError):
+            masks[i] = None
+    order = sorted(range(len(secs)), key=lambda i: (rank(secs[i]), i))
+    active: Dict[int, np.ndarray] = {}
+    out: Dict[str, dict] = {}
+    for pos, j in enumerate(order):
+        sb, mb = secs[j], masks[j]
+        if mb is None or not mb.any():
+            continue
+        relieved = np.zeros_like(mb)
+        by = []
+        for i in order[:pos]:
+            ma = active.get(i)
+            if ma is None:
+                continue
+            inter = ma & mb & ~relieved
+            if not inter.any():
+                continue
+            sa = secs[i]
+            try:
+                plan = plans[sa["id"]] if sa["id"] in plans else _plan(sa, eps_min, eps_max, p_avg, sky)
+                met = need_met(grid, sa, plan, sb, inter, served.get(str(sa["id"])))[0]
+            except (KeyError, TypeError, ValueError, ZeroDivisionError):
+                continue
+            if met.any():
+                relieved |= met
+                by.append(str(sa["id"]))
+        share = float((grid.d_omega * relieved).sum() / max(float((grid.d_omega * mb).sum()), 1e-12))
+        if share < COVER_MIN:
+            relieved[:] = False
+        active[j] = mb & ~relieved
+        if relieved.any():
+            out[str(sb["id"])] = {"code": mo.relief_code(relieved), "share": share, "by": by}
+    return out
+
+
+# the fast estimate's relief, computed in the background (as core/cost_profile) and kept
+_R_LOCK = threading.Lock()
+_R_CACHE: Dict[str, Dict[str, dict]] = {}
+_R_JOBS: Dict[str, object] = {}
+_R_GEN = 0
+_R_POOL = None
+_R_GRIDS: Dict[float, object] = {}
+
+
+def round_served(served: Dict[str, Tuple[float, float]]) -> Dict[str, Tuple[float, float]]:
+    """(rho to 0.02, revisit to 3 digits: the relief kept while the allocation moves a little)"""
+    return {k: (round(float(r) * 50.0) / 50.0, float(f"{float(rr):.3g}")) for k, (r, rr) in sorted(served.items())}
+
+
+def _relief_task(sectors_ship, res_deg, eps_min, eps_max, sky, g, served):
+    grid = _R_GRIDS.get(res_deg)
+    if grid is None:
+        grid = _R_GRIDS[res_deg] = geo.SphereGrid(res_deg)
+    return relief(sectors_ship, grid, eps_min, eps_max, sky, g, served)
+
+
+def _relief_done(k: str, fut) -> None:
+    global _R_GEN
+    from . import background
+    background.RELIEF.done(k)
+    try:
+        res = fut.result()
+    except Exception:  # noqa: BLE001 -- a failed relief: none (the volumes budgeted in full)
+        res = {}
+    with _R_LOCK:
+        _R_JOBS.pop(k, None)
+        if len(_R_CACHE) > 64:
+            _R_CACHE.clear()
+        _R_CACHE[k] = res
+        _R_GEN += 1
+
+
+def relief_cached(sectors_ship: List[dict], grid, eps_min: float, eps_max: float, sky: Optional[dict],
+                  g: Optional[dict], served: Dict[str, Tuple[float, float]], wait: bool = False
+                  ) -> Optional[Dict[str, dict]]:
+    """relief() of the fast estimate: kept per volumes, instant, settings and served shares (rounded); computed in a
+    background process (None meanwhile) unless wait."""
+    global _R_POOL
+    served = round_served(served)
+    gk = {x: (g or {}).get(x) for x in ("spectrum_exclusions_ghz",)}
+    res_deg = float(getattr(grid, "res_deg", 1.0))
+    k = json.dumps([[{x: v for x, v in s.items() if x != "_relief"} for s in sectors_ship], eps_min, eps_max, sky,
+                    gk, served, res_deg], sort_keys=True, default=str)
+    with _R_LOCK:
+        if k in _R_CACHE:
+            return _R_CACHE[k]
+        if not wait and k in _R_JOBS:
+            return None
+    if not wait:
+        with _R_LOCK:
+            try:
+                if _R_POOL is None:
+                    import atexit
+                    from concurrent.futures import ProcessPoolExecutor
+                    _R_POOL = ProcessPoolExecutor(max_workers=1, initializer=mo._mark_pool_worker)
+                    atexit.register(lambda: _R_POOL.shutdown(wait=False, cancel_futures=True))
+                fut = _R_POOL.submit(_relief_task, [dict(s) for s in sectors_ship], res_deg, eps_min, eps_max,
+                                     sky, dict(g or {}), served)
+            except Exception:  # noqa: BLE001 -- no worker process (frozen install): computed here
+                fut = None
+            if fut is not None:
+                from . import background
+                background.RELIEF.start(k)
+                _R_JOBS[k] = fut
+                fut.add_done_callback(lambda f_, k_=k: _relief_done(k_, f_))
+                return None
+    res = relief(sectors_ship, grid, eps_min, eps_max, sky, g, served)
+    with _R_LOCK:
+        _R_CACHE[k] = res
+    return res
+
+
+_F_POOL = None
+
+
+def _find_task(mission: dict, res_deg: float, served):
+    grid = _R_GRIDS.get(res_deg)
+    if grid is None:
+        grid = _R_GRIDS[res_deg] = geo.SphereGrid(res_deg)
+    return find_redundancies(mission, grid, served=served)
+
+
+def find_redundancies_process(mission: dict, grid, served=None):
+    """find_redundancies() in a worker process (user, 11 November 2026: in a thread of the window it held the
+    interpreter ~60 s and the window froze); counted by core.background.REDUNDANCY. Blocks the calling thread only."""
+    global _F_POOL
+    from . import background
+    key = f"check-{id(mission)}-{threading.get_ident()}"
+    background.REDUNDANCY.start(key)
+    try:
+        try:
+            if _F_POOL is None:
+                import atexit
+                from concurrent.futures import ProcessPoolExecutor
+                _F_POOL = ProcessPoolExecutor(max_workers=1, initializer=mo._mark_pool_worker)
+                atexit.register(lambda: _F_POOL.shutdown(wait=False, cancel_futures=True))
+            fut = _F_POOL.submit(_find_task, mission, float(getattr(grid, "res_deg", 1.0)), served)
+        except Exception:  # noqa: BLE001 -- no worker process (frozen install): here
+            return find_redundancies(mission, grid, served=served)
+        return fut.result()
+    finally:
+        background.REDUNDANCY.done(key)
+
+
+def relief_pending() -> int:
+    with _R_LOCK:
+        return len(_R_JOBS)
+
+
+def relief_generation() -> int:
+    return _R_GEN
 
 
 def in_plan(mission: dict, plans: Dict[str, dict], grid, out: dict) -> List[dict]:

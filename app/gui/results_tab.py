@@ -516,11 +516,12 @@ class ResultsTab(QWidget):
     def _achieved_exact(self) -> dict:
         """Per volume, the worst range and the revisit the exact calculation achieves, and whether the volume holds
         (no row of it NOK or DEGRADED in the verdict)."""
-        bad = set()
+        bad, no_conf = set(), set()
         for row in (self.result.get("verdict") or {}).get("constraints", []):
             if row.get("state") in ("NOK", "DEGRADED"):
                 obj = str(row.get("object", ""))
-                bad.add(obj.split(" ", 1)[1] if obj.startswith("search ") else obj)
+                obj = obj.split(" ", 1)[1] if obj.startswith("search ") else obj
+                (no_conf if "confirmation" in str(row.get("quantity", "")) else bad).add(obj)
         out = {}
         for r in self.result.get("sectors", []):
             if r.get("status") != "OK":
@@ -530,7 +531,7 @@ class ResultsTab(QWidget):
             if worst is None:
                 continue
             out[r["id"]] = {"worst_km": float(worst), "rr_s": float(r.get("rr_est_mission_s", r.get("rr_target_s", 0))),
-                            "ok": r["id"] not in bad}
+                            "ok": r["id"] not in bad, "confirm": r["id"] not in no_conf}
         return out
 
     def _e_pct(self, k, frac: float) -> float:

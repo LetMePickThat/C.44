@@ -17,6 +17,9 @@ class DecimalSpinBox(QDoubleSpinBox):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setLocale(QLocale(QLocale.C))
+        # a typed value counts once it is entered (Enter, Tab, focus out), not at each key: 0.995 typed over 0.8 used
+        # to start calculations at 0.9 and 0.99 first (user, 11 November 2026); the arrows and the wheel stay live
+        self.setKeyboardTracking(False)
 
     def validate(self, text: str, pos: int):
         return super().validate(text.replace(",", "."), pos)

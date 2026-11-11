@@ -143,7 +143,8 @@ def evaluate_instant(mission: dict, link, t: float, table, ids: List[str], calib
         split = mo.split_by_face(grid, ship, eps_min, eps_max)
         holes[sid] = float(split.get("hole", 0.0))
         ships.append({**ship, "id": sid})
-    alloc = ce.live_allocation(table, ships, grid, eps_min, eps_max, sky, g, calib=calib, profiles="wait")
+    alloc = ce.live_allocation(table, ships, grid, eps_min, eps_max, sky, g, calib=calib, profiles="wait",
+                               relief="wait")
     vols = {}
     for sid, sec in zip(ids, mission.get("sectors", [])):
         rec = alloc.get("by_sector", {}).get(sid)

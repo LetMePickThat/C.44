@@ -67,7 +67,8 @@
      "centre_phi_deg": 81.86689608,
      "centre_eps_deg": -67.177644517
     }
-   }
+   },
+   "load_ceiling": 0.95
   },
   "sectors": [
    {
@@ -79,7 +80,7 @@
     "rot_deg": 0.0,
     "rcs_m2": 1000.0,
     "swerling": 1,
-    "range_km": 25000.0,
+    "range_km": 45000.0,
     "rr_target_s": 30.0,
     "v_close_min_mps": 1000.0,
     "v_close_max_mps": 5000.0,
@@ -91,7 +92,7 @@
     "tracking": [],
     "id": "S01",
     "self_protection": false,
-    "search_priority": 1
+    "search_priority": 2
    },
    {
     "shape": "rect",
@@ -109,11 +110,12 @@
     "confirm_mode": "auto",
     "new_targets_per_rr": 1.0,
     "rx_sll_db": -25.0,
-    "fa_per_rr": 10.0,
     "frame": "inertial",
     "surface_guard_km": 10.0,
     "tracking": [],
-    "id": "S02"
+    "id": "S02",
+    "self_protection": false,
+    "search_priority": 1
    },
    {
     "shape": "box",

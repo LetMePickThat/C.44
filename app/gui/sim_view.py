@@ -2899,8 +2899,10 @@ class SimView(QWidget):
                 a = ach.get(sid)
                 lines = [(text, LABEL_ASKED)]
                 if a:
-                    lines.append((f"worst {a['worst_km']:.0f} km  RR {a['rr_s']:.3g} s",
+                    lines.append((v3.achieved_text(a),
                                   LABEL_OK if a["ok"] else LABEL_NOK))
+                if a and a.get("confirm") is False:
+                    lines.append((v3.no_confirmation_text(a), LABEL_NOK))
                 ll.put(sid, pt, lines)
             ll.keep(ids[:len(pts)])
             ll.set_all_visible(shown)
@@ -3836,6 +3838,8 @@ class SimView(QWidget):
         """A square around the selected body where the view draws it (an object or OWNSHIP; none for the Earth, the
         Moon, the Sun), SELECT_PX on screen, kept facing the camera (_place_symbols)."""
         sel, q = self.selected, None
+        if self.read_only:                                # (mission preparation: OWNSHIP selected for its Info alone,
+            sel = None                                    # no square around it; user, 11 November 2026)
         if sel and sel.startswith(MT_SEL):                # a multitrack: its first member's
             sel = sel[len(MT_SEL):].split("|")[0]
         if sel and sel in getattr(self, "_mt_of", {}):    # absorbed in a multitrack: around it (user)
@@ -4480,11 +4484,12 @@ class SimView(QWidget):
                 raws = mis.get("sectors", [])
                 calib = calibration.view_calibration(raws, [raw.get("id") or f"_idx{i}" for i, raw in enumerate(raws)])
                 alloc = (ce.live_allocation(table, secs, self.grid, e0, e1, sky_ship, gl, calib=calib,
-                                            profiles="background")
+                                            profiles="background", relief="background")
                          if table is not None else None)
             except Exception:  # noqa: BLE001 -- the rule refuses a mission mid-edit: no gauge
                 alloc = None
-            if alloc and alloc.get("estimating") and not getattr(self, "_profile_poll_on", False):
+            if alloc and (alloc.get("estimating") or alloc.get("relief_pending")) \
+                    and not getattr(self, "_profile_poll_on", False):
                 from core import cost_profile          # option (c): the gauge redrawn when the profiles are ready
                 self._profile_poll_on, self._profile_gen = True, cost_profile.generation()
                 QTimer.singleShot(700, self._poll_profiles)
@@ -4543,9 +4548,14 @@ class SimView(QWidget):
         """L5 (user, 29 October 2026, no lists): a click near an object (OWNSHIP included) shows its information; a
         double-click centres the view on it, in the global view also on the Earth, the Moon or the Sun (a click on
         its disc), and on nothing back to the default centre."""
-        if self.truth is None or self.read_only:      # (read only: OWNSHIP's Info alone, user 10 November 2026)
+        if self.truth is None:
             return
         x, y = obj.GetEventPosition()
+        if self.read_only:                            # (read only: OWNSHIP's Info alone, user 10 November 2026)
+            if obj.GetRepeatCount() >= 1 and self._pick(x, y) == OWNSHIP:
+                self.centre = OWNSHIP                 # a double-click on OWNSHIP: the view back on it, the zoom
+                self.recentre()                       # kept (user, 11 November 2026)
+            return
         best, best_d = self._pick(x, y, with_distance=True)
         ref = None
         hit = self._marker_at(x, y)
@@ -4775,8 +4785,8 @@ class SimView(QWidget):
             if q is not None:
                 self._glyph(f"{DYN}target", q[None], TARGET_BARS, TARGET_PX, color=self._rgb_text(tgt[0]), line_width=3)
         sel = self._rows_of(self.selected)
-        if sel is None or not self.cb_planned.isChecked():
-            return
+        if sel is None or not self.cb_planned.isChecked() or self.read_only:   # (no orbital nodes in the mission
+            return                                                          # preparation; user, 11 November 2026)
         if tgt is not None and np.intersect1d(sel, tgt).size:
             tgt = None                                 # (the target selected: no pair)
         tr = self.truth

@@ -828,7 +828,14 @@ class SceneView(QWidget):
         a = self._achieved.get(sid)
         if not a:
             return asked, None, True
-        return asked, f"worst {a['worst_km']:.0f} km  RR {a['rr_s']:.3g} s", bool(a["ok"])
+        return asked, v3.achieved_text(a), bool(a["ok"])
+
+    def _label_text(self, sid: str, asked: str, ach: Optional[str]) -> str:
+        """The label's text as cached (its lines; a change redraws it)."""
+        text = asked if ach is None else f"{asked}\n{ach}"
+        if (self._achieved.get(sid) or {}).get("confirm") is False:
+            text += "\n" + v3.no_confirmation_text(self._achieved[sid])
+        return text
 
     def _refresh_labels(self) -> None:
         """The labels again with the figures achieved (they change with the instant and the estimate)."""
@@ -837,7 +844,7 @@ class SceneView(QWidget):
             if cached is None or cached[4] is None:
                 continue
             asked, ach, ok = self.label_lines(d.sid, d.sec)
-            text = asked if ach is None else f"{asked}\n{ach}"
+            text = self._label_text(d.sid, asked, ach)
             if text != cached[4]:
                 self._cache[d.sid] = cached[:4] + (text,) + tuple(cached[5:])
                 self._redraw_label(d.sid)
@@ -862,21 +869,69 @@ class SceneView(QWidget):
             return None
         try:
             return ce.live_allocation(table, [{**d.sec, "id": d.sid} for d in draws], self.grid, *self._eps, sky,
-                                      self._mission_global, calib=self._calib, profiles="background")
+                                      self._mission_global, calib=self._calib, profiles="background",
+                                      relief="background")
         except Exception:  # noqa: BLE001 -- a mission mid-edit the rule refuses: no live load
             return None
 
     def _poll_profiles(self) -> None:
-        """Option (c): a volume's cost profile became ready in the background: the volumes and the live load again."""
-        from core import cost_profile
+        """Option (c): something computed in the background became ready (a cost profile, a relief): the volumes and
+        the live load again; the badge follows whatever still runs (core/background)."""
+        from core import background, cost_profile
         if cost_profile.generation() != self._profile_gen:
             self._profile_poll_on = False
             if self._eps is not None:
                 self.set_scene(self._eps[0], self._eps[1], self._sectors)
-        elif cost_profile.pending():
+        elif background.pending():
+            self._update_badge()
             QTimer.singleShot(PROFILE_POLL_MS, self._poll_profiles)
         else:
             self._profile_poll_on = False
+            self._update_badge()
+
+    def watch_background(self) -> None:
+        """A computation started elsewhere (the redundancy check): the badge shows it until it ends."""
+        if not getattr(self, "_profile_poll_on", False):
+            from core import cost_profile
+            self._profile_poll_on, self._profile_gen = True, cost_profile.generation()
+            QTimer.singleShot(PROFILE_POLL_MS, self._poll_profiles)
+        self._update_badge()
+
+    def _badge_busy(self) -> None:
+        """The badge says 'computing' BEFORE an estimated update that runs on the window's thread (user, 11 November
+        2026: the window froze with nothing said), painted at once."""
+        lb = getattr(self, "_load_badge", None)
+        if lb is None:
+            return
+        uc.set_source(lb, "estimating", detail="updating", tip="The fast estimate is being updated", progress=0.0)
+        lb.repaint()
+
+    def _update_badge(self) -> None:
+        """The ESTIMATE badge (U3): a progress bar while anything of the estimate is computed (the cost profiles, the
+        reliefs, the redundancy check: core/background, user 11 November 2026), else where the figures come from."""
+        from core import background
+        lb = getattr(self, "_load_badge", None)
+        if lb is None:
+            return
+        a = getattr(self, "_last_alloc", None) or {}
+        gauge = " (the range gauge uses the same figures)"
+        st = background.status()
+        if st or a.get("estimating"):
+            parts = [(s_["label"] + (" " + s_["detail"] if s_["detail"] else "")) for s_ in st]
+            tip = ("Being computed in the background: " + ", ".join(parts) if parts else "Being computed")
+            if a.get("estimating"):
+                tip += ("; cost profiles of " + ", ".join(a["estimating"]) + " still being computed: the generic "
+                        "table meanwhile" + gauge)
+            frac = min((s_["fraction"] for s_ in st), default=0.0)
+            uc.set_source(lb, "estimating", detail=", ".join(parts), tip=tip, progress=frac)
+        elif a.get("not_recalibrated"):
+            uc.set_source(lb, "estimate", tip="Fast estimate (~20 %); not recalibrated by an exact calculation: "
+                          + ", ".join(a["not_recalibrated"]) + gauge)
+        elif a:
+            uc.set_source(lb, "recalibrated", tip="Fast estimate corrected by the last exact calculation of every "
+                          "volume" + gauge)
+        else:
+            uc.set_source(lb, "estimate", tip="Fast estimate")
 
     def set_load_ceiling(self, ceiling: float) -> None:
         self.set_mission_global({**self._mission_global, "load_ceiling": ceiling})
@@ -884,6 +939,7 @@ class SceneView(QWidget):
     def _show_load(self, draws: List["SectorDraw"], sky: Optional[dict]) -> None:
         a = self._allocation(draws, sky)
         if a is None:
+            self._last_alloc = None
             for col in self._load_cols.values():
                 col.set_bars(None, "")
             self._load_status.setText("")
@@ -891,19 +947,12 @@ class SceneView(QWidget):
         if not self._achieved_fixed and a.get("achieved") != self._achieved:     # the labels' second line
             self._achieved = dict(a.get("achieved") or {})
             self._refresh_labels()
-        if getattr(self, "_load_badge", None) is not None:        # U3 (and R3d M1): where these figures come from
-            gauge = " (the range gauge uses the same figures)"
-            if a.get("estimating"):
-                uc.set_source(self._load_badge, "estimating", tip="Cost profiles of " + ", ".join(a["estimating"])
-                              + " still being computed: the generic table meanwhile" + gauge)
-            elif a.get("not_recalibrated"):
-                uc.set_source(self._load_badge, "estimate", tip="Fast estimate (~20 %); not recalibrated by an exact "
-                              "calculation: " + ", ".join(a["not_recalibrated"]) + gauge)
-            else:
-                uc.set_source(self._load_badge, "recalibrated", tip="Fast estimate corrected by the last exact "
-                              "calculation of every volume" + gauge)
-        if a.get("estimating") and not getattr(self, "_profile_poll_on", False):   # option (c): redrawn when ready
-            from core import cost_profile
+        self._last_alloc = a                           # U3 (and R3d M1): where these figures come from
+        self._update_badge()
+        from core import background
+        if ((a.get("estimating") or a.get("relief_pending") or background.pending())
+                and not getattr(self, "_profile_poll_on", False)):
+            from core import cost_profile               # option (c): redrawn when ready (and the relief, A)
             self._profile_poll_on, self._profile_gen = True, cost_profile.generation()
             QTimer.singleShot(PROFILE_POLL_MS, self._poll_profiles)
         ref = float(a["ref_w"])
@@ -1519,6 +1568,8 @@ class SceneView(QWidget):
         sec = next((d.sec for d in self._sectors if d.sid == sid), {})
         asked, ach, ok = self.label_lines(sid, sec)
         lines = [(asked, LABEL_ASKED)] + ([(ach, LABEL_OK if ok else LABEL_NOK)] if ach else [])
+        if (self._achieved.get(sid) or {}).get("confirm") is False:      # (a line of its own: range and RR held)
+            lines.append((v3.no_confirmation_text(self._achieved[sid]), LABEL_NOK))
         self._line_labels.put(sid, point, lines)
         self._line_labels.set_visible(sid, sid not in self._hidden)
         remove_actors(self.plotter, [lbl_name, lbl_name + "_2"])     # (the former single-colour labels)
@@ -1548,6 +1599,7 @@ class SceneView(QWidget):
                   hidden: Optional[Set[str]] = None) -> None:
         """Draw this eps window and these sectors (only what changed is rebuilt), hiding the `hidden` sector ids
         (None: keep the current ones), then render once."""
+        self._badge_busy()                             # (the update below runs on the window's thread)
         self._eps, self._sectors = (eps_min, eps_max), list(sectors)
         if hidden is not None:
             self._hidden = set(hidden)
@@ -1556,6 +1608,7 @@ class SceneView(QWidget):
         self.apply_visibility()
         if not getattr(self, "_in_instant", False):
             self._show_load(self._sectors, self._sky_ship)
+        self._update_badge()                           # (the 'updating' state never left behind)
 
     def set_hidden(self, sids: Set[str]) -> None:
         self._hidden = set(sids)
@@ -1654,7 +1707,7 @@ class SceneView(QWidget):
                     self.plotter.add_mesh(outline, color=d.color, line_width=2, name=out_name, render=False)
                 new_names.add(out_name)
             asked, ach, _ok = self.label_lines(d.sid, d.sec)
-            text = (asked if ach is None else f"{asked}\n{ach}") if (poly.n_points or outline.n_points) else None
+            text = self._label_text(d.sid, asked, ach) if (poly.n_points or outline.n_points) else None
             anchor = _anchor(poly, outline)
             point = self._label_pos.get(d.sid, anchor)
             if text is not None:

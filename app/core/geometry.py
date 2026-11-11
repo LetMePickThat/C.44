@@ -567,7 +567,7 @@ def held_ratio_function(grid: SphereGrid, sec: dict, eps_min: float, eps_max: fl
     useful_of = useful_ratio_function(sec, sky)
     rc = (alloc.get("reach") or {}).get(str(sid if sid is not None else sec.get("id")))
 
-    def ratio_of(d, face=None):
+    def ratio_of(d, face=None, ignore_ground=False):
         d = np.asarray(d, float).reshape(-1, 3)
         if face is None:
             owner, _w, _u, _v = mo.face_of(d[:, 0], d[:, 1], d[:, 2])
@@ -575,7 +575,9 @@ def held_ratio_function(grid: SphereGrid, sec: dict, eps_min: float, eps_max: fl
             ok = (owner >= 0) & (eps >= eps_min) & (eps <= eps_max)
         else:                               # (directions known to be face's)
             ok = np.ones(len(d), bool)
-        held = np.minimum(np.where(ok, rho, 0.0), np.clip(np.asarray(useful_of(d), float), 0.0, 1.0))
+        held = np.where(ok, rho, 0.0)
+        if not ignore_ground:                 # (ignore_ground: a point of the sky side ON the horizon, its tangent ray
+            held = np.minimum(held, np.clip(np.asarray(useful_of(d), float), 0.0, 1.0))   # grazing the ground)
         if rc and rc.get("r_want_km"):                 # (the range reachable at full pulse at the face's scan angle)
             _o, w_, _u, _v = mo.face_of(d[:, 0], d[:, 1], d[:, 2])
             th = np.degrees(np.arccos(np.clip(w_, 0.0, 1.0)))
@@ -621,8 +623,8 @@ def build_range_gauge(grid: SphereGrid, sec: dict, ratio_of, radius: float,
     # coverage edge and a cut on it drew slivers down to the ship), at the range held there
     eps_win = getattr(ratio_of, "eps_window", None) or (-90.0, 90.0)
     green, _outline, _hole = build_sector_split_smooth(grid, sec, eps_win[0], eps_win[1], radius=1.0)
-    pieces = []
-    for k in range(4):                                         # face by face: each point takes its own piece's face
+    sides: Dict[str, List[pv.PolyData]] = {}
+    for k in range(4):                                         # face by face (the ground cut and the horizon)
         if not green.n_points:
             break
         ids = np.flatnonzero(green.cell_data["face"] == k)
@@ -634,22 +636,65 @@ def build_range_gauge(grid: SphereGrid, sec: dict, ratio_of, radius: float,
         if not piece.n_points:
             continue
         piece.cell_data.clear()
-        for _side, sub in (split_at_limb(piece, limb) if not normalise else [("sky", piece)]):
-            dg = sub.points / np.linalg.norm(sub.points, axis=1)[:, None]
-            rg = np.clip(np.asarray(ratio_of(dg, face=k), float), 0.0, 1.0)
-            if normalise:                                      # (sphere: the range held over the range needed)
-                rg = np.clip(rg / np.maximum(np.asarray(useful_of(dg), float), 1e-6), 0.0, 1.0)
-            sub.points = dg * (rg * radius)[:, None]
-            pieces.append(sub)
+        for side, sub in (split_at_limb(piece, limb) if not normalise else [("sky", piece)]):
+            sub = sub.triangulate()
+            sub.cell_data["gauge_face"] = np.full(sub.n_cells, k, np.int8)
+            sides.setdefault(side, []).append(sub)
+    # one shell per side of the horizon (user, 11 November 2026: needles and dust): the faces' pieces merged, the pin
+    # holes where they meet filled, each point at the best range of the faces it belongs to (one shell, no step at a
+    # seam), so that the walls stand only on the volume's outline and along the horizon
     green = pv.PolyData()
-    for piece in pieces:
-        green = piece if not green.n_points else green.append_polydata(piece)
+    for side, subs in sides.items():
+        m = subs[0]
+        for s_ in subs[1:]:
+            m = m.append_polydata(s_)
+        m = m.clean(tolerance=1e-7, absolute=False)
+        if not m.n_cells:
+            continue
+        tri = m.faces.reshape(-1, 4)[:, 1:]                    # (the triangles alone: clean() turns the ones it
+        lab = np.asarray(m.cell_data["gauge_face"])[m.n_cells - len(tri):]   # collapses into lines, listed first)
+        m = pv.PolyData(np.asarray(m.points, float), m.faces).clean(tolerance=0.0)
+        if not m.n_cells or m.n_points < 3:
+            continue
+        tri = m.faces.reshape(-1, 4)[:, 1:] if m.n_cells == len(lab) else None
+        if tri is None:                                        # (the second clean dropped unused points only)
+            continue
+        dg = m.points / np.linalg.norm(m.points, axis=1)[:, None]
+        rg = np.full(m.n_points, -1.0)
+        edge = (np.abs(limb[0](dg)) <= _LIMB_TOL_DEG) if (side == "sky" and limb is not None) else None
+        for k in np.unique(lab):
+            pk = np.unique(tri[lab == k])
+            v = np.clip(np.asarray(ratio_of(dg[pk], face=int(k)), float), 0.0, 1.0)
+            if edge is not None and edge[pk].any():           # (the sky side's edge on the horizon: the sky's range,
+                e = edge[pk]                                   # not the ground its tangent ray grazes: it drooped)
+                try:
+                    v[e] = np.clip(np.asarray(ratio_of(dg[pk][e], face=int(k), ignore_ground=True), float), 0.0, 1.0)
+                except TypeError:                              # (a ratio_of without the option)
+                    pass
+            rg[pk] = np.maximum(rg[pk], v)
+        rg = np.clip(rg, 0.0, 1.0)
+        if side == "ground" and limb is not None:              # (a point ON the horizon: its tangent ray misses the
+            rg = np.minimum(rg, _limb_share(limb, dg, sec))   # ground numerically, it took the full range: needles)
+        if normalise:                                          # (sphere: the range held over the range needed)
+            rg = np.clip(rg / np.maximum(np.asarray(useful_of(dg), float), 1e-6), 0.0, 1.0)
+        m.cell_data.clear()
+        m.point_data["gauge_r"] = rg
+        m = m.fill_holes(math.radians(1.5 * float(getattr(grid, "res_deg", 1.0))))   # (pin holes: at most a cell or so)
+        r_pts = np.asarray(m.point_data["gauge_r"], float)
+        m.points = m.points / np.linalg.norm(m.points, axis=1)[:, None] * (r_pts * radius)[:, None]
+        m.point_data.clear()
+        green = m if not green.n_points else green.append_polydata(m)
     red = _cut(req, 0.999 * u_req - rho)                       # short of the range needed (the ground: not needed)
     if red.n_points and not normalise:
         reds = pv.PolyData()
-        for _side, sub in split_at_limb(red, limb):           # G2: cut along the horizon
+        for side, sub in split_at_limb(red, limb):            # G2: cut along the horizon
             dd = sub.points / np.linalg.norm(sub.points, axis=1)[:, None]
-            sub.points = dd * np.asarray(useful_of(dd), float)[:, None] * radius
+            u_ = np.asarray(useful_of(dd), float)
+            if side == "ground" and limb is not None:          # (as the green: never beyond the horizon)
+                u_ = np.minimum(u_, _limb_share(limb, dd, sec))
+            elif limb is not None:                             # (the sky side's edge on the horizon: the sky's range)
+                u_ = np.where(np.abs(limb[0](dd)) <= _LIMB_TOL_DEG, 1.0, u_)
+            sub.points = dd * u_[:, None] * radius
             reds = sub if not reds.n_points else reds.append_polydata(sub)
         red = reds
     elif red.n_points:
@@ -658,6 +703,14 @@ def build_range_gauge(grid: SphereGrid, sec: dict, ratio_of, radius: float,
         green = _gauge_walls(green, limb, lambda d_: np.zeros(len(d_)))
         red = _gauge_walls(red, limb, lambda d_: np.clip(np.asarray(ratio_of(d_), float), 0.0, 1.0) * radius)
     return green, red
+
+
+def _limb_share(limb, d: np.ndarray, sec: dict) -> np.ndarray:
+    """The horizon's distance in the directions d, as a share of the volume's range (the ground side never beyond)."""
+    r_req = float(sec.get("range_km", 0.0) or 0.0)
+    if r_req <= 0.0:
+        return np.ones(len(d))
+    return np.clip(np.asarray(limb[1](d), float) / r_req, 0.0, 1.0)
 
 
 def _gauge_walls(shell: pv.PolyData, limb, floor_of) -> pv.PolyData:

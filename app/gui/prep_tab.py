@@ -82,13 +82,13 @@ class RedundancyWorker(QThread):
     finished_ok = pyqtSignal(object, object)   # (list of redundancy.Finding, pair_notes dict), token
     failed = pyqtSignal(str)
 
-    def __init__(self, mission: dict, grid, token, parent=None):
+    def __init__(self, mission: dict, grid, token, parent=None, served=None):
         super().__init__(parent)
-        self.mission, self.grid, self.token = mission, grid, token
+        self.mission, self.grid, self.token, self.served = mission, grid, token, served
 
     def run(self) -> None:
         try:
-            result = red.find_redundancies(self.mission, self.grid)
+            result = red.find_redundancies_process(self.mission, self.grid, served=self.served)
         except Exception as exc:  # noqa: BLE001 -- a failed check must not take the window down
             self.failed.emit(f"redundancy check failed: {exc}")
             return
@@ -171,7 +171,9 @@ class PrepTab(QWidget):
         v.addWidget(self.view.view_panel())         # the view's options, as the Scenario Editor's (pass V2)
         v.addWidget(self._build_global_group())
         v.addWidget(self._build_mission_settings_group())
-        v.addWidget(self._build_scenario_group())
+        scn_box = self._build_scenario_group()       # (user, 11 November 2026: hidden, a duplicate of the playback
+        scn_box.setVisible(False)                     # bar under the view; its controls still hold the instant,
+        v.addWidget(scn_box)                          # Remove is in the File menu, its alerts in the Alerts list)
         v.addWidget(self._build_nav_group())
         v.addWidget(self._build_sector_list_group())
         v.addWidget(self._build_sector_form_group())
@@ -877,6 +879,7 @@ class PrepTab(QWidget):
         common.addRow("", self.lbl_class)
         self.sb_rcs = self._spin(0.01, 1_000_000, 1, md.SECTOR_DEFAULTS_BOX["rcs_m2"])
         self.sb_swerling = QSpinBox()
+        self.sb_swerling.setKeyboardTracking(False)
         self.sb_swerling.setRange(0, 4)
         self.sb_swerling.setValue(md.SECTOR_DEFAULTS_BOX["swerling"])
         self.sb_swerling.valueChanged.connect(self._on_field_changed)
@@ -906,6 +909,7 @@ class PrepTab(QWidget):
                                       "otherwise it is a search volume of priority P4_<search priority>")
         self.chk_self_prot.toggled.connect(self._on_field_changed)
         self.sb_search_prio = QSpinBox()
+        self.sb_search_prio.setKeyboardTracking(False)
         self.sb_search_prio.setRange(1, 99)
         self.sb_search_prio.setToolTip("Sub-priority of a search volume (P4_1 is served first)")
         self.sb_search_prio.valueChanged.connect(self._on_field_changed)
@@ -1528,14 +1532,20 @@ class PrepTab(QWidget):
                 ships = [{**s_, "id": s_.get("id")} for s_ in (self._ship_sector(x) for x in self.mission["sectors"])
                          if s_ is not None]
                 alloc = ce.live_allocation(self.cost_table, ships, self.grid, eps_min, eps_max, sky_ship,
-                                           self.mission["global"], profiles="background")
+                                           self.mission["global"], profiles="background", relief="background")
                 pending = set(alloc.get("estimating", []))
                 self._unreachable = {sid: (None, None) for sid in pending}   # (the table's verdict never shown:
                 for sid, o in (alloc.get("out_of_reach") or {}).items():    # single-look, ~x150 too pessimistic)
                     self._unreachable[sid] = (100.0 * o["share"], o["max_km"])
                 self._confirm_alerts = {sid: "none" for sid in alloc.get("no_confirmation", [])}
+                self._confirm_max = dict(alloc.get("confirm_max_km") or {})
                 self._confirm_alerts.update({sid: "depends" for sid in alloc.get("confirmation_depends", [])})
-                if pending:                                  # the alerts again once the profiles are ready
+                self._relief = dict(alloc.get("relief") or {})          # A (user, 11 November 2026)
+                served = dict(alloc.get("served") or {})
+                if served and red.round_served(served) != red.round_served(getattr(self, "_served", {}) or {}):
+                    self._served = served                                # B: the findings again with them
+                    self._schedule_redundancy_check()
+                if pending or alloc.get("relief_pending"):                                  # the alerts again once the profiles are ready
                     from core import cost_profile
                     gen = cost_profile.generation()
                     QTimer.singleShot(700, lambda g=gen, e=(eps_min, eps_max): self._profiles_ready(g, e))
@@ -1549,6 +1559,11 @@ class PrepTab(QWidget):
             self.list_alerts.addItem("Fast estimate: core/cost_table.json was built with other radar parameters "
                                      "(radar_system.toml changed) -- rebuild it: python tools/gen_cost_table.py")
         self._add_redundancy_alerts()
+        for sid, v in sorted((getattr(self, "_relief", {}) or {}).items()):     # A: what the budgets take out
+            self.list_alerts.addItem(f"{sid}: {100 * v['share']:.0f} % of its volume served by {', '.join(v['by'])}"
+                                     f" (need met there): taken out of {sid}'s budget")
+        if self.lbl_scn_alerts.text():                # (the flight plan's group hidden: its alerts here)
+            self.list_alerts.addItem("Flight plan: " + self.lbl_scn_alerts.text())
         for err in frames.validate(self.mission):   # navigation and frames (step 3.0)
             self.list_alerts.addItem(err)
         try:
@@ -1586,15 +1601,18 @@ class PrepTab(QWidget):
                                          + (f" (at most ~{max_km:.0f} km)" if max_km else ""))
             conf = getattr(self, "_confirm_alerts", {}).get(sid)
             if conf == "none":
+                cm = getattr(self, "_confirm_max", {}).get(sid)
                 self.list_alerts.addItem(f"{sid}: its detections cannot be confirmed (no admissible confirmation mode "
-                                         "at any search beam spacing): mission not tenable")
+                                         "at any search beam spacing)"
+                                         + (f"; Ku confirmation possible up to ~{cm:.0f} km" if cm else "")
+                                         + ": mission not tenable")
             elif conf == "depends":
                 self.list_alerts.addItem(f"{sid}: confirmation only with some search beam spacings: the exact "
                                          "calculation says whether the optimiser's choice allows it")
             if sid in self._at_unreachable:
                 self.list_alerts.addItem(f"{sid}: ~{self._at_unreachable[sid]:.1f} AT track(s) estimated out of Ku "
                                          "reach at a bracket's outer range (scan limit or range)")
-        notes_current = self._redundancy_notes if self._redundancy_sig == red.mission_signature(self.mission) else {}
+        notes_current = self._redundancy_notes if self._redundancy_sig == self._red_sig() else {}
         for a, b, ov in mo.overlaps(self.grid.d_omega, masks):
             # both directions were tested (a covering b, and b covering a) -- show whichever apply, independently
             note_ab, note_ba = notes_current.get((a, b)), notes_current.get((b, a))
@@ -1619,25 +1637,34 @@ class PrepTab(QWidget):
             self.list_alerts.addItem("No alerts")
 
     # ------------------------------------------------------------------ redundancy (an earlier sector already meets the need)
+    def _red_sig(self) -> str:
+        """The redundancy findings' signature: the mission's, and the shares the fast estimate serves (B, user 11
+        November 2026: a covering volume judged with what the allocation gives it)."""
+        return red.mission_signature(self.mission) + "|" + json.dumps(
+            red.round_served(getattr(self, "_served", {}) or {}), sort_keys=True)
+
     def _schedule_redundancy_check(self) -> None:
-        if red.mission_signature(self.mission) != self._redundancy_requested:
+        if self._red_sig() != self._redundancy_requested:
             self._red_timer.start()
 
     def _start_redundancy_check(self) -> None:
         if self._red_worker is not None and self._red_worker.isRunning():
             return  # _on_redundancy_done starts the next check if the mission changed meanwhile
-        sig = red.mission_signature(self.mission)
+        sig = self._red_sig()
         self._redundancy_requested = sig
         token = (sig, [id(s) for s in self.mission["sectors"]])
-        self._red_worker = RedundancyWorker(copy.deepcopy(self.mission), self.grid, token, self)
+        self._red_worker = RedundancyWorker(copy.deepcopy(self.mission), self.grid, token, self,
+                                            served=dict(getattr(self, "_served", {}) or {}))
         self._red_worker.finished_ok.connect(self._on_redundancy_done)
         self._red_worker.failed.connect(self._on_redundancy_failed)
         self._red_worker.start()
+        if hasattr(self.view, "watch_background"):    # (the ESTIMATE badge shows it, user 11 November 2026)
+            QTimer.singleShot(50, self.view.watch_background)
 
     def _on_redundancy_done(self, result: tuple, token: tuple) -> None:
         findings, notes = result
         sig, ids = token
-        if sig != red.mission_signature(self.mission):
+        if sig != self._red_sig():
             self._redundancy_requested = None
             self._red_timer.start()       # stale: the mission changed while the check ran
             return
@@ -1650,7 +1677,7 @@ class PrepTab(QWidget):
 
     def _on_redundancy_failed(self, message: str) -> None:
         self._redundancy_error = message
-        self._redundancy_sig = red.mission_signature(self.mission)
+        self._redundancy_sig = self._red_sig()
         self._redundancy = {}
         self._redundancy_notes = {}
         self._schedule_refresh()
@@ -1661,13 +1688,13 @@ class PrepTab(QWidget):
 
     def _active_finding(self, sec: dict) -> Optional[red.Finding]:
         """Current finding for this sector, None if none, out of date, or acknowledged ("Keep both")."""
-        if self._redundancy_sig is None or self._redundancy_sig != red.mission_signature(self.mission):
+        if self._redundancy_sig is None or self._redundancy_sig != self._red_sig():
             return None
         f = self._redundancy.get(id(sec))
         return None if f is None or self._ack_key(sec, f) in self._redundancy_ack else f
 
     def _add_redundancy_alerts(self) -> None:
-        if self._redundancy_sig != red.mission_signature(self.mission):
+        if self._redundancy_sig != self._red_sig():
             if len(self.mission["sectors"]) > 1:
                 item = QListWidgetItem("Checking whether earlier sectors already meet the later needs...")
                 item.setForeground(QColor("gray"))
@@ -1779,6 +1806,7 @@ class PrepTab(QWidget):
                 ("Save as...", self.save_as, "SP_DialogSaveButton", False),
                 ("---", None, None, False),
                 ("Flight plan from a scenario...", lambda: self.load_scenario(), "SP_DirOpenIcon", True),
+                ("Remove the flight plan", lambda: self.unlink_scenario(), "SP_TrashIcon", True),
                 ("---", None, None, False),
                 ("Export::Mission as CSV...", lambda: self._on_export("csv"), "SP_DialogSaveButton", False)]
 

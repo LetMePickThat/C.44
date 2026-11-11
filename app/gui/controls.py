@@ -453,9 +453,20 @@ def source_badge(kind: str = "estimate", detail: str = "", tip: str = "") -> QLa
     return lb
 
 
-def set_source(lb: QLabel, kind: str, detail: str = "", tip: str = "") -> None:
+def set_source(lb: QLabel, kind: str, detail: str = "", tip: str = "", progress: Optional[float] = None) -> None:
+    """progress (0-1): the badge is its own progress bar (user, 11 November 2026): the base colour up to the share
+    done, a darker shade of it beyond."""
     text, colour = SOURCE_STYLES.get(kind, SOURCE_STYLES["estimate"])
     lb.setText(f" {text}{' \u00b7 ' + detail if detail else ''} ")
-    lb.setStyleSheet(f"background: {colour}; color: white; font-weight: bold; border-radius: 3px; padding: 1px 4px;")
+    bg = colour
+    if progress is not None:
+        f = min(max(float(progress), 0.0), 1.0)
+        dark = QColor(colour).darker(190).name()
+        if f <= 0.0:
+            bg = dark
+        elif f < 1.0:
+            bg = (f"qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {colour}, stop:{f:.4f} {colour}, "
+                  f"stop:{min(f + 0.001, 1.0):.4f} {dark}, stop:1 {dark})")
+    lb.setStyleSheet(f"background: {bg}; color: white; font-weight: bold; border-radius: 3px; padding: 1px 4px;")
     lb.setToolTip(tip)
 
