@@ -6,8 +6,8 @@ MARGIN REUSE -- the resources a mission leaves free are put to use (roadmap step
 
 The revisit asked for each search volume is a minimum. When the faces have room, the radar shortens the revisits until
 the utilisation reaches the mission's "load_ceiling" X: a face at 20 % with X = 80 % gives 60 % of itself back to the
-search. Step 5.2 P7 (user, 26 October 2026): the mission's "realloc_mode" says who gets the margin, NONE (the default:
-the margin stays free), PRIO_SEARCH (the search, rules below) or PRIO_TRACK (the track cadence); the load ceiling is
+search. Step 5.2 P7 (user, 26 October 2026): the mission's "realloc_mode" says who gets the margin, NONE (the margin
+stays free), PRIO_SEARCH (the search, rules below; the default since 11 November 2026) or PRIO_TRACK (the track cadence); the load ceiling is
 always on, the part above it is a safety reserve never used (imperfect interleaving, step 5.4). Rules (user):
   R1 the plan is kept (waveforms, lattice, pulse scale per bin); only the revisit is faster, RR_real = RR / g, g >= 1;
      the search loads go as g, the false alarms are frozen per second (fa_rate: the Pfa per cell goes as 1 / g), so

@@ -126,6 +126,7 @@ class ResultsTab(QWidget):
         self._hidden_sectors: set = set()     # ids of the sectors whose volume is hidden in 3D
 
         self._build_ui()
+        self.view.set_achieved(self._achieved_exact())   # the labels' 2nd line: the exact figures (11 Nov 2026)
         self._update_scene()
         self._fill_tables()
         self.table_sectors.itemChanged.connect(self._on_sector_check_changed)
@@ -167,6 +168,15 @@ class ResultsTab(QWidget):
         panel.setWidget(inner)
         v = QVBoxLayout(inner)
 
+        link = self.mission.get("scenario_link") or {}
+        when = self.result.get("_computed_local", "")
+        inst = (f"t = {float(link['t_s']):g} s" if isinstance(link, dict) and "t_s" in link else
+                str((frames.parse_nav(self.mission.get("global", {}).get("nav")).label or "mission instant")))
+        self._badge_detail = inst + (f", computed {when}" if when else "")
+        self.badge = uc.source_badge("exact", self._badge_detail,
+                                     tip="Exact calculation of the mission at this instant (the live load under the "
+                                         "view stays an estimate)")   # U3 (user, 11 November 2026)
+        v.addWidget(self.badge)
         v.addWidget(self.view.view_panel())         # the view's options, at the top of the side column (pass V2)
         v.addWidget(self._build_verdict_group())
         v.addWidget(self._build_sector_table_group())
@@ -400,7 +410,7 @@ class ResultsTab(QWidget):
         box = QGroupBox("Per-sector summary")
         v = QVBoxLayout(box)
         self.table_sectors = QTableWidget()
-        cols = ["id", "status", "WF", "energy % (worst face)", "time on air % (worst face)",
+        cols = ["id", "status", "WF", "energy, % of the face limit (worst face)", "time on air % (worst face)",
                 "worst range (km)", "best range (km)", "target RR (s)", "RR alone (s)", "RR in mission (s)",
                 "executed by face / hole", "flags"]
         self.table_sectors.setColumnCount(len(cols))
@@ -429,7 +439,8 @@ class ResultsTab(QWidget):
         box = QGroupBox("Per-face totals")
         v = QVBoxLayout(box)
         self.table_faces = QTableWidget()
-        cols = ["face", "positions", "energy %", "avg power (kW)", "time on air %", "status",
+        cols = ["face", "positions", "search energy, % of the face limit", "search TX power (kW)", "time on air %",
+                "status",
                 "tracking margin (kW / Ku duty %)"]
         self.table_faces.setColumnCount(len(cols))
         self.table_faces.setHorizontalHeaderLabels(cols)
@@ -445,7 +456,8 @@ class ResultsTab(QWidget):
         self.lbl_trk_verdict.setWordWrap(True)
         v.addWidget(self.lbl_trk_verdict)
         self.table_trk_faces = QTableWidget()
-        cols = ["face", "search E %", "confirm E %", "AT E %", "total E %", "S time %", "Ku time %", "status"]
+        cols = ["face", "search E", "confirm E", "AT E", "total E (incl. always-on)", "S time %", "Ku time %",
+                "status"]                                 # (E: % of the face limit, user 11 November 2026)
         self.table_trk_faces.setColumnCount(len(cols))
         self.table_trk_faces.setHorizontalHeaderLabels(cols)
         self.table_trk_faces.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
@@ -481,10 +493,16 @@ class ResultsTab(QWidget):
         v.addWidget(self.lbl_warnings)
         return box
 
+    def set_outdated(self, outdated: bool) -> None:
+        """One file: a result reopened with its mission, the mission edited since (the result kept, said outdated)."""
+        uc.set_source(self.badge, "exact" if not outdated else "outdated", self._badge_detail,
+                      "Exact calculation of the mission at this instant" + (
+                          "; the mission was edited since: calculate again" if outdated else ""))
+
     def file_commands(self) -> list:
         """(text, slot, icon) of the results in the window's menu (B14)."""
-        return [("Export JSON (full result)...", self.export_json, "SP_DialogSaveButton"),
-                ("Export CSV (summary)...", self._export_csv, "SP_DialogSaveButton")]
+        return [("Export::Results as JSON (full)...", self.export_json, "SP_DialogSaveButton"),
+                ("Export::Results as CSV (summary)...", self._export_csv, "SP_DialogSaveButton")]
 
     # ------------------------------------------------------------------ 3D scene
     def _sector_energy(self, r: dict) -> float:
@@ -494,6 +512,35 @@ class ResultsTab(QWidget):
     def _sector_time(self, r: dict) -> float:
         """Worst time-on-air fraction of this sector alone, over the faces it uses."""
         return max((fc["time_fraction"] for fc in r.get("faces", {}).values()), default=0.0)
+
+    def _achieved_exact(self) -> dict:
+        """Per volume, the worst range and the revisit the exact calculation achieves, and whether the volume holds
+        (no row of it NOK or DEGRADED in the verdict)."""
+        bad = set()
+        for row in (self.result.get("verdict") or {}).get("constraints", []):
+            if row.get("state") in ("NOK", "DEGRADED"):
+                obj = str(row.get("object", ""))
+                bad.add(obj.split(" ", 1)[1] if obj.startswith("search ") else obj)
+        out = {}
+        for r in self.result.get("sectors", []):
+            if r.get("status") != "OK":
+                continue
+            rg = r.get("range_km") or {}
+            worst = rg.get("at_worst_scan") if isinstance(rg, dict) else None
+            if worst is None:
+                continue
+            out[r["id"]] = {"worst_km": float(worst), "rr_s": float(r.get("rr_est_mission_s", r.get("rr_target_s", 0))),
+                            "ok": r["id"] not in bad}
+        return out
+
+    def _e_pct(self, k, frac: float) -> float:
+        """An energy given as a fraction of the face's reference TX power (the optimiser's unit) as a percentage of
+        the face's own limit, drawn from the bus (feeder or operator cap): the verdict's base (user, 11 November
+        2026: two bases in the same tab, 17 % and 4.9 % for the same face)."""
+        p_ref = float(self.result["global"]["face_elec_avail_kW"]) * 1e3
+        fa = ((self.result.get("power_allocation") or {}).get("faces") or {}).get(str(k), {})
+        cap = float(fa.get("cap_MW") or rm.FACE_FEEDER_MAX_MW) * 1e6
+        return 100.0 * float(frac) * p_ref / rm.CHAIN_EFF / cap
 
     def _face_total_energy(self, r: dict) -> float:
         """Total load (all sectors) of the most loaded face this sector uses."""
@@ -588,7 +635,8 @@ class ResultsTab(QWidget):
                 vals = [r["id"], r["status"],
                         (f"{n_wf} WFs, {w['freq_ghz']} GHz" if n_wf > 1 else
                          f"{w['freq_ghz']} GHz {w['integration'][:4]} tau{w['tau_us']}us N{w['n_pulses']}"),
-                        f"{100 * self._sector_energy(r):.1f}", f"{100 * self._sector_time(r):.1f}",
+                        f"{max((self._e_pct(k, fc['energy_fraction']) for k, fc in r.get('faces', {}).items()), default=0.0):.1f}",
+                        f"{100 * self._sector_time(r):.1f}",
                         str(rg["at_worst_scan"]), str(rg["at_best_scan"]),
                         f"{r['rr_target_s']:.0f}", f"{r['rr_alone_s']:.0f}",
                         f"{r.get('rr_est_mission_s', r['rr_target_s']):.0f}",
@@ -608,7 +656,7 @@ class ResultsTab(QWidget):
             load = max(v["energy_fraction"], v["time_fraction"])
             status = "OK" if load <= 1 else f"OVER-SUBSCRIBED x{load:.2f}"
             margin = (f"{v['p_available_kW']:.0f} kW / {v['ku_duty_pct']:.1f} %" if "p_available_kW" in v else "-")
-            vals = [geo.FACE_NAMES[int(k)], f"{v['positions']:.0f}", f"{100 * v['energy_fraction']:.1f}",
+            vals = [geo.FACE_NAMES[int(k)], f"{v['positions']:.0f}", f"{self._e_pct(k, v['energy_fraction']):.1f}",
                     f"{v['avg_power_kW']:.0f}", f"{100 * v['time_fraction']:.1f}", status, margin]
             for c, val in enumerate(vals):
                 self.table_faces.setItem(i, c, QTableWidgetItem(str(val)))
@@ -645,8 +693,9 @@ class ResultsTab(QWidget):
         self.table_trk_faces.setRowCount(len(faces))
         for i, (k, v) in enumerate(faces):
             status = "OK" if v["status"] == "OK" else f"OVER x{v['load']:.2f}"
-            vals = [geo.FACE_NAMES[int(k)], f"{100 * v['search_energy']:.1f}", f"{100 * v['confirm_energy']:.1f}",
-                    f"{100 * v['at_energy']:.1f}", f"{100 * v['total_energy']:.1f}", f"{100 * v['total_s_time']:.1f}",
+            vals = [geo.FACE_NAMES[int(k)], f"{self._e_pct(k, v['search_energy']):.1f}",
+                    f"{self._e_pct(k, v['confirm_energy']):.1f}", f"{self._e_pct(k, v['at_energy']):.1f}",
+                    f"{100 * v['total_energy']:.1f}", f"{100 * v['total_s_time']:.1f}",
                     f"{100 * v['total_ku_time']:.1f}", f"{status} ({v['binding']})"]
             for c, val in enumerate(vals):
                 item = QTableWidgetItem(val)

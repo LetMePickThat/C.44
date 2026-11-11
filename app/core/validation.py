@@ -343,7 +343,7 @@ def _flight(t: _Table, out: dict) -> None:
                   f"neighbour face load while the volume crosses ({f.get('transit_s', 0.0):.2f} s)")
 
 
-def _saturation(out: dict, state_at_spec: str) -> dict:
+def _saturation(out: dict, state_at_spec: str, mode: Optional[str] = None) -> dict:
     """Step 5.2 P7 in the verdict: the state at the specification and the room beyond it per track bracket."""
     pa = out.get("power_allocation") or {}
     p2 = [p_["label"] for p_ in pa.get("partial", [])
@@ -359,7 +359,7 @@ def _saturation(out: dict, state_at_spec: str) -> dict:
                        "critical_cumulative": (cr.get("cumulative") or {}).get("extra", {}).get(s),
                        "t_max_s": (cr.get("track_floors") or {}).get(s, {}).get("t_max_s")}
     return {"state_at_spec": "P2 unreachable" if p2 else state_at_spec, "p2_unreachable": p2,
-            "mode": cr.get("mode", margin.MODE_DEFAULT), "load_ceiling": sat.get("load_ceiling"),
+            "mode": cr.get("mode", mode or margin.MODE_DEFAULT), "load_ceiling": sat.get("load_ceiling"),   # (the mission's
             "brackets": brackets, "first_shed": cr.get("first_shed")}
 
 
@@ -387,7 +387,7 @@ def verdict(mission: dict, out: dict) -> dict:
     failing_p = sorted({r["priority"] for r in t.rows if r["state"] == "NOK" and r["priority"]})
     overlap = _overlap(out, t.rows, ceiling)
     return {"state": state, "load_ceiling": ceiling, "counts": counts, "limiting": limiting, "faces": faces,
-            "ship": ship, "nok_priorities": failing_p, "saturation": _saturation(out, sat_state),
+            "ship": ship, "nok_priorities": failing_p, "saturation": _saturation(out, sat_state, margin.realloc_mode(mission)),
             "constraints": t.rows, "redundancy": list(out.get("redundancy") or []), "overlap": overlap,
             "tight": _tight(t.rows, ceiling, out),
             "advice": advice(mission, out, t.rows, ceiling, overlap)}

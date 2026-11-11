@@ -47,13 +47,26 @@ def file_title(path, modified: bool) -> str:
     return (os.path.basename(path) if path else "(not saved)") + (" *" if modified else "")
 
 
-def confirm_discard(parent: QWidget, tool: str, modified: bool) -> bool:
-    """Before New, Open, an import or closing the window (pass V3): True when there is nothing unsaved or the user
-    agrees to discard it."""
+def confirm_discard(parent: QWidget, tool: str, modified: bool, save: Optional[Callable[[], object]] = None,
+                    is_modified: Optional[Callable[[], bool]] = None) -> bool:
+    """Before New, Open, an import or closing the window (pass V3): True when the action may go on. User, 11 November
+    2026: "Save the changes?" (Save / Don't save / Cancel) instead of "Discard the unsaved changes?" (Yes / No); Save
+    saves first (the action goes on only once saved: a save dialog cancelled stops it)."""
     if not modified:
         return True
-    return QMessageBox.question(parent, tool, "Discard the unsaved changes?",
-                                QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes
+    buttons = (QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel) if save is not None else         (QMessageBox.Discard | QMessageBox.Cancel)
+    box = QMessageBox(QMessageBox.Question, tool, f"Save the changes to the {tool.lower()}?", buttons, parent)
+    box.setDefaultButton(QMessageBox.Save if save is not None else QMessageBox.Cancel)
+    if save is not None:
+        box.button(QMessageBox.Save).setText("Save")
+    box.button(QMessageBox.Discard).setText("Don't save")
+    answer = box.exec_()
+    if answer == QMessageBox.Discard:
+        return True
+    if answer == QMessageBox.Save and save is not None:
+        save()
+        return not (is_modified() if is_modified is not None else False)
+    return False
 
 
 class _WheelScrollsPage(QObject):
@@ -421,4 +434,28 @@ class _Follow(QObject):
         if event.type() in (QEvent.Resize, QEvent.Move, QEvent.Show):
             self.overlay.place()
         return False
+
+
+# ----------------------------------------------------------------------------- U3: where the figures come from
+SOURCE_STYLES = {                       # (user, 11 November 2026: estimates and exact results told apart at a glance)
+    "estimate": ("ESTIMATE", "#6b7280"),                     # fast estimate, not recalibrated
+    "recalibrated": ("ESTIMATE \u00b7 recalibrated", "#2b579a"),   # fast estimate corrected by exact runs
+    "estimating": ("ESTIMATE \u00b7 computing", "#b7791f"),   # cost profiles still being computed (table meanwhile)
+    "exact": ("EXACT", "#2f8a4f"),                            # an exact calculation
+    "outdated": ("EXACT · OUTDATED", "#a8432f"),           # an exact result, the mission edited since
+}
+
+
+def source_badge(kind: str = "estimate", detail: str = "", tip: str = "") -> QLabel:
+    """A small coloured badge saying where the figures next to it come from (U3); set_source() changes it."""
+    lb = QLabel()
+    set_source(lb, kind, detail, tip)
+    return lb
+
+
+def set_source(lb: QLabel, kind: str, detail: str = "", tip: str = "") -> None:
+    text, colour = SOURCE_STYLES.get(kind, SOURCE_STYLES["estimate"])
+    lb.setText(f" {text}{' \u00b7 ' + detail if detail else ''} ")
+    lb.setStyleSheet(f"background: {colour}; color: white; font-weight: bold; border-radius: 3px; padding: 1px 4px;")
+    lb.setToolTip(tip)
 

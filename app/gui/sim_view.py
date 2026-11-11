@@ -1903,8 +1903,8 @@ class SimView(QWidget):
             self._playing = False
             self.timer.stop()
             self.bt_play.setIcon(uc.std_icon(self.bt_play, "SP_MediaPlay"))
-            self._draw_frame()                        # (the data boxes' texts at t)
-            self._draw_volumes()
+            self.bt_play.repaint()                    # (the pause shown at once, user 11 November 2026)
+            QTimer.singleShot(0, self._after_pause)
         elif self.sc is not None and self._valid:     # (the Space shortcut ignores the greyed button)
             if self.t >= self.duration() and self._run_complete():
                 self.t = 0.0
@@ -1912,6 +1912,11 @@ class SimView(QWidget):
             self._wall = time.perf_counter()
             self.timer.start(0)
             self.bt_play.setIcon(uc.std_icon(self.bt_play, "SP_MediaPause"))
+
+    def _after_pause(self) -> None:
+        if not self._playing:
+            self._draw_frame()                        # (the data boxes' texts at t)
+            self._draw_volumes()
 
     def _tick(self) -> None:
         """One frame; the next is scheduled after it with at least MIN_IDLE_MS left to the event loop, so the mouse
@@ -2831,9 +2836,22 @@ class SimView(QWidget):
             if a is not None:
                 a.SetVisibility(self.cb_zones.isChecked())
 
+    def set_achieved(self, achieved: Optional[dict]) -> None:
+        """The figures achieved per volume id (the owner's: the live estimate or the exact results), the labels'
+        second line (user, 11 November 2026)."""
+        if achieved != getattr(self, "_achieved", None):
+            self._achieved = dict(achieved or {})
+            if self._vol:
+                self._place_volumes()
+                self._render()
+
     def set_mission(self, mission: Optional[dict], hidden=()) -> None:
         """D (phase 6 merge): the mission being edited (its volumes drawn in the ship view, live) and the ids of its
-        sectors hidden; None: no volumes."""
+        sectors hidden; None: no volumes. A mission in the one-file format (user, 11 November 2026) carries its flight
+        plan, its last exact result and its profile: left out here (the view only draws the volumes; the mission is
+        copied at every rebuild)."""
+        if mission is not None:
+            mission = {k: v for k, v in mission.items() if k not in ("results", "profile", "flight_plan")}
         self.mission = mission
         self._hidden_ids = set(hidden)
         if self.truth is None:
@@ -2871,12 +2889,21 @@ class SimView(QWidget):
             for a in acts:
                 _set_user_matrix(a, u)
             pts.append(rot @ c + origin)
-        lab = vol.get("labels")
-        if lab is not None:
-            if pts and self.cb_object_labels.isChecked():
-                lab.set(np.array(pts), vol["texts"])
-            else:
-                lab.actor.SetVisibility(False)
+        ll = vol.get("line_labels")
+        if ll is not None:
+            from gui.scene_view import LABEL_ASKED, LABEL_NOK, LABEL_OK
+            shown = bool(pts) and self.cb_object_labels.isChecked()
+            ach = getattr(self, "_achieved", {}) or {}
+            ids = vol.get("ids") or [str(i) for i in range(len(vol["texts"]))]
+            for i, (pt, text, sid) in enumerate(zip(pts, vol["texts"], ids)):
+                a = ach.get(sid)
+                lines = [(text, LABEL_ASKED)]
+                if a:
+                    lines.append((f"worst {a['worst_km']:.0f} km  RR {a['rr_s']:.3g} s",
+                                  LABEL_OK if a["ok"] else LABEL_NOK))
+                ll.put(sid, pt, lines)
+            ll.keep(ids[:len(pts)])
+            ll.set_all_visible(shown)
 
     def _ship_home(self) -> None:
         """Default camera of the ship view: the iso view, out to the farthest object of the run (km)."""
@@ -4366,6 +4393,8 @@ class SimView(QWidget):
                 self.plotter.remove_actor(a, render=False)
             if self._vol.get("labels") is not None:
                 self.plotter.remove_actor(self._vol["labels"].actor, render=False)
+            if self._vol.get("line_labels") is not None:
+                self._vol["line_labels"].clear()
         self._vol = None
 
     def _poll_profiles(self) -> None:
@@ -4472,7 +4501,7 @@ class SimView(QWidget):
                 if ratio_of is not None:                     # the range gauge (km): held range, shortfall
                     green, red = cgeo.build_range_gauge(self.grid, sec, ratio_of, float(sec["range_km"]))
                     parts = [("green", green, None), ("red", red, None)]
-                    outline = cgeo.build_sector_outline_km_smooth(self.grid, sec)
+                    outline = cgeo.build_gauge_outline_km(self.grid, sec, sky_ship)   # (its limits: edges)
                 else:
                     parts, outline = cgeo.build_sector_volumes_km_smooth(self.grid, sec, e0, e1, sky_ship)
                     parts = [(k, p_, None) for k, p_ in parts]
@@ -4496,9 +4525,15 @@ class SimView(QWidget):
             vol["actors"] += acts
             vol["centres"].append(np.asarray(poly.center if poly.n_points else outline.center, float))
             vol["texts"].append(f"{raw.get('id', '?')}  R={raw.get('range_km', 0):.0f} km  "
-                                f"RR={raw.get('rr_target_s', 0):.0f} s")
+                                f"RR={raw.get('rr_target_s', 0):g} s")
+            vol.setdefault("ids", []).append(str(raw.get("id") or f"_idx{i}"))
         vol["rot"] = [np.eye(3)] * len(vol["per_sector"])
         vol["labels"] = _Labels(self.plotter, TEXT_COLOR, 16) if vol["per_sector"] else None
+        if vol["per_sector"]:                          # two lines, two colours (user, 11 November 2026)
+            if vol["labels"] is not None:
+                self.plotter.remove_actor(vol["labels"].actor, render=False)
+            vol["labels"] = None
+            vol["line_labels"] = v3.LineLabels(self.plotter, 16, box=False)
         self._vol = vol
         self._place_volumes()
         self._render()

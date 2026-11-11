@@ -28,6 +28,7 @@ Profile format (produced by core/time_profile.compute):
 from __future__ import annotations
 
 import json
+import math
 import os
 from typing import Callable, Dict, List, Optional
 
@@ -37,12 +38,15 @@ from PyQt5.QtWidgets import (QHBoxLayout, QHeaderView, QLabel, QProgressBar, QPu
                              QTableWidgetItem, QVBoxLayout, QWidget)
 
 from core import geometry as geo
+from gui import controls as uc
 
 STATE_COLORS = {"held": "#2fa35a", "degraded": "#c8551e", "lost": "#d6453d"}   # the verdict's colours (R3d)
 NO_DATA = "#bdbdbd"
 RESOURCES = ("energy", "S time", "Ku time")
 ROW_H = 18                                       # px per timeline row
-LABEL_W = 110                                    # px of the row labels
+LABEL_W = 150                                    # px of the row labels (with the maximum of a load row)
+AXIS_H = 20                                      # px of the time scale at the bottom (user, 11 November 2026)
+AXIS_TICKS = 10                                  # about this many graduations over the flight plan
 
 
 class ProfileWorker(QThread):
@@ -82,7 +86,7 @@ class Timeline(QWidget):
     def set_profile(self, prof: Optional[dict]) -> None:
         self.prof = prof
         n = 0 if prof is None else len(prof.get("volumes", {})) + 4 * len(RESOURCES) + 2
-        self.setMinimumHeight(max(4, n) * ROW_H + 8)
+        self.setMinimumHeight(max(4, n) * ROW_H + 8 + AXIS_H)
         self.update()
 
     def set_cursor(self, t: Optional[float]) -> None:
@@ -101,6 +105,39 @@ class Timeline(QWidget):
     def mousePressEvent(self, event) -> None:
         if self.prof and event.x() >= LABEL_W:
             self.picked.emit(self._t(event.x()))
+
+    @staticmethod
+    def _step(dur: float) -> float:
+        """A round graduation step (1, 2 or 5 x 10^n s, or minutes beyond 10 min) giving about AXIS_TICKS ticks."""
+        raw = max(dur / AXIS_TICKS, 1e-9)
+        base = 10.0 ** math.floor(math.log10(raw))
+        step = next(m * base for m in (1.0, 2.0, 5.0, 10.0) if m * base >= raw)
+        if dur > 600.0:                                    # minutes: steps of 1, 2, 5, 10, 15, 30 min...
+            step = next((m * 60.0 for m in (1, 2, 5, 10, 15, 30, 60, 120, 300, 600) if m * 60.0 >= raw),
+                        step)
+        return step
+
+    def _draw_axis(self, p: QPainter, dur: float) -> None:
+        """The time scale (user, 11 November 2026): graduations at the bottom, light lines across the rows."""
+        if dur <= 0:
+            return
+        step = self._step(dur)
+        y0 = self.height() - AXIS_H
+        p.setPen(QPen(QColor("#555555"), 1))
+        p.drawLine(int(LABEL_W), int(y0), int(self.width() - 6), int(y0))
+        p.drawText(QRectF(2, y0, LABEL_W - 6, AXIS_H), Qt.AlignVCenter | Qt.AlignLeft,
+                   "t (min)" if dur > 600.0 else "t (s)")
+        k = 0
+        while k * step <= dur + 1e-9:
+            t = k * step
+            x = self._x(t)
+            p.setPen(QPen(QColor("#e4e4e4"), 1))
+            p.drawLine(int(x), 2, int(x), int(y0))
+            p.setPen(QPen(QColor("#555555"), 1))
+            p.drawLine(int(x), int(y0), int(x), int(y0 + 4))
+            lab = f"{t / 60.0:g}" if dur > 600.0 else f"{t:g}"
+            p.drawText(QRectF(x - 30, y0 + 4, 60, AXIS_H - 4), Qt.AlignHCenter | Qt.AlignTop, lab)
+            k += 1
 
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
@@ -133,13 +170,14 @@ class Timeline(QWidget):
             f = prof.get("faces", {}).get(str(k), {})
             for res in RESOURCES:
                 vals = f.get(res) or []
+                v_max = max([float(x) for x in vals if x is not None] or [0.0])
                 p.setPen(QColor("#222222"))
                 p.drawText(QRectF(2, y, LABEL_W - 6, ROW_H), Qt.AlignVCenter | Qt.AlignLeft,
-                           f"{geo.FACE_NAMES[k]} {res}")
+                           f"{geo.FACE_NAMES[k]} {res} {100 * v_max:.3g}%")   # (its maximum: each row on its own scale)
                 p.setPen(QPen(QColor("#dddddd"), 1))
                 p.drawLine(int(LABEL_W), int(y + ROW_H - 2), int(self.width() - 6), int(y + ROW_H - 2))
-                top = max([1.0, ceil] + [float(x) for x in vals if x is not None])
-                if ceil > 0:
+                top = max(1.15 * v_max, 1e-6) if v_max < ceil else max(ceil, v_max) * 1.05
+                if 0 < ceil <= top:                       # the load ceiling, when it is within this row's scale
                     yc = y + ROW_H - 2 - (ROW_H - 4) * ceil / top
                     p.setPen(QPen(QColor("#999999"), 1, Qt.DotLine))
                     p.drawLine(int(LABEL_W), int(yc), int(self.width() - 6), int(yc))
@@ -154,6 +192,7 @@ class Timeline(QWidget):
                 p.setPen(QPen(QColor("#2b579a"), 1, Qt.DashLine))
                 x = self._x(float(e["t_s"]))
                 p.drawLine(int(x), 2, int(x), self.height() - 2)
+        self._draw_axis(p, dur)
         if self.cursor_t is not None:
             p.setPen(QPen(QColor("#000000"), 1))
             x = self._x(self.cursor_t)
@@ -163,13 +202,14 @@ class Timeline(QWidget):
 class ProfileTab(QWidget):
     """The Profile mode (module docstring). source() -> (mission, link, mission path) of the mission preparation."""
     instant_picked = pyqtSignal(float)
+    stored = pyqtSignal()                             # one file: the profile written into the mission
 
     def __init__(self, source: Callable[[], tuple], parent=None):
         super().__init__(parent)
         self._source = source
         self.prof: Optional[dict] = None
         self._worker: Optional[ProfileWorker] = None
-        self.b_compute = QPushButton("Compute profile")
+        self.b_compute = QPushButton("Recompute")          # U2: started by 'Calculate: flight plan' in the header
         self.b_compute.setToolTip("The mission at the instants sampled along the linked scenario's flight plan, each "
                                   "with its own plan (fast estimate), and the exact computation where it flags a loss")
         self.b_compute.clicked.connect(self.compute)
@@ -179,7 +219,11 @@ class ProfileTab(QWidget):
         self.bar = QProgressBar()
         self.bar.setVisible(False)
         self.status = QLabel("")
+        self.badge = uc.source_badge("estimate", "along the flight plan",
+                                     tip="Each instant by the fast estimate (recalibrated where exact calculations "
+                                         "exist); the instants recomputed exactly say so in the events table")
         head = QHBoxLayout()
+        head.addWidget(self.badge)
         head.addWidget(self.b_compute)
         head.addWidget(self.b_cancel)
         head.addWidget(self.bar, 1)
@@ -225,29 +269,33 @@ class ProfileTab(QWidget):
         elif link is None:
             self.status.setText("Link a computed scenario in the mission preparation to compute a profile.")
         elif self.prof is None:
-            self._load_beside(mission, link, path)
+            self._load_stored(mission, link)
 
-    def _profile_path(self, path: Optional[str]) -> Optional[str]:
-        return None if not path else os.path.splitext(path)[0] + ".profile.json"
-
-    def _load_beside(self, mission: dict, link, path: Optional[str]) -> None:
-        pp = self._profile_path(path)
-        if not pp or not os.path.isfile(pp):
+    def _load_stored(self, mission: dict, link) -> None:
+        """One file (user, 11 November 2026): the profile kept in the mission, shown when it still fits."""
+        from gui import scenario_link as slink
+        saved = mission.get(slink.PROFILE_KEY)
+        if not isinstance(saved, dict):
             return
         try:
             from core import time_profile
-            with open(pp, encoding="utf-8") as fh:
-                saved = json.load(fh)
-            if saved.get("key") == time_profile.key(mission, link):
-                self.show_profile(saved["profile"], f"profile loaded from {os.path.basename(pp)}")
-        except (OSError, ValueError, KeyError, ImportError, AttributeError):
+            if saved.get("key") == time_profile.key(slink.for_calculation(mission), link):
+                self.show_profile(saved["profile"], "profile kept with the mission")
+        except (KeyError, ImportError, AttributeError, TypeError, ValueError):
             pass
+
+    def forget(self) -> None:
+        """Another mission: the profile shown cleared (reloaded from the mission when it fits)."""
+        self.show_profile(None)
+        self.status.setText("")
+        self.refresh_availability()
 
     def compute(self) -> None:
         mission, link, _path = self._source()
         if link is None or self._worker is not None:
             return
-        self._worker = ProfileWorker(json.loads(json.dumps(mission, default=str)), link, self)
+        from gui import scenario_link as slink
+        self._worker = ProfileWorker(json.loads(json.dumps(slink.for_calculation(mission), default=str)), link, self)
         self._worker.progress.connect(self._on_progress)
         self._worker.finished_ok.connect(self._on_done)
         self._worker.failed.connect(self._on_failed)
@@ -283,14 +331,15 @@ class ProfileTab(QWidget):
         self._finish()
         self.show_profile(prof, "profile cancelled (partial)" if cancelled else
                           f"profile: {len(prof.get('t_s', []))} instants")
-        mission, link, path = self._source()
-        pp = self._profile_path(path)
-        if pp and not cancelled:
+        mission, link, _path = self._source()
+        if not cancelled and link is not None:          # one file: kept in the mission (saved with it)
             try:
                 from core import time_profile
-                with open(pp, "w", encoding="utf-8") as fh:
-                    json.dump({"key": time_profile.key(mission, link), "profile": prof}, fh)
-            except (OSError, ImportError, AttributeError, TypeError, ValueError):
+                from gui import scenario_link as slink
+                mission[slink.PROFILE_KEY] = {"key": time_profile.key(slink.for_calculation(mission), link),
+                                              "profile": prof}
+                self.stored.emit()
+            except (ImportError, AttributeError, TypeError, ValueError):
                 pass
 
     # ------------------------------------------------------------------ display

@@ -383,3 +383,96 @@ class SymbolLayer:
     def set_visible(self, on: bool) -> None:
         for e in self._items.values():
             e[2].SetVisibility(bool(on) and len(e[3]) > 0)
+
+
+class LineLabels:
+    """Labels of several lines, each line its own colour (user, 11 November 2026: a volume's label, what is asked in
+    grey over what is achieved in green or red): one vtkTextActor per line, placed on the screen under the previous one
+    before every render from the label's 3D point (VTK's label mappers draw one colour per label, drop a blank first
+    line and hide a label laid over another). Hidden when the point is behind the camera."""
+
+    def __init__(self, plotter, size: int, box: bool = True):
+        self.base_size, self.box = size, box
+        self._plotter = weakref.ref(plotter)
+        self._items: Dict[str, dict] = {}            # key -> {"pt", "lines": [(text, colour)], "actors", "visible"}
+        me = weakref.ref(self)
+        plotter.renderer.AddObserver("StartEvent", lambda *_a: me() is not None and me()._place())
+
+    def _size(self) -> int:
+        p = self._plotter()
+        return max(1, round(self.base_size * getattr(p, "_ui_scale", 1.0)))
+
+    def put(self, key: str, point, lines: Sequence[Tuple[str, str]]) -> None:
+        """The label `key` at the 3D point: lines [(text, colour)], top to bottom."""
+        from vtkmodules.vtkRenderingCore import vtkTextActor
+        p = self._plotter()
+        if p is None:
+            return
+        it = self._items.get(key)
+        if it is None:
+            it = self._items[key] = {"actors": [], "visible": True}
+        while len(it["actors"]) < len(lines):
+            a = vtkTextActor()
+            tp = a.GetTextProperty()
+            tp.SetBold(True)
+            tp.SetShadow(False)
+            tp.SetJustificationToLeft()
+            tp.SetVerticalJustificationToTop()
+            if self.box:
+                tp.SetBackgroundColor(0.0, 0.0, 0.0)
+                tp.SetBackgroundOpacity(0.75)
+            p.add_actor(a, reset_camera=False, render=False)
+            it["actors"].append(a)
+        while len(it["actors"]) > len(lines):
+            p.remove_actor(it["actors"].pop(), render=False)
+        for a, (text, colour) in zip(it["actors"], lines):
+            a.SetInput(f" {text} ")
+            a.GetTextProperty().SetColor(*(c / 255.0 for c in rgb(colour)))
+            a.GetTextProperty().SetFontSize(self._size())
+        it["pt"] = np.asarray(point, float).reshape(3)
+        it["lines"] = list(lines)
+
+    def keep(self, keys) -> None:
+        """Only these labels kept (the others removed)."""
+        for k in [k for k in self._items if k not in set(keys)]:
+            self.remove(k)
+
+    def remove(self, key: str) -> None:
+        it = self._items.pop(key, None)
+        p = self._plotter()
+        if it is not None and p is not None:
+            for a in it["actors"]:
+                p.remove_actor(a, render=False)
+
+    def clear(self) -> None:
+        for k in list(self._items):
+            self.remove(k)
+
+    def set_visible(self, key: str, on: bool) -> None:
+        if key in self._items:
+            self._items[key]["visible"] = bool(on)
+
+    def set_all_visible(self, on: bool) -> None:
+        for it in self._items.values():
+            it["visible"] = bool(on)
+
+    def _place(self) -> None:
+        """Before a render: each line at its label's point on the screen, under the previous one."""
+        p = self._plotter()
+        if p is None or not self._items:
+            return
+        ren = p.renderer
+        cam = ren.GetActiveCamera()
+        pos, fwd = np.asarray(cam.GetPosition(), float), np.asarray(cam.GetDirectionOfProjection(), float)
+        line_h = self._size() * 1.3
+        for it in self._items.values():
+            front = float((it["pt"] - pos) @ fwd) > 0.0
+            show = it["visible"] and front
+            if show:
+                ren.SetWorldPoint(*it["pt"], 1.0)
+                ren.WorldToDisplay()
+                x, y, _z = ren.GetDisplayPoint()
+            for i, a in enumerate(it["actors"]):
+                a.SetVisibility(show)
+                if show:
+                    a.SetDisplayPosition(int(x), int(y - i * line_h))

@@ -826,7 +826,7 @@ class ScenarioTab(QWidget):
 
     # ------------------------------------------------------------------ files
     def _confirm_discard(self) -> bool:
-        return uc.confirm_discard(self, "Scenario", self.modified)
+        return uc.confirm_discard(self, "Scenario", self.modified, save=self.save, is_modified=lambda: self.modified)
 
     def new(self) -> None:
         """P1: a new file, its properties asked first (Cancel: no file created)."""
@@ -839,9 +839,44 @@ class ScenarioTab(QWidget):
     def open(self) -> None:
         if not self._confirm_discard():
             return
-        path, _ = QFileDialog.getOpenFileName(self, "Open a scenario", self._dir(), "Scenario (*.json)")
+        path, _ = QFileDialog.getOpenFileName(self, "Open a scenario", SCENARIO_DIR, "Scenario (*.json)")   # (always)
         if path:
             self.open_path(path)
+
+    @staticmethod
+    def _empty_scenario() -> dict:
+        """A work file without a scenario yet (a mission alone): the editor's new scenario."""
+        return new_scenario()
+
+    def _is_work_file(self) -> bool:
+        from sim import document
+        try:
+            with open(self.path, encoding="utf-8") as fh:
+                return document.kind(json.load(fh)) == "document"
+        except (OSError, ValueError):
+            return False
+
+    def check_external(self) -> None:
+        """The work file changed on disk by the mission preparation (user, 11 November 2026): its scenario section
+        reloaded when the editor has no unsaved change (else said); the mission's volumes follow by themselves."""
+        if self.path is None or not os.path.exists(self.path):
+            return
+        mtime = os.path.getmtime(self.path)
+        if getattr(self, "_disk_mtime", None) is None or mtime == self._disk_mtime:
+            self._disk_mtime = mtime
+            return
+        self._disk_mtime = mtime
+        from sim import document
+        disk = document.read_section(self.path, "scenario")
+        if isinstance(disk, dict) and json.dumps(disk, sort_keys=True) != json.dumps(
+                {k: v for k, v in self.sc.items() if k != "mission"}, sort_keys=True):
+            if self.modified:
+                QMessageBox.information(self, "Scenario", "The scenario was changed in the file by another tool; your "
+                                        "unsaved changes are kept (saving them replaces it).")
+            else:
+                self.open_path(self.path)
+                return
+        self._push_mission()
 
     def open_path(self, path: str) -> None:
         try:
@@ -853,6 +888,12 @@ class ScenarioTab(QWidget):
         if not isinstance(sc, dict):
             QMessageBox.critical(self, "Scenario", f"{path}: not a scenario (a JSON object is needed)")
             return
+        from sim import document
+        if document.kind(sc) == "document":           # the work file (user, 11 November 2026): its scenario section
+            sc = sc.get("scenario") or self._empty_scenario()
+        elif document.kind(sc) == "mission":          # a mission (its flight plan, or none yet)
+            sc = (sc.get("flight_plan") or {}).get("scenario") or self._empty_scenario()
+        sc = dict(sc)
         sc.setdefault("objects", [])
         sc.setdefault("groups", [])
         self._set_scenario(sc, path)          # loaded as written: the problems show in the validation list
@@ -873,14 +914,16 @@ class ScenarioTab(QWidget):
         if err and QMessageBox.question(self, "Scenario", f"The scenario has {len(err)} problem(s). Save anyway?",
                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return
-        try:
-            with open(path, "w", encoding="utf-8", newline="\n") as fh:
-                json.dump(self.sc, fh, indent=1, ensure_ascii=False)
-        except OSError as exc:
+        try:                                          # the work file: the scenario section only (user, 11 Nov 2026)
+            from sim import document
+            document.save_sections(path, {"scenario": self.sc}, check=False)
+        except (OSError, ValueError) as exc:
             QMessageBox.critical(self, "Scenario", f"{path}: {exc}")
             return
         self.path, self.modified = path, False
+        self._disk_mtime = os.path.getmtime(path)
         self._update_title()
+        self._push_mission()
 
     def export_mission(self) -> None:
         """Pass S4 (N9): the scenario's mission with the navigation and the sky at an instant t, for the mission
@@ -889,7 +932,8 @@ class ScenarioTab(QWidget):
             QMessageBox.information(self, "Scenario", "Save the scenario first.")
             return
         try:
-            sc = scn.load(self.path)
+            from sim import run as srun
+            sc = srun.load_scenario(self.path)        # (the work file's scenario section, or a former scenario)
         except scn.ScenarioError as exc:
             QMessageBox.critical(self, "Scenario", str(exc))
             return
@@ -925,6 +969,7 @@ class ScenarioTab(QWidget):
 
     def _set_scenario(self, sc: dict, path: Optional[str]) -> None:
         self.sc, self.path, self.modified = sc, path, False
+        self._disk_mtime = os.path.getmtime(path) if path and os.path.exists(path) else None
         self._set_loaded(True)
         self._rebuild_tree()
         self._validate()
@@ -1280,17 +1325,25 @@ class ScenarioTab(QWidget):
         again when it changes on disk."""
         if not hasattr(self.preview, "set_mission"):
             return
+        from sim import document
         ref = self.sc.get("mission")
-        if not ref:
+        own = self.path is not None and os.path.exists(self.path) and (not ref or self._is_work_file())
+        if not ref and not own:
             self._mission_cache = None
             self.preview.set_mission(None)
             return
-        path = os.path.normpath(os.path.join(self._dir(), ref))
+        # the work file (user, 11 November 2026): its own mission section; a former scenario: the mission file named
+        path = self.path if own else os.path.normpath(os.path.join(self._dir(), ref))
         try:
             mtime = os.path.getmtime(path)
             if self._mission_cache is None or self._mission_cache[:2] != (path, mtime):
                 from core import mission as cm
-                self._mission_cache = (path, mtime, cm.load_mission(path))
+                m = document.read_section(path, "mission") if own else cm.load_mission(path)
+                if not isinstance(m, dict) or not m.get("sectors"):
+                    self._mission_cache = None
+                    self.preview.set_mission(None)
+                    return
+                self._mission_cache = (path, mtime, m)
         except (OSError, ValueError) as exc:
             self._mission_cache = None
             self.preview.set_mission(None)

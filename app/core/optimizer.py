@@ -2432,7 +2432,8 @@ def _mission_choice(out: dict) -> Dict[str, Tuple[float, float]]:
 
 
 def _confirm(mission: dict, sectors: List[dict], results: List[dict], out: dict, keep: Dict[str, dict], args: tuple,
-             parallel: bool, cancel_cb, eps_min: float, eps_max: float, p_avg_max: float, sky: Optional[dict]):
+             parallel: bool, cancel_cb, eps_min: float, eps_max: float, p_avg_max: float, sky: Optional[dict],
+             stage_cb=None):
     """Pass R3c (user, 10 November 2026): confirmation of the rule by the exact computation. The rule assumes a cost
     proportional to the level m (range m^(1/4), then the revisit); a volume it does not serve in full is re-planned at
     rho x R and its revisit tenable (allocation.search_effect), the mission assembled again, and the rule's level on
@@ -2498,6 +2499,9 @@ def _confirm(mission: dict, sectors: List[dict], results: List[dict], out: dict,
                              rr_target_s=rr))
         history.append({"pass": it + 1, "re-planned": {sid: {"rho": v[0], "rr_tenable_s": v[1]}
                                                        for sid, v in want.items()}})
+        if stage_cb is not None:
+            stage_cb(f"Allocation confirmation, re-planning {it + 1} of at most {CONFIRM_REPLANS}: "
+                     + ", ".join(f"{sid} at {100 * v[0]:.0f} % of its range" for sid, v in sorted(want.items())))
         new = {}
         if todo:
             if parallel and len(todo) > 1:
@@ -2522,7 +2526,8 @@ def _confirm(mission: dict, sectors: List[dict], results: List[dict], out: dict,
     return results, out, cancelled
 
 
-def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] = None, keep_plans: bool = False) -> dict:
+def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] = None, keep_plans: bool = False,
+        stage_cb=None) -> dict:
     """progress_cb(done, total, sector_id) is called after each sector (optional, e.g. for a UI
     progress bar). cancel_cb() is polled between sectors (every 0.2 s in parallel mode); if it returns True,
     run() stops early and returns the partial result with "cancelled": True (sectors not computed are absent).
@@ -2588,6 +2593,9 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
         history.append({"pass": it + 1, "re-planned": sorted(redo), "mission_choice": sorted(choice),
                         "couplings": {sid: {x: v for x, v in k.items() if x != "_force_plan"} for sid, k in redo.items()}})
         todo = [dict(sec, **redo[sec["id"]]) for sec in sectors if sec["id"] in redo]
+        if stage_cb is not None:                     # (user, 11 November 2026: the dialog said nothing meanwhile)
+            stage_cb(f"Global optimisation, pass {it + 1} of at most {GOPT_MAX_ITER}: re-planning "
+                     f"{', '.join(sorted(redo))} (couplings between the volumes)")
         if parallel and len(todo) > 1:
             again, cancelled = _run_parallel(todo, eps_min, eps_max, p_avg_max, None, cancel_cb, sky=sky)
         else:
@@ -2605,12 +2613,16 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
                          "converged": len(history) < GOPT_MAX_ITER - 1}
     if not cancelled:                        # final allocation rule, pass R3c: the degraded volumes re-planned
         keep = {sid: {x: v for x, v in k.items() if x != "_force_plan"} for sid, k in applied.items()}
+        if stage_cb is not None:
+            stage_cb("Allocation: checking that the resources hold every volume")
         results, out, cancelled = _confirm(mission, sectors, results, out, keep, args, parallel, cancel_cb,
-                                           eps_min, eps_max, p_avg_max, sky)
+                                           eps_min, eps_max, p_avg_max, sky, stage_cb)
     # step 5.2 (P4, P7): the margin the mission leaves is reused to shorten the revisits (realloc_mode PRIO_SEARCH),
     # up to the load ceiling; a face above the ceiling eats its safety reserve (alert)
     from . import margin
     if not cancelled:
+        if stage_cb is not None:
+            stage_cb("Saturation table: how many more tracks each bracket could take")
         out["warnings"].extend(margin.ceiling_flags(mission, out))
         keep = {sid: {x: v for x, v in k.items() if x != "_force_plan"} for sid, k in applied.items()}
         sat = margin.saturation(
@@ -2620,6 +2632,8 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
             out["saturation"] = sat
             out["warnings"].extend(sat["flags"])
     if not cancelled and margin.realloc_mode(mission) == "PRIO_SEARCH":
+        if stage_cb is not None:
+            stage_cb("Reallocation: the spare shortens the search revisits (PRIO_SEARCH)")
         keep = {sid: {x: v for x, v in k.items() if x != "_force_plan"} for sid, k in applied.items()}
         mr = margin.reuse(mission, out,
                           lambda mis, res: _assemble(mis, mis["sectors"], res, cancelled, *args),

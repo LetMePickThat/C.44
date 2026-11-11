@@ -565,6 +565,7 @@ def held_ratio_function(grid: SphereGrid, sec: dict, eps_min: float, eps_max: fl
     rec = alloc.get("by_sector", {}).get(str(sid if sid is not None else sec.get("id")))
     rho = float(rec["rho"]) if rec else 0.0
     useful_of = useful_ratio_function(sec, sky)
+    rc = (alloc.get("reach") or {}).get(str(sid if sid is not None else sec.get("id")))
 
     def ratio_of(d, face=None):
         d = np.asarray(d, float).reshape(-1, 3)
@@ -574,7 +575,13 @@ def held_ratio_function(grid: SphereGrid, sec: dict, eps_min: float, eps_max: fl
             ok = (owner >= 0) & (eps >= eps_min) & (eps <= eps_max)
         else:                               # (directions known to be face's)
             ok = np.ones(len(d), bool)
-        return np.minimum(np.where(ok, rho, 0.0), np.clip(np.asarray(useful_of(d), float), 0.0, 1.0))
+        held = np.minimum(np.where(ok, rho, 0.0), np.clip(np.asarray(useful_of(d), float), 0.0, 1.0))
+        if rc and rc.get("r_want_km"):                 # (the range reachable at full pulse at the face's scan angle)
+            _o, w_, _u, _v = mo.face_of(d[:, 0], d[:, 1], d[:, 2])
+            th = np.degrees(np.arccos(np.clip(w_, 0.0, 1.0)))
+            cap = np.interp(np.clip(th, rc["th"][0], rc["th"][-1]), rc["th"], rc["r_reach_km"]) / rc["r_want_km"]
+            held = np.minimum(held, np.clip(cap, 0.0, 1.0))
+        return held
     ratio_of.eps_window = (eps_min, eps_max)
     ratio_of.useful_of = useful_of
     ratio_of.limb = limb_function(sky, sec)                   # G2: the shells cut along the horizon
@@ -647,7 +654,92 @@ def build_range_gauge(grid: SphereGrid, sec: dict, ratio_of, radius: float,
         red = reds
     elif red.n_points:
         red.points = red.points / np.linalg.norm(red.points, axis=1)[:, None] * radius
+    if not normalise:                                          # the volume's limits (user, 11 November 2026)
+        green = _gauge_walls(green, limb, lambda d_: np.zeros(len(d_)))
+        red = _gauge_walls(red, limb, lambda d_: np.clip(np.asarray(ratio_of(d_), float), 0.0, 1.0) * radius)
     return green, red
+
+
+def _gauge_walls(shell: pv.PolyData, limb, floor_of) -> pv.PolyData:
+    """The range gauge as volumes, not only their outer face (user, 11 November 2026): the shell (all faces merged,
+    so that no wall stands at a seam between two faces) closed by walls from its free edges down to floor_of(d) (km;
+    0: the radar, for the part held; the range held, for the part short of it), and along the horizon by the tangent
+    cone between the shell and the horizon distance (no lower than the floor)."""
+    if not shell.n_points:
+        return shell
+    span = float(np.linalg.norm(shell.points, axis=1).max())
+    sh = shell.clean(tolerance=1e-7, absolute=False)
+    edges = sh.extract_feature_edges(boundary_edges=True, feature_edges=False, manifold_edges=False,
+                                     non_manifold_edges=False)
+    if not edges.n_points:
+        return sh
+    pts = np.asarray(edges.points, float)
+    seg = edges.lines.reshape(-1, 3)[:, 1:]
+    r = np.linalg.norm(pts, axis=1)
+    u = pts / np.maximum(r, 1e-12)[:, None]
+    low = np.minimum(np.asarray(floor_of(u), float), r)
+    if limb is not None:                                       # an edge on the horizon: the cone down to its distance
+        margin_of, limb_range_of = limb
+        on = np.abs(margin_of(u)) <= _LIMB_TOL_DEG
+        both = on[seg[:, 0]] & on[seg[:, 1]]
+        lr = np.minimum(np.asarray(limb_range_of(u), float), r)
+        low = np.where(on, np.maximum(lr, low), low)
+        keep = ~(both & (np.abs(r[seg[:, 0]] - low[seg[:, 0]]) < 1e-6 * span)
+                 & (np.abs(r[seg[:, 1]] - low[seg[:, 1]]) < 1e-6 * span))   # (no strip of zero height)
+        seg = seg[keep]
+    n = len(pts)
+    a, b = seg[:, 0], seg[:, 1]
+    tris = np.vstack([np.column_stack([np.full(len(seg), 3), a, b, n + b]),
+                      np.column_stack([np.full(len(seg), 3), a, n + b, n + a])]).astype(np.int64).ravel()
+    walls = pv.PolyData(np.vstack([pts, u * low[:, None]]), tris)
+    return sh.append_polydata(walls)
+
+
+def lateral_edges(outline_unit: pv.PolyData, r_of, turn_deg: float = 30.0) -> pv.PolyData:
+    """The volume's lateral edges (user, 11 November 2026): lines from the radar to the corners of its outline (the
+    points where the outline turns by more than turn_deg), each at the range its direction needs (r_of, km)."""
+    if not outline_unit.n_points:
+        return pv.PolyData()
+    o = outline_unit.clean(tolerance=1e-9, absolute=False)
+    pts = o.points / np.linalg.norm(o.points, axis=1)[:, None]
+    seg = o.lines.reshape(-1, 3)[:, 1:]
+    nb: Dict[int, List[int]] = {}
+    for a, b in seg:
+        nb.setdefault(int(a), []).append(int(b))
+        nb.setdefault(int(b), []).append(int(a))
+    corners = []
+    for i, js in nb.items():
+        if len(js) != 2:
+            continue
+        v1, v2 = pts[js[0]] - pts[i], pts[js[1]] - pts[i]
+        n1, n2 = float(np.linalg.norm(v1)), float(np.linalg.norm(v2))
+        if n1 <= 0 or n2 <= 0:
+            continue
+        ang = math.degrees(math.acos(float(np.clip(-(v1 @ v2) / (n1 * n2), -1.0, 1.0))))
+        if ang >= turn_deg:
+            corners.append(i)
+    if not corners:
+        return pv.PolyData()
+    c = pts[corners]
+    tips = c * np.asarray(r_of(c), float)[:, None]
+    lines = np.column_stack([np.full(len(c), 2), np.zeros(len(c), np.int64), np.arange(1, len(c) + 1)]).ravel()
+    return pv.PolyData(np.vstack([[[0.0, 0.0, 0.0]], tips]), lines=lines.astype(np.int64))
+
+
+def build_gauge_outline_km(grid: SphereGrid, sec: dict, sky: Optional[dict] = None) -> pv.PolyData:
+    """The range gauge's edges: the whole volume's outline at the range it needs (following the ground, G3) and its
+    lateral edges down to the radar (user, 11 November 2026)."""
+    _ex, outline, _hole = build_sector_split_smooth(grid, sec, radius=1.0)
+    if not outline.n_points:
+        return pv.PolyData()
+    r = float(sec["range_km"])
+    useful_of = useful_ratio_function(sec, sky)
+
+    def r_of(d):
+        return np.asarray(useful_of(d), float) * r
+    out = place_outline(outline, r_of, limb_function(sky, sec))
+    lat = lateral_edges(outline, r_of)
+    return out if not lat.n_points else out.append_polydata(lat)
 
 
 def _walls(cap: pv.PolyData) -> pv.PolyData:

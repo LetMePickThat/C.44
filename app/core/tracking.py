@@ -43,6 +43,7 @@ import copy
 import dataclasses
 import functools
 import math
+import json
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -1902,3 +1903,53 @@ def _relax_advice(k: int, key: str, load: float, res: dict, sbs: Dict[str, dict]
         cut = f", cut by {100 * excess / v:.0f} % to fit alone" if v >= excess else ""
         parts.append(f"{name} {100 * v:.0f} % ({hint}{cut})")
     return (f"face F{k + 1} over-subscribed x{load:.2f} on {_RES_NAME[key]}: largest items " + "; ".join(parts))
+
+
+# ----------------------------------------------------------------------------- confirmation feasibility (fast estimate)
+_CONFIRM_FEASIBLE_CACHE: Dict[str, Tuple[bool, str]] = {}
+
+
+def confirmation_feasible(sec: dict, g: Optional[dict] = None, f_s_ghz: float = 2.8,
+                          f_ku_ghz: float = KU_REF_GHZ) -> Tuple[bool, str]:
+    """(admissible, why not) of the confirmation of a volume's detections, for the fast estimate (user, 11 November
+    2026: the live load said OK for S01 at 20 000 km while the exact calculation found 'no admissible confirmation
+    mode': its detections could never become tracks). The same statistics as the exact budget (ConfirmStats, K2-K9:
+    the first detection under the cumulative criterion, the S / Ku beams, the clusters, the attempts, the margins up to
+    margin_db_max), which do not depend on the range, the scan angle nor the energy; the Ku reach and the scan limit
+    are left to the exact calculation. Cached per volume requirements."""
+    s = _with_mission_settings(sec, g or {})
+    tgt = mo.sector_target(s)
+    p_min = float(s.get("confirm_p_min", CONFIRM_P_MIN))
+    q_cum = float(s["v_close_max_mps"]) * float(s["rr_target_s"]) / (float(s["range_km"]) * 1e3)
+    pd = float(s.get("pd", rm.DETECT_PD))
+    spacing = s.get("_grid_spacing")
+    key = json.dumps([tgt.target_type, tgt.rcs_m2, tgt.swerling, getattr(tgt, "fluct_s", None), p_min,
+                      round(q_cum, 9), pd, spacing, f_s_ghz, f_ku_ghz], default=str)
+    hit = _CONFIRM_FEASIBLE_CACHE.get(key)
+    if hit is not None:
+        return hit
+    fl_s = rm.look_fluctuation(tgt, f_s_ghz, tgt.swerling, 1, 0.0)
+    fl_ku = rm.look_fluctuation(tgt, f_ku_ghz, tgt.swerling, 1, 0.0)
+    x_first = first_detection_snr_quantiles(fl_s, pd, round(q_cum, 9))
+    ok = False
+    for mode in CONFIRM_MODES:
+        for att in range(CONFIRM_ATTEMPTS, max(CONFIRM_ATTEMPTS, CONFIRM_ATTEMPTS_MAX) + 1):
+            for cl in cluster_variants():
+                st = ConfirmStats(fl_s, fl_ku, f_s_ghz, f_ku_ghz, spacing, cl, p_min, x_first, att)
+                if mode == "S2":
+                    mts = np.arange(0.0, MARGIN_MAX_DB + TOUCH_STEP_DB / 2.0, TOUCH_STEP_DB)
+                    ok = bool(np.isfinite(st.s2_min_margins(mts)).any())
+                else:
+                    ok = st.min_margin(lambda x, st_=st, m_=mode: st_.ku(m_, x)[0]) is not None
+                if ok:
+                    break
+            if ok:
+                break
+        if ok:
+            break
+    out = (ok, "" if ok else f"no admissible confirmation mode: confirmation probability < {p_min:g} even with "
+                               f"{MARGIN_MAX_DB:g} dB margin (its detections could not become tracks)")
+    if len(_CONFIRM_FEASIBLE_CACHE) > 512:
+        _CONFIRM_FEASIBLE_CACHE.clear()
+    _CONFIRM_FEASIBLE_CACHE[key] = out
+    return out

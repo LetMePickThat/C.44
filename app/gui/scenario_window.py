@@ -27,6 +27,16 @@ TITLE = "Scenario Editor"
 
 
 class ScenarioWindow(QMainWindow):
+    def changeEvent(self, event) -> None:
+        """Back to the front: the work file re-read if another tool changed it (user, 11 November 2026)."""
+        super().changeEvent(event)
+        from PyQt5.QtCore import QEvent
+        if event.type() == QEvent.ActivationChange and self.isActiveWindow():
+            try:
+                self.scenario.check_external()
+            except Exception:  # noqa: BLE001 -- a convenience: never blocks the editor
+                pass
+
     def __init__(self, path: Optional[str] = None):
         super().__init__()
         self.setWindowTitle(TITLE)

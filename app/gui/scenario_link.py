@@ -34,7 +34,48 @@ from sim import scenario as scn
 
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCENARIO_DIR = os.path.join(APP_DIR, "scenarios")
-LINK_KEY = "scenario_link"
+LINK_KEY = "scenario_link"                       # {"t_s": the mission's instant} (+ "path" in the former format)
+FLIGHT_PLAN_KEY = "flight_plan"                  # {"scenario": the scenario copied, "source": its file, "imported_utc"}
+RESULTS_KEY = "results"                          # {"exact": the last exact result, "computed", "mission_sig"}
+PROFILE_KEY = "profile"                          # {"key": its fingerprint, "profile": the profile along the plan}
+DERIVED_KEYS = (RESULTS_KEY, PROFILE_KEY)        # what a calculation never reads
+CACHE_DIR = os.path.join(APP_DIR, ".flight_plan_cache")   # the runs of the copied flight plans (recomputed if gone)
+
+
+def embedded_path(sc: dict) -> str:
+    """One file per mission (user, 11 November 2026): the mission keeps a COPY of its flight plan (the scenario); its
+    run is a cache, recomputed when missing: the copy is written once into CACHE_DIR under a fingerprint of the
+    scenario and of the parameter file, and its run computed next to it (the Scenario Editor's sim.run, unchanged)."""
+    import hashlib
+    key = hashlib.sha1((json.dumps(sc, sort_keys=True, default=str) + "|" + engine.params_hash())
+                       .encode("utf-8")).hexdigest()[:16]
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    path = os.path.join(CACHE_DIR, f"flight_plan_{key}.json")
+    if not os.path.exists(path):
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
+            json.dump(sc, fh, indent=1, ensure_ascii=False)
+    return path
+
+
+def copy_run(src_path: str, dst_path: str) -> None:
+    """The run already computed next to a scenario file copied beside its cached copy (no recomputation)."""
+    import shutil
+    for a, b in zip(engine.journal_paths(src_path), engine.journal_paths(dst_path)):
+        if os.path.exists(a) and not os.path.exists(b):
+            shutil.copyfile(a, b)
+
+
+def mission_signature(mission: dict) -> str:
+    """The mission as a calculation reads it (the stored results and profile left out)."""
+    import hashlib
+    core = {k: v for k, v in mission.items() if k not in DERIVED_KEYS}
+    return hashlib.sha1(json.dumps(core, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+
+
+def for_calculation(mission: dict) -> dict:
+    """A copy of the mission without what a calculation never reads (results, profile: heavy)."""
+    import copy
+    return copy.deepcopy({k: v for k, v in mission.items() if k not in DERIVED_KEYS})
 
 
 class LinkError(Exception):

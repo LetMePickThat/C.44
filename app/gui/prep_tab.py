@@ -22,7 +22,7 @@ from PyQt5.QtWidgets import (
     QApplication,
     QAbstractItemView, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView,
     QLabel, QLineEdit, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea,
-    QShortcut, QSlider, QSpinBox,
+    QShortcut, QSlider, QSpinBox, QToolButton,
     QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
@@ -100,6 +100,8 @@ PANEL_VIEW_MIN_W = 700                 # px left at least to the 3D view when th
 
 class PrepTab(QWidget):
     run_requested = pyqtSignal(dict)   # frozen (deep) copy of a valid mission to optimise
+    profile_requested = pyqtSignal()   # U2: the calculation along the flight plan (the Profile mode runs it)
+    results_reopened = pyqtSignal()    # one file: a mission opened (its stored exact result may be shown)
     title_changed = pyqtSignal(str)    # the file name, " *" when modified (pass V3)
 
     def __init__(self, mission: dict, grid: geo.SphereGrid, parent=None):
@@ -173,7 +175,7 @@ class PrepTab(QWidget):
         v.addWidget(self._build_nav_group())
         v.addWidget(self._build_sector_list_group())
         v.addWidget(self._build_sector_form_group())
-        v.addWidget(self._build_gauges_group())
+        # (user, 11 November 2026: the per-face budget removed, a duplicate of the live load under the view)
         v.addWidget(self._build_alerts_group())
         self._build_actions()
         v.addStretch(1)
@@ -356,18 +358,18 @@ class PrepTab(QWidget):
         """A scenario computed by the Scenario Editor (its run, gui/scenario_link.py) gives the navigation and the
         sky of its ship at an instant t (user, 10 November 2026); the navigation is then read only (Unlink: kept,
         editable again)."""
-        box = QGroupBox("Scenario (use case)")
+        box = QGroupBox("Flight plan (linked scenario)")       # U1: the mission's flight plan, not another file
         self._edit_widgets.append(box)
         self._link: Optional[slink.ScenarioLink] = None
         self._link_problem = ""                        # a link of the mission file that could not be opened
         form = QFormLayout(box)
         self.lbl_scn = QLabel()
         self.lbl_scn.setWordWrap(True)
-        self.btn_scn_load = QPushButton("Load scenario...")
+        self.btn_scn_load = QPushButton("From a scenario...")
         self.btn_scn_load.setToolTip("A scenario of the Scenario Editor: its run gives the navigation and the sky of "
                                      "the ship at the instant chosen (its run computed first if needed)")
         self.btn_scn_load.clicked.connect(lambda _c=False: self.load_scenario())
-        self.btn_scn_unlink = QPushButton("Unlink")
+        self.btn_scn_unlink = QPushButton("Remove")
         self.btn_scn_unlink.setToolTip("Forget the scenario: the navigation and the sky of the instant shown are "
                                        "kept, editable again")
         self.btn_scn_unlink.clicked.connect(lambda _c=False: self.unlink_scenario())
@@ -411,8 +413,9 @@ class PrepTab(QWidget):
             return
         link = self._link
         if link is not None:
-            text = (f"<b>{link.name}</b> ({os.path.basename(link.path)}), run of {link.duration:g} s: the navigation "
-                    "and the sky below are the ship's at t.")
+            src = (self.mission.get(slink.FLIGHT_PLAN_KEY) or {}).get("source")
+            text = (f"<b>{link.name}</b>" + (f" (copied from {os.path.basename(str(src))})" if src else "")
+                    + f", {link.duration:g} s: the navigation and the sky below are the ship's at t.")
         elif self._link_problem:
             text = f"Scenario not available: {self._link_problem}. The navigation below is the one saved."
         else:
@@ -492,6 +495,32 @@ class PrepTab(QWidget):
                 self._link_problem = str(exc)
             return None
 
+    def store_result(self, mission_used: dict, result: dict) -> None:
+        """One file (user, 11 November 2026): the last exact result kept in the mission, with the signature of the
+        mission it was computed for (reopened with the mission while it still fits)."""
+        link = mission_used.get(slink.LINK_KEY) if isinstance(mission_used.get(slink.LINK_KEY), dict) else {}
+        self.mission[slink.RESULTS_KEY] = {"exact": result, "computed": result.get("_computed_local", ""),
+                                          "t_s": link.get("t_s"),
+                                          "mission_sig": slink.mission_signature(mission_used)}
+        self._update_title()
+
+    def stored_result_fits(self) -> bool:
+        r = self.mission.get(slink.RESULTS_KEY)
+        return isinstance(r, dict) and r.get("mission_sig") == slink.mission_signature(self.mission)
+
+    def _open_embedded(self, sc: dict) -> Optional[slink.ScenarioLink]:
+        """The flight plan copied in the mission: its run from the cache, computed first when missing (a progress
+        dialog, no question: it is the mission's own flight plan)."""
+        try:
+            path = slink.embedded_path(sc)
+            if not os.path.exists(slink.journal_path(path)) and not slink.compute(self, path):
+                self._link_problem = "the flight plan's run was not computed"
+                return None
+            return slink.load(path)
+        except (slink.LinkError, OSError) as exc:
+            self._link_problem = str(exc)
+            return None
+
     def load_scenario(self, path: Optional[str] = None) -> None:
         """A scenario as the mission's use case: its ship's navigation and sky at t = 0 (then the instant chosen)."""
         if self.locked:
@@ -504,8 +533,15 @@ class PrepTab(QWidget):
         link = self._open_link(path, ask=True)
         if link is None:
             return
+        from datetime import datetime, timezone
+        self.mission[slink.FLIGHT_PLAN_KEY] = {                # one file (user, 11 November 2026): a COPY
+            "scenario": link.sc, "source": slink.relative(path, self.path),
+            "imported_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+        if not link.stale:
+            slink.copy_run(path, slink.embedded_path(link.sc))
         self._link, self._link_problem = link, ""
-        self.mission[slink.LINK_KEY] = {"path": slink.relative(link.path, self.path), "t_s": 0.0}
+        self._scenario_dirty = True                   # (written with the mission at the next save)
+        self.mission[slink.LINK_KEY] = {"t_s": 0.0}
         self._show_link()
         self._set_scn_t(0.0)
         self._apply_scenario_t()
@@ -534,6 +570,8 @@ class PrepTab(QWidget):
         if self.locked:
             return
         self.mission.pop(slink.LINK_KEY, None)
+        self.mission.pop(slink.FLIGHT_PLAN_KEY, None)
+        self._scenario_dirty = True
         self._link, self._link_problem = None, ""
         self._show_link()
         self.view.set_scenario(None)
@@ -542,11 +580,22 @@ class PrepTab(QWidget):
     def _relink(self) -> None:
         """At a mission's opening: its scenario reopened (its run as computed; the navigation kept as saved)."""
         self._link, self._link_problem = None, ""
+        self._converted = False
         info = self.mission.get(slink.LINK_KEY)
-        if isinstance(info, dict) and info.get("path"):
-            link = self._open_link(slink.resolve(str(info["path"]), self.path), ask=False)
+        fp = self.mission.get(slink.FLIGHT_PLAN_KEY)
+        if isinstance(fp, dict) and isinstance(fp.get("scenario"), dict):
+            self._link = self._open_embedded(fp["scenario"])
+        elif isinstance(info, dict) and info.get("path"):       # the former format: a link to a scenario file
+            path = slink.resolve(str(info["path"]), self.path)
+            link = self._open_link(path, ask=False)
             if link is not None:
                 self._link = link
+                self.mission[slink.FLIGHT_PLAN_KEY] = {"scenario": link.sc, "source": str(info["path"])}
+                info.pop("path", None)
+                if not link.stale:
+                    slink.copy_run(path, slink.embedded_path(link.sc))
+                self._converted = True                          # (to be saved in the one-file format)
+                self._scenario_dirty = True
         self._show_link()
         if self._link is not None:
             self._set_scn_t(float(info.get("t_s", 0.0)))
@@ -955,31 +1004,6 @@ class PrepTab(QWidget):
         v.addWidget(note)
         return self.grp_at
 
-    def _build_gauges_group(self) -> QGroupBox:
-        box = QGroupBox("Per-face budget (fast estimate)")
-        v = QVBoxLayout(box)
-        self.gauges: Dict[int, Dict[str, QWidget]] = {}
-        for k in range(4):
-            row_box = QGroupBox(f"{geo.FACE_NAMES[k]} (phi={geo.FACE_PHI_DEG[k]:.0f} deg)")
-            row_box.setStyleSheet(f"QGroupBox::title {{ color: {geo.FACE_COLORS[k]}; }}")
-            form = QFormLayout(row_box)
-            pb_e = QProgressBar(); pb_e.setRange(0, 100); pb_e.setFormat("energy %p%")
-            pb_t = QProgressBar(); pb_t.setRange(0, 100); pb_t.setFormat("time on air >= %p%")
-            lbl_kw = QLabel("0 kW")
-            form.addRow("Energy", pb_e)
-            form.addRow("Time on air (lower bound)", pb_t)
-            lbl_margin = QLabel("-")
-            form.addRow("Average power", lbl_kw)
-            form.addRow("Tracking margin", lbl_margin)
-            v.addWidget(row_box)
-            self.gauges[k] = {"energy": pb_e, "time": pb_t, "kw": lbl_kw, "margin": lbl_margin}
-        note = QLabel("Fast estimate (precomputed table + one Ku look per face for active tracking): indicative "
-                       "while editing. The exact budget (incl. confirmation) comes from 'Calculate'.")
-        note.setWordWrap(True)
-        note.setStyleSheet("color: gray; font-size: 11px;")
-        v.addWidget(note)
-        return box
-
     def _build_alerts_group(self) -> QGroupBox:
         box = QGroupBox("Alerts")
         v = QVBoxLayout(box)
@@ -992,16 +1016,19 @@ class PrepTab(QWidget):
     def _build_actions(self) -> None:
         """B14 (user, 29 October 2026): "Calculate", the mode's main action, in the window's header (it validates
         first: no separate "Validate"); import and export in the window's menu (file_commands)."""
-        self.b_run = uc.tool_button("Calculate", self._on_run, "SP_MediaPlay",
-                                    tip="Validate the mission preparation, run the exact calculation and open the "
-                                        "results")
+        # U2 (user, 11 November 2026): ONE main action, two explicit kinds of calculation; the button runs the last
+        # one chosen, its arrow chooses
+        self.b_run = uc.tool_button("Calculate", self._on_calculate, "SP_MediaPlay")
+        self._calc_menu = QMenu(self.b_run)
+        self._act_exact = self._calc_menu.addAction("Exact, at the mission's instant",
+                                                    lambda: self._set_calc_kind("exact", run=True))
+        self._act_profile = self._calc_menu.addAction("Along the flight plan (profile)",
+                                                      lambda: self._set_calc_kind("profile", run=True))
+        self.b_run.setMenu(self._calc_menu)
+        self.b_run.setPopupMode(QToolButton.MenuButtonPopup)
+        self._calc_kind = "exact"
+        self._set_calc_kind("exact")
         self._edit_widgets.append(self.b_run)
-
-    def file_commands(self) -> list:
-        """(text, slot, icon, edits the mission) of the mission in the window's menu."""
-        return [("Import JSON/CSV...", self._on_import, "SP_DialogOpenButton", True),
-                ("Export JSON...", lambda: self._on_export("json"), "SP_DialogSaveButton", False),
-                ("Export CSV...", lambda: self._on_export("csv"), "SP_DialogSaveButton", False)]
 
     @staticmethod
     def _spin(lo: float, hi: float, step: float, value: float) -> QDoubleSpinBox:
@@ -1396,6 +1423,8 @@ class PrepTab(QWidget):
 
     def _refresh_all(self) -> None:
         self._update_title()
+        if hasattr(self, "_calc_kind"):
+            self._set_calc_kind(self._calc_kind)      # U2: the button says the instant the exact calculation uses
         self.view.set_mission_volumes(self.mission, self._hidden_sector_ids())
         eps_min = self.mission["global"].get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"])
         eps_max = self.mission["global"].get("eps_max_deg", md.GLOBAL_DEFAULTS["eps_max_deg"])
@@ -1445,7 +1474,19 @@ class PrepTab(QWidget):
                 draws.append(SectorDraw(sid, ship, geo.sector_color(i), text))
         self.view.set_scene(eps_min, eps_max, draws, hidden=self._hidden_sids())
 
+    def _profiles_ready(self, gen: int, eps: tuple) -> None:
+        """A cost profile computed in the background: the range alerts again (user, 11 November 2026: they kept
+        saying 'being computed' until the next edit)."""
+        from core import cost_profile
+        if cost_profile.generation() != gen:
+            self._update_gauges(*eps)
+            self._update_alerts(*eps)
+        elif cost_profile.pending():
+            QTimer.singleShot(700, lambda: self._profiles_ready(gen, eps))
+
     def _update_gauges(self, eps_min: float, eps_max: float) -> None:
+        """The volumes out of reach for the alerts (fast estimate; the per-face budget it also filled was removed,
+        user 11 November 2026: the live load shows the faces' loads)."""
         totals = {k: {"energy": 0.0, "time_min": 0.0, "kw": 0.0, "at_kw": 0.0, "at_ku_time": 0.0} for k in range(4)}
         p_avg_max = rm.face_elec_avail_w(rm.FACE_ELEC_POWER_MW)       # the optimiser's reference (step 4.1)
         self._unreachable = {}
@@ -1476,32 +1517,30 @@ class PrepTab(QWidget):
                     at_unreach += fb.at_unreachable_tracks
                 sid = sec.get("id")
                 if sid and worst > 0.5:
-                    self._unreachable[sid] = worst
+                    self._unreachable[sid] = (worst, None)   # (the table's: replaced below by the volume's profile)
                 if sid and at_unreach > 0.05:
                     self._at_unreachable[sid] = at_unreach
-        for k in range(4):
-            g = self.gauges[k]
-            e_pct = 100 * totals[k]["energy"]
-            g["energy"].setValue(min(100, round(e_pct)))
-            g["energy"].setFormat(f"energy {e_pct:.0f}%")   # exact value even past 100 -- the bar fill still clips
-            over_e = totals[k]["energy"] > 1.0
-            g["energy"].setStyleSheet("QProgressBar::chunk { background-color: #c0392b; }" if over_e else "")
-            t_pct = 100 * totals[k]["time_min"]
-            g["time"].setValue(min(100, round(t_pct)))
-            g["time"].setFormat(f"time on air >= {t_pct:.0f}%")
-            g["kw"].setText(f"{totals[k]['kw']:.0f} kW")
-            # tracking margin: power left on top of search + AT (the arrays only share the face's power)
-            p_left_w = max(0.0, 1.0 - totals[k]["energy"]) * p_avg_max
-            at_kw = totals[k]["at_kw"]
-            at_duty_pct = 100 * totals[k]["at_ku_time"]
-            margin = f"{p_left_w / 1e3:.0f} kW left"
-            if at_kw > 0.05 or at_duty_pct > 0.5:
-                over = at_duty_pct > 100 * trk.KU_DUTY_MAX
-                margin += f" -- AT est. {at_kw:.1f} kW, Ku duty {at_duty_pct:.1f} %"
-                if over:
-                    margin += f" (> {100 * trk.KU_DUTY_MAX:.0f} % ceiling)"
-            g["margin"].setText(margin)
-            g["margin"].setStyleSheet("color: #c0392b;" if at_duty_pct > 100 * trk.KU_DUTY_MAX else "")
+        # the range out of reach from each volume's cost profile (user, 11 November 2026: the table's single-look
+        # criterion said S01 at 25 000 km out of reach while the optimiser's laws reach 43 500 km at broadside; the
+        # same figures as the live load and the range gauge); the table's kept only while a profile is computed
+        if self.cost_table is not None:
+            try:
+                ships = [{**s_, "id": s_.get("id")} for s_ in (self._ship_sector(x) for x in self.mission["sectors"])
+                         if s_ is not None]
+                alloc = ce.live_allocation(self.cost_table, ships, self.grid, eps_min, eps_max, sky_ship,
+                                           self.mission["global"], profiles="background")
+                pending = set(alloc.get("estimating", []))
+                self._unreachable = {sid: (None, None) for sid in pending}   # (the table's verdict never shown:
+                for sid, o in (alloc.get("out_of_reach") or {}).items():    # single-look, ~x150 too pessimistic)
+                    self._unreachable[sid] = (100.0 * o["share"], o["max_km"])
+                self._confirm_alerts = {sid: "none" for sid in alloc.get("no_confirmation", [])}
+                self._confirm_alerts.update({sid: "depends" for sid in alloc.get("confirmation_depends", [])})
+                if pending:                                  # the alerts again once the profiles are ready
+                    from core import cost_profile
+                    gen = cost_profile.generation()
+                    QTimer.singleShot(700, lambda g=gen, e=(eps_min, eps_max): self._profiles_ready(g, e))
+            except Exception:  # noqa: BLE001 -- a mission mid-edit: the table's alerts kept
+                pass
 
     def _update_alerts(self, eps_min: float, eps_max: float) -> None:
         self.list_alerts.clear()
@@ -1540,8 +1579,18 @@ class PrepTab(QWidget):
                 self.list_alerts.addItem(f"{sid}: coverage hole {100 * cov['hole']:.0f} % (no face scans it at this "
                                          f"attitude: scan limits or eps window){'; executed: ' + parts if parts else ''}")
             if sid in self._unreachable:
-                self.list_alerts.addItem(f"{sid}: {self._unreachable[sid]:.0f} % of positions can't reach the "
-                                         "required range even at full power (budget shown is a floor, not the real cost)")
+                pct, max_km = self._unreachable[sid]
+                self.list_alerts.addItem(f"{sid}: range check pending (its cost profile is being computed)"
+                                         if pct is None else
+                                         f"{sid}: {pct:.0f} % of the volume out of reach even at full power"
+                                         + (f" (at most ~{max_km:.0f} km)" if max_km else ""))
+            conf = getattr(self, "_confirm_alerts", {}).get(sid)
+            if conf == "none":
+                self.list_alerts.addItem(f"{sid}: its detections cannot be confirmed (no admissible confirmation mode "
+                                         "at any search beam spacing): mission not tenable")
+            elif conf == "depends":
+                self.list_alerts.addItem(f"{sid}: confirmation only with some search beam spacings: the exact "
+                                         "calculation says whether the optimiser's choice allows it")
             if sid in self._at_unreachable:
                 self.list_alerts.addItem(f"{sid}: ~{self._at_unreachable[sid]:.1f} AT track(s) estimated out of Ku "
                                          "reach at a bracket's outer range (scan limit or range)")
@@ -1557,12 +1606,6 @@ class PrepTab(QWidget):
                 text = (f"{a} / {b} share {ov:.3f} sr, budgeted independently -- fine for intentional layered "
                         "coverage, check for a duplicated requirement if not")
             self.list_alerts.addItem(text)
-        for k in range(4):
-            e = self.gauges[k]["energy"].value()
-            if e >= 100:
-                self.list_alerts.addItem(f"{geo.FACE_NAMES[k]}: estimated energy over-subscribed (>= 100 %)")
-            elif e > 90:
-                self.list_alerts.addItem(f"{geo.FACE_NAMES[k]}: estimated tracking margin < 10 % of the face power")
         if masks:
             covered = np.zeros_like(scanned_all)
             for m in masks.values():
@@ -1725,16 +1768,19 @@ class PrepTab(QWidget):
         return os.path.dirname(self.path) if self.path else ""
 
     def confirm_discard(self) -> bool:
-        return uc.confirm_discard(self, "Mission", self.modified)
+        return uc.confirm_discard(self, "Mission", self.modified, save=self.save, is_modified=lambda: self.modified)
 
     def file_commands(self) -> list:
-        """(text, slot, icon, edits the mission) of the mission in the window's menu; the CSV in import / export."""
-        return [("New...", self.new, "SP_FileIcon", True), ("Open...", self.open, "SP_DialogOpenButton", True),
+        """(text, slot, icon, edits the mission) of the window's menu (user, 11 November 2026: one file, the mission,
+        holding its flight plan, its last exact result and its profile; "Submenu::Command"). Open also takes a CSV
+        (a mission shown unsaved)."""
+        return [("New", self.new, "SP_FileIcon", True), ("Open...", self.open, "SP_DialogOpenButton", True),
                 ("Save", self.save, "SP_DialogSaveButton", False),
                 ("Save as...", self.save_as, "SP_DialogSaveButton", False),
-                ("Load scenario...", lambda: self.load_scenario(), "SP_DirOpenIcon", True),
-                ("Import CSV...", self._on_import, "SP_DialogOpenButton", True),
-                ("Export CSV...", lambda: self._on_export("csv"), "SP_DialogSaveButton", False)]
+                ("---", None, None, False),
+                ("Flight plan from a scenario...", lambda: self.load_scenario(), "SP_DirOpenIcon", True),
+                ("---", None, None, False),
+                ("Export::Mission as CSV...", lambda: self._on_export("csv"), "SP_DialogSaveButton", False)]
 
     def new(self) -> None:
         if self.locked or not self.confirm_discard():
@@ -1744,26 +1790,89 @@ class PrepTab(QWidget):
     def open(self) -> None:
         if self.locked or not self.confirm_discard():
             return
-        path, _ = QFileDialog.getOpenFileName(self, "Open a mission", self._dir(), "Mission (*.json)")
+        path, _ = QFileDialog.getOpenFileName(self, "Open a mission", slink.SCENARIO_DIR,   # (user, 11 Nov 2026: always)
+                                              "Mission (*.json *.csv);;Mission (*.json);;Mission as CSV (*.csv)")
         if path:
             self.open_path(path)
 
     def open_path(self, path: str) -> bool:
-        """A mission file (JSON; a CSV is imported: no file, unsaved)."""
+        """The work file (user, 11 November 2026: one file for the Scenario Editor and the mission preparation,
+        sim/document.py), or a former mission / scenario file (converted: shown unsaved), or a CSV (no file)."""
+        if path.lower().endswith(".csv"):
+            try:
+                mission = md.load_mission(path)
+            except Exception as exc:  # noqa: BLE001
+                QMessageBox.critical(self, "Open", f"Could not open {path}: {exc}")
+                return False
+            self._load(mission, None, saved=False)
+            return True
+        from sim import document
         try:
-            mission = md.load_mission(path)
+            with open(path, encoding="utf-8") as fh:
+                is_doc = document.kind(json.load(fh)) == "document"
+            doc = document.load(path)
         except Exception as exc:  # noqa: BLE001 -- bad path / file: say so and keep the mission shown
             QMessageBox.critical(self, "Open", f"Could not open {path}: {exc}")
             return False
-        csv = path.lower().endswith(".csv")
-        self._load(mission, None if csv else path, saved=not csv)
+        mission = dict(doc.mission)
+        t = float(mission.pop("t_nav_s", 0.0) or 0.0)
+        if doc.scenario is not None:
+            mission[slink.FLIGHT_PLAN_KEY] = {"scenario": doc.scenario, "source": os.path.basename(path)}
+            mission[slink.LINK_KEY] = {"t_s": t}
+        for k, v in doc.extras.items():
+            mission[k] = v
+        self._load(mission, path, saved=is_doc)
         return True
+
+    def _sections(self) -> dict:
+        """The work file's sections this tool writes: the mission (its instant as t_nav_s), its results and profile,
+        and the scenario only when it was imported or removed here (else the one on disk is kept: the Scenario
+        Editor's)."""
+        m = self.mission
+        mission = {k: v for k, v in m.items()
+                   if k not in (slink.FLIGHT_PLAN_KEY, slink.LINK_KEY) + slink.DERIVED_KEYS}
+        link = m.get(slink.LINK_KEY)
+        if isinstance(link, dict):
+            mission["t_nav_s"] = float(link.get("t_s", 0.0))
+        out = {"mission": mission, "results": m.get(slink.RESULTS_KEY), "profile": m.get(slink.PROFILE_KEY)}
+        if getattr(self, "_scenario_dirty", False):
+            fp = m.get(slink.FLIGHT_PLAN_KEY)
+            out["scenario"] = fp.get("scenario") if isinstance(fp, dict) else None
+        return out
+
+    def check_external(self) -> None:
+        """The work file changed on disk by the Scenario Editor (user, 11 November 2026): its scenario section
+        reloaded as the flight plan (the run recomputed if needed); the mission's own edits kept."""
+        if not self.path or not os.path.exists(self.path) or self.locked:
+            return
+        mtime = os.path.getmtime(self.path)
+        if getattr(self, "_disk_mtime", None) is None or mtime == self._disk_mtime:
+            self._disk_mtime = mtime
+            return
+        self._disk_mtime = mtime
+        from sim import document
+        disk = document.read_section(self.path, "scenario")
+        fp = self.mission.get(slink.FLIGHT_PLAN_KEY) or {}
+        if getattr(self, "_scenario_dirty", False) or not isinstance(disk, dict) or \
+                json.dumps(disk, sort_keys=True, default=str) == json.dumps(fp.get("scenario"), sort_keys=True,
+                                                                            default=str):
+            return
+        was_saved = not self.modified
+        self.mission[slink.FLIGHT_PLAN_KEY] = {"scenario": disk, "source": os.path.basename(self.path)}
+        self.mission.setdefault(slink.LINK_KEY, {"t_s": 0.0})
+        self._relink()
+        if was_saved:
+            self._saved_sig = self._signature()
+        self._update_title()
+        self.lbl_scn_alerts.setText("flight plan reloaded: the scenario was changed in the Scenario Editor")
+        self._schedule_refresh()
 
     def save(self) -> bool:
         return self.save_as() if self.path is None else self._write(self.path)
 
     def save_as(self) -> bool:
-        path, _ = QFileDialog.getSaveFileName(self, "Save the mission", self.path or self._dir() or "mission.json",
+        path, _ = QFileDialog.getSaveFileName(self, "Save the mission",
+                                              self.path or os.path.join(slink.SCENARIO_DIR, "mission.json"),
                                               "Mission (*.json)")
         if not path:
             return False
@@ -1776,11 +1885,18 @@ class PrepTab(QWidget):
             return False
         if self._link is not None and isinstance(self.mission.get(slink.LINK_KEY), dict):
             self.mission[slink.LINK_KEY]["path"] = slink.relative(self._link.path, path)   # (relative to the file)
-        try:
-            md.save_mission_json(path, self.mission)
+        try:                                          # the work file: this tool's sections (user, 11 Nov 2026)
+            from sim import document
+            sections = self._sections()
+            if path != self.path or not os.path.exists(path):
+                fp = self.mission.get(slink.FLIGHT_PLAN_KEY)
+                sections["scenario"] = fp.get("scenario") if isinstance(fp, dict) else None
+            document.save_sections(path, sections, check=False)
         except Exception as exc:  # noqa: BLE001
             QMessageBox.critical(self, "Save", f"Save failed: {exc}")
             return False
+        self._scenario_dirty = False
+        self._disk_mtime = os.path.getmtime(path)
         self.path, self._saved_sig = path, self._signature()
         self._update_title()
         return True
@@ -1788,9 +1904,12 @@ class PrepTab(QWidget):
     def _load(self, mission: dict, path: Optional[str], saved: bool = True) -> None:
         self.set_mission(mission)
         self.path = path
+        self._scenario_dirty = not saved and slink.FLIGHT_PLAN_KEY in mission   # (a converted file: written in full)
+        self._disk_mtime = os.path.getmtime(path) if path and os.path.exists(path) else None
         self._relink()
-        self._saved_sig = self._signature() if saved else None
+        self._saved_sig = self._signature() if saved and not getattr(self, "_converted", False) else None
         self._update_title()
+        self.results_reopened.emit()                  # (the main window reopens a stored exact result if it fits)
 
     def _on_import(self) -> None:
         """A CSV mission (or a JSON one): shown unsaved, with no file (Save asks where)."""
@@ -1843,6 +1962,30 @@ class PrepTab(QWidget):
             QMessageBox.warning(self, "Invalid mission preparation", "\n".join(f"- {e}" for e in errs))
         return not errs
 
+    def _set_calc_kind(self, kind: str, run: bool = False) -> None:
+        self._calc_kind = kind
+        if kind == "exact":
+            t = (self.mission.get(slink.LINK_KEY) or {}).get("t_s") if isinstance(self.mission.get(slink.LINK_KEY),
+                                                                                    dict) else None
+            self.b_run.setText("Calculate: exact" + (f" (t = {float(t):g} s)" if t is not None else ""))
+            self.b_run.setToolTip("The exact calculation at the mission's instant (set it with 'Use this instant' "
+                                  "under the view); opens the Results. The arrow: the other kind")
+        else:
+            self.b_run.setText("Calculate: flight plan")
+            self.b_run.setToolTip("Along the linked scenario's flight plan: each instant by the fast estimate, the "
+                                  "losses recomputed exactly; shown in Profile. The arrow: the other kind")
+        if run:
+            self._on_calculate()
+
+    def _on_calculate(self) -> None:
+        if self._calc_kind == "profile":
+            if self._link is None:
+                QMessageBox.information(self, "Calculate", "A flight plan is needed: link a computed scenario first.")
+                return
+            self.profile_requested.emit()
+        else:
+            self._on_run()
+
     def _on_run(self) -> None:
         if self._check_mission():
-            self.run_requested.emit(copy.deepcopy(self.mission))
+            self.run_requested.emit(slink.for_calculation(self.mission))

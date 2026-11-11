@@ -48,7 +48,8 @@ class OptimizeWorker(QThread):
 
     def run(self) -> None:
         try:
-            result = mo.run(self.mission, progress_cb=self._on_progress, cancel_cb=lambda: self._cancelled)
+            result = mo.run(self.mission, progress_cb=self._on_progress, cancel_cb=lambda: self._cancelled,
+                            stage_cb=lambda text: self.progress.emit(-1, -1, text))
         except Exception as exc:  # noqa: BLE001 -- surface any model error to the UI instead of crashing
             self.failed.emit(f"calculation failed: {exc}")
             return
@@ -85,6 +86,10 @@ class MainWindow(QMainWindow):
         # (user, 29 October 2026) the scenario is a separate tool (scenario_tool.py, gui/scenario_window.py)
         self.prep = PrepTab(mission if mission is not None else md.empty_mission(), self.grid)
         self.prep.run_requested.connect(self._run)
+        self.prep.profile_requested.connect(self._run_profile)
+        self.prep.results_reopened.connect(self._reopen_results)
+        self.prep.results_reopened.connect(lambda: self.profile.forget())     # (another mission: its own profile)
+        self.prep.title_changed.connect(lambda _n: self._check_outdated())
         self.prep.title_changed.connect(lambda name: self.setWindowTitle(f"{TITLE} - {name}"))
 
         # B14: the header (menu, modes, main action), the working area of each mode, the status bar
@@ -110,6 +115,7 @@ class MainWindow(QMainWindow):
         # the mission along its linked scenario's flight plan (option A, passes T1-T3, user 10 November 2026)
         self.profile = ProfileTab(lambda: (self.prep.mission, getattr(self.prep, "_link", None), self.prep.path))
         self.profile.instant_picked.connect(self._on_profile_instant)
+        self.profile.stored.connect(self.prep._update_title)
         self._add_mode("Profile", self.profile, [], None)
         self.modes.setTabsClosable(True)
         for index in (PREP_TAB, PROFILE_TAB):               # only the results can be closed
@@ -172,18 +178,30 @@ class MainWindow(QMainWindow):
                 m["holder"].setVisible(m is mode)
 
     def _commands(self) -> list:
-        """(text, slot, icon, enabled) of the menu: the files of the mode shown."""
-        current = self.work.currentWidget()
-        if current is self.prep:
-            return [(t, f, ic, not (e and self.prep.locked)) for t, f, ic, e in self.prep.file_commands()]
-        if current is self.results:
-            return [(t, f, ic, True) for t, f, ic in self.results.file_commands()]
-        return []
+        """(text, slot, icon, enabled) of the menu (user, 11 November 2026: one file, the mission, whatever the mode
+        shown; the results' exports with the mission's, under Export)."""
+        out = [(t, f, ic, not (e and self.prep.locked)) for t, f, ic, e in self.prep.file_commands()]
+        if self.results is not None:
+            out += [(t, f, ic, True) for t, f, ic in self.results.file_commands()]
+        return out
 
     def _fill_menu(self) -> None:
         self.menu.clear()
+        subs = {}
         for text, slot, icon, enabled in self._commands():
-            act = self.menu.addAction(text, slot)
+            if text == "---":
+                self.menu.addSeparator()
+                continue
+            menu = self.menu
+            if "::" in text:                               # "Submenu::Command": U1, the secondary files grouped
+                head, text = text.split("::", 1)
+                if head not in subs:
+                    acts = self.menu.actions()
+                    if acts and not acts[-1].isSeparator():
+                        self.menu.addSeparator()
+                    subs[head] = self.menu.addMenu(head)
+                menu = subs[head]
+            act = menu.addAction(text, slot)
             ic = uc.std_icon(self, icon)
             if ic is not None:
                 act.setIcon(ic)
@@ -195,10 +213,7 @@ class MainWindow(QMainWindow):
         """In the mission preparation Ctrl+N / O / S / Shift+S act on the mission file (pass V3, as the Scenario
         Editor); in the results Ctrl+S exports them."""
         current = self.work.currentWidget()
-        if current is self.prep:
-            getattr(self.prep, cmd)()                     # (New / Open refused while the mission is locked)
-        elif current is self.results and cmd in ("save", "save_as"):
-            self.results.export_json()
+        getattr(self.prep, cmd)()                         # one file: the mission's, whatever the mode shown
 
     def show_default(self) -> bool:
         """Show the window at WINDOW_SIZE centred on the available area of its screen (the task bar excluded),
@@ -229,6 +244,8 @@ class MainWindow(QMainWindow):
         self._progress_dlg = QProgressDialog("Calculating...", "Cancel", 0, len(mission["sectors"]), self)
         self._progress_dlg.setWindowModality(Qt.WindowModal)
         self._progress_dlg.setMinimumDuration(0)
+        self._progress_dlg.setAutoClose(False)        # (user, 11 November 2026: it closed itself at the last sector
+        self._progress_dlg.setAutoReset(False)        # while the calculation went on for minutes)
         self._worker = OptimizeWorker(mission, self)
         self._worker.progress.connect(self._on_worker_progress)
         self._worker.finished_ok.connect(lambda result: self._on_worker_finished(mission, result))
@@ -238,9 +255,18 @@ class MainWindow(QMainWindow):
         self._progress_dlg.show()
 
     def _on_worker_progress(self, done: int, total: int, sector_id: str) -> None:
+        if self._progress_dlg and done < 0:          # a mission-level stage (its text in sector_id)
+            self._progress_dlg.setRange(0, 0)
+            self._progress_dlg.setLabelText(sector_id)
+            return
         if self._progress_dlg:
-            self._progress_dlg.setLabelText(f"Sector {sector_id} done ({done}/{total})")
-            self._progress_dlg.setValue(done)
+            if done >= total:                         # the sectors planned: the mission-level passes go on
+                self._progress_dlg.setRange(0, 0)     # (busy)
+                self._progress_dlg.setLabelText("All sectors planned: global optimisation, budgets, allocation "
+                                                "confirmation...")
+            else:
+                self._progress_dlg.setLabelText(f"Sector {sector_id} done ({done}/{total})")
+                self._progress_dlg.setValue(done)
 
     def _on_worker_finished(self, mission: dict, result: dict) -> None:
         if self._progress_dlg:
@@ -271,16 +297,53 @@ class MainWindow(QMainWindow):
         QMessageBox.critical(self, "Calculation", message)
 
     # ------------------------------------------------------------------ results tab
-    def _open_results(self, mission: dict, result: dict) -> None:
+    def _reopen_results(self) -> None:
+        """One file: a mission opened with a stored exact result that still fits it: its Results tab reopened (not
+        shown, the mission NOT locked: an edit marks it outdated); a former Results tab closed."""
+        if self.results is not None:
+            self._close_results(force=True)
+        if self.prep.stored_result_fits():
+            from gui import scenario_link as slink
+            stored = self.prep.mission[slink.RESULTS_KEY]
+            self._open_results(slink.for_calculation(self.prep.mission), stored["exact"], reopened=True)
+
+    def _check_outdated(self) -> None:
+        if self.results is not None and getattr(self.results, "reopened", False):
+            self.results.set_outdated(not self.prep.stored_result_fits())
+
+    def _open_results(self, mission: dict, result: dict, reopened: bool = False) -> None:
+        from datetime import datetime
+        result.setdefault("_computed_local", datetime.now().strftime("%d %b %H:%M"))   # U3: the badge's time
+        if not reopened and not result.get("cancelled"):
+            self.prep.store_result(mission, result)    # one file: kept in the mission (saved with it; a partial one not)
+        if self.results is not None:
+            self._close_results(force=True)
         self.results = ResultsTab(mission, result, self.grid)
+        self.results.reopened = reopened
+        self.results.exported = not result.get("cancelled")   # (kept in the mission: closing it loses nothing)
         self.results.view.set_mission_volumes(mission)   # (the global view: the computed mission's volumes)
         link = getattr(self.prep, "_link", None)      # the linked scenario at the mission's instant (pass S2)
         if link is not None:
             self.results.view.set_scenario(link, float(mission.get("scenario_link", {}).get("t_s", 0.0)))
         title = "Results" + (" (partial)" if self.results.partial else "")
         index = self._add_mode(title, self.results, [], None)
-        self.prep.set_locked(True)
-        self.modes.setCurrentIndex(index)
+        if not reopened:
+            self.prep.set_locked(True)
+            self.modes.setCurrentIndex(index)
+
+    def _close_results(self, force: bool = False) -> None:
+        """The Results tab closed (force: without asking)."""
+        for index, m in enumerate(self._modes):
+            if m["widget"] is self.results:
+                if force:
+                    self.results.exported = True
+                self._on_tab_close_requested(index)
+                return
+
+    def _run_profile(self) -> None:
+        """U2: 'Calculate: flight plan' -- the Profile mode shown, its calculation started."""
+        self.modes.setCurrentIndex(PROFILE_TAB)
+        self.profile.compute()
 
     def _on_profile_instant(self, t: float) -> None:
         """A click on the profile: the mission preparation shows that instant of the flight plan."""
@@ -317,6 +380,16 @@ class MainWindow(QMainWindow):
         tab.deleteLater()
         self.results = None
         self.prep.set_locked(False)
+
+    def changeEvent(self, event) -> None:
+        """Back to the front: the work file re-read if the Scenario Editor changed it (user, 11 November 2026)."""
+        super().changeEvent(event)
+        from PyQt5.QtCore import QEvent
+        if event.type() == QEvent.ActivationChange and self.isActiveWindow():
+            try:
+                self.prep.check_external()
+            except Exception:  # noqa: BLE001 -- a convenience: never blocks the tool
+                pass
 
     def closeEvent(self, event) -> None:
         if not self.prep.confirm_discard():               # unsaved changes to the mission (pass V3)

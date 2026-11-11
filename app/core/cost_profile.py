@@ -34,6 +34,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 CACHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".profile_cache.json")
 CACHE_MAX = 1024
+PROFILE_FORMAT = 3                                # 2: + the range reachable at full pulse; 3: + the confirmation
 _GEOMETRY = ("id", "name", "label", "colour", "color", "visible", "hidden", "note", "comment", "shape",
              "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg", "phi0_deg", "eps0_deg", "radius_deg",
              "half_width_deg", "half_height_deg", "rot_deg", "track_ra_deg", "track_dec_deg", "track_sigma_deg",
@@ -64,7 +65,8 @@ def positions_bucket(positions: float) -> float:
 def key(sec: dict, positions: float, th: Sequence[float], f_ghz: float) -> str:
     keep = {k: v for k, v in sec.items()
             if k not in _GEOMETRY and not str(k).startswith("_") and not str(k).startswith("frame")}
-    txt = json.dumps([keep, positions_bucket(positions), list(th), f_ghz], sort_keys=True, default=str) + "|" + _stamp()
+    txt = json.dumps([keep, positions_bucket(positions), list(th), f_ghz, PROFILE_FORMAT], sort_keys=True,
+                     default=str) + "|" + _stamp()
     return hashlib.sha1(txt.encode("utf-8")).hexdigest()
 
 
@@ -82,7 +84,7 @@ def compute(sec: dict, positions: float, th: Sequence[float], f_ghz: float) -> O
         return None
     if r_want <= 0 or not cands:
         return None
-    log_e, feas = [], []
+    log_e, feas, r_reach = [], [], []
     for t in th:
         best, r_max, e_max = None, 0.0, None
         for w, pfa in zip(cands, pfas):
@@ -102,7 +104,20 @@ def compute(sec: dict, positions: float, th: Sequence[float], f_ghz: float) -> O
             return None
         log_e.append(math.log(e))
         feas.append(best is not None)
-    return {"log_e": log_e, "feasible": feas}
+        r_reach.append(float(r_max))
+    # the confirmation of its detections, at every lattice spacing the optimiser may choose (user, 11 November 2026:
+    # the live load said OK for a volume whose detections could never be confirmed)
+    from . import tracking as trk
+    from .params import P
+    confirm_ok = []
+    for sp in P.get("search_grid.beam_spacing_options_hpbw"):
+        try:
+            ok, _why = trk.confirmation_feasible(dict(sec, _grid_spacing=float(sp)), None, f_s_ghz=f_ghz)
+        except (KeyError, TypeError, ValueError, ZeroDivisionError):
+            ok = True                                  # (a volume mid-edit: not judged here)
+        if ok:
+            confirm_ok.append(float(sp))
+    return {"log_e": log_e, "feasible": feas, "r_reach_km": r_reach, "confirm_ok_spacings": confirm_ok}
 
 
 def _load() -> Dict[str, dict]:

@@ -58,6 +58,8 @@ from sim import scenario as scn
 
 ICRF_AXES = (("X", "X (node of the equator)"), ("Y", "Y"), ("Z", "Z (pole)"))   # the view frame's axes (H3)
 ICRF_AXIS_NAMES = [f"icrf_axis_{a}" for a, _ in ICRF_AXES]
+LABEL_ASKED = "#a8aeb8"        # the 3D label's first line: what is asked (grey; user, 11 November 2026)
+LABEL_OK, LABEL_NOK = "#3fbf6a", "#e0574f"   # its second line: the worst range and the revisit achieved
 SECTOR_LABEL_FONT_SIZE = 13   # shared by _build_sectors (draws) and _label_hit (estimates the on-screen box), x UI size
 FACE_OUTLINE_COLOR = "#9aa0aa"   # the zones' outlines, light on the black of space (view3d.MUTED_COLOR)
 SCN = "scn_"                     # the linked scenario's actors (pass S2)
@@ -107,10 +109,24 @@ def _key_sky(sky: Optional[dict]) -> Optional[str]:
 
 PROFILE_POLL_MS = 700                    # option (c): poll of the cost profiles computed in the background
 
+def _energy_text(served_w: float, base_w: float, asked_w: float) -> str:
+    """The energy bar's text: the power drawn and the tasks above the always-on; when the rule cannot serve all that
+    is asked of the face, the power drawn over the power asked (user, 11 November 2026)."""
+    def fmt(w: float) -> str:
+        return f"{w / 1e6:.2f} MW" if w >= 1e6 else f"{w / 1e3:.1f} kW"
+    if asked_w > served_w * 1.005 + 1.0:
+        return f"{fmt(served_w)} / {fmt(asked_w)} asked"
+    return f"{fmt(served_w)} ({(served_w - base_w) / 1e3:+.1f})"
+
+
+LOAD_BASE = "#8a8f99"                            # the always-on part of the energy bar (grey)
+
 class FaceLoadColumn(QWidget):
     """One face's live load: its name, then one bar per resource (energy, S time, Ku time), each with its own fill,
     its hatched parts (moved shares, power lent), its part beyond 100 % drawn over it in a darker red, the load
-    ceiling marked on the time bars (pass R2, user 10 November 2026)."""
+    ceiling marked on the time bars (pass R2, user 10 November 2026). The energy bar stacked (user, 11 November 2026:
+    the always-on, ~71 kW per face, hid the variation of the tasks): the always-on in grey ("base"), the tasks in the
+    bar's colour, the power drawn written on it ("text")."""
 
     ROW_H = 18
 
@@ -155,6 +171,10 @@ class FaceLoadColumn(QWidget):
             p.setPen(Qt.NoPen)
             p.setBrush(QColor(b["color"]))
             p.drawRect(QRectF(x0, y, bw * fill, rh - 3))
+            base = min(max(float(b.get("base", 0.0)), 0.0), fill)
+            if base > 0:                                   # the always-on, under the tasks
+                p.setBrush(QColor(LOAD_BASE))
+                p.drawRect(QRectF(x0, y, bw * base, rh - 3))
             if val > 1.0:                                  # the part beyond 100 %, drawn over the bar again
                 p.setBrush(QColor(LOAD_BEYOND))
                 p.drawRect(QRectF(x0, y, bw * min(val - 1.0, 1.0), rh - 3))
@@ -170,7 +190,9 @@ class FaceLoadColumn(QWidget):
                 p.setPen(QPen(QColor("#f0f0f0"), 1, Qt.DashLine))
                 xc = x0 + bw * min(float(b["ceiling"]), 1.0)
                 p.drawLine(int(xc), int(y), int(xc), int(y + rh - 3))
-            txt = f"{100 * val:.0f} %"
+            pct = 100 * val                                # (small loads with decimals: 0.13 %, not 0 %)
+            txt = b.get("text") or (f"{pct:.0f} %" if pct >= 10 or pct == 0 else
+                                    f"{pct:.1f} %" if pct >= 1 else f"{pct:.2f} %")
             p.setPen(QColor("#000000"))                    # (a shadow: readable on any fill)
             p.drawText(r.translated(1, 1), Qt.AlignCenter, txt)
             p.setPen(QColor("#ffffff"))
@@ -192,12 +214,11 @@ class DisplayBar(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.cb_faces = []
-        for k in range(4):
-            cb = uc.Toggle(geo.FACE_NAMES[k], checked=True, color=geo.FACE_COLORS[k],
-                           tip=f"Responsibility zone of face {geo.FACE_NAMES[k]}")
-            cb.toggled.connect(self.faces_changed)
-            self.cb_faces.append(cb)
+        # U4 (user, 11 November 2026): one switch for the four faces' responsibility zones (was one per face)
+        self.tg_zones = uc.Toggle("zones F1-F4", checked=True,
+                                  tip="Responsibility zones of the four faces (the part of the sky each face scans)")
+        self.tg_zones.toggled.connect(self.faces_changed)
+        self._global_was_available = False
         self.bt_show_all = QPushButton("Show all")
         self.bt_show_all.clicked.connect(lambda _c=False: self.show_all_sectors.emit())
         self.bt_hide_all = QPushButton("Hide all")
@@ -227,7 +248,7 @@ class DisplayBar(QWidget):
                                        "navigation, else the mission's) and the volumes from it; no object (the "
                                        "plan rests on the flight plan, not on a truth that cannot be known)")
         self.tg_global.toggled.connect(self.global_changed)
-        self.tg_gauge = uc.Toggle("range gauge", tip="Each watched volume filled in green up to the range held in each "
+        self.tg_gauge = uc.Toggle("range gauge", checked=True, tip="Each watched volume filled in green up to the range held in each "
                                   "direction, in red where it falls short (coverage hole included); capacity: the "
                                   "volume alone on its faces, all their power, shared equally between its beam "
                                   "positions. Sphere: the range over the required one; global: in km")
@@ -244,16 +265,19 @@ class DisplayBar(QWidget):
         self.tg_global.setEnabled(on)
         if not on and self.tg_global.isChecked():
             self.tg_global.setChecked(False)          # (no flight plan: back to the sphere)
+        elif on and not self._global_was_available and not self.tg_global.isChecked():
+            self.tg_global.setChecked(True)           # U5 (user, 11 November 2026): a flight plan opens in Global
+        self._global_was_available = on
 
     def sphere_sections(self) -> list:
         """(title, items) of the sphere mode's own options (view3d.options_grid)."""
-        return [(v3.title("Responsibility zones"), [v3.row(cb) for cb in self.cb_faces]),
+        return [(v3.title("Responsibility zones"), [v3.row(self.tg_zones)]),
                 (v3.title("Frame and sky"), [v3.row(self.tg_frame), v3.row(self.tg_sky), v3.row(self.cb_const)]),
                 (v3.title("Scenario"), [v3.row(self.tg_scn_objects), v3.row(self.tg_scn_trails),
                                         v3.row(self.tg_scn_labels)])]
 
     def face_visible(self, k: int) -> bool:
-        return self.cb_faces[k].isChecked()
+        return self.tg_zones.isChecked()
 
     def icrf(self) -> bool:
         return self.tg_frame.isChecked()
@@ -746,6 +770,7 @@ class SceneView(QWidget):
         self._play_t = 0.0
         self._playing = False
         self._play_timer = QTimer(self)
+        self._play_timer.setSingleShot(True)            # (rescheduled by _play_tick: the clicks always get their turn)
         self._play_timer.setInterval(PLAY_TICK_MS)
         self._play_timer.timeout.connect(self._play_tick)
         self.instant_source = None                     # t -> (draws, global with nav and sky at t) (the owner)
@@ -771,6 +796,8 @@ class SceneView(QWidget):
                       "power) for a volume not recalibrated")
         self._load_lbl = lb
         h.addWidget(lb)
+        self._load_badge = uc.source_badge("estimate")          # U3: estimate, recalibrated or still computing
+        h.addWidget(self._load_badge)
         self._load_cols = {}
         for k in range(4):
             col = FaceLoadColumn(k)
@@ -781,8 +808,41 @@ class SceneView(QWidget):
         h.addWidget(self._load_status)
         self._mission_global: dict = {}
         self._calib: dict = {}
+        self._achieved: dict = {}                      # sid -> {"worst_km", "rr_s", "ok"} (the labels' 2nd line)
+        self._achieved_fixed = False                   # (set by the owner: the exact results, not the live estimate)
         self._load_ceiling = 1.0
         return bar
+
+    def set_achieved(self, achieved: Optional[dict]) -> None:
+        """The owner's figures for the labels' second line (the Results: the exact calculation); None: the live
+        estimate's."""
+        self._achieved_fixed = achieved is not None
+        self._achieved = dict(achieved or {})
+        self._refresh_labels()
+
+    def label_lines(self, sid: str, sec: dict) -> tuple:
+        """(asked, achieved, ok) of a volume's 3D label: 'S01  R=20000 km  RR=30 s' (grey) over 'worst 20286 km  RR
+        30 s' (green when the range and the revisit are held, red else); achieved None when not known."""
+        asked = (f"{sec.get('id', sid)}  R={float(sec.get('range_km', 0) or 0):.0f} km  "
+                 f"RR={float(sec.get('rr_target_s', 0) or 0):g} s")
+        a = self._achieved.get(sid)
+        if not a:
+            return asked, None, True
+        return asked, f"worst {a['worst_km']:.0f} km  RR {a['rr_s']:.3g} s", bool(a["ok"])
+
+    def _refresh_labels(self) -> None:
+        """The labels again with the figures achieved (they change with the instant and the estimate)."""
+        for d in getattr(self, "_sectors", []) or []:
+            cached = self._cache.get(d.sid)
+            if cached is None or cached[4] is None:
+                continue
+            asked, ach, ok = self.label_lines(d.sid, d.sec)
+            text = asked if ach is None else f"{asked}\n{ach}"
+            if text != cached[4]:
+                self._cache[d.sid] = cached[:4] + (text,) + tuple(cached[5:])
+                self._redraw_label(d.sid)
+        if self._sim is not None and hasattr(self._sim, "set_achieved"):
+            self._sim.set_achieved(self._achieved)
 
     def set_calibration(self, calib: dict) -> None:
         """Pass R3d (M1): {volume id as drawn: its ratios exact / estimate} (core/calibration), for the live load."""
@@ -828,9 +888,20 @@ class SceneView(QWidget):
                 col.set_bars(None, "")
             self._load_status.setText("")
             return
-        if getattr(self, "_load_lbl", None) is not None:          # pass R3d (M1): shown before any exact run
-            self._load_lbl.setText("Live load (estimating...):" if a.get("estimating") else
-                                   "Live load (not recalibrated):" if a.get("not_recalibrated") else "Live load:")
+        if not self._achieved_fixed and a.get("achieved") != self._achieved:     # the labels' second line
+            self._achieved = dict(a.get("achieved") or {})
+            self._refresh_labels()
+        if getattr(self, "_load_badge", None) is not None:        # U3 (and R3d M1): where these figures come from
+            gauge = " (the range gauge uses the same figures)"
+            if a.get("estimating"):
+                uc.set_source(self._load_badge, "estimating", tip="Cost profiles of " + ", ".join(a["estimating"])
+                              + " still being computed: the generic table meanwhile" + gauge)
+            elif a.get("not_recalibrated"):
+                uc.set_source(self._load_badge, "estimate", tip="Fast estimate (~20 %); not recalibrated by an exact "
+                              "calculation: " + ", ".join(a["not_recalibrated"]) + gauge)
+            else:
+                uc.set_source(self._load_badge, "recalibrated", tip="Fast estimate corrected by the last exact "
+                              "calculation of every volume" + gauge)
         if a.get("estimating") and not getattr(self, "_profile_poll_on", False):   # option (c): redrawn when ready
             from core import cost_profile
             self._profile_poll_on, self._profile_gen = True, cost_profile.generation()
@@ -841,6 +912,11 @@ class SceneView(QWidget):
         borrow = sum(max(0.0, u - 1.0) for u in use.values())
         spare = sum(max(0.0, 1.0 - u) for u in use.values())
         lend = min(1.0, borrow / spare) if spare > 0 else 0.0
+        always_on = {}                                   # (the stacked energy bar: the always-on part)
+        for r in a["demands"]:
+            if str(r.get("label", "")).startswith("always-on"):
+                for kk, fc in r.get("faces", {}).items():
+                    always_on[int(kk)] = always_on.get(int(kk), 0.0) + float(fc.get("energy", 0.0))
         vols = {}
         for r in a["demands"]:
             for k in r.get("faces", {}):
@@ -850,8 +926,11 @@ class SceneView(QWidget):
             bars = []
             e_load = f["energy load"]                 # (against the face's feeder or the operator's cap)
             st = LOAD_OVER if use[k] > 1.0 else LOAD_HIGH if e_load >= ceil * (1 - 1e-3) else LOAD_OK
+            e_w = float(f["energy"])
             bars.append({"name": "E", "val": use[k], "moved": f["moved"]["energy"] / ref,
-                         "lent": max(0.0, 1.0 - use[k]) * lend, "color": st, "ceiling": None})
+                         "lent": max(0.0, 1.0 - use[k]) * lend, "color": st, "ceiling": None,
+                         "base": always_on.get(k, 0.0) / ref,
+                         "text": _energy_text(e_w, always_on.get(k, 0.0), (a.get("asked_w") or [0.0] * 4)[k])})
             for name, key in (("S", "S time"), ("Ku", "Ku time")):
                 v = f[key]
                 bars.append({"name": name, "val": v, "moved": f["moved"][key], "lent": 0.0, "ceiling": ceil,
@@ -977,9 +1056,15 @@ class SceneView(QWidget):
             self._play_timer.start()
         else:
             self._play_timer.stop()
-            self.settle()
+            self.bt_play.repaint()                     # (the pause shown at once; the full rebuild after)
+            QTimer.singleShot(0, self.settle)
 
     def _play_tick(self) -> None:
+        """One instant of the playback (user, 11 November 2026: a pause clicked during a rebuild was sometimes lost:
+        a tick already queued moved on, and a second click restarted the playback): nothing once paused; the next
+        tick scheduled after this one, so a click is always handled between two instants."""
+        if not self._playing:
+            return
         now = time.perf_counter()
         dt = (now - self._play_wall) * PLAY_SPEEDS[self.cb_speed.currentIndex()]
         self._play_wall = now
@@ -988,6 +1073,8 @@ class SceneView(QWidget):
             t = self._play_end()
             self.toggle_play()
         self.set_instant(t)
+        if self._playing:
+            self._play_timer.start()
 
     def _on_gauge(self, on: bool) -> None:
         """The range gauge in both modes: the sectors rebuilt, the global view told."""
@@ -1021,6 +1108,7 @@ class SceneView(QWidget):
                 from gui.sim_view import SimView             # (late: sim_view imports this module)
                 self._sim = SimView(self.grid, read_only=True)
                 self._sim.range_gauge = self.display_bar.tg_gauge.isChecked()
+                self._sim.set_achieved(self._achieved)       # (the labels' second line)
                 for i in range(self._sim.play_bar.count()):   # (the instant is the mission's: no playback)
                     w = self._sim.play_bar.itemAt(i).widget()
                     if w is not None:
@@ -1423,6 +1511,19 @@ class SceneView(QWidget):
             return
         self._redraw_label(sid)
 
+    def _add_label(self, sid: str, point, text: str, lbl_name: str) -> None:
+        """A volume's 3D label (user, 11 November 2026): what is asked in grey, under it what is achieved in green
+        (held) or red (not held), on a black box (view3d.LineLabels: one text per line, each its colour)."""
+        if getattr(self, "_line_labels", None) is None:
+            self._line_labels = v3.LineLabels(self.plotter, SECTOR_LABEL_FONT_SIZE)
+        sec = next((d.sec for d in self._sectors if d.sid == sid), {})
+        asked, ach, ok = self.label_lines(sid, sec)
+        lines = [(asked, LABEL_ASKED)] + ([(ach, LABEL_OK if ok else LABEL_NOK)] if ach else [])
+        self._line_labels.put(sid, point, lines)
+        self._line_labels.set_visible(sid, sid not in self._hidden)
+        remove_actors(self.plotter, [lbl_name, lbl_name + "_2"])     # (the former single-colour labels)
+        self._actor_names.discard(lbl_name)
+
     def _redraw_label(self, sid: str) -> None:
         """Re-place sid's label actor (and its leader line, added/removed as needed) without rebuilding the
         sector mesh -- cheap enough to call on every mouse-move while dragging."""
@@ -1433,11 +1534,7 @@ class SceneView(QWidget):
         _surf_name, _out_name, lbl_name, leader_name = sector_actor_names(sid)
         anchor = _anchor(poly, _outline)
         point = self._label_pos.get(sid, anchor)
-        self.plotter.add_point_labels([point], [text], name=lbl_name, text_color="white",
-                                      font_size=_ui(self.plotter, SECTOR_LABEL_FONT_SIZE),
-                                      bold=True, shape_color="black", shape_opacity=0.75, show_points=False,
-                                      render=False)
-        self._actor_names.add(lbl_name)
+        self._add_label(sid, point, text, lbl_name)
         if sid in self._label_pos:
             self.plotter.add_mesh(pv.Line(anchor, point), color=color, line_width=1, name=leader_name, render=False)
             self._actor_names.add(leader_name)
@@ -1471,6 +1568,10 @@ class SceneView(QWidget):
             set_actors_visible(p, face_actor_names(k), bar.face_visible(k))
         for d in self._sectors:
             set_actors_visible(p, sector_actor_names(d.sid) + (sector_hole_name(d.sid),), d.sid not in self._hidden)
+            if getattr(self, "_line_labels", None) is not None:
+                self._line_labels.set_visible(d.sid, d.sid not in self._hidden)
+        if getattr(self, "_line_labels", None) is not None:
+            self._line_labels.keep([d.sid for d in self._sectors])
         if hasattr(self, "_scn_sym"):
             self._scn_visibility()
         p.render()
@@ -1552,20 +1653,21 @@ class SceneView(QWidget):
                 if not (same_mesh and has_actor(self.plotter, out_name)):
                     self.plotter.add_mesh(outline, color=d.color, line_width=2, name=out_name, render=False)
                 new_names.add(out_name)
-            text = d.text if (poly.n_points or outline.n_points) else None
+            asked, ach, _ok = self.label_lines(d.sid, d.sec)
+            text = (asked if ach is None else f"{asked}\n{ach}") if (poly.n_points or outline.n_points) else None
             anchor = _anchor(poly, outline)
             point = self._label_pos.get(d.sid, anchor)
             if text is not None:
-                rebuild_label = not (same_mesh and cached[4] == text and has_actor(self.plotter, lbl_name))
+                rebuild_label = not (same_mesh and cached[4] == text and getattr(self, "_line_labels", None) is not None
+                                     and d.sid in self._line_labels._items)
                 font = _ui(self.plotter, SECTOR_LABEL_FONT_SIZE)
                 if rebuild_label:
-                    # Fixed white-on-near-opaque-black readout: text_color=d.color (the sector's own colour, e.g.
+                    # Fixed readout on a near-opaque black box: text_color=d.color (the sector's own colour, e.g.
                     # green) used to sit on a translucent grey box over the same-coloured sector mesh -- unreadable.
-                    self.plotter.add_point_labels([point], [text], name=lbl_name,
-                                                  text_color="white", font_size=font, bold=True,
-                                                  shape_color="black", shape_opacity=0.75,
-                                                  show_points=False, render=False)
+                    self._add_label(d.sid, point, text, lbl_name)
                 new_names.add(lbl_name)
+                if chr(10) in text:
+                    new_names.add(lbl_name + "_2")
                 if d.sid in self._label_pos:   # dragged away from its volume: show the link back to it
                     if rebuild_label or not has_actor(self.plotter, leader_name):
                         self.plotter.add_mesh(pv.Line(anchor, point), color=d.color, line_width=1, name=leader_name,

@@ -18,6 +18,15 @@ and embedded; none named: an empty mission). Saving always writes the single for
 
 Step B (B1): with a scenario, the mission's navigation (attitude, orbit, central body) and sky are those of the
 scenario's ship at t_nav_s (mission_for_calc); without one, the navigation typed in the mission stays.
+
+THE WORK FILE (user, 11 November 2026: "one working file" for the Scenario Editor, the mission preparation and, once
+merged, the real-time player): this document, with two optional sections the mission preparation computes,
+  "results": the last exact calculation (and the signature of the mission it was computed for),
+  "profile": the mission along the flight plan (and its fingerprint).
+Each tool writes only its own sections (save_sections: the file read again, the other sections kept as they are on
+disk): the Scenario Editor the scenario, the mission preparation the mission, its results and profile (and the
+scenario only when it imported a new one). The interim format of 11 November 2026 (a mission file with a
+"flight_plan" section) is read and converted.
 """
 from __future__ import annotations
 
@@ -32,6 +41,7 @@ from core import mission as cm
 from . import scenario as scn
 
 FORMAT_VERSION = 1
+EXTRA_SECTIONS = ("results", "profile")          # computed by the mission preparation (optional)
 
 
 class DocumentError(ValueError):
@@ -44,6 +54,7 @@ class Document:
     mission: dict
     scenario: Optional[dict] = None
     notes: List[str] = field(default_factory=list)
+    extras: dict = field(default_factory=dict)       # EXTRA_SECTIONS read from the file
 
 
 def kind(data: object) -> str:
@@ -72,6 +83,15 @@ def load(path: str) -> Document:
         raise DocumentError(f"{path}: {exc}") from None
     k = kind(data)
     name = os.path.basename(path)
+    if k == "mission" and isinstance(data.get("flight_plan"), dict):     # the interim format of 11 November 2026
+        mission = {kk: vv for kk, vv in data.items() if kk not in ("flight_plan", "scenario_link") + EXTRA_SECTIONS}
+        mission.setdefault("global", dict(cm.GLOBAL_DEFAULTS))
+        mission.setdefault("sectors", [])
+        mission["t_nav_s"] = float((data.get("scenario_link") or {}).get("t_s", 0.0))
+        sc = data["flight_plan"].get("scenario")
+        return Document(mission, None if sc is None else _scenario(sc, path),
+                        [f"{name}: mission with its flight plan, converted to the work file"],
+                        {kk: data[kk] for kk in EXTRA_SECTIONS if kk in data})
     if k == "mission":
         return Document(cm.load_mission(path), None, [f"{name}: mission file, no scenario"])
     if k == "scenario":
@@ -94,7 +114,8 @@ def load(path: str) -> Document:
         mission.setdefault("global", dict(cm.GLOBAL_DEFAULTS))
         mission.setdefault("sectors", [])
         sc = data.get("scenario")
-        return Document(mission, None if sc is None else _scenario(sc, path))
+        return Document(mission, None if sc is None else _scenario(sc, path), [],
+                        {kk: data[kk] for kk in EXTRA_SECTIONS if kk in data})
     raise DocumentError(f"{path}: neither a mission file, nor a scenario, nor a document")
 
 
@@ -142,6 +163,9 @@ def to_json(doc: Document, check: bool = True) -> dict:
         if err:
             raise DocumentError("scenario:\n  " + "\n  ".join(err))
         out["scenario"] = sc
+    for k in EXTRA_SECTIONS:
+        if doc.extras.get(k) is not None:
+            out[k] = doc.extras[k]
     return out
 
 
@@ -150,3 +174,53 @@ def save(path: str, doc: Document, check: bool = True) -> None:
     data = to_json(doc, check)
     with open(path, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(data, fh, indent=1, ensure_ascii=False)
+
+
+def save_sections(path: str, sections: dict, check: bool = True) -> None:
+    """Write some sections of the work file, the others kept as they are on disk (each tool its own: the Scenario
+    Editor {"scenario": ...}, the mission preparation {"mission": ..., "results": ..., "profile": ...}; a section set
+    to None is removed). A file that is not yet a document (a former mission or scenario file, or none) is replaced
+    by the document of what it holds plus these sections."""
+    base = {"format_version": FORMAT_VERSION}
+    if os.path.exists(path):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+            if kind(data) == "document":
+                base = data
+            else:
+                base = to_json(load(path), check=False)
+        except (OSError, ValueError, DocumentError):
+            base = {"format_version": FORMAT_VERSION}
+    for k, v in sections.items():
+        if v is None:
+            base.pop(k, None)
+            continue
+        if k == "scenario":
+            v = {kk: vv for kk, vv in v.items() if kk != "mission"}
+            err = scn.validate(v) if check else []
+            if err:
+                raise DocumentError("scenario:\n  " + "\n  ".join(err))
+        base[k] = v
+    base.setdefault("mission", {"global": dict(cm.GLOBAL_DEFAULTS), "sectors": []})
+    base["format_version"] = FORMAT_VERSION
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(base, fh, indent=1, ensure_ascii=False)
+    os.replace(tmp, path)
+
+
+def read_section(path: str, name: str):
+    """One section of the work file as it is on disk (None when absent or unreadable)."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    if kind(data) == "document":
+        return data.get(name)
+    try:
+        doc = load(path)
+    except DocumentError:
+        return None
+    return {"mission": doc.mission, "scenario": doc.scenario}.get(name, doc.extras.get(name))

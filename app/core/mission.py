@@ -41,7 +41,7 @@ tolerated per second, instead of fa_per_rr); per AT bracket "pd_update" and "p_d
 true: budgeted, one look per revisit, and scheduled at P3').
 Margin reuse (step 5.2, P4, core/margin.py), per sector "rr_min_s" (shortest revisit wanted, optional; default
 tool.global_opt.rr_min_search_s 1 s, AT brackets rr_min_track_s 0.1 s, step 5.2 P7). Step 5.2 P7:
-global "realloc_mode" (NONE, the default: the margin stays free; PRIO_SEARCH: it shortens the search revisits;
+global "realloc_mode" (PRIO_SEARCH, the default since 11 November 2026: the margin shortens the search revisits; NONE: it stays free;
 PRIO_TRACK: it speeds up the track cadence, down to the optional "rr_min_s" of each AT bracket) and "load_ceiling"
 (utilisation in ]0, 1] of the binding resource, default 0.80; above it a safety reserve, never used); they replace
 "auto_alloc_max", refused with a message.

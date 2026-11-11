@@ -404,6 +404,8 @@ def load(path: str) -> dict:
             sc = json.load(fh)
     except (OSError, json.JSONDecodeError) as exc:
         raise ScenarioError(f"{path}: {exc}") from None
+    if isinstance(sc, dict) and isinstance(sc.get("mission"), dict) and isinstance(sc.get("scenario"), dict):
+        sc = sc["scenario"]                   # the work file (sim/document.py, user 11 November 2026): its scenario
     err = validate(sc)
     if err:
         raise ScenarioError(f"{path}:\n  " + "\n  ".join(err))

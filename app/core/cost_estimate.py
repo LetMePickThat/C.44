@@ -401,7 +401,8 @@ def _cap_w(g: dict) -> List[float]:
 def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.SphereGrid, eps_min: float,
                        eps_max: float, sky: Optional[dict] = None, g: Optional[dict] = None,
                        f_ghz: float = geo.VIZ_FREQ_GHZ, calib: Optional[dict] = None,
-                       profiles: Optional[str] = None, estimating: Optional[List[str]] = None):
+                       profiles: Optional[str] = None, estimating: Optional[List[str]] = None,
+                       reach_out: Optional[dict] = None):
     """The final allocation rule's demands and budgets from the fast estimate (pass R2, user 10 November 2026): the
     always-on of each face (tier 0); each search volume (P1 if self-protection, else P4_n) split in its raster cells,
     each costed on every face whose scan-limit cone contains it (its own scan angle, the ground rule, B1), energy
@@ -455,8 +456,15 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
                                         wait=profiles == "wait")
                 if prof is None and estimating is not None:
                     estimating.append(sid)
+            reach_km = None
             if prof is not None:
                 log_e = np.asarray(prof["log_e"], float)
+                if prof.get("r_reach_km"):                 # (user, 11 November 2026: a range out of reach was shown
+                    reach_km = np.asarray(prof["r_reach_km"], float)   # held: its cost at full power was "served")
+                    if reach_out is not None:
+                        reach_out[sid] = {"th": th_grid.tolist(), "r_reach_km": reach_km.tolist(),
+                                          "r_want_km": float(sec.get("range_km", 0.0)),
+                                          "confirm_ok_spacings": prof.get("confirm_ok_spacings")}
             else:
                 log_e, _feas = energy_profile_by_theta(table, r_want, _sector_target(sec).rcs_at(f_ghz),
                                                        sec.get("v_close_max_mps", 1000.0))
@@ -544,14 +552,82 @@ def live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Sphere
     if hit is not None:
         return hit
     estimating: List[str] = []
+    reach: Dict[str, dict] = {}
     demands, budgets = allocation_demands(table, sectors_ship, grid, eps_min, eps_max, sky, gk, calib=calib,
-                                          profiles=profiles, estimating=estimating)
+                                          profiles=profiles, estimating=estimating, reach_out=reach)
     out = al.solve(demands, budgets)
+    out["reach"] = reach                               # per volume: the range reachable at full pulse per scan angle
+    out["out_of_reach"] = {}                           # per volume: the share of its directions out of reach
+    for sid, rc in reach.items():
+        sec = next((s for s in sectors_ship if str(s.get("id")) == sid), None)
+        if sec is None:
+            continue
+        try:
+            th_cells = _face_reach(grid)[1]
+            mask = grid.sector_mask(sec) & grid.scanned(eps_min, eps_max)
+            th_min = np.where(np.isfinite(th_cells), th_cells, np.inf).min(axis=0)[mask]
+            r_cell = np.interp(np.clip(th_min, rc["th"][0], rc["th"][-1]), rc["th"], rc["r_reach_km"])
+            w = (grid.w * grid.d_omega)[mask]
+            short = r_cell < rc["r_want_km"] * (1.0 - 1e-6)
+            if short.any():
+                out["out_of_reach"][sid] = {"share": float(w[short].sum() / max(w.sum(), 1e-12)),
+                                            "max_km": float(np.max(rc["r_reach_km"])),
+                                            "worst_km": float(np.min(r_cell))}
+        except (KeyError, ValueError, IndexError):
+            continue
+    out["no_confirmation"], out["confirmation_depends"] = [], []
+    n_sp = len(params.P.get("search_grid.beam_spacing_options_hpbw"))
+    for sid, rc in reach.items():                      # the confirmation of the detections (P2: never shed)
+        okl = rc.get("confirm_ok_spacings")
+        if okl is None:
+            continue
+        if not okl:
+            out["no_confirmation"].append(sid)
+            out["flags"].append(f"{sid}: its detections cannot be confirmed (no admissible confirmation mode at any "
+                                f"beam spacing): mission not tenable")
+        elif len(okl) < n_sp:
+            out["confirmation_depends"].append(sid)
+            rng = f"{min(okl):g}" if min(okl) == max(okl) else f"{min(okl):g}-{max(okl):g}"
+            out["flags"].append(f"{sid}: confirmation only with a search beam spacing of {rng} HPBW: the exact "
+                                f"calculation says which the optimiser keeps")
+    if out["no_confirmation"]:
+        out["status"] = "NOT_TENABLE"
+    if out["out_of_reach"]:
+        if out["status"] == "OK":
+            out["status"] = "DEGRADED"
+        for sid, o in out["out_of_reach"].items():
+            out["flags"].append(f"{sid}: out of reach on {100 * o['share']:.0f} % of the volume, whatever the "
+                                f"energy (at most ~{o['max_km']:.0f} km at full pulse)")
+    asked = np.zeros(4)                                # what every demand asks at full service, per face (each share
+    for d in demands:                                  # on its cheapest face): shown beside what is served when the
+        rows = np.asarray(d.rows, float).reshape(-1, 4, 3)   # rule cannot serve it all (user, 11 November 2026)
+        if not len(rows):
+            continue
+        e = np.where(np.isfinite(rows[:, :, 0]), rows[:, :, 0], np.inf)
+        k = np.argmin(e, axis=1)
+        ok = np.isfinite(e[np.arange(len(rows)), k])
+        np.add.at(asked, k[ok], e[np.arange(len(rows)), k][ok])
+    out["asked_w"] = [float(x) for x in asked]
     out["by_sector"] = {r["sector"]: r for r in out["demands"] if r["kind"] == "search" and r["sector"] is not None}
     out["ref_w"] = rm.FACE_ELEC_POWER_MW * 1e6
     out["not_recalibrated"] = sorted(s for s in out["by_sector"] if s not in (calib or {}))
     out["time_lower_bound"] = bool(out["not_recalibrated"])
     out["estimating"] = estimating
+    out["achieved"] = {}                               # per volume (user, 11 November 2026: the 3D labels' 2nd line)
+    for sid, rec in out["by_sector"].items():
+        sec = next((s for s in sectors_ship if str(s.get("id")) == sid), None)
+        if sec is None:
+            continue
+        r_want = float(sec.get("range_km", 0.0) or 0.0)
+        worst = float(rec.get("rho", 1.0)) * r_want
+        o = out["out_of_reach"].get(sid)
+        if o is not None:
+            worst = min(worst, float(o.get("worst_km", worst)))
+        rr_asked = float(sec.get("rr_target_s", 0.0) or 0.0)
+        rr = float(rec.get("rr_tenable_s", rr_asked))
+        out["achieved"][sid] = {"worst_km": worst, "rr_s": rr,
+                                "ok": worst >= r_want * (1.0 - 1e-6) and rr <= rr_asked * (1.0 + 1e-9)
+                                and sid not in out["no_confirmation"]}
     if estimating:
         return out
     if len(_LIVE_CACHE) > 8:
