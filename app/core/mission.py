@@ -25,8 +25,7 @@ range_km): the blind range c (tau + limiter recovery) / 2 of the sector's wavefo
 Sky, global key "sky" (step 1.5, core/sky.py): the bodies in front of the faces and the galactic frame, in the ship
 frame or, sky key "frame" = "inertial" (step 3.0), in ICRF axes (no sky = cold sky + worst-case galactic rise).
 Frames (step 3.0, core/frames.py): global key "nav" (navigation message: attitude, optional orbit) and sector key
-"frame" (ship, inertial, rtn, limb with limb_alt_km, two_dir with frame_p/s_ra/dec_deg, track with
-track_ra_deg / track_dec_deg / track_sigma_deg, step 3.3); absent = ship frame.
+"frame" (ship, inertial, equatorial, rtn, velocity, limb with limb_alt_km; core/frames.FRAMES); absent = ship frame.
 Track model (step 3.3, core/trackmodel.py), per sector: "maneuver_tau_s" and "aspect_offset_deg" override the class,
 "discriminate_against" (a class the target must be told from; default DECOY for a KKV), "jammer_deceptive" (true: the
 self-protection jammer is deceptive, verification looks counted).
@@ -447,8 +446,7 @@ _CSV_FIELDS = [
     "rotation_dps", "accel_max_mps2", "optics_diameter_m", "optics_f_ratio", "optics_retro_eff", "jammer_type",
     "jammer_erp_dbw_mhz", "objects_per_rr", "tec_tecu", "b_parallel_nt", "range_km", "rr_target_s",
     "v_close_min_mps", "v_close_max_mps", "res_max_m", "range_min_km", "fa_per_rr", "allow_ambiguous", "rx_sll_db",
-    "confirm_mode", "new_targets_per_rr", "tracking", "frame", "limb_alt_km", *frames.TWO_DIR_KEYS,
-    *frames.TRACK_KEYS, "maneuver_tau_s", "aspect_offset_deg", "init_vt_sigma_mps", "discriminate_against",
+    "confirm_mode", "new_targets_per_rr", "tracking", "frame", "limb_alt_km", "maneuver_tau_s", "aspect_offset_deg", "init_vt_sigma_mps", "discriminate_against",
     "jammer_deceptive",
     "self_protection", "search_priority", "latency_max_s", "confirm_p_min", "pd", "fa_rate_per_s", "rr_min_s",
     "rr_max_s",

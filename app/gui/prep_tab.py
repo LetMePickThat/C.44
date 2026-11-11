@@ -13,15 +13,17 @@ import copy
 import json
 import math
 import os
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 import numpy as np
 from PyQt5.QtCore import QThread, Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QColor, QKeySequence
 from PyQt5.QtWidgets import (
+    QLineEdit,
     QApplication,
     QAbstractItemView, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView,
-    QLabel, QLineEdit, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea,
+    QLabel, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea,
     QShortcut, QSlider, QSpinBox, QToolButton,
     QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
@@ -153,6 +155,7 @@ class PrepTab(QWidget):
         self.view = SceneView(self.grid, face_opacity=0.28, sector_opacity=0.5, exec_face_colours=True)
         self.view.instant_source = self._instant                      # the playback (user, 10 November 2026)
         self.view.use_instant = lambda t: self._set_scn_t_and_apply(t)
+        self.view.instant_shown = self._on_instant_shown          # (the navigation panel follows the playback)
         self.view.show_all_sectors.connect(lambda: self._set_all_sectors_visible(True))
         self.view.hide_all_sectors.connect(lambda: self._set_all_sectors_visible(False))
         splitter.addWidget(self.view)
@@ -219,8 +222,7 @@ class PrepTab(QWidget):
                                 f"ship's {md.SHIP_ELEC_TOTAL_MW:g} MW; 0 = no cap (a list of 4 caps can be given in the "
                                 "mission file)")
         form.addRow("Rear limit eps_min (deg)", self.sb_eps_min)
-        form.addRow("Front limit eps_max (deg)", self.sb_eps_max)
-        form.addRow("Power cap / face (MW)", self.sb_elec)
+        form.addRow("Front limit eps_max (deg)", self.sb_eps_max)       # (the power cap: Mission settings)
         for sb in (self.sb_eps_min, self.sb_eps_max, self.sb_elec):
             sb.valueChanged.connect(self._on_global_changed)
         return box
@@ -255,6 +257,7 @@ class PrepTab(QWidget):
         form.addRow("Ship acceleration max (deg/s2)", self.sb_accel)
         form.addRow("Reallocation", self.cb_realloc)
         form.addRow("Load ceiling", self.sb_ceiling)
+        form.addRow("Power cap / face (MW)", self.sb_elec)   # (built with the scan zone, its handler kept; user, 12 Nov)
         form.addRow("", self.chk_bt)
         for sb in (self.sb_p_min, self.sb_rate, self.sb_accel, self.sb_ceiling):
             sb.valueChanged.connect(self._on_mission_settings_changed)
@@ -294,63 +297,21 @@ class PrepTab(QWidget):
         self._schedule_refresh()
 
     def _build_nav_group(self) -> QGroupBox:
-        """Navigation message of the mission (step 3.0, core/frames.py): attitude, optional orbit."""
+        """Navigation of the mission (step 3.0, core/frames.py), read only (user, 12 November 2026: the navigation
+        comes from the flight plan, the Scenario Editor's; no hand-typed navigation any more): the mission's instant
+        of the linked scenario, or the navigation of the mission file (test missions), or none."""
         box = QGroupBox("Navigation (attitude and orbit)")
         self._edit_widgets.append(box)
-        self._updating_nav = False
-        form = QFormLayout(box)
-        self.ed_nav_label = QLineEdit()
-        self.ed_nav_epoch = QLineEdit()
-        self.ed_nav_epoch.setPlaceholderText("optional, ISO 8601 UTC, e.g. 2055-03-21T12:00:00Z")
-        self.cb_att_ref = QComboBox()
-        self.cb_att_ref.addItems(frames.ATTITUDE_REFS)
-        self.cb_att_ref.setToolTip("Reference of the yaw / pitch / roll below, as in the Scenario Editor: orbital "
-                                   "(0, 0, 0 = nose prograde, the orbit normal along the ship's +Y, its +X toward the "
-                                   "central body; needs the orbit) or equatorial (the central body's equatorial axes; "
-                                   "no orbit: ICRF). Yaw about Y (nose toward +X), then pitch about X (nose up), then "
-                                   "roll about the nose Z")
-        self.sb_yaw, self.sb_pitch, self.sb_roll = (self._spin(-180, 180, 1, 0.0), self._spin(-90, 90, 1, 0.0),
-                                                    self._spin(-180, 180, 1, 0.0))
-        for sb in (self.sb_yaw, self.sb_pitch, self.sb_roll):
-            sb.setDecimals(3)
-        self.ed_quat = QLineEdit()
-        self.ed_quat.setToolTip("q_ship_to_icrf = [w, x, y, z] (Hamilton, scalar first: v_icrf = R(q) v_ship); "
-                                "editable, the angles follow")
-        self.cb_body = QComboBox()
-        self.cb_body.addItems(["(no orbit)"] + list(frames.BODY_RADIUS_KM))
-        self.sb_r = [self._spin(-1e9, 1e9, 100, 0.0) for _ in range(3)]
-        self.sb_v = [self._spin(-1e3, 1e3, 0.1, 0.0) for _ in range(3)]
-        for sb in self.sb_r + self.sb_v:
-            sb.setDecimals(4)
+        outer = QVBoxLayout(box)
+        outer.setContentsMargins(6, 6, 6, 6)
+        self.lbl_nav_summary = QLabel("")
+        self.lbl_nav_summary.setWordWrap(True)
+        self.lbl_nav_summary.setTextFormat(Qt.RichText)
+        outer.addWidget(self.lbl_nav_summary)
         self.lbl_nav = QLabel("")
         self.lbl_nav.setWordWrap(True)
         self.lbl_nav.setStyleSheet("color: gray; font-size: 11px;")
-        att = QHBoxLayout()
-        for sb in (self.sb_yaw, self.sb_pitch, self.sb_roll):
-            att.addWidget(sb)
-        rr, vv = QHBoxLayout(), QHBoxLayout()
-        for sb in self.sb_r:
-            rr.addWidget(sb)
-        for sb in self.sb_v:
-            vv.addWidget(sb)
-        form.addRow("Label", self.ed_nav_label)
-        form.addRow("Epoch", self.ed_nav_epoch)
-        form.addRow("Attitude relative to", self.cb_att_ref)
-        form.addRow("Yaw / pitch / roll (deg)", att)
-        form.addRow("Quaternion ship -> ICRF", self.ed_quat)
-        form.addRow("Central body", self.cb_body)
-        form.addRow("r from the body (km, its equatorial axes)", rr)   # (H1: as the Scenario Editor's orbits;
-        form.addRow("v (km/s, its equatorial axes)", vv)                # the message keeps ICRF)
-        form.addRow(self.lbl_nav)
-        for sb in (self.sb_yaw, self.sb_pitch, self.sb_roll):
-            sb.valueChanged.connect(lambda _v: self._on_nav_changed("angles"))
-        for sb in self.sb_r + self.sb_v:
-            sb.valueChanged.connect(lambda _v: self._on_nav_changed("orbit"))
-        self.cb_att_ref.currentTextChanged.connect(lambda _t: self._on_nav_changed("ref"))
-        self.cb_body.currentTextChanged.connect(lambda _t: self._on_nav_changed("orbit"))
-        self.ed_quat.editingFinished.connect(lambda: self._on_nav_changed("quat"))
-        self.ed_nav_label.editingFinished.connect(lambda: self._on_nav_changed("text"))
-        self.ed_nav_epoch.editingFinished.connect(lambda: self._on_nav_changed("text"))
+        outer.addWidget(self.lbl_nav)
         self._load_nav_form()
         self._show_link()
         return box
@@ -405,13 +366,9 @@ class PrepTab(QWidget):
         form.addRow(self.lbl_scn_alerts)
         return box
 
-    def _nav_widgets(self) -> list:
-        return [self.ed_nav_label, self.ed_nav_epoch, self.cb_att_ref, self.sb_yaw, self.sb_pitch, self.sb_roll,
-                self.ed_quat, self.cb_body, *self.sb_r, *self.sb_v]
-
     def _show_link(self) -> None:
         """The scenario's state; the navigation read only while linked."""
-        if not hasattr(self, "ed_quat"):              # (the navigation group not built yet)
+        if not hasattr(self, "lbl_nav_summary"):      # (the navigation group not built yet)
             return
         link = self._link
         if link is not None:
@@ -426,8 +383,7 @@ class PrepTab(QWidget):
         for w in (self.sl_scn_t, self.sb_scn_t):
             w.setEnabled(link is not None)
         self.btn_scn_unlink.setEnabled(link is not None or bool(self._link_problem))
-        for w in self._nav_widgets():
-            w.setEnabled(link is None)
+        self._nav_summary()
         if link is None:
             self.lbl_scn_utc.setText("")
             self.lbl_scn_alerts.setText("")
@@ -601,6 +557,10 @@ class PrepTab(QWidget):
         self._show_link()
         if self._link is not None:
             self._set_scn_t(float(info.get("t_s", 0.0)))
+            # the navigation and the sky of the mission's instant (user, 12 November 2026: a work file stores only
+            # t_nav_s, sim/document; they were left out until "Use this instant", and the exact calculation ran
+            # without orbit, attitude nor central body)
+            self._apply_scenario_t()
         self.view.set_scenario(self._link, self.sb_scn_t.value())
 
     def _nav_msg(self) -> dict:
@@ -625,40 +585,9 @@ class PrepTab(QWidget):
         roll = -math.degrees(math.atan2(float(m[1, 0]), float(m[0, 0])))
         return yaw, pitch, roll
 
-    def _eq(self, body: Optional[str]) -> np.ndarray:
-        """The central body's equatorial axes in ICRF (H1: the orbit shown and typed in them)."""
-        return frames.equator_axes(body if body in frames.BODY_RADIUS_KM else None)
-
     def _load_nav_form(self) -> None:
-        """Navigation widgets from the mission (the angles in the message's attitude_ref frame)."""
-        self._updating_nav = True
-        try:
-            msg = self._nav_msg()
-            self.ed_nav_label.setText(str(msg.get("label") or ""))
-            self.ed_nav_epoch.setText(str(msg.get("epoch") or ""))
-            body = msg.get("central_body")
-            self.cb_body.setCurrentText(body if body in frames.BODY_RADIUS_KM else "(no orbit)")
-            eq = self._eq(body)
-            for sbs, key in ((self.sb_r, "r_km"), (self.sb_v, "v_kms")):
-                vec = eq.T @ np.asarray(msg.get(key) or [0.0, 0.0, 0.0], float)   # ICRF -> its equatorial axes
-                for sb, c in zip(sbs, vec):
-                    sb.setValue(float(c))
-            self.cb_att_ref.setCurrentText(self._att_ref(msg))
-            self._show_attitude(msg)
-        finally:
-            self._updating_nav = False
+        """The navigation shown (read only) from the mission."""
         self._nav_status()
-
-    def _show_attitude(self, msg: dict) -> None:
-        q = msg.get("q_ship_to_icrf", [1.0, 0.0, 0.0, 0.0])
-        self.ed_quat.setText(", ".join(f"{c:.9f}" for c in q))
-        if frames.validate_nav([msg]):
-            return
-        n = frames.Nav(msg)
-        a = self._ref_axes(self._att_ref(msg), n)
-        if a is not None:
-            for sb, val in zip((self.sb_yaw, self.sb_pitch, self.sb_roll), self._euler_of(a.T @ n.r_si)):
-                sb.setValue(val)
 
     @staticmethod
     def _att_ref(msg: dict) -> str:
@@ -669,58 +598,13 @@ class PrepTab(QWidget):
             ref = "orbital" if msg.get("central_body") else "equatorial"
         return "equatorial" if ref == "orbital" and not msg.get("central_body") else ref
 
-    def _on_nav_changed(self, source: str) -> None:
-        if self._updating_nav:
-            return
-        msg = self._nav_msg()
-        msg.setdefault("q_ship_to_icrf", [1.0, 0.0, 0.0, 0.0])
-        for key, ed in (("label", self.ed_nav_label), ("epoch", self.ed_nav_epoch)):
-            text = ed.text().strip()
-            if text:
-                msg[key] = text
-            else:
-                msg.pop(key, None)
-        body = self.cb_body.currentText()
-        if body in frames.BODY_RADIUS_KM:
-            eq = self._eq(body)                          # (H1: typed in its equatorial axes, kept in ICRF)
-            msg["central_body"] = body
-            msg["r_km"] = [float(x) for x in eq @ np.array([sb.value() for sb in self.sb_r])]
-            msg["v_kms"] = [float(x) for x in eq @ np.array([sb.value() for sb in self.sb_v])]
-        else:
-            for key in ("central_body", "r_km", "v_kms"):
-                msg.pop(key, None)
-        msg["attitude_ref"] = self.cb_att_ref.currentText()
-        if source == "quat":
-            try:
-                q = [float(c) for c in self.ed_quat.text().replace(";", ",").split(",")]
-                if len(q) == 4:
-                    msg["q_ship_to_icrf"] = q
-            except ValueError:
-                pass
-        elif source == "angles":
-            n = frames.Nav(msg) if not frames.validate_nav([msg]) else None
-            a = self._ref_axes(msg["attitude_ref"], n) if n is not None else None
-            if a is not None:
-                e = att.euler(self.sb_yaw.value(), self.sb_pitch.value(), self.sb_roll.value())
-                msg["q_ship_to_icrf"] = frames.matrix_to_quat(a @ e)
-        self.mission["global"]["nav"] = [msg]
-        if source in ("quat", "ref", "orbit"):   # the angles follow the quaternion (kept), in the chosen frame
-            self._updating_nav = True
-            try:
-                self._show_attitude(msg)
-            finally:
-                self._updating_nav = False
-        else:
-            self.ed_quat.setText(", ".join(f"{c:.9f}" for c in msg["q_ship_to_icrf"]))
-        self._nav_status()
-        self._schedule_refresh()
-
     def _nav_status(self) -> None:
         """Operator feedback of the navigation, and the attitude of the 3D view's ICRF option."""
         errs = frames.validate_nav(self.mission["global"].get("nav"))
         if errs:
             self.lbl_nav.setText("; ".join(errs))
             self.lbl_nav.setStyleSheet(f"color: {ALERT_COLOR}; font-size: 11px;")
+            self.lbl_nav.setVisible(True)
             self.view.set_navigation(None)
             return
         n = frames.parse_nav(self.mission["global"].get("nav"))
@@ -730,7 +614,57 @@ class PrepTab(QWidget):
                     f"limb {n.limb_depression_deg(0.0):.2f} deg below the local horizontal.")
         self.lbl_nav.setText(text)
         self.lbl_nav.setStyleSheet("color: gray; font-size: 11px;")
+        self.lbl_nav.setVisible(getattr(self, "_link", None) is None)   # (a flight plan: the summary says it, at t)
         self.view.set_navigation(n.r_si, n.body)
+        self._nav_summary()
+
+    def _on_instant_shown(self, t: float, g: dict) -> None:
+        """The playback shows the instant t (user, 12 November 2026: the panel stayed at the mission's t = 0 s)."""
+        nav = g.get("nav")
+        self._shown = (float(t), dict(nav[0]) if isinstance(nav, list) and nav else {})
+        self._nav_summary()
+
+    def _nav_summary(self) -> None:
+        """The read-only summary of the navigation: with a flight plan, the ship at the instant SHOWN by the playback
+        (central body, altitude and speed, attitude angles in their reference) and the mission's instant, the one the
+        exact calculation uses; without one, the mission file's navigation."""
+        if not hasattr(self, "lbl_nav_summary"):
+            return
+        link = getattr(self, "_link", None)
+        msg = self._nav_msg()
+        shown = getattr(self, "_shown", None) if link is not None else None
+        t_m = (float((self.mission.get(slink.LINK_KEY) or {}).get("t_s", 0.0))
+               if isinstance(self.mission.get(slink.LINK_KEY), dict) else 0.0)
+        if shown is not None:
+            msg = shown[1]
+        if link is None and not msg:
+            self.lbl_nav_summary.setText("No flight plan: volumes in the ship frame only. The other frames need a "
+                                         "scenario (Scenario Editor, File menu) or a navigation in the mission file.")
+            return
+        if link is not None:
+            t = shown[0] if shown is not None else t_m
+            lines = [f"<b>Instant shown t = {t:.1f} s</b> ({link.utc(t)})"]
+        else:
+            lines = ["<b>Navigation of the mission file</b>" + (f" ({msg['label']})" if msg.get("label") else "")
+                     + (f", {msg['epoch']}" if msg.get("epoch") else "")]
+        if not msg or frames.validate_nav([msg]):
+            lines.append("<span style='color:%s'>no navigation at this instant</span>" % ALERT_COLOR)
+        else:
+            n = frames.Nav(msg)
+            if n.has_orbit:
+                lines.append(f"{n.body.capitalize()}: altitude {np.linalg.norm(n.r) - n.body_radius_km:,.0f} km, "
+                             f"speed {np.linalg.norm(n.v):.3f} km/s")
+            ref = self._att_ref(msg)
+            a = self._ref_axes(ref, n)
+            if a is not None:
+                y, p_, r_ = (round(x, 1) + 0.0 for x in self._euler_of(a.T @ n.r_si))   # (no "-0.0")
+                lines.append(f"attitude ({ref}): yaw {y:.1f}, pitch {p_:.1f}, roll {r_:.1f} deg")
+        if link is not None:
+            same = shown is None or abs(shown[0] - t_m) < 0.05
+            lines.append(f"<span style='color:{'gray' if same else ALERT_COLOR}'>Exact calculation at the mission "
+                         f"instant t = {t_m:g} s" + ("" if same else ": ‘Use this instant’ to compute "
+                                                     "the instant shown") + "</span>")
+        self.lbl_nav_summary.setText("<br>".join(lines))
 
     def _ship_sector(self, sec: dict) -> Optional[dict]:
         """The sector in the ship frame for the 3D view, the gauges and the alerts (None if its frame is invalid)."""
@@ -758,7 +692,13 @@ class PrepTab(QWidget):
         add.addAction("Box sector (phi / eps limits)", lambda: self._add_sector("box"))
         self.btn_add_sector = uc.menu_button("+", add, tip="Add a watch sector", arrow=False)
         self._edit_widgets.append(self.btn_add_sector)
+        self.tg_played = uc.Toggle("show effectively played",
+                                   tip="Only what the volumes scan: the parts another volume already serves (its need "
+                                       "met there: the relief of the fast estimate at the instant shown) taken out, a "
+                                       "volume served in full not drawn")
+        self.tg_played.toggled.connect(self.view.set_played_only)
         head = QHBoxLayout()
+        head.addWidget(self.tg_played)
         head.addStretch(1)
         head.addWidget(self.btn_add_sector)
         v.addLayout(head)
@@ -787,9 +727,8 @@ class PrepTab(QWidget):
         self._edit_widgets.append(box)
         v = QVBoxLayout(box)
         top = QFormLayout()
-        self.ed_id = QComboBox()  # editable combo used as a simple validated text field
-        self.ed_id.setEditable(True)
-        self.ed_id.editTextChanged.connect(self._on_id_changed)
+        self.ed_id = QLineEdit()  # a text field (user, 12 November 2026: not a drop-down list)
+        self.ed_id.textChanged.connect(self._on_id_changed)
         self.cb_shape = QComboBox()
         self.cb_shape.addItems(list(md.SHAPES))
         self.cb_shape.setToolTip("rect: a watched volume in real space, a centre and half-openings measured on the "
@@ -799,9 +738,9 @@ class PrepTab(QWidget):
         self.cb_frame = QComboBox()
         self.cb_frame.addItems(frames.FRAMES)
         self.cb_frame.setToolTip("Frame of the volume (step 3.0): ship (tied to the ship), inertial (ICRF: phi = RA, "
-                                 "eps = Dec), rtn (local orbital), limb (eps counted from the limb of the central "
-                                 "body, box only), two_dir (Z = primary direction, X toward the secondary), track (cap around "
-                                 "a track or a designation, radius k sigma; step 3.3)")
+                                 "eps = Dec), rtn (local orbital), velocity (X = the ship velocity: the direction of travel at "
+                                 "phi 0, eps 0 on any orbit), limb (eps counted from the limb of the central "
+                                 "body, box only), equatorial (the central body's equator and pole)")
         self.cb_frame.currentTextChanged.connect(self._on_frame_changed)
         top.addRow("id", self.ed_id)
         top.addRow("shape", self.cb_shape)
@@ -815,21 +754,6 @@ class PrepTab(QWidget):
                                     "counted from this limb")
         fl.addRow("limb altitude (km)", self.sb_limb_alt)
         v.addWidget(self.grp_limb)
-        self.grp_two_dir = QGroupBox("Two directions (ICRF)")
-        ft = QFormLayout(self.grp_two_dir)
-        self.sb_two_dir = {k: self._spin(-90 if "dec" in k else 0, 90 if "dec" in k else 360, 1, 0.0)
-                           for k in frames.TWO_DIR_KEYS}
-        for k, label in zip(frames.TWO_DIR_KEYS, ("primary RA (deg)", "primary Dec (deg)", "secondary RA (deg)",
-                                                   "secondary Dec (deg)")):
-            ft.addRow(label, self.sb_two_dir[k])
-        v.addWidget(self.grp_two_dir)
-        self.grp_track = QGroupBox("Track / designation (ICRF, cap of k sigma)")      # step 3.3, F8
-        ftr = QFormLayout(self.grp_track)
-        self.sb_track = {"track_ra_deg": self._spin(0, 360, 1, 0.0), "track_dec_deg": self._spin(-90, 90, 1, 0.0),
-                         "track_sigma_deg": self._spin(0.001, 30, 3, 0.1)}
-        for k, label in zip(frames.TRACK_KEYS, ("centre RA (deg)", "centre Dec (deg)", "sigma (deg)")):
-            ftr.addRow(label, self.sb_track[k])
-        v.addWidget(self.grp_track)
 
         self.grp_box = QGroupBox("Zone (box)")
         fb = QFormLayout(self.grp_box)
@@ -949,12 +873,9 @@ class PrepTab(QWidget):
 
         for sb in (self.sb_phi_min, self.sb_phi_max, self.sb_box_eps_min, self.sb_box_eps_max,
                    self.sb_phi0, self.sb_eps0, self.sb_radius, self.sb_rcs, self.sb_range,
-                   self.sb_rr, self.sb_vmin, self.sb_vmax, self.sb_limb_alt, *self.sb_two_dir.values(),
-                   *self.sb_track.values(), *self.sb_rect.values()):
+                   self.sb_rr, self.sb_vmin, self.sb_vmax, self.sb_limb_alt, *self.sb_rect.values()):
             sb.valueChanged.connect(self._on_field_changed)
         self.grp_limb.setVisible(False)
-        self.grp_two_dir.setVisible(False)
-        self.grp_track.setVisible(False)
 
         self.grp_box.setVisible(True)
         self.grp_cap.setVisible(False)
@@ -1156,8 +1077,7 @@ class PrepTab(QWidget):
         self._updating_form = True
         try:
             enabled = sec is not None
-            for w in (self.ed_id, self.cb_shape, self.cb_frame, self.grp_limb, self.grp_two_dir, self.grp_track,
-                      self.sb_rcs,
+            for w in (self.ed_id, self.cb_shape, self.cb_frame, self.grp_limb, self.sb_rcs,
                       self.sb_swerling, self.sb_range,
                       self.sb_rr, self.sb_vmin, self.sb_vmax, self.cb_rx_sll, self.grp_box, self.grp_cap, self.grp_rect,
                       self.grp_at):
@@ -1165,7 +1085,7 @@ class PrepTab(QWidget):
             self._fill_at_table(sec)
             if not sec:
                 return
-            self.ed_id.setEditText(sec.get("id", ""))
+            self.ed_id.setText(sec.get("id", ""))
             shape = sec.get("shape", "box")
             self.cb_shape.setCurrentText(shape)
             self.grp_box.setVisible(shape == "box")
@@ -1176,13 +1096,7 @@ class PrepTab(QWidget):
             fr = sec.get("frame", "ship")
             self.cb_frame.setCurrentText(fr)
             self.grp_limb.setVisible(fr == "limb")
-            self.grp_two_dir.setVisible(fr == "two_dir")
-            self.grp_track.setVisible(fr == "track")
             self.sb_limb_alt.setValue(sec.get("limb_alt_km", frames.LIMB_ALT_KM_DEFAULT))
-            for k, sb in self.sb_two_dir.items():
-                sb.setValue(sec.get(k, 0.0))
-            for k, sb in self.sb_track.items():
-                sb.setValue(sec.get(k, 0.1 if k == "track_sigma_deg" else 0.0))
             self.sb_phi_min.setValue(sec.get("phi_min_deg", md.SECTOR_DEFAULTS_BOX["phi_min_deg"]))
             self.sb_phi_max.setValue(sec.get("phi_max_deg", md.SECTOR_DEFAULTS_BOX["phi_max_deg"]))
             self.sb_box_eps_min.setValue(sec.get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"]))
@@ -1294,10 +1208,6 @@ class PrepTab(QWidget):
 
     def _on_frame_changed(self, fr: str) -> None:
         self.grp_limb.setVisible(fr == "limb")
-        self.grp_two_dir.setVisible(fr == "two_dir")
-        self.grp_track.setVisible(fr == "track")
-        if fr == "track" and self.cb_shape.currentText() != "cap":
-            self.cb_shape.setCurrentText("cap")              # a track sector is a cap (step 3.3, F8)
         if self._updating_form or self._cur_index < 0:
             return
         self._sync_form_to_model()
@@ -1342,16 +1252,6 @@ class PrepTab(QWidget):
             sec["limb_alt_km"] = self.sb_limb_alt.value()
         else:
             sec.pop("limb_alt_km", None)
-        for k, sb in self.sb_two_dir.items():
-            if sec["frame"] == "two_dir":
-                sec[k] = sb.value()
-            else:
-                sec.pop(k, None)
-        for k, sb in self.sb_track.items():
-            if sec["frame"] == "track":
-                sec[k] = sb.value()
-            else:
-                sec.pop(k, None)
         rect_keys = tuple(self.sb_rect)
         if sec["shape"] == "box":
             sec["phi_min_deg"] = self.sb_phi_min.value()
@@ -1828,10 +1728,83 @@ class PrepTab(QWidget):
                 ("Save", self.save, "SP_DialogSaveButton", False),
                 ("Save as...", self.save_as, "SP_DialogSaveButton", False),
                 ("---", None, None, False),
-                ("Flight plan from a scenario...", lambda: self.load_scenario(), "SP_DirOpenIcon", True),
-                ("Remove the flight plan", lambda: self.unlink_scenario(), "SP_TrashIcon", True),
-                ("---", None, None, False),
-                ("Export::Mission as CSV...", lambda: self._on_export("csv"), "SP_DialogSaveButton", False)]
+                ("Radar configuration::Import...", self.import_radar_config, "SP_DialogOpenButton", True),
+                ("Radar configuration::Export...", self.export_radar_config, "SP_DialogSaveButton", False)]
+        # (user, 12 November 2026: "Flight plan from a scenario", "Remove the flight plan" and "Export mission as
+        # CSV" removed, not useful: the work file holds the scenario, Open takes a CSV still)
+
+    # ------------------------------------------------------------------ radar configuration (user, 12 November 2026)
+    # the volumes and their parameters with the mission settings, without navigation, sky nor scenario: exported from
+    # one mission, imported into another (it replaces that one's volumes and settings); scenarios/radar_configs
+    RADAR_CONFIG_FORMAT = "radar_config"
+    RADAR_CONFIG_DIR = os.path.join(slink.APP_DIR, "scenarios", "radar_configs")
+    _NOT_CONFIG = ("nav", "sky")                     # (global keys of the situation, not of the radar)
+
+    def _config_globals(self, g: dict) -> dict:
+        return {k: copy.deepcopy(v) for k, v in g.items() if k not in self._NOT_CONFIG and not str(k).startswith("_")}
+
+    def export_radar_config(self) -> None:
+        """The volumes and the mission settings to a radar configuration file (scenarios/radar_configs)."""
+        os.makedirs(self.RADAR_CONFIG_DIR, exist_ok=True)
+        stem = os.path.splitext(os.path.basename(self.path))[0] if self.path else "radar_config"
+        path, _ = QFileDialog.getSaveFileName(self, "Export the radar configuration",
+                                              os.path.join(self.RADAR_CONFIG_DIR, f"{stem}.json"),
+                                              "Radar configuration (*.json)")
+        if not path:
+            return
+        cfg = {"format": self.RADAR_CONFIG_FORMAT, "version": 1,
+               "saved_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+               "source": os.path.basename(self.path) if self.path else None,
+               "global": self._config_globals(self.mission.get("global", {})),
+               "sectors": copy.deepcopy(self.mission.get("sectors", []))}
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump(cfg, fh, indent=1, ensure_ascii=False)
+        except OSError as exc:
+            QMessageBox.critical(self, "Export", f"Could not write {path}: {exc}")
+
+    def import_radar_config(self) -> None:
+        """A radar configuration replaces the mission's volumes and settings (its navigation, sky and flight plan
+        kept), after confirmation."""
+        if self.locked:
+            return
+        os.makedirs(self.RADAR_CONFIG_DIR, exist_ok=True)
+        path, _ = QFileDialog.getOpenFileName(self, "Import a radar configuration", self.RADAR_CONFIG_DIR,
+                                              "Radar configuration (*.json)")
+        if not path:
+            return
+        try:
+            with open(path, encoding="utf-8") as fh:
+                cfg = json.load(fh)
+            if not isinstance(cfg, dict) or cfg.get("format") != self.RADAR_CONFIG_FORMAT:
+                raise ValueError("not a radar configuration (export one with File > Radar configuration > Export)")
+            sectors, g_cfg = list(cfg.get("sectors") or []), dict(cfg.get("global") or {})
+            trial = {"global": dict(self.mission.get("global", {}), **g_cfg), "sectors": sectors}
+            errs = md.validate_mission(trial)
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(self, "Import", f"Could not import {os.path.basename(path)}: {exc}")
+            return
+        n_old = len(self.mission.get("sectors", []))
+        text = (f"Replace the {n_old} volume(s) and the mission settings with the {len(sectors)} volume(s) of "
+                f"{os.path.basename(path)}? The navigation and the flight plan are kept.")
+        if errs:
+            text += "\n\nThe configuration has problems (shown in the alerts):\n- " + "\n- ".join(errs[:6])
+        if QMessageBox.question(self, "Import a radar configuration", text) != QMessageBox.Yes:
+            return
+        g = self.mission.setdefault("global", {})
+        for k in [k for k in g if k not in self._NOT_CONFIG and not str(k).startswith("_")]:
+            g.pop(k)
+        g.update(copy.deepcopy(g_cfg))
+        self.mission["sectors"] = copy.deepcopy(sectors)
+        self._hidden_sectors = set()
+        self.sb_eps_min.setValue(g.get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"]))
+        self.sb_eps_max.setValue(g.get("eps_max_deg", md.GLOBAL_DEFAULTS["eps_max_deg"]))
+        self.sb_elec.setValue(self._cap_value())
+        self._load_mission_settings()
+        self._cur_index = 0
+        self._reload_sector_list()
+        self._schedule_refresh()
+        self._update_title()
 
     def new(self) -> None:
         if self.locked or not self.confirm_discard():

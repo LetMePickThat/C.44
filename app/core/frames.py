@@ -27,14 +27,14 @@ toward +Z; box and cap shapes are described in the sector's frame:
            sim/scenario.equator_axes; the Earth: ICRF), the Scenario Editor's inertial frame (user, 10 November 2026);
            needs the orbit (its central body)
   rtn      X radial outward, Z = r x v (orbit normal), Y = Z x X (along track); needs the orbit
+  velocity X = the ship velocity v exactly, Z = r x v (orbit normal), Y = Z x X (toward the central body on a circular
+           orbit): the direction of travel at phi 0, eps 0 on any orbit (user, 12 November 2026: objects on the ship's
+           path; rtn turned by the flight path angle about the orbit normal); needs the orbit
   limb     Z local zenith, X = v projected on the local horizontal, Y = Z x X; box only, eps COUNTED FROM THE LIMB of
            the central body at altitude limb_alt_km (sector key, default tool.frames.limb_alt_km): the limb is
            acos((R + limb_alt) / |r|) below the local horizontal and the band follows the altitude; needs the orbit
-  track    (step 3.3, F8) a cap around a track or an external designation: centre track_ra_deg / track_dec_deg (ICRF),
-           radius tracking.track_frame_k x track_sigma_deg (the designation's angular sigma); the cap's own
-           phi0_deg / eps0_deg / radius_deg are set from them
-  two_dir  Z = primary direction, X in the plane of the two directions on the secondary's side; directions in ICRF
-           (frame_p_ra_deg, frame_p_dec_deg, frame_s_ra_deg, frame_s_dec_deg)
+  (two_dir and track removed, user 12 November 2026: both fixed in the sky as inertial; a track's cap is an inertial
+  cap at its RA / Dec)
 
 Sky key "frame": "ship" (default) or "inertial": an inertial sky (bodies, galactic frame, stand-off jammers) is turned
 into the ship frame with the same attitude.
@@ -54,21 +54,17 @@ import numpy as np
 
 from .params import P
 
-FRAMES = ("ship", "inertial", "equatorial", "rtn", "limb", "two_dir", "track")
-TRACK_KEYS = ("track_ra_deg", "track_dec_deg", "track_sigma_deg")       # step 3.3, F8
+FRAMES = ("ship", "inertial", "equatorial", "rtn", "velocity", "limb")
 SKY_FRAMES = ("ship", "inertial")
-ORBIT_FRAMES = ("rtn", "limb", "equatorial")
+ORBIT_FRAMES = ("rtn", "velocity", "limb", "equatorial")
 # the references of the yaw / pitch / roll shown by the GUI (user, 10 November 2026: the Scenario Editor's, see
 # sim/attitude.py: "orbital" nose prograde at 0, "equatorial" the central body's axes); the former ones still read
 ATTITUDE_REFS = ("orbital", "equatorial")
 ATTITUDE_REFS_READ = ATTITUDE_REFS + ("icrf", "rtn")
-TWO_DIR_KEYS = ("frame_p_ra_deg", "frame_p_dec_deg", "frame_s_ra_deg", "frame_s_dec_deg")
-SECTOR_FRAME_FIELDS = ("frame", "limb_alt_km") + TWO_DIR_KEYS + TRACK_KEYS   # the operator's frame inputs of a sector
+SECTOR_FRAME_FIELDS = ("frame", "limb_alt_km")                    # the operator's frame inputs of a sector
 RESOLVED_FIELDS = ("frame_m", "frame_eps_offset_deg")              # added by resolve_sector()
 _T = "tool.frames."
 Q_NORM_TOL: float = P.get(_T + "q_norm_tol")                 # |q| - 1 beyond this: refused; within: normalised
-TWO_DIR_MIN_SEP_DEG: float = P.get(_T + "two_dir_min_sep_deg")
-TRACK_FRAME_K: float = P.get("tracking.track_frame_k")
 SKY_NAV_TOL_DEG: float = P.get(_T + "sky_nav_tol_deg")       # sky central body vs navigation: alert beyond
 LIMB_ALT_KM_DEFAULT: float = P.get(_T + "limb_alt_km")
 BODY_RADIUS_KM: Dict[str, float] = {k: float(v["radius_km"]) for k, v in P.section("sky.surface").items()}
@@ -227,6 +223,10 @@ class Nav:
         """Matrix ICRF -> RTN."""
         return _axes(np.cross(self.r, self.v), self.r)
 
+    def velocity_axes(self) -> np.ndarray:
+        """Matrix ICRF -> velocity frame (X along v, Z orbit normal r x v, Y = Z x X)."""
+        return _axes(np.cross(self.r, self.v), self.v)
+
     def limb_axes(self) -> np.ndarray:
         """Matrix ICRF -> local horizon frame (Z zenith, X along the horizontal velocity)."""
         return _axes(self.r, self.v)
@@ -271,35 +271,7 @@ def validate_sector(sec: dict, g: dict, tag: str) -> List[str]:
             n = Nav(nav[0])
             if n.has_orbit and np.linalg.norm(n.r) <= n.body_radius_km + alt:
                 errs.append(f"{tag}: the ship is below the limb altitude ({alt:g} km above the {n.body})")
-    if fr == "track":
-        miss = [k for k in TRACK_KEYS if not isinstance(sec.get(k), (int, float))]
-        if miss:
-            errs.append(f"{tag}: frame 'track' needs {', '.join(miss)}")
-        else:
-            if not -90.0 <= sec["track_dec_deg"] <= 90.0:
-                errs.append(f"{tag}: track_dec_deg ({sec['track_dec_deg']}) outside [-90, 90] deg")
-            if sec["track_sigma_deg"] <= 0:
-                errs.append(f"{tag}: track_sigma_deg must be > 0")
-        if sec.get("shape", "box") != "cap":
-            errs.append(f"{tag}: frame 'track' takes a cap (centred on the track, radius k sigma)")
-    if fr == "two_dir":
-        miss = [k for k in TWO_DIR_KEYS if not isinstance(sec.get(k), (int, float))]
-        if miss:
-            errs.append(f"{tag}: frame 'two_dir' needs {', '.join(miss)}")
-        else:
-            for k in ("frame_p_dec_deg", "frame_s_dec_deg"):
-                if not -90.0 <= sec[k] <= 90.0:
-                    errs.append(f"{tag}: {k} ({sec[k]}) outside [-90, 90] deg")
-            p, s = _two_dir(sec)
-            sep = math.degrees(math.acos(max(-1.0, min(1.0, float(p @ s)))))
-            if min(sep, 180.0 - sep) < TWO_DIR_MIN_SEP_DEG:
-                errs.append(f"{tag}: the two directions are {sep:.2f} deg apart: at least {TWO_DIR_MIN_SEP_DEG:g} deg "
-                            f"from aligned needed")
     return errs
-
-
-def _two_dir(sec: dict) -> Tuple[np.ndarray, np.ndarray]:
-    return unit(sec["frame_p_ra_deg"], sec["frame_p_dec_deg"]), unit(sec["frame_s_ra_deg"], sec["frame_s_dec_deg"])
 
 
 def sector_matrix(sec: dict, nav: Nav) -> Tuple[Optional[np.ndarray], float]:
@@ -307,17 +279,16 @@ def sector_matrix(sec: dict, nav: Nav) -> Tuple[Optional[np.ndarray], float]:
     fr = sec.get("frame", "ship")
     if fr == "ship":
         return None, 0.0
-    if fr in ("inertial", "track"):
+    if fr == "inertial":
         a = np.eye(3)
     elif fr == "equatorial":
         a = equator_axes(nav.body).T            # ICRF -> the central body's equatorial axes
     elif fr == "rtn":
         a = nav.rtn()
-    elif fr == "limb":
-        a = nav.limb_axes()
+    elif fr == "velocity":
+        a = nav.velocity_axes()
     else:
-        p, s = _two_dir(sec)
-        a = _axes(p, s)
+        a = nav.limb_axes()
     m = a @ nav.r_si                        # ship -> ICRF -> sector frame
     off = -nav.limb_depression_deg(sec.get("limb_alt_km", LIMB_ALT_KM_DEFAULT)) if fr == "limb" else 0.0
     return m, off
@@ -329,9 +300,6 @@ def resolve_sector(sec: dict, g: dict) -> dict:
         return sec
     m, off = sector_matrix(sec, parse_nav(g.get("nav")))
     out = dict(sec)
-    if sec.get("frame") == "track":                 # step 3.3, F8: the cap from the designation (ICRF)
-        out.update(shape="cap", phi0_deg=float(sec["track_ra_deg"]) % 360.0, eps0_deg=float(sec["track_dec_deg"]),
-                   radius_deg=TRACK_FRAME_K * float(sec["track_sigma_deg"]))
     if not np.array_equal(m, np.eye(3)) or off:
         out["frame_m"] = tuple(float(c) for c in m.ravel())
     if off:
@@ -342,8 +310,7 @@ def resolve_sector(sec: dict, g: dict) -> dict:
 def frame_key(sec: dict) -> tuple:
     """Sectors with the same key share their frame (their boxes can be combined)."""
     fr = sec.get("frame", "ship")
-    return (fr, sec.get("limb_alt_km", LIMB_ALT_KM_DEFAULT) if fr == "limb" else None,
-            tuple(sec.get(k) for k in TWO_DIR_KEYS) if fr == "two_dir" else None)
+    return (fr, sec.get("limb_alt_km", LIMB_ALT_KM_DEFAULT) if fr == "limb" else None)
 
 
 def unresolved(sec: dict) -> dict:

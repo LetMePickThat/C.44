@@ -660,14 +660,14 @@
    "passes": 3
   },
   "margin_reuse": {
-   "assemblies": 4,
+   "assemblies": 3,
    "fa_frozen_per_s": true,
    "faces": {
     "0": {
      "binding_nominal": "ship energy",
      "binding_real": "ship energy",
      "nominal": 0.12349445232187287,
-     "real": 0.28740607727384854,
+     "real": 0.3233066469434903,
      "resources_nominal": {
       "Ku beams": 0.03125,
       "Ku time": 0.0012467944013578901,
@@ -681,21 +681,21 @@
      },
      "resources_real": {
       "Ku beams": 0.03125,
-      "Ku time": 0.0017325909798924185,
+      "Ku time": 0.002619561995685153,
       "S beams": 0.013719453534220171,
-      "S time": 0.0031217157230807938,
-      "compute": 1.948158163583885e-05,
-      "energy": 0.06682349620126277,
-      "heat": 0.007706770144032803,
+      "S time": 0.005502721516892662,
+      "compute": 2.907074206117964e-05,
+      "energy": 0.08800409743847079,
+      "heat": 0.008335563911347798,
       "memory": 4.2838139875536296e-05,
-      "memory bandwidth": 0.011029839084510782
+      "memory bandwidth": 0.019183266070657293
      }
     },
     "1": {
      "binding_nominal": "ship energy",
      "binding_real": "ship energy",
      "nominal": 0.12349445232187287,
-     "real": 0.28740607727384854,
+     "real": 0.3233066469434903,
      "resources_nominal": {
       "Ku beams": 0.03125,
       "Ku time": 0.0010142889675429042,
@@ -708,22 +708,22 @@
       "memory bandwidth": 0.010096455864826165
      },
      "resources_real": {
-      "Ku beams": 0.03125,
-      "Ku time": 0.0009381573146551565,
+      "Ku beams": 0.1875,
+      "Ku time": 0.0075081521149329995,
       "S beams": 0.017621875872842797,
-      "S time": 0.024029785701633704,
-      "compute": 2.00575859245359e-05,
-      "energy": 0.19710745688144807,
-      "heat": 0.010669623440978613,
-      "memory": 4.28382838755363e-05,
-      "memory bandwidth": 0.05493402694852084
+      "S time": 0.025928960644564812,
+      "compute": 0.00019531265167714582,
+      "energy": 0.25496662965131145,
+      "heat": 0.012969649209633253,
+      "memory": 6.783828387553629e-05,
+      "memory bandwidth": 0.0737349604273474
      }
     },
     "2": {
      "binding_nominal": "ship energy",
      "binding_real": "ship energy",
      "nominal": 0.12349445232187287,
-     "real": 0.28740607727384854,
+     "real": 0.3233066469434903,
      "resources_nominal": {
       "Ku beams": 0.03125,
       "Ku time": 0.0009527890820996851,
@@ -736,22 +736,22 @@
       "memory bandwidth": 0.006836995549545286
      },
      "resources_real": {
-      "Ku beams": 0.03125,
-      "Ku time": 0.0008231282708920824,
+      "Ku beams": 0.1875,
+      "Ku time": 0.007388773588369543,
       "S beams": 0.017621875872842797,
-      "S time": 0.007979802202078435,
-      "compute": 8.659426965723656e-06,
-      "energy": 0.09181604975880756,
-      "heat": 0.008181213306756023,
-      "memory": 4.28380918755363e-05,
-      "memory bandwidth": 0.020276079011101854
+      "S time": 0.010027488910792411,
+      "compute": 0.00018260053986655963,
+      "energy": 0.1506221000892697,
+      "heat": 0.010498778980297933,
+      "memory": 6.783809187553628e-05,
+      "memory bandwidth": 0.03816964141710058
      }
     },
     "3": {
      "binding_nominal": "energy",
      "binding_real": "energy",
      "nominal": 0.3255085377624279,
-     "real": 0.7938773062538758,
+     "real": 0.7996337605949092,
      "resources_nominal": {
       "Ku beams": 0.03125,
       "Ku time": 0.009995817243088127,
@@ -764,62 +764,63 @@
       "memory bandwidth": 0.048297143427969653
      },
      "resources_real": {
-      "Ku beams": 0.09375,
-      "Ku time": 0.05732634949927583,
-      "S beams": 0.013719453534220171,
-      "S time": 0.0539118603645874,
-      "compute": 0.00014254627586608457,
-      "energy": 0.7938773062538758,
-      "heat": 0.032460768846024064,
-      "memory": 0.00021705649645245532,
-      "memory bandwidth": 0.08012734373791969
+      "Ku beams": 0.0625,
+      "Ku time": 0.02113819487310379,
+      "S beams": 0.027438907068440342,
+      "S time": 0.09544981416504124,
+      "compute": 0.00013234899027031233,
+      "energy": 0.7996337605949092,
+      "heat": 0.02783667542232936,
+      "memory": 0.00041411193690491063,
+      "memory bandwidth": 0.13415971173610314
      }
     }
    },
    "flags": [
-    "at the real revisits: sector AXIS: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
-    "at the real revisits: sector HORIZON: S waveform WF-HORIZON-1: its harmonics (13.475-14.225 GHz) cover 100 % of the Ku channel 13.8 GHz / 50 MHz on the same face",
-    "at the real revisits: sector HORIZON: S waveform WF-HORIZON-2: its harmonics (13.350-14.350 GHz) cover 100 % of the Ku channel 13.8 GHz / 50 MHz on the same face"
+    "at the real revisits: sector AXIS: S waveform WF-AXIS-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 50 MHz on the same face",
+    "at the real revisits: sector AXIS: S waveform WF-AXIS-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 50 MHz on the same face",
+    "at the real revisits: sector HORIZON: S waveform WF-HORIZON-1: its harmonics (13.475-14.225 GHz) cover 100 % of the Ku channel 14.2 GHz / 50 MHz on the same face",
+    "at the real revisits: sector HORIZON: S waveform WF-HORIZON-2: its harmonics (13.350-14.350 GHz) cover 100 % of the Ku channel 14.2 GHz / 50 MHz on the same face"
    ],
    "load_ceiling": 0.8,
    "power_allocation": {
-    "drawn_MW": 2.299248613592291,
+    "drawn_MW": 2.586453170375016,
     "faces": {
      "0": {
-      "alloc_MW": 0.13364699213523157,
-      "always_on_MW": 0.07107954430207399,
+      "alloc_MW": 0.1760081945249252,
+      "always_on_MW": 0.07128750614028659,
       "cap_MW": 2.0,
       "capped": true,
-      "load": 0.06682349620126277,
-      "need_MW": 0.13364699240252553
+      "load": 0.08800409743847079,
+      "need_MW": 0.17600819487694158
      },
      "1": {
-      "alloc_MW": 0.3942149129744663,
-      "always_on_MW": 0.07205768041708724,
+      "alloc_MW": 0.5099332582827563,
+      "always_on_MW": 0.07282406869913792,
       "cap_MW": 2.0,
       "capped": true,
-      "load": 0.19710745688144807,
-      "need_MW": 0.39421491376289614
+      "load": 0.25496662965131145,
+      "need_MW": 0.5099332593026229
      },
      "2": {
-      "alloc_MW": 0.1836320991503509,
-      "always_on_MW": 0.07123575864133,
+      "alloc_MW": 0.30124419957605103,
+      "always_on_MW": 0.07200785719457568,
       "cap_MW": 2.0,
       "capped": true,
-      "load": 0.09181604975880756,
-      "need_MW": 0.1836320995176151
+      "load": 0.1506221000892697,
+      "need_MW": 0.3012442001785394
      },
      "3": {
-      "alloc_MW": 1.5877546093322423,
-      "always_on_MW": 0.07925038831825217,
+      "alloc_MW": 1.5992675179912834,
+      "always_on_MW": 0.07772601363275372,
       "cap_MW": 2.0,
       "capped": true,
-      "load": 0.7938773062538758,
-      "need_MW": 1.5877546125077515
+      "load": 0.7996337605949092,
+      "need_MW": 1.5992675211898184
      }
     },
     "flags": [],
-    "need_MW": 2.2992486181907883,
+    "need_MW": 2.5864531755479225,
     "partial": [],
     "rule": {
      "binding": [],
@@ -830,26 +831,26 @@
         "0": {
          "Ku time": 0.00016666666633333337,
          "S time": 3.333333326666667e-05,
-         "energy": 71079.5441599149,
-         "share": 0.2420772702652666
+         "energy": 71287.50599771157,
+         "share": 0.24260204536616423
         },
         "1": {
          "Ku time": 0.00016666666633333337,
          "S time": 3.333333326666667e-05,
-         "energy": 72057.68027297188,
-         "share": 0.24540853136148286
+         "energy": 72824.06855348978,
+         "share": 0.24783119756678715
         },
         "2": {
          "Ku time": 0.00016666666633333337,
          "S time": 3.333333326666667e-05,
-         "energy": 71235.75849885849,
-         "share": 0.24260929310242318
+         "energy": 72007.85705055998,
+         "share": 0.2450535077417494
         },
         "3": {
          "Ku time": 0.00016666666633333337,
          "S time": 3.333333326666667e-05,
-         "energy": 79250.3881597514,
-         "share": 0.2699049052708274
+         "energy": 77726.01347730169,
+         "share": 0.26451324932529907
         }
        },
        "kind": "other",
@@ -865,14 +866,14 @@
         "0": {
          "Ku time": 0.0,
          "S time": 6.215133307089718e-05,
-         "energy": 843.0020237336837,
+         "energy": 843.0020237336838,
          "share": 0.25000000000000006
         },
         "1": {
          "Ku time": 0.0,
          "S time": 6.215133307089717e-05,
-         "energy": 843.0020237336835,
-         "share": 0.24999999999999997
+         "energy": 843.0020237336834,
+         "share": 0.24999999999999994
         },
         "2": {
          "Ku time": 0.0,
@@ -901,27 +902,27 @@
        "faces": {
         "0": {
          "Ku time": 0.0,
-         "S time": 3.76716330970615e-05,
-         "energy": 510.96672217713416,
+         "S time": 0.0001146307109594472,
+         "energy": 1554.8165509276014,
          "share": 0.25000000000000006
         },
         "1": {
          "Ku time": 0.0,
-         "S time": 3.767163309706149e-05,
-         "energy": 510.96672217713405,
-         "share": 0.25
+         "S time": 0.00011463071095944716,
+         "energy": 1554.8165509276007,
+         "share": 0.24999999999999997
         },
         "2": {
          "Ku time": 0.0,
-         "S time": 3.7671633097061475e-05,
-         "energy": 510.966722177134,
-         "share": 0.24999999999999997
+         "S time": 0.00011463071095944715,
+         "energy": 1554.816550927601,
+         "share": 0.25
         },
         "3": {
          "Ku time": 0.0,
-         "S time": 3.7671633097061475e-05,
-         "energy": 510.96672217713405,
-         "share": 0.25
+         "S time": 0.00011463071095944715,
+         "energy": 1554.8165509276007,
+         "share": 0.24999999999999997
         }
        },
        "kind": "other",
@@ -937,7 +938,7 @@
         "3": {
          "Ku time": 0.0,
          "S time": 0.0320118563111634,
-         "energy": 414906.8768520978,
+         "energy": 414906.876852098,
          "share": 1.0
         }
        },
@@ -955,8 +956,8 @@
        "faces": {
         "3": {
          "Ku time": 0.0,
-         "S time": 0.01940326693128791,
-         "energy": 251486.47441544378,
+         "S time": 0.059042045709533086,
+         "energy": 765246.1809832138,
          "share": 1.0
         }
        },
@@ -972,27 +973,27 @@
        "faces": {
         "0": {
          "Ku time": 0.0,
-         "S time": 0.0015915386790569782,
-         "energy": 20630.475484095296,
-         "share": 0.3213913203878818
+         "S time": 0.001591538679056978,
+         "energy": 20630.4754840953,
+         "share": 0.3213913203878819
         },
         "1": {
          "Ku time": 0.0,
          "S time": 0.0008844889326756834,
-         "energy": 11465.094892846933,
-         "share": 0.17860867961211824
+         "energy": 11465.09489284693,
+         "share": 0.17860867961211818
         },
         "2": {
          "Ku time": 0.0,
-         "S time": 0.0015915386790569777,
+         "S time": 0.0015915386790569775,
          "energy": 20630.475484095296,
          "share": 0.3213913203878818
         },
         "3": {
          "Ku time": 0.0,
          "S time": 0.0008844889326756834,
-         "energy": 11465.094892846933,
-         "share": 0.17860867961211824
+         "energy": 11465.09489284693,
+         "share": 0.17860867961211818
         }
        },
        "kind": "search",
@@ -1009,27 +1010,27 @@
        "faces": {
         "0": {
          "Ku time": 0.0,
-         "S time": 0.0009646753853022529,
-         "energy": 12504.698848023294,
+         "S time": 0.002935403012058472,
+         "energy": 38050.44808090632,
          "share": 0.3213913203878818
         },
         "1": {
          "Ku time": 0.0,
-         "S time": 0.0005361130792184451,
-         "energy": 6949.3094819645585,
-         "share": 0.17860867961211824
+         "S time": 0.0016313341995853768,
+         "energy": 21145.998224774663,
+         "share": 0.1786086796121182
         },
         "2": {
          "Ku time": 0.0,
-         "S time": 0.0009646753853022525,
-         "energy": 12504.69884802329,
+         "S time": 0.00293540301205847,
+         "energy": 38050.44808090631,
          "share": 0.32139132038788176
         },
         "3": {
          "Ku time": 0.0,
-         "S time": 0.0005361130792184451,
-         "energy": 6949.3094819645585,
-         "share": 0.17860867961211824
+         "S time": 0.0016313341995853768,
+         "energy": 21145.998224774663,
+         "share": 0.1786086796121182
         }
        },
        "kind": "other",
@@ -1045,20 +1046,20 @@
         "0": {
          "Ku time": 0.0,
          "S time": 0.0002691849488167847,
-         "energy": 3489.256138627614,
-         "share": 0.18648028869423183
+         "energy": 3489.2561386276143,
+         "share": 0.18648028869423186
         },
         "1": {
          "Ku time": 0.0,
          "S time": 0.0005871132235169897,
-         "energy": 7610.934824383983,
-         "share": 0.4067598556528841
+         "energy": 7610.934824383984,
+         "share": 0.40675985565288414
         },
         "3": {
          "Ku time": 0.0,
          "S time": 0.0005871132235169897,
-         "energy": 7610.934824383983,
-         "share": 0.4067598556528841
+         "energy": 7610.934824383982,
+         "share": 0.40675985565288403
         }
        },
        "kind": "search",
@@ -1075,21 +1076,21 @@
        "faces": {
         "0": {
          "Ku time": 0.0,
-         "S time": 0.0001631604042267215,
-         "energy": 2114.9341541251592,
-         "share": 0.1864802886942318
+         "S time": 0.0004964794886579734,
+         "energy": 6435.516217073556,
+         "share": 0.18648028869423186
         },
         "1": {
          "Ku time": 0.0,
-         "S time": 0.00035586547946663075,
-         "energy": 4613.197015465122,
-         "share": 0.40675985565288414
+         "S time": 0.0010828602203700704,
+         "energy": 14037.460290512758,
+         "share": 0.4067598556528842
         },
         "3": {
          "Ku time": 0.0,
-         "S time": 0.00035586547946663075,
-         "energy": 4613.197015465122,
-         "share": 0.40675985565288414
+         "S time": 0.0010828602203700704,
+         "energy": 14037.460290512754,
+         "share": 0.4067598556528841
         }
        },
        "kind": "other",
@@ -1151,27 +1152,27 @@
       {
        "faces": {
         "0": {
-         "Ku time": 1.489759169363289e-07,
+         "Ku time": 2.8996745878008535e-07,
          "S time": 0.0,
-         "energy": 10.14689519239736,
+         "energy": 12.392726053043198,
          "share": 0.25
         },
         "1": {
-         "Ku time": 1.489759169363289e-07,
+         "Ku time": 2.899674587800853e-07,
          "S time": 0.0,
-         "energy": 10.146895192397357,
-         "share": 0.24999999999999994
+         "energy": 12.392726053043196,
+         "share": 0.24999999999999997
         },
         "2": {
-         "Ku time": 1.489759169363289e-07,
+         "Ku time": 2.8996745878008535e-07,
          "S time": 0.0,
-         "energy": 10.14689519239736,
+         "energy": 12.392726053043198,
          "share": 0.25
         },
         "3": {
-         "Ku time": 1.489759169363289e-07,
+         "Ku time": 2.8996745878008535e-07,
          "S time": 0.0,
-         "energy": 10.14689519239736,
+         "energy": 12.392726053043198,
          "share": 0.25
         }
        },
@@ -1186,9 +1187,9 @@
       {
        "faces": {
         "3": {
-         "Ku time": 0.05334819973465549,
+         "Ku time": 0.017864503476225747,
          "S time": 0.0,
-         "energy": 799096.4631338235,
+         "energy": 268025.94339788886,
          "share": 1.0
         }
        },
@@ -1203,28 +1204,28 @@
       {
        "faces": {
         "0": {
-         "Ku time": 0.0006119362506818311,
+         "Ku time": 0.0009811140842509174,
          "S time": 0.0,
-         "energy": 9311.775688099404,
-         "share": 0.3208905206780202
+         "energy": 14956.072151487038,
+         "share": 0.3206400317150105
         },
         "1": {
-         "Ku time": 0.00034271190471929416,
+         "Ku time": 0.0005506209728891027,
          "S time": 0.0,
-         "energy": 5197.496303519804,
-         "share": 0.1791094793219799
+         "energy": 8366.143841773928,
+         "share": 0.17935996828498965
         },
         "2": {
-         "Ku time": 0.0006119362506818308,
+         "Ku time": 0.0009811140842509172,
          "S time": 0.0,
-         "energy": 9311.775688099398,
-         "share": 0.32089052067802
+         "energy": 14956.072151487031,
+         "share": 0.3206400317150103
         },
         "3": {
-         "Ku time": 0.00034271190471929416,
+         "Ku time": 0.0005506209728891027,
          "S time": 0.0,
-         "energy": 5197.496303519804,
-         "share": 0.1791094793219799
+         "energy": 8366.143841773928,
+         "share": 0.17935996828498965
         }
        },
        "kind": "other",
@@ -1238,22 +1239,22 @@
       {
        "faces": {
         "0": {
-         "Ku time": 0.0008604318807050467,
+         "Ku time": 0.001221454567221119,
          "S time": 0.0,
-         "energy": 13152.192021242652,
-         "share": 0.5307431636136516
+         "energy": 18748.709154309476,
+         "share": 0.5295941984678508
         },
         "1": {
-         "Ku time": 0.00037805195976272867,
+         "Ku time": 0.0005384769795335252,
          "S time": 0.0,
-         "energy": 5814.258611842205,
-         "share": 0.23462841819317423
+         "energy": 8326.659905774519,
+         "share": 0.23520290076607464
         },
         "3": {
-         "Ku time": 0.00037805195976272867,
+         "Ku time": 0.0005384769795335252,
          "S time": 0.0,
-         "energy": 5814.258611842204,
-         "share": 0.23462841819317418
+         "energy": 8326.659905774519,
+         "share": 0.23520290076607464
         }
        },
        "kind": "other",
@@ -1263,17 +1264,40 @@
        "sector": "HORIZON",
        "tier": "P2 confirmation / initiation",
        "unserved_share": 0.0
+      },
+      {
+       "faces": {
+        "1": {
+         "Ku time": 0.005535445791042041,
+         "S time": 0.0,
+         "energy": 84603.86051811685,
+         "share": 0.5
+        },
+        "2": {
+         "Ku time": 0.005535445791042041,
+         "S time": 0.0,
+         "energy": 84603.86051811685,
+         "share": 0.5
+        }
+       },
+       "kind": "other",
+       "label": "confirmation AXIS",
+       "level": 1.0,
+       "moved_share": 0.0,
+       "sector": "AXIS",
+       "tier": "P2 confirmation / initiation",
+       "unserved_share": 0.0
       }
      ],
      "faces": {
       "0": {
-       "Ku time": 0.0016391837736371474,
-       "Ku time load": 0.0016391837736371474,
-       "S time": 0.0031217157168373626,
-       "S time load": 0.0031217157168373626,
-       "energy": 133646.99213523156,
+       "Ku time": 0.00236952528526415,
+       "Ku time load": 0.00236952528526415,
+       "S time": 0.005502721505887219,
+       "S time load": 0.005502721505887219,
+       "energy": 176008.1945249252,
        "energy cap": 2000000.0,
-       "energy load": 0.06682349606761578,
+       "energy load": 0.0880040972624626,
        "moved": {
         "Ku time": 0.0,
         "S time": 0.0,
@@ -1281,13 +1305,13 @@
        }
       },
       "1": {
-       "Ku time": 0.0008875795067322925,
-       "Ku time load": 0.0008875795067322925,
-       "S time": 0.024029785653574137,
-       "S time load": 0.024029785653574137,
-       "energy": 394214.91297446634,
+       "Ku time": 0.006791500377256782,
+       "Ku time load": 0.006791500377256782,
+       "S time": 0.02592896059270689,
+       "S time load": 0.02592896059270689,
+       "energy": 509933.2582827563,
        "energy cap": 2000000.0,
-       "energy load": 0.19710745648723316,
+       "energy load": 0.25496662914137813,
        "moved": {
         "Ku time": 0.0,
         "S time": 0.0,
@@ -1295,13 +1319,13 @@
        }
       },
       "2": {
-       "Ku time": 0.0007787518929321005,
-       "Ku time load": 0.0007787518929321005,
-       "S time": 0.00797980218611883,
-       "S time load": 0.00797980218611883,
-       "energy": 183632.0991503509,
+       "Ku time": 0.006683516509085071,
+       "Ku time load": 0.006683516509085071,
+       "S time": 0.010027488890737433,
+       "S time load": 0.010027488890737433,
+       "energy": 301244.19957605103,
        "energy cap": 2000000.0,
-       "energy load": 0.09181604957517545,
+       "energy load": 0.15062209978802552,
        "moved": {
         "Ku time": 0.0,
         "S time": 0.0,
@@ -1309,13 +1333,13 @@
        }
       },
       "3": {
-       "Ku time": 0.05423577924138778,
-       "Ku time load": 0.05423577924138778,
-       "S time": 0.05391186025676369,
-       "S time load": 0.05391186025676369,
-       "energy": 1587754.6093322423,
+       "Ku time": 0.01912055806244049,
+       "Ku time load": 0.01912055806244049,
+       "S time": 0.0954498139741416,
+       "S time load": 0.0954498139741416,
+       "energy": 1599267.5179912834,
        "energy cap": 2000000.0,
-       "energy load": 0.7938773046661212,
+       "energy load": 0.7996337589956417,
        "moved": {
         "Ku time": 0.0,
         "S time": 0.0,
@@ -1326,8 +1350,8 @@
      "flags": [],
      "ship": {
       "cap": 8000000.0,
-      "energy": 2299248.6135922913,
-      "energy load": 0.2874060766990364
+      "energy": 2586453.170375016,
+      "energy load": 0.323306646296877
      },
      "status": "OK"
     },
@@ -1336,26 +1360,26 @@
     "tiers": [
      {
       "fraction": 1.0,
-      "need_MW": 0.2936233716787434,
-      "served_MW": 0.2936233716787434,
+      "need_MW": 0.2938454456667539,
+      "served_MW": 0.2938454456667539,
       "tier": "always-on"
      },
      {
       "fraction": 1.0,
-      "need_MW": 0.8529363056486311,
-      "served_MW": 0.8529363056486311,
+      "need_MW": 0.5193296973293745,
+      "served_MW": 0.5193296973293745,
       "tier": "P2 confirmation / initiation"
      },
      {
       "fraction": 1.0,
-      "need_MW": 0.5185675575714747,
-      "served_MW": 0.5185675575714747,
+      "need_MW": 0.5185675575714748,
+      "served_MW": 0.5185675575714748,
       "tier": "P4_1 search"
      },
      {
       "fraction": 1.0,
-      "need_MW": 0.634121383291939,
-      "served_MW": 0.634121383291939,
+      "need_MW": 1.254710474980319,
+      "served_MW": 1.254710474980319,
       "tier": "P5 margin reuse"
      }
     ]
@@ -1380,15 +1404,15 @@
      "rr_target_s": 20.0
     },
     "DEEP": {
-     "g": 1.6061275154643708,
+     "g": 2.8443805674881633,
      "limited_by": "F4 energy",
      "range_km_at_rr_real": [
-      3291,
-      3227,
-      3346,
-      3244,
-      3339,
-      3280
+      3538,
+      3469,
+      3597,
+      3487,
+      3591,
+      3527
      ],
      "range_km_nominal": [
       3072,
@@ -1399,17 +1423,17 @@
       3060
      ],
      "rr_min_s": 1.0,
-     "rr_real_s": 12.452311418260903,
+     "rr_real_s": 7.031407902516276,
      "rr_target_s": 20.0
     },
     "HORIZON": {
-     "g": 1.6061275154643708,
+     "g": 2.8443805674881633,
      "limited_by": "F4 energy",
      "range_km_at_rr_real": [
-      2284,
-      2195,
-      2240,
-      2258
+      2479,
+      2383,
+      2462,
+      2442
      ],
      "range_km_nominal": [
       2106,
@@ -1418,16 +1442,16 @@
       2092
      ],
      "rr_min_s": 1.0,
-     "rr_real_s": 12.452311418260903,
+     "rr_real_s": 7.031407902516276,
      "rr_target_s": 20.0
     },
     "ORBIT": {
-     "g": 1.6061275154643708,
+     "g": 2.8443805674881633,
      "limited_by": "F4 energy",
      "range_km_at_rr_real": [
-      2275,
-      2193,
-      2164
+      2461,
+      2371,
+      2340
      ],
      "range_km_nominal": [
       2108,
@@ -1435,22 +1459,22 @@
       2006
      ],
      "rr_min_s": 1.0,
-     "rr_real_s": 12.452311418260903,
+     "rr_real_s": 7.031407902516276,
      "rr_target_s": 20.0
     },
     "PROT": {
-     "g": 1.6061275154643708,
+     "g": 2.8443805674881633,
      "limited_by": "F4 energy",
      "range_km_at_rr_real": [
-      377,
-      376,
-      373,
-      369,
-      363,
-      356,
+      438,
+      436,
+      433,
+      428,
+      421,
       413,
-      400,
-      394
+      479,
+      465,
+      458
      ],
      "range_km_nominal": [
       324,
@@ -1464,13 +1488,13 @@
       339
      ],
      "rr_min_s": 1.0,
-     "rr_real_s": 12.452311418260903,
+     "rr_real_s": 7.031407902516276,
      "rr_target_s": 20.0
     }
    },
    "ship_energy": {
     "nominal": 0.12349445232187287,
-    "real": 0.28740607727384854
+    "real": 0.3233066469434903
    }
   },
   "power_allocation": {
@@ -2017,7 +2041,7 @@
        "transit_s": 0.4172823919398621
       }
      },
-     "frame": "two_dir"
+     "frame": "inertial"
     },
     "DEEP": {
      "faces": {
@@ -5338,7 +5362,7 @@
      "worst_fallback_short_pct": 0.0,
      "worst_fallback_unscanned_pct": 0.0
     },
-    "frame": "two_dir",
+    "frame": "inertial",
     "frequency": {
      "centres_evaluated": 3,
      "centres_excluded": 0,
@@ -8755,9 +8779,10 @@
    "sector AXIS: S waveform WF-AXIS-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 50 MHz on the same face",
    "sector AXIS: S waveform WF-AXIS-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 50 MHz on the same face",
    "face F4: the transmissions of a revisit, packed together, would exhaust the face storage: the scheduler must spread them (at most 0.32 s of contiguous transmission at peak power) (step 4.1)",
-   "at the real revisits: sector AXIS: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
-   "at the real revisits: sector HORIZON: S waveform WF-HORIZON-1: its harmonics (13.475-14.225 GHz) cover 100 % of the Ku channel 13.8 GHz / 50 MHz on the same face",
-   "at the real revisits: sector HORIZON: S waveform WF-HORIZON-2: its harmonics (13.350-14.350 GHz) cover 100 % of the Ku channel 13.8 GHz / 50 MHz on the same face",
+   "at the real revisits: sector AXIS: S waveform WF-AXIS-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 50 MHz on the same face",
+   "at the real revisits: sector AXIS: S waveform WF-AXIS-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 50 MHz on the same face",
+   "at the real revisits: sector HORIZON: S waveform WF-HORIZON-1: its harmonics (13.475-14.225 GHz) cover 100 % of the Ku channel 14.2 GHz / 50 MHz on the same face",
+   "at the real revisits: sector HORIZON: S waveform WF-HORIZON-2: its harmonics (13.350-14.350 GHz) cover 100 % of the Ku channel 14.2 GHz / 50 MHz on the same face",
    "HORIZON: 21 % of its volume served by ORBIT (need met there): taken out of its budget"
   ]
  },

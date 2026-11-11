@@ -37,8 +37,7 @@ CACHE_MAX = 1024
 PROFILE_FORMAT = 4                                # 2: + reach at full pulse; 3: + the confirmation; 4: + its range
 _GEOMETRY = ("id", "name", "label", "colour", "color", "visible", "hidden", "note", "comment", "shape",
              "phi_min_deg", "phi_max_deg", "eps_min_deg", "eps_max_deg", "phi0_deg", "eps0_deg", "radius_deg",
-             "half_width_deg", "half_height_deg", "rot_deg", "track_ra_deg", "track_dec_deg", "track_sigma_deg",
-             "tracking")
+             "half_width_deg", "half_height_deg", "rot_deg", "tracking")
 _lock = threading.Lock()
 _cache: Optional[Dict[str, dict]] = None
 _jobs: Dict[str, Future] = {}

@@ -234,23 +234,23 @@
      "bands": {
       "Ku": {
        "beams_max": 32,
-       "beams_mean": 0.00048507773740369013,
+       "beams_mean": 0.010439982156222818,
        "beams_peak": 1,
-       "bits_per_s": 190150473.06224653,
+       "bits_per_s": 4092473005.2393446,
        "buffer_peak_GB": 0.001,
        "face_input_peak_tbps": 0.392,
        "link_trsa_peak_tbps": 0.002,
-       "open_windows_mean": 0.00048507773740369013,
+       "open_windows_mean": 0.010439982156222818,
        "ops_per_s": {
-        "banks": 776124.3798459042,
-        "beamforming": 29758549034.24158,
-        "cfar": 62159.44809695854,
-        "compression": 4223683.600057584,
+        "banks": 16703971.449956506,
+        "beamforming": 640472025319.9574,
+        "cfar": 5714653.695523805,
+        "compression": 90903329.54496188,
         "nulling": 0.0,
-        "repointing": 12.431889619391708,
+        "repointing": 1142.930739104761,
         "tracks": 0.0
        },
-       "ops_total_per_s": 29763611014.10147,
+       "ops_total_per_s": 640585348417.5786,
        "transport": "subarray_beams"
       },
       "S": {
@@ -275,27 +275,27 @@
        "transport": "raw"
       }
      },
-     "bits_per_s": 3836452158914.9595,
-     "bus_draw_MW_actual": 0.10506811387761184,
-     "capacity_ops_per_s": 3.9999808177392056e+18,
-     "face_heat_kW_actual": 73.52770146384235,
+     "bits_per_s": 3840354481447.1367,
+     "bus_draw_MW_actual": 0.10763560717262147,
+     "capacity_ops_per_s": 3.9999807982275927e+18,
+     "face_heat_kW_actual": 75.0400176574712,
      "jammers_nulled": 0,
-     "load": 4.2142375467640575e-06,
+     "load": 4.366943734728936e-06,
      "memory": {
       "bandwidth_TB_per_s": 50.0,
       "buffers_peak_TB": 0.0009267048115310765,
       "capacity_TB": 4.0,
       "flight_tables_TB": 2.048e-09,
-      "traffic_TB_per_s": 0.4829691659008126
+      "traffic_TB_per_s": 0.4834619336695442
      },
-     "non_tx_kW_actual": 66.88036039130142,
-     "ops_total_per_s": 16856869348452.559,
+     "non_tx_kW_actual": 66.88036669463492,
+     "ops_total_per_s": 17467691085856.035,
      "power_kW": {
       "ceiling": 50.0,
-      "ops": 0.00016856869348452557,
+      "ops": 0.00017467691085856036,
       "static": 10.0,
-      "total": 10.000360391301431,
-      "transport": 0.000191822607945748
+      "total": 10.000366694634929,
+      "transport": 0.00019201772407235684
      }
     },
     "1": {
@@ -525,7 +525,7 @@
      "reselect_ops": 27000.0
     },
     "A3_HIBAND": {
-     "processing_s": 2.2827013051273427e-06,
+     "processing_s": 2.282701664846331e-06,
      "reselect_ops": 5000.0
     },
     "A4_SEARCH": {
@@ -533,7 +533,7 @@
      "reselect_ops": 21000.0
     },
     "A5_SHORT": {
-     "processing_s": 6.162988549621239e-07,
+     "processing_s": 6.162989520814447e-07,
      "reselect_ops": 24000.0
     },
     "B1_TRIM": {
@@ -545,7 +545,7 @@
      "reselect_ops": 15000.0
     },
     "B3_EDGE": {
-     "processing_s": 1.521575241968084e-06,
+     "processing_s": 1.5215754817451873e-06,
      "reselect_ops": 3000.0
     },
     "B4_FINE": {
@@ -720,37 +720,37 @@
    "faces": {
     "0": {
      "binding_nominal": "S beams",
-     "binding_real": "S beams",
+     "binding_real": "energy",
      "nominal": 0.09033832058311464,
-     "real": 0.09033832058311464,
+     "real": 0.10039804038707265,
      "resources_nominal": {
       "Ku beams": 0.03125,
-      "Ku time": 0.00017151744404070358,
+      "Ku time": 0.00022888291299260065,
       "S beams": 0.09033832058311464,
       "S time": 0.0026535994212907392,
-      "compute": 4.2142375467640575e-06,
-      "energy": 0.052499783198671664,
-      "heat": 0.007140299900408371,
+      "compute": 4.366943734728936e-06,
+      "energy": 0.05378352984617649,
+      "heat": 0.007235416601434274,
       "memory": 0.0002316767148827691,
-      "memory bandwidth": 0.009659383318016253
+      "memory bandwidth": 0.009669238673390885
      },
      "resources_real": {
-      "Ku beams": 0.0,
-      "Ku time": 0.00016736749005361197,
+      "Ku beams": 0.03125,
+      "Ku time": 0.004865757823307688,
       "S beams": 0.09033832058311464,
       "S time": 0.004187332836985296,
-      "compute": 2.7471546510318376e-05,
-      "energy": 0.06247607000723261,
-      "heat": 0.007383843411625004,
-      "memory": 0.0002314267148827691,
-      "memory bandwidth": 0.05683285174790491
+      "compute": 3.471343549192393e-05,
+      "energy": 0.10039804038707265,
+      "heat": 0.00916489816291188,
+      "memory": 0.0002316767148827691,
+      "memory bandwidth": 0.057300220866157235
      }
     },
     "1": {
      "binding_nominal": "ship energy",
      "binding_real": "ship energy",
-     "nominal": 0.040645505425451346,
-     "real": 0.04548388005699831,
+     "nominal": 0.040966442087327554,
+     "real": 0.057180708773524914,
      "resources_nominal": {
       "Ku beams": 0.0,
       "Ku time": 0.0001666666666666667,
@@ -820,14 +820,14 @@
      },
      "resources_real": {
       "Ku beams": 0.03125,
-      "Ku time": 0.00016736749005361197,
+      "Ku time": 0.0012723361614408644,
       "S beams": 0.6692058589359593,
       "S time": 0.0018713891023716528,
-      "compute": 6.060938539604043e-05,
-      "energy": 0.04751547659661335,
-      "heat": 0.007032093306833392,
+      "compute": 6.2483097216996e-05,
+      "energy": 0.05638082108287973,
+      "heat": 0.00745037424430233,
       "memory": 0.0017146043437102753,
-      "memory bandwidth": 0.1967627077639154
+      "memory bandwidth": 0.19688362225687608
      }
     }
    },
@@ -838,25 +838,24 @@
     "at the real revisits: sector A2_VEILLE: S waveform WF-A2_VEILLE-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
     "at the real revisits: sector A2_VEILLE: S waveform WF-A2_VEILLE-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
     "at the real revisits: sector A2_VEILLE: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
+    "at the real revisits: sector A3_HIBAND: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
     "at the real revisits: sector A4_SEARCH: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
-    "at the real revisits: sector A5_SHORT: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
     "at the real revisits: sector B1_TRIM: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
     "at the real revisits: sector B3_EDGE: S waveform WF-B3_EDGE: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
     "at the real revisits: sector B3_EDGE: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
-    "at the real revisits: sector B4_FINE: S waveform WF-B4_FINE: its harmonics (13.350-14.350 GHz) cover 100 % of the Ku channel 14 GHz / 100 MHz on the same face",
-    "at the real revisits: sector B4_FINE: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)"
+    "at the real revisits: sector B4_FINE: S waveform WF-B4_FINE: its harmonics (13.350-14.350 GHz) cover 100 % of the Ku channel 13.8 GHz / 100 MHz on the same face"
    ],
    "load_ceiling": 0.8,
    "power_allocation": {
-    "drawn_MW": 0.36387103972824447,
+    "drawn_MW": 0.457445669273308,
     "faces": {
      "0": {
-      "alloc_MW": 0.12495213976456097,
-      "always_on_MW": 0.0709743375561339,
+      "alloc_MW": 0.20079608037255317,
+      "always_on_MW": 0.07156206796381705,
       "cap_MW": 2.0,
       "capped": true,
-      "load": 0.06247607000723261,
-      "need_MW": 0.12495214001446522
+      "load": 0.10039804038707265,
+      "need_MW": 0.2007960807741453
      },
      "1": {
       "alloc_MW": 0.07075376870271356,
@@ -875,16 +874,16 @@
       "need_MW": 0.07313417840407348
      },
      "3": {
-      "alloc_MW": 0.09503095300316479,
-      "always_on_MW": 0.07086267735776852,
+      "alloc_MW": 0.11276164194023618,
+      "always_on_MW": 0.07100071346624108,
       "cap_MW": 2.0,
       "capped": true,
-      "load": 0.04751547659661335,
-      "need_MW": 0.0950309531932267
+      "load": 0.05638082108287973,
+      "need_MW": 0.11276164216575946
      }
     },
     "flags": [],
-    "need_MW": 0.3638710404559865,
+    "need_MW": 0.4574456701881993,
     "partial": [],
     "rule": {
      "binding": [],
@@ -895,26 +894,26 @@
         "0": {
          "Ku time": 0.00016666666633333337,
          "S time": 3.333333326666667e-05,
-         "energy": 70974.33741418524,
-         "share": 0.2504759844125721
+         "energy": 71562.06782069292,
+         "share": 0.25190494157522286
         },
         "1": {
          "Ku time": 0.00016666666633333337,
          "S time": 3.333333326666667e-05,
          "energy": 70753.76870271357,
-         "share": 0.24969757397368242
+         "share": 0.24905965568158334
         },
         "2": {
          "Ku time": 0.00016666666633333337,
          "S time": 3.333333326666667e-05,
          "energy": 70767.07063712043,
-         "share": 0.24974451791478194
+         "share": 0.24910647969200733
         },
         "3": {
          "Ku time": 0.00016666666633333337,
          "S time": 3.333333326666667e-05,
-         "energy": 70862.67721604317,
-         "share": 0.2500819236989634
+         "energy": 71000.71332423967,
+         "share": 0.24992892305118639
         }
        },
        "kind": "other",
@@ -1272,17 +1271,74 @@
        "sector": "B2_AUTOPROT",
        "tier": "P2 confirmation / initiation",
        "unserved_share": 0.0
+      },
+      {
+       "faces": {
+        "3": {
+         "Ku time": 4.033890490891627e-05,
+         "S time": 0.0,
+         "energy": 937.7921227067199,
+         "share": 1.0
+        }
+       },
+       "kind": "other",
+       "label": "confirmation B4_FINE",
+       "level": 1.0,
+       "moved_share": 0.0,
+       "sector": "B4_FINE",
+       "tier": "P2 confirmation / initiation",
+       "unserved_share": 0.0
+      },
+      {
+       "faces": {
+        "0": {
+         "Ku time": 0.004678716599773234,
+         "S time": 0.0,
+         "energy": 74336.01142228399,
+         "share": 0.8169611927374819
+        },
+        "3": {
+         "Ku time": 0.0010600028926761127,
+         "S time": 0.0,
+         "energy": 16654.860706168187,
+         "share": 0.1830388072625181
+        }
+       },
+       "kind": "other",
+       "label": "confirmation A5_SHORT",
+       "level": 1.0,
+       "moved_share": 0.0,
+       "sector": "A5_SHORT",
+       "tier": "P2 confirmation / initiation",
+       "unserved_share": 0.0
+      },
+      {
+       "faces": {
+        "0": {
+         "Ku time": 4.218357515192703e-05,
+         "S time": 0.0,
+         "energy": 920.1987792005314,
+         "share": 1.0
+        }
+       },
+       "kind": "other",
+       "label": "confirmation B5_LONG",
+       "level": 1.0,
+       "moved_share": 0.0,
+       "sector": "B5_LONG",
+       "tier": "P2 confirmation / initiation",
+       "unserved_share": 0.0
       }
      ],
      "faces": {
       "0": {
-       "Ku time": 0.00016666666633333337,
-       "Ku time load": 0.00016666666633333337,
+       "Ku time": 0.004887566841258495,
+       "Ku time load": 0.004887566841258495,
        "S time": 0.004187332828610631,
        "S time load": 0.004187332828610631,
-       "energy": 124952.13976456097,
+       "energy": 200796.08037255317,
        "energy cap": 2000000.0,
-       "energy load": 0.06247606988228049,
+       "energy load": 0.10039804018627659,
        "moved": {
         "Ku time": 0.0,
         "S time": 0.0,
@@ -1318,13 +1374,13 @@
        }
       },
       "3": {
-       "Ku time": 0.0001666921206116894,
-       "Ku time load": 0.0001666921206116894,
+       "Ku time": 0.0012670339181967184,
+       "Ku time load": 0.0012670339181967184,
        "S time": 0.0018715531220838328,
        "S time load": 0.0018715531220838328,
-       "energy": 95030.95300316479,
+       "energy": 112761.64194023618,
        "energy cap": 2000000.0,
-       "energy load": 0.047515476501582395,
+       "energy load": 0.05638082097011809,
        "moved": {
         "Ku time": 0.0,
         "S time": 0.0,
@@ -1335,8 +1391,8 @@
      "flags": [],
      "ship": {
       "cap": 8000000.0,
-      "energy": 363871.0397282445,
-      "energy load": 0.04548387996603056
+      "energy": 457445.669273308,
+      "energy load": 0.0571807086591635
      },
      "status": "OK"
     },
@@ -1345,14 +1401,14 @@
     "tiers": [
      {
       "fraction": 1.0,
-      "need_MW": 0.28335785453677814,
-      "served_MW": 0.28335785453677814,
+      "need_MW": 0.2840836210529338,
+      "served_MW": 0.2840836210529338,
       "tier": "always-on"
      },
      {
       "fraction": 1.0,
-      "need_MW": 7.388883605772046e-05,
-      "served_MW": 7.388883605772046e-05,
+      "need_MW": 0.09292275205211487,
+      "served_MW": 0.09292275205211487,
       "tier": "P2 confirmation / initiation"
      },
      {
@@ -1563,20 +1619,20 @@
     }
    },
    "ship_energy": {
-    "nominal": 0.040645505425451346,
-    "real": 0.04548388005699831
+    "nominal": 0.040966442087327554,
+    "real": 0.057180708773524914
    }
   },
   "power_allocation": {
-   "drawn_MW": 0.32516404275328264,
+   "drawn_MW": 0.32773153604315736,
    "faces": {
     "0": {
-     "alloc_MW": 0.1049995661873442,
-     "always_on_MW": 0.07089203957929821,
+     "alloc_MW": 0.10756705947721885,
+     "always_on_MW": 0.07092341692755247,
      "cap_MW": 2.0,
      "capped": true,
-     "load": 0.052499783198671664,
-     "need_MW": 0.10499956639734333
+     "load": 0.05378352984617649,
+     "need_MW": 0.10756705969235297
     },
     "1": {
      "alloc_MW": 0.07075376870271356,
@@ -1620,7 +1676,7 @@
      "sector": "B2_AUTOPROT"
     }
    ],
-   "need_MW": 0.32516404340361077,
+   "need_MW": 0.32773153669862043,
    "partial": [],
    "rule": {
     "binding": [],
@@ -1631,26 +1687,26 @@
        "0": {
         "Ku time": 0.00016666666633333337,
         "S time": 3.333333326666667e-05,
-        "energy": 70892.03943751415,
-        "share": 0.25033612298663566
+        "energy": 70923.41678570563,
+        "share": 0.2504191770253095
        },
        "1": {
         "Ku time": 0.00016666666633333337,
         "S time": 3.333333326666667e-05,
         "energy": 70753.76870271357,
-        "share": 0.24984785716797486
+        "share": 0.249820176931234
        },
        "2": {
         "Ku time": 0.00016666666633333337,
         "S time": 3.333333326666667e-05,
         "energy": 70755.20951358062,
-        "share": 0.24985294500307278
+        "share": 0.24982526420265896
        },
        "3": {
         "Ku time": 0.00016666666633333337,
         "S time": 3.333333326666667e-05,
         "energy": 70786.39689802108,
-        "share": 0.24996307484231658
+        "share": 0.24993538184079744
        }
       },
       "kind": "other",
@@ -1921,6 +1977,23 @@
      {
       "faces": {
        "0": {
+        "Ku time": 5.7365468837166136e-05,
+        "S time": 0.0,
+        "energy": 1615.9171624826215,
+        "share": 1.0
+       }
+      },
+      "kind": "other",
+      "label": "confirmation A3_HIBAND",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "sector": "A3_HIBAND",
+      "tier": "P2 confirmation / initiation",
+      "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "0": {
         "Ku time": 1.2197847347582497e-07,
         "S time": 2.4525312408263226e-05,
         "energy": 327.34285711994727,
@@ -1991,17 +2064,34 @@
       "sector": "A5_SHORT",
       "tier": "P2 confirmation / initiation",
       "unserved_share": 0.0
+     },
+     {
+      "faces": {
+       "0": {
+        "Ku time": 4.218357515192703e-05,
+        "S time": 0.0,
+        "energy": 920.1987792005314,
+        "share": 1.0
+       }
+      },
+      "kind": "other",
+      "label": "confirmation B5_LONG",
+      "level": 1.0,
+      "moved_share": 0.0,
+      "sector": "B5_LONG",
+      "tier": "P2 confirmation / initiation",
+      "unserved_share": 0.0
      }
     ],
     "faces": {
      "0": {
-      "Ku time": 0.0001715174436976687,
-      "Ku time load": 0.0001715174436976687,
+      "Ku time": 0.0002710664876867619,
+      "Ku time load": 0.0002710664876867619,
       "S time": 0.0026535994159835406,
       "S time load": 0.0026535994159835406,
-      "energy": 104999.5661873442,
+      "energy": 107567.05947721885,
       "energy cap": 2000000.0,
-      "energy load": 0.0524997830936721,
+      "energy load": 0.05378352973860943,
       "moved": {
        "Ku time": 0.0,
        "S time": 0.0,
@@ -2054,8 +2144,8 @@
     "flags": [],
     "ship": {
      "cap": 8000000.0,
-     "energy": 325164.04275328264,
-     "energy load": 0.04064550534416033
+     "energy": 327731.53604315734,
+     "energy load": 0.04096644200539467
     },
     "status": "OK"
    },
@@ -2064,14 +2154,14 @@
    "tiers": [
     {
      "fraction": 1.0,
-     "need_MW": 0.2831874151182042,
-     "served_MW": 0.2831874151182042,
+     "need_MW": 0.2832187924664585,
+     "served_MW": 0.2832187924664585,
      "tier": "always-on"
     },
     {
      "fraction": 1.0,
-     "need_MW": 0.026292564666554896,
-     "served_MW": 0.026292564666554896,
+     "need_MW": 0.028828680613310283,
+     "served_MW": 0.028828680613310283,
      "tier": "P2 confirmation / initiation"
     },
     {
@@ -2133,7 +2223,7 @@
   },
   "scheduler": {
    "eclipse_db": {
-    "Ku": 0.0007449546831585304,
+    "Ku": 0.0009941396362747983,
     "S": 0.01153975358071133
    },
    "faces": {
@@ -2141,23 +2231,25 @@
      "Ku": {
       "capacity": 1.0,
       "feasible": true,
-      "load": 0.00017151744404070358,
+      "load": 0.00022888291299260065,
       "load_by_priority": {
        "P0": 0.0001666666666666667,
-       "P2": 4.8507773740369015e-06
+       "P2": 6.221624632593398e-05
       },
       "mean_wait_s": {
-       "calibration Ku": 4.167367154636976e-06,
-       "confirmation A5_SHORT": 4.1680820534173306e-06,
-       "confirmation B3_EDGE": 4.1680820534173306e-06
+       "calibration Ku": 4.168872368331256e-06,
+       "confirmation A3_HIBAND": 4.169826770429146e-06,
+       "confirmation A5_SHORT": 4.169826770429146e-06,
+       "confirmation B3_EDGE": 4.169826770429146e-06
       },
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 9.956372757754906,
+       "end_s": 9.518457939807496,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration Ku": 0.0,
+        "confirmation A3_HIBAND": 0.0,
         "confirmation A5_SHORT": 0.0,
         "confirmation B3_EDGE": 0.0
        },
@@ -2272,11 +2364,12 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 59.57557753857526,
+       "end_s": 59.58123935866708,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration Ku": 0.0,
         "confirmation A1_TRIM": 0.0,
+        "confirmation A2_VEILLE": 0.0,
         "confirmation B1_TRIM": 0.0
        },
        "pause_time_s": 0.0,
@@ -2305,7 +2398,7 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 59.990117968770726,
+       "end_s": 59.99211199563504,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
@@ -2314,7 +2407,7 @@
         "search A1_TRIM": 0.0,
         "search A2_VEILLE": 0.0,
         "search B1_TRIM": 0.0,
-        "search B2_AUTOPROT": 0.00870884714422041
+        "search B2_AUTOPROT": 0.0067148202799044935
        },
        "pause_time_s": 0.0,
        "recharge_pauses": 0,
@@ -2322,7 +2415,7 @@
         "search A1_TRIM": 0.0,
         "search A2_VEILLE": 0.0,
         "search B1_TRIM": 0.0,
-        "search B2_AUTOPROT": 0.00870884714422041
+        "search B2_AUTOPROT": 0.0067148202799044935
        }
       }
      }
@@ -2346,7 +2439,7 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 59.76529262076632,
+       "end_s": 59.89156132917575,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration Ku": 0.0,
@@ -2382,13 +2475,13 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 59.90763752196419,
+       "end_s": 59.703389263861354,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
         "confirmation A4_SEARCH": 0.0,
         "confirmation A5_SHORT": 0.0,
-        "confirmation B4_FINE": 9.96181635883886e-05,
+        "confirmation B4_FINE": 0.006777412721459218,
         "search A2_VEILLE": 0.0,
         "search A4_SEARCH": 0.0,
         "search A5_SHORT": 0.0,
@@ -2504,11 +2597,11 @@
      "scan": {}
     },
     {
-     "confirm_mode": null,
+     "confirm_mode": "KU1+7",
      "go_cfar_advised": false,
      "id": "A3_HIBAND",
      "latency_ok": true,
-     "latency_q95_s": 0.0,
+     "latency_q95_s": 0.040082443419352014,
      "latency_required_s": 100.0,
      "priority": "P4_1",
      "scan": {
@@ -2531,7 +2624,7 @@
      "go_cfar_advised": false,
      "id": "B3_EDGE",
      "latency_ok": true,
-     "latency_q95_s": 0.04002932138232088,
+     "latency_q95_s": 0.040029321382560656,
      "latency_required_s": 66.66666666666667,
      "priority": "P4_1",
      "scan": {
@@ -2600,7 +2693,7 @@
      "go_cfar_advised": false,
      "id": "A5_SHORT",
      "latency_ok": true,
-     "latency_q95_s": 0.010010720971801734,
+     "latency_q95_s": 0.010010720971898854,
      "latency_required_s": 25.0,
      "priority": "P4_1",
      "scan": {
@@ -2632,7 +2725,7 @@
     }
    ],
    "slots": {
-    "Ku": 0.00017151744404070358,
+    "Ku": 0.00022888291299260065,
     "S": 0.0026535994212907392
    }
   },
@@ -7683,49 +7776,49 @@
    "confirm_p_min": 0.9995,
    "faces": {
     "0": {
-     "alloc_MW": 0.1049995661873442,
+     "alloc_MW": 0.10756705947721885,
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
      "burn_through_energy": 0.0,
      "burn_through_ku_time": 0.0,
-     "bus_draw_MW": 0.14738458000688828,
+     "bus_draw_MW": 0.14995206663346788,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 2.0,
-     "confirm_energy": 0.011312004928449405,
-     "confirm_ku_time": 4.8507773740369015e-06,
+     "confirm_energy": 0.012656048838402493,
+     "confirm_ku_time": 0.00010439982156222816,
      "confirm_s_time": 0.0016377194552904342,
-     "coolant_flow_L_s": 5.676367053627046,
+     "coolant_flow_L_s": 5.751982548141813,
      "cooling_capacity_kW": 15899.520000000002,
-     "dissipation_kW": 6.5170010515107055,
-     "dissipation_kW_m2": 0.4901327465713054,
-     "face_heat_kW": 113.52734107254092,
+     "dissipation_kW": 7.999657806702225,
+     "dissipation_kW_m2": 0.6016408807423231,
+     "face_heat_kW": 115.03965096283626,
      "heat_burst_deficit_MJ": 0.0,
      "heat_burst_ok": true,
-     "heat_flux_W_cm2": 0.8568359880490046,
-     "heat_load": 0.007140299900408371,
-     "load": 0.052499783198671664,
-     "max_contiguous_tx_s": 0.32385711951918045,
+     "heat_flux_W_cm2": 0.8682499921721128,
+     "heat_load": 0.007235416601434274,
+     "load": 0.05378352984617649,
+     "max_contiguous_tx_s": 0.32385634199038854,
      "max_contiguous_tx_thermal_s": Infinity,
      "non_tx_kW": 106.88,
-     "p_left_kW": 1895.0004336026566,
+     "p_left_kW": 1892.432940307647,
      "peak_MW": {
       "Ku": 14.134615384615383,
       "S": 12.25
      },
      "peak_ok": true,
-     "pumps_kW": 0.1303400210302141,
+     "pumps_kW": 0.1599931561340445,
      "search_energy": 0.0068,
      "search_s_time": 0.001,
      "status": "OK",
-     "store_burst_deficit_MJ": 0.27235239612759826,
+     "store_burst_deficit_MJ": 0.2945504576352034,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 0.0017504389146483768,
+     "store_obs_deficit_MJ": 0.0017504448452753977,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
-     "total_energy": 0.052499783198671664,
-     "total_ku_time": 0.00017151744404070358,
+     "total_energy": 0.05378352984617649,
+     "total_ku_time": 0.00027106648822889485,
      "total_s_time": 0.0026710527886237676,
      "transient_MW_per_us": {
       "Ku": 141.34615384615387,
@@ -7900,12 +7993,28 @@
     {
      "alternatives": {
       "KU1+7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "2": {
+         "energy_fraction": 0.00015353056304510251,
+         "ku_time_fraction": 6.595515928331267e-06,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0195,
+       "why_not": ""
       },
       "KU7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "2": {
+         "energy_fraction": 0.00016407572030377628,
+         "ku_time_fraction": 7.863013123672365e-06,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0195,
+       "why_not": ""
       },
       "S2": {
        "admissible": true,
@@ -7916,7 +8025,7 @@
          "s_time_fraction": 2.4708676342639342e-06
         }
        },
-       "mission_max_load": 0.0181,
+       "mission_max_load": 0.0195,
        "why_not": ""
       }
      },
@@ -7998,18 +8107,34 @@
       1.0,
       0.0
      ],
-     "reason": "only admissible mode (KU1+7: confirmation probability < 0.9995 even with 15 dB margin; KU7: confirmation probability < 0.9995 even with 15 dB margin)",
+     "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
     {
      "alternatives": {
       "KU1+7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "2": {
+         "energy_fraction": 0.00030014502426973415,
+         "ku_time_fraction": 1.4199450483760437e-05,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0195,
+       "why_not": ""
       },
       "KU7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "2": {
+         "energy_fraction": 0.000309136152527677,
+         "ku_time_fraction": 1.5446928528880917e-05,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0195,
+       "why_not": ""
       },
       "S2": {
        "admissible": true,
@@ -8020,7 +8145,7 @@
          "s_time_fraction": 3.694402606146548e-06
         }
        },
-       "mission_max_load": 0.0181,
+       "mission_max_load": 0.0195,
        "why_not": ""
       }
      },
@@ -8102,7 +8227,7 @@
       1.0,
       0.0
      ],
-     "reason": "only admissible mode (KU1+7: confirmation probability < 0.9995 even with 15 dB margin; KU7: confirmation probability < 0.9995 even with 15 dB margin)",
+     "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
     {
@@ -8121,7 +8246,7 @@
          "s_time_fraction": 0.0
         }
        },
-       "mission_max_load": 0.0181,
+       "mission_max_load": 0.0195,
        "why_not": ""
       },
       "KU7": {
@@ -8138,7 +8263,7 @@
          "s_time_fraction": 0.0
         }
        },
-       "mission_max_load": 0.0181,
+       "mission_max_load": 0.0195,
        "why_not": ""
       },
       "S2": {
@@ -8240,7 +8365,7 @@
          "s_time_fraction": 0.0
         }
        },
-       "mission_max_load": 0.0181,
+       "mission_max_load": 0.0195,
        "why_not": ""
       },
       "KU7": {
@@ -8252,7 +8377,7 @@
          "s_time_fraction": 0.0
         }
        },
-       "mission_max_load": 0.0181,
+       "mission_max_load": 0.0195,
        "why_not": ""
       },
       "S2": {
@@ -8264,7 +8389,7 @@
          "s_time_fraction": 1.6402345528608392e-07
         }
        },
-       "mission_max_load": 0.0181,
+       "mission_max_load": 0.0195,
        "why_not": ""
       }
      },
@@ -8356,12 +8481,28 @@
     {
      "alternatives": {
       "KU1+7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "0": {
+         "energy_fraction": 0.0008563739478653464,
+         "ku_time_fraction": 5.7365468951897074e-05,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0195,
+       "why_not": ""
       },
       "KU7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "0": {
+         "energy_fraction": 0.0009363899064138535,
+         "ku_time_fraction": 6.719292340725446e-05,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0195,
+       "why_not": ""
       },
       "S2": {
        "admissible": false,
@@ -8369,9 +8510,27 @@
       }
      },
      "at": [],
-     "confirm_mode": null,
+     "confirm_mode": "KU1+7",
      "confirm_p_min": 0.9995,
-     "confirmation": {},
+     "confirmation": {
+      "admissible": true,
+      "attempts": 2,
+      "cluster_tx": "sequential x61",
+      "faces": {
+       "0": {
+        "energy_fraction": 0.0008563739478653464,
+        "ku_time_fraction": 5.7365468951897074e-05,
+        "s_time_fraction": 0.0
+       }
+      },
+      "ku_looks_fa": 124.0,
+      "ku_looks_true": 35.757249128579424,
+      "margin_db": 5.654,
+      "round_trips": 2,
+      "success": 0.999501532289247,
+      "success_first_attempt": 0.9927375424393896,
+      "why_not": ""
+     },
      "discrimination": null,
      "false_alarms_per_rr": 9.9,
      "false_alarms_per_rr_face": [
@@ -8397,11 +8556,11 @@
       "velocity_hypotheses": 1
      },
      "ku_freq_candidates": 3,
-     "ku_freq_ghz": 14.0,
-     "ku_min_unsaturated_range_attenuated_km": 1.8185192383254527,
-     "ku_min_unsaturated_range_km": 10.226285183640794,
+     "ku_freq_ghz": 13.8,
+     "ku_min_unsaturated_range_attenuated_km": 1.8054830900463228,
+     "ku_min_unsaturated_range_km": 10.152977534654156,
      "ku_sky": {
-      "above_budget_pct": 0.38322179536133844,
+      "above_budget_pct": 0.7805146639855983,
       "adc_margin_db_min": null,
       "band": "Ku",
       "blind_rise_db": 10.0,
@@ -8412,12 +8571,12 @@
       "limbs": [],
       "main_lobe_surface": false,
       "masked_by_structure_pct": 0.0,
-      "rise_db": 0.002558997509835169,
-      "structure_rise_k_max": 0.0009534900583623138,
+      "rise_db": 0.002651325418554315,
+      "structure_rise_k_max": 0.0002861315005512592,
       "surfaces": {},
-      "t_sys_budget_k": 230.92798463959147,
+      "t_sys_budget_k": 230.93289405599262,
       "t_sys_cold_k": 230.7919548038089,
-      "worst_rise_db": 0.0025712653539152414
+      "worst_rise_db": 0.0026520532355652935
      },
      "p_share": [
       1.0,
@@ -8425,18 +8584,34 @@
       0.0,
       0.0
      ],
-     "reason": "no admissible confirmation mode",
+     "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
     {
      "alternatives": {
       "KU1+7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "0": {
+         "energy_fraction": 0.0007906111960063888,
+         "ku_time_fraction": 4.746354599238744e-05,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0201,
+       "why_not": ""
       },
       "KU7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "0": {
+         "energy_fraction": 0.0008644030979854325,
+         "ku_time_fraction": 5.654168322862525e-05,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0201,
+       "why_not": ""
       },
       "S2": {
        "admissible": true,
@@ -8447,7 +8622,7 @@
          "s_time_fraction": 2.452531245731385e-05
         }
        },
-       "mission_max_load": 0.0181,
+       "mission_max_load": 0.0195,
        "why_not": ""
       }
      },
@@ -8529,18 +8704,34 @@
       0.0,
       0.0
      ],
-     "reason": "only admissible mode (KU1+7: confirmation probability < 0.9995 even with 15 dB margin; KU7: confirmation probability < 0.9995 even with 15 dB margin)",
+     "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
     {
      "alternatives": {
       "KU1+7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "3": {
+         "energy_fraction": 0.0001638338375725434,
+         "ku_time_fraction": 7.401251075212711e-06,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0195,
+       "why_not": ""
       },
       "KU7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "3": {
+         "energy_fraction": 0.00017215703898969395,
+         "ku_time_fraction": 8.382722531073121e-06,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0195,
+       "why_not": ""
       },
       "S2": {
        "admissible": true,
@@ -8551,7 +8742,7 @@
          "s_time_fraction": 2.165291594697842e-06
         }
        },
-       "mission_max_load": 0.0181,
+       "mission_max_load": 0.0195,
        "why_not": ""
       }
      },
@@ -8633,18 +8824,34 @@
       0.0,
       1.0
      ],
-     "reason": "only admissible mode (KU1+7: confirmation probability < 0.9995 even with 15 dB margin; KU7: confirmation probability < 0.9995 even with 15 dB margin)",
+     "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
     {
      "alternatives": {
       "KU1+7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "3": {
+         "energy_fraction": 0.00011158837474655836,
+         "ku_time_fraction": 1.3953230981739905e-06,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0195,
+       "why_not": ""
       },
       "KU7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "3": {
+         "energy_fraction": 0.00011357017479303447,
+         "ku_time_fraction": 1.581002686870513e-06,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0195,
+       "why_not": ""
       },
       "S2": {
        "admissible": true,
@@ -8655,7 +8862,7 @@
          "s_time_fraction": 5.928939019714244e-07
         }
        },
-       "mission_max_load": 0.0181,
+       "mission_max_load": 0.0195,
        "why_not": ""
       }
      },
@@ -8739,7 +8946,7 @@
       0.0,
       1.0
      ],
-     "reason": "only admissible mode (KU1+7: confirmation probability < 0.9995 even with 15 dB margin; KU7: confirmation probability < 0.9995 even with 15 dB margin)",
+     "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": [
       "WF-B4_FINE puts its harmonics on 13.350-14.350 GHz, over 100 % of the Ku channel 14.2 GHz / 100 MHz: on the same face, no Ku reception during this S transmission"
      ]
@@ -8747,12 +8954,38 @@
     {
      "alternatives": {
       "KU1+7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "0": {
+         "energy_fraction": 0.013812367644168128,
+         "ku_time_fraction": 0.001567487778480611,
+         "s_time_fraction": 0.0
+        },
+        "3": {
+         "energy_fraction": 0.003062493754038188,
+         "ku_time_fraction": 0.00035512763895737665,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0221,
+       "why_not": ""
       },
       "KU7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "0": {
+         "energy_fraction": 0.016506711096193477,
+         "ku_time_fraction": 0.0019064054928783734,
+         "s_time_fraction": 0.0
+        },
+        "3": {
+         "energy_fraction": 0.0036736740372557627,
+         "ku_time_fraction": 0.0004319123191107195,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0248,
+       "why_not": ""
       },
       "S2": {
        "admissible": true,
@@ -8768,7 +9001,7 @@
          "s_time_fraction": 0.0003641468342775832
         }
        },
-       "mission_max_load": 0.0181,
+       "mission_max_load": 0.0195,
        "why_not": ""
       }
      },
@@ -8855,18 +9088,34 @@
       0.0,
       0.15130991786724535
      ],
-     "reason": "only admissible mode (KU1+7: confirmation probability < 0.9995 even with 15 dB margin; KU7: confirmation probability < 0.9995 even with 15 dB margin)",
+     "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
     {
      "alternatives": {
       "KU1+7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "0": {
+         "energy_fraction": 0.0004876699620877418,
+         "ku_time_fraction": 4.2183575236294185e-05,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0195,
+       "why_not": ""
       },
       "KU7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "0": {
+         "energy_fraction": 0.0005477121753338324,
+         "ku_time_fraction": 4.964568359128169e-05,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0195,
+       "why_not": ""
       },
       "S2": {
        "admissible": false,
@@ -8874,9 +9123,27 @@
       }
      },
      "at": [],
-     "confirm_mode": null,
+     "confirm_mode": "KU1+7",
      "confirm_p_min": 0.9995,
-     "confirmation": {},
+     "confirmation": {
+      "admissible": true,
+      "attempts": 2,
+      "cluster_tx": "sequential x91",
+      "faces": {
+       "0": {
+        "energy_fraction": 0.0004876699620877418,
+        "ku_time_fraction": 4.2183575236294185e-05,
+        "s_time_fraction": 0.0
+       }
+      },
+      "ku_looks_fa": 184.0,
+      "ku_looks_true": 61.198406911453574,
+      "margin_db": 4.16,
+      "round_trips": 2,
+      "success": 0.9995088996978676,
+      "success_first_attempt": 0.9838592787387366,
+      "why_not": ""
+     },
      "discrimination": null,
      "false_alarms_per_rr": 10.2,
      "false_alarms_per_rr_face": [
@@ -8902,11 +9169,11 @@
       "velocity_hypotheses": 1
      },
      "ku_freq_candidates": 3,
-     "ku_freq_ghz": 14.0,
-     "ku_min_unsaturated_range_attenuated_km": 1.8185192383254527,
-     "ku_min_unsaturated_range_km": 10.226285183640794,
+     "ku_freq_ghz": 14.2,
+     "ku_min_unsaturated_range_attenuated_km": 1.8314625990929636,
+     "ku_min_unsaturated_range_km": 10.299071050104983,
      "ku_sky": {
-      "above_budget_pct": 0.12149882079094014,
+      "above_budget_pct": 0.0,
       "adc_margin_db_min": null,
       "band": "Ku",
       "blind_rise_db": 10.0,
@@ -8917,12 +9184,12 @@
       "limbs": [],
       "main_lobe_surface": false,
       "masked_by_structure_pct": 0.0,
-      "rise_db": 0.0025535072037644008,
-      "structure_rise_k_max": 2.018023592492146e-05,
+      "rise_db": 0.0024646083533724334,
+      "structure_rise_k_max": 2.1477114723857487e-05,
       "surfaces": {},
-      "t_sys_budget_k": 230.92769270299837,
+      "t_sys_budget_k": 230.92296572691455,
       "t_sys_cold_k": 230.7919548038089,
-      "worst_rise_db": 0.0025535098401480165
+      "worst_rise_db": 0.0024646083533724334
      },
      "p_share": [
       1.0,
@@ -8930,7 +9197,7 @@
       0.0,
       0.0
      ],
-     "reason": "no admissible confirmation mode",
+     "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     }
    ],
@@ -8956,18 +9223,18 @@
    },
    "ship_power": {
     "budget_MW": 8.0,
-    "draw_MW": 0.4944078592534344,
-    "heat_MW": 0.4628475769147641,
-    "heat_load": 0.07714126281912735,
+    "draw_MW": 0.496975345880014,
+    "heat_MW": 0.4645004566978646,
+    "heat_load": 0.07741674278297744,
     "heat_rejection_MW": 6.0,
     "heat_status": "OK",
-    "load": 0.0618009824066793,
+    "load": 0.06212191823500175,
     "status": "OK",
     "suggested_allocation_MW": [
-     2.385,
-     1.83,
-     1.831,
-     1.955
+     2.414,
+     1.82,
+     1.822,
+     1.944
     ]
    }
   },
@@ -9579,22 +9846,37 @@
      "id": "A3_HIBAND.confirmation mode",
      "kind": "spec",
      "limit": "admissible",
-     "load": null,
-     "note": "no admissible confirmation mode",
+     "load": 0.0,
+     "note": "",
      "object": "A3_HIBAND",
      "priority": "P2",
      "quantity": "confirmation mode",
-     "state": "NOK",
+     "state": "OK",
      "step": "3.2",
      "unit": "",
-     "value": null
+     "value": "KU1+7"
+    },
+    {
+     "family": "confirmation",
+     "id": "A3_HIBAND.P confirm",
+     "kind": "spec",
+     "limit": 0.9995,
+     "load": 0.9969354215061387,
+     "note": "",
+     "object": "A3_HIBAND",
+     "priority": "P2",
+     "quantity": "P confirm",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": 0.999501532289247
     },
     {
      "family": "confirmation",
      "id": "A3_HIBAND.confirmation latency",
      "kind": "spec",
      "limit": 100.0,
-     "load": 0.0,
+     "load": 0.00040082443419352015,
      "note": "95 % quantile",
      "object": "A3_HIBAND",
      "priority": "P2",
@@ -9602,7 +9884,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.0
+     "value": 0.040082443419352014
     },
     {
      "family": "confirmation",
@@ -9639,7 +9921,7 @@
      "id": "B3_EDGE.confirmation latency",
      "kind": "spec",
      "limit": 66.66666666666667,
-     "load": 0.0006004398207348131,
+     "load": 0.0006004398207384098,
      "note": "95 % quantile",
      "object": "B3_EDGE",
      "priority": "P2",
@@ -9647,7 +9929,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.04002932138232088
+     "value": 0.040029321382560656
     },
     {
      "family": "confirmation",
@@ -9774,7 +10056,7 @@
      "id": "A5_SHORT.confirmation latency",
      "kind": "spec",
      "limit": 25.0,
-     "load": 0.00040042883887206934,
+     "load": 0.00040042883887595414,
      "note": "95 % quantile",
      "object": "A5_SHORT",
      "priority": "P2",
@@ -9782,29 +10064,44 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.010010720971801734
+     "value": 0.010010720971898854
     },
     {
      "family": "confirmation",
      "id": "B5_LONG.confirmation mode",
      "kind": "spec",
      "limit": "admissible",
-     "load": null,
-     "note": "no admissible confirmation mode",
+     "load": 0.0,
+     "note": "",
      "object": "B5_LONG",
      "priority": "P2",
      "quantity": "confirmation mode",
-     "state": "NOK",
+     "state": "OK",
      "step": "3.2",
      "unit": "",
-     "value": null
+     "value": "KU1+7"
+    },
+    {
+     "family": "confirmation",
+     "id": "B5_LONG.P confirm",
+     "kind": "spec",
+     "limit": 0.9995,
+     "load": 0.9822006042649016,
+     "note": "",
+     "object": "B5_LONG",
+     "priority": "P2",
+     "quantity": "P confirm",
+     "state": "OK",
+     "step": "3.2",
+     "unit": "",
+     "value": 0.9995088996978676
     },
     {
      "family": "face",
      "id": "F1.energy",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.052499783198671664,
+     "load": 0.05378352984617649,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -9812,7 +10109,7 @@
      "state": "OK",
      "step": "5.2",
      "unit": "",
-     "value": 0.052499783198671664
+     "value": 0.05378352984617649
     },
     {
      "family": "face",
@@ -9834,7 +10131,7 @@
      "id": "F1.Ku time",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.00017151744404070358,
+     "load": 0.00022888291299260065,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -9842,14 +10139,14 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.00017151744404070358
+     "value": 0.00022888291299260065
     },
     {
      "family": "face",
      "id": "F1.heat",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.007140299900408371,
+     "load": 0.007235416601434274,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -9857,14 +10154,14 @@
      "state": "OK",
      "step": "4.2",
      "unit": "",
-     "value": 0.007140299900408371
+     "value": 0.007235416601434274
     },
     {
      "family": "face",
      "id": "F1.compute",
      "kind": "resource",
      "limit": 1.0,
-     "load": 4.2142375467640575e-06,
+     "load": 4.366943734728936e-06,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -9872,7 +10169,7 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 4.2142375467640575e-06
+     "value": 4.366943734728936e-06
     },
     {
      "family": "face",
@@ -9894,7 +10191,7 @@
      "id": "F1.memory bandwidth",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.009659383318016253,
+     "load": 0.009669238673390885,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -9902,7 +10199,7 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.009659383318016253
+     "value": 0.009669238673390885
     },
     {
      "family": "face",
@@ -9999,7 +10296,7 @@
      "id": "F1.processing power",
      "kind": "resource",
      "limit": 50.0,
-     "load": 0.20000720782602863,
+     "load": 0.20000733389269856,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -10007,14 +10304,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "kW",
-     "value": 10.000360391301431
+     "value": 10.000366694634929
     },
     {
      "family": "face",
      "id": "F1.storage (observation)",
      "kind": "resource",
      "limit": 4.0,
-     "load": 0.0004376097286620942,
+     "load": 0.00043761121131884943,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -10022,7 +10319,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.0017504389146483768
+     "value": 0.0017504448452753977
     },
     {
      "family": "face",
@@ -10037,7 +10334,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.27235239612759826
+     "value": 0.2945504576352034
     },
     {
      "family": "face",
@@ -10896,7 +11193,7 @@
      "id": "ship.energy",
      "kind": "resource",
      "limit": 8.0,
-     "load": 0.040645505425451346,
+     "load": 0.040966442087327554,
      "note": "",
      "object": "ship",
      "priority": null,
@@ -10904,14 +11201,14 @@
      "state": "OK",
      "step": "5.2",
      "unit": "MW",
-     "value": 0.32516404340361077
+     "value": 0.32773153669862043
     },
     {
      "family": "ship",
      "id": "ship.heat rejection",
      "kind": "resource",
      "limit": 6.0,
-     "load": 0.07714126281912735,
+     "load": 0.07741674278297744,
      "note": "",
      "object": "ship",
      "priority": null,
@@ -10919,7 +11216,7 @@
      "state": "OK",
      "step": "4.2",
      "unit": "MW",
-     "value": 0.4628475769147641
+     "value": 0.4645004566978646
     },
     {
      "family": "flight",
@@ -10955,12 +11252,12 @@
    "counts": {
     "ALERT": 0,
     "DEGRADED": 0,
-    "NOK": 2,
-    "OK": 129
+    "NOK": 0,
+    "OK": 133
    },
    "faces": {
     "0": {
-     "load": 0.20000720782602863,
+     "load": 0.20000733389269856,
      "resource": "processing power",
      "state": "OK"
     },
@@ -10987,9 +11284,7 @@
     "state": "OK"
    },
    "load_ceiling": 0.8,
-   "nok_priorities": [
-    "P2"
-   ],
+   "nok_priorities": [],
    "overlap": [
     {
      "energy_on": "face",
@@ -11051,7 +11346,7 @@
      "energy_own_MW": 0.002651045771865797,
      "energy_own_reach_MW": 0.002635007670042176,
      "face": "F4",
-     "margin_energy_MW": 1.4950004336026568,
+     "margin_energy_MW": 1.492432940307647,
      "margin_s_time": 0.7973464005787093,
      "neighbour": "F1",
      "relief_energy": 0.001317503835021088,
@@ -11092,11 +11387,11 @@
     "state_at_spec": "nominal"
    },
    "ship": {
-    "load": 0.040645505425451346,
+    "load": 0.040966442087327554,
     "object": "ship",
     "resource": "energy"
    },
-   "state": "NOK",
+   "state": "OK",
    "tight": []
   },
   "warnings": [
@@ -11104,22 +11399,19 @@
    "sectors A3_HIBAND / B3_EDGE share 0.006 sr: each is budgeted independently there -- fine for intentional layered coverage (different RCS/range/RR on the same sky), check for a duplicated requirement if not",
    "sectors A4_SEARCH / B4_FINE share 0.030 sr: each is budgeted independently there -- fine for intentional layered coverage (different RCS/range/RR on the same sky), check for a duplicated requirement if not",
    "sector B2_AUTOPROT: S waveform WF-B2_AUTOPROT: its harmonics (13.100-13.850 GHz) cover 75 % of the Ku channel 13.8 GHz / 200 MHz on the same face",
-   "sector A3_HIBAND: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
    "sector B4_FINE: S waveform WF-B4_FINE: its harmonics (13.350-14.350 GHz) cover 100 % of the Ku channel 14.2 GHz / 100 MHz on the same face",
-   "sector B5_LONG: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
    "margin reuse: F4 S beams above 80 % after 2 corrections (resource not linear in the revisit): factors cut back by bisection",
    "at the real revisits: sector A1_TRIM: S waveform WF-A1_TRIM: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
    "at the real revisits: sector A1_TRIM: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
    "at the real revisits: sector A2_VEILLE: S waveform WF-A2_VEILLE-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
    "at the real revisits: sector A2_VEILLE: S waveform WF-A2_VEILLE-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
    "at the real revisits: sector A2_VEILLE: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
+   "at the real revisits: sector A3_HIBAND: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
    "at the real revisits: sector A4_SEARCH: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
-   "at the real revisits: sector A5_SHORT: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
    "at the real revisits: sector B1_TRIM: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
    "at the real revisits: sector B3_EDGE: S waveform WF-B3_EDGE: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
    "at the real revisits: sector B3_EDGE: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
-   "at the real revisits: sector B4_FINE: S waveform WF-B4_FINE: its harmonics (13.350-14.350 GHz) cover 100 % of the Ku channel 14 GHz / 100 MHz on the same face",
-   "at the real revisits: sector B4_FINE: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
+   "at the real revisits: sector B4_FINE: S waveform WF-B4_FINE: its harmonics (13.350-14.350 GHz) cover 100 % of the Ku channel 13.8 GHz / 100 MHz on the same face",
    "B1_TRIM: 50 % of its volume served by A1_TRIM (need met there): taken out of its budget",
    "B5_LONG: 100 % of its volume served by A5_SHORT (need met there): taken out of its budget"
   ]

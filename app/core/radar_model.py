@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.39.0
+# Radar Performance Model - V6.42.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,21 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.41.0 -> V6.42.0 (user, 12 November 2026)
+#   - relief (core/redundancy.relief): every volume compared with every other, both ways; the place in the list plays
+#     no part any more. A relieves B where it meets B's need with a higher priority, or the same priority and a
+#     one-way cover, or the same priority, a mutual cover and the lower search cost there; only where A still
+#     searches (never left to nobody).
+#
+# Changes V6.40.0 -> V6.41.0 (user, 12 November 2026)
+#   - volume frames two_dir and track removed (fixed in the sky as inertial; a track's cap is an inertial cap at its
+#     RA / Dec, radius k sigma given by the operator); kept: ship, inertial, equatorial, rtn, velocity, limb.
+#     [tracking] track_frame_k and [tool.frames] two_dir_min_sep_deg removed with them.
+#
+# Changes V6.39.0 -> V6.40.0 (user, 12 November 2026)
+#   - volume frame "velocity" (core/frames): X = the ship velocity, Z = orbit normal, Y = Z x X; the direction of
+#     travel at phi 0, eps 0 on any orbit (rtn's along-track axis differs from v by the flight path angle).
 #
 # Changes V6.38.0 -> V6.39.0 (user, 12 November 2026)
 #   - Ku confirmation: sequential clusters of 4 and 5 rings (61, 91 beams) offered beside 7, 19 and 37
@@ -389,7 +404,8 @@
 #     |q| - 1 within tool.frames.q_norm_tol normalised, refused beyond), optional epoch, optional orbit (central_body of
 #     [sky.surface], r_km, v_kms in ICRF axes). No nav = identity attitude.
 #   - Sector key "frame": ship (default when absent), inertial (ICRF), rtn, limb (box, eps counted from the limb at
-#     limb_alt_km, acos((R + h_limb) / |r|) below the local horizontal), two_dir (two ICRF directions); sky key
+#     limb_alt_km, acos((R + h_limb) / |r|) below the local horizontal), equatorial, velocity (two_dir and track
+#     removed in V6.41.0); sky key
 #     "frame": ship or inertial. core/frames.resolve() turns the mission into the ship frame once, before any
 #     computation; Sphere._mask tests box / cap in the sector's frame; downstream unchanged. A ship-frame mission
 #     gives exactly the former results.
@@ -722,7 +738,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.39.0"
+MODEL_VERSION = "6.42.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

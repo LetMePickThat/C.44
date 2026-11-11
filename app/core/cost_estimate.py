@@ -737,7 +737,8 @@ def _live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Spher
 # live_allocation (its cost profiles and reliefs in its own background); the views get at once the result of their
 # inputs when known, else the last one they were given (marked "stale"), and are redrawn when a new result differs.
 ASYNC_RESUBMIT_S = 3.0                   # a result still estimating (profiles, relief): asked again this often
-_A_LOCK = threading.Lock()
+_A_LOCK = threading.RLock()     # (re-entrant: a future already done runs _a_done at once in the thread that adds its
+                                # callback, under this lock: a plain Lock deadlocked the window, 12 November 2026)
 _A: Dict[str, dict] = {"jobs": {}, "cache": {}, "args": {}, "last": {}, "tag_key": {}, "digest": {}}
 _A_POOL = None
 _A_GRIDS: Dict[float, geo.SphereGrid] = {}

@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: feedback
   originSessionId: 4cab080b-3d2d-433f-9bf7-8468a15bf664
-  modified: 2026-11-11T11:16:33.894Z
+  modified: 2026-11-11T19:52:19.114Z
 ---
 
 Before running ANY test or test-like computation (pytest at any level, tests/run_tests.py, the model self-test,
@@ -27,6 +27,8 @@ tests/.n3_progress.txt, or the previous run of the same command) and STATE IT in
 say what else it forces: tests/testbench.code_fingerprint hashes core/*.py, so ANY edit in core/ invalidates every
 cached case and the next impact report / update_snapshots recomputes all 11 cases (~70 min) -- do not touch core/
 between computing the cases and the refreeze; gui/ edits are free.
+Look up EACH selected test in tests/.test_durations.json before running a "-k" selection: e.g.
+test_inertial_frame_with_identity_attitude_is_the_ship_frame alone takes ~23 min (1380 s), next to 0 s frame tests.
 **How to apply:** keep moving on the model (roadmap steps); when a step changes values, note that snapshots are stale
 and leave the N3 to the user's next slot. Never chain long runs. Protocol in Choix_architecturaux 1.3; see
 [[session-workflow]], [[radar-roadmap]].

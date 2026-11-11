@@ -527,7 +527,7 @@
      "binding_nominal": "memory bandwidth",
      "binding_real": "memory bandwidth",
      "nominal": 0.12592767831352172,
-     "real": 0.7970999161235656,
+     "real": 0.7971236385625451,
      "resources_nominal": {
       "Ku beams": 0.03125,
       "Ku time": 0.00016985955483967232,
@@ -540,22 +540,22 @@
       "memory bandwidth": 0.12592767831352172
      },
      "resources_real": {
-      "Ku beams": 0.0,
-      "Ku time": 0.00016776785230441585,
+      "Ku beams": 0.03125,
+      "Ku time": 0.0009697889863024287,
       "S beams": 0.21951125654752277,
-      "S time": 0.00531059116957469,
-      "compute": 0.000232095547745479,
-      "energy": 0.07001300050888455,
-      "heat": 0.007586220087147284,
-      "memory": 0.0010834388309702773,
-      "memory bandwidth": 0.7970999161235656
+      "S time": 0.00531037569591527,
+      "compute": 0.00023335234004107962,
+      "energy": 0.0763705878975467,
+      "heat": 0.007881886062224768,
+      "memory": 0.0010859388309702772,
+      "memory bandwidth": 0.7971236385625451
      }
     },
     "1": {
      "binding_nominal": "memory bandwidth",
      "binding_real": "memory bandwidth",
      "nominal": 0.19028653769324957,
-     "real": 0.7999999503813874,
+     "real": 0.7999999488540213,
      "resources_nominal": {
       "Ku beams": 0.03125,
       "Ku time": 0.00019630673398102663,
@@ -569,21 +569,21 @@
      },
      "resources_real": {
       "Ku beams": 0.03125,
-      "Ku time": 0.0002553963406407358,
+      "Ku time": 0.00026397278416408123,
       "S beams": 0.15859688285558518,
-      "S time": 0.006563746406856623,
-      "compute": 0.00016062369689669715,
-      "energy": 0.07926130287554607,
-      "heat": 0.007863333259670733,
+      "S time": 0.006563711945352854,
+      "compute": 0.00016068829077012952,
+      "energy": 0.07933762276300443,
+      "heat": 0.007867511079324695,
       "memory": 0.0010934384949702774,
-      "memory bandwidth": 0.7999999503813874
+      "memory bandwidth": 0.7999999488540213
      }
     },
     "2": {
      "binding_nominal": "memory bandwidth",
      "binding_real": "memory bandwidth",
      "nominal": 0.047434919527479906,
-     "real": 0.1994645354934387,
+     "real": 0.1994677004475491,
      "resources_nominal": {
       "Ku beams": 0.03125,
       "Ku time": 0.00016972011523071247,
@@ -596,22 +596,22 @@
       "memory bandwidth": 0.047434919527479906
      },
      "resources_real": {
-      "Ku beams": 0.0,
-      "Ku time": 0.00016776785230441585,
+      "Ku beams": 0.03125,
+      "Ku time": 0.00017634443195995244,
       "S beams": 0.052865627618528394,
-      "S time": 0.003246474426888907,
-      "compute": 4.513768419238557e-05,
-      "energy": 0.05633385284173164,
-      "heat": 0.007233212449180855,
-      "memory": 0.0003611465809900925,
-      "memory bandwidth": 0.1994645354934387
+      "S time": 0.0032464574708904645,
+      "compute": 4.520282762341062e-05,
+      "energy": 0.05641028714159047,
+      "heat": 0.0072373839211700855,
+      "memory": 0.00036364658099009243,
+      "memory bandwidth": 0.1994677004475491
      }
     },
     "3": {
      "binding_nominal": "memory bandwidth",
      "binding_real": "memory bandwidth",
      "nominal": 0.047434919527479906,
-     "real": 0.1994645354934387,
+     "real": 0.1994677004475491,
      "resources_nominal": {
       "Ku beams": 0.03125,
       "Ku time": 0.00016972011523071247,
@@ -624,69 +624,67 @@
       "memory bandwidth": 0.047434919527479906
      },
      "resources_real": {
-      "Ku beams": 0.0,
-      "Ku time": 0.00016776785230441585,
+      "Ku beams": 0.03125,
+      "Ku time": 0.00017634443195995244,
       "S beams": 0.052865627618528394,
-      "S time": 0.0032464744268889075,
-      "compute": 4.513768419238557e-05,
-      "energy": 0.05633385284173164,
-      "heat": 0.007233212449180855,
-      "memory": 0.0003611465809900925,
-      "memory bandwidth": 0.1994645354934387
+      "S time": 0.003246457470890465,
+      "compute": 4.520282762341062e-05,
+      "energy": 0.05641028714159047,
+      "heat": 0.0072373839211700855,
+      "memory": 0.00036364658099009243,
+      "memory bandwidth": 0.1994677004475491
      }
     }
    },
    "flags": [
-    "at the real revisits: sector S01: S waveform WF-S01-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
-    "at the real revisits: sector S01: S waveform WF-S01-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
-    "at the real revisits: sector S01: S waveform WF-S01-3: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
-    "at the real revisits: sector S01: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
+    "at the real revisits: sector S01: S waveform WF-S01-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 25 MHz on the same face",
+    "at the real revisits: sector S01: S waveform WF-S01-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 25 MHz on the same face",
+    "at the real revisits: sector S01: S waveform WF-S01-3: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 25 MHz on the same face",
     "at the real revisits: sector S02: S waveform WF-S02: its harmonics (13.225-13.725 GHz) cover 12 % of the Ku channel 13.8 GHz / 200 MHz on the same face",
-    "at the real revisits: sector S03: S waveform WF-S03-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
-    "at the real revisits: sector S03: S waveform WF-S03-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
-    "at the real revisits: sector S03: S waveform WF-S03-3: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
-    "at the real revisits: sector S03: S waveform WF-S03-4: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
-    "at the real revisits: sector S03: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)"
+    "at the real revisits: sector S03: S waveform WF-S03-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 25 MHz on the same face",
+    "at the real revisits: sector S03: S waveform WF-S03-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 25 MHz on the same face",
+    "at the real revisits: sector S03: S waveform WF-S03-3: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 25 MHz on the same face",
+    "at the real revisits: sector S03: S waveform WF-S03-4: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 25 MHz on the same face"
    ],
    "load_ceiling": 0.8,
    "power_allocation": {
-    "drawn_MW": 0.5238840170880197,
+    "drawn_MW": 0.537057568813349,
     "faces": {
      "0": {
-      "alloc_MW": 0.1400260007377171,
-      "always_on_MW": 0.07106533180220158,
+      "alloc_MW": 0.15274117548961105,
+      "always_on_MW": 0.07116289979839537,
       "cap_MW": 2.0,
       "capped": true,
-      "load": 0.07001300050888455,
-      "need_MW": 0.1400260010177691
+      "load": 0.0763705878975467,
+      "need_MW": 0.1527411757950934
      },
      "1": {
-      "alloc_MW": 0.15852260543404695,
-      "always_on_MW": 0.07115379333964338,
+      "alloc_MW": 0.15867524520865836,
+      "always_on_MW": 0.07115517396857088,
       "cap_MW": 2.0,
       "capped": true,
-      "load": 0.07926130287554607,
-      "need_MW": 0.15852260575109214
+      "load": 0.07933762276300443,
+      "need_MW": 0.15867524552600887
      },
      "2": {
-      "alloc_MW": 0.11266770545812785,
-      "always_on_MW": 0.07092841680144105,
+      "alloc_MW": 0.11282057405753981,
+      "always_on_MW": 0.07092979542770575,
       "cap_MW": 2.0,
       "capped": true,
-      "load": 0.05633385284173164,
-      "need_MW": 0.11266770568346328
+      "load": 0.05641028714159047,
+      "need_MW": 0.11282057428318094
      },
      "3": {
-      "alloc_MW": 0.11266770545812785,
-      "always_on_MW": 0.07092841680144105,
+      "alloc_MW": 0.11282057405753981,
+      "always_on_MW": 0.07092979542770575,
       "cap_MW": 2.0,
       "capped": true,
-      "load": 0.05633385284173164,
-      "need_MW": 0.11266770568346328
+      "load": 0.05641028714159047,
+      "need_MW": 0.11282057428318094
      }
     },
     "flags": [],
-    "need_MW": 0.5238840181357878,
+    "need_MW": 0.5370575698874641,
     "partial": [],
     "rule": {
      "binding": [],
@@ -697,26 +695,26 @@
         "0": {
          "Ku time": 0.00016666666633333337,
          "S time": 3.333333326666667e-05,
-         "energy": 71065.33166007091,
-         "share": 0.2501631328332907
+         "energy": 71162.89965606957,
+         "share": 0.25041693509923935
         },
         "1": {
          "Ku time": 0.00016666666633333337,
          "S time": 3.333333326666667e-05,
-         "energy": 71153.79319733579,
-         "share": 0.2504745338326315
+         "energy": 71155.17382626054,
+         "share": 0.2503897484804924
         },
         "2": {
          "Ku time": 0.00016666666633333337,
          "S time": 3.333333326666667e-05,
-         "energy": 70928.41665958423,
-         "share": 0.24968116666703888
+         "energy": 70929.79528584615,
+         "share": 0.24959665821013413
         },
         "3": {
          "Ku time": 0.00016666666633333337,
          "S time": 3.333333326666667e-05,
-         "energy": 70928.41665958423,
-         "share": 0.24968116666703888
+         "energy": 70929.79528584615,
+         "share": 0.24959665821013413
         }
        },
        "kind": "other",
@@ -731,7 +729,7 @@
        "faces": {
         "0": {
          "Ku time": 0.0,
-         "S time": 0.0002710987234404679,
+         "S time": 0.00027109872344046796,
          "energy": 3575.2248436826867,
          "share": 1.0
         }
@@ -750,8 +748,8 @@
        "faces": {
         "0": {
          "Ku time": 0.0,
-         "S time": 0.0017930180151170803,
-         "energy": 23646.155435419856,
+         "S time": 0.0017928194974564994,
+         "energy": 23643.53740290752,
          "share": 1.0
         }
        },
@@ -768,7 +766,7 @@
         "1": {
          "Ku time": 0.0,
          "S time": 0.0008337875748399702,
-         "energy": 10878.476540054,
+         "energy": 10878.476540053998,
          "share": 1.0
         }
        },
@@ -786,8 +784,8 @@
        "faces": {
         "1": {
          "Ku time": 0.0,
-         "S time": 0.00267252491085274,
-         "energy": 34868.59293987614,
+         "S time": 0.002672506407765787,
+         "energy": 34868.351528989944,
          "share": 1.0
         }
        },
@@ -804,18 +802,18 @@
         "0": {
          "Ku time": 0.0,
          "S time": 0.0007640725478941214,
-         "energy": 9925.441763929777,
-         "share": 0.25373927462893403
+         "energy": 9925.441763929779,
+         "share": 0.2537392746289341
         },
         "1": {
          "Ku time": 0.0,
-         "S time": 0.0007191194437455541,
+         "S time": 0.000719119443745554,
          "energy": 9340.369506225881,
          "share": 0.23878217611319794
         },
         "2": {
          "Ku time": 0.0,
-         "S time": 0.0007640725478941211,
+         "S time": 0.000764072547894121,
          "energy": 9925.441763929775,
          "share": 0.253739274628934
         },
@@ -840,27 +838,27 @@
        "faces": {
         "0": {
          "Ku time": 0.0,
-         "S time": 0.002449068539235172,
-         "energy": 31813.847034613882,
+         "S time": 0.0024490515832367634,
+         "energy": 31813.62677310178,
          "share": 0.2537392746289341
         },
         "1": {
          "Ku time": 0.0,
-         "S time": 0.0023049811310241995,
-         "energy": 29938.525033488324,
-         "share": 0.23878217611319796
+         "S time": 0.0023049651726074526,
+         "energy": 29938.317755670374,
+         "share": 0.23878217611319794
         },
         "2": {
          "Ku time": 0.0,
-         "S time": 0.0024490685392351713,
-         "energy": 31813.84703461387,
-         "share": 0.25373927462893403
+         "S time": 0.0024490515832367625,
+         "energy": 31813.62677310177,
+         "share": 0.253739274628934
         },
         "3": {
          "Ku time": 0.0,
-         "S time": 0.0024490685392351717,
-         "energy": 31813.84703461387,
-         "share": 0.25373927462893403
+         "S time": 0.002449051583236763,
+         "energy": 31813.62677310177,
+         "share": 0.253739274628934
         }
        },
        "kind": "other",
@@ -873,10 +871,27 @@
       },
       {
        "faces": {
-        "1": {
-         "Ku time": 8.705331698675752e-05,
+        "0": {
+         "Ku time": 0.0007882366112666901,
          "S time": 0.0,
-         "energy": 2342.848217066797,
+         "energy": 12468.734815257587,
+         "share": 1.0
+        }
+       },
+       "kind": "other",
+       "label": "confirmation S01",
+       "level": 1.0,
+       "moved_share": 0.0,
+       "sector": "S01",
+       "tier": "P2 confirmation / initiation",
+       "unserved_share": 0.0
+      },
+      {
+       "faces": {
+        "1": {
+         "Ku time": 8.70531847679086e-05,
+         "S time": 0.0,
+         "energy": 2342.84581679554,
          "share": 1.0
         }
        },
@@ -887,17 +902,52 @@
        "sector": "S02",
        "tier": "P2 confirmation / initiation",
        "unserved_share": 0.0
+      },
+      {
+       "faces": {
+        "0": {
+         "Ku time": 8.520291221693168e-06,
+         "S time": 0.0,
+         "energy": 151.71023466211085,
+         "share": 0.2500000000000001
+        },
+        "1": {
+         "Ku time": 8.520291221693165e-06,
+         "S time": 0.0,
+         "energy": 151.7102346621108,
+         "share": 0.25
+        },
+        "2": {
+         "Ku time": 8.520291221693165e-06,
+         "S time": 0.0,
+         "energy": 151.7102346621108,
+         "share": 0.25
+        },
+        "3": {
+         "Ku time": 8.520291221693165e-06,
+         "S time": 0.0,
+         "energy": 151.7102346621108,
+         "share": 0.25
+        }
+       },
+       "kind": "other",
+       "label": "confirmation S03",
+       "level": 1.0,
+       "moved_share": 0.0,
+       "sector": "S03",
+       "tier": "P2 confirmation / initiation",
+       "unserved_share": 0.0
       }
      ],
      "faces": {
       "0": {
-       "Ku time": 0.00016666666633333337,
-       "Ku time load": 0.00016666666633333337,
-       "S time": 0.005310591158953508,
-       "S time load": 0.005310591158953508,
-       "energy": 140026.00073771708,
+       "Ku time": 0.0009634235688217167,
+       "Ku time load": 0.0009634235688217167,
+       "S time": 0.005310375685294518,
+       "S time load": 0.005310375685294518,
+       "energy": 152741.17548961105,
        "energy cap": 2000000.0,
-       "energy load": 0.07001300036885855,
+       "energy load": 0.07637058774480553,
        "moved": {
         "Ku time": 0.0,
         "S time": 0.0,
@@ -905,13 +955,13 @@
        }
       },
       "1": {
-       "Ku time": 0.0002537199833200909,
-       "Ku time load": 0.0002537199833200909,
-       "S time": 0.006563746393729131,
-       "S time load": 0.006563746393729131,
-       "energy": 158522.60543404694,
+       "Ku time": 0.00026224014232293513,
+       "Ku time load": 0.00026224014232293513,
+       "S time": 0.00656371193222543,
+       "S time load": 0.00656371193222543,
+       "energy": 158675.24520865837,
        "energy cap": 2000000.0,
-       "energy load": 0.07926130271702347,
+       "energy load": 0.07933762260432918,
        "moved": {
         "Ku time": 0.0,
         "S time": 0.0,
@@ -919,13 +969,13 @@
        }
       },
       "2": {
-       "Ku time": 0.00016666666633333337,
-       "Ku time load": 0.00016666666633333337,
-       "S time": 0.0032464744203959586,
-       "S time load": 0.0032464744203959586,
-       "energy": 112667.70545812785,
+       "Ku time": 0.00017518695755502654,
+       "Ku time load": 0.00017518695755502654,
+       "S time": 0.0032464574643975503,
+       "S time load": 0.0032464574643975503,
+       "energy": 112820.57405753981,
        "energy cap": 2000000.0,
-       "energy load": 0.056333852729063924,
+       "energy load": 0.056410287028769907,
        "moved": {
         "Ku time": 0.0,
         "S time": 0.0,
@@ -933,13 +983,13 @@
        }
       },
       "3": {
-       "Ku time": 0.00016666666633333337,
-       "Ku time load": 0.00016666666633333337,
-       "S time": 0.0032464744203959594,
-       "S time load": 0.0032464744203959594,
-       "energy": 112667.70545812785,
+       "Ku time": 0.00017518695755502654,
+       "Ku time load": 0.00017518695755502654,
+       "S time": 0.0032464574643975507,
+       "S time load": 0.0032464574643975507,
+       "energy": 112820.57405753981,
        "energy cap": 2000000.0,
-       "energy load": 0.056333852729063924,
+       "energy load": 0.056410287028769907,
        "moved": {
         "Ku time": 0.0,
         "S time": 0.0,
@@ -950,8 +1000,8 @@
      "flags": [],
      "ship": {
       "cap": 8000000.0,
-      "energy": 523884.0170880197,
-      "energy load": 0.06548550213600246
+      "energy": 537057.568813349,
+      "energy load": 0.06713219610166862
      },
      "status": "OK"
     },
@@ -960,14 +1010,14 @@
     "tiers": [
      {
       "fraction": 1.0,
-      "need_MW": 0.2840759587447271,
-      "served_MW": 0.2840759587447271,
+      "need_MW": 0.2841776646223777,
+      "served_MW": 0.2841776646223777,
       "tier": "always-on"
      },
      {
       "fraction": 1.0,
-      "need_MW": 0.0023428482217524933,
-      "served_MW": 0.0023428482217524933,
+      "need_MW": 0.015418421601538414,
+      "served_MW": 0.015418421601538414,
       "tier": "P2 confirmation / initiation"
      },
      {
@@ -978,8 +1028,8 @@
      },
      {
       "fraction": 1.0,
-      "need_MW": 0.18389481488041556,
-      "served_MW": 0.18389481488041556,
+      "need_MW": 0.18389108737465532,
+      "served_MW": 0.18389108737465532,
       "tier": "P5 margin reuse"
      }
     ]
@@ -987,7 +1037,7 @@
    "realloc_mode": "PRIO_SEARCH",
    "sectors": {
     "S01": {
-     "g": 7.613893242882861,
+     "g": 7.613160972151144,
      "limited_by": "F1 memory bandwidth",
      "range_km_at_rr_real": [
       6492,
@@ -1016,11 +1066,11 @@
       6198
      ],
      "rr_min_s": 1.0,
-     "rr_real_s": 2.626777045855632,
+     "rr_real_s": 2.6270297020067974,
      "rr_target_s": 20.0
     },
     "S02": {
-     "g": 4.205282726077659,
+     "g": 4.205260534469734,
      "limited_by": "F2 memory bandwidth",
      "range_km_at_rr_real": [
       776,
@@ -1035,11 +1085,11 @@
       561
      ],
      "rr_min_s": 1.0,
-     "rr_real_s": 1.1889807001546333,
+     "rr_real_s": 1.188986974532478,
      "rr_target_s": 5.0
     },
     "S03": {
-     "g": 4.205282726077659,
+     "g": 4.205260534469734,
      "limited_by": "F2 memory bandwidth",
      "range_km_at_rr_real": [
       12289,
@@ -1076,13 +1126,13 @@
       8122
      ],
      "rr_min_s": 1.0,
-     "rr_real_s": 28.5355368037112,
+     "rr_real_s": 28.53568738877947,
      "rr_target_s": 120.0
     }
    },
    "ship_energy": {
     "nominal": 0.04232925225760027,
-    "real": 0.06548550226697347
+    "real": 0.06713219623593301
    }
   },
   "power_allocation": {
@@ -4516,12 +4566,28 @@
     {
      "alternatives": {
       "KU1+7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "0": {
+         "energy_fraction": 0.0005351621147206186,
+         "ku_time_fraction": 4.1951417853394625e-05,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0112,
+       "why_not": ""
       },
       "KU7": {
-       "admissible": false,
-       "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+       "admissible": true,
+       "faces": {
+        "0": {
+         "energy_fraction": 0.0006139984561295256,
+         "ku_time_fraction": 5.17741804801303e-05,
+         "s_time_fraction": 0.0
+        }
+       },
+       "mission_max_load": 0.0112,
+       "why_not": ""
       },
       "S2": {
        "admissible": true,
@@ -4614,7 +4680,7 @@
       0.0,
       0.0
      ],
-     "reason": "only admissible mode (KU1+7: confirmation probability < 0.9995 even with 15 dB margin; KU7: confirmation probability < 0.9995 even with 15 dB margin)",
+     "reason": "lowest mission face load (binding resource: energy)",
      "scheduler_rules": []
     },
     {
@@ -6659,16 +6725,14 @@
   },
   "warnings": [
    "sectors S01 / S03 share 1.360 sr: each is budgeted independently there -- fine for intentional layered coverage (different RCS/range/RR on the same sky), check for a duplicated requirement if not",
-   "at the real revisits: sector S01: S waveform WF-S01-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
-   "at the real revisits: sector S01: S waveform WF-S01-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
-   "at the real revisits: sector S01: S waveform WF-S01-3: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
-   "at the real revisits: sector S01: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
+   "at the real revisits: sector S01: S waveform WF-S01-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 25 MHz on the same face",
+   "at the real revisits: sector S01: S waveform WF-S01-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 25 MHz on the same face",
+   "at the real revisits: sector S01: S waveform WF-S01-3: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 25 MHz on the same face",
    "at the real revisits: sector S02: S waveform WF-S02: its harmonics (13.225-13.725 GHz) cover 12 % of the Ku channel 13.8 GHz / 200 MHz on the same face",
-   "at the real revisits: sector S03: S waveform WF-S03-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
-   "at the real revisits: sector S03: S waveform WF-S03-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
-   "at the real revisits: sector S03: S waveform WF-S03-3: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
-   "at the real revisits: sector S03: S waveform WF-S03-4: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 14 GHz / 25 MHz on the same face",
-   "at the real revisits: sector S03: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
+   "at the real revisits: sector S03: S waveform WF-S03-1: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 25 MHz on the same face",
+   "at the real revisits: sector S03: S waveform WF-S03-2: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 25 MHz on the same face",
+   "at the real revisits: sector S03: S waveform WF-S03-3: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 25 MHz on the same face",
+   "at the real revisits: sector S03: S waveform WF-S03-4: its harmonics (13.600-14.100 GHz) cover 100 % of the Ku channel 13.8 GHz / 25 MHz on the same face",
    "S03: 2 % of its volume served by S02 (need met there): taken out of its budget"
   ]
  },

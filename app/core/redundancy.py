@@ -291,63 +291,125 @@ def rank(sec: dict) -> Tuple[int, int]:
     return (1, 0) if sec.get("self_protection") else (4, int(sec.get("search_priority", 1) or 1))
 
 
+def _cost_cells(grid, sec: dict, plan: Optional[dict], served: Optional[Tuple[float, float]]) -> np.ndarray:
+    """Search power of a volume per unit solid angle at each cell (W / sr, up to a constant): the energy of one
+    position of its plan at that scan angle, over its beam cell (its lattice spacing squared) and its revisit (as
+    served). Infinite where it has no waveform. The tie-break of a mutual relief (user, 12 November 2026)."""
+    if plan is None:
+        return np.full(grid.theta.shape, np.inf)
+    nb = len(plan["wf"])
+    e = np.full(nb, np.inf)
+    for k, w in enumerate(plan["wf"]):
+        if w is not None:
+            e[k] = float(rm.search_position_costs(w, plan["pulse_scale"][k])[0])
+    sp = float(plan.get("beam_spacing_hpbw") or 1.0)
+    rr = float(served[1]) if served else float(sec.get("rr_target_s", 1.0) or 1.0)
+    bins = np.minimum((grid.theta / mo.THETA_BIN_DEG).astype(int), nb - 1)
+    return e[bins] / (sp * sp * max(rr, 1e-9))
+
+
 def relief(sectors_ship: List[dict], grid, eps_min: float, eps_max: float, sky: Optional[dict] = None,
            g: Optional[dict] = None, served: Optional[Dict[str, Tuple[float, float]]] = None,
            plans: Optional[Dict[str, Optional[dict]]] = None) -> Dict[str, dict]:
-    """A (user, 11 November 2026): the directions of each volume whose need another volume already meets, taken out
-    of its demand. The volumes in the order (tier, place in the list): a volume is relieved only by one before it
-    (never by a lower priority; between equals, the first in the list keeps the load), and only where that one still
-    searches itself (not relieved there), so a direction is never left to nobody. A meeting the need is judged with
-    what the allocation serves it (served: {id: (rho, revisit)}, B) and its plan (plans, else planned alone at the
-    reference power). A relief under tool.redundancy.cover_min of the volume is ignored. Sectors in the ship frame.
-    -> {id: {"code": the "_relief" key (core.optimizer.relief_code), "share": of its scanned solid angle,
-    "by": [ids]}}."""
+    """A (user, 11 November 2026; rule recast 12 November 2026): the directions of each volume whose need another
+    volume already meets, taken out of its demand. Every volume is compared with every other, in both directions
+    (the place in the list plays no part): A may relieve B where A meets B's need and
+      - A has a higher priority (tier, core/allocation), or
+      - the same priority and B does not meet A's need there (a one-way cover), or
+      - the same priority, both meet the other's need there (a mutual cover), and A's search costs less there
+        (_cost_cells; equal: the smaller id);
+    B is then relieved there only while A still searches the direction itself, so a direction is never left to
+    nobody (the relief resolved by passes; a cell still in conflict after them: both search it). A meeting the need
+    is judged with what the allocation serves it (served: {id: (rho, revisit)}) and its plan (plans, else planned
+    alone at the reference power). A relief under tool.redundancy.cover_min of the volume is ignored. Sectors in the
+    ship frame. -> {id: {"code": the "_relief" key (core.optimizer.relief_code), "share": of its scanned solid angle,
+    "by": [ids], "listen": {coverer: share of its positions}, "range_km"}}."""
     served, plans = served or {}, plans or {}
     p_avg = rm.face_elec_avail_w(rm.FACE_ELEC_POWER_MW)
     secs = [{k: v for k, v in s.items() if k != "_relief"} for s in sectors_ship]
     secs = mo.with_spectrum({"global": dict(g or {}), "sectors": secs})["sectors"]
     scanned = grid.scanned(eps_min, eps_max)
-    masks: Dict[int, Optional[np.ndarray]] = {}
+    masks: Dict[int, np.ndarray] = {}
     for i, s in enumerate(secs):
         try:
-            masks[i] = grid.mask(s) & scanned if not md.validate_sector(s, i) else None
+            m = grid.mask(s) & scanned if not md.validate_sector(s, i) else None
         except (KeyError, TypeError, ValueError):
-            masks[i] = None
-    order = sorted(range(len(secs)), key=lambda i: (rank(secs[i]), i))
-    active: Dict[int, np.ndarray] = {}
-    out: Dict[str, dict] = {}
-    wpos = grid.w * grid.d_omega                       # (the search positions go as w dOmega)
-    for pos, j in enumerate(order):
-        sb, mb = secs[j], masks[j]
-        if mb is None or not mb.any():
-            continue
-        relieved = np.zeros_like(mb)
-        by = []
-        listen: Dict[str, float] = {}                  # coverer -> the share of ITS positions that listen further
-        for i in order[:pos]:
-            ma = active.get(i)
-            if ma is None:
-                continue
-            inter = ma & mb & ~relieved
-            if not inter.any():
-                continue
+            m = None
+        if m is not None and m.any():
+            masks[i] = m
+    ids = {i: str(secs[i].get("id")) for i in masks}
+    plan_of: Dict[int, Optional[dict]] = {}
+
+    def plan(i):
+        if i not in plan_of:
             sa = secs[i]
             try:
-                plan = plans[sa["id"]] if sa["id"] in plans else _plan(sa, eps_min, eps_max, p_avg, sky)
-                met = need_met(grid, sa, plan, sb, inter, served.get(str(sa["id"])))[0]
+                plan_of[i] = plans[sa["id"]] if sa["id"] in plans else _plan(sa, eps_min, eps_max, p_avg, sky)
+            except (KeyError, TypeError, ValueError, ZeroDivisionError):
+                plan_of[i] = None
+        return plan_of[i]
+
+    met: Dict[Tuple[int, int], np.ndarray] = {}        # (a, b): where a meets b's need (a's priority >= b's)
+    for a in masks:
+        for b in masks:
+            if a == b or rank(secs[a]) > rank(secs[b]):
+                continue
+            inter = masks[a] & masks[b]
+            if not inter.any():
+                continue
+            try:
+                m = need_met(grid, secs[a], plan(a), secs[b], inter, served.get(ids[a]))[0]
             except (KeyError, TypeError, ValueError, ZeroDivisionError):
                 continue
-            if met.any():
-                relieved |= met
-                by.append(str(sa["id"]))
-                listen[str(sa["id"])] = float((wpos * met).sum() / max(float((wpos * masks[i]).sum()), 1e-12))
-        share = float((grid.d_omega * relieved).sum() / max(float((grid.d_omega * mb).sum()), 1e-12))
-        if share < COVER_MIN:
-            relieved[:] = False
-        active[j] = mb & ~relieved
-        if relieved.any():
-            out[str(sb["id"])] = {"code": mo.relief_code(relieved), "share": share, "by": by, "listen": listen,
-                                  "range_km": float(sb.get("range_km", 0.0) or 0.0)}
+            if m.any():
+                met[(a, b)] = m
+    cost: Dict[int, np.ndarray] = {}
+    may: Dict[Tuple[int, int], np.ndarray] = {}        # (a, b): where a may relieve b
+    for (a, b), m in met.items():
+        if rank(secs[a]) < rank(secs[b]):
+            may[(a, b)] = m
+            continue
+        back = met.get((b, a))
+        if back is None:
+            may[(a, b)] = m
+            continue
+        for k in (a, b):
+            if k not in cost:
+                cost[k] = _cost_cells(grid, secs[k], plan(k), served.get(ids[k]))
+        wins = (cost[a] < cost[b]) | ((cost[a] == cost[b]) & (ids[a] < ids[b]))
+        may[(a, b)] = m & (~back | wins)
+    # resolved by passes: b relieved where some a that may relieve it still searches
+    relieved = {b: np.zeros_like(mb) for b, mb in masks.items()}
+    for _pass in range(2 * len(masks) + 2):
+        new = {b: np.zeros_like(mb) for b, mb in masks.items()}
+        for (a, b), m in may.items():
+            new[b] |= m & masks[a] & ~relieved[a]
+        for b in new:
+            share = float((grid.d_omega * new[b]).sum() / (grid.d_omega * masks[b]).sum())
+            if share < COVER_MIN:
+                new[b][:] = False
+        if all(np.array_equal(new[b], relieved[b]) for b in new):
+            break
+        relieved = new
+    else:                                              # (no fixed point: the cells in conflict searched by both)
+        for (a, b), m in may.items():
+            relieved[b] &= ~(m & relieved[a])
+    wpos = grid.w * grid.d_omega                       # (the search positions go as w dOmega)
+    out: Dict[str, dict] = {}
+    for b, rb in relieved.items():
+        if not rb.any():
+            continue
+        share = float((grid.d_omega * rb).sum() / (grid.d_omega * masks[b]).sum())
+        by, listen = [], {}
+        for (a, bb), m in may.items():
+            if bb != b:
+                continue
+            cells = m & rb & masks[a] & ~relieved[a]
+            if cells.any():
+                by.append(ids[a])
+                listen[ids[a]] = float((wpos * cells).sum() / max(float((wpos * masks[a]).sum()), 1e-12))
+        out[ids[b]] = {"code": mo.relief_code(rb), "share": share, "by": sorted(by), "listen": listen,
+                       "range_km": float(secs[b].get("range_km", 0.0) or 0.0)}
     return out
 
 

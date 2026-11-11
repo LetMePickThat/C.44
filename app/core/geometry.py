@@ -261,9 +261,23 @@ def _dirs_angles(d: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
             np.degrees(np.arcsin(np.clip(d[:, 2], -1.0, 1.0))))
 
 
+PLAYED_EDGE_DEG = 1.0               # "show effectively played": margin given to the cells in / out of the relief
+
+
 def sector_margin(sec: dict, phi: np.ndarray, eps: np.ndarray) -> np.ndarray:
     """Signed angular margin (deg, > 0 inside) of ship-frame directions to a sector's edge (sec resolved in the
-    ship frame, its frame_m applied)."""
+    ship frame, its frame_m applied). Display key "_played_relief" (a relief code, core/optimizer.relief_code; user,
+    12 November 2026: "show effectively played"): the directions another volume serves are taken out."""
+    m = _shape_margin(sec, phi, eps)
+    code = sec.get("_played_relief")
+    if code:
+        rel = mo.relief_cells(code, np.asarray(phi, float), np.asarray(eps, float))
+        m = np.minimum(m, np.where(rel, -PLAYED_EDGE_DEG, PLAYED_EDGE_DEG))
+    return m
+
+
+def _shape_margin(sec: dict, phi: np.ndarray, eps: np.ndarray) -> np.ndarray:
+    """sector_margin of the volume's own shape."""
     from . import frames
     p, e, off = frames.sector_angles(sec, phi, eps)
     shape = sec.get("shape", "box")

@@ -44,7 +44,7 @@ import numpy as np
 import pyvista as pv
 from PyQt5.QtCore import QObject, QRectF, QTimer, Qt, pyqtSignal
 from PyQt5.QtGui import QBrush, QColor, QPainter, QPen
-from PyQt5.QtWidgets import (QComboBox, QGroupBox, QHBoxLayout, QLabel, QPushButton, QSlider, QSplitter,
+from PyQt5.QtWidgets import (QComboBox, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QPushButton, QSlider, QSplitter,
                              QStackedWidget, QVBoxLayout, QWidget)
 from pyvistaqt import QtInteractor
 
@@ -59,6 +59,7 @@ from sim import scenario as scn
 ICRF_AXES = (("X", "X (node of the equator)"), ("Y", "Y"), ("Z", "Z (pole)"))   # the view frame's axes (H3)
 ICRF_AXIS_NAMES = [f"icrf_axis_{a}" for a, _ in ICRF_AXES]
 LABEL_ASKED = "#a8aeb8"        # the 3D label's first line: what is asked (grey; user, 11 November 2026)
+PLAYED_FULL_SHARE = 0.995                     # "show effectively played": a volume served at least this much hidden
 LABEL_OK, LABEL_NOK = "#3fbf6a", "#e0574f"   # its second line: the worst range and the revisit achieved
 SECTOR_LABEL_FONT_SIZE = 13   # shared by _build_sectors (draws) and _label_hit (estimates the on-screen box), x UI size
 FACE_OUTLINE_COLOR = "#9aa0aa"   # the zones' outlines, light on the black of space (view3d.MUTED_COLOR)
@@ -235,8 +236,8 @@ class DisplayBar(QWidget):
         self.bt_show_all.clicked.connect(lambda _c=False: self.show_all_sectors.emit())
         self.bt_hide_all = QPushButton("Hide all")
         self.bt_hide_all.clicked.connect(lambda _c=False: self.hide_all_sectors.emit())
-        self.tg_frame = uc.Toggle("equatorial", off_text="ship", two_way=True,
-                                  tip="Ship: the ship frame. Equatorial: the camera in the central body's equatorial "
+        self.tg_frame = uc.Toggle("equatorial frame",           # (one-sided: aligned with the others, 12 Nov 2026)
+                                  tip="Sphere view. Off: the ship frame. On: the camera in the central body's equatorial "
                                       "axes (its pole up, as the Scenario Editor's global view; no orbit: ICRF), "
                                       "with these axes; the ship appears with the attitude of the navigation")
         self.tg_frame.toggled.connect(lambda on: self.view_frame_changed.emit("equatorial" if on else "ship"))
@@ -251,7 +252,18 @@ class DisplayBar(QWidget):
         self.tg_scn_trails = uc.Toggle("trajectories", checked=True,
                                        tip=f"Their trajectories over t +/- {SCN_TRAIL_S:g} s, in their identity's colour")
         self.tg_scn_labels = uc.Toggle("labels", tip="Their names")
-        for tg in (self.tg_scn_objects, self.tg_scn_trails, self.tg_scn_labels):
+        # the orbits of the global view, as the Scenario Editor's (user, 12 November 2026: they could not be hidden);
+        # at start: the planned trajectory as the editor's global profile ([tool.display.view_global]); all orbits
+        # and the orbital velocity vector off (user, 12 November 2026)
+        prof = P.section("tool.display.view_global")
+        self.tg_planned = uc.Toggle("planned trajectory", checked=bool(prof.get("planned_trajectory", True)),
+                                    tip="Global view: each body's trajectory from t to the run's end")
+        self.tg_all_orbits = uc.Toggle("all orbits", checked=False,      # (off at start: user, 12 November 2026)
+                                       tip="Global view: the orbits of every planet and moon")
+        self.tg_orbit_vec = uc.Toggle("orbital velocity vector", checked=False,   # (off at start: user, 12 Nov)
+                                      tip="Global view: each body's free fall from t under the local gravity alone")
+        for tg in (self.tg_scn_objects, self.tg_scn_trails, self.tg_scn_labels, self.tg_planned, self.tg_all_orbits,
+                   self.tg_orbit_vec):
             tg.toggled.connect(lambda _on: self.scenario_changed.emit())
         self.tg_global = uc.Toggle("global", off_text="sphere", two_way=True,
                                    tip="Sphere: everything projected on the sphere around the ship (zones, volumes, "
@@ -281,12 +293,15 @@ class DisplayBar(QWidget):
             self.tg_global.setChecked(True)           # U5 (user, 11 November 2026): a flight plan opens in Global
         self._global_was_available = on
 
-    def sphere_sections(self) -> list:
-        """(title, items) of the sphere mode's own options (view3d.options_grid)."""
-        return [(v3.title("Responsibility zones"), [v3.row(self.tg_zones)]),
-                (v3.title("Frame and sky"), [v3.row(self.tg_frame), v3.row(self.tg_sky), v3.row(self.cb_const)]),
-                (v3.title("Scenario"), [v3.row(self.tg_scn_objects), v3.row(self.tg_scn_trails),
-                                        v3.row(self.tg_scn_labels)])]
+    def display_sections(self) -> list:
+        """(title, switches) of the options of both modes, in the order of the two columns."""
+        return [("Display", [self.tg_gauge, self.tg_zones, self.tg_sky, self.cb_const, self.tg_frame])]
+
+    def scenario_sections(self) -> list:
+        """(title, switches) of the linked scenario's options (shown only with a scenario: user, 12 November 2026);
+        the orbits: global view only."""
+        return [("Scenario objects", [self.tg_scn_objects, self.tg_scn_labels, self.tg_scn_trails]),
+                ("Orbits (global view)", [self.tg_planned, self.tg_all_orbits, self.tg_orbit_vec])]
 
     def face_visible(self, k: int) -> bool:
         return self.tg_zones.isChecked()
@@ -648,6 +663,9 @@ class SceneView(QWidget):
         self.display_bar.view_frame_changed.connect(lambda _f: self._apply_view_frame())
         self.display_bar.sky_changed.connect(self._update_sky)
         self.display_bar.scenario_changed.connect(lambda: (self._scn_visibility(), self.plotter.render()))
+        self.display_bar.scenario_changed.connect(self._on_global_option)
+        self.display_bar.faces_changed.connect(self._sync_global_options)
+        self.display_bar.sky_changed.connect(self._sync_global_options)
         self.display_bar.global_changed.connect(self._on_global)
         self.display_bar.gauge_changed.connect(self._on_gauge)
         self.plotter = QtInteractor(self)
@@ -664,6 +682,7 @@ class SceneView(QWidget):
         self._sim_mission: Optional[tuple] = None      # (mission, hidden sector ids) for its volumes
         self.ui_size = v3.UiSize(self)                 # the view's icons and texts (shared: gui/view3d.py)
         self.ui_size.changed.connect(self._ui_scale_changed)
+        self.ui_size.changed.connect(self._sync_global_options)
         self.plotter._ui_scale = self.ui_size.scale
         keys = set(self.plotter.actors)
         self.sky = v3.space_background(self.plotter)   # the black of space, the stars under the scene
@@ -729,6 +748,7 @@ class SceneView(QWidget):
         if link is None and self._playing:
             self.toggle_play()
         self.display_bar.set_scenario_enabled(link is not None)
+        self._show_scn_opts(link is not None)
         self._draw_scenario()
         self.plotter.render()
         self._check_global()
@@ -787,6 +807,7 @@ class SceneView(QWidget):
         self._play_timer.timeout.connect(self._play_tick)
         self.instant_source = None                     # t -> (draws, global with nav and sky at t) (the owner)
         self.use_instant = None                        # t -> None: the mission's instant set to t (the owner)
+        self.instant_shown = None                      # (t, mission global at t) -> None: the owner's panels follow
         self._play_bar = bar
         bar.setVisible(False)
         return bar
@@ -860,8 +881,26 @@ class SceneView(QWidget):
             if text != cached[4]:
                 self._cache[d.sid] = cached[:4] + (text,) + tuple(cached[5:])
                 self._redraw_label(d.sid)
+            self._colour_outline(d)
         if self._sim is not None and hasattr(self._sim, "set_achieved"):
             self._sim.set_achieved(self._achieved)
+
+    def _outline_colour(self, d) -> str:
+        """The outline of a volume: its own colour; with the range gauge on (user, 12 November 2026: a red outline
+        read as a shortfall), the colour of its achieved line -- green when its range and revisit are held, red
+        else, grey while not known."""
+        if not self.display_bar.tg_gauge.isChecked():
+            return d.color
+        a = (getattr(self, "_achieved", None) or {}).get(d.sid)
+        if not a:
+            return FACE_OUTLINE_COLOR
+        return geo.GAUGE_GREEN if a.get("ok") else geo.GAUGE_RED
+
+    def _colour_outline(self, d) -> None:
+        """Set the outline actor's colour (the achieved figures changed: no mesh rebuilt)."""
+        actor = self.plotter.renderer.actors.get(sector_actor_names(d.sid)[1])
+        if actor is not None:
+            actor.GetProperty().SetColor(*[c / 255.0 for c in v3.rgb(self._outline_colour(d))])
 
     def set_calibration(self, calib: dict) -> None:
         """Pass R3d (M1): {volume id as drawn: its ratios exact / estimate} (core/calibration), for the live load."""
@@ -1097,6 +1136,11 @@ class SceneView(QWidget):
         self._sky_ship = g.get("sky")
         n = frames.Nav(g["nav"][0]) if g.get("nav") else None
         self.set_navigation(None if n is None else n.r_si, None if n is None else n.body)
+        if self.instant_shown is not None:
+            try:
+                self.instant_shown(t, g)
+            except Exception:  # noqa: BLE001 -- a panel's text: never stops the playback
+                pass
         self._light_pending = light
         if light:
             if self._sim is not None:
@@ -1150,6 +1194,18 @@ class SceneView(QWidget):
         if self._playing:
             self._play_timer.start()
 
+    def set_played_only(self, on: bool) -> None:
+        """"Show effectively played" (the Watch sectors' switch): only what the volumes scan, the parts another
+        volume serves taken out, in both modes."""
+        self.played_only = bool(on)
+        self._cache = {}
+        if self._eps is not None:
+            self._build_sectors()
+        if self._sim is not None:
+            self._sim.played_only = self.played_only
+            self._sim._draw_volumes(force=True)
+        self.apply_visibility()
+
     def _on_gauge(self, on: bool) -> None:
         """The range gauge in both modes: the sectors rebuilt, the global view told."""
         self._cache = {}
@@ -1176,13 +1232,16 @@ class SceneView(QWidget):
             self._update_global()
 
     def _on_global(self, on: bool) -> None:
-        self._sphere_box.setVisible(not on)            # (global: the editor view's own panel)
+        self.display_bar.tg_frame.setEnabled(not on and self._r_is is not None)   # (the sphere's frame only)
+        for tg in (self.display_bar.tg_planned, self.display_bar.tg_all_orbits, self.display_bar.tg_orbit_vec):
+            tg.setEnabled(on)                                                    # (the orbits: global view only)
         if on and (self._scn_link is not None or self._nav_msg() is not None):
             if self._sim is None:
                 from gui.sim_view import SimView             # (late: sim_view imports this module)
                 self._sim = SimView(self.grid, read_only=True)
                 self._sim.range_gauge = self.display_bar.tg_gauge.isChecked()
                 self._sim.set_achieved(self._achieved)       # (the labels' second line)
+                self._sim.sector_labels_always = True        # (the volumes' labels whatever the objects' labels)
                 for i in range(self._sim.play_bar.count()):   # (the instant is the mission's: no playback)
                     w = self._sim.play_bar.itemAt(i).widget()
                     if w is not None:
@@ -1192,9 +1251,9 @@ class SceneView(QWidget):
                 self._sim.side_panel.hide()
                 self._stack.addWidget(self._sim)
             self._stack.setCurrentIndex(1)
+            self._sync_global_options()
             self._update_global()
         else:
-            self._sphere_box.setVisible(True)
             self._stack.setCurrentIndex(0)
             stale = getattr(self, "_sphere_stale", None)
             if stale is not None and self._eps is not None:      # the instants played meanwhile
@@ -1206,6 +1265,24 @@ class SceneView(QWidget):
                     self._in_instant = False
             self.plotter.render()
 
+    def _sync_global_options(self, *_a) -> None:
+        """The panel's options applied to the global view too (user, 12 November 2026: the same options in both
+        modes): UI size, responsibility zones, stars and constellations, the scenario's trails and labels (its objects
+        through _update_global)."""
+        sim, bar = getattr(self, "_sim", None), self.display_bar
+        if sim is None:
+            return
+        if abs(sim.ui_size.scale - self.ui_size.scale) > 1e-9:
+            sim.ui_size.scale = self.ui_size.scale
+            sim.ui_size.show()
+            sim.ui_size.changed.emit(sim.ui_size.scale)
+        for mine, theirs in ((bar.tg_zones, sim.cb_zones), (bar.tg_sky, sim.tg_sky), (bar.cb_const, sim.cb_const),
+                             (bar.tg_scn_trails, sim.cb_trails), (bar.tg_scn_labels, sim.cb_object_labels),
+                             (bar.tg_planned, sim.cb_planned), (bar.tg_all_orbits, sim.cb_all_orbits),
+                             (bar.tg_orbit_vec, sim.cb_orbit)):
+            if theirs.isChecked() != mine.isChecked():
+                theirs.setChecked(mine.isChecked())
+
     def _update_global(self) -> None:
         """The global view (user, 10 November 2026): the flight plan only, the linked scenario's ship (its states and
         attitude as flown, no object) at t, else the mission's navigation alone; the mission's volumes from the ship;
@@ -1215,10 +1292,12 @@ class SceneView(QWidget):
         link, sim = self._scn_link, self._sim
         try:
             if link is not None:
-                key, t = ("link", id(link)), self._scn_t
+                objects = self.display_bar.tg_scn_objects.isChecked()    # (user, 12 November 2026: as the sphere)
+                key, t = ("link", id(link), objects), self._scn_t
                 if self._sim_run != key:
-                    sc, truth, g = slink.ship_only(link)
+                    sc, truth, g = (link.sc, link.truth, link.g) if objects else slink.ship_only(link)
                     sim.show_run(sc, truth, g, f"flight plan of {link.name}")
+                    self._sync_global_options()      # (the run's view profile: the panel's choices again)
             else:
                 nav = self._nav_msg()
                 if nav is None:
@@ -1411,30 +1490,70 @@ class SceneView(QWidget):
         col = QVBoxLayout(box)
         col.setContentsMargins(8, 4, 8, 6)
         col.setSpacing(4)
-        head = QHBoxLayout()                           # the mode (user, 10 November 2026), then what both modes share
+        # (user, 12 November 2026: "le bazar visuellement") the mode and the view on top, the volumes' buttons on their
+        # own line, then the options by section, two columns; the same options in both modes
+        head = QHBoxLayout()
         head.addWidget(bar.tg_global)
-        head.addWidget(bar.tg_gauge)
         head.addStretch(1)
-        head.addWidget(bar.bt_show_all)
-        head.addWidget(bar.bt_hide_all)
+        head.addWidget(self.bt_recentre)
         col.addLayout(head)
-        self._sphere_box = QWidget()                   # the sphere's own options (global: the editor view's panel)
-        sl = QVBoxLayout(self._sphere_box)
-        sl.setContentsMargins(0, 0, 0, 0)
-        sl.setSpacing(4)
-        top = QHBoxLayout()
-        top.addWidget(self.ui_size.widget(), 1)
-        top.addWidget(self.bt_recentre)
-        sl.addLayout(top)
+        line2 = QHBoxLayout()                          # (user, 12 November 2026: one subject per line)
+        line2.addWidget(self.ui_size.widget())
+        line2.addStretch(1)
+        col.addLayout(line2)
+        line3 = QHBoxLayout()
+        line3.addWidget(QLabel("Volumes:"))
+        line3.addWidget(bar.bt_show_all)
+        line3.addWidget(bar.bt_hide_all)
+        line3.addStretch(1)
+        col.addLayout(line3)
         for w in self._panel_rows:
-            sl.addWidget(v3.row(w))
-        sl.addLayout(v3.options_grid(bar.sphere_sections()))
-        col.addWidget(self._sphere_box)
+            col.addWidget(v3.row(w))
+        # one grid for every switch (user, 12 November 2026: "aligner tous les toggles"): two equal columns, each
+        # switch at the left of its cell, the section titles over both
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 4, 0, 0)
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(5)
+        grid.setColumnMinimumWidth(0, 8)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(2, 1)
+        r, self._scn_opts = 0, []
+        for sections, is_scn in ((bar.display_sections(), False), (bar.scenario_sections(), True)):
+            for head_text, toggles in sections:
+                lb = v3.title(head_text)
+                grid.addWidget(lb, r, 0, 1, 3)
+                r += 1
+                for i, tg in enumerate(toggles):
+                    grid.addWidget(tg, r + i // 2, 1 + i % 2, Qt.AlignLeft | Qt.AlignVCenter)
+                r += (len(toggles) + 1) // 2
+                if is_scn:
+                    self._scn_opts += [lb] + list(toggles)
+        col.addLayout(grid)
+        self._show_scn_opts(self._scn_link is not None)
+        for tg in (bar.tg_planned, bar.tg_all_orbits, bar.tg_orbit_vec):
+            tg.setEnabled(bar.tg_global.isChecked())
         self._view_panel = box
         return box
 
+    def _show_scn_opts(self, on: bool) -> None:
+        """The scenario's options (titles and switches) shown only with a linked scenario."""
+        for w in getattr(self, "_scn_opts", []):
+            w.setVisible(on)
+
+    def _on_global_option(self) -> None:
+        """A scenario option changed: the global view follows (its objects: another run shown)."""
+        self._sync_global_options()
+        if self._global_shown():
+            self._update_global()
+
     def recentre(self) -> None:
-        """Back to the default view in the frame chosen."""
+        """Back to the default view in the frame chosen (global: on OWNSHIP, the volumes framed)."""
+        if self._global_shown() and getattr(self, "_sim", None) is not None:
+            from gui.sim_view import OWNSHIP
+            self._sim.set_centre(OWNSHIP)
+            self._frame_volumes()
+            return
         set_default_camera(self.plotter, self._r_view if self._icrf_view() else None)
         self.plotter.render()
 
@@ -1467,7 +1586,7 @@ class SceneView(QWidget):
             r_is is not None and self._r_is is not None and np.array_equal(r_is, self._r_is)
             and np.array_equal(r_view, self._r_view))
         self._r_is, self._r_view = r_is, r_view
-        self.display_bar.tg_frame.setEnabled(r_is is not None)
+        self.display_bar.tg_frame.setEnabled(r_is is not None and not self.display_bar.tg_global.isChecked())
         if not same and self.display_bar.icrf():
             self._apply_view_frame()
         if not same:
@@ -1645,9 +1764,10 @@ class SceneView(QWidget):
         for k in range(4):
             set_actors_visible(p, face_actor_names(k), bar.face_visible(k))
         for d in self._sectors:
-            set_actors_visible(p, sector_actor_names(d.sid) + (sector_hole_name(d.sid),), d.sid not in self._hidden)
+            shown = d.sid not in self._hidden and d.sid not in getattr(self, "_played_hidden", set())
+            set_actors_visible(p, sector_actor_names(d.sid) + (sector_hole_name(d.sid),), shown)
             if getattr(self, "_line_labels", None) is not None:
-                self._line_labels.set_visible(d.sid, d.sid not in self._hidden)
+                self._line_labels.set_visible(d.sid, shown)
         if getattr(self, "_line_labels", None) is not None:
             self._line_labels.keep([d.sid for d in self._sectors])
         if hasattr(self, "_scn_sym"):
@@ -1684,13 +1804,22 @@ class SceneView(QWidget):
         new_names: Set[str] = set()
         new_cache: Dict[str, tuple] = {}
         gauge = self.display_bar.tg_gauge.isChecked()
-        alloc = self._allocation(self._sectors, self._sky_ship) if gauge else None   # (gauge (c): all the volumes)
+        played = bool(getattr(self, "played_only", False))
+        alloc = (self._allocation(self._sectors, self._sky_ship) if gauge or played else None)   # (gauge (c): all)
+        self._played_hidden = set()
         for d in self._sectors:
             surf_name, out_name, lbl_name, leader_name = sector_actor_names(d.sid)
             rho = (alloc or {}).get("by_sector", {}).get(d.sid, {}).get("rho") if gauge else None
+            # "show effectively played" (user, 12 November 2026): the part another volume serves (the relief of the
+            # fast estimate at the instant shown) taken out; a volume served in full not drawn at all
+            rel = ((alloc or {}).get("relief") or {}).get(d.sid) if played else None
+            if rel and float(rel.get("share", 0.0)) >= PLAYED_FULL_SHARE:
+                self._played_hidden.add(d.sid)
+            sec_d = dict(d.sec, _played_relief=rel["code"]) if rel and rel.get("code") else d.sec
+            d = SectorDraw(d.sid, sec_d, d.color, d.text) if sec_d is not d.sec else d
             key = (geo.sector_geometry_key(d.sec), eps_min, eps_max, gauge,
                    None if rho is None else round(float(rho), 4), d.sec.get("range_km") if gauge else None,
-                   _key_sky(self._sky_ship) if gauge else None)
+                   _key_sky(self._sky_ship) if gauge else None, d.sec.get("_played_relief"))
             cached = self._cache.get(d.sid)
             # a duplicate id (mid-edit) shares actor names with the earlier sector: always redraw, last one wins
             same_geom = cached is not None and cached[0] == key and d.sid not in new_cache
@@ -1729,7 +1858,10 @@ class SceneView(QWidget):
                 new_names.add(hole_name)
             if outline.n_points:
                 if not (same_mesh and has_actor(self.plotter, out_name)):
-                    self.plotter.add_mesh(outline, color=d.color, line_width=2, name=out_name, render=False)
+                    self.plotter.add_mesh(outline, color=self._outline_colour(d), line_width=2, name=out_name,
+                                          render=False)
+                else:
+                    self._colour_outline(d)
                 new_names.add(out_name)
             asked, ach, _ok = self.label_lines(d.sid, d.sec)
             text = self._label_text(d.sid, asked, ach) if (poly.n_points or outline.n_points) else None

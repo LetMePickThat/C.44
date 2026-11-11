@@ -682,7 +682,6 @@ range_floor_m     = { value = 0.05, unit = "m", status = "V", source = "range me
 vr_floor_mps      = { value = 0.01, unit = "m/s", status = "V", source = "radial-velocity measurement floor, in quadrature (oscillator stability; E6)", date = "2026-10-25" }
 p_discrimination  = { value = 0.95, unit = "-", status = "V", source = "probability of correct KKV / decoy discrimination asked of a track (F2); mission setting later", date = "2026-10-25" }
 deception_verify_rate = { value = 1.0, unit = "-", status = "D", source = "verification looks per track update when the sector's self-protection jammer is declared deceptive (F7); value proposed, to confirm", date = "2026-10-25" }
-track_frame_k     = { value = 3.0, unit = "sigma", status = "D", source = "opening of a sector in the 'track' frame = this x the designation sigma (F8); value proposed, to confirm", date = "2026-10-25" }
 polar_switch_loss_db = { value = 0.15, unit = "dB", status = "V", source = "extra TX chain loss of the e_u / e_v polarisation switching option (F5, step 1.2 estimate 0.1-0.2 dB)", date = "2026-10-25" }
 faraday_uncert_frac = { value = 0.2, unit = "-", status = "D", source = "uncertainty of the predicted Faraday rotation, fraction of the rotation (F4): systematic error of the depolarisation index without polarisation switching; value proposed, to confirm", date = "2026-10-25" }
 
@@ -943,7 +942,6 @@ rcs_sizing_sigmas = 2.0          # decision 2 (user, 28 October 2026): sizing RC
 
 [tool.frames]                 # frames of the volumes and navigation message (core/frames.py, step 3.0)
 q_norm_tol          = 1e-3      # attitude quaternion: |q| within 1 +/- this is normalised, beyond it is refused (B3)
-two_dir_min_sep_deg = 1.0       # frame 'two_dir': the two directions at least this far from aligned (R5)
 sky_nav_tol_deg     = 0.5       # alert when the sky's central body differs from the navigation by more (direction, radius) (R8)
 limb_alt_km         = 0.0       # frame 'limb': grazing altitude of the limb when the sector gives no limb_alt_km (R4)
 

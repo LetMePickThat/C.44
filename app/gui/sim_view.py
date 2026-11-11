@@ -2924,7 +2924,7 @@ class SimView(QWidget):
         ll = vol.get("line_labels")
         if ll is not None:
             from gui.scene_view import LABEL_ASKED, LABEL_NOK, LABEL_OK
-            shown = bool(pts) and self.cb_object_labels.isChecked()
+            shown = bool(pts) and (self.cb_object_labels.isChecked() or getattr(self, "sector_labels_always", False))
             ach = getattr(self, "_achieved", {}) or {}
             ids = vol.get("ids") or [str(i) for i in range(len(vol["texts"]))]
             for i, (pt, text, sid) in enumerate(zip(pts, vol["texts"], ids)):
@@ -4506,7 +4506,7 @@ class SimView(QWidget):
             sky_ship = None
         vol = {"actors": [], "frames": [], "per_sector": [], "centres": [], "texts": [], "ground": _ground_view(nav)}
         alloc = None
-        if self.range_gauge:                         # gauge (c): the final allocation rule over every volume (R2)
+        if self.range_gauge or getattr(self, "played_only", False):                         # gauge (c): the final allocation rule over every volume (R2)
             from core import cost_estimate as ce
             table = ce.cached_table()
             secs = [{**sec, "id": raw.get("id") or f"_idx{i}"}
@@ -4530,6 +4530,14 @@ class SimView(QWidget):
                 continue
             if (raw.get("id") or f"_idx{i}") in self._hidden_ids:
                 continue
+            # "show effectively played" (user, 12 November 2026): the part another volume serves taken out, a volume
+            # served in full not drawn (the fast estimate's relief at the instant shown)
+            if getattr(self, "played_only", False) and alloc:
+                rel = (alloc.get("relief") or {}).get(raw.get("id") or f"_idx{i}")
+                if rel and float(rel.get("share", 0.0)) >= 0.995:
+                    continue
+                if rel and rel.get("code"):
+                    sec = dict(sec, _played_relief=rel["code"])
             # E3 (user, 10 November 2026): the executed volumes, one per face in its colour, and the outline of
             # the WHOLE watched volume at its range in the sector's colour (its coverage hole: inside it, not filled)
             try:
@@ -4545,6 +4553,10 @@ class SimView(QWidget):
             except (KeyError, TypeError, ValueError):
                 continue
             col = cgeo.sector_color(i)
+            if ratio_of is not None:                         # (user, 12 November 2026: the outline in the gauge's
+                a_ = (((alloc or {}).get("achieved") or {}).get(raw.get("id") or f"_idx{i}")   # colours: held /
+                      or (getattr(self, "_achieved", None) or {}).get(raw.get("id") or f"_idx{i}"))   # not held)
+                col = "#9aa0aa" if not a_ else (cgeo.GAUGE_GREEN if a_.get("ok") else cgeo.GAUGE_RED)
             acts = []
             for k, poly_k, _out_k in parts:
                 if poly_k.n_points:

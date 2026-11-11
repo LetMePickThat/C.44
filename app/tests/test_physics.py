@@ -1793,7 +1793,7 @@ def test_rotations_round_trip():
     assert np.allclose(frames.quat_to_matrix(_quat_z(90.0)) @ [1, 0, 0], [0, 1, 0], atol=1e-15)
 
 
-def test_rtn_limb_and_two_dir_axes():
+def test_rtn_and_limb_axes():
     from core import frames
     r_e = frames.BODY_RADIUS_KM["earth"]
     a, i = r_e + 400.0, math.radians(30.0)
@@ -1804,12 +1804,35 @@ def test_rtn_limb_and_two_dir_axes():
     assert np.allclose(rtn[2], np.cross(rtn[0], rtn[1]))
     assert nav.limb_depression_deg(0.0) == pytest.approx(math.degrees(math.acos(r_e / a)), rel=1e-12)
     assert nav.limb_depression_deg(100.0) < nav.limb_depression_deg(0.0)
-    sec = {"frame": "two_dir", "frame_p_ra_deg": 30.0, "frame_p_dec_deg": 10.0, "frame_s_ra_deg": 120.0,
-           "frame_s_dec_deg": 0.0}
-    m, off = frames.sector_matrix(sec, frames.Nav())
-    assert off == 0.0 and np.allclose(m @ frames.unit(30.0, 10.0), [0, 0, 1])
-    s_in = m @ frames.unit(120.0, 0.0)
-    assert abs(s_in[1]) < 1e-12 and s_in[0] > 0
+    assert set(frames.FRAMES) == {"ship", "inertial", "equatorial", "rtn", "velocity", "limb"}   # (12 Nov 2026)
+
+
+def test_velocity_frame_follows_the_velocity():
+    """The velocity frame (user, 12 November 2026): X = v exactly on an eccentric orbit (rtn's Y is off by the flight
+    path angle), Z = the orbit normal, right-handed; a cap at phi 0, eps 0 is centred on the direction of travel
+    whatever the attitude."""
+    from core import frames
+    r_e = frames.BODY_RADIUS_KM["earth"]
+    r, v = np.array([r_e + 2000.0, 0.0, 0.0]), np.array([1.5, 8.0, 0.5])          # climbing: gamma ~ 10.6 deg
+    gamma = math.degrees(math.asin(float(r @ v) / (np.linalg.norm(r) * np.linalg.norm(v))))
+    for q in ([1, 0, 0, 0], list(_quat_z(70.0))):
+        nav = frames.Nav({"q_ship_to_icrf": q, "central_body": "earth", "r_km": list(r), "v_kms": list(v)})
+        a = nav.velocity_axes()
+        assert np.allclose(a @ a.T, np.eye(3), atol=1e-12) and np.linalg.det(a) == pytest.approx(1.0)
+        assert np.allclose(a[0], v / np.linalg.norm(v)) and np.allclose(a[2], nav.rtn()[2])
+        assert a[1] @ r < 0                                                       # Y toward the body side
+        m, off = frames.sector_matrix({"frame": "velocity"}, nav)
+        d_ship = nav.r_si.T @ (v / np.linalg.norm(v))                             # the direction of travel, ship frame
+        assert off == 0.0 and np.allclose(m @ d_ship, [1.0, 0.0, 0.0], atol=1e-12)
+        y_rtn = nav.r_si.T @ nav.rtn()[1]                                         # rtn's along-track axis
+        assert math.degrees(math.acos(float((m @ y_rtn)[0]))) == pytest.approx(gamma, rel=1e-9)
+    g = {"nav": [{"q_ship_to_icrf": [1, 0, 0, 0], "central_body": "earth", "r_km": list(r), "v_kms": list(v)}]}
+    sec = frames.resolve_sector({"frame": "velocity", "shape": "cap", "phi0_deg": 0.0, "eps0_deg": 0.0,
+                                 "radius_deg": 5.0}, g)
+    vu = v / np.linalg.norm(v)
+    p, e = math.degrees(math.atan2(vu[1], vu[0])), math.degrees(math.asin(vu[2]))
+    ph, ep, _ = frames.sector_angles(sec, np.array([p]), np.array([e]))
+    assert min(ph[0], 360.0 - ph[0]) < 1e-9 and abs(ep[0]) < 1e-9
 
 
 def test_limb_band_follows_the_altitude():
@@ -1881,10 +1904,10 @@ def test_turning_the_ship_turns_the_faces():
                "v_kms": [7.0, 0, 0]}]}, {}, "no orbit plane"),
     ({}, {"frame": "rtn"}, "needs the ship orbit"),
     ({}, {"frame": "limb"}, "needs the ship orbit"),
+    ({}, {"frame": "velocity"}, "needs the ship orbit"),
     ({}, {"frame": "galactic"}, "unknown frame"),
-    ({}, {"frame": "two_dir", "frame_p_ra_deg": 10.0, "frame_p_dec_deg": 0.0, "frame_s_ra_deg": 10.5,
-          "frame_s_dec_deg": 0.0}, "from aligned"),
-    ({}, {"frame": "two_dir"}, "needs frame_p_ra_deg"),
+    ({}, {"frame": "two_dir"}, "unknown frame"),                     # removed 12 November 2026
+    ({}, {"frame": "track"}, "unknown frame"),
 ])
 def test_invalid_frames_are_refused(glob, sec, msg):
     m = md.empty_mission()
@@ -1941,8 +1964,10 @@ def test_ku_cluster_superposition_loss_is_interpolated():
     seq = trk.cluster_variants()[0]
     assert seq.looks == trk.CLUSTER_N and all(c.looks == 1.0 for c in trk.cluster_variants()[1:]
                                               if not c.name.startswith("sequential"))
-    big = [c for c in trk.cluster_variants() if c.name.startswith("sequential x")]   # K9 (c'): 19 and 37 beams
-    assert [len(c.beams) for c in big] == [19, 37] and all(c.looks == len(c.beams) for c in big)
+    big = [c for c in trk.cluster_variants() if c.name.startswith("sequential x")]   # K9 (c'): 19, 37; 61, 91 (12 Nov)
+    want = [1 + 3 * r * (r + 1) for r in sorted(set(trk.KU_CLUSTER_RINGS))]
+    assert want == [19, 37, 61, 91]                         # [tool.confirmation] ku_cluster_rings = [2, 3, 4, 5]
+    assert [len(c.beams) for c in big] == want and all(c.looks == len(c.beams) for c in big)
 
 
 def test_ku_scan_factor_is_common_to_the_waveforms():
@@ -2292,9 +2317,9 @@ def test_discrimination_indices():
     assert all(0.5 <= v <= 1.0 for row in sep.values() for v in row.values())
 
 
-def test_aspect_table_and_track_frame():
-    """F6: an RCS(aspect) table scales the RCS at the class offset; F8: a 'track' sector becomes a cap of k sigma
-    around its designation."""
+def test_aspect_table():
+    """F6: an RCS(aspect) table scales the RCS at the class offset (the 'track' frame of F8 removed, 12 November
+    2026: an inertial cap at the designation)."""
     # step 5.1: the table is 7 elevations x 12 azimuths; frontal policy at the offset (az 45 deg, el 0: between the
     # 30 and 60 deg columns of the el 0 row, linear in dB), the optics outside their cone are not seen
     row = [0.0, -6.0, -12.0] + [-12.0] * 9
@@ -2302,14 +2327,6 @@ def test_aspect_table_and_track_frame():
     t = dataclasses.replace(rm.TARGETS["KKV"], aspect_rcs_db=tab, aspect_offset_deg=45.0, aspect_policy="frontal")
     assert t.aspect_factor() == pytest.approx(10 ** -0.9)
     assert t.optics_rcs_m2(14.0) == 0.0 and t.rcs_at(14.0) < rm.TARGETS["KKV"].rcs_at(14.0)
-    m = md.empty_mission()
-    m["sectors"] = [{**md.new_sector([], "cap"), "frame": "track", "track_ra_deg": 40.0, "track_dec_deg": 10.0,
-                     "track_sigma_deg": 0.5}]
-    assert md.validate_mission(m) == []
-    s = fr_.resolve(m)[0]["sectors"][0]
-    assert (s["phi0_deg"], s["eps0_deg"]) == (40.0, 10.0) and s["radius_deg"] == pytest.approx(tm.TRACK_FRAME_K * 0.5)
-    m["sectors"][0]["shape"] = "box"
-    assert any("takes a cap" in e for e in md.validate_mission(m))
 
 
 def test_track_model_mission_keys():
