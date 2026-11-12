@@ -59,6 +59,26 @@ under res["peak"]["budgets"] (optimizer.peak_out).
 margin, montecarlo, optimizer, radar_model, scheduler, tracking, validation, results_tab, scene_view, sim_view, docs).
 Repo rule: origin/main is the reference ([[feedback-repo-version-is-reference]]); commit or settle it first.
 
+**EXACT RUN DONE, main PC, 12 Nov 2026 ~20:25 (V6.44.0, 39.2 min, `--workers 2 --cap-gb 7`)**: result in
+tools/.exact_compare.pkl (not tracked, local exclude), log tools/.exact_compare.log. Verdict NOK 4 / OK 112, limiting F2 memory
+bandwidth 149.0 %; the same figures as before V6.44.0 (just need changed nothing here: no target in the nominal view,
+confirmation traffic 0; peak ABSORBED, n_targets 0, peak = nominal).
+
+| face | need MW (always-on) | S time | Ku time | mem. traffic TB/s (of 50) | traffic: search SP / S03 / S01 / S02 |
+|---|---|---|---|---|---|
+| F1 | 0.326 (0.074) | 1.6 % | 0.3 % | 59.7 (119.3 %) | 65 / 30 / 4 / 1 % |
+| F2 | 0.340 (0.076) | 1.7 % | 0.3 % | 74.5 (149.0 %) | 57 / 40 / 3 / 1 % |
+| F3 | 0.339 (0.076) | 1.7 % | 0.3 % | 74.5 (148.9 %) | 57 / 40 / 3 / 1 % |
+| F4 | 0.339 (0.076) | 1.7 % | 0.3 % | 74.5 (148.9 %) | 57 / 40 / 3 / 1 % |
+
+Other resources all low (S beams 22-27 %, compute 6-10 %, memory 4 %). PRIO_SEARCH reuse blocked (g = 1.0 for every
+volume, "F1 memory bandwidth already at 119 %"): revisits stay at 30 s. No volume fully relieved (shares 46 / 45 / 9 %).
+Estimate (screens, older code) vs exact: energy 1.5-1.7 MW vs 0.33-0.34 MW (x ~5), S time 11-12 % vs 1.6-1.7 % (x ~7).
+HYPOTHESIS, not verified: the estimate prices the PRIO_SEARCH served revisit (labels: worst RR 2.71 s, i.e. ~11x the
+30 s rate) that the exact run refuses because of the memory bandwidth. To check next: the estimate now (V6.44.0) on the
+same scenario, and which revisit it uses. RAM of this run: one process up to 7 GB (cap reached by the first SP solve and
+by the worker phases), PC free down to 19.6 GB (the cap holds per process, not the PC total: trimmed pages stay in RAM).
+
 **Exact run V6.44.0 relaunched 12 Nov 2026 16:49 on the laptop**: crashed after ~30 min with BrokenProcessPool
 (a worker killed while the PC went on battery, power saving; in the second pass started by the relief, S frequency
 evaluation of a re-planned volume: code V6.44.0 does not touch it; cause not verified). No figure. TO DO: run

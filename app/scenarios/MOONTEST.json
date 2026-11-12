@@ -1,0 +1,130 @@
+{
+ "format_version": 1,
+ "scenario": {
+  "meta": {
+   "name": "MOONTEST",
+   "epoch_utc": "2050-01-01T00:00:00Z",
+   "duration_s": 20000.0,
+   "seed": 1
+  },
+  "central_body": "moon",
+  "ship": {
+   "orbit": {
+    "type": "elements",
+    "a_km": 5000.0,
+    "e": 0.5,
+    "i_deg": 0.0,
+    "raan_deg": 0.0,
+    "argp_deg": 0.0,
+    "nu_deg": 0.0
+   },
+   "attitude": [
+    {
+     "t_s": 0.0,
+     "attitude": {
+      "type": "prograde",
+      "roll_deg": 0.0
+     }
+    }
+   ],
+   "manoeuvres": []
+  },
+  "objects": [],
+  "groups": []
+ },
+ "mission": {
+  "global": {
+   "eps_min_deg": -90.0,
+   "eps_max_deg": 90.0,
+   "face_elec_mw": 0.0
+  },
+  "sectors": [
+   {
+    "shape": "box",
+    "phi_min_deg": 0.0,
+    "phi_max_deg": 360.0,
+    "eps_min_deg": -90.0,
+    "eps_max_deg": 90.0,
+    "rcs_m2": 1.0,
+    "swerling": 2,
+    "range_km": 800.0,
+    "rr_target_s": 30.0,
+    "v_close_min_mps": 1000.0,
+    "v_close_max_mps": 5000.0,
+    "confirm_mode": "auto",
+    "new_targets_per_rr": 1.0,
+    "rx_sll_db": -25.0,
+    "frame": "ship",
+    "surface_guard_km": 10.0,
+    "tracking": [],
+    "id": "SP",
+    "self_protection": false,
+    "search_priority": 1
+   },
+   {
+    "shape": "cap",
+    "phi0_deg": 180.0,
+    "eps0_deg": 0.0,
+    "radius_deg": 30.0,
+    "rcs_m2": 500.0,
+    "swerling": 1,
+    "range_km": 15000.0,
+    "rr_target_s": 30.0,
+    "v_close_min_mps": 1000.0,
+    "v_close_max_mps": 5000.0,
+    "confirm_mode": "auto",
+    "new_targets_per_rr": 1.0,
+    "rx_sll_db": -25.0,
+    "frame": "inertial",
+    "surface_guard_km": 10.0,
+    "tracking": [],
+    "id": "S01",
+    "self_protection": false,
+    "search_priority": 1
+   },
+   {
+    "shape": "cap",
+    "phi0_deg": 180.0,
+    "eps0_deg": 0.0,
+    "radius_deg": 45.0,
+    "rcs_m2": 500.0,
+    "swerling": 1,
+    "range_km": 8000.0,
+    "rr_target_s": 30.0,
+    "v_close_min_mps": 1000.0,
+    "v_close_max_mps": 5000.0,
+    "confirm_mode": "auto",
+    "new_targets_per_rr": 1.0,
+    "rx_sll_db": -25.0,
+    "frame": "inertial",
+    "surface_guard_km": 10.0,
+    "tracking": [],
+    "id": "S02",
+    "self_protection": false,
+    "search_priority": 1
+   },
+   {
+    "shape": "cap",
+    "phi0_deg": 180.0,
+    "eps0_deg": 0.0,
+    "radius_deg": 70.0,
+    "rcs_m2": 500.0,
+    "swerling": 1,
+    "range_km": 4000.0,
+    "rr_target_s": 30.0,
+    "v_close_min_mps": 1000.0,
+    "v_close_max_mps": 5000.0,
+    "confirm_mode": "auto",
+    "new_targets_per_rr": 1.0,
+    "rx_sll_db": -25.0,
+    "frame": "inertial",
+    "surface_guard_km": 10.0,
+    "tracking": [],
+    "id": "S03",
+    "self_protection": false,
+    "search_priority": 1
+   }
+  ],
+  "t_nav_s": 0.0
+ }
+}
