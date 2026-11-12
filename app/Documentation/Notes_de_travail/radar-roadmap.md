@@ -123,6 +123,7 @@ optimiser exact ties broken by float noise (3.1 / 5.2); 4 faces hard-coded in th
 in the array factor; tile-edge mutual coupling not modelled.
 
 ## STATUS (2026-10-22)
+JUST NEED 2026-11-12 (V6.44.0, coded, NOT tested): confirmation / tracks no longer reserved on new_targets_per_rr / n_targets; plan, margin reuse and verdict in the nominal view (no target, false alarms confirmed); peak test apart (optimizer.peak_absorption: P5 then P4 shed, never P1; NOK if P2/P3 of the peak not served or latency fails); saturation + PRIO_TRACK + Monte-Carlo at the peak; fast estimate nominal without tracks + peak. Subsumes the 2026-10-26 track-saturation rule. Next: targeted tests (ask), then N3 + snapshots refreeze.
 HISTORY REWRITTEN on 2026-10-22 (all hashes above in this file are the OLD ones; the current hashes are in
 Feuille_de_route.md / Choix_architecturaux §11). Steps 2.4 (008d583, V6.9.0, target library [targets.*] class means,
 T0 per class, Gamma-shape fluctuation, optics, acceleration bank, OS-CFAR) and 2.5 (baeadcf, V6.10.0,

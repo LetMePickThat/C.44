@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.43.0
+# Radar Performance Model - V6.44.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,19 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.43.0 -> V6.44.0 (user, 12 November 2026): just need of the confirmation and the tracking
+#   - no resource reserved for targets that may never come: new_targets_per_rr (+ objects_per_rr) and the brackets'
+#     n_targets are the PEAK to absorb, not a load. The plan, its allocation, the margin reuse (PRIO_SEARCH) and the
+#     verdict are computed with no target present (core/tracking.py, view "nominal": the false alarms are still
+#     confirmed); the confirmation mode and the Ku frequency are still chosen at the peak;
+#   - the peak is a test apart (optimizer.peak_absorption, allocation.peak_summary): the same plan with every target
+#     present and no margin reuse; the rule takes the margin back, then sheds the P4 search (ALERT, "shed at the
+#     peak"), never P1 nor the tracks; NOK when a confirmation, initiation or track of the peak is not served or the
+#     confirmation latency at the peak fails. The saturation table and PRIO_TRACK are computed at the peak; the
+#     Monte-Carlo verification draws the peak on the peak's budgets;
+#   - fast estimate (live load, time profile): the rule without the tracks, then the peak with them (no
+#     confirmation load in the fast estimate, as before).
 #
 # Changes V6.42.0 -> V6.43.0 (user, 12 November 2026)
 #   - relief and redundancy check (core/redundancy.judged): a volume's cover of another is judged at its revisit
@@ -743,7 +756,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.43.0"
+MODEL_VERSION = "6.44.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

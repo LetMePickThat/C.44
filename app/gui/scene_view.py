@@ -60,7 +60,8 @@ ICRF_AXES = (("X", "X (node of the equator)"), ("Y", "Y"), ("Z", "Z (pole)"))   
 ICRF_AXIS_NAMES = [f"icrf_axis_{a}" for a, _ in ICRF_AXES]
 LABEL_ASKED = "#a8aeb8"        # the 3D label's first line: what is asked (grey; user, 11 November 2026)
 PLAYED_FULL_SHARE = 0.995                     # "show effectively played": a volume served at least this much hidden
-LABEL_OK, LABEL_NOK = "#3fbf6a", "#e0574f"   # its second line: the worst range and the revisit achieved
+LABEL_OK, LABEL_NOK = "#1e7d45", "#e0574f"   # its second line: the worst range and the revisit achieved
+                                               # (green darkened 12 Nov 2026, user: unreadable on the gauge's green)
 SECTOR_LABEL_FONT_SIZE = 13   # shared by _build_sectors (draws) and _label_hit (estimates the on-screen box), x UI size
 FACE_OUTLINE_COLOR = "#9aa0aa"   # the zones' outlines, light on the black of space (view3d.MUTED_COLOR)
 SCN = "scn_"                     # the linked scenario's actors (pass S2)

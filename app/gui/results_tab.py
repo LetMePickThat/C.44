@@ -118,7 +118,11 @@ class ResultsTab(QWidget):
         self.partial = bool(result.get("cancelled"))
         self.exported = False                 # set once the result has been exported (closing asks otherwise)
         self.sectors_by_id = {s["id"]: s for s in frames.resolve(mission)[0]["sectors"]}   # ship frame (step 3.0)
-        self.tracking_by_id = {s["id"]: s for s in result.get("tracking", {}).get("sectors", [])}
+        # just need (user, 12 November 2026): the confirmation / AT tables show the peak of targets (the nominal plan
+        # has no target present: its tracks cost nothing)
+        self.tracking_shown = (((result.get("peak") or {}).get("budgets") or {}).get("tracking")
+                               or result.get("tracking") or {})
+        self.tracking_by_id = {s["id"]: s for s in self.tracking_shown.get("sectors", [])}
         self.reuse_by_id = (result.get("margin_reuse") or {}).get("sectors", {})       # step 5.2 (P4)
         self.grid = grid
         self.eps_min = result["global"]["eps_min_deg"]
@@ -376,6 +380,11 @@ class ResultsTab(QWidget):
         if vd.get("nok_priorities"):
             txt += "\nPriorities failed: " + ", ".join(vd["nok_priorities"])
         txt += f"\nSaturation at the specification: {sat.get('state_at_spec')} (mode {sat.get('mode')})"
+        pk = self.result.get("peak")                         # just need (user, 12 November 2026)
+        if pk:
+            txt += ("\nPlan with no target present; peak of targets (new_targets_per_rr, n_targets): "
+                    + ("absorbed" if pk.get("status") == "ABSORBED" else "NOT absorbed")
+                    + (", P4 shed while it lasts: " + ", ".join(sorted(pk["shed"])) if pk.get("shed") else ""))
         m = vd.get("montecarlo")
         if m:
             c = m.get("load_ceiling") or {}
@@ -687,7 +696,7 @@ class ResultsTab(QWidget):
         self._fill_at_table(row)
 
     def _fill_tracking_tables(self) -> None:
-        trk = self.result.get("tracking")
+        trk = self.tracking_shown
         if not trk:
             self.lbl_trk_verdict.setText("No confirmation / AT budget in this result.")
             return
@@ -699,7 +708,8 @@ class ResultsTab(QWidget):
             self.lbl_trk_verdict.setStyleSheet("color: #d6453d; font-weight: bold;")
         else:
             worst = max((v["load"] for _k, v in faces), default=0.0)
-            self.lbl_trk_verdict.setText(f"Search + confirmation + AT fit on every face (most loaded: {100 * worst:.0f} %).")
+            self.lbl_trk_verdict.setText(f"Search + confirmation + AT fit on every face (most loaded: {100 * worst:.0f} %)"
+                                         + (" at the peak of targets." if trk.get("targets_view") == "peak" else "."))
             self.lbl_trk_verdict.setStyleSheet("color: #2fa35a; font-weight: bold;")
         self.table_trk_faces.setRowCount(len(faces))
         for i, (k, v) in enumerate(faces):

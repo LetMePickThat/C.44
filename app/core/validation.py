@@ -346,6 +346,30 @@ def _flight(t: _Table, out: dict) -> None:
                   f"neighbour face load while the volume crosses ({f.get('transit_s', 0.0):.2f} s)")
 
 
+def _peak(t: _Table, out: dict) -> None:
+    """Just need (user, 12 November 2026): the rows of the peak of targets (optimizer.peak_absorption). The rest of the
+    table is the nominal plan (no target present). NOK when a confirmation, an initiation or a track of the peak is not
+    served or the confirmation latency at the peak fails; ALERT for a P4 volume shed while the peak lasts."""
+    pk = out.get("peak")
+    if not pk:
+        return
+    for s_ in pk.get("short", []):
+        pr = s_["tier"].split(" ", 1)[0] if s_["tier"] != "always-on" else "P0"
+        t.add("peak", s_["label"], "served at the peak", "spec", float(s_["level"]), 1.0,
+              _ratio(1.0, float(s_["level"])) if s_["level"] > 0 else None, pr, "5.2",
+              (f"{s_['tracks_tenable']:.3g} tracks tenable; " if "tracks_tenable" in s_ else "")
+              + "the peak is not absorbed even with the P4 search shed")
+    for sid, v in (pk.get("latency") or {}).items():
+        q, req = v["latency_q95_s"], v["latency_required_s"]
+        t.add("peak", sid, "confirmation latency at the peak", "spec", q, req, _ratio(q, req), "P2", "4.3",
+              "95 % quantile, every true detection of the peak confirmed", unit="s")
+    for sid, v in (pk.get("shed") or {}).items():
+        t.add("peak", f"search {sid}", "shed at the peak", "spec", float(v["level"]), 1.0,
+              _ratio(1.0, float(v["level"])) if v["level"] > 0 else None, None, "5.2",
+              f"while the peak lasts: range held {100 * v['rho']:.0f} %, revisit {v['rr_tenable_s']:.3g} s "
+              f"(asked {v['rr_asked_s']:g} s)", state="ALERT")
+
+
 def _saturation(out: dict, state_at_spec: str, mode: Optional[str] = None) -> dict:
     """Step 5.2 P7 in the verdict: the state at the specification and the room beyond it per track bracket."""
     pa = out.get("power_allocation") or {}
@@ -376,6 +400,7 @@ def verdict(mission: dict, out: dict) -> dict:
     faces = _faces(t, out)
     ship = _ship(t, out, secs)
     _flight(t, out)
+    _peak(t, out)
     counts = {s: sum(1 for r in t.rows if r["state"] == s) for s in STATES}
     state = overall(counts)
     if out.get("cancelled"):

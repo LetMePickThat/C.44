@@ -2471,6 +2471,54 @@ def _mission_choice(out: dict) -> Dict[str, Tuple[float, float]]:
     return changes
 
 
+PEAK_BUDGETS = ("tracking", "compute", "power_allocation", "scheduler")    # kept from the peak assembly (Monte-Carlo)
+
+
+def peak_absorption(mission: dict, out: dict, pk: dict) -> dict:
+    """Just need (user, 12 November 2026): the test of the peak of targets. pk = the same plan assembled in the peak
+    view (core/tracking.py: every true detection of new_targets_per_rr + objects_per_rr confirmed, every track of
+    n_targets updated, no margin reuse); the final rule serves the tiers in order, so the peak takes the margin back
+    first (none is reused there), then sheds the P4 search (range, then revisit), never P1 (served before the targets).
+    Absorbed when every confirmation, initiation and track of the peak is served (P2, P3) and the confirmation latency
+    at the peak holds; the P4 volumes shed at the peak are reported (an alert, not a failure). "budgets": the peak's
+    tracking, compute, allocation and scheduler (the Monte-Carlo verification draws the peak's arrivals on them)."""
+    from . import allocation
+    rule = (pk.get("power_allocation") or {}).get("rule") or {}
+    secs = {s["id"]: s for s in mission.get("sectors", [])}
+    sm = allocation.peak_summary(rule)
+    shed, short, flags, late = sm["shed"], sm["short"], list(sm["flags"]), {}
+    for sid, v in shed.items():
+        rr0 = float(secs.get(sid, {}).get("rr_target_s", 0.0) or 0.0)
+        v.update(rho=float(v.get("rho") or 1.0), rr_tenable_s=float(v.get("rr_tenable_s") or rr0), rr_asked_s=rr0)
+    for s in (pk.get("scheduler") or {}).get("sectors", []):
+        q, req = s.get("latency_q95_s"), s.get("latency_required_s")
+        if q is None or req is None:
+            continue
+        late[s["id"]] = {"latency_q95_s": float(q), "latency_required_s": float(req)}
+        if float(q) > float(req) * (1.0 + 1e-9):
+            flags.append(f"peak of targets not absorbed: {s['id']} confirmation latency {float(q):.3g} s at the peak "
+                         f"(95 %), above the {float(req):.3g} s required")
+    new = sorted(set(pk.get("warnings", [])) - set(out.get("warnings", [])))
+    absorbed = not short and all(v["latency_q95_s"] <= v["latency_required_s"] * (1.0 + 1e-9) for v in late.values())
+    targets = {}
+    for sid, sec in secs.items():
+        n_new = float(sec.get("new_targets_per_rr", 1.0)) + float(sec.get("objects_per_rr", 0.0))
+        n_tr = float(sum(float(b.get("n_targets", 0.0)) for b in sec.get("tracking", []) or []))
+        targets[sid] = {"new_per_rr": n_new, "n_targets": n_tr}
+    return {"status": "ABSORBED" if absorbed else "NOT_ABSORBED", "allocation_status": rule.get("status"),
+            "targets": targets, "shed": shed, "short": short, "latency": late, "flags": flags,
+            "warnings_at_peak": [f"at the peak: {w}" for w in new],
+            "budgets": {k: pk.get(k) for k in PEAK_BUDGETS}}
+
+
+def peak_out(out: dict) -> Optional[dict]:
+    """The result with the peak's budgets in place of the nominal ones (for the Monte-Carlo verification), or None."""
+    pk = (out.get("peak") or {}).get("budgets")
+    if not pk:
+        return None
+    return dict(out, **{k: v for k, v in pk.items() if v is not None})
+
+
 def _confirm(mission: dict, sectors: List[dict], results: List[dict], out: dict, keep: Dict[str, dict], args: tuple,
              parallel: bool, cancel_cb, eps_min: float, eps_max: float, p_avg_max: float, sky: Optional[dict],
              stage_cb=None):
@@ -2679,18 +2727,11 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
                                            eps_min, eps_max, p_avg_max, sky, stage_cb)
     # step 5.2 (P4, P7): the margin the mission leaves is reused to shorten the revisits (realloc_mode PRIO_SEARCH),
     # up to the load ceiling; a face above the ceiling eats its safety reserve (alert)
+    # just need (user, 12 November 2026): this run is in the mission's targets view, nominal by default (no target
+    # present, core/tracking.py): the spare the search reuses is what the radar has while no target comes
     from . import margin
     if not cancelled:
-        if stage_cb is not None:
-            stage_cb("Saturation table: how many more tracks each bracket could take")
         out["warnings"].extend(margin.ceiling_flags(mission, out))
-        keep = {sid: {x: v for x, v in k.items() if x != "_force_plan"} for sid, k in applied.items()}
-        sat = margin.saturation(
-            mission, out, lambda mis, res: _assemble(mis, mis["sectors"], res, cancelled, *args),
-            lambda sec, r: ranges_at_rr(dict(sec, **keep.get(sec["id"], {})), r, eps_min, eps_max, sky))
-        if sat is not None:                                                          # step 5.2 (P7)
-            out["saturation"] = sat
-            out["warnings"].extend(sat["flags"])
     if not cancelled and margin.realloc_mode(mission) == "PRIO_SEARCH":
         if stage_cb is not None:
             stage_cb("Reallocation: the spare shortens the search revisits (PRIO_SEARCH)")
@@ -2698,10 +2739,6 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
         mr = margin.reuse(mission, out,
                           lambda mis, res: _assemble(mis, mis["sectors"], res, cancelled, *args),
                           lambda sec, r: ranges_at_rr(dict(sec, **keep.get(sec["id"], {})), r, eps_min, eps_max, sky))
-        out["margin_reuse"] = mr
-        out["warnings"].extend(mr["flags"])
-    if not cancelled and margin.realloc_mode(mission) == "PRIO_TRACK":                # step 5.2 (P7)
-        mr = margin.reuse_tracks(mission, out, lambda mis, res: _assemble(mis, mis["sectors"], res, cancelled, *args))
         out["margin_reuse"] = mr
         out["warnings"].extend(mr["flags"])
     from . import redundancy as _red
@@ -2740,6 +2777,28 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
                 f"{sid}: {100 * v['share']:.0f} % of its volume served by {', '.join(v['by'])} (need met there): "
                 f"taken out of its budget" for sid, v in sorted(rl.items()))
             return out2
+    if not cancelled:                        # just need (user, 12 November 2026): the peak of targets, a test apart
+        from . import tracking as _trk
+        if stage_cb is not None:
+            stage_cb("Peak of targets: every target of new_targets_per_rr and n_targets present, same plan")
+        keep = {sid: {x: v for x, v in k.items() if x != "_force_plan"} for sid, k in applied.items()}
+        mis_pk = _trk.with_view(mission, _trk.PEAK)
+        asm_pk = lambda mis, res: _assemble(mis, mis["sectors"], res, cancelled, *args)   # noqa: E731
+        pk = asm_pk(mis_pk, out["sectors"])
+        out["peak"] = peak_absorption(mission, out, pk)
+        out["warnings"].extend(out["peak"]["flags"])
+        if stage_cb is not None:
+            stage_cb("Saturation table: how many more tracks than the peak each bracket could take")
+        sat = margin.saturation(                                                         # step 5.2 (P7), at the peak
+            mis_pk, pk, asm_pk,
+            lambda sec, r: ranges_at_rr(dict(sec, **keep.get(sec["id"], {})), r, eps_min, eps_max, sky))
+        if sat is not None:
+            out["saturation"] = sat
+            out["warnings"].extend(sat["flags"])
+        if margin.realloc_mode(mission) == "PRIO_TRACK":       # step 5.2 (P7): the spare to the tracks present (the
+            mr = margin.reuse_tracks(mis_pk, pk, asm_pk)     # peak's; with no track present it stays free)
+            out["margin_reuse"] = mr
+            out["warnings"].extend(mr["flags"])
     if not cancelled:                        # step 5.3 (P3): "the plan of A holds the need of B", plans kept
         from . import redundancy
         if stage_cb is not None:

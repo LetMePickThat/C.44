@@ -100,7 +100,8 @@ def _classes(k: int, mission: dict, res: dict, scans: Optional[Dict[str, Dict[in
         if t is None:
             continue
         conf = t.get("confirmation", {}).get("faces", {}).get(str(k), {})
-        n_new = float(sec.get("new_targets_per_rr", 1.0)) + float(sec.get("objects_per_rr", 0.0))
+        from . import tracking as _trk       # (just need: no true target in the nominal view, the peak else)
+        n_new = _trk.new_per_rr(sec, mission)
         rate = (n_new * t["p_share"][k] + t["false_alarms_per_rr_face"][k]) / rr
         for b, key in (("S", "s_time_fraction"), ("Ku", "ku_time_fraction")):
             rho_c = float(conf.get(key, 0.0))

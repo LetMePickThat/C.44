@@ -4582,6 +4582,11 @@ class SimView(QWidget):
                                                         played=bool(getattr(self, "played_only", False)))
                     parts = [("green", green, None), ("red", red, None)]
                     outline = cgeo.build_gauge_outline_km(mg, sec, sky_ship)   # (its limits: edges)
+                    if getattr(self, "played_only", False):  # (played: the hole's corners joined to the radar, as
+                        hole_e = cgeo.build_hole_edges_km(mg, sec, ratio_of, float(sec["range_km"]),   # its edges)
+                                                          (e0, e1))
+                        if hole_e.n_points:
+                            outline = hole_e if not outline.n_points else outline.append_polydata(hole_e)
                 else:
                     parts, outline = cgeo.build_sector_volumes_km_smooth(mg, sec, e0, e1, sky_ship)
                     parts = [(k, p_, None) for k, p_ in parts]

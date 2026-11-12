@@ -138,6 +138,12 @@ def scaled(mission: dict, results: List[dict], g: Dict[str, float]) -> Tuple[dic
             secs.append(sec)
             continue
         s2 = dict(sec, rr_target_s=float(sec["rr_target_s"]) / f)
+        # the true targets and objects arrive at their own rate, not the scan's (user, 12 November 2026: at RR / g the
+        # confirmation of the new targets was counted g times as often, R1 says it does not move): per refresh / g
+        for key, dflt in (("new_targets_per_rr", 1.0), ("objects_per_rr", 0.0)):
+            n = sec.get(key, dflt if key == "new_targets_per_rr" else None)
+            if n is not None:
+                s2[key] = float(n) / f
         if freeze:                                           # false alarms frozen per second (user, d)
             s2["fa_rate_per_s"] = mo.fa_per_rr(sec) / float(sec["rr_target_s"])
             s2.pop("fa_per_rr", None)

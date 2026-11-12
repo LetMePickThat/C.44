@@ -683,7 +683,7 @@ def _arrivals(rng: np.random.Generator, k: int, classes, mission: dict, out: dic
         times = np.arange(rng.random() * step, t_end, step)
         counts = rng.poisson(fa / n_dw, len(times)) if fa > 0 else np.zeros(len(times), dtype=int)
         lst = [(float(x), False) for x, m in zip(times, counts) for _ in range(int(m))]
-        n_new = float(sec.get("new_targets_per_rr", 1.0)) + float(sec.get("objects_per_rr", 0.0))
+        n_new = trk.new_per_rr(sec, mission)           # (just need: none in the nominal view, the peak else)
         rate = g * n_new * float(t["p_share"][k]) / rr
         if rate > 0:
             lst += [(float(x), True) for x in rng.uniform(0.0, t_end, rng.poisson(rate * t_end))]
@@ -1621,6 +1621,12 @@ def run(mission: dict, out: Optional[dict] = None, seed: int = SEED, progress_cb
     t_start = time.perf_counter()
     if out is None or not any(r.get("_plan") for r in out.get("sectors", [])):
         out = mo.run(mission, keep_plans=True)
+    # just need (user, 12 November 2026): the plan is the nominal one (no target present); the verification draws the
+    # peak of targets on it (every true detection of new_targets_per_rr, every track of n_targets), with the peak's
+    # budgets (optimizer.peak_absorption)
+    pk = mo.peak_out(out)
+    if pk is not None:
+        out, mission = pk, trk.with_view(mission, trk.PEAK)
     t_plan = time.perf_counter() - t_start
     ids = [s["id"] for s in mission["sectors"]]
     tsecs = out.get("tracking", {}).get("sectors", [])

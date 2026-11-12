@@ -395,6 +395,30 @@ def solve(demands: List[Demand], budgets: Optional[Budgets] = None, rho_min: flo
     return out
 
 
+def peak_summary(rep: dict) -> dict:
+    """Just need (user, 12 November 2026): the rule's report at the peak of targets (every target present, no spare)
+    read as the absorption test: "shed" the P4 volumes held below their request while the peak lasts (reported), "short"
+    the demands of the targets (P2, P3) or of P0 not served in full (the peak is not absorbed). P1 is served before the
+    targets, so it is never shed by them."""
+    shed, short, flags = {}, [], []
+    for rec in rep.get("demands", []):
+        m = float(rec.get("level", 1.0))
+        if m >= 1.0 - 1e-6:
+            continue
+        if rec.get("kind") == "search":
+            if str(rec.get("tier", "")).startswith("P4"):
+                shed[rec.get("sector")] = {"level": m, "rho": rec.get("rho"), "rr_tenable_s": rec.get("rr_tenable_s")}
+                flags.append(f"peak of targets: {rec.get('label')} shed while it lasts, range held "
+                             f"{100 * float(rec.get('rho', 1.0)):.0f} %")
+            continue
+        s_ = {"label": rec.get("label"), "tier": rec.get("tier"), "level": m}
+        if rec.get("kind") == "track":
+            s_["tracks_tenable"] = rec.get("tracks_tenable")
+        short.append(s_)
+        flags.append(f"peak of targets not absorbed: {rec.get('label')} served at {100 * m:.0f} %")
+    return {"status": "ABSORBED" if not short else "NOT_ABSORBED", "shed": shed, "short": short, "flags": flags}
+
+
 def _report(demands, b, prog, level, y, rho_min) -> dict:
     n = len(demands)
     use = np.zeros((4, 3))

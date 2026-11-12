@@ -627,8 +627,19 @@ def _live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Spher
     reach: Dict[str, dict] = {}
     demands, budgets = allocation_demands(table, sectors_ship, grid, eps_min, eps_max, sky, gk, calib=calib,
                                           profiles=profiles, estimating=estimating, reach_out=reach)
-    out = al.solve(demands, budgets)
-    out["reach"] = reach                               # per volume: the range reachable at full pulse per scan angle
+    # just need (user, 12 November 2026): the rule with no target present (the tracks of n_targets are the peak, not
+    # a load: the spare goes to realloc_mode), then the peak apart (every track present, no spare: the P4 search
+    # shed, never P1). The fast estimate has no confirmation load (the exact calculation counts it, at its false
+    # alarms in the nominal view, every true detection of new_targets_per_rr at the peak).
+    nominal = [d for d in demands if d.kind != "track"]
+    out = al.solve(nominal, budgets)
+    if len(nominal) < len(demands):
+        import dataclasses as _dcs
+        out["peak"] = al.peak_summary(al.solve([_dcs.replace(d, h_max=1.0) for d in demands], budgets))
+        out["flags"].extend(out["peak"]["flags"])
+        if out["peak"]["status"] != "ABSORBED":
+            out["status"] = "NOT_TENABLE"
+    out["reach"] = reach                              # per volume: the range reachable at full pulse per scan angle
     out["out_of_reach"] = {}                           # per volume: the share of its directions out of reach
     for sid, rc in reach.items():
         sec = next((s for s in sectors_ship if str(s.get("id")) == sid), None)

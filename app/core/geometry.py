@@ -915,6 +915,40 @@ def lateral_edges(outline_unit: pv.PolyData, r_of, turn_deg: float = 30.0) -> pv
     return pv.PolyData(np.vstack([[[0.0, 0.0, 0.0]], tips]), lines=lines.astype(np.int64))
 
 
+def build_hole_edges_km(grid: SphereGrid, sec: dict, ratio_of, radius: float, eps_win=(-90.0, 90.0)) -> pv.PolyData:
+    """"Show effectively played" (user, 12 November 2026): lines from the radar to the corners of the coverage hole
+    inside the volume (where no face scans), each at the range the gauge holds there, so that the hole reads as a
+    hole (drawn as the volume's lateral edges)."""
+    region = _region(grid, sec, 1.0)
+    if not region.n_points:
+        return pv.PolyData()
+    d = region.points / np.linalg.norm(region.points, axis=1)[:, None]
+    phi, eps = _dirs_angles(d)
+    req = _cut(region, sector_margin(sec, phi, eps))
+    if not req.n_points:
+        return pv.PolyData()
+    dq = req.points / np.linalg.norm(req.points, axis=1)[:, None]
+    c = _coverage_margin(dq, eps_win)
+    if float(c.min()) >= 0.0 or float(c.max()) <= 0.0:      # (no hole, or nothing scanned)
+        return pv.PolyData()
+    r = req.copy()
+    r.point_data["c"] = c
+    rim = r.contour(isosurfaces=[0.0], scalars="c")
+    if not rim.n_points:
+        return pv.PolyData()
+
+    def r_of(u):
+        u = np.asarray(u, float).reshape(-1, 3)
+        best = np.argmax([face_margin(k, u) for k in range(4)], axis=0)    # (the face that scans it best, as the
+        out = np.zeros(len(u))                                               # green shell)
+        for k in range(4):
+            pk = np.flatnonzero(best == k)
+            if len(pk):
+                out[pk] = np.clip(np.asarray(ratio_of(u[pk], face=k), float), 0.0, 1.0)
+        return out * radius
+    return lateral_edges(rim, r_of)
+
+
 def build_gauge_outline_km(grid: SphereGrid, sec: dict, sky: Optional[dict] = None) -> pv.PolyData:
     """The range gauge's edges: the whole volume's outline at the range it needs (following the ground, G3) and its
     lateral edges down to the radar (user, 11 November 2026)."""

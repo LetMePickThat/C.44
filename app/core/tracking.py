@@ -83,6 +83,36 @@ if KAPPA_MODE not in ("energy", "resize"):
     raise ValueError(f"{P.path}: tool.tracking.kappa_mode must be 'energy' or 'resize'")
 INIT_LOSS_MAX = P.get("tracking.p_loss_max")   # return on 3.3 (H7): alert above this initiation loss
 KEEP_MC_OBJECTS = False         # step 5.4 (M3): sector_budget keeps the track states and update looks per bracket
+# Just need (user, 12 November 2026): no resource is reserved for targets that may never come. new_targets_per_rr
+# (+ objects_per_rr) and the brackets' n_targets are the PEAK to absorb, not a load: the plan, its allocation, the
+# margin reuse and the verdict are computed with no target present ("nominal": the false alarms are still confirmed,
+# they come whatever happens); the peak is a test apart (optimizer.peak_absorption: the same plan, every target of
+# the peak present, the margin reuse given back, then the P4 search shed, never P1 nor the tracks established).
+# The view is the mission's global "_targets" (set by the optimiser only): "nominal" (default) or "peak".
+NOMINAL, PEAK = "nominal", "peak"
+TARGET_VIEWS = (NOMINAL, PEAK)
+
+
+def targets_view(mission: dict) -> str:
+    v = (mission.get("global") or {}).get("_targets", NOMINAL)
+    if v not in TARGET_VIEWS:
+        raise ValueError(f"mission global _targets must be one of {TARGET_VIEWS}, not {v!r}")
+    return v
+
+
+def with_view(mission: dict, view: str) -> dict:
+    """The mission in the given targets view (a shallow copy, the sectors shared)."""
+    if view not in TARGET_VIEWS:
+        raise ValueError(f"targets view must be one of {TARGET_VIEWS}, not {view!r}")
+    return dict(mission, **{"global": dict(mission.get("global") or {}, _targets=view)})
+
+
+def new_per_rr(sec: dict, mission: dict) -> float:
+    """True detections to confirm per refresh of a sector in the mission's view: none in the nominal view, the peak
+    (new_targets_per_rr + objects_per_rr) in the peak view."""
+    if targets_view(mission) == NOMINAL:
+        return 0.0
+    return float(sec.get("new_targets_per_rr", 1.0)) + float(sec.get("objects_per_rr", 0.0))
 ANGLE_ZONE_SIGMAS = P.get("tracking.angle_zone_sigmas")     # angular zone opening = full width at +/-2 sigma
 MARGIN_MAX_DB = P.get(_T + "margin_db_max")          # power margins of the confirmation looks: 0 .. max dB,
 MARGIN_TOL_DB = P.get(_T + "margin_db_tol")          # solved continuously to this tolerance (step 3.2, B6)
@@ -1245,8 +1275,8 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
             q += nt * q1 + nf * q2
         return e, t, q
 
-    def s_touch_cost(m: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        n_c = [(c["true"] + c["fa"] * FA_R4_MEAN) * m for c in cg]
+    def s_touch_cost(m: float, true: bool = True) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        n_c = [((c["true"] if true else 0.0) + c["fa"] * FA_R4_MEAN) * m for c in cg]
         e = sum((n * c["e_s"] for n, c in zip(n_c, cg)), np.zeros(4))
         e_rf = sum((n * c["e_s_rf"] for n, c in zip(n_c, cg)), np.zeros(4))
         return e, e_rf / rm.BAND_S.p_pk_total_w, e - e_rf                         # one beam at full peak power
@@ -1286,7 +1316,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                                        "ku_looks_true": looks, "ku_looks_fa": 0.0, "cluster_tx": cl.name,
                                        "attempts": st.attempts, "round_trips": 3,
                                        "s_touch_wf": "pointed search waveform (role CONFIRM)"},
-                                e, ts, tk, q)
+                                e, ts, tk, q, s_touch_cost(rm.db_to_lin(mt), False))
             else:
                 mk = st.min_margin(lambda x: st.ku(mode, x)[0])
                 if mk is None:
@@ -1304,14 +1334,20 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                     trips = base * (2 if (st.attempts > 1 and 1.0 - s1 > 0.05) else 1)
                     best = (load, {"margin_db": round(float(mk), 3), "success": succ, "ku_looks_true": looks,
                                    "ku_looks_fa": l_fa, "cluster_tx": cl.name, "attempts": st.attempts,
-                                   "success_first_attempt": s1, "round_trips": trips}, e, ts, tk, q)
+                                   "success_first_attempt": s1, "round_trips": trips}, e, ts, tk, q,
+                            ku_cost(0.0, l_fa, rm.db_to_lin(mk)))
         if best is None:
             why.append(f"confirmation probability < {p_min:g} even with {MARGIN_MAX_DB:g} dB margin")
             modes[mode] = {"admissible": False, "why_not": "; ".join(why)}
             continue
-        _, info, e, ts, tk, q = best
+        _, info, e, ts, tk, q, nom = best
+        # just need (user, 12 November 2026): the same mode with no true target present, its false alarms only (S2:
+        # the S touch of the false alarms; the Ku modes: their Ku looks), what the radar spends while no target comes
+        e0, ts0, tk0, q0 = ((nom[0], nom[1], np.zeros(4), nom[2]) if mode == "S2" else
+                            (nom[0], np.zeros(4), nom[1], nom[2]))
         modes[mode] = {**info, "admissible": not why, "why_not": "; ".join(why),
-                       "e": e / p_avg_max_w / rr, "ts": ts / rr, "tk": tk / rr, "q_w": q / rr}
+                       "e": e / p_avg_max_w / rr, "ts": ts / rr, "tk": tk / rr, "q_w": q / rr,
+                       NOMINAL: {"e": e0 / p_avg_max_w / rr, "ts": ts0 / rr, "tk": tk0 / rr, "q_w": q0 / rr}}
 
     # --- active tracking per bracket (step 3.3: track model of core/trackmodel.py)
     ku_obs = [(c["ku"]["energy_J"], c["ku"]["time_s"]) for c in cg if c["ku"] is not None]   # step 4.1 (D4)
@@ -1545,6 +1581,28 @@ def _face_loads(base: Dict[str, np.ndarray], sbs: Dict[str, Dict[float, dict]], 
     return tot
 
 
+_AT_TARGET_KEYS = ("e", "tk", "q_w")
+
+
+def _nominal_loads(sb: dict) -> dict:
+    """A sector budget with no target present (just need, user 12 November 2026): each confirmation mode at its false
+    alarms only, no track update nor initiation; the peak loads under PEAK (for the report)."""
+    modes = {}
+    for md_, m_ in sb["modes"].items():
+        if NOMINAL in m_:
+            modes[md_] = {**m_, **m_[NOMINAL], PEAK: {k: m_[k] for k in _RES + ("q_w",)}}
+        else:
+            modes[md_] = m_
+    at = []
+    for b in sb["at"]:
+        pk = {k: b[k] for k in _AT_TARGET_KEYS}
+        pk.update(tracks_face=b.get("tracks_face"), initiations_per_s=b.get("initiations_per_s"),
+                  init_tk=b.get("init_tk"), track_losses_per_s=b.get("track_losses_per_s"))
+        at.append({**b, **{k: np.zeros(4) for k in _AT_TARGET_KEYS}, "tracks_face": [0.0] * 4,
+                   "initiations_per_s": 0.0, "init_tk": [0.0] * 4, "track_losses_per_s": 0.0, PEAK: pk})
+    return dict(sb, modes=modes, at=at)
+
+
 def _max_load(tot: Dict[str, np.ndarray]) -> float:
     return float(max(tot[k].max() for k in _RES))
 
@@ -1709,6 +1767,11 @@ def budget(mission: dict, res: dict) -> dict:
                 if best is None or key < best[0]:
                     best = (key, o)
             choice[sid] = best[1]
+    # just need (user, 12 November 2026): the choice above is made at the peak (the mode must hold the targets when
+    # they come); in the nominal view the loads are then those with no target present, the peak ones kept apart
+    view = targets_view(mission)
+    if view == NOMINAL:
+        sbs = {sid: {f: _nominal_loads(sb) for f, sb in per_f.items()} for sid, per_f in sbs.items()}
     tot = _face_loads(base, sbs, choice)
 
     # per-sector report
@@ -1747,16 +1810,27 @@ def budget(mission: dict, res: dict) -> dict:
         conf = {}
         if mode is not None:
             md_ = sb["modes"][mode]
-            conf = {k: v for k, v in md_.items() if k not in _RES + ("q_w",)}
+            conf = {k: v for k, v in md_.items() if k not in _RES + ("q_w", NOMINAL, PEAK)}
             conf.update({"faces": {str(k): {"energy_fraction": float(md_["e"][k]), "s_time_fraction": float(md_["ts"][k]),
-                                            "ku_time_fraction": float(md_["tk"][k])} for k in sb["faces"]}})
+                                            "ku_time_fraction": float(md_["tk"][k])} for k in sb["faces"]},
+                         "targets_view": view})
+            pk = md_.get(PEAK)
+            if pk is not None:                       # (nominal view: what the peak of targets adds, for the report)
+                conf["faces_peak"] = {str(k): {"energy_fraction": float(pk["e"][k]),
+                                               "s_time_fraction": float(pk["ts"][k]),
+                                               "ku_time_fraction": float(pk["tk"][k])} for k in sb["faces"]}
         out_secs.append({
             "id": sid, "ku_freq_ghz": f, "ku_freq_candidates": n_cands[sid], "confirm_mode": mode, "reason": reason,
             "forced": forced[sid], "false_alarms_per_rr": round(float(sb["false_alarms_per_rr"].sum()), 1),
             "confirmation": conf, "alternatives": alts,
-            "at": [{**{k: v for k, v in b.items() if k not in ("e", "tk", "q_w")},
+            "at": [{**{k: v for k, v in b.items() if k not in ("e", "tk", "q_w", PEAK)},
                     "faces": {str(k): {"energy_fraction": float(b["e"][k]), "ku_time_fraction": float(b["tk"][k])}
-                              for k in sb["faces"]}} for b in sb["at"]],
+                              for k in sb["faces"]},
+                    **({"peak": {"faces": {str(k): {"energy_fraction": float(b[PEAK]["e"][k]),
+                                                    "ku_time_fraction": float(b[PEAK]["tk"][k])} for k in sb["faces"]},
+                                 "tracks_face": b[PEAK]["tracks_face"],
+                                 "initiations_per_s": b[PEAK]["initiations_per_s"]}} if PEAK in b else {})}
+                   for b in sb["at"]],
             "ku_sky": sb["ku_sky"], "ku_min_unsaturated_range_km": sb["ku_min_unsaturated_range_km"],
             "ku_burn_through": (None if sb["ku_burn_through"] is None else {
                 **sb["ku_burn_through"],
@@ -1871,7 +1945,7 @@ def budget(mission: dict, res: dict) -> dict:
               f"power, then recharge (face storage {rm.STORE_DOD * rm.FACE_STORE_J / 1e6:g} MJ usable, step 4.1)"
               for k in range(4) if math.isfinite(faces[str(k)]["max_contiguous_tx_s"])]
     warn.extend(rm.calibration_checks())                    # step 3.4 (B5-B6)
-    return {"pfa": rm.DETECT_PFA, "confirm_p_min": CONFIRM_P_MIN,
+    return {"pfa": rm.DETECT_PFA, "confirm_p_min": CONFIRM_P_MIN, "targets_view": view,
             "sectors": out_secs, "faces": faces, "advice": advice, "scheduler_rules": rules, "warnings": warn,
             # step 3.3 (F3): P(correct) between the library classes after a few looks at the design SNR (indicator)
             "separability": tm.separability(KU_REF_GHZ, _snr_ref(1)),
