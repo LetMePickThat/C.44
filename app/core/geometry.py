@@ -276,6 +276,40 @@ def sector_margin(sec: dict, phi: np.ndarray, eps: np.ndarray) -> np.ndarray:
     return m
 
 
+PLAYED_EDGE_TOL_DEG = 0.1           # a cut point this far inside the volume's own shape lies on the relief's boundary
+
+
+def relief_edge_function(sec: dict):
+    """"Show effectively played" (user, 12 November 2026): on_relief(d) -> True for the unit directions on the boundary
+    of the part another volume serves, and not on the volume's own edges; no walls, no outline there (they followed the
+    relieving volume's cone from the ship to the range and hid the relief). None without a played relief."""
+    code = sec.get("_played_relief")
+    if not code:
+        return None
+
+    def on_relief(d):
+        # next to the relieved cells (one cell grown) and inside the volume's own shape: the relief's boundary only
+        # (user, 12 November 2026: "inside the shape" alone also took the coverage hole's rim, the horizon and the
+        # faces' scan limits, whose walls vanished: a whole-sphere volume has no own edge at all)
+        phi, eps = _dirs_angles(np.asarray(d, float).reshape(-1, 3))
+        near = mo.relief_cells(code, phi, eps, grow=1)
+        return near & (_shape_margin(sec, phi, eps) > PLAYED_EDGE_TOL_DEG)
+    return on_relief
+
+
+def _drop_segments(lines: pv.PolyData, skip_of) -> pv.PolyData:
+    """The line segments of `lines` not lying (both ends) where skip_of(unit directions) is True."""
+    if skip_of is None or not lines.n_points or not lines.n_lines:
+        return lines
+    pts = np.asarray(lines.points, float)
+    seg = lines.lines.reshape(-1, 3)[:, 1:]
+    sk = np.asarray(skip_of(pts / np.maximum(np.linalg.norm(pts, axis=1), 1e-12)[:, None]), bool)
+    seg = seg[~(sk[seg[:, 0]] & sk[seg[:, 1]])]
+    if not len(seg):
+        return pv.PolyData()
+    return pv.PolyData(pts, lines=np.column_stack([np.full(len(seg), 2), seg]).astype(np.int64).ravel())
+
+
 def _shape_margin(sec: dict, phi: np.ndarray, eps: np.ndarray) -> np.ndarray:
     """sector_margin of the volume's own shape."""
     from . import frames
@@ -385,6 +419,7 @@ def build_sector_split_smooth(grid: SphereGrid, sec: dict, eps_min: float = -90.
     r = region.copy()
     r.point_data["s"] = s
     outline = r.contour(isosurfaces=[0.0], scalars="s") if float(np.max(s)) > 0.0 else pv.PolyData()
+    outline = _drop_segments(outline, relief_edge_function(sec))      # (played: the volume's own edges only)
     return executed, outline, hole
 
 
@@ -534,15 +569,19 @@ def _boundary_segments(cap: pv.PolyData) -> Tuple[np.ndarray, np.ndarray]:
     return np.asarray(edges.points), edges.lines.reshape(-1, 3)[:, 1:]
 
 
-def _walls_except_limb(cap_unit: pv.PolyData, placed: pv.PolyData, margin_of) -> pv.PolyData:
+def _walls_except_limb(cap_unit: pv.PolyData, placed: pv.PolyData, margin_of, skip_of=None) -> pv.PolyData:
     """Walls from the cap's free edges down to the radar, but for the edges on the horizon (G2: joined by the tangent
-    cone instead). cap_unit: the cap on the unit sphere (its directions), placed: the same cap at range."""
+    cone instead) and those where skip_of(unit directions) is True (the played relief's boundary). cap_unit: the cap
+    on the unit sphere (its directions), placed: the same cap at range."""
     pts, seg = _boundary_segments(placed)
     if not len(seg):
         return pv.PolyData()
     if margin_of is not None:
         on = np.abs(margin_of(pts / np.linalg.norm(pts, axis=1)[:, None])) <= _LIMB_TOL_DEG
         seg = seg[~(on[seg[:, 0]] & on[seg[:, 1]])]
+    if skip_of is not None and len(seg):
+        sk = np.asarray(skip_of(pts / np.linalg.norm(pts, axis=1)[:, None]), bool)
+        seg = seg[~(sk[seg[:, 0]] & sk[seg[:, 1]])]
     if not len(seg):
         return pv.PolyData()
     o = len(pts)
@@ -671,10 +710,12 @@ def useful_ratio_function(sec: dict, sky: Optional[dict] = None):
 
 
 def build_range_gauge(grid: SphereGrid, sec: dict, ratio_of, radius: float,
-                      normalise: bool = False) -> Tuple[pv.PolyData, pv.PolyData]:
+                      normalise: bool = False, played: bool = False) -> Tuple[pv.PolyData, pv.PolyData]:
     """Range gauge (user, 10 November 2026) of a watched volume: (green: the shell at the range held in each
     direction, radius x ratio_of(directions); red: the part of the requested shell at radius where the range held
-    falls short, coverage hole included). ratio_of(d (n, 3)) -> the held share of the required range."""
+    falls short, coverage hole included). ratio_of(d (n, 3)) -> the held share of the required range.
+    played ("show effectively played", user 12 November 2026): only what is transmitted, no red: the volume held,
+    holed where nothing scans (the coverage hole, a shortfall)."""
     region = _region(grid, sec, 1.0)
     if not region.n_points:
         return pv.PolyData(), pv.PolyData()
@@ -742,8 +783,8 @@ def build_range_gauge(grid: SphereGrid, sec: dict, ratio_of, radius: float,
         m.points = m.points / np.linalg.norm(m.points, axis=1)[:, None] * (r_pts * radius)[:, None]
         m.point_data.clear()
         green = m if not green.n_points else green.append_polydata(m)
-    red = _cut(req, 0.999 * u_req - rho)                       # short of the range needed (the ground: not needed)
-    if red.n_points and not normalise:
+    red = _cut(req, 0.999 * u_req - rho) if not played else pv.PolyData()   # short of the range needed (the ground:
+    if red.n_points and not normalise:                                         # not needed); played: not drawn
         reds = pv.PolyData()
         for side, sub in split_at_limb(red, limb):            # G2: cut along the horizon
             dd = sub.points / np.linalg.norm(sub.points, axis=1)[:, None]
@@ -762,9 +803,15 @@ def build_range_gauge(grid: SphereGrid, sec: dict, ratio_of, radius: float,
         # part's (user, 11 November 2026: the hole's side was drawn green)
         def rim(d_):
             return np.abs(_coverage_margin(d_, eps_win)) <= _RIM_TOL_DEG
-        green = _gauge_walls(green, limb, lambda d_: np.zeros(len(d_)), skip_of=rim)
+        on_relief = relief_edge_function(sec)                  # (played: no walls along the relief's boundary)
+
+        def skip_green(d_):
+            s_ = rim(d_)
+            return s_ if on_relief is None else s_ | on_relief(d_)
+        green = _gauge_walls(green, limb, lambda d_: np.zeros(len(d_)), skip_of=skip_green)
         red = _gauge_walls(red, limb, lambda d_: np.where(rim(d_), 0.0, np.clip(np.asarray(ratio_of(d_), float),
-                                                                                 0.0, 1.0) * radius))
+                                                                                 0.0, 1.0) * radius),
+                           skip_of=on_relief)
     return green, red
 
 
@@ -922,6 +969,7 @@ def build_sector_volumes_km_smooth(grid: SphereGrid, sec: dict, eps_min: float =
 
     def r_of(d):
         return np.asarray(useful_of(d), float) * r
+    on_relief = relief_edge_function(sec)                  # (played: no walls along the relief's boundary)
     parts = []
     for k in range(4):
         if not executed.n_points:
@@ -935,7 +983,7 @@ def build_sector_volumes_km_smooth(grid: SphereGrid, sec: dict, eps_min: float =
         for side, sub in split_at_limb(cap0, limb):         # each side at the range its directions need
             cap = sub.copy()
             cap.points = _unit(sub) * r_of(_unit(sub))[:, None]
-            walls = _walls_except_limb(sub, cap, None if limb is None else limb[0])
+            walls = _walls_except_limb(sub, cap, None if limb is None else limb[0], on_relief)
             piece = cap if not walls.n_points else cap.append_polydata(walls)
             if side == "sky":
                 cone = _limb_wall(cap, limb)

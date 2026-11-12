@@ -34,6 +34,11 @@ class Tracker:
                 self._durations.append(time.monotonic() - t0)
                 del self._durations[:-8]
 
+    def cancel(self, key: str) -> None:
+        """A job no longer awaited (its inputs replaced): forgotten, its duration not counted."""
+        with self._lock:
+            self._running.pop(key, None)
+
     def pending(self) -> int:
         with self._lock:
             return len(self._running)
@@ -48,7 +53,8 @@ class Tracker:
             return len(self._running), min(0.95, elapsed / max(mean, 1.0))
 
 
-RELIEF = Tracker("relief", 60.0)
+RELIEF = Tracker("relief", 300.0)            # (counted in the window from the estimate's "relief_pending": the
+                                             # relief runs in a process of the estimate's worker, unseen from here)
 REDUNDANCY = Tracker("redundancy check", 60.0)
 ESTIMATE = Tracker("estimate", 2.0)          # the fast estimate in its worker process (cost_estimate, 12 Nov 2026)
 _GEN = [0]

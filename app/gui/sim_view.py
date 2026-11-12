@@ -91,6 +91,10 @@ BODY_SHAPES = {"SHIP": ("cylinder", 130.0, 15.0),   # the objects at their size 
 MARK_FONT = 14                                   # events' labels: pt at UI size 100 %
 MARK_GROUP_PX = 8.0                               # ... of one kind, points this close on screen: one label (D, 8 Nov 2026)
 DRAG_FLEET_HZ = 10.0                             # node drag: the whole preview drawn at most this often (D, 8 Nov 2026)
+MESH_CACHE_MAX = 24                              # volumes' meshes kept (a gauge at 1 deg: up to ~130 000 cells)
+MESH_RES_DEG = 1.0                              # the mission volumes' and range gauge's meshes (km), display only (D,
+                                                 # 12 Nov 2026: at 0.5 deg 5 s and 800 000 triangles per instant on
+                                                 # MOONTEST, at 1 deg 1.1 s and 4x fewer; the estimate keeps its grid)
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # (the real computation runs there)
 AUTO_MAX_CELLS = float(P.get("tool.display.sim_auto_max_cells"))   # (former propagation; unused by the live view)
 PROP_TIP_IDLE = "Only for large scenarios, after a change: smaller ones propagate by themselves"
@@ -1220,6 +1224,11 @@ class SimView(QWidget):
         self.range_gauge = False                  # the mission preparation's range gauge (user, 10 November 2026)
         prefetch_maps()                                # E3: the maps decoded while the window opens
         self.grid = grid or cgeo.SphereGrid(float(P.get("tool.display.grid_res_deg")))
+        # the volumes' meshes (km) on their own, coarser raster: display only, the estimate keeps self.grid (user, 12
+        # November 2026: 5 s and 800 000 triangles per instant at 0.5 deg on MOONTEST, 1.1 s at 1 deg)
+        self.mesh_grid = (self.grid if abs(MESH_RES_DEG - float(getattr(self.grid, "res_deg", MESH_RES_DEG))) < 1e-9
+                          else cgeo.SphereGrid(MESH_RES_DEG))
+        self._mesh_cache: Dict[str, tuple] = {}        # the volumes' meshes by what they are drawn from (_mesh_key)
         self.get_path = get_path
         self.pending: Optional[dict] = None       # latest valid scenario from the editor
         self.sc: Optional[dict] = None
@@ -4444,6 +4453,22 @@ class SimView(QWidget):
         else:
             self._profile_poll_on = False
 
+    def _mesh_key(self, sec: dict, e0: float, e1: float, sky_ship, alloc: Optional[dict], sid: str) -> Optional[str]:
+        """What a volume's meshes are drawn from (None: not kept): the volume at t (its played relief included), the
+        scan window, the sky in the ship frame, the mesh raster and, for the range gauge, its record in the allocation
+        (share held, reach at full pulse, relief)."""
+        try:
+            g = None
+            if alloc is not None:
+                rec = (alloc.get("by_sector") or {}).get(sid) or {}
+                g = [rec.get("rho"), (alloc.get("reach") or {}).get(sid),
+                     ((alloc.get("relief") or {}).get(sid) or {}).get("code")]
+            return json.dumps([sec, e0, e1, sky_ship, float(self.mesh_grid.res_deg), g,
+                               bool(getattr(self, "played_only", False))], sort_keys=True,
+                              default=lambda o: o.tolist() if hasattr(o, "tolist") else str(o))
+        except (TypeError, ValueError):
+            return None
+
     def _draw_volumes(self, force: bool = False) -> None:
         """V5: the mission's volumes at t. Built once from the navigation at t (the sectors resolved in the ship
         frame); then each one only TURNED with the change of its frame (ship -> sector matrix at t against the one
@@ -4541,15 +4566,29 @@ class SimView(QWidget):
             # E3 (user, 10 November 2026): the executed volumes, one per face in its colour, and the outline of
             # the WHOLE watched volume at its range in the sector's colour (its coverage hole: inside it, not filled)
             try:
-                ratio_of = (cgeo.held_ratio_function(self.grid, sec, e0, e1, sky_ship, alloc, raw.get("id") or f"_idx{i}")
+                mg = self.mesh_grid
+                sid_i = raw.get("id") or f"_idx{i}"
+                ratio_of = (cgeo.held_ratio_function(mg, sec, e0, e1, sky_ship, alloc, sid_i)
                             if self.range_gauge else None)
-                if ratio_of is not None:                     # the range gauge (km): held range, shortfall
-                    green, red = cgeo.build_range_gauge(self.grid, sec, ratio_of, float(sec["range_km"]))
+                # the meshes kept per volume (user, 12 November 2026, performance (1)): rebuilt only when what they
+                # are drawn from changed (the volume at t, its relief, the sky, and for the gauge its share held,
+                # reach and relief); an edit or a new estimate rebuilds the volumes it changed, not all of them
+                mkey = self._mesh_key(sec, e0, e1, sky_ship, alloc if ratio_of is not None else None, sid_i)
+                hit = self._mesh_cache.get(mkey) if mkey is not None else None
+                if hit is not None:
+                    parts, outline = hit
+                elif ratio_of is not None:                   # the range gauge (km): held range, shortfall
+                    green, red = cgeo.build_range_gauge(mg, sec, ratio_of, float(sec["range_km"]),
+                                                        played=bool(getattr(self, "played_only", False)))
                     parts = [("green", green, None), ("red", red, None)]
-                    outline = cgeo.build_gauge_outline_km(self.grid, sec, sky_ship)   # (its limits: edges)
+                    outline = cgeo.build_gauge_outline_km(mg, sec, sky_ship)   # (its limits: edges)
                 else:
-                    parts, outline = cgeo.build_sector_volumes_km_smooth(self.grid, sec, e0, e1, sky_ship)
+                    parts, outline = cgeo.build_sector_volumes_km_smooth(mg, sec, e0, e1, sky_ship)
                     parts = [(k, p_, None) for k, p_ in parts]
+                if hit is None and mkey is not None:
+                    if len(self._mesh_cache) >= MESH_CACHE_MAX:
+                        self._mesh_cache.clear()
+                    self._mesh_cache[mkey] = (parts, outline)
             except (KeyError, TypeError, ValueError):
                 continue
             col = cgeo.sector_color(i)

@@ -577,18 +577,23 @@ def live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Sphere
         sec = next((s for s in sectors_ship if str(s.get("id")) == sid), {})
         served[sid] = (float(rec.get("rho", 1.0)), float(rec.get("rr_tenable_s", sec.get("rr_target_s", 1.0))))
     try:
-        rl = redundancy.relief_cached(sectors_ship, grid, eps_min, eps_max, sky, g, served, wait=relief == "wait")
+        pk = redundancy.relief_cached(sectors_ship, grid, eps_min, eps_max, sky, g, served, wait=relief == "wait")
     except Exception:  # noqa: BLE001 -- a relief the model refuses: none (budgeted in full)
-        rl = {}
-    if rl is None:
+        pk = {}
+    if pk is None:
         return dict(raw, relief={}, relief_pending=True, served=served)
+    rl = pk.get("relief") or {}
+    # the cover and the redundancy check from the same pass (user, 12 November 2026): "X % covered, Y % taken out"
+    extra = {"cover": dict(pk.get("cover") or {}),
+             "redundancy": {"findings": dict(pk.get("findings") or {}), "notes": dict(pk.get("notes") or {})}}
     if not rl:
-        return dict(raw, relief={}, relief_pending=False, served=served)
+        return dict(raw, relief={}, relief_pending=False, served=served, **extra)
     secs = [dict(s, _relief=rl[str(s.get("id"))]["code"]) if str(s.get("id")) in rl else s for s in sectors_ship]
     out = dict(_live_allocation(table, secs, grid, eps_min, eps_max, sky, g, calib, profiles))
     out["relief"] = {sid: {"share": v["share"], "by": list(v["by"]), "code": v["code"]} for sid, v in rl.items()}
     out["relief_pending"] = False
     out["served"] = served
+    out.update(extra)
     ach = {k: dict(v) for k, v in (out.get("achieved") or {}).items()}
     for sid, v in out["relief"].items():
         v = {"share": v["share"], "by": v["by"]}
@@ -761,7 +766,7 @@ def _digest(res: Optional[dict]) -> str:
     if res is None:
         return ""
     return _key({k: res.get(k) for k in ("status", "estimating", "relief_pending", "faces", "by_sector", "achieved",
-                                         "relief", "out_of_reach", "no_confirmation")})
+                                         "relief", "cover", "out_of_reach", "no_confirmation")})
 
 
 def _a_submit(key: str) -> None:
@@ -789,6 +794,13 @@ def _a_done(key: str, fut) -> None:
     with _A_LOCK:
         _A["jobs"].pop(key, None)
         background.ESTIMATE.done(key)
+        # the relief runs in a process of the worker (its tracker unseen from the window): counted here from the
+        # results, so that the badge shows it for as long as it runs (user, 12 November 2026: grey "ESTIMATE" for
+        # the 7 min of a relief)
+        if res is not None and res.get("relief_pending") and key in _A["tag_key"].values():
+            background.RELIEF.start(key)
+        elif res is not None:
+            background.RELIEF.done(key)
         if res is not None:
             if len(_A["cache"]) > 32:
                 for k_ in list(_A["cache"])[:16]:
@@ -838,7 +850,11 @@ def live_allocation_async(table: CostTable, sectors_ship: List[dict], grid: geo.
     res_deg = float(getattr(grid, "res_deg", 1.0))
     key = _key([sectors_ship, eps_min, eps_max, sky, gk, res_deg, calib, relief])
     with _A_LOCK:
+        old = _A["tag_key"].get(tag)
         _A["tag_key"][tag] = key
+        if old is not None and old != key and old not in _A["tag_key"].values():
+            from . import background
+            background.RELIEF.cancel(old)            # (its relief no longer awaited: off the badge)
         hit = _A["cache"].get(key)
         if hit is None and key not in _A["jobs"]:
             _A["args"][key] = ([dict(s) for s in sectors_ship], res_deg, eps_min, eps_max, sky, dict(g or {}),

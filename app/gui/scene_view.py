@@ -1819,7 +1819,7 @@ class SceneView(QWidget):
             d = SectorDraw(d.sid, sec_d, d.color, d.text) if sec_d is not d.sec else d
             key = (geo.sector_geometry_key(d.sec), eps_min, eps_max, gauge,
                    None if rho is None else round(float(rho), 4), d.sec.get("range_km") if gauge else None,
-                   _key_sky(self._sky_ship) if gauge else None, d.sec.get("_played_relief"))
+                   _key_sky(self._sky_ship) if gauge else None, d.sec.get("_played_relief"), played)
             cached = self._cache.get(d.sid)
             # a duplicate id (mid-edit) shares actor names with the earlier sector: always redraw, last one wins
             same_geom = cached is not None and cached[0] == key and d.sid not in new_cache
@@ -1832,8 +1832,11 @@ class SceneView(QWidget):
                     ratio_of = (geo.held_ratio_function(self.grid, d.sec, eps_min, eps_max, self._sky_ship, alloc,
                                                         d.sid) if gauge else None)
                     if ratio_of is not None:                # the range gauge in place of the executed volumes
-                        poly, hole = geo.build_range_gauge(self.grid, d.sec, ratio_of, 1.015, normalise=True)
+                        poly, hole = geo.build_range_gauge(self.grid, d.sec, ratio_of, 1.015, normalise=True,
+                                                           played=played)
                         poly.cell_data.pop("face", None) if poly.n_points else None
+                    if played and hole.n_points:            # (played: what is not transmitted is not drawn)
+                        hole = type(hole)()
                 except (KeyError, TypeError, ValueError):
                     continue  # incomplete sector mid-edit: no 3D overlay
             same_mesh = same_geom and cached[1] == d.color

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.42.0
+# Radar Performance Model - V6.43.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,11 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.42.0 -> V6.43.0 (user, 12 November 2026)
+#   - relief and redundancy check (core/redundancy.judged): a volume's cover of another is judged at its revisit
+#     ASKED (or the slower one it holds), its served range share never above 1; a revisit faster than asked, given by
+#     the free margin (PRIO_SEARCH), no longer makes a cover (it would vanish as the mission loads).
 #
 # Changes V6.41.0 -> V6.42.0 (user, 12 November 2026)
 #   - relief (core/redundancy.relief): every volume compared with every other, both ways; the place in the list plays
@@ -738,7 +743,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.42.0"
+MODEL_VERSION = "6.43.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

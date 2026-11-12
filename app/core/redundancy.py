@@ -139,6 +139,18 @@ def guaranteed_range_km(range_km: float, rr_s: float, v_mps: float) -> float:
     return range_km
 
 
+def judged(sec_a: dict, served: Optional[Tuple[float, float]] = None) -> Tuple[float, float]:
+    """(rho, revisit) A's cover of another volume is judged with (V6.43.0, user, 12 November 2026): the range share
+    the allocation serves A, never above 1, and A's revisit ASKED, or the one it holds if slower. A revisit faster than
+    asked comes from the free margin (PRIO_SEARCH): a cover that only holds with it would vanish as the mission loads
+    (MOONTEST_VELOCITY t = 3332 s: SP served RR 2.95 s for 30 s asked, reach 9 277 km on S02's target against 8 000 km
+    needed; at 30 s 7 220 km)."""
+    asked = float(sec_a.get("rr_target_s", 1.0) or 1.0)
+    if not served:
+        return 1.0, asked
+    return min(float(served[0]), 1.0), max(float(served[1]), asked)
+
+
 def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dict,
              cells: np.ndarray, served: Optional[Tuple[float, float]] = None
              ) -> Tuple[np.ndarray, np.ndarray, Optional[float], np.ndarray]:
@@ -146,16 +158,16 @@ def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dic
     (2) falls short of its own range; (3) A's worst reach on B's target where it meets the need (km, None if
     nowhere); (4) per cell, which REASON_* code explains why it is not met (REASON_NONE where it is).
     served (user, 11 November 2026, B): (rho, revisit) A is actually given by the allocation (its range share and the
-    revisit it holds); None: its reference power, its revisit asked."""
-    rho_a = float(served[0]) if served else 1.0
+    revisit it holds), judged as judged() says (its revisit asked unless it holds a slower one); None: its reference
+    power, its revisit asked."""
+    rho_a, rr_a = judged(sec_a, served)
     if plan is None:
         z = np.zeros_like(cells)
         return z, z, None, np.where(cells, REASON_NO_WAVEFORM, REASON_NONE).astype(np.int8)
     v_b = sec_b["v_close_max_mps"]
     tgt_b = mo.sector_target(sec_b)                      # B's target: class + sector values (step 2.4)
     g_need = sec_b["range_km"] * (1.0 - RANGE_TOL)          # A's cumulative reach on B's need (step 2.3)
-    rr_a = float(served[1]) if served else float(sec_a["rr_target_s"])
-    cum = (float(v_b), rr_a, float(sec_b["range_km"]))     # A's revisit (as served), B's target and range
+    cum = (float(v_b), rr_a, float(sec_b["range_km"]))     # A's revisit (as judged), B's target and range
     res_b = sec_b.get("res_max_m", mo.RES_MAX_M_DEFAULT)
     f = plan["freq_ghz"]
     nb = len(plan["wf"])
@@ -214,15 +226,17 @@ def _pair_note(sa_id: str, sb_id: str, om_met: float, om_inter: float, reason_ce
 
 def find_redundancies(mission: dict, grid: geo.SphereGrid,
                       plans: Optional[Dict[str, Optional[dict]]] = None,
-                      served: Optional[Dict[str, Tuple[float, float]]] = None
+                      served: Optional[Dict[str, Tuple[float, float]]] = None, resolved: bool = False
                       ) -> Tuple[List[Finding], Dict[Tuple[str, str], str]]:
     """Step 3.0: computed on the mission turned into the ship frame (core/frames.py); nothing if its frames are invalid.
     plans: the waveform plan of each sector by id (step 5.3 P3: the plans of a finished run); a sector without one is
-    planned here alone, at the reference power (core.optimizer.sector_plan). grid: any core.optimizer.Sphere."""
-    try:
-        mission, _ = frames.resolve(mission)
-    except ValueError:
-        return [], {}
+    planned here alone, at the reference power (core.optimizer.sector_plan). grid: any core.optimizer.Sphere.
+    resolved: the sectors are already in the ship frame (their frame_m applied: check_ship)."""
+    if not resolved:
+        try:
+            mission, _ = frames.resolve(mission)
+        except ValueError:
+            return [], {}
     mission = mo.with_spectrum(mission)
     g = mission.get("global", {})
     eps_min, eps_max = g.get("eps_min_deg", -90.0), g.get("eps_max_deg", 90.0)
@@ -303,7 +317,7 @@ def _cost_cells(grid, sec: dict, plan: Optional[dict], served: Optional[Tuple[fl
         if w is not None:
             e[k] = float(rm.search_position_costs(w, plan["pulse_scale"][k])[0])
     sp = float(plan.get("beam_spacing_hpbw") or 1.0)
-    rr = float(served[1]) if served else float(sec.get("rr_target_s", 1.0) or 1.0)
+    rr = judged(sec, served)[1]                        # (the revisit the cover is judged with)
     bins = np.minimum((grid.theta / mo.THETA_BIN_DEG).astype(int), nb - 1)
     return e[bins] / (sp * sp * max(rr, 1e-9))
 
@@ -311,6 +325,17 @@ def _cost_cells(grid, sec: dict, plan: Optional[dict], served: Optional[Tuple[fl
 def relief(sectors_ship: List[dict], grid, eps_min: float, eps_max: float, sky: Optional[dict] = None,
            g: Optional[dict] = None, served: Optional[Dict[str, Tuple[float, float]]] = None,
            plans: Optional[Dict[str, Optional[dict]]] = None) -> Dict[str, dict]:
+    """relief_and_cover()'s relief."""
+    return relief_and_cover(sectors_ship, grid, eps_min, eps_max, sky, g, served, plans)[0]
+
+
+def relief_and_cover(sectors_ship: List[dict], grid, eps_min: float, eps_max: float, sky: Optional[dict] = None,
+                     g: Optional[dict] = None, served: Optional[Dict[str, Tuple[float, float]]] = None,
+                     plans: Optional[Dict[str, Optional[dict]]] = None) -> Tuple[Dict[str, dict], Dict[str, dict]]:
+    """(relief, cover) from ONE pass over the pairs (user, 12 November 2026: the check's and the relief's figures
+    side by side, from the same computation). cover: {id: {"share": of its scanned solid angle whose need some other
+    volume meets, any priority (the union, as find_redundancies), "by": [ids]}}, above tool.redundancy.cover_min;
+    relief: below, the part of it actually taken out of the volume's budget (arbitrated)."""
     """A (user, 11 November 2026; rule recast 12 November 2026): the directions of each volume whose need another
     volume already meets, taken out of its demand. Every volume is compared with every other, in both directions
     (the place in the list plays no part): A may relieve B where A meets B's need and
@@ -320,7 +345,8 @@ def relief(sectors_ship: List[dict], grid, eps_min: float, eps_max: float, sky: 
         (_cost_cells; equal: the smaller id);
     B is then relieved there only while A still searches the direction itself, so a direction is never left to
     nobody (the relief resolved by passes; a cell still in conflict after them: both search it). A meeting the need
-    is judged with what the allocation serves it (served: {id: (rho, revisit)}) and its plan (plans, else planned
+    is judged with what the allocation serves it (served: {id: (rho, revisit)}, as judged(): its revisit asked unless
+    it holds a slower one) and its plan (plans, else planned
     alone at the reference power). A relief under tool.redundancy.cover_min of the volume is ignored. Sectors in the
     ship frame. -> {id: {"code": the "_relief" key (core.optimizer.relief_code), "share": of its scanned solid angle,
     "by": [ids], "listen": {coverer: share of its positions}, "range_km"}}."""
@@ -349,10 +375,10 @@ def relief(sectors_ship: List[dict], grid, eps_min: float, eps_max: float, sky: 
                 plan_of[i] = None
         return plan_of[i]
 
-    met: Dict[Tuple[int, int], np.ndarray] = {}        # (a, b): where a meets b's need (a's priority >= b's)
+    met_all: Dict[Tuple[int, int], np.ndarray] = {}    # (a, b): where a meets b's need, any priority (the cover)
     for a in masks:
         for b in masks:
-            if a == b or rank(secs[a]) > rank(secs[b]):
+            if a == b:
                 continue
             inter = masks[a] & masks[b]
             if not inter.any():
@@ -362,7 +388,20 @@ def relief(sectors_ship: List[dict], grid, eps_min: float, eps_max: float, sky: 
             except (KeyError, TypeError, ValueError, ZeroDivisionError):
                 continue
             if m.any():
-                met[(a, b)] = m
+                met_all[(a, b)] = m
+    cover: Dict[str, dict] = {}
+    for b, mb in masks.items():
+        u = np.zeros_like(mb)
+        by_c = []
+        for (a, bb), m in met_all.items():
+            if bb == b:
+                u |= m
+                by_c.append(ids[a])
+        share = float((grid.d_omega * u).sum() / (grid.d_omega * mb).sum()) if by_c else 0.0
+        if share >= COVER_MIN:
+            cover[ids[b]] = {"share": share, "by": sorted(by_c)}
+    # (a, b): where a meets b's need with a priority at least b's (the relief's candidates)
+    met = {k: m for k, m in met_all.items() if rank(secs[k[0]]) <= rank(secs[k[1]])}
     cost: Dict[int, np.ndarray] = {}
     may: Dict[Tuple[int, int], np.ndarray] = {}        # (a, b): where a may relieve b
     for (a, b), m in met.items():
@@ -410,7 +449,19 @@ def relief(sectors_ship: List[dict], grid, eps_min: float, eps_max: float, sky: 
                 listen[ids[a]] = float((wpos * cells).sum() / max(float((wpos * masks[a]).sum()), 1e-12))
         out[ids[b]] = {"code": mo.relief_code(rb), "share": share, "by": sorted(by), "listen": listen,
                        "range_km": float(secs[b].get("range_km", 0.0) or 0.0)}
-    return out
+    return out, cover
+
+
+def check_ship(sectors_ship: List[dict], grid, eps_min: float, eps_max: float, sky: Optional[dict],
+               g: Optional[dict], served: Optional[Dict[str, Tuple[float, float]]]
+               ) -> Tuple[List[Finding], Dict[Tuple[str, str], str]]:
+    """find_redundancies() on volumes already in the ship frame, with the relief's inputs (the same instant, sky,
+    shares served and, in the same process, the same cached plans: after relief_and_cover it costs almost nothing;
+    it ran > 3 min on its own)."""
+    gl = {k: v for k, v in dict(g or {}).items() if k in ("spectrum_exclusions_ghz", "face_elec_mw")}
+    gl.update(eps_min_deg=eps_min, eps_max_deg=eps_max, sky=sky)
+    secs = [{k: v for k, v in s.items() if k != "_relief"} for s in sectors_ship]
+    return find_redundancies({"global": gl, "sectors": secs}, grid, served=served, resolved=True)
 
 
 # the fast estimate's relief, computed in the background (as core/cost_profile) and kept
@@ -427,11 +478,22 @@ def round_served(served: Dict[str, Tuple[float, float]]) -> Dict[str, Tuple[floa
     return {k: (round(float(r) * 50.0) / 50.0, float(f"{float(rr):.3g}")) for k, (r, rr) in sorted(served.items())}
 
 
+def relief_package(sectors_ship, grid, eps_min, eps_max, sky, g, served) -> dict:
+    """The fast estimate's relief, the cover and the redundancy check, in one go (user, 12 November 2026): {"relief",
+    "cover" (relief_and_cover), "findings", "notes" (check_ship; findings by volume id, notes by (id, id))}."""
+    rl, cover = relief_and_cover(sectors_ship, grid, eps_min, eps_max, sky, g, served)
+    try:
+        findings, notes = check_ship(sectors_ship, grid, eps_min, eps_max, sky, g, served)
+    except Exception:  # noqa: BLE001 -- a check the model refuses: no findings (the relief kept)
+        findings, notes = [], {}
+    return {"relief": rl, "cover": cover, "findings": {str(f.sid): f for f in findings}, "notes": notes}
+
+
 def _relief_task(sectors_ship, res_deg, eps_min, eps_max, sky, g, served):
     grid = _R_GRIDS.get(res_deg)
     if grid is None:
         grid = _R_GRIDS[res_deg] = geo.SphereGrid(res_deg)
-    return relief(sectors_ship, grid, eps_min, eps_max, sky, g, served)
+    return relief_package(sectors_ship, grid, eps_min, eps_max, sky, g, served)
 
 
 def _relief_done(k: str, fut) -> None:
@@ -441,7 +503,7 @@ def _relief_done(k: str, fut) -> None:
     try:
         res = fut.result()
     except Exception:  # noqa: BLE001 -- a failed relief: none (the volumes budgeted in full)
-        res = {}
+        res = {"relief": {}, "cover": {}, "findings": {}, "notes": {}}
     with _R_LOCK:
         _R_JOBS.pop(k, None)
         if len(_R_CACHE) > 64:
@@ -452,9 +514,9 @@ def _relief_done(k: str, fut) -> None:
 
 def relief_cached(sectors_ship: List[dict], grid, eps_min: float, eps_max: float, sky: Optional[dict],
                   g: Optional[dict], served: Dict[str, Tuple[float, float]], wait: bool = False
-                  ) -> Optional[Dict[str, dict]]:
-    """relief() of the fast estimate: kept per volumes, instant, settings and served shares (rounded); computed in a
-    background process (None meanwhile) unless wait."""
+                  ) -> Optional[dict]:
+    """relief_package() of the fast estimate: kept per volumes, instant, settings and served shares (rounded);
+    computed in a background process (None meanwhile) unless wait."""
     global _R_POOL
     served = round_served(served)
     gk = {x: (g or {}).get(x) for x in ("spectrum_exclusions_ghz",)}
@@ -484,7 +546,7 @@ def relief_cached(sectors_ship: List[dict], grid, eps_min: float, eps_max: float
                 _R_JOBS[k] = fut
                 fut.add_done_callback(lambda f_, k_=k: _relief_done(k_, f_))
                 return None
-    res = relief(sectors_ship, grid, eps_min, eps_max, sky, g, served)
+    res = relief_package(sectors_ship, grid, eps_min, eps_max, sky, g, served)
     with _R_LOCK:
         _R_CACHE[k] = res
     return res

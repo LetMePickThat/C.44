@@ -994,14 +994,14 @@ class PrepTab(QWidget):
 
     def _decorate_item(self, item: QListWidgetItem, sec: dict) -> None:
         """Sector list entry: label, plus a red 'need already met' tag while the sector is redundant."""
-        f = self._active_finding(sec)
+        f = self._shown_finding(sec)
         if f is None:
             item.setText(self._sector_label(sec))
             item.setForeground(QColor())
             item.setToolTip("")
             return
         # always the share, never a bare "!" (user, 11 November 2026: read as a missing figure); the red says the alert
-        item.setText(f"{self._sector_label(sec)}   {100 * f.fraction:.0f} % of need met by {', '.join(f.by)}")
+        item.setText(f"{self._sector_label(sec)}   {self._cover_text(str(sec.get('id')), f)}")
         item.setForeground(QColor(ALERT_COLOR))
         item.setToolTip("Double-click the matching alert to resolve")
 
@@ -1468,6 +1468,10 @@ class PrepTab(QWidget):
                 if served and red.round_served(served) != red.round_served(getattr(self, "_served", {}) or {}):
                     self._served = served                                # B: the findings again with them
                     self._schedule_redundancy_check()
+                # the cover, the relief and the check from one pass (user, 12 November 2026), with this estimate
+                if alloc.get("redundancy") is not None and not alloc.get("stale") \
+                        and not alloc.get("relief_pending"):
+                    self._apply_redundancy(alloc)
                 if pending or alloc.get("relief_pending") or alloc.get("stale") or not alloc:                                  # the alerts again once the profiles are ready
                     from core import cost_profile
                     gen = cost_profile.generation()
@@ -1482,7 +1486,10 @@ class PrepTab(QWidget):
             self.list_alerts.addItem("Fast estimate: core/cost_table.json was built with other radar parameters "
                                      "(radar_system.toml changed) -- rebuild it: python tools/gen_cost_table.py")
         self._add_redundancy_alerts()
+        with_finding = {str(s.get("id")) for s in sectors if self._shown_finding(s) is not None}
         for sid, v in sorted((getattr(self, "_relief", {}) or {}).items()):     # A: what the budgets take out
+            if sid in with_finding:                  # (said on the finding's line: covered / taken out)
+                continue
             self.list_alerts.addItem(f"{sid}: {100 * v['share']:.0f} % of its volume served by {', '.join(v['by'])}"
                                      f" (need met there): taken out of {sid}'s budget")
         if self.lbl_scn_alerts.text():                # (the flight plan's group hidden: its alerts here)
@@ -1567,8 +1574,42 @@ class PrepTab(QWidget):
             red.round_served(getattr(self, "_served", {}) or {}), sort_keys=True)
 
     def _schedule_redundancy_check(self) -> None:
+        if red.RELIEF_ON and self.cost_table is not None:
+            return    # (the fast estimate's relief pass brings the findings: _apply_redundancy)
         if self._red_sig() != self._redundancy_requested:
             self._red_timer.start()
+
+    def _apply_redundancy(self, alloc: dict) -> None:
+        """The findings of the fast estimate's relief pass (core/redundancy.relief_package: the same pairs, instant,
+        shares served and plans as the relief, user 12 November 2026; a separate check ran > 3 min), with the cover
+        ("X % covered by ...") beside the relief ("Y % taken out of its budget")."""
+        rd = alloc.get("redundancy") or {}
+        found = rd.get("findings") or {}
+        self._cover = dict(alloc.get("cover") or {})
+        self._redundancy = {id(s): found[str(s.get("id"))] for s in self.mission["sectors"]
+                            if str(s.get("id")) in found}
+        self._redundancy_notes = dict(rd.get("notes") or {})
+        self._redundancy_sig, self._redundancy_error = self._red_sig(), ""
+        self._redundancy_requested = self._redundancy_sig
+        self._refresh_sector_items()
+
+    def _shown_finding(self, sec: dict) -> Optional[red.Finding]:
+        """The finding shown for a volume: only the volume the relief actually cuts (user, 12 November 2026: two
+        volumes meeting each other's need both said "covered by" the other, while only one of them is cut in the
+        emissions played); without the relief ([tool.redundancy] relief = false) every finding, as before."""
+        f = self._active_finding(sec)
+        if f is None or not red.RELIEF_ON:
+            return f
+        rel = (getattr(self, "_relief", {}) or {}).get(str(sec.get("id"))) or {}
+        return f if float(rel.get("share", 0.0)) > 0.0 else None
+
+    def _cover_text(self, sid: str, f: red.Finding) -> str:
+        """"X % covered by A, B": the part the relief takes out of the volume's budget and the volumes that search it
+        (as the 3D label "handled partially by"); without the relief, the check's share."""
+        rel = (getattr(self, "_relief", {}) or {}).get(sid) or {}
+        if red.RELIEF_ON and rel.get("by"):
+            return f"{100 * float(rel.get('share', 0.0)):.0f} % covered by {', '.join(rel['by'])}"
+        return f"{100 * f.fraction:.0f} % covered by {', '.join(f.by)}"
 
     def _start_redundancy_check(self) -> None:
         if self._red_worker is not None and self._red_worker.isRunning():
@@ -1626,17 +1667,17 @@ class PrepTab(QWidget):
         if self._redundancy_error:
             self.list_alerts.addItem(self._redundancy_error)
         for i, sec in enumerate(self.mission["sectors"]):
-            f = self._active_finding(sec)
+            f = self._shown_finding(sec)
             if f is None:
                 continue
             by = ", ".join(f.by)
+            cov = self._cover_text(str(f.sid), f)
             if f.full:
-                text = f"{f.sid}: need already met by {by} -- double-click to keep {by} only"
+                text = f"{f.sid}: {cov} -- double-click to keep {by} only"
             elif f.pieces:
-                text = (f"{f.sid}: {100 * f.fraction:.0f} % of its volume already met by {by} -- "
-                        f"double-click to trim {f.sid}")
+                text = f"{f.sid}: {cov} -- double-click to trim {f.sid}"
             else:
-                text = f"{f.sid}: {100 * f.fraction:.0f} % of its volume already met by {by} -- double-click for details"
+                text = f"{f.sid}: {cov} -- double-click for details"
             item = QListWidgetItem(text)
             item.setForeground(QColor(ALERT_COLOR))
             item.setData(Qt.UserRole, i)
