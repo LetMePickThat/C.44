@@ -46,27 +46,20 @@ The Results-tab live bars show the badge "ESTIMATE" (not "recalibrated"): they a
   taken from the cost table like the energy (proportional to the pointing rate), or at least an alert when the
   estimate cannot judge the memory.
 
-**Headless exact run (script was in the session scratchpad, lost: rewrite it)**
-```python
-import sys, pickle
-sys.path.insert(0, ".")                                 # run from app/
-from sim import document as doc_m
-from core import optimizer as mo
-
-def main():
-    d = doc_m.load(r"scenarios\MOONTEST_VELOCITY.json")
-    mission, alerts = doc_m.mission_for_calc(d)        # navigation of the scenario at t_nav_s, as the GUI
-    res = mo.run(mission, stage_cb=print)
-    pickle.dump(res, open(sys.argv[1], "wb"))
-
-if __name__ == "__main__":                              # mandatory on Windows: the optimiser uses a process pool
-    main()                                               # (without it: BrokenProcessPool)
-```
+**Headless exact run: `python tools/exact_compare.py [scenario.json] [result.pkl]`** (run from app/; defaults
+scenarios/MOONTEST_VELOCITY.json and tools/.exact_compare.pkl). Mission built as the GUI does
+(sim.document.mission_for_calc); step counter printed live and written to <result>.progress.txt; at the end the
+verdict, the peak test and, nominal then at the peak, per face every resource's utilisation and the memory traffic
+against the bandwidth with each item's share (search / confirmation / tracks per volume); result pickled.
 Per face in the result: res["compute"]["faces"][k]["memory"] (traffic_TB_per_s, bandwidth_TB_per_s),
-res["power_allocation"]["faces"][k], res["scheduler"]["faces"][k]; or margin.utilisation(res).
+res["power_allocation"]["faces"][k], res["scheduler"]["faces"][k]; or margin.utilisation(res); the peak's budgets
+under res["peak"]["budgets"] (optimizer.peak_out).
 
 **Working tree at the time**: V6.44.0 just need coded by another session, NOT committed then (committed since, with this note) (allocation, cost_estimate,
 margin, montecarlo, optimizer, radar_model, scheduler, tracking, validation, results_tab, scene_view, sim_view, docs).
 Repo rule: origin/main is the reference ([[feedback-repo-version-is-reference]]); commit or settle it first.
 
-**Exact run V6.44.0 relaunched 12 Nov 2026 16:49** (headless, per face / per volume traffic, nominal and at the peak): still running at 17:15 (> 25 min); the PC was then moved on battery (power saving): its duration is not representative.
+**Exact run V6.44.0 relaunched 12 Nov 2026 16:49 on the laptop**: crashed after ~30 min with BrokenProcessPool
+(a worker killed while the PC went on battery, power saving; in the second pass started by the relief, S frequency
+evaluation of a re-planned volume: code V6.44.0 does not touch it; cause not verified). No figure. TO DO: run
+tools/exact_compare.py on the MAIN PC (more memory), on mains power, after asking the user (expect 30 min or more).

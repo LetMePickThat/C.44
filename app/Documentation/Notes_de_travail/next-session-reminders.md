@@ -58,5 +58,7 @@ unless the user comes back to the scenario tool. The Pmiss scene_view symbols (i
 
 5. [DONE 8 Nov 2026, committed and pushed] P1-P3 (rest of the full propagation's step compiled: fast.grid_at3, fleet_step_all, impacts, pn_update_all, LiveSim._glue): bit-identical on the 3 scenarios; full propagation moon 2.03 -> 1.09 s, Jupiter 4.50 -> 2.60 s, TEST_MAX_LOAD 1.93 -> 1.38 s; test_sim 69 passed. Zoom bug (scrambled path segments, crushed symbols: GPU float32 about a far centre) fixed by _near_camera_precision on dynamic lines, symbols and object shapes (99e0ad4, 3815328); CHECKED on screen by the user 8 Nov 2026.
 
+- [12 Nov 2026, TO DO on the MAIN PC] V6.44.0 just need committed (f2f3f72), snapshots NOT refrozen: (1) ask, then `python tools/exact_compare.py` (MOONTEST_VELOCITY, 30 min or more, step counter in tools/.exact_compare.pkl.progress.txt) and compare with the estimate ([[estimate-vs-exact]]); (2) N3 + refreeze when the user plans it.
+
 **Why:** the user explicitly asked for these reminders.
 **How to apply:** mention them in the first reply of the next session, then delete or update this file once handled. See [[radar-roadmap]].

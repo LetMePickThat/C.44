@@ -14,4 +14,5 @@
 - [VTK rendering checks](vtk-rendering-checks.md) — real window needed for pixel captures; OIT bypasses MSAA on translucent lines
 - [Performance risks](performance-risks.md) — will the final model fit a current PC: measured figures, ranked risks (6.4 radar in the loop HIGH, Pmiss time profile, MC, memory), remedies; target durations to decide
 - [Just-need allocation](just-need-allocation.md) — new_targets_per_rr / n_targets = peak to absorb, never reserved; P5 then P4 shed, never P1; coded V6.44.0 12 Nov 2026, not tested
-- [Estimate vs exact](estimate-vs-exact.md) — TO RESUME: MOONTEST_VELOCITY t=0 estimate OK vs exact NOK (memory bandwidth 119-149 %, not in the estimate); exact run cancelled, headless script inside
+- [Estimate vs exact](estimate-vs-exact.md) — TO RESUME on the main PC: MOONTEST_VELOCITY t=0 estimate OK vs exact NOK (memory bandwidth 119-149 %, not in the estimate); run tools/exact_compare.py (laptop run crashed on battery)
+- [Step counter in runs](step-counter-in-runs.md) — every test / headless run shows step n, elapsed, stage live and in a progress file; long runs on the main PC
