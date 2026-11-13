@@ -373,7 +373,11 @@ def reuse(mission: dict, out: dict, assemble: Callable[[dict, List[dict]], dict]
         report["sectors"][s] = rec
         if why.get(s) == "guard":
             report["flags"].append(f"margin reuse: {s} revisit bounded by no resource (guard g = {G_MAX:g})")
-    return _close(report, out, real)
+    report = _close(report, out, real)
+    # (user, 13 November 2026: every figure of the verdict also at the real revisits) the state played, for the
+    # verdict's second table (optimizer.run takes it out of the result)
+    report["_real"] = (scaled(mission, results, g)[0], real)
+    return report
 
 
 # ----------------------------------------------------------------------------- step 5.2 P7: PRIO_TRACK

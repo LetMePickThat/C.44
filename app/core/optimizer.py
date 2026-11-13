@@ -2813,7 +2813,8 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
         if stage_cb is not None:
             stage_cb("Verdict: the constraints table")
     from . import validation                 # step 5.3 (P1): the verdict, one table of constraints
-    out["verdict"] = validation.verdict(mission, out)
+    real = (out.get("margin_reuse") or {}).pop("_real", None)     # (the state played with the reuse: its figures)
+    out["verdict"] = validation.verdict(mission, out, real=real)
     for r in out["sectors"]:
         r.pop("_alternatives", None)
         r.pop("_choice", None)

@@ -390,8 +390,47 @@ def _saturation(out: dict, state_at_spec: str, mode: Optional[str] = None) -> di
             "brackets": brackets, "first_shed": cr.get("first_shed")}
 
 
-def verdict(mission: dict, out: dict) -> dict:
-    """The verdict of an assembled optimizer.run() result (see the module docstring)."""
+def constraint_rows(mission: dict, out: dict) -> List[dict]:
+    """The constraints table alone (the verdict's rows) of an assembled result."""
+    t = _Table(margin.load_ceiling(mission))
+    secs = {s["id"]: s for s in mission.get("sectors", [])}
+    _sectors(t, out, secs)
+    _tracking(t, out, secs)
+    _faces(t, out)
+    _ship(t, out, secs)
+    _flight(t, out)
+    _peak(t, out)
+    return t.rows
+
+
+def _with_reuse(rows: List[dict], real: Optional[tuple], ceiling: float, out: dict) -> Optional[dict]:
+    """User, 13 November 2026: every figure of the verdict also in the state played with the margin reuse (the real
+    revisits, R1): each row gets "with_reuse" {value, unit, load, state} from the constraints of the real assembly
+    (rule R5 unchanged: the verdict's state stays the one at the revisits asked); the summary: the factor and revisit
+    per search volume, what bounds it, the resource most loaded."""
+    if not real:
+        return None
+    try:
+        rr_rows = {r["id"]: r for r in constraint_rows(*real)}
+    except Exception:  # noqa: BLE001 -- a real assembly the table refuses: no second column
+        return None
+    for r in rows:
+        x = rr_rows.get(r["id"])
+        if x is not None:
+            r["with_reuse"] = {"value": x["value"], "unit": x["unit"], "load": x["load"], "state": x["state"]}
+    res = [x for x in rr_rows.values() if x["kind"] == "resource" and x["load"] is not None]
+    worst = max(res, key=lambda x: x["load"]) if res else None
+    mr = out.get("margin_reuse") or {}
+    return {"ceiling": ceiling,
+            "sectors": {s: {"g": v.get("g"), "rr_target_s": v.get("rr_target_s"), "rr_real_s": v.get("rr_real_s"),
+                            "limited_by": v.get("limited_by")} for s, v in (mr.get("sectors") or {}).items()},
+            "limiting": ({"object": worst["object"], "resource": worst["quantity"], "load": worst["load"],
+                          "state": worst["state"]} if worst else None)}
+
+
+def verdict(mission: dict, out: dict, real: Optional[tuple] = None) -> dict:
+    """The verdict of an assembled optimizer.run() result (see the module docstring); real: (mission, result) of the
+    state played with the margin reuse (its figures beside the verdict's, _with_reuse)."""
     ceiling = margin.load_ceiling(mission)
     secs = {s["id"]: s for s in mission.get("sectors", [])}
     t = _Table(ceiling)
@@ -418,7 +457,8 @@ def verdict(mission: dict, out: dict) -> dict:
             "ship": ship, "nok_priorities": failing_p, "saturation": _saturation(out, sat_state, margin.realloc_mode(mission)),
             "constraints": t.rows, "redundancy": list(out.get("redundancy") or []), "overlap": overlap,
             "tight": _tight(t.rows, ceiling, out),
-            "advice": advice(mission, out, t.rows, ceiling, overlap)}
+            "advice": advice(mission, out, t.rows, ceiling, overlap),
+            "with_reuse": _with_reuse(t.rows, real, ceiling, out)}
 
 
 def _tight(rows: List[dict], ceiling: float, out: dict) -> List[str]:

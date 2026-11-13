@@ -31,8 +31,8 @@ from core import validation
 from gui import controls as uc
 from gui.scene_view import SceneView, SectorDraw
 
-VERDICT_COLS = ["constraint", "state", "source", "priority", "load %", "value", "limit", "analytic", "MC interval",
-                "note"]
+VERDICT_COLS = ["constraint", "state", "source", "priority", "load %", "load % (reuse)", "value", "value (reuse)",
+                "limit", "analytic", "MC interval", "note"]   # (reuse: the state played with the margin reuse)
 ROLE_SECTOR, ROLE_ADVICE = Qt.UserRole, Qt.UserRole + 1
 
 
@@ -432,6 +432,19 @@ class ResultsTab(QWidget):
             txt += (f"\nMonte-Carlo: {m.get('state')}"
                     + (f"; load ceiling proposed {100 * c['proposed']:.1f} % of the transmit time (not applied)"
                        if c.get("proposed") is not None else ""))
+        wr = vd.get("with_reuse")                            # (user, 13 November 2026: the state played, every figure)
+        if wr and wr.get("sectors"):
+            gs = [v["g"] for v in wr["sectors"].values() if v.get("g")]
+            lim_r = wr.get("limiting") or {}
+            txt += (f"\nMargin reuse ({(self.result.get('margin_reuse') or {}).get('realloc_mode', 'PRIO_SEARCH')}): "
+                    f"search revisits x{min(gs):.3g}" + (f"-{max(gs):.3g}" if max(gs) > min(gs) * 1.001 else "")
+                    + " (" + ", ".join(f"{s} {v['rr_target_s']:g} -> {v['rr_real_s']:.3g} s, {v['limited_by']}"
+                                       for s, v in wr["sectors"].items()) + ")"
+                    + (f"; most loaded then: {lim_r['object']} {lim_r['resource']} {100 * lim_r['load']:.1f} %"
+                       if lim_r else "")
+                    + "; the verdict stays at the revisits asked (columns 'reuse': the state played)")
+        elif vd and self.result.get("margin_reuse") and not wr:
+            txt += "\nMargin reuse: its figures per constraint need a new calculation (result older than 13 Nov 2026)"
         if vd.get("tight"):                                  # pass R3d (M2)
             txt += "\nAt the limit: " + "; ".join(vd["tight"])
         self.lbl_verdict.setText(txt)
@@ -459,28 +472,34 @@ class ResultsTab(QWidget):
         for br in validation.verdict_tree(vd, ids):
             n_bad = sum(1 for g in br["groups"] for r, _a in g["rows"] if r["state"] != "OK")
             n_all = sum(len(g["rows"]) for g in br["groups"])
-            top = line(self.tree_verdict, [br["branch"], br["state"], "", "", "", "", "",
-                                           "", "", f"{n_bad} of {n_all} in alert or failed" if n_bad else f"{n_all} OK"],
+            top = line(self.tree_verdict, [br["branch"], br["state"], "", "", "", "", "", "",
+                                           "", "", "", f"{n_bad} of {n_all} in alert or failed" if n_bad else f"{n_all} OK"],
                        br["state"])
             for g in br["groups"]:
                 parent = top
                 if br["branch"] == "Volumes":
                     nb = sum(1 for r, _a in g["rows"] if r["state"] != "OK")
-                    parent = line(top, [str(g["sector"]), g["state"], "", "", "", "", "", "", "",
+                    parent = line(top, [str(g["sector"]), g["state"], "", "", "", "", "", "", "", "", "",
                                         f"{nb} in alert or failed" if nb else ""], g["state"], sector=g["sector"])
                     parent.setExpanded(g["state"] != "OK")
                 for r, advs in g["rows"]:
                     ci = r.get("ci")
                     obj = "" if str(r["object"]) in (str(g["sector"]), br["branch"]) else f"{r['object']} "
+                    wr = r.get("with_reuse") or {}
                     it = line(parent, [obj + str(r["quantity"]), r["state"], r.get("source", "model"),
                                        r["priority"] or "-", "-" if r["load"] is None else f"{100 * r['load']:.1f}",
+                                       "-" if wr.get("load") is None else f"{100 * wr['load']:.1f}",
                                        num(r["value"]) + (f" {r['unit']}" if r["unit"] and r["value"] is not None else ""),
+                                       "-" if not wr else num(wr.get("value"))
+                                       + (f" {wr['unit']}" if wr.get("unit") and wr.get("value") is not None else ""),
                                        num(r["limit"]), num(r.get("analytic")),
                                        f"[{num(ci[0])}, {num(ci[1])}]" if ci else "-", r["note"]],
                               r["state"], sector=g["sector"])
+                    if wr.get("state") and wr["state"] != "OK":
+                        it.setForeground(5, QColor(colour.get(wr["state"], "#d6453d")))
                     for a in advs:
                         change, note = self._advice_text(a)
-                        ad = line(it, [f"advice {a['n']}", "", "estimate", "", "", change, "", "", "", note],
+                        ad = line(it, [f"advice {a['n']}", "", "estimate", "", "", "", change, "", "", "", "", note],
                                   sector=g["sector"], advice=a["n"])
                         ad.setForeground(0, QColor(colour["ALERT"]))
                     it.setExpanded(bool(advs) and r["state"] != "OK")
