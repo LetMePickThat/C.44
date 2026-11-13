@@ -36,12 +36,8 @@ _cache: Optional[Dict[str, dict]] = None
 
 
 def _param_stamp() -> str:
-    try:
-        with open(P.path, "rb") as fh:
-            h = hashlib.sha1(fh.read()).hexdigest()
-    except OSError:
-        h = "?"
-    return f"{rm.MODEL_VERSION}:{h}"
+    from .params import values_stamp
+    return f"{rm.MODEL_VERSION}:{values_stamp(P)}"
 
 
 def fingerprint(sec: dict) -> str:

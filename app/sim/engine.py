@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import copy
 import dataclasses
-import hashlib
 import json
 import math
 import os
@@ -200,9 +199,10 @@ def mission_at(sc: dict, truth: Truth, t: float, mission: Optional[dict] = None)
 
 # ----------------------------------------------------------------------------- N10-N13 journal and summary
 def params_hash() -> str:
-    """Hash of every value of the parameter file (sim. included)."""
-    vals = {p.path: p.value for p in P}
-    return hashlib.sha256(json.dumps(vals, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:16]
+    """Hash of the values of the parameter file the computations use (sim. included; meta., tool.cli. and
+    tool.display. left out: core.params.values_stamp)."""
+    from core.params import values_stamp
+    return values_stamp(P)
 
 
 _TRUTH_ARRAYS = ("t_s", "r_km", "v_kms", "t_appear_s", "t_impact_s", "t_pn_start_s", "miss_km", "att_t_s", "att_q")

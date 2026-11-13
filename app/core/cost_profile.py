@@ -49,13 +49,8 @@ _generation = 0                                   # +1 each time a profile becom
 
 def _stamp() -> str:
     from . import radar_model as rm
-    from .params import P
-    try:
-        with open(P.path, "rb") as fh:
-            h = hashlib.sha1(fh.read()).hexdigest()
-    except OSError:
-        h = "?"
-    return f"{rm.MODEL_VERSION}:{h}"
+    from .params import P, values_stamp
+    return f"{rm.MODEL_VERSION}:{values_stamp(P)}"
 
 
 def positions_bucket(positions: float) -> float:

@@ -236,12 +236,18 @@ def _pair_note(sa_id: str, sb_id: str, om_met: float, om_inter: float, reason_ce
 
 def find_redundancies(mission: dict, grid: geo.SphereGrid,
                       plans: Optional[Dict[str, Optional[dict]]] = None,
-                      served: Optional[Dict[str, Tuple[float, float]]] = None, resolved: bool = False
+                      served: Optional[Dict[str, Tuple[float, float]]] = None, resolved: bool = False,
+                      cut: Optional[Dict[str, Tuple[np.ndarray, List[str]]]] = None
                       ) -> Tuple[List[Finding], Dict[Tuple[str, str], str]]:
     """Step 3.0: computed on the mission turned into the ship frame (core/frames.py); nothing if its frames are invalid.
     plans: the waveform plan of each sector by id (step 5.3 P3: the plans of a finished run); a sector without one is
     planned here alone, at the reference power (core.optimizer.sector_plan). grid: any core.optimizer.Sphere.
-    resolved: the sectors are already in the ship frame (their frame_m applied: check_ship)."""
+    resolved: the sectors are already in the ship frame (their frame_m applied: check_ship).
+    cut (user, 13 November 2026, with the relief): {id: (cells the relief takes out of the volume, ids relieving it)}:
+    the findings limited to the cut volume -- only the volumes relieved, their share = the relief's, "by" = the
+    relieving volumes, deleted only when the relief takes cover_full of it, trimmed only by the boxes of relieving
+    volumes whose overlap the relief takes (cover_full of it): a trim never removes a part the volume still searches.
+    The pair notes stay over every pair."""
     if not resolved:
         try:
             mission, _ = frames.resolve(mission)
@@ -269,6 +275,9 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid,
         by, clean, short_notes, details = [], [], [], []
         v_b = sb["v_close_max_mps"]
         g_b = guaranteed_range_km(sb["range_km"], sb["rr_target_s"], v_b)
+        cut_b = None if cut is None else cut.get(str(sb["id"]))
+        if cut_b is not None:
+            cut_b = (np.asarray(cut_b[0], bool) & mb, {str(x) for x in cut_b[1]})
         for i, sa in enumerate(sectors):
             if i == j:
                 continue
@@ -287,6 +296,8 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid,
                                                            inter & ~met, grid)
             if om_met <= 0.0:
                 continue
+            if cut is not None and (cut_b is None or str(sa["id"]) not in cut_b[1]):
+                continue                               # (not relieving B: no part of its finding)
             by.append(sa["id"])
             details.append(f"{sa['id']} detects {sb['id']}'s target from {worst:.0f} km (worst scan angle), revisit "
                            f"{sa['rr_target_s']:g} s: {guaranteed_range_km(worst, sa['rr_target_s'], v_b):.0f} km "
@@ -294,12 +305,17 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid,
                            f"({sb['range_km']:.0f} km, revisit {sb['rr_target_s']:g} s)")
             covered |= met
             om_short = float((grid.d_omega * short).sum())
-            if om_met >= COVER_FULL * (float((grid.d_omega * inter).sum()) - om_short):
+            om_ok = om_met if cut_b is None else float((grid.d_omega * (cut_b[0] & inter)).sum())
+            if om_ok >= COVER_FULL * (float((grid.d_omega * inter).sum()) - om_short):
                 clean.append(sa)
                 if om_short > 0.0 and sa.get("shape", "box") == "box":
                     short_notes.append(f"{sa['id']} is short of its own range ({sa['range_km']:.0f} km) on "
                                        f"{100 * om_short / om_b:.0f} % of {sb['id']}'s volume (high scan angles): "
                                        f"{sb['id']}'s need is only met there once {sa['id']} is fixed")
+        if cut is not None:
+            if cut_b is None or not by:
+                continue
+            covered = cut_b[0]                         # (the relief's share)
         frac = float((grid.d_omega * covered).sum()) / om_b
         if frac < COVER_MIN:
             continue
@@ -463,15 +479,17 @@ def relief_and_cover(sectors_ship: List[dict], grid, eps_min: float, eps_max: fl
 
 
 def check_ship(sectors_ship: List[dict], grid, eps_min: float, eps_max: float, sky: Optional[dict],
-               g: Optional[dict], served: Optional[Dict[str, Tuple[float, float]]]
-               ) -> Tuple[List[Finding], Dict[Tuple[str, str], str]]:
+               g: Optional[dict], served: Optional[Dict[str, Tuple[float, float]]],
+               rl: Optional[Dict[str, dict]] = None) -> Tuple[List[Finding], Dict[Tuple[str, str], str]]:
     """find_redundancies() on volumes already in the ship frame, with the relief's inputs (the same instant, sky,
     shares served and, in the same process, the same cached plans: after relief_and_cover it costs almost nothing;
-    it ran > 3 min on its own)."""
+    it ran > 3 min on its own). rl: the relief of relief_and_cover() on the same grid, the findings then limited to
+    the cut volume (find_redundancies' cut)."""
     gl = {k: v for k, v in dict(g or {}).items() if k in ("spectrum_exclusions_ghz", "face_elec_mw")}
     gl.update(eps_min_deg=eps_min, eps_max_deg=eps_max, sky=sky)
     secs = [{k: v for k, v in s.items() if k != "_relief"} for s in sectors_ship]
-    return find_redundancies({"global": gl, "sectors": secs}, grid, served=served, resolved=True)
+    cut = None if rl is None else {k: (mo.relief_grid(r["code"]), list(r.get("by") or [])) for k, r in rl.items()}
+    return find_redundancies({"global": gl, "sectors": secs}, grid, served=served, resolved=True, cut=cut)
 
 
 # the fast estimate's relief, computed in the background (as core/cost_profile) and kept
@@ -493,7 +511,8 @@ def relief_package(sectors_ship, grid, eps_min, eps_max, sky, g, served) -> dict
     "cover" (relief_and_cover), "findings", "notes" (check_ship; findings by volume id, notes by (id, id))}."""
     rl, cover = relief_and_cover(sectors_ship, grid, eps_min, eps_max, sky, g, served)
     try:
-        findings, notes = check_ship(sectors_ship, grid, eps_min, eps_max, sky, g, served)
+        findings, notes = check_ship(sectors_ship, grid, eps_min, eps_max, sky, g, served,
+                                     rl if RELIEF_ON else None)
     except Exception:  # noqa: BLE001 -- a check the model refuses: no findings (the relief kept)
         findings, notes = [], {}
     return {"relief": rl, "cover": cover, "findings": {str(f.sid): f for f in findings}, "notes": notes}

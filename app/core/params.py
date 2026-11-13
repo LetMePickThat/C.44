@@ -113,6 +113,19 @@ _FINGERPRINT_SKIP = ("meta.", "tool.cli.", "tool.display.", "tool.mission_defaul
                      "tool.frames.", "tool.robustness.", "tool.montecarlo.", "tool.profile.", "sim.")
 
 
+# Values no computation depends on (GUI and CLI settings, file metadata): left out of the cache stamps
+_STAMP_SKIP = ("meta.", "tool.cli.", "tool.display.")
+
+
+def values_stamp(params: Optional["Params"] = None) -> str:
+    """Hash of the parameter VALUES the computations use (comments, source / date / status texts and the display, CLI
+    and meta sections left out): the stamp of the caches (cost profiles, recalibrations, time profiles, flight plans)."""
+    import hashlib
+    import json
+    vals = {p.path: p.value for p in (params if params is not None else P) if not p.path.startswith(_STAMP_SKIP)}
+    return hashlib.sha256(json.dumps(vals, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:16]
+
+
 def fingerprint(params: "Params") -> str:
     """Hash of every value a derived file depends on (system values + optimiser and cost-table settings). A derived
     file stores it when built; a different fingerprint means the parameter file changed since: rebuild it."""
