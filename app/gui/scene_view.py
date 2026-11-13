@@ -63,6 +63,7 @@ PLAYED_FULL_SHARE = 0.995                     # "show effectively played": a vol
 LABEL_OK, LABEL_NOK = "#1e7d45", "#e0574f"   # its second line: the worst range and the revisit achieved
                                                # (green darkened 12 Nov 2026, user: unreadable on the gauge's green)
 SECTOR_LABEL_FONT_SIZE = 13   # shared by _build_sectors (draws) and _label_hit (estimates the on-screen box), x UI size
+DIAGNOSIS_START_PX = 230       # the live load + Diagnosis panel's height at start (5.5 A; then set with the mouse)
 FACE_OUTLINE_COLOR = "#9aa0aa"   # the zones' outlines, light on the black of space (view3d.MUTED_COLOR)
 SCN = "scn_"                     # the linked scenario's actors (pass S2)
 PLAY_SPEEDS = (1, 10, 100, 1000)                 # the playback's speeds (as the Scenario Editor's first ones)
@@ -657,11 +658,12 @@ class SceneView(QWidget):
     show_all_sectors = pyqtSignal()
     hide_all_sectors = pyqtSignal()
     rerun_requested = pyqtSignal()              # the badge clicked while the estimate is held (user, 13 Nov 2026)
+    sector_selected = pyqtSignal(str)           # a line of the diagnosis naming a volume clicked (5.5 A)
 
     def __init__(self, grid: geo.SphereGrid, face_opacity: float, sector_opacity: float, parent=None,
-                 exec_face_colours: bool = False):
+                 exec_face_colours: bool = False, diagnosis: bool = False):
         """exec_face_colours: the executed volumes in their face's colour (the preparation), else in the sector's (the
-        results' "Colour by")."""
+        results' "Colour by"). diagnosis: the Diagnosis panel under the live load (the preparation, 5.5 A)."""
         super().__init__(parent)
         self.exec_face_colours = exec_face_colours
         self.grid = grid
@@ -682,13 +684,41 @@ class SceneView(QWidget):
         self.display_bar.gauge_changed.connect(self._on_gauge)
         self.plotter = QtInteractor(self)
         self.plotter.setMinimumWidth(500)
+        v3.keep_scale_on_resize(self.plotter)          # (user, 13 November 2026: the zoom kept on a resize)
         self.plotter.interactor.setToolTip("Right drag: turn the view. Drag a label to reposition it (a line keeps it "
                                            "linked to its volume); double-click a moved label to snap it back.")
         self._stack = QStackedWidget()                 # the sphere (0) or the global view (1, built when first asked)
         self._stack.addWidget(self.plotter.interactor)
-        v.addWidget(self._stack)
-        v.addWidget(self._build_play_bar())            # (user, 10 November 2026)
-        v.addWidget(self._build_load_bar())
+        self.diagnosis = None                          # (5.5 point A: what limits the mission, from the live load)
+        top_v = v
+        if diagnosis:                                  # (user, 13 November 2026: its height set with the mouse, as
+            top = QWidget()                            # the left column's width) the view and its bars over it
+            top_v = QVBoxLayout(top)
+            top_v.setContentsMargins(0, 0, 0, 0)
+        top_v.addWidget(self._stack, 1)                # (the view takes the free height: 5.5 A, user)
+        top_v.addWidget(self._build_play_bar())        # (user, 10 November 2026)
+        if diagnosis:
+            from gui.diagnosis_panel import DiagnosisPanel
+            self.diagnosis = DiagnosisPanel()
+            self.diagnosis.sector_selected.connect(self.sector_selected)
+            bottom = QWidget()                         # (user, 13 November 2026: the split between the view and the
+            bot_v = QVBoxLayout(bottom)                # information under it, above the live load and its badge)
+            bot_v.setContentsMargins(0, 0, 0, 0)
+            bot_v.setSpacing(0)
+            bot_v.addWidget(self._build_load_bar())
+            bot_v.addWidget(self.diagnosis, 1)
+            self.diagnosis.folded.connect(lambda f, b_=bottom: b_.setMaximumHeight(
+                b_.sizeHint().height() if f else 16777215))
+            split = QSplitter(Qt.Vertical)
+            split.addWidget(top)
+            split.addWidget(bottom)
+            split.setChildrenCollapsible(False)
+            split.setStretchFactor(0, 1)               # (a taller window grows the view, not the panel)
+            split.setStretchFactor(1, 0)
+            split.setSizes([10000, DIAGNOSIS_START_PX])
+            v.addWidget(split)
+        else:
+            v.addWidget(self._build_load_bar())
         self._sim = None                               # gui/sim_view.SimView, read only
         self._sim_run = None                           # the run it shows
         self._sim_mission: Optional[tuple] = None      # (mission, hidden sector ids) for its volumes
@@ -965,7 +995,7 @@ class SceneView(QWidget):
         """The badge says 'computing' BEFORE an estimated update that runs on the window's thread (user, 11 November
         2026: the window froze with nothing said), painted at once."""
         lb = getattr(self, "_load_badge", None)
-        if lb is None:
+        if lb is None or getattr(self, "_exact_load", None) is not None:
             return
         uc.set_source(lb, "estimating", detail="updating the view",
                       tip="The fast estimate is being calculated: the view is being updated", progress=0.0)
@@ -990,7 +1020,7 @@ class SceneView(QWidget):
         reliefs, the redundancy check: core/background, user 11 November 2026), else where the figures come from."""
         from core import background
         lb = getattr(self, "_load_badge", None)
-        if lb is None:
+        if lb is None or getattr(self, "_exact_load", None) is not None:   # (the Results tab: EXACT stays)
             return
         a = getattr(self, "_last_alloc", None) or {}
         gauge = " (the range gauge uses the same figures)"
@@ -1001,6 +1031,11 @@ class SceneView(QWidget):
             lb.setCursor(Qt.PointingHandCursor)
             return
         lb.unsetCursor()
+        if background.estimate_paused():              # (user, 13 November 2026: the exact calculation first)
+            uc.set_source(lb, "paused", tip="An exact calculation is running: the fast estimate is paused (its "
+                          "processes suspended, nothing new started) and resumes when it ends; the figures shown are "
+                          "the last ones")
+            return
         st = background.status()
         if st or a.get("estimating"):
             # (user, 12 November 2026: "ESTIMATE · computing · estimate" said nothing) the badge names the most
@@ -1030,8 +1065,67 @@ class SceneView(QWidget):
     def set_load_ceiling(self, ceiling: float) -> None:
         self.set_mission_global({**self._mission_global, "load_ceiling": ceiling})
 
+    def set_exact_load(self, result: Optional[dict]) -> None:
+        """The live load replaced by an exact result's (the Results tab, user 13 November 2026: the bar showed the
+        live estimate of the mission, the same figures as the preparation): per face the power drawn (always-on in
+        grey), the S and Ku transmit time, at the real revisits of the margin reuse when there is one; badge EXACT.
+        None: back to the live estimate."""
+        self._exact_load = result
+        if result is not None:
+            self._show_exact_load()
+
+    def _show_exact_load(self) -> None:
+        res = self._exact_load or {}
+        mr = res.get("margin_reuse") or {}
+        pa_real = (mr.get("power_allocation") or {}).get("faces") or {}
+        pa_nom = (res.get("power_allocation") or {}).get("faces") or {}
+        trk_f = (res.get("tracking") or {}).get("faces") or {}
+        ceil = float(mr.get("load_ceiling") or (res.get("verdict") or {}).get("load_ceiling")
+                     or self._mission_global.get("load_ceiling") or 1.0)
+        ref = float(P.get("power.face_elec_mw")) * 1e6
+        real = bool(pa_real)
+        for k, col in self._load_cols.items():
+            f = pa_real.get(str(k)) or pa_nom.get(str(k)) or {}
+            fn = pa_nom.get(str(k)) or f
+            e_w, base = float(f.get("alloc_MW", 0.0)) * 1e6, float(f.get("always_on_MW", 0.0)) * 1e6
+            use = e_w / ref if ref > 0 else 0.0
+            rr = ((mr.get("faces") or {}).get(str(k)) or {}).get("resources_real") or {}
+            tf = trk_f.get(str(k)) or {}
+            t_s = float(rr.get("S time", tf.get("total_s_time", 0.0)) if real else tf.get("total_s_time", 0.0))
+            t_k = float(rr.get("Ku time", tf.get("total_ku_time", 0.0)) if real else tf.get("total_ku_time", 0.0))
+            e_load = float(f.get("load", 0.0))
+            bars = [{"name": "E", "val": use, "moved": 0.0, "lent": 0.0, "ceiling": None, "base": base / ref,
+                     "color": LOAD_OVER if use > 1.0 else LOAD_HIGH if e_load >= ceil * (1 - 1e-3) else LOAD_OK,
+                     "text": _energy_text(e_w, base, 0.0)}]
+            for name, v in (("S", t_s), ("Ku", t_k)):
+                bars.append({"name": name, "val": v, "moved": 0.0, "lent": 0.0, "ceiling": ceil,
+                             "color": LOAD_OVER if v > 1.0 else LOAD_HIGH if v >= ceil * (1 - 1e-3) else LOAD_OK})
+            tip = [f"{geo.FACE_NAMES[k]} (exact calculation" + (", at the real revisits of the margin reuse)" if real
+                                                                else ")"),
+                   f"  energy {e_w / 1e6:.3f} MW drawn (always-on {base / 1e6:.3f} MW; "
+                   f"{float(fn.get('alloc_MW', 0.0)):.3f} MW at the revisits asked)",
+                   f"  S time {100 * t_s:.2f} %, Ku time {100 * t_k:.3f} % (ceiling {100 * ceil:.0f} %)"]
+            col.set_bars(bars, "\n".join(tip))
+        st = (res.get("verdict") or {}).get("state") or ""
+        self._load_status.setText(st)
+        self._load_status.setStyleSheet(f"color: {LOAD_OK if st == 'OK' else LOAD_HIGH if st in ('ALERT', 'DEGRADED') else LOAD_OVER};"
+                                        " font-weight: bold;")
+        self._load_status.setToolTip("The verdict of the exact calculation")
+        self._load_lbl.setText("Load (exact):")
+        uc.set_source(self._load_badge, "exact", tip="Loads of the exact calculation shown in this tab"
+                      + (" at the real revisits of the margin reuse" if real else ""))
+
     def _show_load(self, draws: List["SectorDraw"], sky: Optional[dict]) -> None:
+        if getattr(self, "_exact_load", None) is not None:      # (the Results tab: the exact result's loads)
+            self._show_exact_load()
+            return
         a = self._allocation(draws, sky)
+        if self.diagnosis is not None:
+            from core import diagnosis as dg
+            try:
+                self.diagnosis.set_diagnosis(dg.live(a, [{**d.sec, "id": d.sid} for d in draws]))
+            except Exception:  # noqa: BLE001 -- a result mid-edit: no diagnosis rather than no load
+                self.diagnosis.set_diagnosis(None)
         if a is None:
             self._last_alloc = None
             for col in self._load_cols.values():

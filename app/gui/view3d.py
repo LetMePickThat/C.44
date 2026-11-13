@@ -28,7 +28,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pyvista as pv
-from PyQt5.QtCore import QObject, Qt, pyqtSignal
+from PyQt5.QtCore import QEvent, QObject, Qt, pyqtSignal
 from PyQt5.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QWidget
 from vtkmodules.util.numpy_support import numpy_to_vtk
 
@@ -69,6 +69,45 @@ def space_background(plotter) -> gsky.Sky:
 
 
 # ----------------------------------------------------------------------------- mouse
+class _KeepScale(QObject):
+    """keep_scale_on_resize's event filter on a plotter's widget."""
+
+    def __init__(self, plotter):
+        super().__init__(plotter.interactor)
+        self._p = weakref.ref(plotter)
+
+    def eventFilter(self, obj, ev):  # noqa: N802 (Qt)
+        if ev.type() == QEvent.Resize:
+            h0, h1 = ev.oldSize().height(), ev.size().height()
+            p = self._p()
+            if p is not None and h0 >= MIN_RESIZE_PX and h1 >= MIN_RESIZE_PX and h0 != h1:
+                try:
+                    cam = p.renderer.GetActiveCamera()
+                    k = h1 / h0
+                    if cam.GetParallelProjection():
+                        cam.SetParallelScale(cam.GetParallelScale() * k)
+                    else:
+                        t = math.tan(math.radians(cam.GetViewAngle()) / 2.0) * k
+                        cam.SetViewAngle(min(MAX_VIEW_ANGLE_DEG, max(MIN_VIEW_ANGLE_DEG, 2.0 * math.degrees(math.atan(t)))))
+                    p.renderer.ResetCameraClippingRange()
+                except Exception:  # noqa: BLE001 -- a plotter being closed
+                    pass
+        return False
+
+
+MIN_RESIZE_PX = 50                 # (the first layout passes of a window: not a resize by the operator)
+MIN_VIEW_ANGLE_DEG, MAX_VIEW_ANGLE_DEG = 0.5, 170.0
+
+
+def keep_scale_on_resize(plotter) -> None:
+    """The view keeps its zoom when its widget is resized (user, 13 November 2026: the Diagnosis panel or the left
+    column moved with the mouse): VTK keeps the vertical view angle, so a shorter view showed the scene smaller; the
+    angle (the parallel scale in a parallel projection) follows the height, the pixels per unit stay."""
+    f = _KeepScale(plotter)
+    plotter.interactor.installEventFilter(f)
+    plotter._keep_scale = f
+
+
 def install_rotation(plotter, axis: Callable[[], Sequence[float]], on_click: Optional[Callable] = None) -> None:
     """The mouse rotation of both tools (user, 29 October 2026): right drag = turntable about the view's vertical
     axis(), TURN_DEG_PX per pixel, the camera turning about the scene's pivot; a right click without a drag calls

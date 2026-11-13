@@ -14,12 +14,13 @@ from __future__ import annotations
 
 import csv
 import json
+from typing import Tuple
 
 from PyQt5.QtCore import QThread, Qt, pyqtSignal
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
     QAbstractItemView, QComboBox, QFileDialog, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QMessageBox,
-    QScrollArea, QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QScrollArea, QSplitter, QTableWidget, QTableWidgetItem, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
 )
 
 from core import frames
@@ -29,6 +30,10 @@ from core import radar_model as rm
 from core import validation
 from gui import controls as uc
 from gui.scene_view import SceneView, SectorDraw
+
+VERDICT_COLS = ["constraint", "state", "source", "priority", "load %", "value", "limit", "analytic", "MC interval",
+                "note"]
+ROLE_SECTOR, ROLE_ADVICE = Qt.UserRole, Qt.UserRole + 1
 
 
 class MonteCarloWorker(QThread):
@@ -131,6 +136,7 @@ class ResultsTab(QWidget):
 
         self._build_ui()
         self.view.set_achieved(self._achieved_exact())   # the labels' 2nd line: the exact figures (11 Nov 2026)
+        self.view.set_exact_load(result)                # the load bar: the exact loads, not the live estimate (13 Nov)
         self._update_scene()
         self._fill_tables()
         self.table_sectors.itemChanged.connect(self._on_sector_check_changed)
@@ -204,18 +210,20 @@ class ResultsTab(QWidget):
         self.lbl_verdict = QLabel("")
         self.lbl_verdict.setWordWrap(True)
         v.addWidget(self.lbl_verdict)
-        self.table_verdict = QTableWidget()
-        cols = ["state", "source", "object", "constraint", "priority", "load %", "value", "limit", "analytic",
-                "MC interval", "note"]
-        self.table_verdict.setColumnCount(len(cols))
-        self.table_verdict.setHorizontalHeaderLabels(cols)
-        self.table_verdict.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-        self.table_verdict.horizontalHeader().setStretchLastSection(True)
-        self.table_verdict.setToolTip("Resource: OK up to the load ceiling, ALERT up to 100 % (safety reserve in use), "
+        # step 5.5 Q6 (user, 13 November 2026): grouped by constraint as the preparation's Diagnosis (Volumes, F1-F4,
+        # Ship), every constraint, the worst first; each advice under its constraint (Verify acts on the one selected)
+        self.tree_verdict = QTreeWidget()
+        self.tree_verdict.setColumnCount(len(VERDICT_COLS))
+        self.tree_verdict.setHeaderLabels(VERDICT_COLS)
+        self.tree_verdict.header().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.tree_verdict.header().setStretchLastSection(True)
+        self.tree_verdict.setMinimumHeight(260)
+        self.tree_verdict.itemClicked.connect(self._on_verdict_clicked)
+        self.tree_verdict.setToolTip("Resource: OK up to the load ceiling, ALERT up to 100 % (safety reserve in use), "
                                       "NOK above. Requirement: OK up to 100 %, NOK above. Transient: ALERT above 100 %. "
                                       "Source MC (Monte-Carlo, on demand): NOK when the requirement is missed beyond the "
                                       "interval, ALERT when the analytic value is optimistic.")
-        v.addWidget(self.table_verdict)
+        v.addWidget(self.tree_verdict)
         # step 5.4 M4 (H3): the Monte-Carlo of the plan, on demand
         h = QHBoxLayout()
         self.btn_mc = uc.tool_button("Monte-Carlo", self._run_montecarlo, "SP_MediaPlay",
@@ -234,21 +242,11 @@ class ResultsTab(QWidget):
         h.addWidget(self.lbl_mc, 1)
         v.addLayout(h)
         self._mc_worker = None
-        # step 5.3 (P2): the quantified relaxation advice, estimated; one of them verified on request
-        self.table_advice = QTableWidget()
-        cols = ["n", "constraint", "kind", "on", "change", "law / note", "verified"]
-        self.table_advice.setColumnCount(len(cols))
-        self.table_advice.setHorizontalHeaderLabels(cols)
-        self.table_advice.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-        self.table_advice.horizontalHeader().setStretchLastSection(True)
-        self.table_advice.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table_advice.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.table_advice.setToolTip("Estimates from the load laws of each lever; 'Verify' recomputes the mission with "
-                                     "the change and bisects for the smallest relaxation that holds (several minutes)")
-        v.addWidget(self.table_advice)
+        # step 5.3 (P2): the quantified relaxation advice, estimated (under their constraint in the tree since 5.5 Q6);
+        # one of them verified on request
         h = QHBoxLayout()
         self.btn_verify = uc.tool_button("Verify the selected advice", self._verify_advice, "SP_DialogApplyButton",
-                                         tip="Recompute the mission with the advice selected in the table and bisect "
+                                         tip="Recompute the mission with the advice selected in the verdict and bisect "
                                              "for the smallest relaxation that holds (several minutes)")
         self.lbl_verify = QLabel("")
         self.lbl_verify.setWordWrap(True)
@@ -287,30 +285,46 @@ class ResultsTab(QWidget):
                 self.table_overlap.setItem(i, col, QTableWidgetItem(val))
 
     def _fill_advice(self) -> None:
+        """The advice sits under its constraint in the verdict tree (5.5 Q6): redrawn with it."""
         adv = (self.result.get("verdict") or {}).get("advice", [])
-        self.table_advice.setRowCount(len(adv))
         self.btn_verify.setEnabled(bool(adv) and not self.partial)
-        for i, a in enumerate(adv):
-            change = validation.changes_text(a, most=len(a["changes"])) if a["changes"] else "-"
-            ver = a.get("verified")
-            ver_txt = ("-" if ver is None else "holds: " + ", ".join(
-                f"{c['key']} {c['verified']:.4g}" if isinstance(c["verified"], (int, float)) and not isinstance(
-                    c["verified"], bool) else c["key"] if c["key"] in ("removed", "pieces")
-                else f"{c['key']} {c['verified']}" for c in ver["changes"])
-                if ver["holds"] else "does not hold")
-            vals = [str(a["n"]), f"{a['object']} {a['quantity']} ({a['state']})", a["kind"], a["item"] or "-",
-                    change, "; ".join(x for x in (a["law"], "approximate" if a["approximate"] else "", a["note"],
-                                                 ", ".join(a["others_left"])) if x), ver_txt]
-            for col, val in enumerate(vals):
-                self.table_advice.setItem(i, col, QTableWidgetItem(val))
+        self._fill_verdict()
+
+    @staticmethod
+    def _advice_text(a: dict) -> Tuple[str, str]:
+        """(change, law / note / verified) of one advice."""
+        change = validation.changes_text(a, most=len(a["changes"])) if a["changes"] else "-"
+        ver = a.get("verified")
+        ver_txt = ("" if ver is None else "verified: holds: " + ", ".join(
+            f"{c['key']} {c['verified']:.4g}" if isinstance(c["verified"], (int, float)) and not isinstance(
+                c["verified"], bool) else c["key"] if c["key"] in ("removed", "pieces")
+            else f"{c['key']} {c['verified']}" for c in ver["changes"])
+            if ver["holds"] else "verified: does not hold")
+        note = "; ".join(x for x in (a["kind"] + (f" on {a['item']}" if a.get("item") else ""), a["law"],
+                                     "approximate" if a["approximate"] else "", a["note"],
+                                     ", ".join(a["others_left"]), ver_txt) if x)
+        return change, note
+
+    def _on_verdict_clicked(self, item: QTreeWidgetItem, _col: int) -> None:
+        """A line naming a volume selects it in the per-sector table (5.5 Q6d)."""
+        sid = item.data(0, ROLE_SECTOR)
+        if not sid:
+            return
+        for i in range(self.table_sectors.rowCount()):
+            it = self.table_sectors.item(i, 0)
+            if it is not None and (it.data(Qt.UserRole) == sid or it.text() == sid):
+                self.table_sectors.selectRow(i)
+                self._on_sector_row(i)
+                return
 
     def _verify_advice(self) -> None:
         adv = (self.result.get("verdict") or {}).get("advice", [])
-        row = self.table_advice.currentRow()
-        if not 0 <= row < len(adv) or not adv[row]["changes"]:
-            self.lbl_verify.setText("Select an advice with a change first.")
+        it = self.tree_verdict.currentItem()
+        n = it.data(0, ROLE_ADVICE) if it is not None else None
+        a = next((x for x in adv if x["n"] == n), None)
+        if a is None or not a["changes"]:
+            self.lbl_verify.setText("Select an advice with a change first (under its constraint in the verdict).")
             return
-        a = adv[row]
         self.btn_verify.setEnabled(False)
         self.lbl_verify.setText(f"Verifying advice {a['n']} (each step recomputes the whole mission)...")
         self._verify_worker = VerifyWorker(self.mission, a, self)
@@ -371,7 +385,7 @@ class ResultsTab(QWidget):
         vd = self.result.get("verdict")
         if not vd:
             self.lbl_verdict.setText("No verdict in this result.")
-            self.table_verdict.setRowCount(0)
+            self.tree_verdict.clear()
             return
         lim = vd.get("limiting")
         sat = vd.get("saturation") or {}
@@ -399,24 +413,54 @@ class ResultsTab(QWidget):
         self.lbl_verdict.setText(txt)
         colour = {"OK": "#2fa35a", "ALERT": "#e08a1e", "DEGRADED": "#c8551e", "NOK": "#d6453d"}   # R3d: between
         self.lbl_verdict.setStyleSheet(f"color: {colour.get(vd['state'], '#d6453d')}; font-weight: bold;")
-        rows = sorted((r for r in vd["constraints"] if r["state"] != "OK"),
-                      key=lambda r: ({"NOK": 0, "DEGRADED": 1}.get(r["state"], 2), r["object"], r["quantity"]))
-        self.table_verdict.setRowCount(len(rows))
-
         def num(x) -> str:
             return f"{x:.4g}" if isinstance(x, (int, float)) and not isinstance(x, bool) else ("-" if x is None else str(x))
-        for i, r in enumerate(rows):
-            ci = r.get("ci")
-            vals = [r["state"], r.get("source", "model"), r["object"], r["quantity"], r["priority"] or "-",
-                    "-" if r["load"] is None else f"{100 * r['load']:.1f}",
-                    num(r["value"]) + (f" {r['unit']}" if r["unit"] and r["value"] is not None else ""),
-                    num(r["limit"]), num(r.get("analytic")),
-                    f"[{num(ci[0])}, {num(ci[1])}]" if ci else "-", r["note"]]
-            for col, val in enumerate(vals):
-                item = QTableWidgetItem(val)
-                if col == 0:
-                    item.setForeground(QColor(colour[r["state"]]))
-                self.table_verdict.setItem(i, col, item)
+        open_ = {}                                           # (the branches the operator opened stay open)
+        for i in range(self.tree_verdict.topLevelItemCount()):
+            t = self.tree_verdict.topLevelItem(i)
+            open_[t.text(0)] = t.isExpanded()
+        self.tree_verdict.clear()
+        ids = [r["id"] for r in self.result.get("sectors", [])] + [s_.get("id") for s_ in self.mission.get("sectors", [])]
+        n_col = len(VERDICT_COLS)
+
+        def line(parent, texts, state=None, sector=None, advice=None) -> QTreeWidgetItem:
+            it = QTreeWidgetItem(parent, [str(t) for t in texts] + [""] * (n_col - len(texts)))
+            if state:
+                it.setForeground(1, QColor(colour.get(state, "#d6453d")))
+            if sector:
+                it.setData(0, ROLE_SECTOR, str(sector))
+            if advice is not None:
+                it.setData(0, ROLE_ADVICE, advice)
+            return it
+        for br in validation.verdict_tree(vd, ids):
+            n_bad = sum(1 for g in br["groups"] for r, _a in g["rows"] if r["state"] != "OK")
+            n_all = sum(len(g["rows"]) for g in br["groups"])
+            top = line(self.tree_verdict, [br["branch"], br["state"], "", "", "", "", "",
+                                           "", "", f"{n_bad} of {n_all} in alert or failed" if n_bad else f"{n_all} OK"],
+                       br["state"])
+            for g in br["groups"]:
+                parent = top
+                if br["branch"] == "Volumes":
+                    nb = sum(1 for r, _a in g["rows"] if r["state"] != "OK")
+                    parent = line(top, [str(g["sector"]), g["state"], "", "", "", "", "", "", "",
+                                        f"{nb} in alert or failed" if nb else ""], g["state"], sector=g["sector"])
+                    parent.setExpanded(g["state"] != "OK")
+                for r, advs in g["rows"]:
+                    ci = r.get("ci")
+                    obj = "" if str(r["object"]) in (str(g["sector"]), br["branch"]) else f"{r['object']} "
+                    it = line(parent, [obj + str(r["quantity"]), r["state"], r.get("source", "model"),
+                                       r["priority"] or "-", "-" if r["load"] is None else f"{100 * r['load']:.1f}",
+                                       num(r["value"]) + (f" {r['unit']}" if r["unit"] and r["value"] is not None else ""),
+                                       num(r["limit"]), num(r.get("analytic")),
+                                       f"[{num(ci[0])}, {num(ci[1])}]" if ci else "-", r["note"]],
+                              r["state"], sector=g["sector"])
+                    for a in advs:
+                        change, note = self._advice_text(a)
+                        ad = line(it, [f"advice {a['n']}", "", "estimate", "", "", change, "", "", "", note],
+                                  sector=g["sector"], advice=a["n"])
+                        ad.setForeground(0, QColor(colour["ALERT"]))
+                    it.setExpanded(bool(advs) and r["state"] != "OK")
+            top.setExpanded(open_.get(br["branch"], br["state"] != "OK"))
 
     def _build_sector_table_group(self) -> QGroupBox:
         box = QGroupBox("Per-sector summary")
@@ -550,7 +594,11 @@ class ResultsTab(QWidget):
             worst = rg.get("at_worst_scan") if isinstance(rg, dict) else None
             if worst is None:
                 continue
-            out[r["id"]] = {"worst_km": float(worst), "rr_s": float(r.get("rr_est_mission_s", r.get("rr_target_s", 0))),
+            rr_s = float(r.get("rr_est_mission_s", r.get("rr_target_s", 0)))
+            mr = self.reuse_by_id.get(r["id"])          # (user, 13 November 2026: the revisit served with the spare,
+            if mr and float(mr.get("g", 1.0)) > 1.0 + 1e-9:   # as the live estimate shows it; the verdict stays on
+                rr_s = float(mr["rr_real_s"])           # the revisit asked, rule R5)
+            out[r["id"]] = {"worst_km": float(worst), "rr_s": rr_s,
                             "ok": r["id"] not in bad, "confirm": r["id"] not in no_conf}
             if rl:
                 out[r["id"]]["relief"] = {"share": float(rl.get("share", 0.0)), "by": list(rl.get("by", []))}

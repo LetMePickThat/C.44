@@ -153,7 +153,9 @@ class PrepTab(QWidget):
         splitter = QSplitter(Qt.Horizontal)
         outer.addWidget(splitter)
 
-        self.view = SceneView(self.grid, face_opacity=0.28, sector_opacity=0.5, exec_face_colours=True)
+        self.view = SceneView(self.grid, face_opacity=0.28, sector_opacity=0.5, exec_face_colours=True,
+                              diagnosis=True)
+        self.view.sector_selected.connect(self._select_sector_by_sid)    # (5.5 A: a line of the diagnosis)
         self.view.instant_source = self._instant                      # the playback (user, 10 November 2026)
         self.view.use_instant = lambda t: self._set_scn_t_and_apply(t)
         self.view.instant_shown = self._on_instant_shown          # (the navigation panel follows the playback)
@@ -1115,6 +1117,13 @@ class PrepTab(QWidget):
     @staticmethod
     def _draw_sid(i: int, sec: dict) -> str:
         return sec.get("id") or f"_idx{i}"
+
+    def _select_sector_by_sid(self, sid: str) -> None:
+        """Select in the list the volume a line of the diagnosis names (5.5 A)."""
+        for i, sec in enumerate(self.mission.get("sectors", [])):
+            if self._draw_sid(i, sec) == sid:
+                self.list_sectors.setCurrentRow(i)
+                return
 
     def _hidden_sids(self) -> set:
         return {self._draw_sid(i, sec) for i, sec in enumerate(self.mission["sectors"])

@@ -255,13 +255,26 @@ class MainWindow(QMainWindow):
         self._progress_dlg.setMinimumDuration(0)
         self._progress_dlg.setAutoClose(False)        # (user, 11 November 2026: it closed itself at the last sector
         self._progress_dlg.setAutoReset(False)        # while the calculation went on for minutes)
+        from core import background                  # (user, 13 November 2026: the fast estimate paused while
+        background.pause_estimate(True)               # the exact calculation runs, resumed at its end)
+        self.prep.view._update_badge()
         self._worker = OptimizeWorker(mission, self)
+        self._worker.finished.connect(self._resume_estimate)    # (done, failed or cancelled; the window's thread)
         self._worker.progress.connect(self._on_worker_progress)
         self._worker.finished_ok.connect(lambda result: self._on_worker_finished(mission, result))
         self._worker.failed.connect(self._on_worker_failed)
         self._progress_dlg.canceled.connect(self._worker.cancel)
         self._worker.start()
         self._progress_dlg.show()
+
+    def _resume_estimate(self) -> None:
+        """The exact calculation ended: the fast estimate resumed and the live view asked again."""
+        from core import background
+        background.pause_estimate(False)
+        try:
+            self.prep.view.refresh_estimate()
+        except Exception:  # noqa: BLE001 -- a view being closed
+            pass
 
     def _on_worker_progress(self, done: int, total: int, sector_id: str) -> None:
         if self._progress_dlg and done < 0:          # a mission-level stage (its text in sector_id)

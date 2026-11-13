@@ -803,7 +803,10 @@ def _live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Spher
     out = al.solve(nominal, budgets)
     if len(nominal) < len(demands):
         import dataclasses as _dcs
-        out["peak"] = al.peak_summary(al.solve([_dcs.replace(d, h_max=1.0) for d in demands], budgets))
+        peak_rep = al.solve([_dcs.replace(d, h_max=1.0) for d in demands], budgets)
+        out["peak"] = al.peak_summary(peak_rep)
+        out["peak"]["report"] = {k_: peak_rep[k_] for k_ in ("demands", "faces", "ship", "binding", "status")}
+        # (5.5 point A: the diagnosis per constraint reads the peak loads too)
         out["flags"].extend(out["peak"]["flags"])
         if out["peak"]["status"] != "ABSORBED":
             out["status"] = "NOT_TENABLE"
@@ -812,7 +815,8 @@ def _live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Spher
         served = {d["sector"]: float(d.get("level", 1.0)) for d in out["demands"] if d.get("kind") == "search"}
         loads = {n: sum(a * max(1.0, served.get(s, 1.0)) for s, a in c["a"].items()) for n, c in cons.items()}
         out["other_loads"] = {"asked": nom, "served": loads,
-                              "reuse_limited_by": {s: why_r[s] for s in why_r}}
+                              "reuse_limited_by": {s: why_r[s] for s in why_r},
+                              "shares": {n: dict(c["a"]) for n, c in cons.items()}}   # (5.5 A: who weighs)
         for n, v in sorted(nom.items()):
             if v > 1.0 + 1e-9:
                 out["flags"].append(f"{n} at {100 * v:.0f} % at the revisits asked (exact budget's rule): "
@@ -1016,6 +1020,9 @@ def _a_done(key: str, fut) -> None:
 
 
 def _a_resubmit(key: str) -> None:
+    from . import background
+    if background.estimate_paused():               # (asked again at the resume: background.bump)
+        return
     with _A_LOCK:
         if key in _A["tag_key"].values() and key not in _A["jobs"]:
             try:
@@ -1070,6 +1077,10 @@ def live_allocation_async(table: CostTable, sectors_ship: List[dict], grid: geo.
         if hit is None and _HOLD["on"]:              # (held: nothing started, the last result said obsolete)
             last = _A["last"].get(tag)
             return None if last is None else dict(last, stale=True, obsolete=True)
+        from . import background
+        if hit is None and background.estimate_paused():   # (an exact calculation running: nothing started)
+            last = _A["last"].get(tag)
+            return None if last is None else dict(last, stale=True)
         if hit is None and key not in _A["jobs"]:
             _A["args"][key] = ([dict(s) for s in sectors_ship], res_deg, eps_min, eps_max, sky, dict(g or {}),
                                dict(calib or {}), relief)

@@ -581,6 +581,53 @@ def merge_montecarlo(mission: dict, v: dict, mc: dict) -> dict:
     return out
 
 
+_RANK = {"NOK": 0, "DEGRADED": 1, "ALERT": 2, "OK": 3}
+
+
+def owner_sector(row: dict, sector_ids) -> Optional[str]:
+    """The volume a constraint is about (step 5.5 Q6): its object, "search X", "X/1 0-250 km" or "X" when X is a
+    volume of the mission; None for a face, the ship, the flight."""
+    obj = str(row.get("object", ""))
+    for cand in (obj, obj[len("search "):] if obj.startswith("search ") else None, obj.split("/", 1)[0],
+                 obj.split(" ", 1)[0]):
+        if cand and cand in sector_ids:
+            return cand
+    return None
+
+
+def verdict_tree(vd: dict, sector_ids) -> List[dict]:
+    """The verdict grouped by constraint as the preparation's Diagnosis reads it (step 5.5 Q6, user 13 November 2026):
+    [{"branch": "Volumes" | "F1".."F4" | "Ship", "state", "groups": [{"sector" (None outside Volumes), "state",
+    "rows": [(row, [advice of the row])]}]}], every constraint (Q6a), the worst first in each group and branch."""
+    ids = set(map(str, sector_ids))
+    adv: Dict[str, List[dict]] = {}
+    for a in vd.get("advice", []):
+        adv.setdefault(a["constraint"], []).append(a)
+    branches: Dict[str, Dict[Optional[str], List[dict]]] = {}
+    for r in vd.get("constraints", []):
+        sid = owner_sector(r, ids)
+        if sid is not None:
+            b = "Volumes"
+        elif r.get("family") == "face":
+            b = str(r.get("object"))
+        else:
+            b = "Ship"
+        branches.setdefault(b, {}).setdefault(sid, []).append(r)
+
+    def worst(states) -> str:
+        return min(list(states) + ["OK"], key=lambda x: _RANK.get(x, 3))
+    out = []
+    for b in sorted(branches, key=lambda x: (x != "Volumes", x == "Ship", x)):
+        groups = []
+        for sid, rows in branches[b].items():
+            rows = sorted(rows, key=lambda r: (_RANK.get(r["state"], 3), str(r["object"]), str(r["quantity"])))
+            groups.append({"sector": sid, "state": worst(r["state"] for r in rows),
+                           "rows": [(r, adv.get(r["id"], [])) for r in rows]})
+        groups.sort(key=lambda g: (_RANK.get(g["state"], 3), str(g["sector"])))
+        out.append({"branch": b, "state": worst(g["state"] for g in groups), "groups": groups})
+    return out
+
+
 def summary_lines(v: dict) -> List[str]:
     """The verdict as text: state, limiting resource, then every constraint in alert or failed."""
     lim = v.get("limiting")

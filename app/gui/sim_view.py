@@ -1392,6 +1392,7 @@ class SimView(QWidget):
 
         self.plotter = QtInteractor(self)
         self.plotter.setMinimumWidth(400)
+        v3.keep_scale_on_resize(self.plotter)          # (user, 13 November 2026: the zoom kept on a resize)
         # right drag: turntable about the view's vertical; the left button picks and centres (user, 29 October 2026)
         v3.install_rotation(self.plotter, axis=self._turn_axis, on_click=self._on_right_click)
         self.target_key: Optional[str] = None          # the target's selection key (_rows_of)

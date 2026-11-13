@@ -89,3 +89,73 @@ def pending() -> int:
     from . import cost_profile
     return cost_profile.pending() + REDUNDANCY.pending()        # (cost_profile.pending counts the reliefs and the
                                                                 # estimates too)
+
+
+# ----------------------------------------------------------------------------- pause during an exact calculation
+# (user, 13 November 2026: "when an exact calculation is asked, pause the approximate calculation of the instant in
+# progress") the fast estimate gives its processors to the exact run: nothing new is started (live_allocation_async
+# gives the last result), and the worker processes of the estimate (the live estimate, the cost and instant profiles,
+# the reliefs, the redundancy check, with the processes they started) are suspended where they are, then resumed when
+# the exact run ends (done, failed or cancelled); what they were computing goes on from there.
+_PAUSE = {"on": False, "procs": []}
+_lock = threading.Lock()
+
+
+def _estimate_pids() -> List[int]:
+    from . import cost_estimate, cost_profile, redundancy
+    pids = []
+    for ex in (getattr(cost_estimate, "_A_POOL", None), getattr(cost_profile, "_pool", None),
+               getattr(cost_profile, "_ipool", None), getattr(redundancy, "_R_POOL", None),
+               getattr(redundancy, "_F_POOL", None)):
+        procs = getattr(ex, "_processes", None) or {}
+        pids.extend(int(p) for p in procs)
+    return pids
+
+
+def pause_estimate(on: bool) -> None:
+    """Suspend (on) or resume (off) the fast estimate (above); idempotent."""
+    with _lock:
+        if bool(on) == _PAUSE["on"]:
+            return
+        _PAUSE["on"] = bool(on)
+    try:
+        import psutil
+    except ImportError:                              # (no psutil: nothing new is started, the running jobs go on)
+        psutil = None
+    if on:
+        procs = []
+        if psutil is not None:
+            for pid in _estimate_pids():
+                try:
+                    p = psutil.Process(pid)
+                    tree = [p] + p.children(recursive=True)
+                except psutil.Error:
+                    continue
+                for q in tree:
+                    try:
+                        q.suspend()
+                        procs.append(q)
+                    except psutil.Error:
+                        pass
+        _PAUSE["procs"] = procs
+    else:
+        for q in reversed(_PAUSE["procs"]):
+            try:
+                q.resume()
+            except Exception:  # noqa: BLE001 -- a process gone meanwhile
+                pass
+        _PAUSE["procs"] = []
+        bump()                                       # (the views ask again: the estimate goes on)
+
+
+def estimate_paused() -> bool:
+    return bool(_PAUSE["on"])
+
+
+def _resume_at_exit() -> None:
+    if _PAUSE["on"]:
+        pause_estimate(False)                        # (never leave a suspended worker behind)
+
+
+import atexit as _atexit                              # noqa: E402
+_atexit.register(_resume_at_exit)

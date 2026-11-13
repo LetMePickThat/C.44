@@ -3976,3 +3976,56 @@ def test_instant_profile_prices_the_tracks_by_the_step_3_3_model(monkeypatch):
             assert a["e"][int(k)] == pytest.approx(fc["energy_fraction"], rel=1e-6)
             assert a["tk"][int(k)] == pytest.approx(fc["ku_time_fraction"], rel=1e-6)
         assert a["initiations_per_s"] == pytest.approx(b["initiations_per_s"], rel=1e-6)
+
+
+def test_diagnosis_of_the_live_estimate():
+    """5.5 point A (user, 13 November 2026): a volume alone is served as asked, no constraint in alert; every face
+    capped below its need: the faces' energy at the ceiling hold the volume (ALERT, limited by them), and the lever of
+    the volume alone on such a face follows the rule's law (range rho x R, the revisit beyond rho_min)."""
+    from core import allocation as al, diagnosis as dg, geometry as geo
+    table = ce.load_table()
+    grid = geo.SphereGrid(res_deg=tb.GRID_RES_DEG)
+    sec = dict(md.new_sector([]), id="A")
+    a = ce.live_allocation(table, [sec], grid, -90.0, 90.0, None, {"realloc_mode": "NONE"})
+    d = dg.live(a, [sec])
+    assert d["state"] == "OK" and all(r["state"] == "OK" for r in d["rows"])
+    assert d["volumes"][0]["sector"] == "A" and d["volumes"][0]["rho"] == 1.0 and not d["volumes"][0]["limited_by"]
+    need = max(f["energy"] for f in a["by_sector"]["A"]["faces"].values())
+    cap_mw = (ce.always_on_static_w() + 0.5 * need) / 0.8 / 1e6
+    b = ce.live_allocation(table, [sec], grid, -90.0, 90.0, None, {"face_elec_mw": cap_mw, "realloc_mode": "NONE"})
+    d = dg.live(b, [sec])
+    v = d["volumes"][0]
+    assert d["state"] == "ALERT" and v["state"] == "ALERT" and v["rho"] < 1.0
+    assert v["limited_by"] and all(x.endswith("energy") for x in v["limited_by"])
+    held = [r for r in d["rows"] if r["held"]]
+    assert held and all(r["resource"] == "energy" and r["load"] >= r["ceiling"] * (1 - 1e-4) for r in held)
+    m = b["by_sector"]["A"]["level"]
+    rho, rr = al.search_effect(m, sec["rr_target_s"])
+    lever = next(lv for r in held for lv in r["levers"] if lv.startswith("search A: range"))
+    assert f"-> {sec['range_km'] * rho:.0f} km" in lever
+
+
+def test_verdict_grouped_by_constraint():
+    """5.5 Q6 (user, 13 November 2026): the verdict grouped as the preparation's Diagnosis: Volumes first, then the
+    faces, then the ship; every constraint once, each advice under its constraint, the worst first."""
+    from core import validation
+    here = os.path.dirname(__file__)
+    m = json.loads(open(os.path.join(here, "missions", "mission_target_library.json"), encoding="utf-8").read())
+    vd = json.loads(open(os.path.join(here, "snapshots", "mission_target_library.json"),
+                         encoding="utf-8").read())["run"]["verdict"]
+    tree = validation.verdict_tree(vd, [s["id"] for s in m["sectors"]])
+    assert [b["branch"] for b in tree] == ["Volumes", "F1", "F2", "F3", "F4", "Ship"]
+    rows = [r for b in tree for g in b["groups"] for r, _a in g["rows"]]
+    assert sorted(r["id"] for r in rows) == sorted(r["id"] for r in vd["constraints"])
+    advs = [a for b in tree for g in b["groups"] for r, al_ in g["rows"] for a in al_ if a["constraint"] == r["id"]]
+    assert len(advs) == len(vd["advice"])
+    rank = {"NOK": 0, "DEGRADED": 1, "ALERT": 2, "OK": 3}
+    for b in tree:
+        for g in b["groups"]:
+            st = [rank[r["state"]] for r, _a in g["rows"]]
+            assert st == sorted(st)
+    vols = {g["sector"] for g in tree[0]["groups"]}
+    assert vols == {s["id"] for s in m["sectors"]}
+    assert validation.owner_sector({"object": "T_DECOY/0 200-600 km"}, vols) == "T_DECOY"
+    assert validation.owner_sector({"object": "search T_KKV"}, vols) == "T_KKV"
+    assert validation.owner_sector({"object": "F1"}, vols) is None
