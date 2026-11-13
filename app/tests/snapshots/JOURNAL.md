@@ -767,3 +767,12 @@ the run:
 - NOT foreseen: mission_target_library drifts by 1e-9 to 9e-6 relative (scheduler delays, T_SHIP energies and revisit)
   with no state change; none of the changes touches these paths; assumed float summation order with two cases computed
   at once (not checked; user: refreeze anyway, 13 November 2026).
+
+## 2026-11-13 (evening) -- appearing target, limb watch (model V6.49.0)
+
+N3 of 13 November 2026 on the main PC (V6.49.0, 49.9 min, shortened protocol): 344 / 344 tests passed outside the
+snapshots, 11 / 12 snapshot cases identical (none was expected to move: the other volumes keep the approach
+criterion). Only mission_target_library differs: 27 values at 1e-8 to 1e-7 relative (scheduler delays of the search
+volumes, T_SHIP rr_tenable_s, sector 2 energies), no state change, key figures equal to the displayed digits. Same
+drift as at the V6.47.0 refreeze (float noise, cause not checked: cost table rebuilt on this PC or machine-dependent
+rounding). Refrozen for this case only (user, 13 November 2026).
