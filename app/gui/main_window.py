@@ -16,12 +16,13 @@ from typing import List, Optional
 
 from PyQt5.QtCore import QThread, Qt, pyqtSignal
 from PyQt5.QtGui import QKeySequence
-from PyQt5.QtWidgets import (QApplication, QFrame, QHBoxLayout, QMainWindow, QMenu, QMessageBox, QProgressDialog,
-                             QShortcut, QStackedWidget, QTabBar, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QMainWindow, QMenu, QMessageBox,
+                             QProgressDialog, QShortcut, QStackedWidget, QTabBar, QVBoxLayout, QWidget)
 
 from core import geometry as geo
 from core import mission as md
 from core import optimizer as mo
+from core import radar_model as rm
 from core.params import P
 from gui import controls as uc
 from gui.results_tab import ResultsTab
@@ -110,6 +111,13 @@ class MainWindow(QMainWindow):
         hl.addSpacing(8)
         hl.addWidget(self.modes)
         hl.addStretch(1)
+        # the model version the tool computes with (user, 13 November 2026: to follow the results)
+        self.lbl_model = QLabel(f"Model V{rm.MODEL_VERSION}")
+        self.lbl_model.setStyleSheet("color: #606060")
+        self.lbl_model.setToolTip("Version of the radar model the calculations of this tool use; each result keeps "
+                                  "the version it was computed with")
+        hl.addWidget(self.lbl_model)
+        hl.addSpacing(10)
         hl.addLayout(self.actions_box)
         self._add_mode("Mission preparation", self.prep, [self.prep.file_label], self.prep.b_run)
         # the mission along its linked scenario's flight plan (option A, passes T1-T3, user 10 November 2026)
@@ -207,7 +215,13 @@ class MainWindow(QMainWindow):
                 act.setIcon(ic)
             act.setEnabled(enabled)
         self.menu.addSeparator()
+        self.menu.addAction("Parameters...", self._open_params)     # step 5.5 (user, 13 November 2026)
         self.menu.addAction("About...", lambda: uc.show_about(self, TITLE))
+
+    def _open_params(self) -> None:
+        """The parameter file (gui/params_window.py), modal: the values apply when the tool starts again."""
+        from gui.params_window import ParamsWindow
+        ParamsWindow(self).exec_()
 
     def _shortcut(self, cmd: str) -> None:
         """In the mission preparation Ctrl+N / O / S / Shift+S act on the mission file (pass V3, as the Scenario
@@ -298,28 +312,43 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------------ results tab
     def _reopen_results(self) -> None:
-        """One file: a mission opened with a stored exact result that still fits it: its Results tab reopened (not
-        shown, the mission NOT locked: an edit marks it outdated); a former Results tab closed."""
+        """One file: a mission opened with a stored exact result: its Results tab reopened (not shown), on the mission
+        it was computed for, said outdated when the mission was edited since (user, 13 November 2026: kept, marked
+        stale); a former Results tab closed."""
         if self.results is not None:
             self._close_results(force=True)
-        if self.prep.stored_result_fits():
-            from gui import scenario_link as slink
-            stored = self.prep.mission[slink.RESULTS_KEY]
-            self._open_results(slink.for_calculation(self.prep.mission), stored["exact"], reopened=True)
+        stored = self.prep.stored_result()
+        if stored is None:
+            return
+        from gui import scenario_link as slink
+        if self.prep.stored_result_fits() or not isinstance(stored.get("mission"), dict):
+            used = slink.for_calculation(self.prep.mission)
+        else:                                   # (the volumes computed, with the mission's own flight plan)
+            used = dict(stored["mission"])
+            if slink.FLIGHT_PLAN_KEY in self.prep.mission:
+                used[slink.FLIGHT_PLAN_KEY] = self.prep.mission[slink.FLIGHT_PLAN_KEY]
+        self._open_results(used, stored["exact"], reopened=True)
 
     def _check_outdated(self) -> None:
-        if self.results is not None and getattr(self.results, "reopened", False):
-            self.results.set_outdated(not self.prep.stored_result_fits())
+        """The Results tab said outdated while the mission differs from the one it was computed for (user, 13 November
+        2026: no lock, the result kept and marked stale; back to the computed mission: current again)."""
+        if self.results is not None:
+            from gui import scenario_link as slink
+            sig = getattr(self.results, "mission_sig", None)
+            self.results.set_outdated(sig is not None and sig != slink.mission_signature(self.prep.mission))
 
     def _open_results(self, mission: dict, result: dict, reopened: bool = False) -> None:
         from datetime import datetime
         result.setdefault("_computed_local", datetime.now().strftime("%d %b %H:%M"))   # U3: the badge's time
+        result.setdefault("_model_version", rm.MODEL_VERSION)         # (user, 13 November 2026: kept with the result)
         if not reopened and not result.get("cancelled"):
             self.prep.store_result(mission, result)    # one file: kept in the mission (saved with it; a partial one not)
         if self.results is not None:
             self._close_results(force=True)
         self.results = ResultsTab(mission, result, self.grid)
         self.results.reopened = reopened
+        from gui import scenario_link as slink
+        self.results.mission_sig = slink.mission_signature(mission)    # (what _check_outdated compares)
         self.results.exported = not result.get("cancelled")   # (kept in the mission: closing it loses nothing)
         self.results.view.set_mission_volumes(mission)   # (the global view: the computed mission's volumes)
         link = getattr(self.prep, "_link", None)      # the linked scenario at the mission's instant (pass S2)
@@ -327,8 +356,8 @@ class MainWindow(QMainWindow):
             self.results.view.set_scenario(link, float(mission.get("scenario_link", {}).get("t_s", 0.0)))
         title = "Results" + (" (partial)" if self.results.partial else "")
         index = self._add_mode(title, self.results, [], None)
-        if not reopened:
-            self.prep.set_locked(True)
+        self._check_outdated()
+        if not reopened:                        # (user, 13 November 2026: no lock, an edit marks the result stale)
             self.modes.setCurrentIndex(index)
 
     def _close_results(self, force: bool = False) -> None:
@@ -360,7 +389,7 @@ class MainWindow(QMainWindow):
             box = QMessageBox(self)
             box.setIcon(QMessageBox.Question)
             box.setWindowTitle("Close the results")
-            box.setText("This result has not been exported. Closing the tab discards it and unlocks the mission.")
+            box.setText("This result has not been exported. Closing the tab discards it.")
             b_export = box.addButton("Export JSON...", QMessageBox.AcceptRole)
             b_close = box.addButton("Close without export", QMessageBox.DestructiveRole)
             box.addButton(QMessageBox.Cancel)
@@ -379,7 +408,7 @@ class MainWindow(QMainWindow):
         tab.view.close_views()
         tab.deleteLater()
         self.results = None
-        self.prep.set_locked(False)
+        self.prep.set_locked(False)              # (no lock since 13 November 2026: kept for an older caller)
 
     def changeEvent(self, event) -> None:
         """Back to the front: the work file re-read if the Scenario Editor changed it (user, 11 November 2026)."""

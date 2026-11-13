@@ -389,7 +389,7 @@ La procédure détaillée d'une étape et la manière de reprendre le travail da
 - **5.5 Interface opérateur.**
   - Préparation, estimation rapide recalée, diagnostic par contrainte, chronologies, export du rapport.
   - Onglet d'édition des paramètres.
-  - Arrondi de `pulse_scale` (était `power_scale`).
+  - ~~Arrondi de `pulse_scale` (était `power_scale`)~~ : déjà fait (3 décimales dans la sortie de l'optimiseur), point retiré le 13 novembre 2026 (utilisateur).
   - **Renvois de l'étape 2.1** : les vues (3D, interface) n'affichent que le **volume utile**, sans la zone aveugle (demande de l'utilisateur) ; édition de `range_min_km` dans l'interface.
   - **Renvoi de l'étape 2.3** : l'estimation rapide reste au critère d'une observation à `detection.pfa` ; à recaler sur la Pd cumulée et le taux de fausses alarmes.
   - **Renvoi de l'étape 3.3** : l'estimation rapide garde l'ancienne observation de poursuite (accélération connue, sans loi de pointage, sans initialisation ni perte de piste) ; à recaler sur le modèle de piste.

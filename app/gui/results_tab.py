@@ -176,7 +176,10 @@ class ResultsTab(QWidget):
         when = self.result.get("_computed_local", "")
         inst = (f"t = {float(link['t_s']):g} s" if isinstance(link, dict) and "t_s" in link else
                 str((frames.parse_nav(self.mission.get("global", {}).get("nav")).label or "mission instant")))
-        self._badge_detail = inst + (f", computed {when}" if when else "")
+        ver = self.result.get("_model_version")                      # (user, 13 November 2026)
+        self._badge_detail = (inst + (f", computed {when}" if when else "")
+                              + (f", model V{ver}" if ver else ", model version not recorded")
+                              + (f" (the tool is at V{rm.MODEL_VERSION})" if ver and ver != rm.MODEL_VERSION else ""))
         self.badge = uc.source_badge("exact", self._badge_detail,
                                      tip="Exact calculation of the mission at this instant (the live load under the "
                                          "view stays an estimate)")   # U3 (user, 11 November 2026)

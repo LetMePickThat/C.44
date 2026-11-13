@@ -4,8 +4,9 @@
 PREP_TAB -- mission-preparation tab: watch-sector form (incl. confirmation mode and active-tracking range brackets) +
 real-time 3D view + fast cost estimate (per-face gauges) +
 alerts (incl. redundant watch volumes, core/redundancy.py) + mission-prep validation. "Calculate" hands a frozen
-copy of the mission to the main window, which runs the optimiser and opens the results tab; while a results tab is
-open the mission is locked (set_locked), so the results always describe the mission on screen.
+copy of the mission to the main window, which runs the optimiser and opens the results tab; the mission stays
+editable (user, 13 November 2026): the results tab is then said outdated (its badge) until the mission is back to the
+one it was computed for; set_locked is kept but no longer called with True.
 """
 from __future__ import annotations
 
@@ -457,10 +458,19 @@ class PrepTab(QWidget):
         """One file (user, 11 November 2026): the last exact result kept in the mission, with the signature of the
         mission it was computed for (reopened with the mission while it still fits)."""
         link = mission_used.get(slink.LINK_KEY) if isinstance(mission_used.get(slink.LINK_KEY), dict) else {}
+        # the mission computed (its flight plan left out: the mission's own copy), so that a result kept after edits is
+        # still shown on the volumes it was computed for (user, 13 November 2026: results stale, no lock)
+        used = {k: v for k, v in mission_used.items() if k not in slink.DERIVED_KEYS + (slink.FLIGHT_PLAN_KEY,)}
         self.mission[slink.RESULTS_KEY] = {"exact": result, "computed": result.get("_computed_local", ""),
                                           "t_s": link.get("t_s"),
-                                          "mission_sig": slink.mission_signature(mission_used)}
+                                          "mission_sig": slink.mission_signature(mission_used),
+                                          "mission": copy.deepcopy(used)}
         self._update_title()
+
+    def stored_result(self) -> Optional[dict]:
+        """The last exact result kept in the mission ({"exact", "computed", "mission_sig", "mission"}), None if none."""
+        r = self.mission.get(slink.RESULTS_KEY)
+        return r if isinstance(r, dict) and isinstance(r.get("exact"), dict) else None
 
     def stored_result_fits(self) -> bool:
         r = self.mission.get(slink.RESULTS_KEY)

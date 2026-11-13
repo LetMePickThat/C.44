@@ -185,18 +185,19 @@ class N3Progress:
             self.known = {}
         self.items = list(items)
         self.expected = {i: self.known.get(i, N3_DEFAULT_S.get(i, N3_DEFAULT_CASE_S)) for i in self.items}
-        self.done, self.t0, self.cur, self.cur_t0 = {}, time.time(), None, None
+        self.done, self.t0 = {}, time.time()
+        self.running: dict = {}        # item -> its start time (several at once: cases 2 at a time + the suite, C6 / C7)
         self.tty = sys.stdout.isatty()
         self.last_line = 0.0
 
     def start(self, item):
-        self.cur, self.cur_t0 = item, time.time()
+        self.running[item] = time.time()
         self.show(force=True)
 
     def finish(self, item):
-        self.done[item] = time.time() - self.cur_t0
+        t0 = self.running.pop(item, None)
+        self.done[item] = time.time() - (t0 if t0 is not None else time.time())
         self.known[item] = self.done[item]
-        self.cur = None
         try:
             with open(N3_DURATIONS, "w", encoding="utf-8") as fh:
                 json.dump(self.known, fh, indent=1)
@@ -204,32 +205,32 @@ class N3Progress:
             pass
         self.show(force=True)
 
-    def _inner(self) -> float:
-        """Share of the current item done."""
-        if self.cur is None:
-            return 0.0
-        if self.cur == "test suite":
+    def _inner(self, item) -> float:
+        """Share of a running item done."""
+        t0 = self.running[item]
+        if item.startswith("test suite"):
             try:
                 with open(os.path.join(TESTS, ".progress.txt"), encoding="utf-8") as fh:
                     m = re.search(r"computation done: ([0-9.]+) %", fh.read())
-                if m and os.path.getmtime(os.path.join(TESTS, ".progress.txt")) >= self.cur_t0:
+                if m and os.path.getmtime(os.path.join(TESTS, ".progress.txt")) >= t0:
                     return float(m.group(1)) / 100.0
             except OSError:
                 pass
-        return min(0.95, (time.time() - self.cur_t0) / max(self.expected[self.cur], 1.0))
+        return min(0.95, (time.time() - t0) / max(self.expected[item], 1.0))
 
     def show(self, force: bool = False):
         tot = sum(self.expected.values()) or 1.0
         done_w = sum(self.expected[i] for i in self.done)
-        cur_w = self.expected[self.cur] * self._inner() if self.cur else 0.0
+        cur_w = sum(self.expected[i] * self._inner(i) for i in self.running)
         frac = (done_w + cur_w) / tot
         el = time.time() - self.t0
         left = el * (1.0 - frac) / frac if frac > 0.02 else tot - el
-        k = len(self.done) + (1 if self.cur else 0)
-        cur = (f"{self.cur} {(time.time() - self.cur_t0) / 60:.1f} / ~{self.expected[self.cur] / 60:.1f} min"
-               if self.cur else "-")
-        line = (f"[N3] [{_bar(frac)}] {100 * frac:5.1f} % | item {k}/{len(self.items)}: {cur} | "
-                f"elapsed {el / 60:.1f} min, left ~{max(left, 0.0) / 60:.1f} min")
+        k = len(self.done) + len(self.running)
+        now = time.time()
+        cur = ", ".join(f"{i} {(now - t0) / 60:.1f} / ~{self.expected[i] / 60:.1f} min"
+                        for i, t0 in self.running.items()) or "-"
+        line = (f"[N3] [{_bar(frac)}] {100 * frac:5.1f} % | {len(self.done)} done, {len(self.running)} running "
+                f"(item {k}/{len(self.items)}): {cur} | elapsed {el / 60:.1f} min, left ~{max(left, 0.0) / 60:.1f} min")
         try:
             with open(N3_PROGRESS + ".tmp", "w", encoding="utf-8") as fh:
                 fh.write(line + "\n" + "done: " + ", ".join(f"{i} {d / 60:.1f} min" for i, d in self.done.items())
@@ -237,9 +238,8 @@ class N3Progress:
             os.replace(N3_PROGRESS + ".tmp", N3_PROGRESS)
         except OSError:
             pass
-        now = time.time()
         if self.tty:
-            print("\r" + line[:200].ljust(200), end="", flush=True)
+            print("\r" + line[:240].ljust(240), end="", flush=True)
         elif force or now - self.last_line >= 30.0:
             print(line, flush=True)
             self.last_line = now

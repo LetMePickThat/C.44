@@ -76,7 +76,8 @@ Pass M4 (user, 29 October 2026, Q1-Q8):
     updates, initiations, burn-through and confirmations (the confirmation arrivals go as g_S x g_Ku). Per band the
     largest g_b found by CEILING_BISECTIONS bisection steps between 1 and a full transmit time of its most loaded face
     such that on every face and band the confirmation latency (95 %, upper bound of its interval) stays within each
-    sector's requirement and the late track updates within LATE_UPDATE_MAX (a late update is a miss); the band's
+    sector's requirement, the late track updates within LATE_UPDATE_MAX (a late update is a miss) and the search
+    dwells later than LATE_SEARCH_FRAC of their revisit within LATE_SEARCH_MAX (M5, user, 13 November 2026); the band's
     ceiling = g_b x the load of its most loaded face, at most 1; the proposal = the lower of the bands. Transmit time
     only (energy, heat and compute keep the ceiling of the mission).
 To come: M5 tests at N3, snapshots, docs.
@@ -121,6 +122,8 @@ BATCH = int(P.get(_T + "batch"))
 PD_LOOK_FLOOR = float(P.get(_T + "pd_look_floor"))
 N_SHIFTS = int(P.get("tool.scanorder.n_shifts"))
 LATE_UPDATE_MAX = float(P.get(_T + "late_update_max"))      # M4 (Q4)
+LATE_SEARCH_FRAC = float(P.get(_T + "late_search_frac"))    # (user, 13 November 2026: the late search dwell)
+LATE_SEARCH_MAX = float(P.get(_T + "late_search_max"))
 CEILING_BISECTIONS = int(P.get(_T + "ceiling_bisections"))  # M4 (Q3)
 K_MAX_LOOKS = 20000                       # safety bound on the looks of one test target (flagged if it cuts)
 
@@ -746,7 +749,7 @@ def face_timeline(mission: dict, out: dict, k: int, rep: int, seed: int, scans,
         lim, ratio = sch._contiguous(k, b, out.get("tracking", {}))
         delay, pauses = _greedy(tasks, lim, ratio)
         waits: Dict[str, List[float]] = {}
-        late = n_upd = 0
+        late = n_upd = late_s = n_s = 0
         for (rel, prio, dl, dur), (lab, kind, tag), w in zip(tasks, meta, delay):
             if tag is not None and tag[2]:
                 res["confirm"].setdefault(tag[0], {}).setdefault(tag[1], {})[b] = (w, dur, tag[3])
@@ -756,9 +759,13 @@ def face_timeline(mission: dict, out: dict, k: int, rep: int, seed: int, scans,
             if kind == "update":
                 n_upd += 1
                 late += (rel + w > dl)
+            elif kind == "search":                  # (its deadline is its slot + its volume's revisit)
+                n_s += 1
+                late_s += (w > LATE_SEARCH_FRAC * (dl - rel))
         res[b] = {"mean_wait_s": {lab: float(np.mean(v)) for lab, v in waits.items()},
                   "max_delay_s": {lab: float(np.max(v)) for lab, v in waits.items()},
-                  "late_updates": late, "updates": n_upd, "pauses": pauses}
+                  "late_updates": late, "updates": n_upd, "pauses": pauses,
+                  "late_searches": late_s, "searches": n_s}
     return res
 
 
@@ -788,7 +795,7 @@ def timelines(mission: dict, out: dict, seed: int = SEED, progress_cb=None,
     faces = {}
     for k in range(4):
         per = {"S": {}, "Ku": {}}
-        upd = {"S": [0, 0, 0], "Ku": [0, 0, 0]}
+        upd = {"S": [0, 0, 0, 0, 0], "Ku": [0, 0, 0, 0, 0]}
         for rep in range(N_REP):
             r = face_timeline(mission, out, k, rep, seed, scans) if runs is None else runs[(k, rep)]
             for sid, n in r["fa"].items():
@@ -809,14 +816,14 @@ def timelines(mission: dict, out: dict, seed: int = SEED, progress_cb=None,
                     e = per[b].setdefault(lab, {"mean": [], "max": 0.0})
                     e["mean"].append(v)
                     e["max"] = max(e["max"], rb["max_delay_s"][lab])
-                for j, key in enumerate(("late_updates", "updates", "pauses")):
+                for j, key in enumerate(("late_updates", "updates", "pauses", "late_searches", "searches")):
                     upd[b][j] += rb.get(key, 0)
         if progress_cb:
             progress_cb(k + 1, 4, f"F{k + 1}")
         an = out.get("scheduler", {}).get("faces", {}).get(str(k)) or {}
         fk = {}
         for b in ("S", "Ku"):
-            late, n_upd, pauses = upd[b]
+            late, n_upd, pauses, late_s, n_s = upd[b]
             rows = []
             for lab, v in sorted(per[b].items()):
                 m = np.array(v["mean"])
@@ -830,6 +837,7 @@ def timelines(mission: dict, out: dict, seed: int = SEED, progress_cb=None,
             frac = late / n_upd if n_upd else 0.0
             bad = frac > 0.0 and not late_an
             fk[b] = {"classes": rows, "late_update_frac_mc": frac, "late_update_frac_analytic": late_an,
+                     "late_search_frac_mc": late_s / n_s if n_s else 0.0, "searches": n_s,
                      "updates": n_upd, "recharge_pauses": pauses, "state": "ALERT" if bad else "OK",
                      "why": f"{100 * frac:.2f} % of the track updates late (none in the analytic timeline)" if bad else ""}
         faces[str(k)] = fk
@@ -880,7 +888,8 @@ def _face_runs(mission: dict, out: dict, seed: int, g: Dict[str, float], scans,
 
 def holds(tl: dict) -> Tuple[bool, str]:
     """(the timelines hold, the first reason why not): every confirmation latency at 95 % (upper bound of its
-    interval) within its requirement, every face and band within LATE_UPDATE_MAX late updates."""
+    interval) within its requirement, every face and band within LATE_UPDATE_MAX late updates and LATE_SEARCH_MAX
+    late search dwells (later than LATE_SEARCH_FRAC of their revisit: user, 13 November 2026)."""
     for r in tl["sectors"]:
         q, hi = r["latency_q95_mc_s"], r["latency_ci"][1]
         if q is not None and (hi if hi is not None else q) > r["latency_required_s"]:
@@ -891,6 +900,10 @@ def holds(tl: dict) -> Tuple[bool, str]:
             if fb["updates"] and fb["late_update_frac_mc"] > LATE_UPDATE_MAX:
                 return False, (f"F{int(k) + 1} {b}: {100 * fb['late_update_frac_mc']:.2f} % of the track updates late "
                                f"(at most {100 * LATE_UPDATE_MAX:g} %)")
+            if fb.get("searches") and fb.get("late_search_frac_mc", 0.0) > LATE_SEARCH_MAX:
+                return False, (f"F{int(k) + 1} {b}: {100 * fb['late_search_frac_mc']:.2f} % of the search dwells "
+                               f"more than {100 * LATE_SEARCH_FRAC:g} % of their revisit late "
+                               f"(at most {100 * LATE_SEARCH_MAX:g} %)")
     return True, ""
 
 
@@ -915,6 +928,7 @@ def propose_ceiling(mission: dict, out: dict, seed: int = SEED, base: Optional[d
     loads = transmit_loads(out)
     current = margin.load_ceiling(mission)
     res = {"current": current, "applied": False, "late_update_max": LATE_UPDATE_MAX,
+           "late_search_frac": LATE_SEARCH_FRAC, "late_search_max": LATE_SEARCH_MAX,
            "bisections": CEILING_BISECTIONS, "resource": "transmit time", "bands": {}}
     if not loads:
         return dict(res, proposed=None, why="no transmit-time load in the plan")
@@ -1738,7 +1752,8 @@ def report_lines(mc: dict) -> List[str]:
                 bad = [c for c in fb["classes"] if c["state"] not in ("OK", "INFO")]
                 if fb["updates"] or bad or fb["recharge_pauses"] or fb["state"] != "OK":
                     lines.append(f"  F{int(k) + 1} {b}: late updates {100 * fb['late_update_frac_mc']:.2f} % of "
-                                 f"{fb['updates']}, recharge pauses {fb['recharge_pauses']}  {fb['state']}"
+                                 f"{fb['updates']}, late search dwells {100 * fb.get('late_search_frac_mc', 0.0):.2f} % "
+                                 f"of {fb.get('searches', 0)}, recharge pauses {fb['recharge_pauses']}  {fb['state']}"
                                  + (f" -- {fb['why']}" if fb["why"] else ""))
                 for c in bad:
                     lines.append(f"  F{int(k) + 1} {b}: {c['class']}: {c['why']}")

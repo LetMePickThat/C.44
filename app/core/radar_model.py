@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.47.0
+# Radar Performance Model - V6.48.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,12 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.47.0 -> V6.48.0 (user, 13 November 2026): late search dwells in the Monte-Carlo load ceiling
+#   - a search dwell starting later than tool.montecarlo.late_search_frac (10 %) of its volume's revisit after its slot
+#     is late; the proposed load ceiling holds only while at most late_search_max (1 %) of the dwells of every face and
+#     band are late (core.montecarlo.holds), beside the confirmation latency and the late track updates (Monte-Carlo
+#     on demand: no test case output changes).
 #
 # Changes V6.46.0 -> V6.47.0 (user, 13 November 2026): memory bandwidth 200 TB/s, redundancies on the cut volume
 #   - compute.memory_bw_tbps 50 -> 200 TB/s (working value, to refine): MOONTEST_VELOCITY was NOK 119-149 %; the PRIO_SEARCH
@@ -785,7 +791,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.47.0"
+MODEL_VERSION = "6.48.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
