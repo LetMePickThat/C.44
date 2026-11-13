@@ -93,7 +93,8 @@ REASON_TEXT = {
 # every sector field the optimiser's plan, the need test or the shape depends on
 PLAN_FIELDS = geo.SECTOR_GEOMETRY_FIELDS + frames.SECTOR_FRAME_FIELDS + (
     "range_km", "rr_target_s", "v_close_max_mps", "res_max_m", "range_min_km", "allow_ambiguous",
-    "max_wf_per_sector", "short_tol", "freq_ghz_candidates", "spectrum_exclusions_ghz", "rx_sll_db") + rm.SECTOR_TARGET_KEYS
+    "max_wf_per_sector", "short_tol", "freq_ghz_candidates", "spectrum_exclusions_ghz", "rx_sll_db",
+    "_popup_n") + rm.SECTOR_TARGET_KEYS
 
 _PLANS: Dict[str, Optional[dict]] = {}
 _PLAN_CACHE_MAX = P.get("tool.redundancy.plan_cache_max")

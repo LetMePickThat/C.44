@@ -271,6 +271,20 @@ def validate_sector(sec: dict, g: dict, tag: str) -> List[str]:
             n = Nav(nav[0])
             if n.has_orbit and np.linalg.norm(n.r) <= n.body_radius_km + alt:
                 errs.append(f"{tag}: the ship is below the limb altitude ({alt:g} km above the {n.body})")
+    if sec.get("limb_watch"):                   # (user, 13 November 2026: the target altitudes of the limb watch)
+        h0, h1 = sec.get("limb_h_min_km", 0.0), sec.get("limb_h_max_km", 0.0)
+        if fr != "limb":
+            errs.append(f"{tag}: the limb watch needs the frame 'limb'")
+        if not all(isinstance(x, (int, float)) for x in (h0, h1)) or not 0.0 <= h0 < h1:
+            errs.append(f"{tag}: the limb watch needs 0 <= limb_h_min_km < limb_h_max_km")
+        elif not errs and nav and not validate_nav(nav):
+            n = Nav(nav[0])
+            if n.has_orbit and np.linalg.norm(n.r) <= n.body_radius_km + h1:
+                errs.append(f"{tag}: the ship is below the highest target altitude ({h1:g} km above the {n.body})")
+    if sec.get("popup") or sec.get("limb_watch"):
+        d = sec.get("popup_delay_s", POPUP_DELAY_S_DEFAULT)
+        if not isinstance(d, (int, float)) or d <= 0:
+            errs.append(f"{tag}: popup_delay_s must be > 0")
     return errs
 
 
@@ -294,11 +308,84 @@ def sector_matrix(sec: dict, nav: Nav) -> Tuple[Optional[np.ndarray], float]:
     return m, off
 
 
-def resolve_sector(sec: dict, g: dict) -> dict:
-    """A copy of the sector ready for the ship-frame raster (see the module docstring); a ship-frame sector unchanged."""
-    if sec.get("frame", "ship") == "ship":
+POPUP_DELAY_S_DEFAULT: float = P.get("tool.mission_defaults.popup_delay_s")
+POPUP_FIELDS = ("popup", "popup_delay_s", "limb_watch", "limb_h_min_km", "limb_h_max_km")   # operator inputs
+POPUP_RESOLVED = ("_popup_n", "_popup_t_eff_s", "_popup_dwell_s")                         # added by resolve_sector
+
+
+def _depression_deg(r: float, rr_: float) -> float:
+    return math.degrees(math.acos(min(rr_ / r, 1.0)))
+
+
+def limb_geometry(nav: "Nav", h_min: float, h_max: float, v_target_mps: float, n_h: int = 9) -> dict:
+    """The limb watch at the instant (user, 13 November 2026), for targets h_min..h_max above the central body:
+    eps_max_deg = the band above the limb at h_min up to a target at h_max over the limb (depression(h_min) -
+    depression(h_max)); range_km = the farthest emergence (the grazing ray at h_min, a target at h_max on it beyond the
+    tangent point); dwell_s = the shortest time a target stays in the band, rising as the ship moves on its orbit
+    (horizontal speed / |r|) and the target moves towards it at v_target (worst direction, / (R + h))."""
+    R = float(nav.body_radius_km)
+    r_vec, v_vec = np.asarray(nav.r, float), np.asarray(nav.v, float)
+    r = float(np.linalg.norm(r_vec))
+    a0, a1 = R + h_min, R + h_max
+    if not r > a1 > a0 >= R:
+        raise ValueError("limb watch: needs h_max > h_min >= 0 and the ship above h_max")
+    dep0 = _depression_deg(r, a0)
+    eps_max = dep0 - _depression_deg(r, a1)
+    rng = math.sqrt(r * r - a0 * a0) + math.sqrt(a1 * a1 - a0 * a0)
+    v_h = float(np.linalg.norm(v_vec - (v_vec @ r_vec) / r ** 2 * r_vec))          # km/s
+    gam = np.linspace(1e-4, math.pi - 1e-4, 20001)
+    dwell = math.inf
+    for h in np.linspace(h_min, h_max, n_h)[1:]:
+        rho = R + float(h)
+        dx, dy = rho * np.cos(gam) - r, rho * np.sin(gam)                     # ship at (r, 0), zenith +x
+        el = np.degrees(np.arctan2(dx, dy)) + dep0                             # elevation above the limb line
+        hidden = np.hypot(dx, dy) > math.sqrt(r * r - a0 * a0) + math.sqrt(max(rho * rho - a0 * a0, 0.0)) + 1e-6
+        ok = ~hidden
+        if not ok.any():
+            continue
+        i_e = int(np.flatnonzero(ok).max())                                    # emergence: the last visible angle
+        band = ok & (el >= -0.05) & (el <= eps_max + 1e-9)                   # (0.05 deg: the grid at the emergence)
+        out_ = np.flatnonzero(~band[:i_e + 1])                                 # from the emergence towards the ship:
+        i_x = int(out_.max()) + 1 if len(out_) else 0                          # the first angle out of the band
+        g_e, g_x = float(gam[i_e]), float(gam[min(i_x, i_e)])
+        w = v_h / r + (v_target_mps / 1e3) / rho                               # rad/s
+        if w > 0.0:
+            dwell = min(dwell, (g_e - g_x) / w)
+    return {"eps_max_deg": eps_max, "range_km": rng, "dwell_s": dwell, "limb_alt_km": h_min}
+
+
+def popup_resolve(sec: dict, nav: Optional["Nav"]) -> dict:
+    """A sector whose target APPEARS (user, 13 November 2026): "popup" (any frame), or "limb_watch" (frame limb, the
+    band, the range and the time in the band from limb_geometry): N looks at the same range within
+    T_eff = min(popup_delay_s, time in the band), the revisit T_eff / N at the least load (radar_model.popup_looks);
+    rr_target_s (and for the limb watch range_km, eps_min/max_deg, limb_alt_km) replaced by the computed values."""
+    if not (sec.get("popup") or sec.get("limb_watch")):
         return sec
-    m, off = sector_matrix(sec, parse_nav(g.get("nav")))
+    from . import radar_model as rm
+    out = dict(sec)
+    t_eff = float(sec.get("popup_delay_s", POPUP_DELAY_S_DEFAULT))
+    if sec.get("limb_watch") and sec.get("frame") == "limb":
+        if nav is None or not nav.has_orbit:
+            raise ValueError(f"{sec.get('id', '?')}: the limb watch needs the orbit (navigation)")
+        geo_ = limb_geometry(nav, float(sec.get("limb_h_min_km", 0.0)), float(sec.get("limb_h_max_km", 0.0)),
+                             float(sec.get("v_close_max_mps", 0.0)))
+        out.update(limb_alt_km=geo_["limb_alt_km"], eps_min_deg=0.0, eps_max_deg=geo_["eps_max_deg"],
+                   range_km=geo_["range_km"])
+        out["_popup_dwell_s"] = geo_["dwell_s"]
+        t_eff = min(t_eff, geo_["dwell_s"])
+    n, rr = rm.popup_looks(rm.target_for_sector(out), float(sec.get("pd", rm.DETECT_PD)), t_eff)
+    out.update(rr_target_s=rr, _popup_n=n, _popup_t_eff_s=t_eff)
+    return out
+
+
+def resolve_sector(sec: dict, g: dict) -> dict:
+    """A copy of the sector ready for the ship-frame raster (see the module docstring); a ship-frame sector unchanged
+    (but a target that appears: popup_resolve)."""
+    if sec.get("frame", "ship") == "ship":
+        return popup_resolve(sec, None) if sec.get("popup") else sec
+    nav = parse_nav(g.get("nav"))
+    sec = popup_resolve(sec, nav)
+    m, off = sector_matrix(sec, nav)
     out = dict(sec)
     if not np.array_equal(m, np.eye(3)) or off:
         out["frame_m"] = tuple(float(c) for c in m.ravel())
@@ -391,7 +478,7 @@ def validate(mission: dict) -> List[str]:
 def uses_frames(mission: dict) -> bool:
     g = mission.get("global", {})
     return (g.get("nav") is not None or (isinstance(g.get("sky"), dict) and "frame" in g["sky"])
-            or any(s.get("frame", "ship") != "ship" for s in mission.get("sectors", [])))
+            or any(s.get("frame", "ship") != "ship" or s.get("popup") for s in mission.get("sectors", [])))
 
 
 def resolve(mission: dict) -> Tuple[dict, List[str]]:

@@ -737,7 +737,9 @@ def blind_range_function(rec: Optional[dict]):
 def inner_range_function(sec: dict, ratio_of=None, played: bool = False):
     """5.5 (user, 13 November 2026): the range (km) the drawn volume starts from in each direction: the volume's
     shortest range of interest (range_min_km, else range_min_frac x range) for the volumes asked; the blind range of
-    the waveforms played in the "effectively played" view (when the estimate gives it)."""
+    the waveforms played in the "effectively played" view (when the estimate gives it). (user, 13 November 2026: the
+    played view's blind range checked against the plans, c (pulse + limiter recovery) / 2, e.g. MOONTEST S03 3-30 km,
+    S01 300 km: the true one is drawn, small at the scale of the volumes)"""
     from . import optimizer as mo
     blind = getattr(ratio_of, "blind_of", None) if played else None
     if blind is not None:

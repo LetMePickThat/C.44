@@ -231,22 +231,28 @@ def _look_shifts(q: float, floor_db_span: float = 60.0) -> np.ndarray:
 
 
 def required_snr_db(n: int, swerling: Fluctuation, pfa: float, p_target: float, losses_db: Sequence[float] = (0.0,),
-                    weights: Sequence[float] = (1.0,), q: float = 0.0, floor: float = 1e-3, echo_loss: float = 0.0) -> float:
+                    weights: Sequence[float] = (1.0,), q: float = 0.0, floor: float = 1e-3, echo_loss: float = 0.0,
+                    n_looks: int = 0) -> float:
     """Mean total SNR (at the requirement range, before the position losses) meeting p_target: one look (q = 0) or
     cumulative over looks spaced q = v RR / R, Pd averaged over the position losses. The cumulative probability is
     solved by bisection on the SNR at R, all looks and phases at once; looks below `floor` do not count (and are left
     out before the interpolation: bit-identical, step 3.1 A2). Cached without bound (exact): the optimiser asks each
     of its ~1e5 laws per mission about 15 times; a bounded cache was emptied by the 8 lattice spacings (step 3.1 A1).
     echo_loss: probability that an echo is lost whole (eclipse by the common transmit slots; return on 3.2 / 5.2 from
-    step 5.4): each look's Pd times (1 - echo_loss). Infinite when even a sure detection cannot meet p_target."""
+    step 5.4): each look's Pd times (1 - echo_loss). Infinite when even a sure detection cannot meet p_target.
+    n_looks > 0 (a target that APPEARS, user 13 November 2026: limb, unmasking): p_target over n_looks looks at the
+    SAME range (no approach, q ignored), independent looks: each look meets 1 - (1 - p_target)^(1 / n_looks)."""
     return _required_snr_db(n, swerling, pfa, p_target, tuple(float(x) for x in losses_db),
-                            tuple(float(x) for x in weights), float(q), float(floor), float(echo_loss))
+                            tuple(float(x) for x in weights), float(q), float(floor), float(echo_loss), int(n_looks))
 
 
 @functools.lru_cache(maxsize=SNR_CACHE)   # was unbounded (step 3.1 A1); bounded at T3 (A1 of 25 October: far fewer laws)
-def _required_snr_db(n, swerling, pfa, p_target, losses_db, weights, q, floor, echo_loss=0.0) -> float:
+def _required_snr_db(n, swerling, pfa, p_target, losses_db, weights, q, floor, echo_loss=0.0, n_looks=0) -> float:
     curve = mean_curve(n, swerling, pfa, losses_db, weights)
     keep = 1.0 - echo_loss
+    if n_looks > 0:                       # N looks at a constant range (the target appears): per-look Pd
+        p1 = 1.0 - (1.0 - p_target) ** (1.0 / n_looks)
+        return _invert(curve, max(p1, floor) / keep) if max(p1, floor) < keep else math.inf
     if q <= 0.0:
         return _invert(curve, p_target / keep) if p_target < keep else math.inf
     shifts = _look_shifts(round(q, 9))

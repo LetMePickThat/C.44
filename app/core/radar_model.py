@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.48.0
+# Radar Performance Model - V6.49.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,18 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.48.0 -> V6.49.0 (user, 13 November 2026): a target that APPEARS (limb watch, unmasking)
+#   - new detection criterion: N independent looks at the SAME range (no approach) meet the volume's cumulative Pd
+#     (each look 1 - (1 - Pd)^(1/N); detection.required_snr_db n_looks, solve_look driver Detect-POP<N>); the looks
+#     fit in the delay T_eff, the revisit T_eff / N with N (1 .. tool.detection.popup_looks_max) at the least search
+#     load (rm.popup_looks); sector "popup" (any frame) with popup_delay_s (default tool.mission_defaults.popup_delay_s
+#     30 s, user: at least 30 s);
+#   - limb watch (frame limb, "limb_watch", target altitudes limb_h_min_km .. limb_h_max_km, a mission input): at the
+#     instant, the eps band 0 .. depression(h_min) - depression(h_max) above the limb at h_min, the range = the
+#     farthest emergence, T_eff = min(delay, the shortest time in the band: orbit + the target's own speed
+#     v_close_max towards the ship); rr_target_s, range_km, eps band and limb_alt_km replaced (frames.popup_resolve);
+#   - the criterion of every other volume unchanged (n_looks 0): no test case output should move.
 #
 # Changes V6.47.0 -> V6.48.0 (user, 13 November 2026): late search dwells in the Monte-Carlo load ceiling
 #   - a search dwell starting later than tool.montecarlo.late_search_frac (10 %) of its volume's revisit after its slot
@@ -791,7 +803,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.48.0"
+MODEL_VERSION = "6.49.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -2446,6 +2458,25 @@ def search_pfa(fa_per_rr: float, positions: float, cells_per_position: float) ->
     return detection.quantise_pfa(min(max(fa_per_rr / (positions * cells_per_position), PFA_MIN), PFA_MAX))
 
 
+POPUP_LOOKS_MAX = int(P.get("tool.detection.popup_looks_max"))   # (user, 13 November 2026)
+
+
+def popup_looks(target: "Target", pd: float, t_eff_s: float, f_ghz: float = 2.8) -> Tuple[int, float]:
+    """A target that appears (limb watch, unmasking; user 13 November 2026): the number of looks N in t_eff_s and the
+    revisit t_eff_s / N meeting the cumulative Pd pd at the same range at the least search load (N looks per t_eff_s
+    of energy 10^(SNR_req(N) / 10) each: N x SNR_req(N) the least), for N = 1 .. POPUP_LOOKS_MAX. The SNR curve of one
+    noncoherent sample of the target's fluctuation at DETECT_PFA stands for every waveform (the trade-off between
+    more, lighter looks and fewer, heavier ones; the plan then meets the criterion exactly with its own waveforms)."""
+    fl = look_fluctuation(target, f_ghz, target.swerling, 1, 0.0)
+    best = (1, math.inf)
+    for n in range(1, max(1, POPUP_LOOKS_MAX) + 1):
+        x = detection.required_snr_db(1, fl, DETECT_PFA, pd, n_looks=n)
+        cost = n * db_to_lin(x) if math.isfinite(x) else math.inf
+        if cost < best[1] * (1.0 - 1e-9):
+            best = (n, cost)
+    return best[0], float(t_eff_s) / best[0]
+
+
 def independent_cells(range_min_km: float, range_max_km: float, sig_bw_mhz: float, doppler_cells: int,
                       velocity_hypotheses: int, angle_cells: float = 1.0) -> float:
     """Independent resolution cells tested per look (step 2.2, E1-E5): range (R_max - R_min) / (c / 2B) x Doppler x
@@ -3004,15 +3035,18 @@ def solve_look(b: SolveBase, t_sys_k: Optional[float] = None, pfa: Optional[floa
     if pd is None and cum is not None and len(cum) > 3 and cum[3] is not None:
         pd = cum[3]                                 # step 5.1: the sector's own cumulative Pd (search_criterion)
     pd_l = DETECT_PD if pd is None else float(pd)
-    q = k.q = cum[0] * cum[1] / (cum[2] * 1e3) if (cum is not None and b.search) else 0.0
+    # a target that appears (user, 13 November 2026: limb watch, unmasking): N looks at the same range, no approach
+    n_pop = int(cum[5]) if (cum is not None and len(cum) > 5 and cum[5] and b.search) else 0
+    q = k.q = cum[0] * cum[1] / (cum[2] * 1e3) if (cum is not None and b.search and not n_pop) else 0.0
     # return on 3.2 / 5.2 from step 5.4: the echoes eclipsed by the common transmit slots are lost whole
-    rho = float(cum[4]) if (cum is not None and len(cum) > 4 and b.search) else 0.0
+    rho = float(cum[4]) if (cum is not None and len(cum) > 4 and cum[4] is not None and b.search) else 0.0
     if b.track_snr is None:
         # exact law (step 2.3), n = coherent blocks integrated noncoherently, Pd averaged over the position
-        snr_db = detection.required_snr_db(b.n_blocks, b.fl, pfa_l, pd_l, q=q, floor=CUM_PD_FLOOR, echo_loss=rho)
+        snr_db = detection.required_snr_db(b.n_blocks, b.fl, pfa_l, pd_l, q=q, floor=CUM_PD_FLOOR, echo_loss=rho,
+                                           n_looks=n_pop)
         positions_db = detection.required_snr_db(b.n_blocks, b.fl, pfa_l, pd_l, pos_l, pos_w, q,
-                                                 CUM_PD_FLOOR, rho) - snr_db
-        driver = ("Detect-CUM-" if q > 0 else "Detect-") + wf.integration[:4]
+                                                 CUM_PD_FLOOR, rho, n_pop) - snr_db
+        driver = (f"Detect-POP{n_pop}-" if n_pop else "Detect-CUM-" if q > 0 else "Detect-") + wf.integration[:4]
     else:
         snr_lin, dom = b.track_snr
         snr_db, driver = lin_to_db(snr_lin), "Track-" + dom
@@ -3090,7 +3124,10 @@ def solve(wf: Waveform, f_ghz: float, theta_deg: float, target: Target,
              "velocity_hypotheses": b.n_hyp, "velocity_span_mps": b.span,
              "doppler_floor_dbc": doppler_floor_dbc(f_ghz, b.t_block, b.r_listen_km) if ppb > 1 else {},
              # detection criterion (step 2.3)
-             "pfa": pfa_l, "criterion": "cumulative" if q > 0 else "single look", "look_spacing_q": q,
+             "pfa": pfa_l, "look_spacing_q": q,
+             "criterion": (f"appearing target, {int(cum[5])} looks at the same range"
+                           if (cum is not None and len(cum) > 5 and cum[5] and wf.role == "SEARCH")
+                           else "cumulative" if q > 0 else "single look"),
              "position_losses_mean_db": k.pos_parts,
              "pd_per_look_at_range": float(np.interp(snr_db + positions_db, detection.SNR_GRID_DB,
                                                      detection.mean_curve(n_blocks, fl, pfa_l, k.pos_l, k.pos_w)))

@@ -960,6 +960,8 @@ def search_criterion(sec: dict) -> tuple:
     c = (float(sec["v_close_max_mps"]), float(sec["rr_target_s"]), float(sec["range_km"]))
     pd = float(sec["pd"]) if sec.get("pd") is not None else None
     rho = float(sec.get("_eclipse_rho", 0.0))
+    if sec.get("_popup_n"):                     # a target that appears (frames.popup_resolve, 13 November 2026):
+        return c + (pd, round(rho, 6), int(sec["_popup_n"]))   # N looks at the same range (rm.solve_look)
     if rho > 0.0:
         return c + (pd, round(rho, 6))
     return c + (pd,) if pd is not None else c

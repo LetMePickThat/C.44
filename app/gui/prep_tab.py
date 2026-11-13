@@ -764,6 +764,20 @@ class PrepTab(QWidget):
         self.sb_limb_alt.setToolTip("Grazing altitude of the limb above the central body (km): eps of the box is "
                                     "counted from this limb")
         fl.addRow("limb altitude (km)", self.sb_limb_alt)
+        # (user, 13 November 2026) the limb watch: targets appearing above the limb at h_min..h_max; the band, the
+        # range and the revisit are then computed at the instant (frames.popup_resolve)
+        self.chk_limb_watch = QCheckBox("limb watch (targets appear above the limb)")
+        self.chk_limb_watch.setToolTip("The eps band, the required range and the revisit are computed from the target "
+                                       "altitudes, the orbit and the reaction delay (a target is detected with the "
+                                       "volume's Pd within the delay after it rises above the limb)")
+        self.sb_h_min = self._spin(0, 100000, 10, 0.0)
+        self.sb_h_max = self._spin(0, 100000, 10, 200.0)
+        self.sb_h_min.setToolTip("Lowest target altitude above the central body (km): the limb the band starts from")
+        self.sb_h_max.setToolTip("Highest target altitude above the central body (km): the top of the band and the "
+                                 "farthest emergence")
+        fl.addRow(self.chk_limb_watch)
+        fl.addRow("target altitude min (km)", self.sb_h_min)
+        fl.addRow("target altitude max (km)", self.sb_h_max)
         v.addWidget(self.grp_limb)
 
         self.grp_box = QGroupBox("Zone (box)")
@@ -846,6 +860,20 @@ class PrepTab(QWidget):
         self.sb_range_min.valueChanged.connect(self._on_field_changed)
         common.addRow("Shortest range (km)", self.sb_range_min)
         common.addRow("Target RR (s)", self.sb_rr)
+        # (user, 13 November 2026) a target that appears (unmasking, the limb watch): N looks at the same range within
+        # the reaction delay, the revisit computed
+        self.chk_popup = QCheckBox("the target appears (no approach)")
+        self.chk_popup.setToolTip("The target appears inside the volume (unmasking) instead of closing in from beyond "
+                                  "its range: detected with the volume's Pd within the delay, by N looks at the same "
+                                  "range; the revisit is computed (delay / N, at the least load)")
+        self.sb_popup_delay = self._spin(0.1, 3600, 5, frames.POPUP_DELAY_S_DEFAULT)
+        self.sb_popup_delay.setToolTip("Reaction delay: the target is detected within this time after it appears")
+        self.lbl_popup = QLabel("")
+        self.lbl_popup.setWordWrap(True)
+        self.lbl_popup.setStyleSheet("color: gray; font-size: 11px;")
+        common.addRow("", self.chk_popup)
+        common.addRow("Detection delay (s)", self.sb_popup_delay)
+        common.addRow("", self.lbl_popup)
         common.addRow("Closing speed min (m/s)", self.sb_vmin)
         common.addRow("Closing speed max (m/s)", self.sb_vmax)
         # step 4.3: scheduler priority of the volume
@@ -894,8 +922,11 @@ class PrepTab(QWidget):
 
         for sb in (self.sb_phi_min, self.sb_phi_max, self.sb_box_eps_min, self.sb_box_eps_max,
                    self.sb_phi0, self.sb_eps0, self.sb_radius, self.sb_rcs, self.sb_range,
-                   self.sb_rr, self.sb_vmin, self.sb_vmax, self.sb_limb_alt, *self.sb_rect.values()):
+                   self.sb_rr, self.sb_vmin, self.sb_vmax, self.sb_limb_alt, *self.sb_rect.values(),
+                   self.sb_h_min, self.sb_h_max, self.sb_popup_delay):
             sb.valueChanged.connect(self._on_field_changed)
+        self.chk_limb_watch.toggled.connect(self._on_field_changed)
+        self.chk_popup.toggled.connect(self._on_field_changed)
         self.grp_limb.setVisible(False)
 
         self.grp_box.setVisible(True)
@@ -1122,6 +1153,11 @@ class PrepTab(QWidget):
             self.cb_frame.setCurrentText(fr)
             self.grp_limb.setVisible(fr == "limb")
             self.sb_limb_alt.setValue(sec.get("limb_alt_km", frames.LIMB_ALT_KM_DEFAULT))
+            self.chk_limb_watch.setChecked(bool(sec.get("limb_watch")))
+            self.sb_h_min.setValue(float(sec.get("limb_h_min_km", 0.0)))
+            self.sb_h_max.setValue(float(sec.get("limb_h_max_km", 200.0)))
+            self.chk_popup.setChecked(bool(sec.get("popup")))
+            self.sb_popup_delay.setValue(float(sec.get("popup_delay_s", frames.POPUP_DELAY_S_DEFAULT)))
             self.sb_phi_min.setValue(sec.get("phi_min_deg", md.SECTOR_DEFAULTS_BOX["phi_min_deg"]))
             self.sb_phi_max.setValue(sec.get("phi_max_deg", md.SECTOR_DEFAULTS_BOX["phi_max_deg"]))
             self.sb_box_eps_min.setValue(sec.get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"]))
@@ -1158,6 +1194,37 @@ class PrepTab(QWidget):
             self.sb_rr_min.setValue(sec.get("rr_min_s", 0.0))
         finally:
             self._updating_form = False
+        self._update_popup_info(sec)
+
+    def _update_popup_info(self, sec: Optional[dict]) -> None:
+        """(user, 13 November 2026) a target that appears: the values computed at the mission instant (frames.
+        popup_resolve) shown under the delay; the inputs they replace (revisit; for the limb watch the range, the eps
+        band and the limb altitude) greyed."""
+        lw = bool(sec and sec.get("frame") == "limb" and sec.get("limb_watch"))
+        pop = bool(sec and (sec.get("popup") or lw))
+        self.sb_h_min.setEnabled(lw)
+        self.sb_h_max.setEnabled(lw)
+        self.sb_popup_delay.setEnabled(pop)
+        self.sb_rr.setEnabled(sec is not None and not pop)
+        self.sb_range.setEnabled(sec is not None and not lw)
+        self.sb_limb_alt.setEnabled(sec is not None and not lw)
+        for sb in (self.sb_box_eps_min, self.sb_box_eps_max):
+            sb.setEnabled(sec is not None and not lw)
+        if not pop:
+            self.lbl_popup.setText("")
+            return
+        try:
+            nav = frames.parse_nav(self.mission.get("global", {}).get("nav")) if lw else None
+            r = frames.popup_resolve(sec, nav)
+        except (ValueError, KeyError, TypeError, ZeroDivisionError) as exc:
+            self.lbl_popup.setText(f"not computable: {exc}")
+            return
+        txt = (f"computed: {r['_popup_n']} look(s) at the same range within {r['_popup_t_eff_s']:.0f} s "
+               f"-> revisit {r['rr_target_s']:.1f} s")
+        if lw:
+            txt += (f"; range {r['range_km']:.0f} km (farthest emergence); band 0 -> {r['eps_max_deg']:.2f} deg above "
+                    f"the limb; {r['_popup_dwell_s']:.0f} s in the band at most (at the mission instant)")
+        self.lbl_popup.setText(txt)
 
     # ------------------------------------------------------------------ AT range brackets
     def _fill_at_table(self, sec: Optional[dict]) -> None:
@@ -1278,6 +1345,20 @@ class PrepTab(QWidget):
             sec["limb_alt_km"] = self.sb_limb_alt.value()
         else:
             sec.pop("limb_alt_km", None)
+        lw = sec["frame"] == "limb" and self.chk_limb_watch.isChecked()     # (13 November 2026: the limb watch)
+        if lw:
+            sec.update(limb_watch=True, limb_h_min_km=self.sb_h_min.value(), limb_h_max_km=self.sb_h_max.value())
+        else:
+            for k in ("limb_watch", "limb_h_min_km", "limb_h_max_km"):
+                sec.pop(k, None)
+        if self.chk_popup.isChecked():
+            sec["popup"] = True
+        else:
+            sec.pop("popup", None)
+        if (lw or self.chk_popup.isChecked()) and abs(self.sb_popup_delay.value() - frames.POPUP_DELAY_S_DEFAULT) > 1e-9:
+            sec["popup_delay_s"] = self.sb_popup_delay.value()
+        else:
+            sec.pop("popup_delay_s", None)
         rect_keys = tuple(self.sb_rect)
         if sec["shape"] == "box":
             sec["phi_min_deg"] = self.sb_phi_min.value()
@@ -1336,6 +1417,7 @@ class PrepTab(QWidget):
         else:
             sec.pop("rr_min_s", None)
         self._show_class(sec)
+        self._update_popup_info(sec)
         self._decorate_item(self.list_sectors.item(self._cur_index), sec)
         self._schedule_refresh()
 

@@ -3900,3 +3900,53 @@ def test_profile_sampling_keeps_turns_and_the_time_step():
     assert np.diff(after).max() <= 21.0 + 1e-9 and np.diff(after).max() < 30.0   # 2.0 deg reached within rounding)
     assert len([t for t in ts if t < 300.0]) == 5
 
+
+
+def test_an_appearing_target_takes_n_looks_at_the_same_range():
+    """A target that appears (user, 13 November 2026): N independent looks at one range meet the cumulative Pd when
+    each meets 1 - (1 - Pd)^(1/N); more looks need less SNR each; the look count chosen in the delay is the least
+    load (N x SNR) within popup_looks_max; the optimiser's criterion carries N and solve_look drops the approach."""
+    from core import detection
+    fl = rm.look_fluctuation(rm.Target("t", 1.0, 1, 1000.0), 2.8, 1, 1, 0.0)
+    x1 = detection.required_snr_db(1, fl, rm.DETECT_PFA, 0.9, n_looks=1)
+    assert x1 == pytest.approx(detection.required_snr_db(1, fl, rm.DETECT_PFA, 0.9), abs=1e-9)
+    x4 = detection.required_snr_db(1, fl, rm.DETECT_PFA, 0.9, n_looks=4)
+    p1 = 1.0 - 0.1 ** 0.25
+    assert x4 == pytest.approx(detection.required_snr_db(1, fl, rm.DETECT_PFA, p1), abs=1e-9) and x4 < x1
+    n, rr = rm.popup_looks(rm.Target("t", 1.0, 1, 1000.0), 0.9, 30.0)
+    assert 1 <= n <= rm.POPUP_LOOKS_MAX and rr == pytest.approx(30.0 / n)
+    costs = [k * rm.db_to_lin(detection.required_snr_db(1, fl, rm.DETECT_PFA, 0.9, n_looks=k))
+             for k in range(1, rm.POPUP_LOOKS_MAX + 1)]
+    assert n == 1 + int(np.argmin(costs))
+    sec = dict(md.new_sector([]), popup=True, rr_target_s=rr, _popup_n=n)
+    crit = mo.search_criterion(sec)
+    assert len(crit) == 6 and crit[5] == n
+    w = mo.make_wf("t", 50e-6, 1, 3e-3, 5.0, 1, "NONCOHERENT")
+    res = rm.solve(w, 2.8, 0.0, rm.Target("t", 1.0, 1, 1000.0), cum=crit)
+    assert res.pulse["criterion"].startswith(f"appearing target, {n} looks") and res.driver.startswith(f"Detect-POP{n}")
+    assert res.pulse["look_spacing_q"] == 0.0
+
+
+def test_limb_watch_geometry_and_resolution():
+    """The limb watch (user, 13 November 2026): band 0 .. depression(h_min) - depression(h_max), range = the farthest
+    emergence, a shorter time in the band for a faster target; resolved into the box, the range and the revisit."""
+    from types import SimpleNamespace
+    from core import frames
+    R, alt = 1737.4, 763.0
+    nav = SimpleNamespace(body_radius_km=R, r=np.array([R + alt, 0.0, 0.0]), v=np.array([0.0, 1.715, 0.0]),
+                          has_orbit=True)
+    r = R + alt
+    g0 = frames.limb_geometry(nav, 0.0, 200.0, 0.0)
+    dep = lambda h: math.degrees(math.acos((R + h) / r))     # noqa: E731
+    assert g0["eps_max_deg"] == pytest.approx(dep(0.0) - dep(200.0))
+    assert g0["range_km"] == pytest.approx(math.sqrt(r * r - R * R) + math.sqrt((R + 200.0) ** 2 - R * R))
+    g5 = frames.limb_geometry(nav, 0.0, 200.0, 5000.0)
+    assert 0.0 < g5["dwell_s"] < g0["dwell_s"] < math.inf
+    sec = dict(md.new_sector([]), id="LW", frame="limb", limb_watch=True, limb_h_min_km=0.0, limb_h_max_km=200.0,
+               v_close_max_mps=5000.0, popup_delay_s=30.0)
+    out = frames.popup_resolve(sec, nav)
+    assert out["eps_min_deg"] == 0.0 and out["eps_max_deg"] == pytest.approx(g5["eps_max_deg"])
+    assert out["range_km"] == pytest.approx(g5["range_km"]) and out["_popup_t_eff_s"] == pytest.approx(min(30.0, g5["dwell_s"]))
+    assert out["rr_target_s"] == pytest.approx(out["_popup_t_eff_s"] / out["_popup_n"])
+    bad = dict(sec, frame="ship")
+    assert any("limb watch" in e for e in frames.validate_sector(bad, {}, "LW"))

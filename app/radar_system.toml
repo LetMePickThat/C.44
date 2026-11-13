@@ -924,6 +924,7 @@ offset_quantiles = 16           # quantiles of each random position loss (grid, 
 pos_law_step_db = 0.02          # position-loss laws rounded to this step (A1, 25 Oct 2026: distinct laws / 6, required SNR
                                 # within 0.003 dB measured); 0 = exact
 cum_snr_tol_db = 1e-3           # tolerance of the bisection inverting the cumulative criterion (A2, 25 Oct 2026; was 1e-4)
+popup_looks_max = 10            # a target that appears (limb watch, unmasking; user 13 Nov 2026): at most this many looks N within its delay (the revisit = delay / N, N at the least search load)
 snr_cache_size = 131072         # inverted laws kept per process (~2-3 KB each); was unbounded (T3, 25 Oct 2026)
 mean_curve_cache_size = 8192    # position-averaged Pd curves kept per process (16 KB each; was 32768 = 0.5 GB, T3)
 position_cache_size = 32768     # position-loss laws kept per process (was unbounded, T3)
@@ -1081,6 +1082,7 @@ eps_max_deg = 90.0              # front limit (90 = no limit)
 res_max_m   = 2.0               # range resolution requested when a sector gives none: PHYSICAL resolution since step 2.1
                                 # (broadening x c / 2B: 2 m needs 89 MHz at -25 dB, above the 75 MHz search space until 3.1)
 range_min_frac = 0.1            # sector range_min_km when absent = this x range_km (step 2.1, C1): blind range limit
+popup_delay_s  = 30.0           # a target that appears (sector 'popup' or limb watch; user 13 Nov 2026: reaction time, at least 30 s): detected with the sector's cumulative Pd within this delay when absent
 
 [tool.mission_defaults.sector]
 rcs_m2 = 1000.0
