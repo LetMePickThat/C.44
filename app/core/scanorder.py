@@ -173,15 +173,16 @@ def sector_scan(sec: dict, r: dict, sph: "mo.Sphere", sky: Optional[dict], shift
             sel = theta >= last[1]
             dur[sel], cpd[sel] = last[2], last[3]
         # dwells: the next positions_per_dwell pointings of the order served together
-        dwells, i = [], 0
+        dwells, dwell_uv, i = [], [], 0
         while i < len(order):
             c = int(cpd[order[i]])
             grp = order[i:i + c]
             dwells.append(float(dur[grp].sum()))
+            dwell_uv.append([(float(pts[g, 0]), float(pts[g, 1])) for g in grp])   # (5.5 B: the Timeline's tooltip)
             i += c
         rr = float(r["rr_target_s"])
         out[k] = {"pointings": len(pts), "plan_positions": float(r["faces"][str(k)]["positions"]),
-                  "dwell_times_s": dwells, "frame_tx_s": float(sum(dwells)),
+                  "dwell_times_s": dwells, "dwell_uv": dwell_uv, "frame_tx_s": float(sum(dwells)),
                   "uniformity": uniformity(pts, order), "mean_step_deg": mean_step_deg(pts, order),
                   "pointing_rate_hz": len(dwells) / rr}
     return out

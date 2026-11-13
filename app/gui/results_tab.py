@@ -219,6 +219,7 @@ class ResultsTab(QWidget):
         self.tree_verdict.header().setStretchLastSection(True)
         self.tree_verdict.setMinimumHeight(260)
         self.tree_verdict.itemClicked.connect(self._on_verdict_clicked)
+        self.tree_verdict.itemDoubleClicked.connect(self._on_verdict_double_clicked)
         self.tree_verdict.setToolTip("Resource: OK up to the load ceiling, ALERT up to 100 % (safety reserve in use), "
                                       "NOK above. Requirement: OK up to 100 %, NOK above. Transient: ALERT above 100 %. "
                                       "Source MC (Monte-Carlo, on demand): NOK when the requirement is missed beyond the "
@@ -237,7 +238,12 @@ class ResultsTab(QWidget):
         self.btn_mc_report.setEnabled(bool(self.result.get("montecarlo")))
         self.lbl_mc = QLabel("")
         self.lbl_mc.setWordWrap(True)
-        for w in (self.btn_mc, self.btn_mc_cancel, self.btn_mc_report):
+        # step 5.5 B (user, 13 November 2026): the scheduler's synthetic timeline per face and band, replayed on demand
+        self.btn_timeline = uc.tool_button("Timeline", lambda: self._open_timeline(None), "SP_FileDialogContentsView",
+                                           tip="The transmissions of each face and band in the scheduler's synthetic "
+                                               "timeline (replayed from this result; double-click a face in the "
+                                               "verdict to open it on that face)")
+        for w in (self.btn_mc, self.btn_mc_cancel, self.btn_mc_report, self.btn_timeline):
             h.addWidget(w)
         h.addWidget(self.lbl_mc, 1)
         v.addLayout(h)
@@ -316,6 +322,24 @@ class ResultsTab(QWidget):
                 self.table_sectors.selectRow(i)
                 self._on_sector_row(i)
                 return
+
+    def _on_verdict_double_clicked(self, item: QTreeWidgetItem, _col: int) -> None:
+        """A face of the verdict (F1-F4, or one of its lines) double-clicked: its timeline (5.5 B, B2 c)."""
+        top = item
+        while top.parent() is not None:
+            top = top.parent()
+        name = top.text(0)
+        if len(name) == 2 and name[0] == "F" and name[1] in "1234":
+            self._open_timeline(int(name[1]) - 1)
+
+    def _open_timeline(self, face) -> None:
+        from gui.timeline_window import TimelineWindow
+        if not self.result.get("scheduler"):
+            self.lbl_verify.setText("No scheduler output in this result: no timeline.")
+            return
+        w = TimelineWindow(self.mission, self.result, face, self)
+        w.setAttribute(Qt.WA_DeleteOnClose)
+        w.show()
 
     def _verify_advice(self) -> None:
         adv = (self.result.get("verdict") or {}).get("advice", [])

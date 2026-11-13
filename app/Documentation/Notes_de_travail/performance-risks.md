@@ -25,6 +25,8 @@ profile 3-5 s per volume once; exact run of one mission at one instant 1.5-9 min
 5. **R3 confirmation re-plans: LOW-MEDIUM.** Up to 4 re-plannings per degraded volume (1.5 -> ~3 min on the test case);
    a mission with many degraded volumes could double or triple its run time.
 
+**Exact result at every instant, stored (quantified 13 Nov 2026, user: future implementation where each instant is computed exactly and possibly kept in the file):** measured on MOONTEST_VELOCITY (4 volumes, Moon, t = 0): one exact result 261 kB JSON (sectors 84, peak 55, verdict 38, tracking 29 kB) / 35 kB gzip; + the 7 252 search dwell durations for the Timeline 79 kB / 17 kB gzip; total ~340 kB raw, ~52 kB gzip per instant. Instants over 6000 s with the profile rule (2 deg turn, at least every 60 s): ~120 in lunar orbit (period ~9 200 s, ~235 deg in 6000 s), 150-300 with attitude manoeuvres; 1 per second = 6000. File: 120 instants ~41 MB raw / ~6 MB gzip, 300 ~100 / ~16 MB, 6000 ~2 GB / ~310 MB. Duration of a mission does not matter today (one exact result kept, one instant). Remedies: a compressed side file (as the simulator .npz journal) indexed by instant, only the summary verdict per instant in the work file; dedupe what does not change between instants (to measure). TIME dominates the size: 39-52 min per exact instant on MOONTEST (V6.44) = 80-100 h for 120 instants: plan reuse between neighbouring instants is decisive (see risk 2).
+
 **Proposal made to the user (not decided yet):** set a target duration per use (e.g. Pmiss < 1 min interactive, a
 1-hour scenario with the radar in the loop < 10 min) to steer these choices. See [[radar-roadmap]],
 [[next-session-reminders]].

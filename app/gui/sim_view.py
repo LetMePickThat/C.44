@@ -4544,7 +4544,7 @@ class SimView(QWidget):
                 calib = calibration.view_calibration(raws, [raw.get("id") or f"_idx{i}" for i, raw in enumerate(raws)])
                 alloc = (ce.live_allocation_async(table, secs, self.grid, e0, e1, sky_ship, gl, calib=calib,
                                                   relief="background", tag="global")
-                         if table is not None else None)
+                         if table is not None and getattr(self, "estimate_allowed", lambda: True)() else None)
             except Exception:  # noqa: BLE001 -- the rule refuses a mission mid-edit: no gauge
                 alloc = None
             if (not alloc or alloc.get("stale") or alloc.get("estimating") or alloc.get("relief_pending")) \

@@ -2230,6 +2230,8 @@ def test_gui_modules_import():
     import gui.main_window  # noqa: F401
     import gui.prep_tab  # noqa: F401
     import gui.results_tab  # noqa: F401
+    import gui.timeline_window  # noqa: F401
+    import gui.diagnosis_panel  # noqa: F401
 
 
 # ----------------------------------------------------------------------------- track model (step 3.3)
@@ -4029,3 +4031,29 @@ def test_verdict_grouped_by_constraint():
     assert validation.owner_sector({"object": "T_DECOY/0 200-600 km"}, vols) == "T_DECOY"
     assert validation.owner_sector({"object": "search T_KKV"}, vols) == "T_KKV"
     assert validation.owner_sector({"object": "F1"}, vols) is None
+
+
+def test_scheduler_timeline_replayed_as_built():
+    """5.5 B (user, 13 November 2026): the Timeline window replays the scheduler's synthetic timeline from an exact
+    result; the replay gives back, face by face and band by band, the figures the run stored (same classes, same
+    draws), and its transmissions never overlap on one face and band."""
+    from core import scheduler as sch
+    here = os.path.dirname(__file__)
+    snap = json.loads(open(os.path.join(here, "snapshots", "mission_synthetic_mix.json"), encoding="utf-8").read())["run"]
+    m = sch.mission_for_replay(md.load_mission(os.path.join(here, "missions", "mission_synthetic_mix.json")), snap)
+    rp = sch.replay(m, snap)
+    n = 0
+    for k in range(4):
+        for b in ("S", "Ku"):
+            ref = snap["scheduler"]["faces"][str(k)][b]["timeline"]
+            got = json.loads(json.dumps(rp[f"{k}{b}"]["summary"]["timeline"]))
+            assert got.keys() == ref.keys()
+            for key, a in ref.items():
+                if isinstance(a, dict):
+                    assert got[key] == pytest.approx(a, rel=1e-9, abs=1e-12)
+                else:
+                    assert got[key] == pytest.approx(a, rel=1e-9, abs=1e-12)
+            ev = rp[f"{k}{b}"]["events"]
+            n += len(ev)
+            assert all(e2[0] >= e1[0] + e1[1] - 1e-12 for e1, e2 in zip(ev, ev[1:]))
+    assert n > 1000

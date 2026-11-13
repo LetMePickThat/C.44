@@ -444,7 +444,8 @@ SOURCE_STYLES = {                       # (user, 11 November 2026: estimates and
     "exact": ("EXACT", "#2f8a4f"),                            # an exact calculation
     "outdated": ("EXACT · OUTDATED", "#a8432f"),           # an exact result, the mission edited since
     "obsolete": ("OBSOLETE ESTIMATE - RERUN", "#a8432f"),  # volumes edited, the estimate held (click: rerun)
-    "paused": ("ESTIMATE PAUSED - EXACT RUNNING", "#6b7280"),  # an exact calculation running (user, 13 Nov 2026)
+    "paused": ("ESTIMATE PAUSED - EXACT RUNNING", "#6b7280"),
+    "noscenario": ("NO SCENARIO - NO ESTIMATE", "#6b7280"),   # nothing estimated before a scenario (user, 13 Nov 2026)  # an exact calculation running (user, 13 Nov 2026)
 }
 
 

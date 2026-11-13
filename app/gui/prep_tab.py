@@ -156,6 +156,9 @@ class PrepTab(QWidget):
         self.view = SceneView(self.grid, face_opacity=0.28, sector_opacity=0.5, exec_face_colours=True,
                               diagnosis=True)
         self.view.sector_selected.connect(self._select_sector_by_sid)    # (5.5 A: a line of the diagnosis)
+        # (user, 13 November 2026) no fast estimate while no scenario is loaded: the live load, the gauge, the global
+        # view's volumes, the range alerts and the redundancy check wait for the flight plan's navigation and sky
+        self.view.estimate_allowed = lambda: getattr(self, "_link", None) is not None
         self.view.instant_source = self._instant                      # the playback (user, 10 November 2026)
         self.view.use_instant = lambda t: self._set_scn_t_and_apply(t)
         self.view.instant_shown = self._on_instant_shown          # (the navigation panel follows the playback)
@@ -1607,7 +1610,7 @@ class PrepTab(QWidget):
         # the range out of reach from each volume's cost profile (user, 11 November 2026: the table's single-look
         # criterion said S01 at 25 000 km out of reach while the optimiser's laws reach 43 500 km at broadside; the
         # same figures as the live load and the range gauge); the table's kept only while a profile is computed
-        if self.cost_table is not None:
+        if self.cost_table is not None and getattr(self, "_link", None) is not None:   # (no scenario: no estimate)
             try:
                 ships = [{**s_, "id": s_.get("id")} for s_ in (self._ship_sector(x) for x in self.mission["sectors"])
                          if s_ is not None]
@@ -1781,6 +1784,8 @@ class PrepTab(QWidget):
         return f"{100 * f.fraction:.0f} % covered by {', '.join(f.by)}"
 
     def _start_redundancy_check(self) -> None:
+        if getattr(self, "_link", None) is None:      # (user, 13 November 2026: nothing before a scenario)
+            return
         if self._red_worker is not None and self._red_worker.isRunning():
             return  # _on_redundancy_done starts the next check if the mission changed meanwhile
         sig = self._red_sig()

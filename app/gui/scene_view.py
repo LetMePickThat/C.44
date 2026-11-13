@@ -689,6 +689,7 @@ class SceneView(QWidget):
                                            "linked to its volume); double-click a moved label to snap it back.")
         self._stack = QStackedWidget()                 # the sphere (0) or the global view (1, built when first asked)
         self._stack.addWidget(self.plotter.interactor)
+        self.estimate_allowed = lambda: True           # (the preparation: only with a scenario, user 13 Nov 2026)
         self.diagnosis = None                          # (5.5 point A: what limits the mission, from the live load)
         top_v = v
         if diagnosis:                                  # (user, 13 November 2026: its height set with the mouse, as
@@ -794,6 +795,7 @@ class SceneView(QWidget):
         self._draw_scenario()
         self.plotter.render()
         self._check_global()
+        self._update_badge()                           # (no scenario: no estimate, said on the badge)
 
     # ------------------------------------------------------------------ the global view
     def _global_shown(self) -> bool:
@@ -959,7 +961,7 @@ class SceneView(QWidget):
         them; hiding is the display's), at the instant shown; None without the fast-estimate table."""
         from core import cost_estimate as ce
         table = ce.cached_table()
-        if table is None or self._eps is None:
+        if table is None or self._eps is None or not self.estimate_allowed():
             return None
         try:
             return ce.live_allocation_async(table, [{**d.sec, "id": d.sid} for d in draws], self.grid, *self._eps,
@@ -1031,6 +1033,10 @@ class SceneView(QWidget):
             lb.setCursor(Qt.PointingHandCursor)
             return
         lb.unsetCursor()
+        if not self.estimate_allowed():               # (user, 13 November 2026: nothing before a scenario)
+            uc.set_source(lb, "noscenario", tip="No scenario loaded: the fast estimate starts once a scenario (the "
+                          "flight plan) gives the navigation and the sky")
+            return
         if background.estimate_paused():              # (user, 13 November 2026: the exact calculation first)
             uc.set_source(lb, "paused", tip="An exact calculation is running: the fast estimate is paused (its "
                           "processes suspended, nothing new started) and resumes when it ends; the figures shown are "
@@ -1369,6 +1375,7 @@ class SceneView(QWidget):
             if self._sim is None:
                 from gui.sim_view import SimView             # (late: sim_view imports this module)
                 self._sim = SimView(self.grid, read_only=True)
+                self._sim.estimate_allowed = lambda: self.estimate_allowed()
                 self._sim.range_gauge = self.display_bar.tg_gauge.isChecked()
                 self._sim.set_achieved(self._achieved)       # (the labels' second line)
                 self._sim.sector_labels_always = True        # (the volumes' labels whatever the objects' labels)

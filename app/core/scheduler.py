@@ -65,10 +65,11 @@ class Klass:
 
     def __init__(self, prio: Tuple[int, int], label: str, rho: float, service_s: float, kind: str,
                  sector: Optional[str] = None, period_s: Optional[float] = None, count: float = 0.0,
-                 dwells: Optional[List[float]] = None):
+                 dwells: Optional[List[float]] = None, dwell_uv: Optional[list] = None):
         self.prio, self.label, self.rho, self.s, self.kind = prio, label, max(0.0, rho), max(service_s, 0.0), kind
         self.sector, self.period, self.count = sector, period_s, count
         self.dwells = dwells or []          # step 4.3 bis: the search dwells of a frame in scan order
+        self.dwell_uv = dwell_uv or []      # (5.5 B) their pointings (u, v) in the face frame
 
     @property
     def rate(self) -> float:
@@ -95,7 +96,8 @@ def _classes(k: int, mission: dict, res: dict, scans: Optional[Dict[str, Dict[in
         rho = float(f["time_fraction"])
         sc = (scans or {}).get(r["id"], {}).get(k)
         out["S"].append(Klass(priority_of(sec), f"search {r['id']}", rho, rho * rr / f["positions"], "search",
-                              r["id"], rr, f["positions"], sc["dwell_times_s"] if sc else None))
+                              r["id"], rr, f["positions"], sc["dwell_times_s"] if sc else None,
+                              sc.get("dwell_uv") if sc else None))
         t = tsec.get(r["id"])
         if t is None:
             continue
@@ -175,22 +177,24 @@ def _shed(classes: List[Klass], capacity: float) -> Tuple[Dict[str, float], bool
 
 
 def _timeline(classes: List[Klass], horizon: float, rng: random.Random, max_contiguous_s: float,
-              pause_ratio: float) -> Dict[str, float]:
+              pause_ratio: float, record: Optional[dict] = None) -> Dict[str, float]:
     """Greedy timeline of one face and band (b): releases of the periodic tasks spread over their period, Poisson
     arrivals for confirmations and initiations, one calibration released at t = 0; no preemption; a recharge pause of
     busy x pause_ratio after max_contiguous_s of contiguous transmission."""
-    tasks = []                                      # (release, prio, deadline, duration, label, kind)
+    tasks = []                                      # (release, prio, deadline, duration, label, kind, dwell index)
+    uv_of = {c.label: c.dwell_uv for c in classes if c.kind == "search" and c.dwell_uv}
     for c in classes:
         if c.s <= 0 or c.rho <= 0:
             continue
         if c.kind == "cal":
-            tasks.append((0.0, c.prio, c.period * CAL_MAX_DELAY_FRAC, c.s, c.label, c.kind))
+            tasks.append((0.0, c.prio, c.period * CAL_MAX_DELAY_FRAC, c.s, c.label, c.kind, -1))
         elif c.kind == "search" and c.dwells:
             # step 4.3 bis: the real dwells of the frame in scan order, spread over the revisit, frame after frame
             step = c.period / len(c.dwells)
             t, j = rng.random() * step, 0
             while t < horizon:
-                tasks.append((t, c.prio, t + c.period, c.dwells[j % len(c.dwells)], c.label, c.kind))
+                tasks.append((t, c.prio, t + c.period, c.dwells[j % len(c.dwells)], c.label, c.kind,
+                              j % len(c.dwells)))
                 t += step
                 j += 1
         elif c.kind in ("search", "update"):
@@ -201,12 +205,12 @@ def _timeline(classes: List[Klass], horizon: float, rng: random.Random, max_cont
             t = rng.random() * step
             while t < horizon:
                 dl = t + (c.period if c.kind == "search" else UPDATE_JITTER_FRAC * c.period)
-                tasks.append((t, c.prio, dl, c.s, c.label, c.kind))
+                tasks.append((t, c.prio, dl, c.s, c.label, c.kind, -1))
                 t += step
         else:
             t = rng.expovariate(c.rate) if c.rate > 0 else math.inf
             while t < horizon:
-                tasks.append((t, c.prio, t + 1e9, c.s, c.label, c.kind))
+                tasks.append((t, c.prio, t + 1e9, c.s, c.label, c.kind, -1))
                 t += rng.expovariate(c.rate)
     tasks.sort()
     ready: List[tuple] = []
@@ -216,20 +220,26 @@ def _timeline(classes: List[Klass], horizon: float, rng: random.Random, max_cont
     cal_delay, pauses, pause_time = 0.0, 0, 0.0
     while i < len(tasks) or ready:
         while i < len(tasks) and tasks[i][0] <= t:
-            rel, prio, dl, dur, lab, kind = tasks[i]
-            heapq.heappush(ready, (prio, dl, rel, dur, lab, kind))
+            rel, prio, dl, dur, lab, kind, idx = tasks[i]
+            heapq.heappush(ready, (prio, dl, rel, dur, lab, kind, idx))
             i += 1
         if not ready:
             t = tasks[i][0]
             busy_run = 0.0
             continue
-        prio, dl, rel, dur, lab, kind = heapq.heappop(ready)
+        prio, dl, rel, dur, lab, kind, idx = heapq.heappop(ready)
         if busy_run + dur > max_contiguous_s and busy_run > 0:
             pause = busy_run * pause_ratio
+            if record is not None:
+                record["pauses"].append((t, pause))
             t += pause
             pauses += 1
             pause_time += pause
             busy_run = 0.0
+        if record is not None:                      # (step 5.5 B: the timeline shown, replayed on demand)
+            uv = uv_of.get(lab)
+            record["events"].append((t, dur, lab, kind, prio, rel, kind == "update" and t > dl,
+                                     uv[idx] if uv and 0 <= idx < len(uv) else None))
         delays.setdefault(lab, []).append(t - rel)
         if kind == "update":
             n_updates += 1
@@ -247,7 +257,7 @@ def _timeline(classes: List[Klass], horizon: float, rng: random.Random, max_cont
             "end_s": t}
 
 
-def schedule(mission: dict, res: dict) -> dict:
+def schedule(mission: dict, res: dict, record: bool = False) -> dict:
     """Scheduler verdict of a mission (step 4.3): per face and band the loads by priority, the waits, the shedding,
     the eclipse of the common cadence, the synthetic timeline; per sector the confirmation latency against its
     requirement; flags."""
@@ -274,6 +284,7 @@ def schedule(mission: dict, res: dict) -> dict:
     flags: List[str] = []
     faces: Dict[str, dict] = {}
     waits: Dict[Tuple[int, str], Dict[str, float]] = {}
+    replayed: Dict[str, dict] = {}
     for k in range(4):
         fk = {}
         for b in ("S", "Ku"):
@@ -286,7 +297,10 @@ def schedule(mission: dict, res: dict) -> dict:
             r_max = max([c.period for c in per_face[k]["S"] if c.kind == "search" and c.period] + [1.0])
             horizon = min(r_max, HORIZON_MAX_S)
             lim, ratio = _contiguous(k, b, trk)
-            tl = _timeline(cl, horizon, rng, lim, ratio) if cl else {}
+            rec = {"events": [], "pauses": [], "horizon_s": horizon, "max_contiguous_s": lim, "pause_ratio": ratio}                 if record else None
+            tl = _timeline(cl, horizon, rng, lim, ratio, rec) if cl else {}
+            if rec is not None:
+                replayed[f"{k}{b}"] = rec
             load = sum(c.rho for c in cl)
             fk[b] = {"load": load, "capacity": cap, "feasible": ok,
                      "load_by_priority": _by_prio(cl), "stretch": {lab: v for lab, v in stretch.items() if v > 1.0},
@@ -346,8 +360,26 @@ def schedule(mission: dict, res: dict) -> dict:
                                  for k, v in scans.get(r["id"], {}).items()}})
         if not ok:
             flags.append(f"sector {r['id']}: confirmation latency {lat:.3g} s (95 %) above the {req:.3g} s required")
-    return {"faces": faces, "slots": slots, "eclipse_db": eclipse, "sectors": sectors, "flags": flags,
-            "harmonic_faces": sorted(harm_faces), "frame_interleaved_checked": True}
+    out = {"faces": faces, "slots": slots, "eclipse_db": eclipse, "sectors": sectors, "flags": flags,
+           "harmonic_faces": sorted(harm_faces), "frame_interleaved_checked": True}
+    if record:
+        out["_replay"] = replayed
+    return out
+
+
+def replay(mission: dict, res: dict) -> Dict[str, dict]:
+    """Step 5.5 B (user, 13 November 2026): the synthetic timelines of an exact result, replayed
+    as the scheduler built it (same classes, same draws: the whole schedule is run again), every face and band, with
+    their transmissions: {"events": [(start s, duration s, task, kind,
+    priority, release s, late update)], "pauses": [(start s, duration s)], "horizon_s", "summary": the face and band's
+    scheduler output (loads by priority, waits, timeline figures)} per "<face><band>" ("0S", "0Ku", ...). mission: the
+    mission as optimizer.run assembled it (mission_for_replay)."""
+    out = schedule(mission, res, record=True)
+    rp = out.get("_replay") or {}
+    for k in range(4):
+        for b in ("S", "Ku"):
+            rp.setdefault(f"{k}{b}", {"events": [], "pauses": [], "horizon_s": 0.0})["summary"] = out["faces"][str(k)][b]
+    return rp
 
 
 def _by_prio(classes: List[Klass]) -> Dict[str, float]:
@@ -367,3 +399,23 @@ def _contiguous(k: int, band: str, trk: dict) -> Tuple[float, float]:
     cap = f.get("cap_MW", rm.FACE_FEEDER_MAX_MW) * 1e6
     rech = max(1.0, cap * rm.CHAIN_EFF - rm.non_tx_power_w())
     return lim, max(0.0, (peak - rech) / rech)
+
+
+def mission_for_replay(mission: dict, res: dict) -> dict:
+    """The mission as optimizer.run gave it to schedule(): frames resolved at the navigation instant, the spectrum
+    exclusions, and the relief codes of the volumes the run relieved (res["relief"])."""
+    from . import frames
+    from . import optimizer as mo
+    m, _alerts = frames.resolve(mission)
+    m = mo.with_spectrum(m)
+    rl = res.get("relief") or {}
+    if rl:
+        m = dict(m, sectors=[dict(s, _relief=rl[s["id"]]["code"]) if s["id"] in rl and rl[s["id"]].get("code")
+                             else s for s in m["sectors"]])
+    return m
+
+
+def replay_task(mission: dict, res: dict) -> Dict[str, dict]:
+    """replay() of the mission as given to the calculation (a worker-process entry point: the sky and the clutter of
+    every volume are computed again, ~1-2 min near a body)."""
+    return replay(mission_for_replay(mission, res), res)
