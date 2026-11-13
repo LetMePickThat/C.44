@@ -2807,7 +2807,7 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
         if stage_cb is not None:
             stage_cb("Redundancy: which volumes already meet the need of others (with the plans kept)")
         plans = {r["id"]: r["_plan"] for r in out["sectors"] if r.get("_plan")}
-        out["redundancy"] = redundancy.in_plan(mission, plans, _sphere(eps_min, eps_max), out)
+        out["redundancy"] = redundancy.in_plan(mission, plans, _sphere(eps_min, eps_max), out, _relieved)
         if stage_cb is not None:
             stage_cb("Verdict: the constraints table")
     from . import validation                 # step 5.3 (P1): the verdict, one table of constraints

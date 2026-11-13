@@ -243,7 +243,8 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid,
     plans: the waveform plan of each sector by id (step 5.3 P3: the plans of a finished run); a sector without one is
     planned here alone, at the reference power (core.optimizer.sector_plan). grid: any core.optimizer.Sphere.
     resolved: the sectors are already in the ship frame (their frame_m applied: check_ship).
-    cut (user, 13 November 2026, with the relief): {id: (cells the relief takes out of the volume, ids relieving it)}:
+    cut (user, 13 November 2026, with the relief): {id: (cells the relief takes out of the volume, ids relieving it,
+    None: any covering volume)}:
     the findings limited to the cut volume -- only the volumes relieved, their share = the relief's, "by" = the
     relieving volumes, deleted only when the relief takes cover_full of it, trimmed only by the boxes of relieving
     volumes whose overlap the relief takes (cover_full of it): a trim never removes a part the volume still searches.
@@ -277,7 +278,7 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid,
         g_b = guaranteed_range_km(sb["range_km"], sb["rr_target_s"], v_b)
         cut_b = None if cut is None else cut.get(str(sb["id"]))
         if cut_b is not None:
-            cut_b = (np.asarray(cut_b[0], bool) & mb, {str(x) for x in cut_b[1]})
+            cut_b = (np.asarray(cut_b[0], bool) & mb, None if cut_b[1] is None else {str(x) for x in cut_b[1]})
         for i, sa in enumerate(sectors):
             if i == j:
                 continue
@@ -296,7 +297,7 @@ def find_redundancies(mission: dict, grid: geo.SphereGrid,
                                                            inter & ~met, grid)
             if om_met <= 0.0:
                 continue
-            if cut is not None and (cut_b is None or str(sa["id"]) not in cut_b[1]):
+            if cut is not None and (cut_b is None or (cut_b[1] is not None and str(sa["id"]) not in cut_b[1])):
                 continue                               # (not relieving B: no part of its finding)
             by.append(sa["id"])
             details.append(f"{sa['id']} detects {sb['id']}'s target from {worst:.0f} km (worst scan angle), revisit "
@@ -622,13 +623,23 @@ def relief_generation() -> int:
     return _R_GEN
 
 
-def in_plan(mission: dict, plans: Dict[str, dict], grid, out: dict) -> List[dict]:
+def in_plan(mission: dict, plans: Dict[str, dict], grid, out: dict,
+            relieved: Optional[Dict[str, dict]] = None) -> List[dict]:
     """Step 5.3 (P3, user, 27 October 2026): the redundancies of a finished run, tested with the plans it kept (a
     sector without one, e.g. NO_WAVEFORM, planned alone at the reference power), each with what the redundant sector
     costs (its search energy and S time per face, fractions of the face reference as in its "faces"): the relief if it
     is dropped (full) or trimmed (pieces; the relief then scales with the part removed, an estimate). Information:
-    the plan is not changed."""
-    findings, _notes = find_redundancies(mission, grid, plans)
+    the plan is not changed. With the relief on (user, 13 November 2026): limited to the cut volume, as the fast
+    estimate's check (find_redundancies' cut): the volumes carrying a "_relief", relieved by relieved[id]["by"] (the
+    run's relief; without it, any covering volume), judged on their whole volume."""
+    cut = None
+    if RELIEF_ON:
+        cut = {str(s["id"]): (mo.relief_cells(s["_relief"], grid.phi, grid.eps),
+                              (relieved or {}).get(s["id"], {}).get("by"))
+               for s in mission.get("sectors", []) if s.get("_relief")}
+        mission = dict(mission, sectors=[{k: v for k, v in s.items() if k != "_relief"}
+                                         for s in mission.get("sectors", [])])
+    findings, _notes = find_redundancies(mission, grid, plans, cut=cut)
     res = {r["id"]: r for r in out.get("sectors", [])}
     rows = []
     for f in findings:

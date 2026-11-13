@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.46.0
+# Radar Performance Model - V6.47.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,14 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.46.0 -> V6.47.0 (user, 13 November 2026): memory bandwidth 200 TB/s, redundancies on the cut volume
+#   - compute.memory_bw_tbps 50 -> 200 TB/s (working value, to refine): MOONTEST_VELOCITY was NOK 119-149 %; the PRIO_SEARCH
+#     margin reuse it bound (mission_environment, mission_example, mission_example_csv) goes to the next resource;
+#   - with the relief on, the redundancies of a finished run (redundancy.in_plan, verdict.redundancy) and of the fast
+#     estimate's check are limited to the cut volume: the volumes relieved, share and coverers of the relief, delete /
+#     trim only where the relief takes the part (find_redundancies cut=);
+#   - cache stamps on the parameter values without meta. / tool.cli. / tool.display. (core.params.values_stamp).
 #
 # Changes V6.45.0 -> V6.46.0 (user, 13 November 2026): a volume's revisit is a requirement of its own
 #   - each direction of a volume is looked at every rr_target_s (a target may APPEAR inside it, unmasked at the limb or
@@ -777,7 +785,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.46.0"
+MODEL_VERSION = "6.47.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

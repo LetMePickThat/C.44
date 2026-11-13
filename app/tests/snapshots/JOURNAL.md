@@ -749,3 +749,21 @@ model unchanged; 9 cases, 5191 values. Causes (no change was refrozen since V6.3
 Tests: 342 passed after the fixes (test_a_slower_revisit_never_meets_the_need new, its import fixed and run alone;
 test_environment_mission_outputs, test_inertial_frame_..., test_turning_the_ship_... adapted to the just need and to the
 shortened N3, run alone: 4 passed).
+
+## 2026-11-13 (later) -- memory bandwidth 200 TB/s, redundancies on the cut volume (model V6.47.0)
+
+Refrozen from the N3 of 13 November 2026 (V6.47.0, 59.1 min, shortened protocol): 341 / 342 tests passed before the
+refreeze (test_compute_memory_counts read the 50 TB/s of the old snapshots: passes after it); 9 mission cases differ,
+model unchanged (last-digit float noise only, below the tolerance). Causes, as foreseen by the impact list written before
+the run:
+- compute.memory_bw_tbps 50 -> 200 TB/s: memory.bandwidth_TB_per_s and the memory-bandwidth loads x0.25 everywhere (no
+  state change; only effect in mission_veille500, mission_synthetic_mix, mission_sky_demo);
+- the PRIO_SEARCH margin reuse the bandwidth bound goes to the next resource: mission_example S01 2.63 -> 1.0 s and S02
+  1.19 -> 1.0 s (rr_min_s), S03 28.5 -> 3.6 s (F1 S beams); mission_example_csv S01 1.96 -> 1.0 s; mission_environment
+  E_EARTH 65.6 -> 26.3 s, E_JAMMED 32.8 -> 13.1 s (F1 energy), F1 limiting resource memory bandwidth -> processing power;
+  verdict states unchanged (OK, OK, NOK);
+- redundancy.in_plan limited to the cut volume (relief on): verdict / run.redundancy now holds the relieved volumes
+  (mission_example S03, mission_frames HORIZON, mission_redundancy_demo B1_TRIM and B5_LONG), empty before;
+- NOT foreseen: mission_target_library drifts by 1e-9 to 9e-6 relative (scheduler delays, T_SHIP energies and revisit)
+  with no state change; none of the changes touches these paths; assumed float summation order with two cases computed
+  at once (not checked; user: refreeze anyway, 13 November 2026).
