@@ -1609,6 +1609,43 @@ def test_main_window_fits_the_screen(monkeypatch):
     win.close()
 
 
+def test_shared_selection():
+    """5.5 E1 (user, 13 November 2026, Q1-Q5): one selection for the window: a volume chosen in the preparation's list
+    is the one of the Results (verdict tree, per-sector table) and back; a face (its load column) is the verdict's
+    face branch; the selected volume's outline is drawn thick; setting the same selection again emits nothing."""
+    app = _qt()
+    from core import mission as md
+    from gui import main_window as mw
+    from gui.scene_view import sector_actor_names
+    here = os.path.dirname(__file__)
+    m = md.load_mission(os.path.join(here, "missions", "mission_synthetic_mix.json"))
+    win = mw.MainWindow(m)
+    sel = win.selection
+    seen = []
+    sel.changed.connect(lambda k, i: seen.append((k, i)))
+    sel.set("sector", "KV")
+    sel.set("sector", "KV")
+    assert seen == [("sector", "KV")] and win.prep.list_sectors.currentRow() == 1
+    win.prep.list_sectors.setCurrentRow(0)
+    assert sel.get() == ("sector", "FWD")
+    res = json.loads(open(os.path.join(here, "snapshots", "mission_synthetic_mix.json"), encoding="utf-8").read())["run"]
+    win._open_results(m, res)
+    r = win.results
+    assert r.tree_verdict.currentItem().text(0) == "FWD"
+    r.table_sectors.selectRow(2)
+    assert sel.get() == ("sector", "SHIPW") and win.prep.list_sectors.currentRow() == 2
+    win.prep.view._load_cols[1].on_click(1)
+    assert sel.get() == ("face", "1") and r.tree_verdict.currentItem().text(0) == "F2"
+    assert [c.selected for c in win.prep.view._load_cols.values()] == [False, True, False, False]
+    win.show()
+    app.processEvents()
+    sel.set("sector", "KV")
+    a = win.prep.view.plotter.renderer.actors.get(sector_actor_names("KV")[1])
+    assert a is None or a.GetProperty().GetLineWidth() == 5.0
+    win.prep.confirm_discard = lambda: True        # (no "save the changes?" box in a test)
+    win.close()
+
+
 def test_scenario_tab_layout():
     """R1-R6, B14: the Scenario tab: the options column (the form under the tree), the column of the information and
     the 3D view; the view's controls in the playback bar, the events as marks on its slider; its files, main action and status handed to the window (menu, header,

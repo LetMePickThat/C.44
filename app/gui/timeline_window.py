@@ -257,6 +257,13 @@ class TimelineWindow(QDialog):
         self._worker.failed.connect(self.lbl.setText)
         self._worker.start()
 
+    def set_focus_face(self, face) -> None:
+        """The shared selection's face (5.5 E1): its rows in bold."""
+        self.focus_face = face
+        for r in self.gantt.rows:
+            r["focus"] = face is not None and r["name"].startswith(f"F{face + 1} ")
+        self.gantt.update()
+
     def _whole(self) -> None:
         self.gantt.t0, self.gantt.t1 = 0.0, self.gantt.t_end
         self.gantt.update()

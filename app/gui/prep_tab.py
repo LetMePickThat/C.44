@@ -155,7 +155,7 @@ class PrepTab(QWidget):
 
         self.view = SceneView(self.grid, face_opacity=0.28, sector_opacity=0.5, exec_face_colours=True,
                               diagnosis=True)
-        self.view.sector_selected.connect(self._select_sector_by_sid)    # (5.5 A: a line of the diagnosis)
+        self.selection = None                          # (5.5 E1: the window's shared selection, attach_selection)
         # (user, 13 November 2026) no fast estimate while no scenario is loaded: the live load, the gauge, the global
         # view's volumes, the range alerts and the redundancy check wait for the flight plan's navigation and sky
         self.view.estimate_allowed = lambda: getattr(self, "_link", None) is not None
@@ -1120,6 +1120,26 @@ class PrepTab(QWidget):
     @staticmethod
     def _draw_sid(i: int, sec: dict) -> str:
         return sec.get("id") or f"_idx{i}"
+
+    def attach_selection(self, sel) -> None:
+        """5.5 E1 (user, 13 November 2026): the window's shared selection: the 3D view (a volume, a face zone, a load
+        column), the Diagnosis panel and the sectors list set it; they all show it."""
+        self.selection = sel
+        self.view.sector_selected.connect(lambda sid: sel.set("sector", sid))
+        self.view.face_selected.connect(lambda k: sel.set("face", k))
+        self.list_sectors.currentRowChanged.connect(self._row_to_selection)
+        sel.changed.connect(self._show_selection)
+
+    def _row_to_selection(self, row: int) -> None:
+        if self.selection is not None and 0 <= row < len(self.mission.get("sectors", [])):
+            self.selection.set("sector", self._draw_sid(row, self.mission["sectors"][row]))
+
+    def _show_selection(self, kind: str, ident: str) -> None:
+        if kind == "sector":
+            self._select_sector_by_sid(ident)
+        self.view.show_selection(kind, ident)
+        if self.view.diagnosis is not None:
+            self.view.diagnosis.set_selected(kind, ident)
 
     def _select_sector_by_sid(self, sid: str) -> None:
         """Select in the list the volume a line of the diagnosis names (5.5 A)."""

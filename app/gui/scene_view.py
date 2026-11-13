@@ -63,6 +63,7 @@ PLAYED_FULL_SHARE = 0.995                     # "show effectively played": a vol
 LABEL_OK, LABEL_NOK = "#1e7d45", "#e0574f"   # its second line: the worst range and the revisit achieved
                                                # (green darkened 12 Nov 2026, user: unreadable on the gauge's green)
 SECTOR_LABEL_FONT_SIZE = 13   # shared by _build_sectors (draws) and _label_hit (estimates the on-screen box), x UI size
+SELECTED_LINE_W = 5            # the selected volume's / face's outline width, px (5.5 E1, user 13 Nov 2026: Q5 (a))
 DIAGNOSIS_START_PX = 230       # the live load + Diagnosis panel's height at start (5.5 A; then set with the mouse)
 FACE_OUTLINE_COLOR = "#9aa0aa"   # the zones' outlines, light on the black of space (view3d.MUTED_COLOR)
 SCN = "scn_"                     # the linked scenario's actors (pass S2)
@@ -159,6 +160,8 @@ class FaceLoadColumn(QWidget):
         super().__init__(parent)
         self.k = k
         self.bars: Optional[List[dict]] = None
+        self.on_click = None                           # (5.5 E1: a click selects the face)
+        self.selected = False
         self.setMinimumWidth(130)
         self.setMinimumHeight(self.ROW_H * 4 + 2)
 
@@ -166,6 +169,10 @@ class FaceLoadColumn(QWidget):
         self.bars = bars
         self.setToolTip(tip)
         self.update()
+
+    def mousePressEvent(self, ev) -> None:  # noqa: N802
+        if self.on_click is not None and ev.button() == Qt.LeftButton:
+            self.on_click(self.k)
 
     def paintEvent(self, _ev) -> None:  # noqa: N802 -- Qt override
         p = QPainter(self)
@@ -175,7 +182,13 @@ class FaceLoadColumn(QWidget):
         f.setBold(True)
         p.setFont(f)
         p.setPen(QColor(geo.FACE_COLORS[self.k]))
-        p.drawText(QRectF(0, 0, w, rh), Qt.AlignLeft | Qt.AlignVCenter, geo.FACE_NAMES[self.k])
+        p.drawText(QRectF(0, 0, w, rh), Qt.AlignLeft | Qt.AlignVCenter,
+                   ("▶ " if self.selected else "") + geo.FACE_NAMES[self.k])
+        if self.selected:                              # (5.5 E1: the face selected, framed)
+            p.setPen(QPen(QColor(geo.FACE_COLORS[self.k]), 2))
+            p.setBrush(Qt.NoBrush)
+            p.drawRect(QRectF(1, 1, w - 2, self.height() - 2))
+            p.setPen(QColor(geo.FACE_COLORS[self.k]))
         f.setBold(False)
         p.setFont(f)
         x0 = 22.0
@@ -659,6 +672,7 @@ class SceneView(QWidget):
     hide_all_sectors = pyqtSignal()
     rerun_requested = pyqtSignal()              # the badge clicked while the estimate is held (user, 13 Nov 2026)
     sector_selected = pyqtSignal(str)           # a line of the diagnosis naming a volume clicked (5.5 A)
+    face_selected = pyqtSignal(int)             # a face clicked (its zone, its load column, a diagnosis line; 5.5 E1)
 
     def __init__(self, grid: geo.SphereGrid, face_opacity: float, sector_opacity: float, parent=None,
                  exec_face_colours: bool = False, diagnosis: bool = False):
@@ -702,6 +716,7 @@ class SceneView(QWidget):
             from gui.diagnosis_panel import DiagnosisPanel
             self.diagnosis = DiagnosisPanel()
             self.diagnosis.sector_selected.connect(self.sector_selected)
+            self.diagnosis.face_selected.connect(self.face_selected)
             bottom = QWidget()                         # (user, 13 November 2026: the split between the view and the
             bot_v = QVBoxLayout(bottom)                # information under it, above the live load and its badge)
             bot_v.setContentsMargins(0, 0, 0, 0)
@@ -879,6 +894,7 @@ class SceneView(QWidget):
         self._load_cols = {}
         for k in range(4):
             col = FaceLoadColumn(k)
+            col.on_click = lambda k_: self.face_selected.emit(int(k_))
             h.addWidget(col, 1)
             self._load_cols[k] = col
         self._load_status = QLabel("")
@@ -1589,6 +1605,61 @@ class SceneView(QWidget):
         self._scn_box.actor.SetVisibility(objects and self._scn_sel is not None)
         set_actors_visible(self.plotter, [SCN + "trails"], on and bar.tg_scn_trails.isChecked())
 
+    def _pick_volume_or_face(self, x: int, y: int) -> bool:
+        """5.5 E1 (user, 13 November 2026): a left click on a volume's label or surface selects the volume, on a face
+        zone the face (the label first, then the nearest surface along the ray); True when something was picked."""
+        sid = self._label_hit(x, y)
+        if sid is None:
+            import vtk
+            picker = vtk.vtkPropPicker()
+            if picker.Pick(x, y, 0, self.plotter.renderer):
+                actor = picker.GetActor()
+                name = next((n for n, a in self.plotter.renderer.actors.items() if a is actor), None)
+                if name is not None:
+                    for d in self._sectors:
+                        if name in sector_actor_names(d.sid)[:2] or name == sector_hole_name(d.sid):
+                            sid = d.sid
+                            break
+                    if sid is None:
+                        for k in range(4):
+                            if name in face_actor_names(k):
+                                self.face_selected.emit(k)
+                                return True
+        if sid is None:
+            return False
+        self.sector_selected.emit(sid)
+        return True
+
+    def show_selection(self, kind: str, ident: str) -> None:
+        """The selection shown (5.5 E1, Q5 (a)): the volume's outline thick, the face's zone outline thick and its
+        load column framed; the rest untouched."""
+        self._sel = (kind, ident)
+        self._apply_selection()
+        try:
+            self.plotter.render()
+        except Exception:  # noqa: BLE001 -- a view being closed
+            pass
+
+    def _apply_selection(self) -> None:
+        kind, ident = getattr(self, "_sel", ("", ""))
+        for d in self._sectors:
+            a = self.plotter.renderer.actors.get(sector_actor_names(d.sid)[1])
+            if a is not None:
+                a.GetProperty().SetLineWidth(SELECTED_LINE_W if (kind == "sector" and d.sid == ident) else 2)
+        for k in range(4):
+            a = self.plotter.renderer.actors.get(face_actor_names(k)[1])
+            on = kind == "face" and ident == str(k)
+            if a is not None:
+                a.GetProperty().SetLineWidth(SELECTED_LINE_W if on else 1)
+                a.GetProperty().SetColor(*[c / 255.0 for c in v3.rgb(geo.FACE_COLORS[k] if on
+                                                                     else FACE_OUTLINE_COLOR)])
+            col = self._load_cols.get(k)
+            if col is not None and col.selected != on:
+                col.selected = on
+                col.update()
+        if getattr(self, "_line_labels", None) is not None:
+            self._line_labels.set_selected(ident if kind == "sector" else None)
+
     def _pick_scenario(self, x: int, y: int) -> None:
         """A left click on an object's symbol: its data box (elsewhere: none)."""
         if self._scn_link is None or not self.display_bar.tg_scn_objects.isChecked() or not len(self._scn_q):
@@ -1831,7 +1902,8 @@ class SceneView(QWidget):
         if not dragged and self._press_xy is not None:
             x, y = self.plotter.iren.get_event_position()
             if np.hypot(x - self._press_xy[0], y - self._press_xy[1]) <= CLICK_DRAG_PX:
-                self._pick_scenario(x, y)
+                if not self._pick_volume_or_face(x, y):
+                    self._pick_scenario(x, y)
         self._press_xy = None
 
     def _on_label_double_click(self, _obj, _event) -> None:
@@ -2032,4 +2104,5 @@ class SceneView(QWidget):
             new_cache[d.sid] = (key, d.color, poly, outline, text, hole)
         remove_actors(self.plotter, self._actor_names - new_names)   # incl. the "-labels" actors
         self._actor_names, self._cache = new_names, new_cache
+        self._apply_selection()                        # (5.5 E1: the selection kept through the rebuilds)
         self._label_pos = {sid: p for sid, p in self._label_pos.items() if sid in new_cache}

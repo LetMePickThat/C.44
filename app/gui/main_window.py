@@ -117,6 +117,10 @@ class MainWindow(QMainWindow):
         self._add_mode("Mission preparation", self.prep, [self.prep.file_label], self.prep.b_run)
         # the mission along its linked scenario's flight plan (option A, passes T1-T3, user 10 November 2026)
         self.profile = ProfileTab(lambda: (self.prep.mission, getattr(self.prep, "_link", None), self.prep.path))
+        from gui.selection import Selection           # (5.5 E1: one selection for the whole window, Q3)
+        self.selection = Selection(self)
+        self.prep.attach_selection(self.selection)
+        self.profile.attach_selection(self.selection)
         self.profile.instant_picked.connect(self._on_profile_instant)
         self.profile.stored.connect(self.prep._update_title)
         self._add_mode("Profile", self.profile, [], None)
@@ -354,11 +358,13 @@ class MainWindow(QMainWindow):
         if self.results is not None:
             self._close_results(force=True)
         self.results = ResultsTab(mission, result, self.grid)
+        self.results.attach_selection(self.selection)
         self.results.reopened = reopened
         from gui import scenario_link as slink
         self.results.mission_sig = slink.mission_signature(mission)    # (what _check_outdated compares)
         self.results.exported = not result.get("cancelled")   # (kept in the mission: closing it loses nothing)
         self.results.view.set_mission_volumes(mission)   # (the global view: the computed mission's volumes)
+        self.results.report_context = self._report_context        # (5.5 C: the report's file, UTC and profile)
         link = getattr(self.prep, "_link", None)      # the linked scenario at the mission's instant (pass S2)
         if link is not None:
             self.results.view.set_scenario(link, float(mission.get("scenario_link", {}).get("t_s", 0.0)))
@@ -367,6 +373,20 @@ class MainWindow(QMainWindow):
         self._check_outdated()
         if not reopened:                        # (user, 13 November 2026: no lock, an edit marks the result stale)
             self.modes.setCurrentIndex(index)
+
+    def _report_context(self) -> dict:
+        """The mission report's context (5.5 C): the work file, the UTC of the instant computed, the profile shown."""
+        import os
+        link = getattr(self.prep, "_link", None)
+        t = (getattr(self.results, "mission", None) or {}).get("scenario_link", {}).get("t_s")
+        utc = None
+        if link is not None and t is not None:
+            try:
+                utc = link.utc(float(t))
+            except Exception:  # noqa: BLE001
+                utc = None
+        return {"file": os.path.basename(self.prep.path) if self.prep.path else None, "utc": utc,
+                "profile": getattr(self.profile, "prof", None)}
 
     def _close_results(self, force: bool = False) -> None:
         """The Results tab closed (force: without asking)."""

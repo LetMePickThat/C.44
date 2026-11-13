@@ -14,12 +14,13 @@ from __future__ import annotations
 
 import csv
 import json
-from typing import Tuple
+import os
+from typing import Optional, Tuple
 
 from PyQt5.QtCore import QThread, Qt, pyqtSignal
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
-    QAbstractItemView, QComboBox, QFileDialog, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QMessageBox,
+    QAbstractItemView, QCheckBox, QComboBox, QDialog, QFileDialog, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QMessageBox,
     QScrollArea, QSplitter, QTableWidget, QTableWidgetItem, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
 )
 
@@ -311,10 +312,57 @@ class ResultsTab(QWidget):
                                      ", ".join(a["others_left"]), ver_txt) if x)
         return change, note
 
+    def attach_selection(self, sel) -> None:
+        """5.5 E1 (user, 13 November 2026): the window's shared selection: the 3D view, the verdict tree and the
+        per-sector table set it; they all show it (and an open Timeline its face)."""
+        self.selection = sel
+        self.view.sector_selected.connect(lambda sid: sel.set("sector", sid))
+        self.view.face_selected.connect(lambda k: sel.set("face", k))
+        sel.changed.connect(self._show_selection)
+        if sel.kind:
+            self._show_selection(sel.kind, sel.id)
+
+    def _show_selection(self, kind: str, ident: str) -> None:
+        self.view.show_selection(kind, ident)
+        target = None
+        for i in range(self.tree_verdict.topLevelItemCount()):
+            top = self.tree_verdict.topLevelItem(i)
+            if kind == "face" and top.text(0) == f"F{int(ident) + 1}":
+                target = top
+            if kind == "sector" and top.text(0) == "Volumes":
+                for j in range(top.childCount()):
+                    if top.child(j).text(0) == ident:
+                        target = top.child(j)
+        if target is not None:
+            self.tree_verdict.setCurrentItem(target)
+            self.tree_verdict.scrollToItem(target)
+        if kind == "sector":
+            for i in range(self.table_sectors.rowCount()):
+                it = self.table_sectors.item(i, 0)
+                if it is not None and (it.data(Qt.UserRole) == ident or it.text() == ident):
+                    if self.table_sectors.currentRow() != i:
+                        self.table_sectors.selectRow(i)
+                        self._on_sector_row(i)
+                    break
+        for w in self.findChildren(QDialog):
+            if hasattr(w, "set_focus_face"):
+                w.set_focus_face(int(ident) if kind == "face" else None)
+
     def _on_verdict_clicked(self, item: QTreeWidgetItem, _col: int) -> None:
-        """A line naming a volume selects it in the per-sector table (5.5 Q6d)."""
+        """A line naming a volume selects it (the shared selection, 5.5 E1; the per-sector table follows), a face's
+        branch the face."""
         sid = item.data(0, ROLE_SECTOR)
+        sel = getattr(self, "selection", None)
         if not sid:
+            top = item
+            while top.parent() is not None:
+                top = top.parent()
+            name = top.text(0)
+            if sel is not None and len(name) == 2 and name[0] == "F" and name[1] in "1234":
+                sel.set("face", int(name[1]) - 1)
+            return
+        if sel is not None:
+            sel.set("sector", sid)
             return
         for i in range(self.table_sectors.rowCount()):
             it = self.table_sectors.item(i, 0)
@@ -519,6 +567,7 @@ class ResultsTab(QWidget):
         self.table_sectors.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table_sectors.setSelectionMode(QAbstractItemView.SingleSelection)
         self.table_sectors.currentCellChanged.connect(lambda row, *_: self._on_sector_row(row))
+        self.table_sectors.currentCellChanged.connect(lambda row, *_: self._row_to_selection(row))
         v.addWidget(self.table_sectors)
         return box
 
@@ -594,13 +643,15 @@ class ResultsTab(QWidget):
 
     def set_outdated(self, outdated: bool) -> None:
         """One file: a result reopened with its mission, the mission edited since (the result kept, said outdated)."""
+        self.outdated = bool(outdated)
         uc.set_source(self.badge, "exact" if not outdated else "outdated", self._badge_detail,
                       "Exact calculation of the mission at this instant" + (
                           "; the mission was edited since: calculate again" if outdated else ""))
 
     def file_commands(self) -> list:
         """(text, slot, icon) of the results in the window's menu (B14)."""
-        return [("Export::Results as JSON (full)...", self.export_json, "SP_DialogSaveButton"),
+        return [("Export::Mission report (HTML)...", self.export_report, "SP_DialogSaveButton"),
+                ("Export::Results as JSON (full)...", self.export_json, "SP_DialogSaveButton"),
                 ("Export::Results as CSV (summary)...", self._export_csv, "SP_DialogSaveButton")]
 
     # ------------------------------------------------------------------ 3D scene
@@ -785,6 +836,12 @@ class ResultsTab(QWidget):
             self.table_sectors.selectRow(0)
             self._on_sector_row(0)
 
+    def _row_to_selection(self, row: int) -> None:
+        sel = getattr(self, "selection", None)
+        it = self.table_sectors.item(row, 0) if row >= 0 else None
+        if sel is not None and it is not None:
+            sel.set("sector", it.data(Qt.UserRole) or it.text())
+
     def _on_sector_row(self, row: int) -> None:
         self._fill_bin_table(row)
         self._fill_at_table(row)
@@ -867,6 +924,49 @@ class ResultsTab(QWidget):
                 self.table_bins.setItem(i, c, QTableWidgetItem(str(val)))
 
     # ------------------------------------------------------------------ export
+    def _view_png(self) -> Optional[bytes]:
+        """The 3D view as shown (the sphere or the global view), PNG; None when it cannot be read."""
+        try:
+            import io
+            from PIL import Image
+            sim = getattr(self.view, "_sim", None)
+            plotter = sim.plotter if sim is not None and self.view._global_shown() else self.view.plotter
+            img = plotter.screenshot(None, return_img=True)
+            buf = io.BytesIO()
+            Image.fromarray(img).save(buf, format="PNG", optimize=True)
+            return buf.getvalue()
+        except Exception:  # noqa: BLE001 -- no image rather than no report
+            return None
+
+    def export_report(self) -> None:
+        """Step 5.5 C (user, 13 November 2026): the mission report, one self-contained HTML page (core/report.py)."""
+        ctx = self.report_context() if callable(getattr(self, "report_context", None)) else {}
+        stem = os.path.splitext(os.path.basename(ctx.get("file") or "mission"))[0] or "mission"
+        path, _ = QFileDialog.getSaveFileName(self, "Export the mission report", f"{stem}_report.html",
+                                              "HTML (*.html)")
+        if not path:
+            return
+        box = QMessageBox(self)
+        box.setWindowTitle("Mission report")
+        box.setText("Write the mission report (verdict, constraints and advice, volumes, faces, 3D view, profile).")
+        cb = QCheckBox("Annex: every parameter of radar_system.toml (value, unit, status, source, date)")
+        box.setCheckBox(cb)
+        box.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+        if box.exec_() != QMessageBox.Ok:
+            return
+        from core import report
+        t_s = (self.mission.get("scenario_link") or {}).get("t_s")
+        meta = {"file": ctx.get("file"), "t_s": t_s, "utc": ctx.get("utc"), "outdated": getattr(self, "outdated", False)}
+        try:
+            page = report.build_html(self.mission, self.result, meta, self._view_png(), ctx.get("profile"),
+                                     params_annex=cb.isChecked())
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(page)
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.critical(self, "Mission report", f"Report failed: {exc}")
+            return
+        self.exported = True
+
     def export_json(self) -> None:
         path, _ = QFileDialog.getSaveFileName(self, "Export the result", "mission_report.json",
                                                "JSON (*.json)")

@@ -9501,7 +9501,13 @@
       "state": "OK",
       "priority": "P4_1",
       "step": "3.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": "OK",
+       "unit": "",
+       "load": 0.0,
+       "state": "OK"
+      }
      },
      {
       "id": "SP.range",
@@ -9516,7 +9522,13 @@
       "state": "OK",
       "priority": "P4_1",
       "step": "3.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 802,
+       "unit": "km",
+       "load": 0.0,
+       "state": "OK"
+      }
      },
      {
       "id": "SP.revisit",
@@ -9531,7 +9543,13 @@
       "state": "OK",
       "priority": "P4_1",
       "step": "2.3",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 3.4192903346599124,
+       "unit": "s",
+       "load": 1.0,
+       "state": "OK"
+      }
      },
      {
       "id": "S01.plan",
@@ -9546,7 +9564,13 @@
       "state": "OK",
       "priority": "P4_1",
       "step": "3.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": "OK",
+       "unit": "",
+       "load": 0.0,
+       "state": "OK"
+      }
      },
      {
       "id": "S01.range",
@@ -9561,7 +9585,13 @@
       "state": "OK",
       "priority": "P4_1",
       "step": "3.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 15785,
+       "unit": "km",
+       "load": 0.0,
+       "state": "OK"
+      }
      },
      {
       "id": "S01.revisit",
@@ -9576,7 +9606,13 @@
       "state": "OK",
       "priority": "P4_1",
       "step": "2.3",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 3.4192903346599124,
+       "unit": "s",
+       "load": 1.0,
+       "state": "OK"
+      }
      },
      {
       "id": "S02.plan",
@@ -9591,7 +9627,13 @@
       "state": "OK",
       "priority": "P4_1",
       "step": "3.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": "OK",
+       "unit": "",
+       "load": 0.0,
+       "state": "OK"
+      }
      },
      {
       "id": "S02.range",
@@ -9606,7 +9648,13 @@
       "state": "OK",
       "priority": "P4_1",
       "step": "3.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 9182,
+       "unit": "km",
+       "load": 0.0,
+       "state": "OK"
+      }
      },
      {
       "id": "S02.revisit",
@@ -9621,7 +9669,13 @@
       "state": "OK",
       "priority": "P4_1",
       "step": "2.3",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 3.4192903346599124,
+       "unit": "s",
+       "load": 1.0,
+       "state": "OK"
+      }
      },
      {
       "id": "S03.plan",
@@ -9636,7 +9690,13 @@
       "state": "OK",
       "priority": "P4_1",
       "step": "3.1",
-      "note": "need met by S01, S02, SP (relief): no search of its own"
+      "note": "need met by S01, S02, SP (relief): no search of its own",
+      "with_reuse": {
+       "value": "RELIEVED",
+       "unit": "",
+       "load": 0.0,
+       "state": "OK"
+      }
      },
      {
       "id": "SP.confirmation mode",
@@ -9651,7 +9711,13 @@
       "state": "OK",
       "priority": "P2",
       "step": "3.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": "KU1+7",
+       "unit": "",
+       "load": 0.0,
+       "state": "OK"
+      }
      },
      {
       "id": "SP.P confirm",
@@ -9666,7 +9732,13 @@
       "state": "OK",
       "priority": "P2",
       "step": "3.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.9995064524549572,
+       "unit": "",
+       "load": 0.9870950900857632,
+       "state": "OK"
+      }
      },
      {
       "id": "SP.confirmation latency",
@@ -9681,7 +9753,13 @@
       "state": "OK",
       "priority": "P2",
       "step": "4.3",
-      "note": "95 % quantile"
+      "note": "95 % quantile",
+      "with_reuse": {
+       "value": 0.010816749626762516,
+       "unit": "s",
+       "load": 0.0006760468516726572,
+       "state": "OK"
+      }
      },
      {
       "id": "S01.confirmation mode",
@@ -9696,7 +9774,13 @@
       "state": "OK",
       "priority": "P2",
       "step": "3.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": null,
+       "unit": "",
+       "load": null,
+       "state": "NOK"
+      }
      },
      {
       "id": "S01.P confirm",
@@ -9726,7 +9810,13 @@
       "state": "OK",
       "priority": "P2",
       "step": "4.3",
-      "note": "95 % quantile"
+      "note": "95 % quantile",
+      "with_reuse": {
+       "value": 0.0,
+       "unit": "s",
+       "load": 0.0,
+       "state": "OK"
+      }
      },
      {
       "id": "S02.confirmation mode",
@@ -9741,7 +9831,13 @@
       "state": "OK",
       "priority": "P2",
       "step": "3.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": null,
+       "unit": "",
+       "load": null,
+       "state": "NOK"
+      }
      },
      {
       "id": "S02.P confirm",
@@ -9771,7 +9867,13 @@
       "state": "OK",
       "priority": "P2",
       "step": "4.3",
-      "note": "95 % quantile"
+      "note": "95 % quantile",
+      "with_reuse": {
+       "value": 0.0,
+       "unit": "s",
+       "load": 0.0,
+       "state": "OK"
+      }
      },
      {
       "id": "S03.confirmation mode",
@@ -9786,7 +9888,13 @@
       "state": "OK",
       "priority": "P2",
       "step": "3.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": "KU1+7",
+       "unit": "",
+       "load": 0.0,
+       "state": "OK"
+      }
      },
      {
       "id": "S03.P confirm",
@@ -9801,7 +9909,13 @@
       "state": "OK",
       "priority": "P2",
       "step": "3.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.9995023193447643,
+       "unit": "",
+       "load": 0.9953613104715083,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.energy",
@@ -9816,7 +9930,13 @@
       "state": "OK",
       "priority": null,
       "step": "5.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.20083720377229142,
+       "unit": "",
+       "load": 0.20083720377229142,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.S time",
@@ -9831,7 +9951,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.3",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.11784263479168407,
+       "unit": "",
+       "load": 0.11784263479168407,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.Ku time",
@@ -9846,7 +9972,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.3",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.00020191505017655876,
+       "unit": "",
+       "load": 0.00020191505017655876,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.heat",
@@ -9861,7 +9993,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.02540939259186443,
+       "unit": "",
+       "load": 0.02540939259186443,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.compute",
@@ -9876,7 +10014,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.00029292102600469815,
+       "unit": "",
+       "load": 0.00029292102600469815,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.memory",
@@ -9891,7 +10035,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.02323231057610851,
+       "unit": "",
+       "load": 0.02323231057610851,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.memory bandwidth",
@@ -9906,7 +10056,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.355964420239905,
+       "unit": "",
+       "load": 0.355964420239905,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.S beams",
@@ -9921,7 +10077,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.3658520942458713,
+       "unit": "",
+       "load": 0.3658520942458713,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.Ku beams",
@@ -9936,7 +10098,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.03125,
+       "unit": "",
+       "load": 0.03125,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.S TRSA link",
@@ -9951,7 +10119,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.2,
+       "unit": "Tbit/s",
+       "load": 0.05,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.S processor input",
@@ -9966,7 +10140,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 39.2,
+       "unit": "Tbit/s",
+       "load": 0.098,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.Ku TRSA link",
@@ -9981,7 +10161,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.002,
+       "unit": "Tbit/s",
+       "load": 0.0005,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.Ku processor input",
@@ -9996,7 +10182,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.392,
+       "unit": "Tbit/s",
+       "load": 0.00098,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.processing power",
@@ -10011,7 +10203,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 10.04010099879347,
+       "unit": "kW",
+       "load": 0.2008020199758694,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.storage (observation)",
@@ -10026,7 +10224,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.00843172744131615,
+       "unit": "MJ",
+       "load": 0.0021079318603290376,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.storage (burst)",
@@ -10041,7 +10245,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 1.9381254790475555,
+       "unit": "MJ",
+       "load": null,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.heat (burst)",
@@ -10056,7 +10266,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.0,
+       "unit": "MJ",
+       "load": null,
+       "state": "OK"
+      }
      },
      {
       "id": "F1.peak power",
@@ -10074,7 +10290,16 @@
       "state": "OK",
       "priority": null,
       "step": "4.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": {
+        "S": 12.25,
+        "Ku": 14.134615384615383
+       },
+       "unit": "",
+       "load": 0.0,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.energy",
@@ -10089,7 +10314,13 @@
       "state": "OK",
       "priority": null,
       "step": "5.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.20083720377229147,
+       "unit": "",
+       "load": 0.20083720377229147,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.S time",
@@ -10104,7 +10335,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.3",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.11784263479168411,
+       "unit": "",
+       "load": 0.11784263479168411,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.Ku time",
@@ -10119,7 +10356,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.3",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.00020191505017655876,
+       "unit": "",
+       "load": 0.00020191505017655876,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.heat",
@@ -10134,7 +10377,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.02540939259186443,
+       "unit": "",
+       "load": 0.02540939259186443,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.compute",
@@ -10149,7 +10398,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.00029292102600469815,
+       "unit": "",
+       "load": 0.00029292102600469815,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.memory",
@@ -10164,7 +10419,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.02323231057610851,
+       "unit": "",
+       "load": 0.02323231057610851,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.memory bandwidth",
@@ -10179,7 +10440,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.355964420239905,
+       "unit": "",
+       "load": 0.355964420239905,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.S beams",
@@ -10194,7 +10461,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.3658520942458713,
+       "unit": "",
+       "load": 0.3658520942458713,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.Ku beams",
@@ -10209,7 +10482,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.03125,
+       "unit": "",
+       "load": 0.03125,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.S TRSA link",
@@ -10224,7 +10503,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.2,
+       "unit": "Tbit/s",
+       "load": 0.05,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.S processor input",
@@ -10239,7 +10524,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 39.2,
+       "unit": "Tbit/s",
+       "load": 0.098,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.Ku TRSA link",
@@ -10254,7 +10545,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.002,
+       "unit": "Tbit/s",
+       "load": 0.0005,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.Ku processor input",
@@ -10269,7 +10566,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.392,
+       "unit": "Tbit/s",
+       "load": 0.00098,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.processing power",
@@ -10284,7 +10587,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 10.04010099879347,
+       "unit": "kW",
+       "load": 0.2008020199758694,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.storage (observation)",
@@ -10299,7 +10608,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.00843172744131615,
+       "unit": "MJ",
+       "load": 0.0021079318603290376,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.storage (burst)",
@@ -10314,7 +10629,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 1.9381254790475555,
+       "unit": "MJ",
+       "load": null,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.heat (burst)",
@@ -10329,7 +10650,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.0,
+       "unit": "MJ",
+       "load": null,
+       "state": "OK"
+      }
      },
      {
       "id": "F2.peak power",
@@ -10347,7 +10674,16 @@
       "state": "OK",
       "priority": null,
       "step": "4.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": {
+        "S": 12.25,
+        "Ku": 14.134615384615383
+       },
+       "unit": "",
+       "load": 0.0,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.energy",
@@ -10362,7 +10698,13 @@
       "state": "OK",
       "priority": null,
       "step": "5.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.20083720377229147,
+       "unit": "",
+       "load": 0.20083720377229147,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.S time",
@@ -10377,7 +10719,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.3",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.11784263479168411,
+       "unit": "",
+       "load": 0.11784263479168411,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.Ku time",
@@ -10392,7 +10740,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.3",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.00020191505017655876,
+       "unit": "",
+       "load": 0.00020191505017655876,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.heat",
@@ -10407,7 +10761,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.02540939259186443,
+       "unit": "",
+       "load": 0.02540939259186443,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.compute",
@@ -10422,7 +10782,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.00029292102600469815,
+       "unit": "",
+       "load": 0.00029292102600469815,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.memory",
@@ -10437,7 +10803,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.02323231057610851,
+       "unit": "",
+       "load": 0.02323231057610851,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.memory bandwidth",
@@ -10452,7 +10824,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.355964420239905,
+       "unit": "",
+       "load": 0.355964420239905,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.S beams",
@@ -10467,7 +10845,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.3658520942458713,
+       "unit": "",
+       "load": 0.3658520942458713,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.Ku beams",
@@ -10482,7 +10866,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.03125,
+       "unit": "",
+       "load": 0.03125,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.S TRSA link",
@@ -10497,7 +10887,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.2,
+       "unit": "Tbit/s",
+       "load": 0.05,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.S processor input",
@@ -10512,7 +10908,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 39.2,
+       "unit": "Tbit/s",
+       "load": 0.098,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.Ku TRSA link",
@@ -10527,7 +10929,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.002,
+       "unit": "Tbit/s",
+       "load": 0.0005,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.Ku processor input",
@@ -10542,7 +10950,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.392,
+       "unit": "Tbit/s",
+       "load": 0.00098,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.processing power",
@@ -10557,7 +10971,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 10.04010099879347,
+       "unit": "kW",
+       "load": 0.2008020199758694,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.storage (observation)",
@@ -10572,7 +10992,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.00843172744131615,
+       "unit": "MJ",
+       "load": 0.0021079318603290376,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.storage (burst)",
@@ -10587,7 +11013,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 1.9381254790475555,
+       "unit": "MJ",
+       "load": null,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.heat (burst)",
@@ -10602,7 +11034,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.0,
+       "unit": "MJ",
+       "load": null,
+       "state": "OK"
+      }
      },
      {
       "id": "F3.peak power",
@@ -10620,7 +11058,16 @@
       "state": "OK",
       "priority": null,
       "step": "4.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": {
+        "S": 12.25,
+        "Ku": 14.134615384615383
+       },
+       "unit": "",
+       "load": 0.0,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.energy",
@@ -10635,7 +11082,13 @@
       "state": "OK",
       "priority": null,
       "step": "5.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.20083720377229147,
+       "unit": "",
+       "load": 0.20083720377229147,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.S time",
@@ -10650,7 +11103,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.3",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.1178426347916841,
+       "unit": "",
+       "load": 0.1178426347916841,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.Ku time",
@@ -10665,7 +11124,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.3",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.00020191505017655876,
+       "unit": "",
+       "load": 0.00020191505017655876,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.heat",
@@ -10680,7 +11145,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.02540939259186443,
+       "unit": "",
+       "load": 0.02540939259186443,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.compute",
@@ -10695,7 +11166,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.00029292102600469815,
+       "unit": "",
+       "load": 0.00029292102600469815,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.memory",
@@ -10710,7 +11187,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.02323231057610851,
+       "unit": "",
+       "load": 0.02323231057610851,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.memory bandwidth",
@@ -10725,7 +11208,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.355964420239905,
+       "unit": "",
+       "load": 0.355964420239905,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.S beams",
@@ -10740,7 +11229,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.3658520942458713,
+       "unit": "",
+       "load": 0.3658520942458713,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.Ku beams",
@@ -10755,7 +11250,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.03125,
+       "unit": "",
+       "load": 0.03125,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.S TRSA link",
@@ -10770,7 +11271,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.2,
+       "unit": "Tbit/s",
+       "load": 0.05,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.S processor input",
@@ -10785,7 +11292,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 39.2,
+       "unit": "Tbit/s",
+       "load": 0.098,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.Ku TRSA link",
@@ -10800,7 +11313,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.002,
+       "unit": "Tbit/s",
+       "load": 0.0005,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.Ku processor input",
@@ -10815,7 +11334,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.392,
+       "unit": "Tbit/s",
+       "load": 0.00098,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.processing power",
@@ -10830,7 +11355,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.4",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 10.04010099879347,
+       "unit": "kW",
+       "load": 0.2008020199758694,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.storage (observation)",
@@ -10845,7 +11376,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.00843172744131615,
+       "unit": "MJ",
+       "load": 0.0021079318603290376,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.storage (burst)",
@@ -10860,7 +11397,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 1.9381254790475555,
+       "unit": "MJ",
+       "load": null,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.heat (burst)",
@@ -10875,7 +11418,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.0,
+       "unit": "MJ",
+       "load": null,
+       "state": "OK"
+      }
      },
      {
       "id": "F4.peak power",
@@ -10893,7 +11442,16 @@
       "state": "OK",
       "priority": null,
       "step": "4.1",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": {
+        "S": 12.25,
+        "Ku": 14.134615384615383
+       },
+       "unit": "",
+       "load": 0.0,
+       "state": "OK"
+      }
      },
      {
       "id": "ship.energy",
@@ -10908,7 +11466,13 @@
       "state": "OK",
       "priority": null,
       "step": "5.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 6.426790520713327,
+       "unit": "MW",
+       "load": 0.8033488150891659,
+       "state": "ALERT"
+      }
      },
      {
       "id": "ship.heat rejection",
@@ -10923,7 +11487,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.2",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 1.9771098701910323,
+       "unit": "MW",
+       "load": 0.3295183116985054,
+       "state": "OK"
+      }
      },
      {
       "id": "S.navigation pointing",
@@ -10938,7 +11508,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.5",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.0011890760037895844,
+       "unit": "HPBW",
+       "load": 0.023781520075791686,
+       "state": "OK"
+      }
      },
      {
       "id": "Ku.navigation pointing",
@@ -10953,7 +11529,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.5",
-      "note": ""
+      "note": "",
+      "with_reuse": {
+       "value": 0.005885028372556691,
+       "unit": "HPBW",
+       "load": 0.11770056745113382,
+       "state": "OK"
+      }
      },
      {
       "id": "S01 F1.migration",
@@ -10968,7 +11550,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.5",
-      "note": "neighbour face load while the volume crosses (0.88 s)"
+      "note": "neighbour face load while the volume crosses (0.88 s)",
+      "with_reuse": {
+       "value": 0.6045033675051532,
+       "unit": "",
+       "load": 0.6045033675051532,
+       "state": "OK"
+      }
      },
      {
       "id": "S01 F2.migration",
@@ -10983,7 +11571,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.5",
-      "note": "neighbour face load while the volume crosses (0.88 s)"
+      "note": "neighbour face load while the volume crosses (0.88 s)",
+      "with_reuse": {
+       "value": 0.6045033675051532,
+       "unit": "",
+       "load": 0.6045033675051532,
+       "state": "OK"
+      }
      },
      {
       "id": "S01 F3.migration",
@@ -10998,7 +11592,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.5",
-      "note": "neighbour face load while the volume crosses (0.88 s)"
+      "note": "neighbour face load while the volume crosses (0.88 s)",
+      "with_reuse": {
+       "value": 0.6045033675051532,
+       "unit": "",
+       "load": 0.6045033675051532,
+       "state": "OK"
+      }
      },
      {
       "id": "S01 F4.migration",
@@ -11013,7 +11613,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.5",
-      "note": "neighbour face load while the volume crosses (0.88 s)"
+      "note": "neighbour face load while the volume crosses (0.88 s)",
+      "with_reuse": {
+       "value": 0.6045033675051532,
+       "unit": "",
+       "load": 0.6045033675051532,
+       "state": "OK"
+      }
      },
      {
       "id": "S02 F1.migration",
@@ -11028,7 +11634,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.5",
-      "note": "neighbour face load while the volume crosses (0.95 s)"
+      "note": "neighbour face load while the volume crosses (0.95 s)",
+      "with_reuse": {
+       "value": 0.22713585172116962,
+       "unit": "",
+       "load": 0.22713585172116962,
+       "state": "OK"
+      }
      },
      {
       "id": "S02 F2.migration",
@@ -11043,7 +11655,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.5",
-      "note": "neighbour face load while the volume crosses (0.95 s)"
+      "note": "neighbour face load while the volume crosses (0.95 s)",
+      "with_reuse": {
+       "value": 0.22713585172116962,
+       "unit": "",
+       "load": 0.22713585172116962,
+       "state": "OK"
+      }
      },
      {
       "id": "S02 F3.migration",
@@ -11058,7 +11676,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.5",
-      "note": "neighbour face load while the volume crosses (0.95 s)"
+      "note": "neighbour face load while the volume crosses (0.95 s)",
+      "with_reuse": {
+       "value": 0.22713585172116962,
+       "unit": "",
+       "load": 0.22713585172116962,
+       "state": "OK"
+      }
      },
      {
       "id": "S02 F4.migration",
@@ -11073,7 +11697,13 @@
       "state": "OK",
       "priority": null,
       "step": "4.5",
-      "note": "neighbour face load while the volume crosses (0.95 s)"
+      "note": "neighbour face load while the volume crosses (0.95 s)",
+      "with_reuse": {
+       "value": 0.22713585172116962,
+       "unit": "",
+       "load": 0.22713585172116962,
+       "state": "OK"
+      }
      },
      {
       "id": "SP.confirmation latency at the peak",
@@ -11387,7 +12017,36 @@
      }
     ],
     "tight": [],
-    "advice": []
+    "advice": [],
+    "with_reuse": {
+     "ceiling": 0.8,
+     "sectors": {
+      "SP": {
+       "g": 8.773750417126788,
+       "rr_target_s": 30.0,
+       "rr_real_s": 3.4192903346599124,
+       "limited_by": "ship energy (bisection)"
+      },
+      "S01": {
+       "g": 8.773750417126788,
+       "rr_target_s": 30.0,
+       "rr_real_s": 3.4192903346599124,
+       "limited_by": "ship energy (bisection)"
+      },
+      "S02": {
+       "g": 8.773750417126788,
+       "rr_target_s": 30.0,
+       "rr_real_s": 3.4192903346599124,
+       "limited_by": "ship energy (bisection)"
+      }
+     },
+     "limiting": {
+      "object": "ship",
+      "resource": "energy",
+      "load": 0.8033488150891659,
+      "state": "ALERT"
+     }
+    }
    },
    "relief": {
     "S02": {
@@ -11407,10 +12066,10 @@
      "code": "1800x900:eNrtz0ENACAAA7ElCMO/GxwMCxB49gxcmrw3et768Mu8GAYQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBCw3eowb1A="
     }
    },
-   "_computed_local": "13 Nov 22:06",
+   "_computed_local": "13 Nov 23:33",
    "_model_version": "6.50.0"
   },
-  "computed": "13 Nov 22:06",
+  "computed": "13 Nov 23:33",
   "t_s": 3774.0,
   "mission_sig": "5d3c394c344af1e3e5b40df691ac260d187876ef",
   "mission": {

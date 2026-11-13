@@ -32,6 +32,7 @@ def _cell(load: Optional[float], state: Optional[str]) -> Tuple[str, Optional[st
 
 class DiagnosisPanel(QWidget):
     sector_selected = pyqtSignal(str)
+    face_selected = pyqtSignal(int)                # (5.5 E1: a face's branch clicked)
     folded = pyqtSignal(bool)                     # (the owner shrinks the part under its splitter)
 
     def __init__(self, parent=None):
@@ -78,6 +79,31 @@ class DiagnosisPanel(QWidget):
         sid = item.data(0, _ROLE_SID)
         if sid:
             self.sector_selected.emit(str(sid))
+            return
+        top = item
+        while top.parent() is not None:
+            top = top.parent()
+        name = top.text(0)
+        if len(name) == 2 and name[0] == "F" and name[1] in "1234":
+            self.face_selected.emit(int(name[1]) - 1)
+
+    def set_selected(self, kind: str, ident: str) -> None:
+        """The shared selection shown (5.5 E1): the volume's line, or the face's branch, made current."""
+        self._sel = (kind, ident)
+        target = None
+        for i in range(self.tree.topLevelItemCount()):
+            top = self.tree.topLevelItem(i)
+            if kind == "face" and top.text(0) == f"F{int(ident) + 1}":
+                target = top
+            if kind == "sector" and top.text(0).startswith("Volumes"):
+                for j in range(top.childCount()):
+                    if top.child(j).data(0, _ROLE_SID) == ident:
+                        target = top.child(j)
+        if target is None:
+            self.tree.clearSelection()
+            return
+        self.tree.setCurrentItem(target)
+        self.tree.scrollToItem(target)
 
     def _item(self, parent, texts, colors=(), sid=None, tip: str = "") -> QTreeWidgetItem:
         it = QTreeWidgetItem(parent, [str(t) for t in texts])
@@ -152,3 +178,5 @@ class DiagnosisPanel(QWidget):
                                else None)
                 it.setExpanded(main["state"] != "OK")
             top.setExpanded(self._open.get(where, worst != "OK"))
+        if getattr(self, "_sel", None):
+            self.set_selected(*self._sel)

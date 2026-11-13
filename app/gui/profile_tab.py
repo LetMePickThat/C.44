@@ -151,9 +151,14 @@ class Timeline(QWidget):
         dur = float(prof.get("duration_s") or ts[-1])
         edges = [0.0] + [0.5 * (a + b) for a, b in zip(ts, ts[1:])] + [dur]   # each instant holds until the next
         y = 4
+        sel = getattr(self, "sel", ("", ""))           # (5.5 E1: the shared selection, its rows in bold)
         for vid, v in prof.get("volumes", {}).items():
             p.setPen(QColor("#222222"))
-            p.drawText(QRectF(2, y, LABEL_W - 6, ROW_H), Qt.AlignVCenter | Qt.AlignLeft, str(vid))
+            f_ = p.font()
+            f_.setBold(sel == ("sector", str(vid)))
+            p.setFont(f_)
+            p.drawText(QRectF(2, y, LABEL_W - 6, ROW_H), Qt.AlignVCenter | Qt.AlignLeft,
+                       ("\u25b6 " if f_.bold() else "") + str(vid))
             holes = v.get("hole") or []
             for i, st in enumerate(v.get("state", [])):
                 x0, x1 = self._x(edges[i]), self._x(edges[i + 1])
@@ -172,6 +177,9 @@ class Timeline(QWidget):
                 vals = f.get(res) or []
                 v_max = max([float(x) for x in vals if x is not None] or [0.0])
                 p.setPen(QColor("#222222"))
+                f_ = p.font()
+                f_.setBold(sel == ("face", str(k)))
+                p.setFont(f_)
                 p.drawText(QRectF(2, y, LABEL_W - 6, ROW_H), Qt.AlignVCenter | Qt.AlignLeft,
                            f"{geo.FACE_NAMES[k]} {res} {100 * v_max:.3g}%")   # (its maximum: each row on its own scale)
                 p.setPen(QPen(QColor("#dddddd"), 1))
@@ -378,6 +386,28 @@ class ProfileTab(QWidget):
 
     def set_cursor(self, t: Optional[float]) -> None:
         self.timeline.set_cursor(t)
+
+    def attach_selection(self, sel) -> None:
+        """5.5 E1 (user, 13 November 2026): the window's shared selection: a row of the availability table sets it;
+        the table and the timeline (the volume's or the face's rows in bold) show it."""
+        self.selection = sel
+        self.table_avail.cellClicked.connect(self._avail_clicked)
+        sel.changed.connect(self._show_selection)
+
+    def _avail_clicked(self, row: int, _col: int) -> None:
+        it = self.table_avail.item(row, 0)
+        if it is not None and getattr(self, "selection", None) is not None:
+            self.selection.set("sector", it.text())
+
+    def _show_selection(self, kind: str, ident: str) -> None:
+        self.timeline.sel = (kind, ident)
+        self.timeline.update()
+        if kind == "sector":
+            for i in range(self.table_avail.rowCount()):
+                it = self.table_avail.item(i, 0)
+                if it is not None and it.text() == ident:
+                    self.table_avail.selectRow(i)
+                    break
 
     def _pick(self, t: float) -> None:
         self.timeline.set_cursor(t)

@@ -4057,3 +4057,23 @@ def test_scheduler_timeline_replayed_as_built():
             n += len(ev)
             assert all(e2[0] >= e1[0] + e1[1] - 1e-12 for e1, e2 in zip(ev, ev[1:]))
     assert n > 1000
+
+
+def test_mission_report_page():
+    """5.5 C (user, 13 November 2026): the mission report is one self-contained HTML page with its nine sections, every
+    constraint of the verdict once in its table, every advice, and the parameter trace (annex on request)."""
+    import re
+    from core import report
+    here = os.path.dirname(__file__)
+    m = md.load_mission(os.path.join(here, "missions", "mission_target_library.json"))
+    res = json.loads(open(os.path.join(here, "snapshots", "mission_target_library.json"), encoding="utf-8").read())["run"]
+    page = report.build_html(m, res, {"file": "mission_target_library.json", "t_s": 0.0}, b"\x89PNG", None,
+                             params_annex=True)
+    assert page.startswith("<!doctype html>") and page.endswith("</html>") and "http" not in page.lower()
+    for h in ("1. Identity", "2. Verdict", "3. Constraints in alert", "4. Every constraint", "5. Volumes",
+              "6. Faces", "7. Redundancies", "8. Monte-Carlo", "9. Warnings", "3D view", "Parameters",
+              "Every parameter ("):
+        assert h in page
+    every = page.split("4. Every constraint", 1)[1].split("5. Volumes", 1)[0]
+    assert len(re.findall(r"<tr><td>", every)) == len(res["verdict"]["constraints"])
+    assert len(re.findall(r"advice \d+ \(", page)) == len(res["verdict"]["advice"])

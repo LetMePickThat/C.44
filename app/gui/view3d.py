@@ -487,6 +487,7 @@ class LineLabels:
         self.base_size, self.box = size, box
         self._plotter = weakref.ref(plotter)
         self._items: Dict[str, dict] = {}            # key -> {"pt", "lines": [(text, colour)], "actors", "visible"}
+        self._selected: Optional[str] = None        # (5.5 E1: the selected volume's label framed)
         me = weakref.ref(self)
         plotter.renderer.AddObserver("StartEvent", lambda *_a: me() is not None and me()._place())
 
@@ -523,6 +524,22 @@ class LineLabels:
             a.GetTextProperty().SetFontSize(self._size())
         it["pt"] = np.asarray(point, float).reshape(3)
         it["lines"] = list(lines)
+        self._frame(key)
+
+    def _frame(self, key: str) -> None:
+        on = key == self._selected
+        for a in (self._items.get(key) or {}).get("actors", []):
+            tp = a.GetTextProperty()
+            tp.SetFrame(1 if on else 0)
+            if on:
+                tp.SetFrameColor(1.0, 1.0, 1.0)
+                tp.SetFrameWidth(2)
+
+    def set_selected(self, key: Optional[str]) -> None:
+        """The label of the selected volume framed in white (5.5 E1), the others not."""
+        old, self._selected = self._selected, key
+        for k in {old, key} - {None}:
+            self._frame(k)
 
     def keep(self, keys) -> None:
         """Only these labels kept (the others removed)."""
