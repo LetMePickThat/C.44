@@ -462,7 +462,7 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
                        f_ghz: float = geo.VIZ_FREQ_GHZ, calib: Optional[dict] = None,
                        profiles: Optional[str] = None, estimating: Optional[List[str]] = None,
                        reach_out: Optional[dict] = None, instant_out: Optional[List[str]] = None,
-                       other_out: Optional[dict] = None):
+                       other_out: Optional[dict] = None, blind_out: Optional[dict] = None):
     """The final allocation rule's demands and budgets from the fast estimate (pass R2, user 10 November 2026): the
     always-on of each face (tier 0); each search volume (P1 if self-protection, else P4_n) split in its raster cells,
     each costed on every face whose scan-limit cone contains it (its own scan angle, the ground rule, B1), energy
@@ -587,6 +587,9 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
                     estimating.append(sid)
                 if inst is not None and inst.get("status") != "OK":
                     inst = None
+                if inst is not None and blind_out is not None and inst.get("blind_km"):   # (5.5: the played view's
+                    blind_out[sid] = {"bin_deg": float(inst.get("bin_deg", 1.0)),             # inner surface)
+                                      "blind_km": list(inst["blind_km"])}
             rows = None
             if inst is not None:
                 got = _instant_rows(inst, sec, grid, eps_min, eps_max, covered, reach, theta, mask,
@@ -752,9 +755,10 @@ def _live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Spher
     reach: Dict[str, dict] = {}
     instant: List[str] = []
     other: Dict[str, dict] = {}
+    blind: Dict[str, dict] = {}
     demands, budgets = allocation_demands(table, sectors_ship, grid, eps_min, eps_max, sky, gk, calib=calib,
                                           profiles=profiles, estimating=estimating, reach_out=reach,
-                                          instant_out=instant, other_out=other)
+                                          instant_out=instant, other_out=other, blind_out=blind)
     # c (user, 12 November 2026): the resources the rule does not hold but the exact margin reuse does (memory
     # bandwidth, processing), linear in the pointing rate: the same water-filling (margin._fill) caps each search
     # volume's revisit gain before the rule; above 100 % at the revisits asked the exact verdict is NOK
@@ -790,6 +794,7 @@ def _live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Spher
             elif v > budgets.ceiling + 1e-9:
                 out["flags"].append(f"{n} at {100 * v:.0f} %, above the load ceiling {100 * budgets.ceiling:.0f} %")
     out["reach"] = reach                              # per volume: the range reachable at full pulse per scan angle
+    out["blind"] = blind                              # per volume: the blind range of each scan-angle bin (5.5)
     out["out_of_reach"] = {}                           # per volume: the share of its directions out of reach
     for sid, rc in reach.items():
         sec = next((s for s in sectors_ship if str(s.get("id")) == sid), None)
@@ -1002,6 +1007,21 @@ def async_pending() -> int:
         return n
 
 
+# (user, 13 November 2026) the live estimate HELD after an edit of the volumes: every edit, even a small one, started
+# a whole computation (profiles, relief, allocation); held, live_allocation_async starts nothing and gives the last
+# result "obsolete" (a result already known for the same inputs, e.g. an edit undone, is still given); released by
+# the operator (the badge "OBSOLETE ESTIMATE - RERUN" clicked)
+_HOLD = {"on": False}
+
+
+def hold(on: bool) -> None:
+    _HOLD["on"] = bool(on)
+
+
+def held() -> bool:
+    return bool(_HOLD["on"])
+
+
 def live_allocation_async(table: CostTable, sectors_ship: List[dict], grid: geo.SphereGrid, eps_min: float,
                           eps_max: float, sky: Optional[dict] = None, g: Optional[dict] = None,
                           calib: Optional[dict] = None, relief: Optional[str] = "background",
@@ -1019,6 +1039,9 @@ def live_allocation_async(table: CostTable, sectors_ship: List[dict], grid: geo.
             from . import background
             background.RELIEF.cancel(old)            # (its relief no longer awaited: off the badge)
         hit = _A["cache"].get(key)
+        if hit is None and _HOLD["on"]:              # (held: nothing started, the last result said obsolete)
+            last = _A["last"].get(tag)
+            return None if last is None else dict(last, stale=True, obsolete=True)
         if hit is None and key not in _A["jobs"]:
             _A["args"][key] = ([dict(s) for s in sectors_ship], res_deg, eps_min, eps_max, sky, dict(g or {}),
                                dict(calib or {}), relief)

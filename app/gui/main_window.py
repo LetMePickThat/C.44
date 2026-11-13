@@ -16,8 +16,8 @@ from typing import List, Optional
 
 from PyQt5.QtCore import QThread, Qt, pyqtSignal
 from PyQt5.QtGui import QKeySequence
-from PyQt5.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QMainWindow, QMenu, QMessageBox,
-                             QProgressDialog, QShortcut, QStackedWidget, QTabBar, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (QApplication, QFrame, QHBoxLayout, QMainWindow, QMenu, QMessageBox, QProgressDialog,
+                             QShortcut, QStackedWidget, QTabBar, QVBoxLayout, QWidget)
 
 from core import geometry as geo
 from core import mission as md
@@ -61,6 +61,8 @@ class OptimizeWorker(QThread):
 
 
 TITLE = "Radar Mission Preparation"
+TITLE_V = f"{TITLE} - V{rm.MODEL_VERSION}"     # (user, 13 November 2026: the model version in the title, to
+                                              # follow the results; each result keeps its own)
 WINDOW_SIZE = tuple(int(x) for x in P.get("tool.display.window_size"))   # at start (user)
 FRAME_MARGIN = (16, 48)                          # px kept for the window frame and its title bar
 PREP_TAB, PROFILE_TAB, RESULTS_TAB = range(3)    # the working modes, in order (Profile: option A, 10 Nov 2026)
@@ -77,7 +79,7 @@ class MainWindow(QMainWindow):
     def __init__(self, mission: Optional[dict] = None, path: Optional[str] = None):
         """mission: a mission to start on (with a new scenario); path: a file to open (sim/document.py)."""
         super().__init__()
-        self.setWindowTitle(TITLE)
+        self.setWindowTitle(TITLE_V)
         self.resize(*WINDOW_SIZE)                 # fitted to the screen by show_default()
         self.grid = geo.SphereGrid(res_deg=GRID_RES_DEG)
         self.results: Optional[ResultsTab] = None
@@ -91,7 +93,7 @@ class MainWindow(QMainWindow):
         self.prep.results_reopened.connect(self._reopen_results)
         self.prep.results_reopened.connect(lambda: self.profile.forget())     # (another mission: its own profile)
         self.prep.title_changed.connect(lambda _n: self._check_outdated())
-        self.prep.title_changed.connect(lambda name: self.setWindowTitle(f"{TITLE} - {name}"))
+        self.prep.title_changed.connect(lambda name: self.setWindowTitle(f"{TITLE_V} - {name}"))
 
         # B14: the header (menu, modes, main action), the working area of each mode, the status bar
         self.menu = QMenu(self)
@@ -111,13 +113,6 @@ class MainWindow(QMainWindow):
         hl.addSpacing(8)
         hl.addWidget(self.modes)
         hl.addStretch(1)
-        # the model version the tool computes with (user, 13 November 2026: to follow the results)
-        self.lbl_model = QLabel(f"Model V{rm.MODEL_VERSION}")
-        self.lbl_model.setStyleSheet("color: #606060")
-        self.lbl_model.setToolTip("Version of the radar model the calculations of this tool use; each result keeps "
-                                  "the version it was computed with")
-        hl.addWidget(self.lbl_model)
-        hl.addSpacing(10)
         hl.addLayout(self.actions_box)
         self._add_mode("Mission preparation", self.prep, [self.prep.file_label], self.prep.b_run)
         # the mission along its linked scenario's flight plan (option A, passes T1-T3, user 10 November 2026)
@@ -146,7 +141,7 @@ class MainWindow(QMainWindow):
         self._on_mode_changed(PREP_TAB)
         if path:
             self.prep.open_path(path)                     # (a bad file: said, the mission shown kept)
-        self.setWindowTitle(f"{TITLE} - {self.prep.file_label.text()}")
+        self.setWindowTitle(f"{TITLE_V} - {self.prep.file_label.text()}")
 
     # ------------------------------------------------------------------ B14 header, modes, menu, status bar
     def _add_mode(self, title: str, widget: QWidget, status: List[QWidget], primary: Optional[QWidget]) -> int:
@@ -216,7 +211,7 @@ class MainWindow(QMainWindow):
             act.setEnabled(enabled)
         self.menu.addSeparator()
         self.menu.addAction("Parameters...", self._open_params)     # step 5.5 (user, 13 November 2026)
-        self.menu.addAction("About...", lambda: uc.show_about(self, TITLE))
+        self.menu.addAction("About...", lambda: uc.show_about(self, TITLE_V))
 
     def _open_params(self) -> None:
         """The parameter file (gui/params_window.py), modal: the values apply when the tool starts again."""

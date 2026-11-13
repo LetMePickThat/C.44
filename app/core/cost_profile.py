@@ -274,8 +274,9 @@ def shutdown() -> None:
 # for, and computed again (in a background process) when a body, the galactic frame or the volume moved more than
 # tool.cost_profile.instant_sky_move_deg, or a body's apparent radius or closing-speed spread changed by more than
 # instant_sky_radius_rel (V2); meanwhile the last one of the volume is used and the volume is "estimating".
-INSTANT_FORMAT = 3                                # 2: + memory traffic and processing energy per position (c);
-                                                  # 3: + the confirmation of the false alarms (d)
+INSTANT_FORMAT = 4                                # 2: + memory traffic and processing energy per position (c);
+                                                  # 3: + the confirmation of the false alarms (d);
+                                                  # 4: + the blind range of each bin's waveform (5.5, played view)
 ICACHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".instant_profile_cache.json")
 _IDISPLAY = ("id", "name", "label", "colour", "color", "visible", "hidden", "note", "comment", "tracking")
 _icache: Optional[Dict[str, list]] = None
@@ -401,11 +402,13 @@ def compute_instant(sec: dict, sky: Optional[dict], eps_min: float, eps_max: flo
     from . import compute
     s_sp = dict(s, _grid_spacing=float(sp))
     mem_b, proc_b = np.zeros(nb), np.zeros(nb)
+    blind = np.full(nb, np.nan)                 # (the blind range of each bin's waveform: the played view, 5.5)
     for b in range(nb):
         c = int(plan.choice[b])
         if c < 0:
             continue
         wd = mo._wf_dict("x", cands[c], float(f), s_sp)
+        blind[b] = float(wd.get("blind_range_km", np.nan))
         ppd = max(1.0, float(wd.get("positions_per_dwell", 1.0)))
         beams = float(wd.get("rx_beams_per_position", 1.0)) * (float(wd.get("b_tx", 1)) if wd.get("tx_mode") == "partition"
                                                                else ppd)
@@ -417,6 +420,7 @@ def compute_instant(sec: dict, sky: Optional[dict], eps_min: float, eps_max: flo
             "populated": [bool(x) for x in ((P.sum(axis=0) > 0) & (np.asarray(plan.choice) >= 0))],
             "h": None if h is None else [float(x) for x in h], "unscanned_pct": float(unscanned),
             "mem_bits": [float(x) for x in mem_b], "proc_J": [float(x) for x in proc_b],
+            "blind_km": [None if not np.isfinite(x) else float(x) for x in blind],
             "confirm": _instant_confirmation(s, sph, float(f), float(sp), sky, eps_min, eps_max)}
 
 

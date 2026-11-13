@@ -123,8 +123,10 @@ def _energy_text(served_w: float, base_w: float, asked_w: float) -> str:
 
 LOAD_BASE = "#8a8f99"                            # the always-on part of the energy bar (grey)
 
-# The ESTIMATE badge's names of the background tasks (core/background.status labels): (shown, what it is for). The
-# badge shows the first one running in this order (the most specific), the others counted.
+# The ESTIMATE badge's names of the background tasks (core/background.status labels): (shown, what it is for), in
+# the order of the calculation (user, 13 November 2026: "CALCULATING ESTIMATE - step k/4: <phase>", the figures being
+# estimated and the phase running, not an estimate OF the phase). The badge shows the first one running in this
+# order (the earliest step), the others counted.
 BADGE_ORDER = ("cost profiles", "relief", "redundancy check", "estimate")
 BADGE_ACTIVITY = {
     "cost profiles": ("volume costs", "time and energy per position of each volume edited (the generic table is "
@@ -134,6 +136,14 @@ BADGE_ACTIVITY = {
     "estimate": ("face loads", "the fast estimate: resources of each face, range and revisit of each volume "
                                "(the figures shown meanwhile are the previous ones)"),
 }
+
+
+def badge_step(label: str) -> str:
+    """"step k/4: <phase>" of a background task (its place in the calculation, BADGE_ORDER)."""
+    name = BADGE_ACTIVITY.get(label, (label, ""))[0]
+    if label in BADGE_ORDER:
+        return f"step {BADGE_ORDER.index(label) + 1}/{len(BADGE_ORDER)}: {name}"
+    return name
 
 class FaceLoadColumn(QWidget):
     """One face's live load: its name, then one bar per resource (energy, S time, Ku time), each with its own fill,
@@ -646,6 +656,7 @@ class SceneView(QWidget):
     show/hide-all buttons; everything else (faces, 1:1 scale, km axes, frame, sky, UI size) is handled here."""
     show_all_sectors = pyqtSignal()
     hide_all_sectors = pyqtSignal()
+    rerun_requested = pyqtSignal()              # the badge clicked while the estimate is held (user, 13 Nov 2026)
 
     def __init__(self, grid: geo.SphereGrid, face_opacity: float, sector_opacity: float, parent=None,
                  exec_face_colours: bool = False):
@@ -831,6 +842,7 @@ class SceneView(QWidget):
         self._load_lbl = lb
         h.addWidget(lb)
         self._load_badge = uc.source_badge("estimate")          # U3: estimate, recalibrated or still computing
+        self._load_badge.mousePressEvent = self._on_badge_clicked   # (held estimate: a click reruns it)
         h.addWidget(self._load_badge)
         self._load_cols = {}
         for k in range(4):
@@ -955,9 +967,23 @@ class SceneView(QWidget):
         lb = getattr(self, "_load_badge", None)
         if lb is None:
             return
-        uc.set_source(lb, "estimating", detail="updating the view", tip="The fast estimate is being updated",
-                      progress=0.0)
+        uc.set_source(lb, "estimating", detail="updating the view",
+                      tip="The fast estimate is being calculated: the view is being updated", progress=0.0)
         lb.repaint()
+
+    def refresh_estimate(self) -> None:
+        """The held estimate released: the live load and the global view's volumes computed again."""
+        if self._eps is not None:
+            self.set_scene(self._eps[0], self._eps[1], self._sectors)
+        sim = getattr(self, "_sim", None)
+        if sim is not None and self._global_shown():
+            sim._draw_volumes(force=True)
+        self._update_badge()
+
+    def _on_badge_clicked(self, event) -> None:
+        from core import cost_estimate as ce
+        if ce.held():
+            self.rerun_requested.emit()
 
     def _update_badge(self) -> None:
         """The ESTIMATE badge (U3): a progress bar while anything of the estimate is computed (the cost profiles, the
@@ -968,6 +994,13 @@ class SceneView(QWidget):
             return
         a = getattr(self, "_last_alloc", None) or {}
         gauge = " (the range gauge uses the same figures)"
+        from core import cost_estimate as ce
+        if ce.held():                                  # (user, 13 November 2026: held after an edit of the volumes)
+            uc.set_source(lb, "obsolete", tip="The volumes were edited since this estimate: the figures shown are the "
+                          "former ones. Click to compute the estimate again (each edit no longer starts it)")
+            lb.setCursor(Qt.PointingHandCursor)
+            return
+        lb.unsetCursor()
         st = background.status()
         if st or a.get("estimating"):
             # (user, 12 November 2026: "ESTIMATE · computing · estimate" said nothing) the badge names the most
@@ -975,11 +1008,13 @@ class SceneView(QWidget):
             st = sorted(st, key=lambda s_: BADGE_ORDER.index(s_["label"]) if s_["label"] in BADGE_ORDER else 99)
             if a.get("estimating") and not any(s_["label"] == "cost profiles" for s_ in st):
                 st.insert(0, {"label": "cost profiles", "detail": "", "fraction": 0.0})
-            names = [BADGE_ACTIVITY.get(s_["label"], (s_["label"], ""))[0]
-                     + (" " + s_["detail"] if s_["detail"] else "") for s_ in st]
-            detail = names[0] + (f"  +{len(names) - 1}" if len(names) > 1 else "")
-            tip = "Being computed:\n" + "\n".join(
-                f"- {n}: {BADGE_ACTIVITY.get(s_['label'], ('', ''))[1]}" for n, s_ in zip(names, st))
+            def jobs(d_):                              # (the trackers say "x2" for two jobs at once)
+                return f" ({d_[1:]} jobs)" if d_.startswith("x") else (" " + d_ if d_ else "")
+            names = [badge_step(s_["label"]) + jobs(s_["detail"]) for s_ in st]
+            detail = names[0] + (f" +{len(names) - 1}" if len(names) > 1 else "")
+            tip = ("Fast estimate being calculated (the figures shown meanwhile are the previous ones). Running:\n"
+                   + "\n".join(f"- {n}: {BADGE_ACTIVITY.get(s_['label'], ('', ''))[1]}" for n, s_ in zip(names, st))
+                   + "\nSteps: " + ", ".join(f"{i + 1} {BADGE_ACTIVITY[l_][0]}" for i, l_ in enumerate(BADGE_ORDER)))
             if a.get("estimating"):
                 tip += "\nVolumes whose costs are not known yet: " + ", ".join(a["estimating"]) + gauge
             uc.set_source(lb, "estimating", detail=detail, tip=tip, progress=st[0]["fraction"])
@@ -1758,6 +1793,12 @@ class SceneView(QWidget):
     def set_hidden(self, sids: Set[str]) -> None:
         self._hidden = set(sids)
         self.apply_visibility()
+        # (user, 13 November 2026: a sector ticked off stayed drawn in the global view) the global view's hidden too
+        sm = getattr(self, "_sim_mission", None)
+        if sm is not None and sm[1] != self._hidden:
+            self._sim_mission = (sm[0], set(self._hidden))
+            if self._global_shown():
+                self._update_global()
 
     def apply_visibility(self) -> None:
         """Re-applied after every rebuild, since rebuilt actors come back visible; renders."""

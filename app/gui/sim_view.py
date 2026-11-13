@@ -4462,7 +4462,8 @@ class SimView(QWidget):
             if alloc is not None:
                 rec = (alloc.get("by_sector") or {}).get(sid) or {}
                 g = [rec.get("rho"), (alloc.get("reach") or {}).get(sid),
-                     ((alloc.get("relief") or {}).get(sid) or {}).get("code")]
+                     ((alloc.get("relief") or {}).get(sid) or {}).get("code"),
+                     (alloc.get("blind") or {}).get(sid)]            # (5.5: the played view's inner range)
             return json.dumps([sec, e0, e1, sky_ship, float(self.mesh_grid.res_deg), g,
                                bool(getattr(self, "played_only", False))], sort_keys=True,
                               default=lambda o: o.tolist() if hasattr(o, "tolist") else str(o))
@@ -4581,7 +4582,9 @@ class SimView(QWidget):
                     green, red = cgeo.build_range_gauge(mg, sec, ratio_of, float(sec["range_km"]),
                                                         played=bool(getattr(self, "played_only", False)))
                     parts = [("green", green, None), ("red", red, None)]
-                    outline = cgeo.build_gauge_outline_km(mg, sec, sky_ship)   # (its limits: edges)
+                    outline = cgeo.build_gauge_outline_km(                     # (its limits: edges, from the
+                        mg, sec, sky_ship, cgeo.inner_range_function(           # inner range, 5.5)
+                            sec, ratio_of, bool(getattr(self, "played_only", False))))
                     if getattr(self, "played_only", False):  # (played: the hole's corners joined to the radar, as
                         hole_e = cgeo.build_hole_edges_km(mg, sec, ratio_of, float(sec["range_km"]),   # its edges)
                                                           (e0, e1))

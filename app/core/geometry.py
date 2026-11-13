@@ -569,7 +569,8 @@ def _boundary_segments(cap: pv.PolyData) -> Tuple[np.ndarray, np.ndarray]:
     return np.asarray(edges.points), edges.lines.reshape(-1, 3)[:, 1:]
 
 
-def _walls_except_limb(cap_unit: pv.PolyData, placed: pv.PolyData, margin_of, skip_of=None) -> pv.PolyData:
+def _walls_except_limb(cap_unit: pv.PolyData, placed: pv.PolyData, margin_of, skip_of=None,
+                       inner_of=None) -> pv.PolyData:
     """Walls from the cap's free edges down to the radar, but for the edges on the horizon (G2: joined by the tangent
     cone instead) and those where skip_of(unit directions) is True (the played relief's boundary). cap_unit: the cap
     on the unit sphere (its directions), placed: the same cap at range."""
@@ -584,6 +585,15 @@ def _walls_except_limb(cap_unit: pv.PolyData, placed: pv.PolyData, margin_of, sk
         seg = seg[~(sk[seg[:, 0]] & sk[seg[:, 1]])]
     if not len(seg):
         return pv.PolyData()
+    if inner_of is not None:                                # (5.5: down to the inner range, not the radar)
+        r = np.linalg.norm(pts, axis=1)
+        u = pts / np.maximum(r, 1e-12)[:, None]
+        low = u * np.minimum(np.asarray(inner_of(u), float), r)[:, None]
+        n = len(pts)
+        a, b = seg[:, 0], seg[:, 1]
+        tris = np.vstack([np.column_stack([np.full(len(seg), 3), a, b, n + b]),
+                          np.column_stack([np.full(len(seg), 3), a, n + b, n + a])]).astype(np.int64).ravel()
+        return pv.PolyData(np.vstack([pts, low]), tris)
     o = len(pts)
     tris = np.hstack([np.full((len(seg), 1), 3), np.full((len(seg), 1), o), seg]).astype(np.int64).ravel()
     return pv.PolyData(np.vstack([pts, [[0.0, 0.0, 0.0]]]), tris)
@@ -663,6 +673,8 @@ def held_ratio_function(grid: SphereGrid, sec: dict, eps_min: float, eps_max: fl
     if alloc is None:
         return None
     rec = alloc.get("by_sector", {}).get(str(sid if sid is not None else sec.get("id")))
+    if rec is None and alloc.get("obsolete"):           # (an obsolete estimate without this volume: no gauge)
+        return None
     rho = float(rec["rho"]) if rec else 0.0
     useful_of = useful_ratio_function(sec, sky)
     rc = (alloc.get("reach") or {}).get(str(sid if sid is not None else sec.get("id")))
@@ -695,7 +707,61 @@ def held_ratio_function(grid: SphereGrid, sec: dict, eps_min: float, eps_max: fl
     ratio_of.eps_window = (eps_min, eps_max)
     ratio_of.useful_of = useful_of
     ratio_of.limb = limb_function(sky, sec)                   # G2: the shells cut along the horizon
+    ratio_of.blind_of = blind_range_function((alloc.get("blind") or {}).get(str(sid if sid is not None
+                                                                                else sec.get("id"))))
     return ratio_of
+
+
+def blind_range_function(rec: Optional[dict]):
+    """5.5 (user, 13 November 2026): the blind range (km) of the waveform the plan plays at each direction's scan angle
+    (rec: {"bin_deg", "blind_km": per scan-angle bin, None where no waveform}; an empty bin takes the nearest one).
+    None without a record."""
+    from . import optimizer as mo
+    if not rec or not rec.get("blind_km"):
+        return None
+    vals = np.array([np.nan if x is None else float(x) for x in rec["blind_km"]], float)
+    ok = np.flatnonzero(np.isfinite(vals))
+    if not len(ok):
+        return None
+    filled = vals[ok[np.abs(np.arange(len(vals))[:, None] - ok[None, :]).argmin(axis=1)]]
+    step = float(rec.get("bin_deg", 1.0)) or 1.0
+
+    def blind_of(d):
+        d = np.asarray(d, float).reshape(-1, 3)
+        _o, w, _u, _v = mo.face_of(d[:, 0], d[:, 1], d[:, 2])
+        th = np.degrees(np.arccos(np.clip(w, 0.0, 1.0)))
+        return filled[np.clip((th / step).astype(int), 0, len(filled) - 1)]
+    return blind_of
+
+
+def inner_range_function(sec: dict, ratio_of=None, played: bool = False):
+    """5.5 (user, 13 November 2026): the range (km) the drawn volume starts from in each direction: the volume's
+    shortest range of interest (range_min_km, else range_min_frac x range) for the volumes asked; the blind range of
+    the waveforms played in the "effectively played" view (when the estimate gives it)."""
+    from . import optimizer as mo
+    blind = getattr(ratio_of, "blind_of", None) if played else None
+    if blind is not None:
+        return blind
+    try:
+        r0 = float(mo.range_min_km(sec))
+    except (KeyError, TypeError, ValueError):
+        r0 = 0.0
+    return lambda d: np.full(len(np.asarray(d).reshape(-1, 3)), r0)
+
+
+def _inner_cap(shell: pv.PolyData, inner_of) -> pv.PolyData:
+    """The volume's inner surface: the shell's directions at inner_of(d) (never beyond the shell), faces reversed (its
+    outside towards the radar)."""
+    if not shell.n_points or not shell.n_cells:
+        return pv.PolyData()
+    sh = shell.triangulate()
+    r = np.linalg.norm(sh.points, axis=1)
+    u = sh.points / np.maximum(r, 1e-12)[:, None]
+    ri = np.minimum(np.asarray(inner_of(u), float), r)
+    if not np.any(ri > 0.0):
+        return pv.PolyData()
+    faces = sh.faces.reshape(-1, 4)[:, [0, 1, 3, 2]].ravel()
+    return pv.PolyData(u * ri[:, None], faces)
 
 
 def useful_ratio_function(sec: dict, sky: Optional[dict] = None):
@@ -799,18 +865,24 @@ def build_range_gauge(grid: SphereGrid, sec: dict, ratio_of, radius: float,
     elif red.n_points:
         red.points = red.points / np.linalg.norm(red.points, axis=1)[:, None] * radius
     if not normalise:                                          # the volume's limits (user, 11 November 2026)
-        # along the faces' coverage hole the walls are the missing part's (red, down to the ship), not the held
+        # along the faces' coverage hole the walls are the missing part's (red, down to the inner range), not the held
         # part's (user, 11 November 2026: the hole's side was drawn green)
         def rim(d_):
             return np.abs(_coverage_margin(d_, eps_win)) <= _RIM_TOL_DEG
         on_relief = relief_edge_function(sec)                  # (played: no walls along the relief's boundary)
+        # 5.5 (user, 13 November 2026): the volume drawn from its inner range, not from the ship: the shortest range of
+        # interest for the volume asked, the blind range of the waveforms played in the "effectively played" view
+        inner_of = inner_range_function(sec, ratio_of, played)
 
         def skip_green(d_):
             s_ = rim(d_)
             return s_ if on_relief is None else s_ | on_relief(d_)
-        green = _gauge_walls(green, limb, lambda d_: np.zeros(len(d_)), skip_of=skip_green)
-        red = _gauge_walls(red, limb, lambda d_: np.where(rim(d_), 0.0, np.clip(np.asarray(ratio_of(d_), float),
-                                                                                 0.0, 1.0) * radius),
+        inner_g = _inner_cap(green, inner_of)
+        green = _gauge_walls(green, limb, inner_of, skip_of=skip_green)
+        if inner_g.n_points:
+            green = green.append_polydata(inner_g)
+        red = _gauge_walls(red, limb, lambda d_: np.where(rim(d_), np.asarray(inner_of(d_), float),
+                                                          np.clip(np.asarray(ratio_of(d_), float), 0.0, 1.0) * radius),
                            skip_of=on_relief)
     return green, red
 
@@ -884,9 +956,10 @@ def _gauge_walls(shell: pv.PolyData, limb, floor_of, skip_of=None) -> pv.PolyDat
     return sh.append_polydata(walls)
 
 
-def lateral_edges(outline_unit: pv.PolyData, r_of, turn_deg: float = 30.0) -> pv.PolyData:
+def lateral_edges(outline_unit: pv.PolyData, r_of, turn_deg: float = 30.0, r0_of=None) -> pv.PolyData:
     """The volume's lateral edges (user, 11 November 2026): lines from the radar to the corners of its outline (the
-    points where the outline turns by more than turn_deg), each at the range its direction needs (r_of, km)."""
+    points where the outline turns by more than turn_deg), each at the range its direction needs (r_of, km); r0_of:
+    the range they start from (5.5, user 13 November 2026: the volume's inner range), else the radar."""
     if not outline_unit.n_points:
         return pv.PolyData()
     o = outline_unit.clean(tolerance=1e-9, absolute=False)
@@ -910,12 +983,19 @@ def lateral_edges(outline_unit: pv.PolyData, r_of, turn_deg: float = 30.0) -> pv
     if not corners:
         return pv.PolyData()
     c = pts[corners]
-    tips = c * np.asarray(r_of(c), float)[:, None]
+    r_tip = np.asarray(r_of(c), float)
+    tips = c * r_tip[:, None]
+    if r0_of is not None:
+        bases = c * np.minimum(np.asarray(r0_of(c), float), r_tip)[:, None]
+        n = len(c)
+        lines = np.column_stack([np.full(n, 2), np.arange(n), np.arange(n, 2 * n)]).ravel()
+        return pv.PolyData(np.vstack([bases, tips]), lines=lines.astype(np.int64))
     lines = np.column_stack([np.full(len(c), 2), np.zeros(len(c), np.int64), np.arange(1, len(c) + 1)]).ravel()
     return pv.PolyData(np.vstack([[[0.0, 0.0, 0.0]], tips]), lines=lines.astype(np.int64))
 
 
-def build_hole_edges_km(grid: SphereGrid, sec: dict, ratio_of, radius: float, eps_win=(-90.0, 90.0)) -> pv.PolyData:
+def build_hole_edges_km(grid: SphereGrid, sec: dict, ratio_of, radius: float, eps_win=(-90.0, 90.0),
+                        played: bool = True) -> pv.PolyData:
     """"Show effectively played" (user, 12 November 2026): lines from the radar to the corners of the coverage hole
     inside the volume (where no face scans), each at the range the gauge holds there, so that the hole reads as a
     hole (drawn as the volume's lateral edges)."""
@@ -946,10 +1026,10 @@ def build_hole_edges_km(grid: SphereGrid, sec: dict, ratio_of, radius: float, ep
             if len(pk):
                 out[pk] = np.clip(np.asarray(ratio_of(u[pk], face=k), float), 0.0, 1.0)
         return out * radius
-    return lateral_edges(rim, r_of)
+    return lateral_edges(rim, r_of, r0_of=inner_range_function(sec, ratio_of, played))
 
 
-def build_gauge_outline_km(grid: SphereGrid, sec: dict, sky: Optional[dict] = None) -> pv.PolyData:
+def build_gauge_outline_km(grid: SphereGrid, sec: dict, sky: Optional[dict] = None, inner_of=None) -> pv.PolyData:
     """The range gauge's edges: the whole volume's outline at the range it needs (following the ground, G3) and its
     lateral edges down to the radar (user, 11 November 2026)."""
     _ex, outline, _hole = build_sector_split_smooth(grid, sec, radius=1.0)
@@ -961,7 +1041,7 @@ def build_gauge_outline_km(grid: SphereGrid, sec: dict, sky: Optional[dict] = No
     def r_of(d):
         return np.asarray(useful_of(d), float) * r
     out = place_outline(outline, r_of, limb_function(sky, sec))
-    lat = lateral_edges(outline, r_of)
+    lat = lateral_edges(outline, r_of, r0_of=inner_of if inner_of is not None else inner_range_function(sec))
     return out if not lat.n_points else out.append_polydata(lat)
 
 
@@ -1004,6 +1084,7 @@ def build_sector_volumes_km_smooth(grid: SphereGrid, sec: dict, eps_min: float =
     def r_of(d):
         return np.asarray(useful_of(d), float) * r
     on_relief = relief_edge_function(sec)                  # (played: no walls along the relief's boundary)
+    inner_of = inner_range_function(sec)                   # (5.5: the volume asked, from its shortest range)
     parts = []
     for k in range(4):
         if not executed.n_points:
@@ -1017,8 +1098,11 @@ def build_sector_volumes_km_smooth(grid: SphereGrid, sec: dict, eps_min: float =
         for side, sub in split_at_limb(cap0, limb):         # each side at the range its directions need
             cap = sub.copy()
             cap.points = _unit(sub) * r_of(_unit(sub))[:, None]
-            walls = _walls_except_limb(sub, cap, None if limb is None else limb[0], on_relief)
+            walls = _walls_except_limb(sub, cap, None if limb is None else limb[0], on_relief, inner_of)
             piece = cap if not walls.n_points else cap.append_polydata(walls)
+            inner = _inner_cap(cap, inner_of)
+            if inner.n_points:
+                piece = piece.append_polydata(inner)
             if side == "sky":
                 cone = _limb_wall(cap, limb)
                 piece = piece if not cone.n_points else piece.append_polydata(cone)

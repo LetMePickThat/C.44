@@ -440,13 +440,14 @@ class _Follow(QObject):
 SOURCE_STYLES = {                       # (user, 11 November 2026: estimates and exact results told apart at a glance)
     "estimate": ("ESTIMATE", "#6b7280"),                     # fast estimate, not recalibrated
     "recalibrated": ("ESTIMATE \u00b7 recalibrated", "#2b579a"),   # fast estimate corrected by exact runs
-    "estimating": ("ESTIMATE", "#b7791f"),      # being computed: the detail says what (scene_view.BADGE_ACTIVITY)
+    "estimating": ("CALCULATING ESTIMATE", "#b7791f"),   # being computed: the detail says the step (scene_view)
     "exact": ("EXACT", "#2f8a4f"),                            # an exact calculation
     "outdated": ("EXACT · OUTDATED", "#a8432f"),           # an exact result, the mission edited since
+    "obsolete": ("OBSOLETE ESTIMATE - RERUN", "#a8432f"),  # volumes edited, the estimate held (click: rerun)
 }
 
 
-BADGE_WIDEST = "ESTIMATE \u00b7 computing \u00b7 cost profiles 10/10"   # (its width: the badge never resizes)
+BADGE_WIDEST = "CALCULATING ESTIMATE \u00b7 step 1/4: volume costs 10/10 +2"   # (its width: the badge never resizes)
 
 
 def source_badge(kind: str = "estimate", detail: str = "", tip: str = "") -> QLabel:

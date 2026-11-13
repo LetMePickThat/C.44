@@ -158,6 +158,7 @@ class PrepTab(QWidget):
         self.view.use_instant = lambda t: self._set_scn_t_and_apply(t)
         self.view.instant_shown = self._on_instant_shown          # (the navigation panel follows the playback)
         self.view.show_all_sectors.connect(lambda: self._set_all_sectors_visible(True))
+        self.view.rerun_requested.connect(self._rerun_estimate)   # (the held estimate rerun, 13 November 2026)
         self.view.hide_all_sectors.connect(lambda: self._set_all_sectors_visible(False))
         splitter.addWidget(self.view)
 
@@ -834,6 +835,16 @@ class PrepTab(QWidget):
         common.addRow("RCS (m2)", self.sb_rcs)
         common.addRow("Swerling", self.sb_swerling)
         common.addRow("Required range (km)", self.sb_range)
+        # step 5.5 (user, 13 November 2026): the shortest range of interest; 0 = the default (range_min_frac x range)
+        self.sb_range_min = self._spin(0.0, 50000, 10, 0.0)
+        self.sb_range_min.setToolTip(
+            "Shortest range of interest of the volume: the blind range of its pulses must stay below it, the false "
+            "alarms are counted from it, and the views draw the volume from it. (default) = "
+            f"{100 * mo.RANGE_MIN_FRAC:g} % of the required range")
+        self._update_range_min_text()
+        self.sb_range.valueChanged.connect(lambda _v: self._update_range_min_text())
+        self.sb_range_min.valueChanged.connect(self._on_field_changed)
+        common.addRow("Shortest range (km)", self.sb_range_min)
         common.addRow("Target RR (s)", self.sb_rr)
         common.addRow("Closing speed min (m/s)", self.sb_vmin)
         common.addRow("Closing speed max (m/s)", self.sb_vmax)
@@ -964,6 +975,10 @@ class PrepTab(QWidget):
         self._calc_kind = "exact"
         self._set_calc_kind("exact")
         self._edit_widgets.append(self.b_run)
+
+    def _update_range_min_text(self) -> None:
+        """The empty shortest range shows the default it stands for (range_min_frac x the required range)."""
+        self.sb_range_min.setSpecialValueText(f"(default: {mo.RANGE_MIN_FRAC * self.sb_range.value():.0f} km)")
 
     @staticmethod
     def _spin(lo: float, hi: float, step: float, value: float) -> QDoubleSpinBox:
@@ -1122,6 +1137,7 @@ class PrepTab(QWidget):
             self.sb_swerling.setValue(int(sw_shown))
             self._target_shown = (self.sb_rcs.value(), self.sb_swerling.value())
             self.sb_range.setValue(sec.get("range_km", md.SECTOR_DEFAULTS_BOX["range_km"]))
+            self.sb_range_min.setValue(float(sec.get("range_min_km", 0.0) or 0.0))
             self.sb_rr.setValue(sec.get("rr_target_s", md.SECTOR_DEFAULTS_BOX["rr_target_s"]))
             self.chk_self_prot.setChecked(bool(sec.get("self_protection", False)))
             self.sb_search_prio.setValue(int(sec.get("search_priority", 1)))
@@ -1288,6 +1304,10 @@ class PrepTab(QWidget):
         if sec.get("target_type") is None or self.sb_swerling.value() != getattr(self, "_target_shown", (None, None))[1]:
             sec["swerling"] = self.sb_swerling.value()
         sec["range_km"] = self.sb_range.value()
+        if self.sb_range_min.value() > 0.0:                  # (0: the default, range_min_frac x range_km)
+            sec["range_min_km"] = self.sb_range_min.value()
+        else:
+            sec.pop("range_min_km", None)
         sec["rr_target_s"] = self.sb_rr.value()
         sec["self_protection"] = self.chk_self_prot.isChecked()          # step 4.3
         sec["search_priority"] = self.sb_search_prio.value()
@@ -1335,6 +1355,50 @@ class PrepTab(QWidget):
     def _schedule_refresh(self) -> None:
         self._debounce.start()
 
+    def _volumes_sig(self) -> str:
+        """The volumes as the estimate reads them, in a canonical form: the form writes a volume's defaults on its
+        first edit (search_priority 1, self_protection false, fa_per_rr at its default left out), numbers as floats
+        (an edit undone gives the volumes estimated back)."""
+        defaults = {"search_priority": 1, "self_protection": False, "fa_per_rr": mo.FA_PER_RR_DEFAULT}
+
+        def canon(v):
+            if isinstance(v, bool) or v is None:
+                return v
+            if isinstance(v, (int, float)):
+                return float(v)
+            if isinstance(v, dict):
+                return {k: canon(x) for k, x in v.items()}
+            if isinstance(v, (list, tuple)):
+                return [canon(x) for x in v]
+            return v
+        secs = []
+        for s in self.mission.get("sectors", []):
+            c = {}
+            for k, v in s.items():
+                if v is None or (k in defaults and canon(v) == canon(defaults[k])):
+                    continue
+                c[k] = canon(v)
+            secs.append(c)
+        return json.dumps(secs, sort_keys=True, default=str)
+
+    def _hold_estimate(self) -> None:
+        """(user, 13 November 2026) an edit of the volumes holds the fast estimate (each edit, even a small one,
+        started a whole computation): \"OBSOLETE ESTIMATE - RERUN\" on the badge until it is clicked; back to the
+        volumes last estimated (an edit undone): current again. A mission opened is estimated at once."""
+        from core import cost_estimate as ce
+        sig = self._volumes_sig()
+        if getattr(self, "_est_sig", None) is None:
+            self._est_sig = sig
+        ce.hold(sig != self._est_sig)
+
+    def _rerun_estimate(self) -> None:
+        from core import cost_estimate as ce
+        self._est_sig = self._volumes_sig()
+        ce.hold(False)
+        self._schedule_refresh()
+        if hasattr(self.view, "refresh_estimate"):
+            self.view.refresh_estimate()
+
     def _refresh_begin(self) -> None:
         """An estimated recalculation (user, 11 November 2026: the window froze before the badge was drawn): the badge
         says 'updating' and the wait cursor shows, painted; the work starts at the next turn of the event loop."""
@@ -1350,6 +1414,7 @@ class PrepTab(QWidget):
             QApplication.restoreOverrideCursor()
 
     def _refresh_all(self) -> None:
+        self._hold_estimate()
         self._update_title()
         if hasattr(self, "_calc_kind"):
             self._set_calc_kind(self._calc_kind)      # U2: the button says the instant the exact calculation uses
@@ -1584,6 +1649,9 @@ class PrepTab(QWidget):
             red.round_served(getattr(self, "_served", {}) or {}), sort_keys=True)
 
     def _schedule_redundancy_check(self) -> None:
+        from core import cost_estimate as ce
+        if ce.held():
+            return    # (the estimate held after an edit: the check waits for the rerun, 13 November 2026)
         if red.RELIEF_ON and self.cost_table is not None:
             return    # (the fast estimate's relief pass brings the findings: _apply_redundancy)
         if self._red_sig() != self._redundancy_requested:
@@ -2007,6 +2075,7 @@ class PrepTab(QWidget):
         self.mission.setdefault("global", dict(md.GLOBAL_DEFAULTS))
         self.mission.setdefault("sectors", [])
         self._hidden_sectors = set()
+        self._est_sig = None                    # (a mission opened: estimated at once, not held)
         self.sb_eps_min.setValue(self.mission["global"].get("eps_min_deg", md.GLOBAL_DEFAULTS["eps_min_deg"]))
         self.sb_eps_max.setValue(self.mission["global"].get("eps_max_deg", md.GLOBAL_DEFAULTS["eps_max_deg"]))
         self.sb_elec.setValue(self._cap_value())
