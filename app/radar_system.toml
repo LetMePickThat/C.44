@@ -886,6 +886,11 @@ rcs_m2    = [0.1, 1, 10, 100, 1000, 10000]
 v_mps     = [1000, 5000, 12000, 25000]
 theta_deg = [0, 20, 40, 55, 65, 70, 75]
 
+[tool.cost_profile]           # fast estimate: the instant profile of a volume (core/cost_profile.py, user 12 Nov 2026, b2-b4)
+instant_sky_move_deg   = 1.0    # V2: an instant profile is computed again when a body, the galactic frame or the volume moved more than this in the ship frame
+instant_sky_radius_rel = 0.10   # V2: ... or when a body's apparent radius (or its closing-speed spread) changed by more than this fraction
+instant_cache_max      = 256    # instant profiles kept on disk (core/.instant_profile_cache.json), the oldest dropped first
+
 [tool.pattern]                # radiation-pattern computation (core/antenna.py)
 r_max_lam_d  = 8.0              # radius evaluated around boresight, lambda / D_env (main lobe + near sidelobes)
 r_step_lam_d = 0.01             # radial step of a cut

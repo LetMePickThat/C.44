@@ -109,11 +109,21 @@ def measure(mission: dict, result: dict) -> Dict[str, dict]:
         if r is None or sec["id"] not in raw:
             continue
         ask = dict(sec)
+        # b1 (user, 12 November 2026): a volume the exact run relieved keeps the plan of its relieved part only; the
+        # ratio is taken against the estimate of that same part (else it carries the relief, which the live estimate
+        # applies again)
+        rel = (result.get("relief") or {}).get(str(sec["id"])) or {}
+        if rel.get("code"):
+            ask["_relief"] = rel["code"]
         if "_rho" in r:                          # re-planned at rho x R: the estimate of that same request
             ask.update(range_km=float(r["_range_asked_km"]) * float(r["_rho"]), rr_target_s=float(r["_rr_tenable_s"]))
+        f_x = float((r.get("frequency") or {}).get("freq_ghz") or ce.table_freq_ghz())
         try:
-            demands, _b = ce.allocation_demands(table, [ask], grid, g["eps_min_deg"], g["eps_max_deg"], g.get("sky"),
-                                                profiles="wait")          # against what the live load shows (c)
+            # against what the live load shows (c): the sky of the run in the ship frame (the result's global has none,
+            # 12 November 2026), the instant profile at the frequency the run kept (V1)
+            demands, _b = ce.allocation_demands(table, [ask], grid, g["eps_min_deg"], g["eps_max_deg"],
+                                                resolved["global"].get("sky"), profiles="wait",
+                                                calib={str(sec["id"]): {"f": f_x}})
         except (KeyError, TypeError, ValueError, ZeroDivisionError):
             continue
         d = next((d for d in demands if d.kind == "search" and d.sector == str(sec["id"])), None)
@@ -131,7 +141,7 @@ def measure(mission: dict, result: dict) -> Dict[str, dict]:
         ratio = np.array([[exact[k, j] / fast[k, j] if exact[k, j] > 0 and fast[k, j] > 0 else tot[j]
                            for j in range(2)] for k in range(4)])
         out[str(sec["id"])] = {"e": [float(x) for x in ratio[:, 0]], "t": [float(x) for x in ratio[:, 1]],
-                               "fp": fingerprint(raw[sec["id"]])}
+                               "f": f_x, "fp": fingerprint(raw[sec["id"]])}
     return out
 
 
@@ -153,7 +163,7 @@ def record(mission: dict, result: dict) -> Dict[str, dict]:
     c = _load()
     order = max((v.get("order", 0) for v in c.values()), default=0)
     for i, v in enumerate(got.values()):
-        c[v["fp"]] = {"e": v["e"], "t": v["t"], "order": order + i + 1}
+        c[v["fp"]] = {"e": v["e"], "t": v["t"], "f": v.get("f"), "order": order + i + 1}
     faces = (result.get("power_allocation") or {}).get("faces", {})
     if all(str(k) in faces for k in range(4)):           # option (c): the always-on the exact run counted
         c[mission_key(mission.get("sectors", []))] = {
@@ -172,7 +182,7 @@ def lookup(sectors: List[dict]) -> Dict[str, dict]:
     for i, sec in enumerate(sectors):
         v = c.get(fingerprint(sec))
         if v is not None:
-            out[str(sec.get("id", f"#{i + 1}"))] = {"e": v["e"], "t": v["t"]}
+            out[str(sec.get("id", f"#{i + 1}"))] = {"e": v["e"], "t": v["t"], "f": v.get("f")}
     return out
 
 
@@ -203,4 +213,4 @@ def view_calibration(sectors: List[dict], ids: List[str]) -> dict:
 def ratios(sec: dict) -> Optional[dict]:
     """{"e": [4], "t": [4]} of one volume (as the operator defines it), None when not recalibrated."""
     v = _load().get(fingerprint(sec))
-    return None if v is None else {"e": v["e"], "t": v["t"]}
+    return None if v is None else {"e": v["e"], "t": v["t"], "f": v.get("f")}

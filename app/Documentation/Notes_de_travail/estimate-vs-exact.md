@@ -79,6 +79,70 @@ HYPOTHESIS, not verified: the estimate prices the PRIO_SEARCH served revisit (la
 same scenario, and which revisit it uses. RAM of this run: one process up to 7 GB (cap reached by the first SP solve and
 by the worker phases), PC free down to 19.6 GB (the cap holds per process, not the PC total: trimmed pages stay in RAM).
 
+**Measure A done (tools/estimate_compare.py, 12 Nov 2026 evening, 10 min; log tools/.estimate_compare.log)**:
+hypothesis CONFIRMED. The window's estimate (PRIO_SEARCH, no calibration in the cache for these volumes) reproduces the
+screens exactly (F1 1.682 MW / 12.4 % S) with every revisit served at 2.71 s; the exact run keeps 30 s (reuse g = 1,
+memory bandwidth). At the revisit asked (realloc NONE):
+
+| per face | estimate raw | estimate recalibrated | exact |
+|---|---|---|---|
+| energy MW | 0.20-0.22 | 0.28-0.29 | 0.33-0.34 |
+| S time | 1.0-1.1 % | 1.6 % | 1.65-1.74 % |
+| Ku time | 0 | 0 | 0.25 % (confirmation of false alarms, not in the estimate) |
+
+Per volume, exact / estimate at the same request (calibration.measure, not recorded): SP x4.2-4.6, S03 x1.6-2.7,
+S01 x0.85, S02 x0.36 (energy; S time alike): totals partly compensate, the volumes are far off. The cost table is NOT
+current (is_current False: radar_system.toml changed since tools/gen_cost_table.py). Even recalibrated, PRIO_SEARCH
+gives 4.13 s and 1.6 MW: the estimate cannot see what stops the reuse in the exact run.
+Three causes, to treat in order (user to decide): 1) the reuse limited only by energy / S / Ku time in the estimate;
+2) per-volume pricing errors (SP x4.5 the worst; stale table?); 3) no confirmation load in the estimate.
+
+**a done (12 Nov 2026 night)**: cost table regenerated (tools/gen_cost_table.py, 3.8 min, step counter added); the
+measure gives the SAME figures: the live estimate prices the volumes with their cost profiles (core/cost_profile), the
+table is only the fallback while a profile is computed. The stale table was not a cause.
+
+**b diagnosis (per volume, exact / estimate at the same request, scratchpad scripts on the pickle)**:
+
+| volume | positions | energy per position | total | exact choice |
+|---|---|---|---|---|
+| SP (800 km) | 1.05 | 4.25 | 4.48 | spacing 1.3, relief 9 %, sky +4.15 dB, Moon clutter 59 dB |
+| S01 (15000) | 0.62 | 1.36 | 0.85 | spacing 1.8 |
+| S02 (8000) | 0.30 | 1.21 | 0.36 | spacing 2.0, relief 46 % |
+| S03 (4000) | 0.26 | 6.86 | 1.77 | spacing 2.0, relief 45 %, sky +4.15 dB, Moon clutter: 32 x 50 us coherent |
+
+Positions: fully explained by the lattice spacing the optimiser picks among beam_spacing_options_hpbw (the profile
+assumes beam_spacing_hpbw 1.4: factor (1.4 / sp)^2) and by the relief. CONFIRMED BUG (code read, optimizer.py
+2769-2779): the exact result keeps the RELIEVED plans, calibration.measure compares them with the estimate of the
+WHOLE volume: the ratio carries the relief, which the live estimate then applies again. Energy per position: the
+profile leaves the sky aside (T_sys rise 4.15 dB = x2.6 for SP and S03, the Moon in the main lobe) and the surface
+clutter (the optimiser then takes multi-pulse coherent waveforms); the wider spacings cost more per position (S01,
+S02 x1.2-1.4).
+
+**V6.45.0 (b1-b4, c, d) measured, 12 Nov 2026 ~22:00 (T1, tools/estimate_compare.py on the V6.44.0 exact pickle)**:
+bug found by the first T1 and fixed (frame_m is stored flat: the geometry comparison of the instant profile raised,
+S01-S03 were left out of the estimate). Window estimate (PRIO_SEARCH, no calibration) against the exact run:
+
+| per face | before (V6.44) | V6.45 | exact |
+|---|---|---|---|
+| energy MW | 1.51-1.68 | 0.30-0.35 | 0.33-0.34 |
+| S time | 11-12 % | 1.46-1.82 % | 1.65-1.74 % |
+| Ku time | 0 | 0.26 % | 0.25 % |
+| revisits | 2.71 s | 30 s | 30 s |
+| memory bandwidth | not seen | 121 % (F1-F4) | 119 / 149 / 149 / 149 % |
+| state | OK | NOT_TENABLE | NOK |
+
+Faces within -12 % / +6 % (F4 the lowest: the face split differs a little). Per volume, exact / estimate: SP 0.91-1.00,
+S01 0.97-1.05; S02 0.46-0.48 and S03 0.44-0.76 still carry the relief (the pickle predates b1, no relief code):
+T3 (exact run again, then the measure) needed to check b1 and the relieved volumes.
+
+**T3 done (12 Nov 2026 22:50, exact run V6.45.0 51.8 min `--workers 2 --cap-gb 7`, PC free min 15.6 GB)**: exact
+result unchanged (NOK 4 / OK 112, F2 memory bandwidth 149.0 %). b1 CHECKED: exact / estimate at the same request SP
+1.00-1.10, S01 0.97-1.05, S02 0.97-1.00 (was 0.47), S03 0.79-1.36 (the volume most cut by the Moon clutter, 11.6 % of
+its directions: its face split remains off). Per face, raw estimate -12 % / +6 % of the exact energy, recalibrated
+(calibration measured on this run) -5 % / +6 % on the energy, -8 % / +8 % on the S time, Ku time +4 %; revisits 30 s
+and NOT_TENABLE (memory bandwidth 121 %, exact 119-149 %) in every variant. Left: S03's face split, the memory
+bandwidth face split (F2-F4 121 % against 149 %).
+
 **Exact run V6.44.0 relaunched 12 Nov 2026 16:49 on the laptop**: crashed after ~30 min with BrokenProcessPool
 (a worker killed while the PC went on battery, power saving; in the second pass started by the relief, S frequency
 evaluation of a re-planned volume: code V6.44.0 does not touch it; cause not verified). No figure. TO DO: run

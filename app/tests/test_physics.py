@@ -809,7 +809,12 @@ def test_eps_window_is_not_written_into_the_model():
     """Mission inputs are passed explicitly; running a mission leaves the model's defaults untouched (one frequency
     per sector: the run, not the search, is tested)."""
     before = (rm.SECTOR_EPS_MIN_DEG, rm.SECTOR_EPS_MAX_DEG)
-    mo.run(_one_frequency(md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_synthetic_mix.json"))), workers=1)
+    # (N3 shortened, user 12 November 2026: one small sector of the mission tests the same thing as the whole mission,
+    # 27 min -> seconds; its eps window still differs from the model's defaults)
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_example.json"))
+    m["global"].update(eps_min_deg=-30.0, eps_max_deg=60.0)
+    m["sectors"] = [dict(s, radius_deg=3.0) for s in m["sectors"] if s["id"] == "S02"]   # (the cap, 15 -> 3 deg)
+    mo.run(_one_frequency(m), workers=1)
     assert (rm.SECTOR_EPS_MIN_DEG, rm.SECTOR_EPS_MAX_DEG) == before
 
 
@@ -982,8 +987,12 @@ def test_tracking_loads_add_up(runs):
 
 
 def test_parallel_run_equals_sequential():
-    """Ten sectors (enough for the parallel run), one frequency each: the parallel and sequential runs agree."""
-    m = _one_frequency(md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_redundancy_demo.json")))
+    """The parallel and sequential runs agree. workers=2 forces the parallel path whatever the number of sectors (N3
+    shortened, user 12 November 2026: 84 min with the ten sectors of mission_redundancy_demo): three of them, one
+    frequency each, an overlapping pair kept (A2_VEILLE / B2_AUTOPROT: redundancy and relief paths) and a small one."""
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_redundancy_demo.json"))
+    m["sectors"] = [s for s in m["sectors"] if s["id"] in ("A2_VEILLE", "B2_AUTOPROT", "B3_EDGE")]
+    m = _one_frequency(m)
     assert json.dumps(mo.run(m, workers=1), sort_keys=True) == json.dumps(mo.run(m, workers=2), sort_keys=True)
 
 
@@ -1277,10 +1286,14 @@ def test_environment_mission_outputs(runs):
     # at -2 sigma, decisions 1a and 2 of 28 October 2026: no Ku look holds against its jammer)
     m["sectors"] = [s for s in m["sectors"] if s["id"] == "E_JAMMED"]
     energy = lambda out: sum(f["confirm_energy"] for f in out["tracking"]["faces"].values())   # noqa: E731
+    # just need (V6.44.0, user 12 November 2026): the objects are part of the PEAK to absorb, not a load: the nominal
+    # confirmation (its false alarms) does not move with them, the confirmation at the peak grows
     m["sectors"][0]["objects_per_rr"] = 0.0
-    e0 = energy(mo.run(m, workers=1))
+    r0 = mo.run(m, workers=1)
     m["sectors"][0]["objects_per_rr"] = 5.0
-    assert energy(mo.run(m, workers=1)) > e0 > 0.0
+    r5 = mo.run(m, workers=1)
+    assert energy(r5) == pytest.approx(energy(r0), rel=1e-9) and energy(r0) > 0.0
+    assert energy(mo.peak_out(r5)) > energy(mo.peak_out(r0)) > 0.0
 
 
 # ----------------------------------------------------------------------------- S frequency grid (step 3.1, A)
@@ -1771,6 +1784,20 @@ def _framed(m: dict, nav=None) -> dict:
     return m
 
 
+def _small_sun_moon() -> dict:
+    """The SUN and MOON sectors of mission_sky_demo shrunk around their body (N3 shortened, user 12 November 2026: the
+    two frame tests took 23 and 21 min): SUN box 10 x 10 deg around the Sun, MOON cap 3 deg; the bodies, the target
+    values, the MOON track bracket and the faces they fall on are kept."""
+    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_sky_demo.json"))
+    m["sectors"] = [s for s in m["sectors"] if s["id"] in ("SUN", "MOON")]
+    for s in m["sectors"]:
+        if s["id"] == "SUN":
+            s.update(phi_min_deg=40.0, phi_max_deg=50.0, eps_min_deg=15.0, eps_max_deg=25.0)
+        else:
+            s.update(radius_deg=3.0)
+    return m
+
+
 def _strip_frames(r: dict) -> dict:
     r = json.loads(json.dumps(tb.to_plain(r)))
     r["global"].pop("nav", None)
@@ -1854,8 +1881,7 @@ def test_limb_band_follows_the_altitude():
 def test_inertial_frame_with_identity_attitude_is_the_ship_frame():
     """Sectors and sky in ICRF axes with the identity attitude give the ship-frame run (the Sun and Moon sectors,
     one frequency: the frames are tested, the full mission is in the snapshots)."""
-    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_sky_demo.json"))
-    m["sectors"] = [s for s in m["sectors"] if s["id"] in ("SUN", "MOON")]
+    m = _small_sun_moon()
     _one_frequency(m)
     ref = _strip_frames(mo.run(m, workers=1))
     got = _strip_frames(mo.run(_framed(m, [{"q_ship_to_icrf": [1.0, 0.0, 0.0, 0.0]}]), workers=1))
@@ -1869,7 +1895,9 @@ def test_inertial_frame_with_identity_attitude_is_the_ship_frame():
         vd.pop("counts")
     diffs = [d for d in tb.differences(ref, got)
              if not d[0].startswith("/repointing/sectors/")
-             and not (d[0].startswith("/compute/faces/") and d[0].endswith(repoint_paths))
+             # (V6.44.0: the budgets at the peak of targets carry the same compute faces)
+             and not (d[0].startswith(("/compute/faces/", "/peak/budgets/compute/faces/"))
+                      and d[0].endswith(repoint_paths))
              # (the reallocation's nominal compute share of a face carries that re-pointing work too: PRIO_SEARCH)
              and not (d[0].startswith("/margin_reuse/faces/") and d[0].endswith("/compute"))]
     assert diffs == []
@@ -1879,9 +1907,11 @@ def test_turning_the_ship_turns_the_faces():
     """Volumes and sky fixed in ICRF, ship turned 90 deg about its axis: face k now does what face k+1 did (within
     the small asymmetry of the structure: radiator wings on +/-X, and the sampling of the sky noise, whose blocks
     are not invariant by rotation: the Sun, a hot point source, is left out, the Moon moves the budget by < 1 %)."""
-    m = md.load_mission(os.path.join(tb.MISSIONS_DIR, "mission_sky_demo.json"))
-    m["sectors"] = [s for s in m["sectors"] if s["id"] in ("SUN", "MOON")]
+    m = _small_sun_moon()
     m["global"]["sky"]["bodies"] = [b for b in m["global"]["sky"]["bodies"] if b["id"] == "MOON"]
+    # (the shrunk SUN box sits on a face seam, phi 45 deg, where the asymmetric structure moves the split: MOON only;
+    # the SUN sector's frame is tested by test_inertial_frame_with_identity_attitude_is_the_ship_frame)
+    m["sectors"] = [s for s in m["sectors"] if s["id"] == "MOON"]
     for s in m["sectors"]:          # one frequency: the optimum is flat in frequency (step 3.1); the faces are tested
         s["freq_ghz_candidates"] = [2.8]
     a = mo.run(_framed(m), workers=1)
@@ -3473,6 +3503,27 @@ def test_redundancy_advice_comes_first_and_applies(monkeypatch):
     assert [s["id"] for s in val_.apply_changes(mission, adv[1]["changes"])["sectors"]] == ["A", "B", "C", "C_2"]
     assert val_.apply_changes(mission, adv[0]["changes"], 0.0)["sectors"] == mission["sectors"]
     assert "B removed" in val_.changes_text(adv[0]) and "C_2" in val_.changes_text(adv[1])
+
+
+def test_a_slower_revisit_never_meets_the_need():
+    """User, 13 November 2026: a volume's revisit is a requirement of its own (each direction looked at every
+    rr_target_s: a target may appear inside it). A covering volume reaching further but revisiting more slowly meets
+    none of its need (REASON_REVISIT), the same one at the same revisit does; the relief, exact and fast estimate
+    alike, goes through this test (redundancy.need_met)."""
+    from core import geometry as geo
+    from core import redundancy as red
+    grid = geo.SphereGrid(res_deg=2.0)
+    a = {"id": "A", "shape": "cap", "phi0_deg": 0.0, "eps0_deg": 20.0, "radius_deg": 4.0, "rcs_m2": 3000.0,
+         "swerling": 1, "range_km": 3000.0, "rr_target_s": 60.0, "v_close_min_mps": 500.0, "v_close_max_mps": 3000.0,
+         "freq_ghz_candidates": [2.8]}
+    b = dict(a, id="B", rcs_m2=1000.0, range_km=1500.0, rr_target_s=10.0)
+    plan = mo.sector_plan(a, -90.0, 90.0, rm.face_elec_avail_w(rm.FACE_ELEC_POWER_MW))
+    cells = grid.mask(a) & grid.mask(b)
+    assert plan is not None and cells.any()
+    met, _short, worst, reason = red.need_met(grid, a, plan, b, cells)
+    assert not met.any() and worst is None and (reason[cells] == red.REASON_REVISIT).all()
+    met2, _s, worst2, _r = red.need_met(grid, a, plan, dict(b, rr_target_s=60.0), cells)
+    assert met2.any() and worst2 is not None and worst2 >= 1500.0 * (1.0 - red.RANGE_TOL)
 
 
 def test_redundancy_uses_the_plans_given(monkeypatch):

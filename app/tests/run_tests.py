@@ -258,25 +258,78 @@ def _run_with_bar(prog: N3Progress, item: str, cmd, **kw) -> int:
     return p.returncode
 
 
+# N3 shortened (user, 12 November 2026; the last N3 took 155 min): C6 the cases run N3_CASES_AT_ONCE at a time, each
+# with N3_CASE_WORKERS optimiser workers (RADAR_MAX_WORKERS); C7 the tests that do not read the cases run meanwhile on
+# N3_SUITE_WORKERS pytest workers, the snapshot tests after the cases; C8 the cost table is rebuilt only when stale.
+# Total processes ~ cases x (1 + workers) + suite workers, kept under the logical CPUs (Windows froze at 100 % CPU).
+N3_CASES_AT_ONCE = int(os.environ.get("N3_CASES_AT_ONCE", "2"))
+N3_CASE_WORKERS = int(os.environ.get("N3_CASE_WORKERS", "4"))
+N3_SUITE_WORKERS = int(os.environ.get("N3_SUITE_WORKERS", "4"))
+
+
+def _start(prog: "N3Progress", item: str, cmd, env=None):
+    prog.start(item)
+    log = open(os.path.join(TESTS, f".n3_{re.sub(r'[^a-z0-9]+', '_', item.lower())}.log"), "w", encoding="utf-8")
+    return item, subprocess.Popen(cmd, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, env=env), log
+
+
+def _run_concurrently(prog: "N3Progress", jobs, at_once: int, extra=()) -> dict:
+    """jobs [(item, cmd, env)] run at most at_once at a time; extra [(item, cmd, env)] started at once beside them
+    (they do not count in at_once). -> {item: return code}."""
+    todo, running, res = list(jobs), [], {}
+    job_items = {j[0] for j in jobs}
+    for it, cmd, env in extra:
+        running.append(_start(prog, it, cmd, env))
+    while todo or running:
+        while todo and sum(1 for it, _p, _l in running if it in job_items) < at_once:
+            it, cmd, env = todo.pop(0)
+            running.append(_start(prog, it, cmd, env))
+        time.sleep(2.0)
+        for r in list(running):
+            it, p, log = r
+            if p.poll() is not None:
+                log.close()
+                prog.finish(it)
+                res[it] = p.returncode
+                running.remove(r)
+        prog.show()
+    return res
+
+
+def _cost_table_current(py: str) -> bool:
+    return subprocess.run([py, "-c", "import sys; from core import cost_estimate as ce; t = ce.load_table(); "
+                                     "sys.exit(0 if t is not None and t.is_current else 1)"], cwd=ROOT).returncode == 0
+
+
 def full_pass() -> int:
-    """N3: self-test, cost table, every test case computed once (kept by tests/testbench.py with the code
-    fingerprint, T1), impact report against the frozen snapshots (tests/.impact_last.md), then the whole test suite
-    (its snapshot tests read the cases already computed). Each item runs in its own process. The refreeze stays a
-    decision: python tests/update_snapshots.py after reading the report (instant, from the computed cases)."""
+    """N3: self-test, cost table (only when stale), every test case computed once (kept by tests/testbench.py with the
+    code fingerprint, T1), several at a time, while the tests that do not read the cases run; then the impact report
+    against the frozen snapshots (tests/.impact_last.md) and the snapshot tests (they read the cases already
+    computed). Each item runs in its own process. The refreeze stays a decision: python tests/update_snapshots.py
+    after reading the report (instant, from the computed cases)."""
     sys.path.insert(0, TESTS)
     import testbench as tb
     cases = tb.case_names()
-    items = ["self-test", "cost table"] + [f"case {c}" for c in cases] + ["impact report", "test suite"]
-    prog = N3Progress(items)
     py = sys.executable
-    res = {"self-test": _run_with_bar(prog, "self-test", [py, os.path.join("core", "radar_model.py"), "--selftest"]),
-           "cost table": _run_with_bar(prog, "cost table", [py, os.path.join("tools", "gen_cost_table.py")])}
-    for c in cases:
-        res[f"case {c}"] = _run_with_bar(prog, f"case {c}", [py, "-c", "import sys; sys.path.insert(0, 'tests'); "
-                                                                  f"import testbench as tb; tb.compute_case({c!r})"])
+    stale = not _cost_table_current(py)
+    items = (["self-test"] + (["cost table"] if stale else []) + [f"case {c}" for c in cases]
+             + ["test suite (no snapshots)", "impact report", "snapshot tests"])
+    prog = N3Progress(items)
+    res = {"self-test": _run_with_bar(prog, "self-test", [py, os.path.join("core", "radar_model.py"), "--selftest"])}
+    if stale:
+        res["cost table"] = _run_with_bar(prog, "cost table", [py, os.path.join("tools", "gen_cost_table.py")])
+    else:
+        print("[N3] cost table current: not rebuilt", flush=True)
+    env_case = dict(os.environ, RADAR_MAX_WORKERS=str(N3_CASE_WORKERS))
+    jobs = [(f"case {c}", [py, "-c", "import sys; sys.path.insert(0, 'tests'); "
+                                     f"import testbench as tb; tb.compute_case({c!r})"], env_case) for c in cases]
+    suite = [("test suite (no snapshots)", [py, "-m", "pytest", "--testmon-noselect", "-rf", "-n", str(N3_SUITE_WORKERS),
+                                            "--ignore", SNAPSHOT_TESTS], None)]
+    res.update(_run_concurrently(prog, jobs, N3_CASES_AT_ONCE, suite))
     res["impact report"] = _run_with_bar(prog, "impact report", [py, os.path.join("tests", "impact_report.py"),
                                                                  "-o", IMPACT_OUT])
-    res["test suite"] = _run_with_bar(prog, "test suite", [py, "-m", "pytest", "--testmon-noselect", "-rf"])
+    res["snapshot tests"] = _run_with_bar(prog, "snapshot tests", [py, "-m", "pytest", "--testmon-noselect", "-rf",
+                                                                   "-n", "0", SNAPSHOT_TESTS])
     if prog.tty:
         print()
     el = time.time() - prog.t0

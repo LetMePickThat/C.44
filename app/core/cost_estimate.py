@@ -48,6 +48,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from . import params
+from . import cost_profile  # noqa: F401  (its [tool.cost_profile] values are read at import)
 from . import geometry as geo
 from . import radar_model as rm
 from . import tracking as trk
@@ -399,11 +400,69 @@ def _cap_w(g: dict) -> List[float]:
     return [min(rm.FACE_FEEDER_MAX_MW, c if c > 0 else math.inf) * 1e6 for c in caps]
 
 
+def _instant_rows(inst: dict, sec: dict, grid: geo.SphereGrid, eps_min: float, eps_max: float, covered: np.ndarray,
+                  reach: np.ndarray, theta: np.ndarray, mask: np.ndarray, r_eff: Optional[np.ndarray],
+                  rr: float) -> Optional[Tuple[np.ndarray, dict]]:
+    """Demand rows [cells of mask, face, (W drawn, S time, Ku time)] of a search volume from its instant profile
+    (core/cost_profile.get_instant): positions per cell at the plan's frequency and lattice spacing; energy and TX
+    time per position of the plan's 1-deg bin at the cell's scan angle on each face (a bin the plan leaves empty: its
+    nearest populated bin through the scan factor, E ~ h^-4); per bin, the plan's positions over the volume's own
+    (owner faces, whole volume) take out what the sky blinds. None: no populated bin."""
+    e_b, t_b = np.asarray(inst["e"], float), np.asarray(inst["t"], float)
+    popd = np.asarray(inst["populated"], bool)
+    nb, bd = len(e_b), float(inst["bin_deg"])
+    idx = np.flatnonzero(popd)
+    if not len(idx) or not mask.any():
+        return None
+    h = np.asarray(inst["h"], float) if inst.get("h") else np.ones(nb)
+    near = idx[np.argmin(np.abs(idx[None, :] - np.arange(nb)[:, None]), axis=1)]
+    k_sc = (h[near] / np.maximum(h, 1e-12)) ** 4
+    fe = np.where(popd, e_b, e_b[near] * k_sc)
+    ft = np.where(popd, t_b, t_b[near] * k_sc)
+    w_i = grid.w * grid.d_omega / rm.beam_cell_area_uv(float(inst["f"]), float(inst["spacing"]))
+    whole = grid.sector_mask({k_: v_ for k_, v_ in sec.items() if k_ != "_relief"}) & grid.scanned(eps_min, eps_max) \
+        & covered
+    if r_eff is not None:
+        whole = whole & (r_eff > 0.0)
+    own = np.clip(grid.owner, 0, 3)
+    th_own = np.take_along_axis(theta, own[None], axis=0)[0]
+    b_own = np.clip((th_own / bd).astype(int), 0, nb - 1)
+    est_b = np.bincount(b_own[whole], weights=w_i[whole], minlength=nb)[:nb]
+    plan_b = np.asarray(inst["pos"], float).sum(axis=0)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        keep_b = np.where(est_b > 0.0, np.clip(plan_b / est_b, 0.0, 1.5), 1.0)
+    base = w_i[mask] * keep_b[b_own[mask]] / rr
+    rows = np.full((int(mask.sum()), 4, 3), np.nan)
+    bins = np.zeros((int(mask.sum()), 4), int)
+    for k in range(4):
+        ok = reach[k][mask]
+        b = np.clip((theta[k][mask][ok] / bd).astype(int), 0, nb - 1)
+        bins[ok, k] = b
+        rows[ok, k, 0] = fe[b] * base[ok] / rm.CHAIN_EFF
+        rows[ok, k, 1] = ft[b] * base[ok]
+        rows[ok, k, 2] = 0.0
+    # c: per face, the memory traffic (bit/s) and processing power (W) at the revisit asked, each share on its cheapest
+    # face (as the recalibration); the bins the plan leaves empty take their nearest populated bin's waveform
+    other = {"mem_bps": [0.0] * 4, "proc_w": [0.0] * 4}
+    if inst.get("mem_bits") is not None:
+        mb, pj = np.asarray(inst["mem_bits"], float)[near], np.asarray(inst["proc_J"], float)[near]
+        e = np.where(np.isfinite(rows[:, :, 0]), rows[:, :, 0], np.inf)
+        kc = np.argmin(e, axis=1)
+        okc = np.isfinite(e[np.arange(len(rows)), kc])
+        bc = bins[np.arange(len(rows)), kc]
+        for k in range(4):
+            sel = okc & (kc == k)
+            other["mem_bps"][k] = float((base[sel] * mb[bc[sel]]).sum())
+            other["proc_w"][k] = float((base[sel] * pj[bc[sel]]).sum())
+    return rows, other
+
+
 def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.SphereGrid, eps_min: float,
                        eps_max: float, sky: Optional[dict] = None, g: Optional[dict] = None,
                        f_ghz: float = geo.VIZ_FREQ_GHZ, calib: Optional[dict] = None,
                        profiles: Optional[str] = None, estimating: Optional[List[str]] = None,
-                       reach_out: Optional[dict] = None):
+                       reach_out: Optional[dict] = None, instant_out: Optional[List[str]] = None,
+                       other_out: Optional[dict] = None):
     """The final allocation rule's demands and budgets from the fast estimate (pass R2, user 10 November 2026): the
     always-on of each face (tier 0); each search volume (P1 if self-protection, else P4_n) split in its raster cells,
     each costed on every face whose scan-limit cone contains it (its own scan angle, the ground rule, B1), energy
@@ -415,7 +474,11 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
     ALWAYS_ON_KEY, each face's always-on measured by that run (else always_on_static_w).
     profiles (option (c), core/cost_profile): None = the table only; "background" = each volume priced by its own
     profile (the optimiser's laws: cumulative criterion, its candidates and Pfa), the table meanwhile while it is
-    computed in the background (its id appended to estimating); "wait" = the profile computed here.
+    computed in the background (its id appended to estimating); "wait" = the profile computed here. With profiles,
+    each search volume is priced by its INSTANT profile when there is one (b2-b4, user 12 November 2026: the exact
+    optimiser's plan at the instant, its lattice spacing, sky noise, blinded directions and surface clutter; the true
+    S time per position; no extra ground factor, the plan holds it), at calib[sid]["f"] (the last exact run's
+    frequency) or the table's; its id appended to instant_out.
     -> (demands, budgets)."""
     from . import allocation as al
     from . import margin
@@ -423,9 +486,12 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
     p_avail = rm.face_elec_avail_w(rm.FACE_ELEC_POWER_MW)
     on = (calib or {}).get(ALWAYS_ON_KEY)
     demands = []
+    # d (user, 12 November 2026): every face spends cal_duration / cal_interval of its S and Ku transmit time on the
+    # calibration (step 3.4 E1), as the exact budget counts it
+    cal_s, cal_ku = (float(rm.array_errors(b)["cal_time_frac"]) for b in ("S", "Ku"))
     for k in range(4):
         r = np.full((1, 4, 3), np.nan)
-        r[0, k] = (float(on[k]) if on else always_on_static_w(), 0.0, 0.0)
+        r[0, k] = (float(on[k]) if on else always_on_static_w(), cal_s, cal_ku)
         demands.append(al.Demand(f"always-on {geo.FACE_NAMES[k]}", (0, 0), "other", r))
     reach, theta = _face_reach(grid)
     covered = reach.any(axis=0)
@@ -511,16 +577,49 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
             else:
                 log_e, _feas = energy_profile_by_theta(table, r_want, _sector_target(sec).rcs_at(f_ghz),
                                                        sec.get("v_close_max_mps", 1000.0))
-            rows = np.full((int(mask.sum()), 4, 3), np.nan)
-            base = (weight * fac)[mask] / rr
-            for k in range(4):
-                ok = reach[k][mask]
-                e = np.exp(np.interp(np.clip(theta[k][mask][ok], th_grid[0], th_grid[-1]), th_grid, log_e)) * base[ok]
-                rows[ok, k, 0] = e / rm.CHAIN_EFF
-                rows[ok, k, 1] = e * rm.BAND_S.pae_sat / table.ppk
-                rows[ok, k, 2] = 0.0
+            inst = None
+            if profiles:                              # b2-b4 (user, 12 November 2026): the exact plan at the instant
+                from . import cost_profile
+                f_i = float(((calib or {}).get(sid) or {}).get("f") or table_freq_ghz())
+                sec_i = {k_: v_ for k_, v_ in sec.items() if k_ != "_relief"}
+                inst, fresh = cost_profile.get_instant(sec_i, sky, eps_min, eps_max, f_i, wait=profiles == "wait")
+                if not fresh and estimating is not None and sid not in estimating:
+                    estimating.append(sid)
+                if inst is not None and inst.get("status") != "OK":
+                    inst = None
+            rows = None
+            if inst is not None:
+                got = _instant_rows(inst, sec, grid, eps_min, eps_max, covered, reach, theta, mask,
+                                    r_eff if surf else None, rr)
+                if got is not None:
+                    rows, oth = got
+                    if instant_out is not None:
+                        instant_out.append(sid)
+                    if other_out is not None:
+                        other_out[sid] = oth
+                    cf = inst.get("confirm")
+                    if cf:                             # d: the confirmation of its false alarms (P2, never shed)
+                        c_rows = []
+                        for k in range(4):
+                            w_c = float(cf["e"][k]) * p_avail / rm.CHAIN_EFF
+                            if w_c > 0 or cf["ts"][k] > 0 or cf["tk"][k] > 0:
+                                r_c = np.full((4, 3), np.nan)
+                                r_c[k] = (w_c, float(cf["ts"][k]), float(cf["tk"][k]))
+                                c_rows.append(r_c)
+                        if c_rows:
+                            demands.append(al.Demand(f"confirmation {sid}", (2, 0), "other", np.array(c_rows),
+                                                     sector=sid))
+            if rows is None:
+                rows = np.full((int(mask.sum()), 4, 3), np.nan)
+                base = (weight * fac)[mask] / rr
+                for k in range(4):
+                    ok = reach[k][mask]
+                    e = np.exp(np.interp(np.clip(theta[k][mask][ok], th_grid[0], th_grid[-1]), th_grid, log_e)) * base[ok]
+                    rows[ok, k, 0] = e / rm.CHAIN_EFF
+                    rows[ok, k, 1] = e * rm.BAND_S.pae_sat / table.ppk
+                    rows[ok, k, 2] = 0.0
             c = (calib or {}).get(sid)
-            if c is not None:                          # pass R3d (M1): recalibrated by the exact computation
+            if c is not None and c.get("e") is not None:   # pass R3d (M1): recalibrated by the exact computation
                 rows[:, :, 0] *= np.asarray(c["e"], float)[None, :]
                 rows[:, :, 1] *= np.asarray(c["t"], float)[None, :]
             tier = (1, 0) if sec.get("self_protection") else (4, int(sec.get("search_priority", 1) or 1))
@@ -531,6 +630,32 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
             continue                                   # (a sector mid-edit: left out)
     budgets = al.Budgets(face_w=_cap_w(g), ceiling=float(g.get("load_ceiling") or al.LOAD_CEILING))
     return demands, budgets
+
+
+def _reuse_limits(demands: list, other: Dict[str, dict], ceiling: float):
+    """c: (g per search volume, why, load per constraint at the revisits asked, constraints) of the memory bandwidth
+    and processing of every face against the load ceiling, by margin._fill (the exact reuse's water-filling) from
+    each volume's load at its revisit asked (other: allocation_demands' other_out); None without such loads."""
+    from . import compute, margin
+    ids = [d.sector for d in demands if d.kind == "search" and d.sector in other]
+    if not ids:
+        return None
+    caps = {"memory bandwidth": ("mem_bps", compute.MEMORY_BW_BPS),
+            "compute": ("proc_w", compute.CEILING_W * (1.0 - compute.STATIC_FRAC))}
+    cons: Dict[str, dict] = {}
+    for k in range(4):
+        for name, (key, cap) in caps.items():
+            if cap <= 0:
+                continue
+            a = {s: float(other[s][key][k]) / cap for s in ids if float(other[s][key][k]) > 0.0}
+            if a:
+                cons[f"F{k + 1} {name}"] = {"fixed": 0.0, "a": a, "face": k}
+    if not cons:
+        return None
+    nominal = {n: sum(c["a"].values()) for n, c in cons.items()}
+    g_max = {d.sector: float(d.h_max) for d in demands if d.kind == "search" and d.sector in ids}
+    g, why = margin._fill(cons, ids, g_max, ceiling, nominal)
+    return g, why, nominal, cons
 
 
 _LIVE_CACHE: Dict[str, dict] = {}
@@ -625,12 +750,24 @@ def _live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Spher
         return hit
     estimating: List[str] = []
     reach: Dict[str, dict] = {}
+    instant: List[str] = []
+    other: Dict[str, dict] = {}
     demands, budgets = allocation_demands(table, sectors_ship, grid, eps_min, eps_max, sky, gk, calib=calib,
-                                          profiles=profiles, estimating=estimating, reach_out=reach)
+                                          profiles=profiles, estimating=estimating, reach_out=reach,
+                                          instant_out=instant, other_out=other)
+    # c (user, 12 November 2026): the resources the rule does not hold but the exact margin reuse does (memory
+    # bandwidth, processing), linear in the pointing rate: the same water-filling (margin._fill) caps each search
+    # volume's revisit gain before the rule; above 100 % at the revisits asked the exact verdict is NOK
+    lim = _reuse_limits(demands, other, budgets.ceiling)
+    if lim is not None:
+        import dataclasses as _dcs
+        g_r = lim[0]
+        demands = [_dcs.replace(d, h_max=max(1.0, min(d.h_max, g_r[d.sector])))
+                   if d.kind == "search" and d.sector in g_r else d for d in demands]
     # just need (user, 12 November 2026): the rule with no target present (the tracks of n_targets are the peak, not
     # a load: the spare goes to realloc_mode), then the peak apart (every track present, no spare: the P4 search
-    # shed, never P1). The fast estimate has no confirmation load (the exact calculation counts it, at its false
-    # alarms in the nominal view, every true detection of new_targets_per_rr at the peak).
+    # shed, never P1). The confirmation of the false alarms (nominal view) comes with each volume's instant profile
+    # (d, 12 November 2026); the true detections of new_targets_per_rr at the peak stay the exact calculation's.
     nominal = [d for d in demands if d.kind != "track"]
     out = al.solve(nominal, budgets)
     if len(nominal) < len(demands):
@@ -639,6 +776,19 @@ def _live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Spher
         out["flags"].extend(out["peak"]["flags"])
         if out["peak"]["status"] != "ABSORBED":
             out["status"] = "NOT_TENABLE"
+    if lim is not None:                               # c: the loads the rule does not hold, at the revisits served
+        g_r, why_r, nom, cons = lim
+        served = {d["sector"]: float(d.get("level", 1.0)) for d in out["demands"] if d.get("kind") == "search"}
+        loads = {n: sum(a * max(1.0, served.get(s, 1.0)) for s, a in c["a"].items()) for n, c in cons.items()}
+        out["other_loads"] = {"asked": nom, "served": loads,
+                              "reuse_limited_by": {s: why_r[s] for s in why_r}}
+        for n, v in sorted(nom.items()):
+            if v > 1.0 + 1e-9:
+                out["flags"].append(f"{n} at {100 * v:.0f} % at the revisits asked (exact budget's rule): "
+                                    f"mission not tenable")
+                out["status"] = "NOT_TENABLE"
+            elif v > budgets.ceiling + 1e-9:
+                out["flags"].append(f"{n} at {100 * v:.0f} %, above the load ceiling {100 * budgets.ceiling:.0f} %")
     out["reach"] = reach                              # per volume: the range reachable at full pulse per scan angle
     out["out_of_reach"] = {}                           # per volume: the share of its directions out of reach
     for sid, rc in reach.items():
@@ -696,8 +846,10 @@ def _live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Spher
     out["asked_w"] = [float(x) for x in asked]
     out["by_sector"] = {r["sector"]: r for r in out["demands"] if r["kind"] == "search" and r["sector"] is not None}
     out["ref_w"] = rm.FACE_ELEC_POWER_MW * 1e6
-    out["not_recalibrated"] = sorted(s for s in out["by_sector"] if s not in (calib or {}))
-    out["time_lower_bound"] = bool(out["not_recalibrated"])
+    out["not_recalibrated"] = sorted(s for s in out["by_sector"]
+                                     if ((calib or {}).get(s) or {}).get("e") is None)
+    out["instant_priced"] = sorted(instant)            # (b2-b4: priced by the exact plan at the instant, true S time)
+    out["time_lower_bound"] = bool([s for s in out["not_recalibrated"] if s not in instant])
     out["estimating"] = estimating
     out["achieved"] = {}                               # per volume (user, 11 November 2026: the 3D labels' 2nd line)
     for sid, rec in out["by_sector"].items():

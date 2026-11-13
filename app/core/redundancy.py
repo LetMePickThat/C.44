@@ -5,11 +5,11 @@ REDUNDANCY -- does another watch sector already meet the need of this one?
 
 Sector A meets sector B's need in a direction when, with the waveform plan the optimiser chooses for A (same code
 path as run(): core.optimizer.sector_plan), A's search in that direction:
-  - guarantees at least the same detection range on B's target (RCS, Swerling, migration at v_close_max) as B's own
-    spec, initial search only (one detection, the model's Pd). A target closing at v can cross the detection range
-    just after a look and is seen one revisit later, so a search reaching R with revisit RR guarantees R - v RR:
-        R_AB - v_B rr_A >= R_B - v_B rr_B   (1 % of R_B tolerance, as the optimiser's "short of range")
-    i.e. a range margin can make up for a slower revisit, and a faster revisit for a shorter reach. In the scan bin of
+  - revisits every direction at least as often as B asks: rr_A (asked, or held if slower) <= rr_B (user, 13 November
+    2026: B's revisit is a requirement of its own, a target may APPEAR inside B, unmasked or launched, and must be seen
+    within rr_B; a range margin no longer makes up for a slower revisit);
+  - reaches B's range on B's target (RCS, Swerling, migration at v_close_max) with B's cumulative criterion (step 2.3:
+    Pd at range_km over the looks spaced v_B x rr_A; 1 % of R_B tolerance, as the optimiser's "short of range"). In the scan bin of
     the direction, R_AB = solve(A's waveform, B's target) x (A's power scale)^(1/4): A only transmits the power that
     just reaches A's own range ("no excess energy"), and range goes as P^(1/4); A's echoes are processed with B's RX
     weighting (B's rx_sll_db: the digital RX can apply both to the same dwell);
@@ -80,12 +80,14 @@ REASON_RESOLUTION = 2
 REASON_AMBIGUITY = 3
 REASON_RANGE = 4
 REASON_BLIND = 5
+REASON_REVISIT = 6                      # (13 November 2026: A revisits slower than B asks)
 REASON_TEXT = {
+    REASON_REVISIT: "{a} revisits its directions more slowly than {b} requires (each direction every {b}'s revisit)",
     REASON_BLIND: "{a}'s pulses leave a blind range beyond {b}'s shortest range of interest",
     REASON_NO_WAVEFORM: "{a} has no waveform planned in that direction (outside its own reach)",
     REASON_RESOLUTION: "{a}'s range resolution is coarser than {b} requires",
     REASON_AMBIGUITY: "{a}'s waveform would leave {b}'s range ambiguous, which {b} disallows",
-    REASON_RANGE: "{a}'s guaranteed range (after its own revisit rate) falls short of {b}'s requirement",
+    REASON_RANGE: "{a}'s reach on {b}'s target (cumulative criterion at {a}'s revisit) falls short of {b}'s range",
 }
 
 # every sector field the optimiser's plan, the need test or the shape depends on
@@ -164,6 +166,13 @@ def need_met(grid: geo.SphereGrid, sec_a: dict, plan: Optional[dict], sec_b: dic
     if plan is None:
         z = np.zeros_like(cells)
         return z, z, None, np.where(cells, REASON_NO_WAVEFORM, REASON_NONE).astype(np.int8)
+    # B's revisit is a requirement of its own (user, 13 November 2026): every direction of B is looked at least every
+    # rr_target_s, so that a target APPEARING inside B (unmasked at the limb, launched) is seen within it, not only one
+    # closing from beyond B's range. A whose revisit (as judged) is slower never meets B's need, whatever its reach.
+    if rr_a > float(sec_b["rr_target_s"]) * (1.0 + 1e-9):
+        bins = np.minimum((grid.theta / mo.THETA_BIN_DEG).astype(int), len(plan["wf"]) - 1)
+        return (np.zeros_like(cells), cells & np.asarray(plan["short"])[bins], None,
+                np.where(cells, REASON_REVISIT, REASON_NONE).astype(np.int8))
     v_b = sec_b["v_close_max_mps"]
     tgt_b = mo.sector_target(sec_b)                      # B's target: class + sector values (step 2.4)
     g_need = sec_b["range_km"] * (1.0 - RANGE_TOL)          # A's cumulative reach on B's need (step 2.3)
@@ -205,7 +214,8 @@ def _dominant_reason(grid: geo.SphereGrid, reason_cells: np.ndarray, unmet: np.n
     """The REASON_* code covering the most solid angle of `unmet` (REASON_RANGE if nothing is set, e.g. an
     empty mask -- the most common case, so it is the least surprising fallback)."""
     weights = {code: float((grid.d_omega * unmet * (reason_cells == code)).sum())
-              for code in (REASON_RESOLUTION, REASON_AMBIGUITY, REASON_BLIND, REASON_RANGE, REASON_NO_WAVEFORM)}
+              for code in (REASON_RESOLUTION, REASON_AMBIGUITY, REASON_BLIND, REASON_RANGE, REASON_NO_WAVEFORM,
+                           REASON_REVISIT)}
     weights = {c: w for c, w in weights.items() if w > 0.0}
     return max(weights, key=weights.get) if weights else REASON_RANGE
 

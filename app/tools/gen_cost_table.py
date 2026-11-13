@@ -38,7 +38,13 @@ def one(args):
     return [args, best, rmax, e_rmax]
 if __name__ == "__main__":
     jobs = list(itertools.product(RS, RCS, VS, TH))
-    with Pool() as p: out = p.map(one, jobs, chunksize=8)
+    import time
+    t0, out, step = time.perf_counter(), [], max(1, len(jobs) // 20)
+    with Pool() as p:                                  # step counter (user rule, 12 November 2026)
+        for i, x in enumerate(p.imap(one, jobs, chunksize=8), 1):
+            out.append(x)
+            if i % step == 0 or i == len(jobs):
+                print(f"[{i}/{len(jobs)} cells | {(time.perf_counter() - t0) / 60:.1f} min]", flush=True)
     tab, reach = {}, {}
     for (R, rcs, v, th), best, rmax, e_rmax in out:
         key = f"{R}|{rcs}|{v}|{th}"

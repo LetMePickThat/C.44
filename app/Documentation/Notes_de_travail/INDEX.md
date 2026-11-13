@@ -12,6 +12,7 @@
 - [Next-session reminders](next-session-reminders.md) — SAY AT SESSION START: R1-R4 + geometry pushed; time profile T1/T2 done (on-screen check, then T3); leftovers to ask; Pmiss parked items
 - [Live architecture](live-architecture.md) — scenario editing as merged 8 Nov 2026 (aa86f67, rollback tag avant-RS-2026-11-08): approximate live preview + real computation on demand; the planned computation front (L4-L7) was dropped, L1-L3 exist (L2-L3 unused by the UI)
 - [VTK rendering checks](vtk-rendering-checks.md) — real window needed for pixel captures; OIT bypasses MSAA on translucent lines
+- [No embedded target](no-embedded-target.md) — fictional ship, never built: no on-board / certification target; perf only for the tool and the sim
 - [Performance risks](performance-risks.md) — will the final model fit a current PC: measured figures, ranked risks (6.4 radar in the loop HIGH, Pmiss time profile, MC, memory), remedies; target durations to decide
 - [Just-need allocation](just-need-allocation.md) — new_targets_per_rr / n_targets = peak to absorb, never reserved; P5 then P4 shed, never P1; coded V6.44.0 12 Nov 2026, not tested
 - [Estimate vs exact](estimate-vs-exact.md) — TO RESUME on the main PC: MOONTEST_VELOCITY t=0 estimate OK vs exact NOK (memory bandwidth 119-149 %, not in the estimate); run tools/exact_compare.py (laptop run crashed on battery)

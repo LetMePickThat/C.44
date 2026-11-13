@@ -106,6 +106,8 @@ SOLVE_BASE_CACHE_SIZE = P.get(_T + "solve_base_cache_size")   # memoised solve_b
 PARALLEL_MIN_SECTORS = P.get(_T + "parallel_min_sectors")   # below this, a sequential run (~0.2 s/sector) beats start-up
 # 0 = automatic: ~physical cores; each worker holds a ~65 MB sphere raster
 MAX_WORKERS = P.get(_T + "max_workers") or max(1, (os.cpu_count() or 2) // 2)
+if os.environ.get("RADAR_MAX_WORKERS"):     # (the N3 runs several cases at once, each with its share of the CPUs;
+    MAX_WORKERS = max(1, int(os.environ["RADAR_MAX_WORKERS"]))   # results identical whatever the pool, step 3.1 X3)
 BIN_DEG = P.get(_T + "bin_deg")                      # scan-angle bins (in 1-deg bins) sharing one waveform
 MAX_WF_PER_SECTOR = P.get(_T + "max_wf_per_sector")  # default cap on distinct waveforms per sector (sector key "max_wf_per_sector")
 SHORT_TOL = P.get(_T + "short_tol")                  # positions-short-of-range fractions within it rank equal (sector key "short_tol")
@@ -2772,7 +2774,8 @@ def run(mission: dict, progress_cb=None, cancel_cb=None, workers: Optional[int] 
             out2 = run(mis2, None, cancel_cb, workers, keep_plans, stage_cb,
                        _reuse={sid: r for sid, r in first_plans.items() if sid not in rl},
                        _relieved={sid: {"by": v["by"], "first": first_plans.get(sid)} for sid, v in rl.items()})
-            out2["relief"] = {sid: {"share": v["share"], "by": list(v["by"])} for sid, v in rl.items()}
+            # (the code: the calibration measures the estimate of the same relieved volume, b1, 12 November 2026)
+            out2["relief"] = {sid: {"share": v["share"], "by": list(v["by"]), "code": v["code"]} for sid, v in rl.items()}
             out2.setdefault("warnings", []).extend(
                 f"{sid}: {100 * v['share']:.0f} % of its volume served by {', '.join(v['by'])} (need met there): "
                 f"taken out of its budget" for sid, v in sorted(rl.items()))

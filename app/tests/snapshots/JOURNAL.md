@@ -733,3 +733,19 @@ test passed after it (8 s).
   Recomputed alone (11.7 min, the application running beside it): only the frame name of AXIS changed in the outputs
   (run/sectors/4/frame, run/repointing/sectors/AXIS/frame); no value. Refrozen for that case only; the other 10 cases
   are recomputed by the next N3 (core/ changed: case cache invalidated), their inputs unchanged.
+
+## 2026-11-13 -- relief, just need, fast estimate, revisit required per direction (models V6.42.0 to V6.46.0)
+
+Refrozen from the N3 of 13 November 2026 (V6.46.0, 46.0 min, shortened protocol: cases 2 at once, suite beside them):
+model unchanged; 9 cases, 5191 values. Causes (no change was refrozen since V6.37.0, 10 November):
+- V6.44.0 just need: the true targets of new_targets_per_rr / objects_per_rr and the tracks of n_targets are the PEAK,
+  not a load: Ku time -52 / -56 % (mission_synthetic_mix F1 / F2), -47 / -63 % (mission_target_library F3 / F4),
+  -8 to -10 % (mission_frames), -2.6 % (mission_veille500); energy within 2 %; peak budgets added (out["peak"]);
+- V6.42.0 / V6.43.0 relief judged over all pairs at the asked revisit: mission_redundancy_demo F1 / F4 S time -20 %;
+- V6.46.0 revisit required in every direction: mission_example S01 (5000 km, 20 s) is no longer relieved by S03
+  (8000 km, 120 s; it was RELIEVED in the N3 of 12 November with V6.44-V6.45); S03 still relieved 2 % by S02;
+- mission_target_library T_SHIP: 4 -> 3 waveforms; revisits and ranges within 1 %;
+- V6.45.0 changes the fast estimate and the recalibration only (exact run unchanged: MOONTEST_VELOCITY identical).
+Tests: 342 passed after the fixes (test_a_slower_revisit_never_meets_the_need new, its import fixed and run alone;
+test_environment_mission_outputs, test_inertial_frame_..., test_turning_the_ship_... adapted to the just need and to the
+shortened N3, run alone: 4 passed).

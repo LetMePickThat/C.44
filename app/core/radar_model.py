@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.44.0
+# Radar Performance Model - V6.46.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,27 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.45.0 -> V6.46.0 (user, 13 November 2026): a volume's revisit is a requirement of its own
+#   - each direction of a volume is looked at every rr_target_s (a target may APPEAR inside it, unmasked at the limb or
+#     launched, not only close from beyond its range): another volume meets its need only if it revisits at least as
+#     often (its revisit asked, or held if slower) AND reaches its range with its cumulative criterion
+#     (redundancy.need_met, REASON_REVISIT). The relief of the exact run and of the fast estimate, the redundancy
+#     check and the redundancies of a finished run all go through it. Checked at the N3 of 13 November 2026:
+#     mission_example S01 (5000 km, 20 s) is no longer relieved by S03 (8000 km, 120 s).
+#
+# Changes V6.44.0 -> V6.45.0 (user, 12 November 2026): the fast estimate closer to the exact calculation (b1-b4)
+#   - b1: the exact result keeps the relief code of each relieved volume; the recalibration (core/calibration.measure)
+#     compares the relieved plan with the estimate of the same relieved volume (the ratio carried the relief, applied
+#     again by the live estimate), with the run's sky in the ship frame (the result's global has none), and keeps the
+#     frequency the run kept per volume;
+#   - b2-b4 (ii): INSTANT profile of a search volume (core/cost_profile.get_instant): the exact optimiser's plan at one
+#     centre (V1: the last exact run's frequency, else tool.cost_table.freq_ghz), every lattice spacing, with the sky
+#     of the instant (noise rise, blinded directions, surface clutter and the waveforms it imposes); computed again in
+#     the background when a body, the galactic frame or the volume moved more than tool.cost_profile.
+#     instant_sky_move_deg or a radius / closing spread changed more than instant_sky_radius_rel (V2: 1 deg, 10 %);
+#     the live estimate prices each cell from it (positions at the plan's spacing, energy and TRUE S time per position,
+#     V3; no extra ground factor, V4); the former profile and the table remain the fallback while it is computed.
 #
 # Changes V6.43.0 -> V6.44.0 (user, 12 November 2026): just need of the confirmation and the tracking
 #   - no resource reserved for targets that may never come: new_targets_per_rr (+ objects_per_rr) and the brackets'
@@ -756,7 +777,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.44.0"
+MODEL_VERSION = "6.46.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

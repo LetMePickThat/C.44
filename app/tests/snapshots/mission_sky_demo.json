@@ -74,23 +74,23 @@
      "bands": {
       "Ku": {
        "beams_max": 32,
-       "beams_mean": 0.08692755058427512,
+       "beams_mean": 0.07887288074327063,
        "beams_peak": 1,
-       "bits_per_s": 68151199658.07169,
+       "bits_per_s": 61836338502.72417,
        "buffer_peak_GB": 0.02,
        "face_input_peak_tbps": 0.784,
        "link_trsa_peak_tbps": 0.004,
-       "open_windows_mean": 0.08692755058427512,
+       "open_windows_mean": 0.07887288074327063,
        "ops_per_s": {
-        "banks": 10570390151.047853,
-        "beamforming": 10665662746488.22,
-        "cfar": 825811730.5506136,
-        "compression": 1983414693.2726817,
+        "banks": 9590942298.381708,
+        "beamforming": 9677386975676.332,
+        "cfar": 749292367.0610709,
+        "compression": 1799632331.9300559,
         "nulling": 0.0,
-        "repointing": 217.3188764606878,
+        "repointing": 197.18220185817657,
         "tracks": 0.0
        },
-       "ops_total_per_s": 10679042363280.41,
+       "ops_total_per_s": 9689526842870.887,
        "transport": "subarray_beams"
       },
       "S": {
@@ -115,50 +115,50 @@
        "transport": "raw"
       }
      },
-     "bits_per_s": 1436628145579.7878,
-     "bus_draw_MW_actual": 0.09731017467677111,
-     "capacity_ops_per_s": 3.999992816859272e+18,
-     "face_heat_kW_actual": 72.18011174222482,
+     "bits_per_s": 1430313284424.4402,
+     "bus_draw_MW_actual": 0.09718399889113791,
+     "capacity_ops_per_s": 3.999992848433578e+18,
+     "face_heat_kW_actual": 72.13484636001931,
      "jammers_nulled": 0,
-     "load": 3.358317430983477e-06,
+     "load": 3.110938082084499e-06,
      "memory": {
       "bandwidth_TB_per_s": 50.0,
       "buffers_peak_TB": 9.997693807393055e-05,
       "capacity_TB": 4.0,
       "flight_tables_TB": 9.6e-10,
-      "traffic_TB_per_s": 0.1802234604423172
+      "traffic_TB_per_s": 0.17942604812805776
      },
-     "non_tx_kW_actual": 66.88020616386328,
-     "ops_total_per_s": 13433245600667.191,
+     "non_tx_kW_actual": 66.88019595296502,
+     "ops_total_per_s": 12443730080257.668,
      "power_kW": {
       "ceiling": 50.0,
-      "ops": 0.0001343324560066719,
+      "ops": 0.0001244373008025767,
       "static": 10.0,
-      "total": 10.000206163863286,
-      "transport": 7.183140727898941e-05
+      "total": 10.000195952965026,
+      "transport": 7.1515664221222e-05
      }
     },
     "1": {
      "bands": {
       "Ku": {
        "beams_max": 32,
-       "beams_mean": 0.8639011861674997,
+       "beams_mean": 0.7594857693823063,
        "beams_peak": 1,
-       "bits_per_s": 677349449656.7655,
+       "bits_per_s": 595436843195.7281,
        "buffer_peak_GB": 0.02,
-       "face_input_peak_tbps": 3.136,
-       "link_trsa_peak_tbps": 0.016,
-       "open_windows_mean": 0.8639011861674997,
+       "face_input_peak_tbps": 0.784,
+       "link_trsa_peak_tbps": 0.004,
+       "open_windows_mean": 0.7594857693823063,
        "ops_per_s": {
-        "banks": 105048028768.78542,
-        "beamforming": 106005188871283.8,
-        "cfar": 8207028794.291855,
-        "compression": 19712860603.056,
+        "banks": 92353469556.88846,
+        "beamforming": 93185865960131.45,
+        "cfar": 7215114809.13191,
+        "compression": 17329088697.420074,
         "nulling": 0.0,
-        "repointing": 2164.028748171958,
-        "tracks": 10000.0
+        "repointing": 1898.7144234557659,
+        "tracks": 0.0
        },
-       "ops_total_per_s": 106138156801613.95,
+       "ops_total_per_s": 93302763635093.61,
        "transport": "subarray_beams"
       },
       "S": {
@@ -183,27 +183,27 @@
        "transport": "raw"
       }
      },
-     "bits_per_s": 2090076559242.0093,
-     "bus_draw_MW_actual": 0.09477323097144101,
-     "capacity_ops_per_s": 3.9999895496172037e+18,
-     "face_heat_kW_actual": 74.75702145745751,
+     "bits_per_s": 2008163952780.9717,
+     "bus_draw_MW_actual": 0.09306192268108635,
+     "capacity_ops_per_s": 3.999989959180236e+18,
+     "face_heat_kW_actual": 74.15463090809692,
      "jammers_nulled": 0,
-     "load": 2.752901004484976e-05,
+     "load": 2.4320150879609334e-05,
      "memory": {
       "bandwidth_TB_per_s": 50.0,
       "buffers_peak_TB": 0.0002699279314810329,
       "capacity_TB": 4.0,
       "flight_tables_TB": 1.728e-09,
-      "traffic_TB_per_s": 0.2629299279092992
+      "traffic_TB_per_s": 0.25258637173628556
      },
-     "non_tx_kW_actual": 66.88120566135287,
-     "ops_total_per_s": 110115752490706.06,
+     "non_tx_kW_actual": 66.88107321179086,
+     "ops_total_per_s": 97280359324185.72,
      "power_kW": {
       "ceiling": 50.0,
-      "ops": 0.0011011575249070607,
+      "ops": 0.0009728035932418572,
       "static": 10.0,
-      "total": 10.00120566135287,
-      "transport": 0.00010450382796210046
+      "total": 10.001073211790882,
+      "transport": 0.00010040819763904858
      }
     },
     "2": {
@@ -355,11 +355,11 @@
      "reselect_ops": 27000.0
     },
     "MOON": {
-     "processing_s": 6.163118788288041e-07,
+     "processing_s": 6.163098380180886e-07,
      "reselect_ops": 12000.0
     },
     "SUN": {
-     "processing_s": 1.9737776043904633e-07,
+     "processing_s": 1.9737710685656262e-07,
      "reselect_ops": 15000.0
     }
    }
@@ -489,57 +489,57 @@
     "0": {
      "binding_nominal": "ship energy",
      "binding_real": "ship energy",
-     "nominal": 0.07254559448705789,
-     "real": 0.36846692877687065,
+     "nominal": 0.0723159089775594,
+     "real": 0.36478215473279213,
      "resources_nominal": {
       "Ku beams": 0.03125,
-      "Ku time": 0.00025740716445798507,
+      "Ku time": 0.00024923138763273286,
       "S beams": 0.015609689354490511,
       "S time": 0.0019617587075696262,
-      "compute": 3.358317430983477e-06,
-      "energy": 0.048701359102366906,
-      "heat": 0.0070555529713074066,
+      "compute": 3.110938082084499e-06,
+      "energy": 0.04863827120955033,
+      "heat": 0.007052706648191535,
       "memory": 2.4994474518482638e-05,
-      "memory bandwidth": 0.003604469208846344
+      "memory bandwidth": 0.0035885209625611553
      },
      "resources_real": {
-      "Ku beams": 0.0625,
-      "Ku time": 0.0013760557981760395,
+      "Ku beams": 0.03125,
+      "Ku time": 0.0004500379681279417,
       "S beams": 0.015609689354490511,
       "S time": 0.038601840818059195,
-      "compute": 5.091615704086793e-05,
-      "energy": 0.29592298185652366,
-      "heat": 0.012988125848999856,
-      "memory": 2.9994474518482637e-05,
-      "memory bandwidth": 0.07104164365417814
+      "compute": 2.2474826542531272e-05,
+      "energy": 0.2887614289823111,
+      "heat": 0.01267176705432564,
+      "memory": 2.4994474518482638e-05,
+      "memory bandwidth": 0.06920812835068291
      }
     },
     "1": {
      "binding_nominal": "ship energy",
      "binding_real": "ship energy",
-     "nominal": 0.07254559448705789,
-     "real": 0.36846692877687065,
+     "nominal": 0.0723159089775594,
+     "real": 0.36478215473279213,
      "resources_nominal": {
       "Ku beams": 0.03125,
-      "Ku time": 0.0010504361175856954,
+      "Ku time": 0.0009400777155076714,
       "S beams": 0.02439013961639142,
       "S time": 0.0007358874947060585,
-      "compute": 2.752901004484976e-05,
-      "energy": 0.04741347883388417,
-      "heat": 0.007217564794163888,
+      "compute": 2.4320150879609334e-05,
+      "energy": 0.046557824688706846,
+      "heat": 0.007179685782734701,
       "memory": 6.748241487025823e-05,
-      "memory bandwidth": 0.005258598558185984
+      "memory bandwidth": 0.005051727434725711
      },
      "resources_real": {
-      "Ku beams": 0.0625,
-      "Ku time": 0.0014155567052118328,
+      "Ku beams": 0.03125,
+      "Ku time": 0.0004500379681279418,
       "S beams": 0.02439013961639142,
       "S time": 0.012580152287747387,
-      "compute": 4.916817862096141e-05,
-      "energy": 0.12705005065410505,
-      "heat": 0.009156882782412144,
-      "memory": 7.248241487025823e-05,
-      "memory bandwidth": 0.04812173578137007
+      "compute": 2.070293644548055e-05,
+      "energy": 0.11947250735200349,
+      "heat": 0.008823896552574645,
+      "memory": 6.748241487025823e-05,
+      "memory bandwidth": 0.04628665624195622
      }
     },
     "2": {
@@ -573,8 +573,8 @@
     "3": {
      "binding_nominal": "ship energy",
      "binding_real": "ship energy",
-     "nominal": 0.07254559448705789,
-     "real": 0.36846692877687065,
+     "nominal": 0.0723159089775594,
+     "real": 0.36478215473279213,
      "resources_nominal": {
       "Ku beams": 0.0,
       "Ku time": 0.0001666666666666667,
@@ -607,23 +607,23 @@
    ],
    "load_ceiling": 0.8,
    "power_allocation": {
-    "drawn_MW": 2.9477354243194944,
+    "drawn_MW": 2.9182572320258227,
     "faces": {
      "0": {
-      "alloc_MW": 0.5918459625293554,
-      "always_on_MW": 0.07282399701536339,
+      "alloc_MW": 0.5775228568095765,
+      "always_on_MW": 0.07271841601444962,
       "cap_MW": 2.0,
       "capped": true,
-      "load": 0.29592298185652366,
-      "need_MW": 0.5918459637130473
+      "load": 0.2887614289823111,
+      "need_MW": 0.5775228579646222
      },
      "1": {
-      "alloc_MW": 0.2541001008000099,
-      "always_on_MW": 0.07155984675940945,
+      "alloc_MW": 0.238945014226117,
+      "always_on_MW": 0.0714487807635869,
       "cap_MW": 2.0,
       "capped": true,
-      "load": 0.12705005065410505,
-      "need_MW": 0.2541001013082101
+      "load": 0.11947250735200349,
+      "need_MW": 0.23894501470400697
      },
      "2": {
       "alloc_MW": 1.5999999932668225,
@@ -643,7 +643,7 @@
      }
     },
     "flags": [],
-    "need_MW": 2.947735430214965,
+    "need_MW": 2.918257237862337,
     "partial": [],
     "rule": {
      "binding": [
@@ -656,26 +656,26 @@
         "0": {
          "Ku time": 0.00016666666633333337,
          "S time": 3.333333326666667e-05,
-         "energy": 72823.9968697154,
-         "share": 0.24792301140190448
+         "energy": 72718.41586901278,
+         "share": 0.24774629676575127
         },
         "1": {
          "Ku time": 0.00016666666633333337,
          "S time": 3.333333326666667e-05,
-         "energy": 71559.84661628977,
-         "share": 0.2436193209816373
+         "energy": 71448.78062068936,
+         "share": 0.2434207428155389
         },
         "2": {
          "Ku time": 0.00016666666633333337,
          "S time": 3.333333326666667e-05,
          "energy": 76876.3517009059,
-         "share": 0.26171890363802
+         "share": 0.2619120784626007
         },
         "3": {
          "Ku time": 0.00016666666633333337,
          "S time": 3.333333326666667e-05,
          "energy": 72476.14037115237,
-         "share": 0.24673876397843836
+         "share": 0.24692088195610917
         }
        },
        "kind": "other",
@@ -821,15 +821,15 @@
       {
        "faces": {
         "0": {
-         "Ku time": 0.0012093891290905945,
+         "Ku time": 0.00028337130089453247,
          "S time": 0.0,
-         "energy": 19021.738787505783,
-         "share": 0.5
+         "energy": 4804.214068429453,
+         "share": 0.4999999999999999
         },
         "1": {
-         "Ku time": 0.0012093891290905945,
+         "Ku time": 0.0002833713008945325,
          "S time": 0.0,
-         "energy": 19021.738787505783,
+         "energy": 4804.214068429454,
          "share": 0.5
         }
        },
@@ -840,36 +840,17 @@
        "sector": "SUN",
        "tier": "P2 confirmation / initiation",
        "unserved_share": 0.0
-      },
-      {
-       "faces": {
-        "1": {
-         "Ku time": 3.950090695679151e-05,
-         "S time": 0.0,
-         "energy": 826.4958592161581,
-         "share": 1.0
-        }
-       },
-       "kind": "track",
-       "label": "tracks MOON/0",
-       "level": 1.0,
-       "moved_share": 0.0,
-       "period_tenable_s": 2.0,
-       "sector": "MOON",
-       "tier": "P3 tracks other",
-       "tracks_tenable": 2.0,
-       "unserved_share": 0.0
       }
      ],
      "faces": {
       "0": {
-       "Ku time": 0.0013760557954239278,
-       "Ku time load": 0.0013760557954239278,
+       "Ku time": 0.00045003796722786586,
+       "Ku time load": 0.00045003796722786586,
        "S time": 0.038601840740855514,
        "S time load": 0.038601840740855514,
-       "energy": 591845.9625293554,
+       "energy": 577522.8568095765,
        "energy cap": 2000000.0,
-       "energy load": 0.2959229812646777,
+       "energy load": 0.28876142840478825,
        "moved": {
         "Ku time": 0.0,
         "S time": 0.0,
@@ -877,13 +858,13 @@
        }
       },
       "1": {
-       "Ku time": 0.0014155567023807194,
-       "Ku time load": 0.0014155567023807194,
+       "Ku time": 0.00045003796722786586,
+       "Ku time load": 0.00045003796722786586,
        "S time": 0.012580152262587083,
        "S time load": 0.012580152262587083,
-       "energy": 254100.10080000988,
+       "energy": 238945.014226117,
        "energy cap": 2000000.0,
-       "energy load": 0.12705005040000494,
+       "energy load": 0.1194725071130585,
        "moved": {
         "Ku time": 0.0,
         "S time": 0.0,
@@ -922,8 +903,8 @@
      "flags": [],
      "ship": {
       "cap": 8000000.0,
-      "energy": 2947735.4243194945,
-      "energy load": 0.3684669280399368
+      "energy": 2918257.2320258226,
+      "energy load": 0.36478215400322783
      },
      "status": "OK"
     },
@@ -932,21 +913,15 @@
     "tiers": [
      {
       "fraction": 1.0,
-      "need_MW": 0.2937363361455361,
-      "served_MW": 0.2937363361455361,
+      "need_MW": 0.2935196891487997,
+      "served_MW": 0.2935196891487997,
       "tier": "always-on"
      },
      {
       "fraction": 1.0,
-      "need_MW": 0.038043477651098515,
-      "served_MW": 0.038043477651098515,
+      "need_MW": 0.009608428156075762,
+      "served_MW": 0.009608428156075762,
       "tier": "P2 confirmation / initiation"
-     },
-     {
-      "fraction": 1.0,
-      "need_MW": 0.0008264958608691498,
-      "served_MW": 0.0008264958608691498,
-      "tier": "P3 tracks other"
      },
      {
       "fraction": 1.0,
@@ -1035,28 +1010,1754 @@
     }
    },
    "ship_energy": {
-    "nominal": 0.07254559448705789,
-    "real": 0.36846692877687065
+    "nominal": 0.0723159089775594,
+    "real": 0.36478215473279213
    }
   },
+  "peak": {
+   "allocation_status": "OK",
+   "budgets": {
+    "compute": {
+     "faces": {
+      "0": {
+       "bands": {
+        "Ku": {
+         "beams_max": 32,
+         "beams_mean": 0.08692755058427512,
+         "beams_peak": 1,
+         "bits_per_s": 68151199658.07169,
+         "buffer_peak_GB": 0.02,
+         "face_input_peak_tbps": 0.784,
+         "link_trsa_peak_tbps": 0.004,
+         "open_windows_mean": 0.08692755058427512,
+         "ops_per_s": {
+          "banks": 10570390151.047853,
+          "beamforming": 10665662746488.22,
+          "cfar": 825811730.5506136,
+          "compression": 1983414693.2726817,
+          "nulling": 0.0,
+          "repointing": 217.3188764606878,
+          "tracks": 0.0
+         },
+         "ops_total_per_s": 10679042363280.41,
+         "transport": "subarray_beams"
+        },
+        "S": {
+         "beams_max": 512,
+         "beams_mean": 0.2790073471297293,
+         "beams_peak": 7.992160949499142,
+         "bits_per_s": 1368476945921.716,
+         "buffer_peak_GB": 0.07997693807393055,
+         "face_input_peak_tbps": 39.2,
+         "link_trsa_peak_tbps": 0.2,
+         "open_windows_mean": 0.03491012617147235,
+         "ops_per_s": {
+          "banks": 3571294043.2605343,
+          "beamforming": 2734272001871.347,
+          "cfar": 2232058777.037834,
+          "compression": 14127882346.2749,
+          "nulling": 0.0,
+          "repointing": 348.8597511345275,
+          "tracks": 0.0
+         },
+         "ops_total_per_s": 2754203237386.7803,
+         "transport": "raw"
+        }
+       },
+       "bits_per_s": 1436628145579.7878,
+       "bus_draw_MW_actual": 0.09731017467677111,
+       "capacity_ops_per_s": 3.999992816859272e+18,
+       "face_heat_kW_actual": 72.18011174222482,
+       "jammers_nulled": 0,
+       "load": 3.358317430983477e-06,
+       "memory": {
+        "bandwidth_TB_per_s": 50.0,
+        "buffers_peak_TB": 9.997693807393055e-05,
+        "capacity_TB": 4.0,
+        "flight_tables_TB": 9.6e-10,
+        "traffic_TB_per_s": 0.1802234604423172
+       },
+       "non_tx_kW_actual": 66.88020616386328,
+       "ops_total_per_s": 13433245600667.191,
+       "power_kW": {
+        "ceiling": 50.0,
+        "ops": 0.0001343324560066719,
+        "static": 10.0,
+        "total": 10.000206163863286,
+        "transport": 7.183140727898941e-05
+       }
+      },
+      "1": {
+       "bands": {
+        "Ku": {
+         "beams_max": 32,
+         "beams_mean": 0.8639011861674997,
+         "beams_peak": 1,
+         "bits_per_s": 677349449656.7655,
+         "buffer_peak_GB": 0.02,
+         "face_input_peak_tbps": 3.136,
+         "link_trsa_peak_tbps": 0.016,
+         "open_windows_mean": 0.8639011861674997,
+         "ops_per_s": {
+          "banks": 105048028768.78542,
+          "beamforming": 106005188871283.8,
+          "cfar": 8207028794.291855,
+          "compression": 19712860603.056,
+          "nulling": 0.0,
+          "repointing": 2164.028748171958,
+          "tracks": 10000.0
+         },
+         "ops_total_per_s": 106138156801613.95,
+         "transport": "subarray_beams"
+        },
+        "S": {
+         "beams_max": 512,
+         "beams_mean": 0.4031959346408982,
+         "beams_peak": 12.487751483592406,
+         "bits_per_s": 1412727109585.2437,
+         "buffer_peak_GB": 0.2499279314810329,
+         "face_input_peak_tbps": 39.2,
+         "link_trsa_peak_tbps": 0.2,
+         "open_windows_mean": 0.03603895687717459,
+         "ops_per_s": {
+          "banks": 3113498348.7108746,
+          "beamforming": 3951320159480.8027,
+          "cfar": 1945936467.9442966,
+          "compression": 21216094562.50722,
+          "nulling": 0.0,
+          "repointing": 232.14024886547247,
+          "tracks": 0.0
+         },
+         "ops_total_per_s": 3977595689092.1055,
+         "transport": "raw"
+        }
+       },
+       "bits_per_s": 2090076559242.0093,
+       "bus_draw_MW_actual": 0.09477323097144101,
+       "capacity_ops_per_s": 3.9999895496172037e+18,
+       "face_heat_kW_actual": 74.75702145745751,
+       "jammers_nulled": 0,
+       "load": 2.752901004484976e-05,
+       "memory": {
+        "bandwidth_TB_per_s": 50.0,
+        "buffers_peak_TB": 0.0002699279314810329,
+        "capacity_TB": 4.0,
+        "flight_tables_TB": 1.728e-09,
+        "traffic_TB_per_s": 0.2629299279092992
+       },
+       "non_tx_kW_actual": 66.88120566135287,
+       "ops_total_per_s": 110115752490706.06,
+       "power_kW": {
+        "ceiling": 50.0,
+        "ops": 0.0011011575249070607,
+        "static": 10.0,
+        "total": 10.00120566135287,
+        "transport": 0.00010450382796210046
+       }
+      },
+      "2": {
+       "bands": {
+        "Ku": {
+         "beams_max": 32,
+         "beams_mean": 0,
+         "beams_peak": 0.0,
+         "bits_per_s": 0.0,
+         "buffer_peak_GB": 0.0,
+         "face_input_peak_tbps": 0.0,
+         "link_trsa_peak_tbps": 0.0,
+         "open_windows_mean": 0,
+         "ops_per_s": {
+          "banks": 0.0,
+          "beamforming": 0.0,
+          "cfar": 0.0,
+          "compression": 0.0,
+          "nulling": 0.0,
+          "repointing": 0.0,
+          "tracks": 0.0
+         },
+         "ops_total_per_s": 0.0,
+         "transport": "subarray_beams"
+        },
+        "S": {
+         "beams_max": 512,
+         "beams_mean": 4.228555731773615,
+         "beams_peak": 9.83118955249738,
+         "bits_per_s": 24209339581935.547,
+         "buffer_peak_GB": 5.194171363408255,
+         "face_input_peak_tbps": 58.8,
+         "link_trsa_peak_tbps": 0.3,
+         "open_windows_mean": 0.43011638715677614,
+         "ops_per_s": {
+          "banks": 38051927990964.29,
+          "beamforming": 59501651592696.5,
+          "cfar": 770729706513.6956,
+          "compression": 317259905113.3267,
+          "nulling": 0.0,
+          "repointing": 338.5,
+          "tracks": 0.0
+         },
+         "ops_total_per_s": 98641569195626.31,
+         "transport": "raw"
+        }
+       },
+       "bits_per_s": 24209339581935.547,
+       "bus_draw_MW_actual": 0.2632360908570971,
+       "capacity_ops_per_s": 3.999878953302091e+18,
+       "face_heat_kW_actual": 103.90442288267107,
+       "jammers_nulled": 0,
+       "load": 2.4661138586254716e-05,
+       "memory": {
+        "bandwidth_TB_per_s": 50.0,
+        "buffers_peak_TB": 0.005194171363408256,
+        "capacity_TB": 4.0,
+        "flight_tables_TB": 1.728e-09,
+        "traffic_TB_per_s": 3.038310641944534
+       },
+       "non_tx_kW_actual": 66.88219688267105,
+       "ops_total_per_s": 98641569195626.31,
+       "power_kW": {
+        "ceiling": 50.0,
+        "ops": 0.0009864156919562632,
+        "static": 10.0,
+        "total": 10.002196882671052,
+        "transport": 0.0012104669790967775
+       }
+      },
+      "3": {
+       "bands": {
+        "Ku": {
+         "beams_max": 32,
+         "beams_mean": 0,
+         "beams_peak": 0.0,
+         "bits_per_s": 0.0,
+         "buffer_peak_GB": 0.0,
+         "face_input_peak_tbps": 0.0,
+         "link_trsa_peak_tbps": 0.0,
+         "open_windows_mean": 0,
+         "ops_per_s": {
+          "banks": 0.0,
+          "beamforming": 0.0,
+          "cfar": 0.0,
+          "compression": 0.0,
+          "nulling": 0.0,
+          "repointing": 0.0,
+          "tracks": 0.0
+         },
+         "ops_total_per_s": 0.0,
+         "transport": "subarray_beams"
+        },
+        "S": {
+         "beams_max": 512,
+         "beams_mean": 0.4871895820950398,
+         "beams_peak": 9.83118955249738,
+         "bits_per_s": 2789259213280.6094,
+         "buffer_peak_GB": 5.194171363408255,
+         "face_input_peak_tbps": 58.8,
+         "link_trsa_peak_tbps": 0.3,
+         "open_windows_mean": 0.04955550693977627,
+         "ops_per_s": {
+          "banks": 4384121688766.933,
+          "beamforming": 6855434009202.846,
+          "cfar": 88798991296.99887,
+          "compression": 36552839880.1174,
+          "nulling": 0.0,
+          "repointing": 38.99999999999999,
+          "tracks": 0.0
+         },
+         "ops_total_per_s": 11364907529185.895,
+         "transport": "raw"
+        }
+       },
+       "bits_per_s": 2789259213280.6094,
+       "bus_draw_MW_actual": 0.12493664439252683,
+       "capacity_ops_per_s": 3.9999860537039334e+18,
+       "face_heat_kW_actual": 77.31373111203595,
+       "jammers_nulled": 0,
+       "load": 2.8412367884788354e-06,
+       "memory": {
+        "bandwidth_TB_per_s": 50.0,
+        "buffers_peak_TB": 0.005194171363408256,
+        "capacity_TB": 4.0,
+        "flight_tables_TB": 1.728e-09,
+        "traffic_TB_per_s": 0.3500564698252196
+       },
+       "non_tx_kW_actual": 66.88025311203594,
+       "ops_total_per_s": 11364907529185.895,
+       "power_kW": {
+        "ceiling": 50.0,
+        "ops": 0.00011364907529185894,
+        "static": 10.0,
+        "total": 10.000253112035956,
+        "transport": 0.00013946296066403048
+       }
+      }
+     },
+     "flags": [],
+     "reselect_ops": {
+      "EARTH": 27000.0,
+      "MOON": 12000.0,
+      "SUN": 15000.0
+     },
+     "sectors": {
+      "EARTH": {
+       "processing_s": 2.2022116113207177e-05,
+       "reselect_ops": 27000.0
+      },
+      "MOON": {
+       "processing_s": 6.163118788288041e-07,
+       "reselect_ops": 12000.0
+      },
+      "SUN": {
+       "processing_s": 1.9737776043904633e-07,
+       "reselect_ops": 15000.0
+      }
+     }
+    },
+    "power_allocation": {
+     "drawn_MW": 0.5803647547357336,
+     "faces": {
+      "0": {
+       "alloc_MW": 0.09740271800992839,
+       "always_on_MW": 0.07086392581971548,
+       "cap_MW": 2.0,
+       "capped": true,
+       "load": 0.048701359102366906,
+       "need_MW": 0.09740271820473381
+      },
+      "1": {
+       "alloc_MW": 0.09482695747811445,
+       "always_on_MW": 0.0709184167384933,
+       "cap_MW": 2.0,
+       "capped": true,
+       "load": 0.04741347883388417,
+       "need_MW": 0.09482695766776834
+      },
+      "2": {
+       "alloc_MW": 0.26315173588406393,
+       "always_on_MW": 0.0715240654669887,
+       "cap_MW": 2.0,
+       "capped": true,
+       "load": 0.1315758682051837,
+       "need_MW": 0.2631517364103674
+      },
+      "3": {
+       "alloc_MW": 0.12498334336362682,
+       "always_on_MW": 0.07097046401696477,
+       "cap_MW": 2.0,
+       "capped": true,
+       "load": 0.06249167180679675,
+       "need_MW": 0.1249833436135935
+      }
+     },
+     "flags": [],
+     "need_MW": 0.5803647558964631,
+     "partial": [],
+     "rule": {
+      "binding": [],
+      "ceiling": 0.8,
+      "demands": [
+       {
+        "faces": {
+         "0": {
+          "Ku time": 0.00016666666633333337,
+          "S time": 3.333333326666667e-05,
+          "energy": 70863.92567798763,
+          "share": 0.24927784420396099
+         },
+         "1": {
+          "Ku time": 0.00016666666633333337,
+          "S time": 3.333333326666667e-05,
+          "energy": 70918.41659665648,
+          "share": 0.24946952676465042
+         },
+         "2": {
+          "Ku time": 0.00016666666633333337,
+          "S time": 3.333333326666667e-05,
+          "energy": 71524.06532394058,
+          "share": 0.2516000156930835
+         },
+         "3": {
+          "Ku time": 0.00016666666633333337,
+          "S time": 3.333333326666667e-05,
+          "energy": 70970.46387502385,
+          "share": 0.2496526133383051
+         }
+        },
+        "kind": "other",
+        "label": "always-on",
+        "level": 1.0,
+        "moved_share": 0.0,
+        "sector": null,
+        "tier": "always-on",
+        "unserved_share": 0.0
+       },
+       {
+        "faces": {
+         "0": {
+          "Ku time": 0.0,
+          "S time": 0.0019284253703794423,
+          "energy": 25000.011343606715,
+          "share": 0.7774064300790089
+         },
+         "1": {
+          "Ku time": 0.0,
+          "S time": 0.0005521277329644246,
+          "energy": 7158.214233542072,
+          "share": 0.22259356992099108
+         }
+        },
+        "kind": "search",
+        "label": "search SUN",
+        "level": 1.0,
+        "moved_share": 0.0,
+        "rho": 1.0,
+        "rr_tenable_s": 20.0,
+        "sector": "SUN",
+        "tier": "P4_1 search",
+        "unserved_share": 0.0
+       },
+       {
+        "faces": {
+         "2": {
+          "Ku time": 0.0,
+          "S time": 0.014779569048243194,
+          "energy": 191627.67056012337,
+          "share": 0.7801141567306833
+         },
+         "3": {
+          "Ku time": 0.0,
+          "S time": 0.004165995898312371,
+          "energy": 54012.87948860297,
+          "share": 0.21988584326931665
+         }
+        },
+        "kind": "search",
+        "label": "search EARTH",
+        "level": 1.0,
+        "moved_share": 0.0,
+        "rho": 1.0,
+        "rr_tenable_s": 20.0,
+        "sector": "EARTH",
+        "tier": "P4_1 search",
+        "unserved_share": 0.0
+       },
+       {
+        "faces": {
+         "1": {
+          "Ku time": 0.0,
+          "S time": 0.0001504264270031922,
+          "energy": 1952.773486615675,
+          "share": 1.0
+         }
+        },
+        "kind": "search",
+        "label": "search MOON",
+        "level": 1.0,
+        "moved_share": 0.0,
+        "rho": 1.0,
+        "rr_tenable_s": 10.0,
+        "sector": "MOON",
+        "tier": "P4_1 search",
+        "unserved_share": 0.0
+       },
+       {
+        "faces": {
+         "0": {
+          "Ku time": 8.692755041042e-05,
+          "S time": 0.0,
+          "energy": 1538.7809883340321,
+          "share": 0.5
+         },
+         "1": {
+          "Ku time": 8.692755041042003e-05,
+          "S time": 0.0,
+          "energy": 1538.7809883340321,
+          "share": 0.5
+         }
+        },
+        "kind": "other",
+        "label": "confirmation SUN",
+        "level": 1.0,
+        "moved_share": 0.0,
+        "sector": "SUN",
+        "tier": "P2 confirmation / initiation",
+        "unserved_share": 0.0
+       },
+       {
+        "faces": {
+         "1": {
+          "Ku time": 0.000776951984496393,
+          "S time": 0.0,
+          "energy": 13168.599656101707,
+          "share": 1.0
+         }
+        },
+        "kind": "other",
+        "label": "confirmation MOON",
+        "level": 1.0,
+        "moved_share": 0.0,
+        "sector": "MOON",
+        "tier": "P2 confirmation / initiation",
+        "unserved_share": 0.0
+       },
+       {
+        "faces": {
+         "1": {
+          "Ku time": 4.329906576867675e-06,
+          "S time": 0.0,
+          "energy": 90.17251686447936,
+          "share": 1.0
+         }
+        },
+        "kind": "track",
+        "label": "tracks MOON/0",
+        "level": 1.0,
+        "moved_share": 0.0,
+        "period_tenable_s": 2.0,
+        "sector": "MOON",
+        "tier": "P3 tracks other",
+        "tracks_tenable": 2.0,
+        "unserved_share": 0.0
+       }
+      ],
+      "faces": {
+       "0": {
+        "Ku time": 0.00025359421674375337,
+        "Ku time load": 0.00025359421674375337,
+        "S time": 0.001961758703646109,
+        "S time load": 0.001961758703646109,
+        "energy": 97402.71800992839,
+        "energy cap": 2000000.0,
+        "energy load": 0.048701359004964195,
+        "moved": {
+         "Ku time": 0.0,
+         "S time": 0.0,
+         "energy": 0.0
+        }
+       },
+       "1": {
+        "Ku time": 0.001034876107817014,
+        "Ku time load": 0.001034876107817014,
+        "S time": 0.0007358874932342835,
+        "S time load": 0.0007358874932342835,
+        "energy": 94826.95747811445,
+        "energy cap": 2000000.0,
+        "energy load": 0.04741347873905723,
+        "moved": {
+         "Ku time": 0.0,
+         "S time": 0.0,
+         "energy": 0.0
+        }
+       },
+       "2": {
+        "Ku time": 0.00016666666633333337,
+        "Ku time load": 0.00016666666633333337,
+        "S time": 0.01481290238150986,
+        "S time load": 0.01481290238150986,
+        "energy": 263151.73588406394,
+        "energy cap": 2000000.0,
+        "energy load": 0.13157586794203197,
+        "moved": {
+         "Ku time": 0.0,
+         "S time": 0.0,
+         "energy": 0.0
+        }
+       },
+       "3": {
+        "Ku time": 0.00016666666633333337,
+        "Ku time load": 0.00016666666633333337,
+        "S time": 0.004199329231579038,
+        "S time load": 0.004199329231579038,
+        "energy": 124983.34336362682,
+        "energy cap": 2000000.0,
+        "energy load": 0.06249167168181341,
+        "moved": {
+         "Ku time": 0.0,
+         "S time": 0.0,
+         "energy": 0.0
+        }
+       }
+      },
+      "flags": [],
+      "ship": {
+       "cap": 8000000.0,
+       "energy": 580364.7547357336,
+       "energy load": 0.0725455943419667
+      },
+      "status": "OK"
+     },
+     "ship_MW": 8.0,
+     "status": "OK",
+     "tiers": [
+      {
+       "fraction": 1.0,
+       "need_MW": 0.2842768720421623,
+       "served_MW": 0.2842768720421623,
+       "tier": "always-on"
+      },
+      {
+       "fraction": 1.0,
+       "need_MW": 0.016246161665262094,
+       "served_MW": 0.016246161665262094,
+       "tier": "P2 confirmation / initiation"
+      },
+      {
+       "fraction": 1.0,
+       "need_MW": 9.017251704482438e-05,
+       "served_MW": 9.017251704482438e-05,
+       "tier": "P3 tracks other"
+      },
+      {
+       "fraction": 1.0,
+       "need_MW": 0.2797515496719939,
+       "served_MW": 0.2797515496719939,
+       "tier": "P4_1 search"
+      }
+     ]
+    },
+    "scheduler": {
+     "eclipse_db": {
+      "Ku": 0.004496737024162265,
+      "S": 0.06481284492954499
+     },
+     "faces": {
+      "0": {
+       "Ku": {
+        "capacity": 0.9851870975888644,
+        "feasible": true,
+        "load": 0.0002535942172509418,
+        "load_by_priority": {
+         "P0": 0.0001666666666666667,
+         "P2": 8.69275505842751e-05
+        },
+        "mean_wait_s": {
+         "calibration Ku": 4.180735781259107e-06,
+         "confirmation SUN": 4.181796260608519e-06
+        },
+        "stretch": {},
+        "timeline": {
+         "calibration_delay_s": 0.0,
+         "end_s": 17.33796662459764,
+         "late_update_frac": 0.0,
+         "max_delay_s": {
+          "calibration Ku": 0.0,
+          "confirmation SUN": 0.0
+         },
+         "pause_time_s": 0.0,
+         "recharge_pauses": 0,
+         "revisit_spread_s": {}
+        }
+       },
+       "S": {
+        "capacity": 1.0,
+        "feasible": true,
+        "load": 0.0019617587075696262,
+        "load_by_priority": {
+         "P0": 3.3333333333333335e-05,
+         "P4_1": 0.0019284253742362929
+        },
+        "mean_wait_s": {
+         "calibration S": 6.996870481146333e-07,
+         "search SUN": 7.010623633104069e-07
+        },
+        "stretch": {},
+        "timeline": {
+         "calibration_delay_s": 0.0,
+         "end_s": 19.64726368331117,
+         "late_update_frac": 0.0,
+         "max_delay_s": {
+          "calibration S": 0.0,
+          "search SUN": 0.0
+         },
+         "pause_time_s": 0.0,
+         "recharge_pauses": 0,
+         "revisit_spread_s": {
+          "search SUN": 0.0
+         }
+        }
+       }
+      },
+      "1": {
+       "Ku": {
+        "capacity": 0.9851870975888644,
+        "feasible": true,
+        "load": 0.0010348761098867662,
+        "load_by_priority": {
+         "P0": 0.0001666666666666667,
+         "P2": 0.0008679335257011642,
+         "P3": 2.7591751893518917e-07
+        },
+        "mean_wait_s": {
+         "calibration Ku": 4.451185598632753e-06,
+         "confirmation MOON": 4.455795565582056e-06,
+         "confirmation SUN": 4.455795565582056e-06,
+         "initiation MOON/0": 4.455795565582056e-06,
+         "track updates MOON/0": 4.459668137000798e-06
+        },
+        "stretch": {},
+        "timeline": {
+         "calibration_delay_s": 0.0,
+         "end_s": 19.586629640065123,
+         "late_update_frac": 0.0,
+         "max_delay_s": {
+          "calibration Ku": 0.0,
+          "confirmation MOON": 0.0,
+          "confirmation SUN": 0.0,
+          "initiation MOON/0": 0.0,
+          "track updates MOON/0": 0.0001930327547299271
+         },
+         "pause_time_s": 0.0,
+         "recharge_pauses": 0,
+         "revisit_spread_s": {}
+        }
+       },
+       "S": {
+        "capacity": 1.0,
+        "feasible": true,
+        "load": 0.0007358874947060585,
+        "load_by_priority": {
+         "P0": 3.3333333333333335e-05,
+         "P4_1": 0.0007025541613727252
+        },
+        "mean_wait_s": {
+         "calibration S": 3.218792373088839e-07,
+         "search MOON": 3.2211627865018384e-07,
+         "search SUN": 3.2211627865018384e-07
+        },
+        "stretch": {},
+        "timeline": {
+         "calibration_delay_s": 0.0,
+         "end_s": 19.914280633116523,
+         "late_update_frac": 0.0,
+         "max_delay_s": {
+          "calibration S": 0.0,
+          "search MOON": 0.0,
+          "search SUN": 0.0
+         },
+         "pause_time_s": 0.0,
+         "recharge_pauses": 0,
+         "revisit_spread_s": {
+          "search MOON": 0.0,
+          "search SUN": 0.0
+         }
+        }
+       }
+      },
+      "2": {
+       "Ku": {
+        "capacity": 1.0,
+        "feasible": true,
+        "load": 0.0001666666666666667,
+        "load_by_priority": {
+         "P0": 0.0001666666666666667
+        },
+        "mean_wait_s": {
+         "calibration Ku": 4.167361226871146e-06
+        },
+        "stretch": {},
+        "timeline": {
+         "calibration_delay_s": 0.0,
+         "end_s": 0.05,
+         "late_update_frac": 0.0,
+         "max_delay_s": {
+          "calibration Ku": 0.0
+         },
+         "pause_time_s": 0.0,
+         "recharge_pauses": 0,
+         "revisit_spread_s": {}
+        }
+       },
+       "S": {
+        "capacity": 1.0,
+        "feasible": true,
+        "load": 0.014812902411135663,
+        "load_by_priority": {
+         "P0": 3.3333333333333335e-05,
+         "P4_1": 0.01477956907780233
+        },
+        "mean_wait_s": {
+         "calibration S": 3.2432985894044446e-05,
+         "search EARTH": 3.292063606336356e-05
+        },
+        "stretch": {},
+        "timeline": {
+         "calibration_delay_s": 0.0,
+         "end_s": 19.950671719431316,
+         "late_update_frac": 0.0,
+         "max_delay_s": {
+          "calibration S": 0.0,
+          "search EARTH": 0.0
+         },
+         "pause_time_s": 0.0,
+         "recharge_pauses": 0,
+         "revisit_spread_s": {
+          "search EARTH": 0.0
+         }
+        }
+       }
+      },
+      "3": {
+       "Ku": {
+        "capacity": 1.0,
+        "feasible": true,
+        "load": 0.0001666666666666667,
+        "load_by_priority": {
+         "P0": 0.0001666666666666667
+        },
+        "mean_wait_s": {
+         "calibration Ku": 4.167361226871146e-06
+        },
+        "stretch": {},
+        "timeline": {
+         "calibration_delay_s": 0.0,
+         "end_s": 0.05,
+         "late_update_frac": 0.0,
+         "max_delay_s": {
+          "calibration Ku": 0.0
+         },
+         "pause_time_s": 0.0,
+         "recharge_pauses": 0,
+         "revisit_spread_s": {}
+        }
+       },
+       "S": {
+        "capacity": 1.0,
+        "feasible": true,
+        "load": 0.004199329239977696,
+        "load_by_priority": {
+         "P0": 3.3333333333333335e-05,
+         "P4_1": 0.0041659959066443625
+        },
+        "mean_wait_s": {
+         "calibration S": 2.2418083031200508e-05,
+         "search EARTH": 2.2512620938576402e-05
+        },
+        "stretch": {},
+        "timeline": {
+         "calibration_delay_s": 0.0,
+         "end_s": 19.55830164568505,
+         "late_update_frac": 0.0,
+         "max_delay_s": {
+          "calibration S": 0.0,
+          "search EARTH": 0.0
+         },
+         "pause_time_s": 0.0,
+         "recharge_pauses": 0,
+         "revisit_spread_s": {
+          "search EARTH": 0.0
+         }
+        }
+       }
+      }
+     },
+     "flags": [],
+     "frame_interleaved_checked": true,
+     "harmonic_faces": [
+      0,
+      1
+     ],
+     "sectors": [
+      {
+       "confirm_mode": "KU1+7",
+       "go_cfar_advised": false,
+       "id": "SUN",
+       "latency_ok": true,
+       "latency_q95_s": 0.02032170907599526,
+       "latency_required_s": 21.428571428571427,
+       "priority": "P4_1",
+       "scan": {
+        "0": {
+         "frame_tx_s": 0.0271936,
+         "mean_step_deg": 9.510970382494273,
+         "plan_positions": 69.7719502269055,
+         "pointing_rate_hz": 2.45,
+         "pointings": 49,
+         "uniformity": {
+          "10%": 1.0,
+          "25%": 0.75,
+          "50%": 0.6818181818181818
+         }
+        },
+        "1": {
+         "frame_tx_s": 0.027806799999999996,
+         "mean_step_deg": 9.181925008519501,
+         "plan_positions": 20.828049773094488,
+         "pointing_rate_hz": 2.45,
+         "pointings": 49,
+         "uniformity": {
+          "10%": 1.0,
+          "25%": 0.75,
+          "50%": 0.6818181818181818
+         }
+        }
+       }
+      },
+      {
+       "confirm_mode": null,
+       "go_cfar_advised": true,
+       "id": "EARTH",
+       "latency_ok": true,
+       "latency_q95_s": 0.0,
+       "latency_required_s": 21.428571428571427,
+       "priority": "P4_1",
+       "scan": {
+        "2": {
+         "frame_tx_s": 0.6891986,
+         "mean_step_deg": 10.03123798689536,
+         "plan_positions": 67.7,
+         "pointing_rate_hz": 4.25,
+         "pointings": 85,
+         "uniformity": {
+          "10%": 0.5,
+          "25%": 0.5714285714285714,
+          "50%": 0.8695652173913043
+         }
+        },
+        "3": {
+         "frame_tx_s": 0.2140484,
+         "mean_step_deg": 8.86869467790874,
+         "plan_positions": 7.8,
+         "pointing_rate_hz": 0.65,
+         "pointings": 13,
+         "uniformity": {
+          "10%": 1.0,
+          "25%": 1.0,
+          "50%": 0.8333333333333334
+         }
+        }
+       }
+      },
+      {
+       "confirm_mode": "KU1+7",
+       "go_cfar_advised": true,
+       "id": "MOON",
+       "latency_ok": true,
+       "latency_q95_s": 0.040724162384828885,
+       "latency_required_s": 42.857142857142854,
+       "priority": "P4_1",
+       "scan": {
+        "1": {
+         "frame_tx_s": 0.0016575999999999997,
+         "mean_step_deg": 6.098200142039846,
+         "plan_positions": 12.8,
+         "pointing_rate_hz": 1.4,
+         "pointings": 14,
+         "uniformity": {
+          "10%": 1.0,
+          "25%": 1.0,
+          "50%": 1.0
+         }
+        }
+       }
+      }
+     ],
+     "slots": {
+      "Ku": 0.0010348761098867662,
+      "S": 0.014812902411135663
+     }
+    },
+    "tracking": {
+     "advice": [],
+     "array_errors": {
+      "Ku": {
+       "boresight_mrad": 0.0029087362879927853,
+       "cal_time_frac": 0.0001666666666666667,
+       "loss_db": 0.00571224281655752,
+       "sidelobe_floor_db": -58.91465629083789
+      },
+      "S": {
+       "boresight_mrad": 0.014702684968049159,
+       "cal_time_frac": 3.3333333333333335e-05,
+       "loss_db": 0.00571224281655752,
+       "sidelobe_floor_db": -58.592451021244784
+      }
+     },
+     "confirm_p_min": 0.9995,
+     "faces": {
+      "0": {
+       "alloc_MW": 0.09740271800992839,
+       "at_energy": 0.0,
+       "at_ku_time": 0.0,
+       "binding": "energy",
+       "burn_through_energy": 0.0,
+       "burn_through_ku_time": 0.0,
+       "bus_draw_MW": 0.13962680396652166,
+       "calibration_ku_time": 0.0001666666666666667,
+       "calibration_s_time": 3.3333333333333335e-05,
+       "cap_MW": 2.0,
+       "confirm_energy": 0.0008154947422274976,
+       "confirm_ku_time": 8.69275505842751e-05,
+       "confirm_s_time": 0.0,
+       "coolant_flow_L_s": 5.608995278918077,
+       "cooling_capacity_kW": 15899.520000000002,
+       "dissipation_kW": 5.195985861138781,
+       "dissipation_kW_m2": 0.39078140407469547,
+       "face_heat_kW": 112.17990557836154,
+       "heat_burst_deficit_MJ": 0.0,
+       "heat_burst_ok": true,
+       "heat_flux_W_cm2": 0.8466663565568888,
+       "heat_load": 0.0070555529713074066,
+       "load": 0.048701359102366906,
+       "max_contiguous_tx_s": 0.32385781228370913,
+       "max_contiguous_tx_thermal_s": Infinity,
+       "non_tx_kW": 106.88,
+       "p_left_kW": 1902.597281795266,
+       "peak_MW": {
+        "Ku": 14.134615384615383,
+        "S": 12.25
+       },
+       "peak_ok": true,
+       "pumps_kW": 0.10391971722277561,
+       "search_energy": 0.0132,
+       "search_s_time": 0.0019,
+       "status": "OK",
+       "store_burst_deficit_MJ": 0.4219579255850265,
+       "store_burst_ok": true,
+       "store_obs_deficit_MJ": 0.00730698935574218,
+       "store_obs_ok": true,
+       "store_usable_MJ": 4.0,
+       "total_energy": 0.048701359102366906,
+       "total_ku_time": 0.0002535942172509418,
+       "total_s_time": 0.0019333333333333333,
+       "transient_MW_per_us": {
+        "Ku": 141.34615384615387,
+        "S": 61.25000000000001
+       }
+      },
+      "1": {
+       "alloc_MW": 0.09482695747811445,
+       "at_energy": 4.778796589891359e-05,
+       "at_ku_time": 4.329906585527488e-06,
+       "binding": "energy",
+       "burn_through_energy": 0.0,
+       "burn_through_ku_time": 0.0,
+       "bus_draw_MW": 0.13708880287162312,
+       "calibration_ku_time": 0.0001666666666666667,
+       "calibration_s_time": 3.3333333333333335e-05,
+       "cap_MW": 2.0,
+       "confirm_energy": 0.007794346094996235,
+       "confirm_ku_time": 0.000863879536634572,
+       "confirm_s_time": 0.0,
+       "coolant_flow_L_s": 5.737790789805231,
+       "cooling_capacity_kW": 15899.520000000002,
+       "dissipation_kW": 7.721388035396709,
+       "dissipation_kW_m2": 0.5807126767694044,
+       "face_heat_kW": 114.75581579610464,
+       "heat_burst_deficit_MJ": 0.0,
+       "heat_burst_ok": true,
+       "heat_flux_W_cm2": 0.8661077752996668,
+       "heat_load": 0.007217564794163888,
+       "load": 0.04741347883388417,
+       "max_contiguous_tx_s": 0.3238564879191994,
+       "max_contiguous_tx_thermal_s": Infinity,
+       "non_tx_kW": 106.88,
+       "p_left_kW": 1905.1730423322317,
+       "peak_MW": {
+        "Ku": 14.134615384615383,
+        "S": 12.25
+       },
+       "peak_ok": true,
+       "pumps_kW": 0.15442776070793418,
+       "search_energy": 0.0048,
+       "search_s_time": 0.0007,
+       "status": "OK",
+       "store_burst_deficit_MJ": 0.3879044497440469,
+       "store_burst_ok": true,
+       "store_obs_deficit_MJ": 0.007307029762176968,
+       "store_obs_ok": true,
+       "store_usable_MJ": 4.0,
+       "total_energy": 0.04741347883388417,
+       "total_ku_time": 0.0010348761098867662,
+       "total_s_time": 0.0007333333333333333,
+       "transient_MW_per_us": {
+        "Ku": 141.34615384615387,
+        "S": 61.25000000000001
+       }
+      },
+      "2": {
+       "alloc_MW": 0.26315173588406393,
+       "at_energy": 0.0,
+       "at_ku_time": 0.0,
+       "binding": "energy",
+       "burn_through_energy": 0.0,
+       "burn_through_ku_time": 0.0,
+       "bus_draw_MW": 0.3055506141232478,
+       "calibration_ku_time": 0.0001666666666666667,
+       "calibration_s_time": 3.3333333333333335e-05,
+       "cap_MW": 2.0,
+       "confirm_energy": 0.0,
+       "confirm_ku_time": 0.0,
+       "confirm_s_time": 0.0,
+       "coolant_flow_L_s": 7.195111300000001,
+       "cooling_capacity_kW": 15899.520000000002,
+       "dissipation_kW": 36.2963,
+       "dissipation_kW_m2": 2.7297840016846666,
+       "face_heat_kW": 143.902226,
+       "heat_burst_deficit_MJ": 0.0,
+       "heat_burst_ok": true,
+       "heat_flux_W_cm2": 1.086087323390895,
+       "heat_load": 0.009050727694924123,
+       "load": 0.1315758682051837,
+       "max_contiguous_tx_s": 0.3238415034965449,
+       "max_contiguous_tx_thermal_s": Infinity,
+       "non_tx_kW": 106.88,
+       "p_left_kW": 1736.8482635896326,
+       "peak_MW": {
+        "Ku": 14.134615384615383,
+        "S": 12.25
+       },
+       "peak_ok": true,
+       "pumps_kW": 0.7259260000000001,
+       "search_energy": 0.1016,
+       "search_s_time": 0.0148,
+       "status": "OK",
+       "store_burst_deficit_MJ": 3.089447617799999,
+       "store_burst_ok": true,
+       "store_obs_deficit_MJ": 0.008961908188866292,
+       "store_obs_ok": true,
+       "store_usable_MJ": 4.0,
+       "total_energy": 0.1315758682051837,
+       "total_ku_time": 0.0001666666666666667,
+       "total_s_time": 0.014833333333333334,
+       "transient_MW_per_us": {
+        "Ku": 141.34615384615387,
+        "S": 61.25000000000001
+       }
+      },
+      "3": {
+       "alloc_MW": 0.12498334336362682,
+       "at_energy": 0.0,
+       "at_ku_time": 0.0,
+       "binding": "energy",
+       "burn_through_energy": 0.0,
+       "burn_through_ku_time": 0.0,
+       "bus_draw_MW": 0.16725322401481094,
+       "calibration_ku_time": 0.0001666666666666667,
+       "calibration_s_time": 3.3333333333333335e-05,
+       "cap_MW": 2.0,
+       "confirm_energy": 0.0,
+       "confirm_ku_time": 0.0,
+       "confirm_s_time": 0.0,
+       "coolant_flow_L_s": 5.865673899999999,
+       "cooling_capacity_kW": 15899.520000000002,
+       "dissipation_kW": 10.2289,
+       "dissipation_kW_m2": 0.7692984567251285,
+       "face_heat_kW": 117.31347799999999,
+       "heat_burst_deficit_MJ": 0.0,
+       "heat_burst_ok": true,
+       "heat_flux_W_cm2": 0.8854114690254798,
+       "heat_load": 0.007378428908545665,
+       "load": 0.06249167180679675,
+       "max_contiguous_tx_s": 0.3238551729473413,
+       "max_contiguous_tx_thermal_s": Infinity,
+       "non_tx_kW": 106.88,
+       "p_left_kW": 1875.0166563864066,
+       "peak_MW": {
+        "Ku": 14.134615384615383,
+        "S": 12.25
+       },
+       "peak_ok": true,
+       "pumps_kW": 0.204578,
+       "search_energy": 0.0286,
+       "search_s_time": 0.0042,
+       "status": "OK",
+       "store_burst_deficit_MJ": 0.8632900828639999,
+       "store_burst_ok": true,
+       "store_obs_deficit_MJ": 0.008961386840866292,
+       "store_obs_ok": true,
+       "store_usable_MJ": 4.0,
+       "total_energy": 0.06249167180679675,
+       "total_ku_time": 0.0001666666666666667,
+       "total_s_time": 0.004233333333333333,
+       "transient_MW_per_us": {
+        "Ku": 141.34615384615387,
+        "S": 61.25000000000001
+       }
+      }
+     },
+     "pfa": 1e-08,
+     "scheduler_rules": [
+      "search lattice shifted every frame (grid_dithering, step 2.3): the cumulative detection criterion draws the target position in its cell anew at each revisit",
+      "S band: common TX / RX cadence of all faces (interface_mode sync): no face receives S while another transmits S (adjacent and opposite faces fail the isolation)",
+      "Ku band: common TX / RX cadence of all faces (interface_mode sync): no face receives Ku while another transmits Ku (adjacent and opposite faces fail the isolation)",
+      "S transmission and Ku reception on the same face(s) only if the S harmonic (order 5) misses the Ku channel",
+      "sector SUN: WF-SUN-1 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+      "sector SUN: WF-SUN-2 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+      "face F1: at most 0.32 s of contiguous transmission at peak power, then recharge (face storage 4 MJ usable, step 4.1)",
+      "face F2: at most 0.32 s of contiguous transmission at peak power, then recharge (face storage 4 MJ usable, step 4.1)",
+      "face F3: at most 0.32 s of contiguous transmission at peak power, then recharge (face storage 4 MJ usable, step 4.1)",
+      "face F4: at most 0.32 s of contiguous transmission at peak power, then recharge (face storage 4 MJ usable, step 4.1)"
+     ],
+     "sectors": [
+      {
+       "alternatives": {
+        "KU1+7": {
+         "admissible": true,
+         "faces": {
+          "0": {
+           "energy_fraction": 0.0008154947422274976,
+           "ku_time_fraction": 8.69275505842751e-05,
+           "s_time_fraction": 0.0
+          },
+          "1": {
+           "energy_fraction": 0.0008154947422274976,
+           "ku_time_fraction": 8.692755058427513e-05,
+           "s_time_fraction": 0.0
+          }
+         },
+         "mission_max_load": 0.1016,
+         "why_not": ""
+        },
+        "KU7": {
+         "admissible": true,
+         "faces": {
+          "0": {
+           "energy_fraction": 0.0011216868686732548,
+           "ku_time_fraction": 0.0001255406859612839,
+           "s_time_fraction": 0.0
+          },
+          "1": {
+           "energy_fraction": 0.0011216868686732548,
+           "ku_time_fraction": 0.00012554068596128392,
+           "s_time_fraction": 0.0
+          }
+         },
+         "mission_max_load": 0.1016,
+         "why_not": ""
+        },
+        "S2": {
+         "admissible": false,
+         "why_not": "confirmation probability < 0.9995 even with 15 dB margin"
+        }
+       },
+       "at": [],
+       "confirm_mode": "KU1+7",
+       "confirm_p_min": 0.9995,
+       "confirmation": {
+        "admissible": true,
+        "attempts": 2,
+        "cluster_tx": "sequential x37",
+        "faces": {
+         "0": {
+          "energy_fraction": 0.0008154947422274976,
+          "ku_time_fraction": 8.69275505842751e-05,
+          "s_time_fraction": 0.0
+         },
+         "1": {
+          "energy_fraction": 0.0008154947422274976,
+          "ku_time_fraction": 8.692755058427513e-05,
+          "s_time_fraction": 0.0
+         }
+        },
+        "ku_looks_fa": 76.0,
+        "ku_looks_true": 15.990650596760428,
+        "margin_db": 3.223,
+        "round_trips": 2,
+        "success": 0.9995037121307114,
+        "success_first_attempt": 0.9848623622674781,
+        "targets_view": "peak",
+        "why_not": ""
+       },
+       "discrimination": null,
+       "false_alarms_per_rr": 10.3,
+       "false_alarms_per_rr_face": [
+        5.150774179931741,
+        5.150774179931741,
+        0.0,
+        0.0
+       ],
+       "false_tracks_per_s": 5.150774179931741e-07,
+       "flags": [
+        "0.07 % of the Ku positions blinded by the sky (SUN: T_sys rise above 10 dB), not scanned",
+        "1.00 % of the Ku positions above the budget T_sys (234.9 K): sky noise up to +10.0 dB, range reduced there",
+        "S waveform WF-SUN-1: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 50 MHz on the same face",
+        "S waveform WF-SUN-2: its harmonics (13.975-14.475 GHz) cover 100 % of the Ku channel 14.2 GHz / 50 MHz on the same face"
+       ],
+       "forced": false,
+       "id": "SUN",
+       "ku_burn_through": null,
+       "ku_confirm_wf": {
+        "acceleration_hypotheses": 1,
+        "block_ms": 0.005,
+        "coherent_blocks": 8,
+        "n_pulses": 8,
+        "pri_ms": 5.0,
+        "pulses_per_block": 1,
+        "sig_bw_mhz": 50.0,
+        "tau_us": 5.0,
+        "velocity_hypotheses": 38
+       },
+       "ku_freq_candidates": 3,
+       "ku_freq_ghz": 14.2,
+       "ku_min_unsaturated_range_attenuated_km": 0.32568522302233877,
+       "ku_min_unsaturated_range_km": 1.8314625990929638,
+       "ku_sky": {
+        "above_budget_pct": 0.9964736027108992,
+        "adc_margin_db_min": null,
+        "band": "Ku",
+        "blind_rise_db": 10.0,
+        "blinded_by": [
+         "SUN"
+        ],
+        "blinded_pct": 0.07206783911549484,
+        "clutter_limited_pct": 0.0,
+        "galactic": "frame",
+        "limbs": [],
+        "main_lobe_surface": false,
+        "masked_by_structure_pct": 0.0,
+        "rise_db": 0.07653543503460769,
+        "structure_rise_k_max": 2.028841922160623e-05,
+        "surfaces": {
+         "EARTH": {
+          "clutter_ratio_max_db": -80.41281245304488,
+          "doppler_rejected": false,
+          "in_main_lobe_pct": 0.0,
+          "min_distance_km": null,
+          "shadowed_pct": 0.0
+         }
+        },
+        "t_sys_budget_k": 234.8952361992741,
+        "t_sys_cold_k": 230.7919548038089,
+        "worst_rise_db": 9.990337631976713
+       },
+       "p_share": [
+        0.49999999999999994,
+        0.5000000000000001,
+        0.0,
+        0.0
+       ],
+       "reason": "lowest mission face load (binding resource: energy)",
+       "scheduler_rules": [
+        "WF-SUN-1 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 50 MHz: on the same face, no Ku reception during this S transmission",
+        "WF-SUN-2 puts its harmonics on 13.975-14.475 GHz, over 100 % of the Ku channel 14.2 GHz / 50 MHz: on the same face, no Ku reception during this S transmission"
+       ]
+      },
+      {
+       "alternatives": {
+        "KU1+7": {
+         "admissible": false,
+         "faces": {
+          "2": {
+           "energy_fraction": 0.0032300958126314145,
+           "ku_time_fraction": 0.0003862136510747924,
+           "s_time_fraction": 0.0
+          },
+          "3": {
+           "energy_fraction": 0.00032271879495506314,
+           "ku_time_fraction": 3.9080906211574665e-05,
+           "s_time_fraction": 0.0
+          }
+         },
+         "mission_max_load": 0.1048,
+         "why_not": "part of the sector is out of Ku reach"
+        },
+        "KU7": {
+         "admissible": false,
+         "faces": {
+          "2": {
+           "energy_fraction": 0.0045133633211786595,
+           "ku_time_fraction": 0.0005474458923520411,
+           "s_time_fraction": 0.0
+          },
+          "3": {
+           "energy_fraction": 0.00045233837750674683,
+           "ku_time_fraction": 5.5373402858706064e-05,
+           "s_time_fraction": 0.0
+          }
+         },
+         "mission_max_load": 0.1061,
+         "why_not": "part of the sector is out of Ku reach"
+        },
+        "S2": {
+         "admissible": false,
+         "faces": {
+          "2": {
+           "energy_fraction": 0.18641138498853183,
+           "ku_time_fraction": 2.532211919512709e-06,
+           "s_time_fraction": 0.027129342341890822
+          },
+          "3": {
+           "energy_fraction": 0.040575190285041945,
+           "ku_time_fraction": 2.5535189945448074e-07,
+           "s_time_fraction": 0.005905622336407139
+          }
+         },
+         "mission_max_load": 0.288,
+         "why_not": "part of the sector is out of Ku reach"
+        }
+       },
+       "at": [],
+       "confirm_mode": null,
+       "confirm_p_min": 0.9995,
+       "confirmation": {},
+       "discrimination": null,
+       "false_alarms_per_rr": 10.0,
+       "false_alarms_per_rr_face": [
+        0.0,
+        0.0,
+        8.949080897870878,
+        1.0167960653178474
+       ],
+       "false_tracks_per_s": 4.982938481594364e-07,
+       "flags": [
+        "5.96 % of the Ku positions look at EARTH closer than the required range (down to 1369 km): nothing can come from behind its surface",
+        "clutter edge in the Ku sector (limb of EARTH): GO-CFAR advised there (choice per position at 4.3 / 5.2)",
+        "25.8 % of the positions are out of Ku reach (scan limit, range, jammer or clutter): no Ku confirmation or track there"
+       ],
+       "forced": false,
+       "id": "EARTH",
+       "ku_burn_through": null,
+       "ku_confirm_wf": {
+        "acceleration_hypotheses": 1,
+        "block_ms": 0.01,
+        "coherent_blocks": 8,
+        "n_pulses": 8,
+        "pri_ms": 5.0,
+        "pulses_per_block": 1,
+        "sig_bw_mhz": 200.0,
+        "tau_us": 10.0,
+        "velocity_hypotheses": 149
+       },
+       "ku_freq_candidates": 3,
+       "ku_freq_ghz": 14.0,
+       "ku_min_unsaturated_range_attenuated_km": 0.3233835318273817,
+       "ku_min_unsaturated_range_km": 1.8185192383254527,
+       "ku_sky": {
+        "above_budget_pct": 0.9999823054216187,
+        "adc_margin_db_min": 48.864555117697066,
+        "band": "Ku",
+        "blind_rise_db": 10.0,
+        "blinded_by": [],
+        "blinded_pct": 0.0,
+        "clutter_limited_pct": 0.0,
+        "galactic": "frame",
+        "limbs": [
+         "EARTH"
+        ],
+        "main_lobe_surface": true,
+        "masked_by_structure_pct": 0.0,
+        "rise_db": 2.187478572049493,
+        "structure_rise_k_max": 0.00033110257528899684,
+        "surfaces": {
+         "EARTH": {
+          "clutter_ratio_max_db": 58.60029044366462,
+          "doppler_rejected": false,
+          "in_main_lobe_pct": 43.88840992432604,
+          "min_distance_km": 1368.6149901649515,
+          "shadowed_pct": 5.958996373812824
+         }
+        },
+        "t_sys_budget_k": 381.916588969802,
+        "t_sys_cold_k": 230.7919548038089,
+        "worst_rise_db": 2.1882986782634326
+       },
+       "p_share": [
+        0.0,
+        0.0,
+        0.8987843248067576,
+        0.10121567519324237
+       ],
+       "reason": "no admissible confirmation mode",
+       "scheduler_rules": []
+      },
+      {
+       "alternatives": {
+        "KU1+7": {
+         "admissible": true,
+         "faces": {
+          "1": {
+           "energy_fraction": 0.006978851352768737,
+           "ku_time_fraction": 0.0007769519860502969,
+           "s_time_fraction": 0.0
+          }
+         },
+         "mission_max_load": 0.1016,
+         "why_not": ""
+        },
+        "KU7": {
+         "admissible": true,
+         "faces": {
+          "1": {
+           "energy_fraction": 0.008477105493086464,
+           "ku_time_fraction": 0.0009655066719032379,
+           "s_time_fraction": 0.0
+          }
+         },
+         "mission_max_load": 0.1016,
+         "why_not": ""
+        },
+        "S2": {
+         "admissible": true,
+         "faces": {
+          "1": {
+           "energy_fraction": 0.007007231115324067,
+           "ku_time_fraction": 2.4377622122172444e-06,
+           "s_time_fraction": 0.0010155908976737097
+          }
+         },
+         "mission_max_load": 0.1016,
+         "why_not": ""
+        }
+       },
+       "at": [
+        {
+         "accel_bank_mps2": 9.80665,
+         "angle_zone_deg": 0.2,
+         "attenuation_db": 0.0,
+         "avg_power_kW": 0.08523557173662025,
+         "cluster_update_share": 0.0,
+         "deception_verification": false,
+         "driver": "DOP",
+         "energy_per_update_J": 5.313449546487779,
+         "faces": {
+          "1": {
+           "energy_fraction": 4.778796589891359e-05,
+           "ku_time_fraction": 4.329906585527488e-06
+          }
+         },
+         "filtered_range_sigma_m": 8.578865495408639,
+         "filtered_vr_sigma_mps": 4.259071425889226,
+         "init_energy_J": 633.6846099008651,
+         "init_freqs": 9,
+         "init_looks": 11.047584087540034,
+         "init_loss_prob": 6.789289140202648e-15,
+         "init_mode": "hop",
+         "init_research_beams": 7,
+         "init_research_coverage": 0.9999999698154004,
+         "init_time_s": 15.140876116775999,
+         "init_tk": [
+          0.0,
+          4.053989066592299e-06,
+          0.0,
+          0.0
+         ],
+         "initiations_per_s": 0.10036106682100411,
+         "n_targets": 2.0,
+         "p_loss_per_update": 0.00036106682100409994,
+         "pointing_sigma_hpbw": 0.16402306048844636,
+         "predicted_angle_sigma_mrad": 0.8726646259971645,
+         "r_max_km": 1000.0,
+         "r_min_km": 5.0,
+         "range_acc_m": 10.0,
+         "rr_alert_s": null,
+         "rr_s": 2.0,
+         "rr_tenable": true,
+         "sigma_theta_deg": 0.07030931820981937,
+         "track_losses_per_s": 0.00036106682100409994,
+         "tracks_face": [
+          0.0,
+          2.0,
+          0.0,
+          0.0
+         ],
+         "unreachable_tracks": 0.0,
+         "velocity_bank_mps": 57.043981396466435,
+         "vr_acc_mps": 5.0,
+         "wf": "14 GHz COHE tau 100 us x N 1 @ PRI 0.5 ms B 200 MHz",
+         "wf_params": {
+          "acceleration_hypotheses": 1,
+          "block_ms": 0.1,
+          "coherent_blocks": 1,
+          "n_pulses": 1,
+          "pri_ms": 0.5,
+          "pulses_per_block": 1,
+          "sig_bw_mhz": 200.0,
+          "tau_us": 100.0,
+          "velocity_hypotheses": 1
+         }
+        }
+       ],
+       "confirm_mode": "KU1+7",
+       "confirm_p_min": 0.9995,
+       "confirmation": {
+        "admissible": true,
+        "attempts": 2,
+        "cluster_tx": "sequential x61",
+        "faces": {
+         "1": {
+          "energy_fraction": 0.006978851352768737,
+          "ku_time_fraction": 0.0007769519860502969,
+          "s_time_fraction": 0.0
+         }
+        },
+        "ku_looks_fa": 124.0,
+        "ku_looks_true": 35.68453591734452,
+        "margin_db": 4.072,
+        "round_trips": 2,
+        "success": 0.9995080321770626,
+        "success_first_attempt": 0.9855180751150583,
+        "targets_view": "peak",
+        "why_not": ""
+       },
+       "discrimination": null,
+       "false_alarms_per_rr": 10.2,
+       "false_alarms_per_rr_face": [
+        0.0,
+        10.165435008230645,
+        0.0,
+        0.0
+       ],
+       "false_tracks_per_s": 1.0165435008230646e-06,
+       "flags": [
+        "1.00 % of the Ku positions above the budget T_sys (231.4 K): sky noise up to +2.6 dB, range reduced there",
+        "clutter edge in the Ku sector (limb of MOON): GO-CFAR advised there (choice per position at 4.3 / 5.2)",
+        "AT 5-1000 km starts below the sector's shortest range of interest (300 km, range_min_km): Ku looks only need a blind range below that"
+       ],
+       "forced": false,
+       "id": "MOON",
+       "ku_burn_through": null,
+       "ku_confirm_wf": {
+        "acceleration_hypotheses": 1,
+        "block_ms": 0.005,
+        "coherent_blocks": 8,
+        "n_pulses": 8,
+        "pri_ms": 5.0,
+        "pulses_per_block": 1,
+        "sig_bw_mhz": 50.0,
+        "tau_us": 5.0,
+        "velocity_hypotheses": 38
+       },
+       "ku_freq_candidates": 3,
+       "ku_freq_ghz": 14.0,
+       "ku_min_unsaturated_range_attenuated_km": 0.5750662761942997,
+       "ku_min_unsaturated_range_km": 3.2338353182738184,
+       "ku_sky": {
+        "above_budget_pct": 0.9997943550796264,
+        "adc_margin_db_min": 99.26591691811892,
+        "band": "Ku",
+        "blind_rise_db": 10.0,
+        "blinded_by": [],
+        "blinded_pct": 0.0,
+        "clutter_limited_pct": 0.0,
+        "galactic": "frame",
+        "limbs": [
+         "MOON"
+        ],
+        "main_lobe_surface": true,
+        "masked_by_structure_pct": 0.0,
+        "rise_db": 0.012286194333218169,
+        "structure_rise_k_max": 2.3472537683397963e-05,
+        "surfaces": {
+         "EARTH": {
+          "clutter_ratio_max_db": -89.13878394867154,
+          "doppler_rejected": false,
+          "in_main_lobe_pct": 0.0,
+          "min_distance_km": null,
+          "shadowed_pct": 0.0
+         },
+         "MOON": {
+          "clutter_ratio_max_db": null,
+          "doppler_rejected": false,
+          "in_main_lobe_pct": 0.12258526551497595,
+          "min_distance_km": null,
+          "shadowed_pct": 0.0
+         }
+        },
+        "t_sys_budget_k": 231.44578984061772,
+        "t_sys_cold_k": 230.7919548038089,
+        "worst_rise_db": 2.591808990493093
+       },
+       "p_share": [
+        0.0,
+        1.0,
+        0.0,
+        0.0
+       ],
+       "reason": "lowest mission face load (binding resource: energy)",
+       "scheduler_rules": []
+      }
+     ],
+     "separability": {
+      "DEBRIS": {
+       "DECOY": 1.0
+      },
+      "GENERIC": {
+       "DEBRIS": 0.9959,
+       "DECOY": 0.9988,
+       "KKV": 0.9974,
+       "SHIP": 0.998
+      },
+      "KKV": {
+       "DEBRIS": 1.0,
+       "DECOY": 0.9999,
+       "SHIP": 1.0
+      },
+      "SHIP": {
+       "DEBRIS": 1.0,
+       "DECOY": 1.0
+      }
+     },
+     "ship_power": {
+      "budget_MW": 8.0,
+      "draw_MW": 0.7495194449762035,
+      "heat_MW": 0.5291876149869134,
+      "heat_load": 0.08819793583115224,
+      "heat_rejection_MW": 6.0,
+      "heat_status": "OK",
+      "load": 0.09368993062202544,
+      "status": "OK",
+      "suggested_allocation_MW": [
+       1.49,
+       1.463,
+       3.261,
+       1.785
+      ]
+     },
+     "targets_view": "peak"
+    }
+   },
+   "flags": [],
+   "latency": {
+    "EARTH": {
+     "latency_q95_s": 0.0,
+     "latency_required_s": 21.428571428571427
+    },
+    "MOON": {
+     "latency_q95_s": 0.040724162384828885,
+     "latency_required_s": 42.857142857142854
+    },
+    "SUN": {
+     "latency_q95_s": 0.02032170907599526,
+     "latency_required_s": 21.428571428571427
+    }
+   },
+   "shed": {},
+   "short": [],
+   "status": "ABSORBED",
+   "targets": {
+    "EARTH": {
+     "n_targets": 0.0,
+     "new_per_rr": 1.0
+    },
+    "MOON": {
+     "n_targets": 2.0,
+     "new_per_rr": 1.0
+    },
+    "SUN": {
+     "n_targets": 0.0,
+     "new_per_rr": 1.0
+    }
+   },
+   "warnings_at_peak": []
+  },
   "power_allocation": {
-   "drawn_MW": 0.5803647547357336,
+   "drawn_MW": 0.5785272706634208,
    "faces": {
     "0": {
-     "alloc_MW": 0.09740271800992839,
-     "always_on_MW": 0.07086392581971548,
+     "alloc_MW": 0.09727654222454758,
+     "always_on_MW": 0.07086297626436147,
      "cap_MW": 2.0,
      "capped": true,
-     "load": 0.048701359102366906,
-     "need_MW": 0.09740271820473381
+     "load": 0.04863827120955033,
+     "need_MW": 0.09727654241910066
     },
     "1": {
-     "alloc_MW": 0.09482695747811445,
-     "always_on_MW": 0.0709184167384933,
+     "alloc_MW": 0.0931156491911824,
+     "always_on_MW": 0.07090578364469698,
      "cap_MW": 2.0,
      "capped": true,
-     "load": 0.04741347883388417,
-     "need_MW": 0.09482695766776834
+     "load": 0.046557824688706846,
+     "need_MW": 0.09311564937741369
     },
     "2": {
      "alloc_MW": 0.26315173588406393,
@@ -1092,7 +2793,7 @@
      "sector": "SUN"
     }
    ],
-   "need_MW": 0.5803647558964631,
+   "need_MW": 0.5785272718204753,
    "partial": [],
    "rule": {
     "binding": [],
@@ -1103,26 +2804,26 @@
        "0": {
         "Ku time": 0.00016666666633333337,
         "S time": 3.333333326666667e-05,
-        "energy": 70863.92567798763,
-        "share": 0.24927784420396099
+        "energy": 70862.97612263552,
+        "share": 0.24928641477299213
        },
        "1": {
         "Ku time": 0.00016666666633333337,
         "S time": 3.333333326666667e-05,
-        "energy": 70918.41659665648,
-        "share": 0.24946952676465042
+        "energy": 70905.78350288542,
+        "share": 0.24943700537660796
        },
        "2": {
         "Ku time": 0.00016666666633333337,
         "S time": 3.333333326666667e-05,
         "energy": 71524.06532394058,
-        "share": 0.2516000156930835
+        "share": 0.2516120376279125
        },
        "3": {
         "Ku time": 0.00016666666633333337,
         "S time": 3.333333326666667e-05,
         "energy": 70970.46387502385,
-        "share": 0.2496526133383051
+        "share": 0.24966454222248738
        }
       },
       "kind": "other",
@@ -1205,16 +2906,16 @@
      {
       "faces": {
        "0": {
-        "Ku time": 8.692755041042e-05,
+        "Ku time": 7.887288058552487e-05,
         "S time": 0.0,
-        "energy": 1538.7809883340321,
-        "share": 0.5
+        "energy": 1413.554758305342,
+        "share": 0.49999999999999994
        },
        "1": {
-        "Ku time": 8.692755041042003e-05,
+        "Ku time": 7.887288058552487e-05,
         "S time": 0.0,
-        "energy": 1538.7809883340321,
-        "share": 0.5
+        "energy": 1413.5547583053424,
+        "share": 0.5000000000000001
        }
       },
       "kind": "other",
@@ -1228,9 +2929,9 @@
      {
       "faces": {
        "1": {
-        "Ku time": 0.000776951984496393,
+        "Ku time": 0.00068061288727781,
         "S time": 0.0,
-        "energy": 13168.599656101707,
+        "energy": 11685.323209833892,
         "share": 1.0
        }
       },
@@ -1241,36 +2942,17 @@
       "sector": "MOON",
       "tier": "P2 confirmation / initiation",
       "unserved_share": 0.0
-     },
-     {
-      "faces": {
-       "1": {
-        "Ku time": 4.329906576867675e-06,
-        "S time": 0.0,
-        "energy": 90.17251686447936,
-        "share": 1.0
-       }
-      },
-      "kind": "track",
-      "label": "tracks MOON/0",
-      "level": 1.0,
-      "moved_share": 0.0,
-      "period_tenable_s": 2.0,
-      "sector": "MOON",
-      "tier": "P3 tracks other",
-      "tracks_tenable": 2.0,
-      "unserved_share": 0.0
      }
     ],
     "faces": {
      "0": {
-      "Ku time": 0.00025359421674375337,
-      "Ku time load": 0.00025359421674375337,
+      "Ku time": 0.0002455395469188582,
+      "Ku time load": 0.0002455395469188582,
       "S time": 0.001961758703646109,
       "S time load": 0.001961758703646109,
-      "energy": 97402.71800992839,
+      "energy": 97276.54222454758,
       "energy cap": 2000000.0,
-      "energy load": 0.048701359004964195,
+      "energy load": 0.04863827111227379,
       "moved": {
        "Ku time": 0.0,
        "S time": 0.0,
@@ -1278,13 +2960,13 @@
       }
      },
      "1": {
-      "Ku time": 0.001034876107817014,
-      "Ku time load": 0.001034876107817014,
+      "Ku time": 0.0009261524341966682,
+      "Ku time load": 0.0009261524341966682,
       "S time": 0.0007358874932342835,
       "S time load": 0.0007358874932342835,
-      "energy": 94826.95747811445,
+      "energy": 93115.6491911824,
       "energy cap": 2000000.0,
-      "energy load": 0.04741347873905723,
+      "energy load": 0.0465578245955912,
       "moved": {
        "Ku time": 0.0,
        "S time": 0.0,
@@ -1323,8 +3005,8 @@
     "flags": [],
     "ship": {
      "cap": 8000000.0,
-     "energy": 580364.7547357336,
-     "energy load": 0.0725455943419667
+     "energy": 578527.2706634208,
+     "energy load": 0.0723159088329276
     },
     "status": "OK"
    },
@@ -1333,21 +3015,15 @@
    "tiers": [
     {
      "fraction": 1.0,
-     "need_MW": 0.2842768720421623,
-     "served_MW": 0.2842768720421623,
+     "need_MW": 0.28426328939301193,
+     "served_MW": 0.28426328939301193,
      "tier": "always-on"
     },
     {
      "fraction": 1.0,
-     "need_MW": 0.016246161665262094,
-     "served_MW": 0.016246161665262094,
+     "need_MW": 0.014512432755469441,
+     "served_MW": 0.014512432755469441,
      "tier": "P2 confirmation / initiation"
-    },
-    {
-     "fraction": 1.0,
-     "need_MW": 9.017251704482438e-05,
-     "served_MW": 9.017251704482438e-05,
-     "tier": "P3 tracks other"
     },
     {
      "fraction": 1.0,
@@ -1475,7 +3151,7 @@
   },
   "scheduler": {
    "eclipse_db": {
-    "Ku": 0.004496737024162265,
+    "Ku": 0.004024092673164232,
     "S": 0.06481284492954499
    },
    "faces": {
@@ -1483,19 +3159,19 @@
      "Ku": {
       "capacity": 0.9851870975888644,
       "feasible": true,
-      "load": 0.0002535942172509418,
+      "load": 0.0002455395474099373,
       "load_by_priority": {
        "P0": 0.0001666666666666667,
-       "P2": 8.69275505842751e-05
+       "P2": 7.887288074327062e-05
       },
       "mean_wait_s": {
-       "calibration Ku": 4.180735781259107e-06,
-       "confirmation SUN": 4.181796260608519e-06
+       "calibration Ku": 4.1794409028462694e-06,
+       "confirmation SUN": 4.180467372912977e-06
       },
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 17.33796662459764,
+       "end_s": 19.020980073852936,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration Ku": 0.0,
@@ -1539,30 +3215,25 @@
      "Ku": {
       "capacity": 0.9851870975888644,
       "feasible": true,
-      "load": 0.0010348761098867662,
+      "load": 0.0009261524360489729,
       "load_by_priority": {
        "P0": 0.0001666666666666667,
-       "P2": 0.0008679335257011642,
-       "P3": 2.7591751893518917e-07
+       "P2": 0.0007594857693823063
       },
       "mean_wait_s": {
-       "calibration Ku": 4.451185598632753e-06,
-       "confirmation MOON": 4.455795565582056e-06,
-       "confirmation SUN": 4.455795565582056e-06,
-       "initiation MOON/0": 4.455795565582056e-06,
-       "track updates MOON/0": 4.459668137000798e-06
+       "calibration Ku": 4.4073264396319035e-06,
+       "confirmation MOON": 4.411412079675911e-06,
+       "confirmation SUN": 4.411412079675911e-06
       },
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 19.586629640065123,
+       "end_s": 17.26471735061301,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration Ku": 0.0,
         "confirmation MOON": 0.0,
-        "confirmation SUN": 0.0,
-        "initiation MOON/0": 0.0,
-        "track updates MOON/0": 0.0001930327547299271
+        "confirmation SUN": 0.0
        },
        "pause_time_s": 0.0,
        "recharge_pauses": 0,
@@ -1640,7 +3311,7 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 19.950671719431316,
+       "end_s": 19.98325104206944,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
@@ -1693,7 +3364,7 @@
       "stretch": {},
       "timeline": {
        "calibration_delay_s": 0.0,
-       "end_s": 19.55830164568505,
+       "end_s": 18.650145015085858,
        "late_update_frac": 0.0,
        "max_delay_s": {
         "calibration S": 0.0,
@@ -1720,7 +3391,7 @@
      "go_cfar_advised": false,
      "id": "SUN",
      "latency_ok": true,
-     "latency_q95_s": 0.02032170907599526,
+     "latency_q95_s": 0.020320299500121795,
      "latency_required_s": 21.428571428571427,
      "priority": "P4_1",
      "scan": {
@@ -1790,7 +3461,7 @@
      "go_cfar_advised": true,
      "id": "MOON",
      "latency_ok": true,
-     "latency_q95_s": 0.040724162384828885,
+     "latency_q95_s": 0.040697844146064886,
      "latency_required_s": 42.857142857142854,
      "priority": "P4_1",
      "scan": {
@@ -1810,7 +3481,7 @@
     }
    ],
    "slots": {
-    "Ku": 0.0010348761098867662,
+    "Ku": 0.0009261524360489729,
     "S": 0.014812902411135663
    }
   },
@@ -3666,49 +5337,49 @@
    "confirm_p_min": 0.9995,
    "faces": {
     "0": {
-     "alloc_MW": 0.09740271800992839,
+     "alloc_MW": 0.09727654222454758,
      "at_energy": 0.0,
      "at_ku_time": 0.0,
      "binding": "energy",
      "burn_through_energy": 0.0,
      "burn_through_ku_time": 0.0,
-     "bus_draw_MW": 0.13962680396652166,
+     "bus_draw_MW": 0.13950063898321405,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 2.0,
-     "confirm_energy": 0.0008154947422274976,
-     "confirm_ku_time": 8.69275505842751e-05,
+     "confirm_energy": 0.0007491296565190174,
+     "confirm_ku_time": 7.887288074327062e-05,
      "confirm_s_time": 0.0,
-     "coolant_flow_L_s": 5.608995278918077,
+     "coolant_flow_L_s": 5.606732520352714,
      "cooling_capacity_kW": 15899.520000000002,
-     "dissipation_kW": 5.195985861138781,
-     "dissipation_kW_m2": 0.39078140407469547,
-     "face_heat_kW": 112.17990557836154,
+     "dissipation_kW": 5.1516180461316505,
+     "dissipation_kW_m2": 0.3874445749324366,
+     "face_heat_kW": 112.13465040705428,
      "heat_burst_deficit_MJ": 0.0,
      "heat_burst_ok": true,
-     "heat_flux_W_cm2": 0.8466663565568888,
-     "heat_load": 0.0070555529713074066,
-     "load": 0.048701359102366906,
-     "max_contiguous_tx_s": 0.32385781228370913,
+     "heat_flux_W_cm2": 0.8463247977829842,
+     "heat_load": 0.007052706648191535,
+     "load": 0.04863827120955033,
+     "max_contiguous_tx_s": 0.3238578355510543,
      "max_contiguous_tx_thermal_s": Infinity,
      "non_tx_kW": 106.88,
-     "p_left_kW": 1902.597281795266,
+     "p_left_kW": 1902.7234575808993,
      "peak_MW": {
       "Ku": 14.134615384615383,
       "S": 12.25
      },
      "peak_ok": true,
-     "pumps_kW": 0.10391971722277561,
+     "pumps_kW": 0.10303236092263302,
      "search_energy": 0.0132,
      "search_s_time": 0.0019,
      "status": "OK",
-     "store_burst_deficit_MJ": 0.4219579255850265,
+     "store_burst_deficit_MJ": 0.4198777976965238,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 0.00730698935574218,
+     "store_obs_deficit_MJ": 0.00730698864585714,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
-     "total_energy": 0.048701359102366906,
-     "total_ku_time": 0.0002535942172509418,
+     "total_energy": 0.04863827120955033,
+     "total_ku_time": 0.0002455395474099373,
      "total_s_time": 0.0019333333333333333,
      "transient_MW_per_us": {
       "Ku": 141.34615384615387,
@@ -3716,49 +5387,49 @@
      }
     },
     "1": {
-     "alloc_MW": 0.09482695747811445,
-     "at_energy": 4.778796589891359e-05,
-     "at_ku_time": 4.329906585527488e-06,
+     "alloc_MW": 0.0931156491911824,
+     "at_energy": 0.0,
+     "at_ku_time": 0.0,
      "binding": "energy",
      "burn_through_energy": 0.0,
      "burn_through_ku_time": 0.0,
-     "bus_draw_MW": 0.13708880287162312,
+     "bus_draw_MW": 0.135377634702466,
      "calibration_ku_time": 0.0001666666666666667,
      "calibration_s_time": 3.3333333333333335e-05,
      "cap_MW": 2.0,
-     "confirm_energy": 0.007794346094996235,
-     "confirm_ku_time": 0.000863879536634572,
+     "confirm_energy": 0.006941901539648041,
+     "confirm_ku_time": 0.0007594857693823063,
      "confirm_s_time": 0.0,
-     "coolant_flow_L_s": 5.737790789805231,
+     "coolant_flow_L_s": 5.707677884815301,
      "cooling_capacity_kW": 15899.520000000002,
-     "dissipation_kW": 7.721388035396709,
-     "dissipation_kW_m2": 0.5807126767694044,
-     "face_heat_kW": 114.75581579610464,
+     "dissipation_kW": 7.130938917947097,
+     "dissipation_kW_m2": 0.5363059864284391,
+     "face_heat_kW": 114.15355769630604,
      "heat_burst_deficit_MJ": 0.0,
      "heat_burst_ok": true,
-     "heat_flux_W_cm2": 0.8661077752996668,
-     "heat_load": 0.007217564794163888,
-     "load": 0.04741347883388417,
-     "max_contiguous_tx_s": 0.3238564879191994,
+     "heat_flux_W_cm2": 0.8615622939281642,
+     "heat_load": 0.007179685782734701,
+     "load": 0.046557824688706846,
+     "max_contiguous_tx_s": 0.3238567975599425,
      "max_contiguous_tx_thermal_s": Infinity,
      "non_tx_kW": 106.88,
-     "p_left_kW": 1905.1730423322317,
+     "p_left_kW": 1906.8843506225862,
      "peak_MW": {
       "Ku": 14.134615384615383,
       "S": 12.25
      },
      "peak_ok": true,
-     "pumps_kW": 0.15442776070793418,
+     "pumps_kW": 0.14261877835894193,
      "search_energy": 0.0048,
      "search_s_time": 0.0007,
      "status": "OK",
-     "store_burst_deficit_MJ": 0.3879044497440469,
+     "store_burst_deficit_MJ": 0.35966870179988997,
      "store_burst_ok": true,
-     "store_obs_deficit_MJ": 0.007307029762176968,
+     "store_obs_deficit_MJ": 0.00730702031499109,
      "store_obs_ok": true,
      "store_usable_MJ": 4.0,
-     "total_energy": 0.04741347883388417,
-     "total_ku_time": 0.0010348761098867662,
+     "total_energy": 0.046557824688706846,
+     "total_ku_time": 0.0009261524360489729,
      "total_s_time": 0.0007333333333333333,
      "transient_MW_per_us": {
       "Ku": 141.34615384615387,
@@ -3886,13 +5557,13 @@
        "admissible": true,
        "faces": {
         "0": {
-         "energy_fraction": 0.0008154947422274976,
-         "ku_time_fraction": 8.69275505842751e-05,
+         "energy_fraction": 0.0007491296565190174,
+         "ku_time_fraction": 7.887288074327062e-05,
          "s_time_fraction": 0.0
         },
         "1": {
-         "energy_fraction": 0.0008154947422274976,
-         "ku_time_fraction": 8.692755058427513e-05,
+         "energy_fraction": 0.0007491296565190176,
+         "ku_time_fraction": 7.887288074327062e-05,
          "s_time_fraction": 0.0
         }
        },
@@ -3903,13 +5574,13 @@
        "admissible": true,
        "faces": {
         "0": {
-         "energy_fraction": 0.0011216868686732548,
-         "ku_time_fraction": 0.0001255406859612839,
+         "energy_fraction": 0.000917925969316479,
+         "ku_time_fraction": 0.00010058502557624208,
          "s_time_fraction": 0.0
         },
         "1": {
-         "energy_fraction": 0.0011216868686732548,
-         "ku_time_fraction": 0.00012554068596128392,
+         "energy_fraction": 0.0009179259693164792,
+         "ku_time_fraction": 0.00010058502557624209,
          "s_time_fraction": 0.0
         }
        },
@@ -3930,6 +5601,18 @@
       "cluster_tx": "sequential x37",
       "faces": {
        "0": {
+        "energy_fraction": 0.0007491296565190174,
+        "ku_time_fraction": 7.887288074327062e-05,
+        "s_time_fraction": 0.0
+       },
+       "1": {
+        "energy_fraction": 0.0007491296565190176,
+        "ku_time_fraction": 7.887288074327062e-05,
+        "s_time_fraction": 0.0
+       }
+      },
+      "faces_peak": {
+       "0": {
         "energy_fraction": 0.0008154947422274976,
         "ku_time_fraction": 8.69275505842751e-05,
         "s_time_fraction": 0.0
@@ -3946,6 +5629,7 @@
       "round_trips": 2,
       "success": 0.9995037121307114,
       "success_first_attempt": 0.9848623622674781,
+      "targets_view": "nominal",
       "why_not": ""
      },
      "discrimination": null,
@@ -4028,51 +5712,51 @@
        "admissible": false,
        "faces": {
         "2": {
-         "energy_fraction": 0.0032300958126314145,
-         "ku_time_fraction": 0.0003862136510747924,
+         "energy_fraction": 0.002923727981022971,
+         "ku_time_fraction": 0.00034819374212222257,
          "s_time_fraction": 0.0
         },
         "3": {
-         "energy_fraction": 0.00032271879495506314,
-         "ku_time_fraction": 3.9080906211574665e-05,
+         "energy_fraction": 0.0002919067755654179,
+         "ku_time_fraction": 3.524692379749876e-05,
          "s_time_fraction": 0.0
         }
        },
-       "mission_max_load": 0.1048,
+       "mission_max_load": 0.1045,
        "why_not": "part of the sector is out of Ku reach"
       },
       "KU7": {
        "admissible": false,
        "faces": {
         "2": {
-         "energy_fraction": 0.0045133633211786595,
-         "ku_time_fraction": 0.0005474458923520411,
+         "energy_fraction": 0.00360849034702435,
+         "ku_time_fraction": 0.0004351485357521409,
          "s_time_fraction": 0.0
         },
         "3": {
-         "energy_fraction": 0.00045233837750674683,
-         "ku_time_fraction": 5.5373402858706064e-05,
+         "energy_fraction": 0.00036133057595523477,
+         "ku_time_fraction": 4.4049175573250476e-05,
          "s_time_fraction": 0.0
         }
        },
-       "mission_max_load": 0.1061,
+       "mission_max_load": 0.1052,
        "why_not": "part of the sector is out of Ku reach"
       },
       "S2": {
        "admissible": false,
        "faces": {
         "2": {
-         "energy_fraction": 0.18641138498853183,
-         "ku_time_fraction": 2.532211919512709e-06,
-         "s_time_fraction": 0.027129342341890822
+         "energy_fraction": 0.12478062909403995,
+         "ku_time_fraction": 0.0,
+         "s_time_fraction": 0.01816192022865281
         },
         "3": {
-         "energy_fraction": 0.040575190285041945,
-         "ku_time_fraction": 2.5535189945448074e-07,
-         "s_time_fraction": 0.005905622336407139
+         "energy_fraction": 0.02720331936331824,
+         "ku_time_fraction": 0.0,
+         "s_time_fraction": 0.003959580273104509
         }
        },
-       "mission_max_load": 0.288,
+       "mission_max_load": 0.2264,
        "why_not": "part of the sector is out of Ku reach"
       }
      },
@@ -4156,8 +5840,8 @@
        "admissible": true,
        "faces": {
         "1": {
-         "energy_fraction": 0.006978851352768737,
-         "ku_time_fraction": 0.0007769519860502969,
+         "energy_fraction": 0.006192771883129024,
+         "ku_time_fraction": 0.0006806128886390357,
          "s_time_fraction": 0.0
         }
        },
@@ -4168,8 +5852,8 @@
        "admissible": true,
        "faces": {
         "1": {
-         "energy_fraction": 0.008477105493086464,
-         "ku_time_fraction": 0.0009655066719032379,
+         "energy_fraction": 0.006900497308639996,
+         "ku_time_fraction": 0.0007715458720082353,
          "s_time_fraction": 0.0
         }
        },
@@ -4180,9 +5864,9 @@
        "admissible": true,
        "faces": {
         "1": {
-         "energy_fraction": 0.007007231115324067,
-         "ku_time_fraction": 2.4377622122172444e-06,
-         "s_time_fraction": 0.0010155908976737097
+         "energy_fraction": 0.004683323333577752,
+         "ku_time_fraction": 0.0,
+         "s_time_fraction": 0.0006807535200704546
         }
        },
        "mission_max_load": 0.1016,
@@ -4201,8 +5885,8 @@
        "energy_per_update_J": 5.313449546487779,
        "faces": {
         "1": {
-         "energy_fraction": 4.778796589891359e-05,
-         "ku_time_fraction": 4.329906585527488e-06
+         "energy_fraction": 0.0,
+         "ku_time_fraction": 0.0
         }
        },
        "filtered_range_sigma_m": 8.578865495408639,
@@ -4217,13 +5901,28 @@
        "init_time_s": 15.140876116775999,
        "init_tk": [
         0.0,
-        4.053989066592299e-06,
+        0.0,
         0.0,
         0.0
        ],
-       "initiations_per_s": 0.10036106682100411,
+       "initiations_per_s": 0.0,
        "n_targets": 2.0,
        "p_loss_per_update": 0.00036106682100409994,
+       "peak": {
+        "faces": {
+         "1": {
+          "energy_fraction": 4.778796589891359e-05,
+          "ku_time_fraction": 4.329906585527488e-06
+         }
+        },
+        "initiations_per_s": 0.10036106682100411,
+        "tracks_face": [
+         0.0,
+         2.0,
+         0.0,
+         0.0
+        ]
+       },
        "pointing_sigma_hpbw": 0.16402306048844636,
        "predicted_angle_sigma_mrad": 0.8726646259971645,
        "r_max_km": 1000.0,
@@ -4233,10 +5932,10 @@
        "rr_s": 2.0,
        "rr_tenable": true,
        "sigma_theta_deg": 0.07030931820981937,
-       "track_losses_per_s": 0.00036106682100409994,
+       "track_losses_per_s": 0.0,
        "tracks_face": [
         0.0,
-        2.0,
+        0.0,
         0.0,
         0.0
        ],
@@ -4265,6 +5964,13 @@
       "cluster_tx": "sequential x61",
       "faces": {
        "1": {
+        "energy_fraction": 0.006192771883129024,
+        "ku_time_fraction": 0.0006806128886390357,
+        "s_time_fraction": 0.0
+       }
+      },
+      "faces_peak": {
+       "1": {
         "energy_fraction": 0.006978851352768737,
         "ku_time_fraction": 0.0007769519860502969,
         "s_time_fraction": 0.0
@@ -4276,6 +5982,7 @@
       "round_trips": 2,
       "success": 0.9995080321770626,
       "success_first_attempt": 0.9855180751150583,
+      "targets_view": "nominal",
       "why_not": ""
      },
      "discrimination": null,
@@ -4378,20 +6085,21 @@
    },
    "ship_power": {
     "budget_MW": 8.0,
-    "draw_MW": 0.7495194449762035,
-    "heat_MW": 0.5291876149869134,
-    "heat_load": 0.08819793583115224,
+    "draw_MW": 0.7476821118237388,
+    "heat_MW": 0.52843950772571,
+    "heat_load": 0.08807325128761834,
     "heat_rejection_MW": 6.0,
     "heat_status": "OK",
-    "load": 0.09368993062202544,
+    "load": 0.09346026397796735,
     "status": "OK",
     "suggested_allocation_MW": [
-     1.49,
-     1.463,
-     3.261,
-     1.785
+     1.493,
+     1.449,
+     3.269,
+     1.79
     ]
-   }
+   },
+   "targets_view": "nominal"
   },
   "verdict": {
    "advice": [
@@ -4627,7 +6335,7 @@
      "id": "SUN.confirmation latency",
      "kind": "spec",
      "limit": 21.428571428571427,
-     "load": 0.0009483464235464455,
+     "load": 0.0009482806433390172,
      "note": "95 % quantile",
      "object": "SUN",
      "priority": "P2",
@@ -4635,7 +6343,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.02032170907599526
+     "value": 0.020320299500121795
     },
     {
      "family": "confirmation",
@@ -4702,7 +6410,7 @@
      "id": "MOON.confirmation latency",
      "kind": "spec",
      "limit": 42.857142857142854,
-     "load": 0.0009502304556460074,
+     "load": 0.0009496163634081807,
      "note": "95 % quantile",
      "object": "MOON",
      "priority": "P2",
@@ -4710,7 +6418,7 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.040724162384828885
+     "value": 0.040697844146064886
     },
     {
      "family": "track",
@@ -4762,7 +6470,7 @@
      "id": "F1.energy",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.048701359102366906,
+     "load": 0.04863827120955033,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -4770,7 +6478,7 @@
      "state": "OK",
      "step": "5.2",
      "unit": "",
-     "value": 0.048701359102366906
+     "value": 0.04863827120955033
     },
     {
      "family": "face",
@@ -4792,7 +6500,7 @@
      "id": "F1.Ku time",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.00025740716445798507,
+     "load": 0.00024923138763273286,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -4800,14 +6508,14 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.00025740716445798507
+     "value": 0.00024923138763273286
     },
     {
      "family": "face",
      "id": "F1.heat",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.0070555529713074066,
+     "load": 0.007052706648191535,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -4815,14 +6523,14 @@
      "state": "OK",
      "step": "4.2",
      "unit": "",
-     "value": 0.0070555529713074066
+     "value": 0.007052706648191535
     },
     {
      "family": "face",
      "id": "F1.compute",
      "kind": "resource",
      "limit": 1.0,
-     "load": 3.358317430983477e-06,
+     "load": 3.110938082084499e-06,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -4830,7 +6538,7 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 3.358317430983477e-06
+     "value": 3.110938082084499e-06
     },
     {
      "family": "face",
@@ -4852,7 +6560,7 @@
      "id": "F1.memory bandwidth",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.003604469208846344,
+     "load": 0.0035885209625611553,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -4860,7 +6568,7 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.003604469208846344
+     "value": 0.0035885209625611553
     },
     {
      "family": "face",
@@ -4957,7 +6665,7 @@
      "id": "F1.processing power",
      "kind": "resource",
      "limit": 50.0,
-     "load": 0.20000412327726572,
+     "load": 0.2000039190593005,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -4965,14 +6673,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "kW",
-     "value": 10.000206163863286
+     "value": 10.000195952965026
     },
     {
      "family": "face",
      "id": "F1.storage (observation)",
      "kind": "resource",
      "limit": 4.0,
-     "load": 0.001826747338935545,
+     "load": 0.001826747161464285,
      "note": "",
      "object": "F1",
      "priority": null,
@@ -4980,7 +6688,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.00730698935574218
+     "value": 0.00730698864585714
     },
     {
      "family": "face",
@@ -4995,7 +6703,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.4219579255850265
+     "value": 0.4198777976965238
     },
     {
      "family": "face",
@@ -5035,7 +6743,7 @@
      "id": "F2.energy",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.04741347883388417,
+     "load": 0.046557824688706846,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -5043,7 +6751,7 @@
      "state": "OK",
      "step": "5.2",
      "unit": "",
-     "value": 0.04741347883388417
+     "value": 0.046557824688706846
     },
     {
      "family": "face",
@@ -5065,7 +6773,7 @@
      "id": "F2.Ku time",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.0010504361175856954,
+     "load": 0.0009400777155076714,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -5073,14 +6781,14 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.0010504361175856954
+     "value": 0.0009400777155076714
     },
     {
      "family": "face",
      "id": "F2.heat",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.007217564794163888,
+     "load": 0.007179685782734701,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -5088,14 +6796,14 @@
      "state": "OK",
      "step": "4.2",
      "unit": "",
-     "value": 0.007217564794163888
+     "value": 0.007179685782734701
     },
     {
      "family": "face",
      "id": "F2.compute",
      "kind": "resource",
      "limit": 1.0,
-     "load": 2.752901004484976e-05,
+     "load": 2.4320150879609334e-05,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -5103,7 +6811,7 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 2.752901004484976e-05
+     "value": 2.4320150879609334e-05
     },
     {
      "family": "face",
@@ -5125,7 +6833,7 @@
      "id": "F2.memory bandwidth",
      "kind": "resource",
      "limit": 1.0,
-     "load": 0.005258598558185984,
+     "load": 0.005051727434725711,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -5133,7 +6841,7 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.005258598558185984
+     "value": 0.005051727434725711
     },
     {
      "family": "face",
@@ -5200,7 +6908,7 @@
      "id": "F2.Ku TRSA link",
      "kind": "resource",
      "limit": 4.0,
-     "load": 0.004,
+     "load": 0.001,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -5208,14 +6916,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 0.016
+     "value": 0.004
     },
     {
      "family": "face",
      "id": "F2.Ku processor input",
      "kind": "resource",
      "limit": 400.0,
-     "load": 0.00784,
+     "load": 0.00196,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -5223,14 +6931,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 3.136
+     "value": 0.784
     },
     {
      "family": "face",
      "id": "F2.processing power",
      "kind": "resource",
      "limit": 50.0,
-     "load": 0.2000241132270574,
+     "load": 0.20002146423581763,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -5238,14 +6946,14 @@
      "state": "OK",
      "step": "4.4",
      "unit": "kW",
-     "value": 10.00120566135287
+     "value": 10.001073211790882
     },
     {
      "family": "face",
      "id": "F2.storage (observation)",
      "kind": "resource",
      "limit": 4.0,
-     "load": 0.001826757440544242,
+     "load": 0.0018267550787477724,
      "note": "",
      "object": "F2",
      "priority": null,
@@ -5253,7 +6961,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.007307029762176968
+     "value": 0.00730702031499109
     },
     {
      "family": "face",
@@ -5268,7 +6976,7 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.3879044497440469
+     "value": 0.35966870179988997
     },
     {
      "family": "face",
@@ -5854,7 +7562,7 @@
      "id": "ship.energy",
      "kind": "resource",
      "limit": 8.0,
-     "load": 0.07254559448705789,
+     "load": 0.0723159089775594,
      "note": "",
      "object": "ship",
      "priority": null,
@@ -5862,14 +7570,14 @@
      "state": "OK",
      "step": "5.2",
      "unit": "MW",
-     "value": 0.5803647558964631
+     "value": 0.5785272718204753
     },
     {
      "family": "ship",
      "id": "ship.heat rejection",
      "kind": "resource",
      "limit": 6.0,
-     "load": 0.08819793583115224,
+     "load": 0.08807325128761834,
      "note": "",
      "object": "ship",
      "priority": null,
@@ -5877,7 +7585,7 @@
      "state": "OK",
      "step": "4.2",
      "unit": "MW",
-     "value": 0.5291876149869134
+     "value": 0.52843950772571
     },
     {
      "family": "flight",
@@ -5908,22 +7616,67 @@
      "step": "4.5",
      "unit": "HPBW",
      "value": 0.005885028372556691
+    },
+    {
+     "family": "peak",
+     "id": "SUN.confirmation latency at the peak",
+     "kind": "spec",
+     "limit": 21.428571428571427,
+     "load": 0.0009483464235464455,
+     "note": "95 % quantile, every true detection of the peak confirmed",
+     "object": "SUN",
+     "priority": "P2",
+     "quantity": "confirmation latency at the peak",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "s",
+     "value": 0.02032170907599526
+    },
+    {
+     "family": "peak",
+     "id": "EARTH.confirmation latency at the peak",
+     "kind": "spec",
+     "limit": 21.428571428571427,
+     "load": 0.0,
+     "note": "95 % quantile, every true detection of the peak confirmed",
+     "object": "EARTH",
+     "priority": "P2",
+     "quantity": "confirmation latency at the peak",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "s",
+     "value": 0.0
+    },
+    {
+     "family": "peak",
+     "id": "MOON.confirmation latency at the peak",
+     "kind": "spec",
+     "limit": 42.857142857142854,
+     "load": 0.0009502304556460074,
+     "note": "95 % quantile, every true detection of the peak confirmed",
+     "object": "MOON",
+     "priority": "P2",
+     "quantity": "confirmation latency at the peak",
+     "state": "OK",
+     "step": "4.3",
+     "unit": "s",
+     "value": 0.040724162384828885
     }
    ],
    "counts": {
     "ALERT": 1,
     "DEGRADED": 0,
     "NOK": 1,
-    "OK": 94
+    "OK": 97
    },
    "faces": {
     "0": {
-     "load": 0.20000412327726572,
+     "load": 0.2000039190593005,
      "resource": "processing power",
      "state": "OK"
     },
     "1": {
-     "load": 0.2000241132270574,
+     "load": 0.20002146423581763,
      "resource": "processing power",
      "state": "OK"
     },
@@ -5955,7 +7708,7 @@
      "energy_own_MW": 0.014885760964843993,
      "energy_own_reach_MW": 0.007950077310241853,
      "face": "F1",
-     "margin_energy_MW": 1.5051730423322318,
+     "margin_energy_MW": 1.5068843506225864,
      "margin_s_time": 0.7992641125052939,
      "neighbour": "F2",
      "relief_energy": 0.0039750386551209264,
@@ -5973,7 +7726,7 @@
      "energy_own_MW": 0.014885760964843993,
      "energy_own_reach_MW": 0.007950077310241856,
      "face": "F2",
-     "margin_energy_MW": 1.5025972817952662,
+     "margin_energy_MW": 1.5027234575808994,
      "margin_s_time": 0.7980382412924304,
      "neighbour": "F1",
      "relief_energy": 0.003975038655120928,
@@ -6060,7 +7813,7 @@
     "state_at_spec": "nominal"
    },
    "ship": {
-    "load": 0.07254559448705789,
+    "load": 0.0723159089775594,
     "object": "ship",
     "resource": "energy"
    },
@@ -6079,11 +7832,11 @@
    "sector MOON: 1.00 % of the Ku positions above the budget T_sys (231.4 K): sky noise up to +2.6 dB, range reduced there",
    "sector MOON: clutter edge in the Ku sector (limb of MOON): GO-CFAR advised there (choice per position at 4.3 / 5.2)",
    "sector MOON: AT 5-1000 km starts below the sector's shortest range of interest (300 km, range_min_km): Ku looks only need a blind range below that",
-   "saturation critique: cumulative cut back by bisection (F2 energy above 80 % at the linear estimate)",
    "at the real revisits: S: common transmit slots take 11.8 % of the time: echoes eclipsed, 0.54 dB (step 4.3; not in the plan yet, step 5.2)",
    "at the real revisits: sector EARTH: no admissible confirmation mode at any Ku frequency (part of the sector is out of Ku reach; part of the sector is out of Ku reach; part of the sector is out of Ku reach; confirmation probability < 0.9995 even with 15 dB margin)",
    "at the real revisits: sector MOON: no admissible confirmation mode at any Ku frequency (confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin; confirmation probability < 0.9995 even with 15 dB margin)",
-   "at the real revisits: sector SUN: 1.00 % of the Ku positions above the budget T_sys (235.0 K): sky noise up to +10.0 dB, range reduced there"
+   "at the real revisits: sector SUN: 1.00 % of the Ku positions above the budget T_sys (235.0 K): sky noise up to +10.0 dB, range reduced there",
+   "saturation critique: cumulative cut back by bisection (F2 energy above 80 % at the linear estimate)"
   ]
  },
  "validation": []
