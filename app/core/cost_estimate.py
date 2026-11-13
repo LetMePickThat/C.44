@@ -253,8 +253,8 @@ def _estimate_at_faces(sec: dict, grid: geo.SphereGrid, face_sel: Dict[int, Tupl
                 unreachable += n_tr_k
                 continue
             pack = rm.TrackingPack(b["angle_zone_deg"] / trk.ANGLE_ZONE_SIGMAS, b["vr_acc_mps"], b.get("range_acc_m"))
-            # the fast estimate keeps the former track look (acceleration known, no pointing law): the exact track
-            # model of step 3.3 runs in the full calculation only (recalibration renvoi 5.5)
+            # the former track look (acceleration known, no pointing law, no initiation nor loss): only while the
+            # volume's instant profile, which prices the brackets by the step 3.3 model, is not ready (5.5, Q3)
             look = trk.ku_look(theta_k, dataclasses.replace(tgt, accel_max_mps2=0.0), b["r_max_km"], p_avg_max_w, pack,
                                sec.get("rx_sll_db"))
             if look is None:
@@ -462,12 +462,14 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
                        f_ghz: float = geo.VIZ_FREQ_GHZ, calib: Optional[dict] = None,
                        profiles: Optional[str] = None, estimating: Optional[List[str]] = None,
                        reach_out: Optional[dict] = None, instant_out: Optional[List[str]] = None,
-                       other_out: Optional[dict] = None, blind_out: Optional[dict] = None):
+                       other_out: Optional[dict] = None, blind_out: Optional[dict] = None,
+                       tracks_out: Optional[List[str]] = None):
     """The final allocation rule's demands and budgets from the fast estimate (pass R2, user 10 November 2026): the
     always-on of each face (tier 0); each search volume (P1 if self-protection, else P4_n) split in its raster cells,
     each costed on every face whose scan-limit cone contains it (its own scan angle, the ground rule, B1), energy
     drawn from the ship bus (through CHAIN_EFF) and S time (lower bound, energy x pae_sat / peak power: C1, not
-    recalibrated, M1); the track brackets (P3 by class) on their owner faces (energy, Ku time); the spare shortens
+    recalibrated, M1); the track brackets (P3 by class) on their owner faces (energy, Ku time; by the step 3.3 model
+    from the instant profile, 5.5; tracks_out: the volumes so priced); the spare shortens
     the search revisits with realloc_mode PRIO_SEARCH, down to rr_min_s (D1, R2.2). The coverage hole is left out
     (the gauge shows it). calib (pass R3d, core/calibration.lookup): {sector id: {"e": [4], "t": [4]}}, the ratios
     exact / estimate per face of the last exact run, applied to the volume's shares on each face (M1); under
@@ -499,24 +501,38 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
     surf = _sky_surfaces(sky)
     th_grid = np.array(table.TH, dtype=float)
     mode = g.get("realloc_mode") or margin.MODE_DEFAULT
-    def add_tracks(sec: dict, sid: str, msk: np.ndarray) -> None:
+    def add_tracks(sec: dict, sid: str, msk: np.ndarray, inst: Optional[dict] = None) -> None:
         """The volume's track brackets (P3) on the faces of its directions msk (user, 11 November 2026: the WHOLE
-        volume for a relieved one: its targets appear there whoever detects them)."""
+        volume for a relieved one: its targets appear there whoever detects them). inst: the volume's instant
+        profile; its "tracks" (5.5, renvoi 3.3: the step 3.3 model, at the peak) price the brackets when there is one
+        per bracket, else the former track look (_estimate_at_faces) stands in meanwhile (Q3)."""
         brackets = sec.get("tracking") or []
         if brackets:
-            face_sel = {}
-            for k in range(4):
-                sel = msk & (grid.owner == k)
-                if sel.any():
-                    face_sel[k] = (sel, weight[sel])
-            npos = float(sum(w_.sum() for _s, w_ in face_sel.values()))
-            at = _estimate_at_faces(sec, grid, face_sel, npos, p_avail)
             t_rows = []
-            for k, (pw, ku, _un) in at.items():
-                if pw > 0 or ku > 0:
-                    r = np.full((4, 3), np.nan)
-                    r[k] = (pw / rm.CHAIN_EFF, 0.0, ku)
-                    t_rows.append(r)
+            tr = (inst or {}).get("tracks")
+            if tr is not None and len(tr) == len(brackets):
+                for b_ in tr:
+                    for k in range(4):
+                        w_t = float(b_["e"][k]) * p_avail / rm.CHAIN_EFF
+                        if w_t > 0 or float(b_["tk"][k]) > 0:
+                            r = np.full((4, 3), np.nan)
+                            r[k] = (w_t, 0.0, float(b_["tk"][k]))
+                            t_rows.append(r)
+                if tracks_out is not None:
+                    tracks_out.append(sid)
+            else:
+                face_sel = {}
+                for k in range(4):
+                    sel = msk & (grid.owner == k)
+                    if sel.any():
+                        face_sel[k] = (sel, weight[sel])
+                npos = float(sum(w_.sum() for _s, w_ in face_sel.values()))
+                at = _estimate_at_faces(sec, grid, face_sel, npos, p_avail)
+                for k, (pw, ku, _un) in at.items():
+                    if pw > 0 or ku > 0:
+                        r = np.full((4, 3), np.nan)
+                        r[k] = (pw / rm.CHAIN_EFF, 0.0, ku)
+                        t_rows.append(r)
             if t_rows:
                 rank = al.CLASS_RANK.get(sec.get("target_type") or "", len(al.CLASS_RANK))
                 demands.append(al.Demand(f"tracks {sid}", (3, rank), "track", np.array(t_rows),
@@ -541,7 +557,17 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
                     mask_all = mask_all & (r_eff > 0.0)
             if not mask.any():                         # (relieved in full: no search of its own, its tracks kept)
                 if mask_all is not None and mask_all.any():
-                    add_tracks(sec, sid, mask_all)
+                    inst_t = None
+                    if profiles and sec.get("tracking"):   # (Q4: its instant profile on the whole volume, for them)
+                        from . import cost_profile
+                        f_i = float(((calib or {}).get(sid) or {}).get("f") or table_freq_ghz())
+                        inst_t, fresh = cost_profile.get_instant({k_: v_ for k_, v_ in sec.items() if k_ != "_relief"},
+                                                                 sky, eps_min, eps_max, f_i, wait=profiles == "wait")
+                        if not fresh and estimating is not None and sid not in estimating:
+                            estimating.append(sid)
+                        if inst_t is not None and inst_t.get("status") != "OK":
+                            inst_t = None
+                    add_tracks(sec, sid, mask_all, inst_t)
                     if profiles:                       # ... and the check of its confirmation (its targets, its
                         from . import cost_profile     # range), not of its reach (the covering volume's)
                         prof = cost_profile.get(sec, float(weight[mask_all].sum()), th_grid.tolist(),
@@ -628,7 +654,7 @@ def allocation_demands(table: CostTable, sectors_ship: List[dict], grid: geo.Sph
             tier = (1, 0) if sec.get("self_protection") else (4, int(sec.get("search_priority", 1) or 1))
             h = rr / max(float(sec.get("rr_min_s") or margin.RR_MIN_SEARCH_S), 1e-9) if mode == "PRIO_SEARCH" else 1.0
             demands.append(al.Demand(f"search {sid}", tier, "search", rows, rr_s=rr, h_max=max(1.0, h), sector=sid))
-            add_tracks(sec, sid, mask_all if mask_all is not None else mask)
+            add_tracks(sec, sid, mask_all if mask_all is not None else mask, inst)
         except (KeyError, TypeError, ValueError, ZeroDivisionError):
             continue                                   # (a sector mid-edit: left out)
     budgets = al.Budgets(face_w=_cap_w(g), ceiling=float(g.get("load_ceiling") or al.LOAD_CEILING))
@@ -756,9 +782,10 @@ def _live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Spher
     instant: List[str] = []
     other: Dict[str, dict] = {}
     blind: Dict[str, dict] = {}
+    tracked: List[str] = []
     demands, budgets = allocation_demands(table, sectors_ship, grid, eps_min, eps_max, sky, gk, calib=calib,
                                           profiles=profiles, estimating=estimating, reach_out=reach,
-                                          instant_out=instant, other_out=other, blind_out=blind)
+                                          instant_out=instant, other_out=other, blind_out=blind, tracks_out=tracked)
     # c (user, 12 November 2026): the resources the rule does not hold but the exact margin reuse does (memory
     # bandwidth, processing), linear in the pointing rate: the same water-filling (margin._fill) caps each search
     # volume's revisit gain before the rule; above 100 % at the revisits asked the exact verdict is NOK
@@ -854,6 +881,7 @@ def _live_allocation(table: CostTable, sectors_ship: List[dict], grid: geo.Spher
     out["not_recalibrated"] = sorted(s for s in out["by_sector"]
                                      if ((calib or {}).get(s) or {}).get("e") is None)
     out["instant_priced"] = sorted(instant)            # (b2-b4: priced by the exact plan at the instant, true S time)
+    out["tracks_priced"] = sorted(set(tracked))       # (5.5, renvoi 3.3: tracks by the step 3.3 model)
     out["time_lower_bound"] = bool([s for s in out["not_recalibrated"] if s not in instant])
     out["estimating"] = estimating
     out["achieved"] = {}                               # per volume (user, 11 November 2026: the 3D labels' 2nd line)

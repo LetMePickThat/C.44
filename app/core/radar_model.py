@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ============================================================
-# Radar Performance Model - V6.49.0
+# Radar Performance Model - V6.50.0
 #
 # Port of V5.4.0 to the current space AESA (4 faces, S-band surveillance +
 # Ku-band confirmation/tracking, fully digital TRM architecture).
@@ -9,6 +9,18 @@
 # Tags used in comments:  [V] locked by user | [D] derived / proposed, to confirm
 #                         [?] known conflict between sources, to settle
 # Every value, with its tag and source, lives in radar_system.toml (repository root).
+#
+# Changes V6.49.0 -> V6.50.0 (user, 13 November 2026, step 5.5, renvoi of step 3.3, Q1-Q5): tracks of the fast estimate
+#   - the instant profile (core/cost_profile, format 5) keeps the track brackets that its exact budget
+#     (tracking.sector_budget, Ku reference frequency, as the confirmation) already priced with the step 3.3 model
+#     (pointing law, cluster updates, initiation and re-initiation of the lost tracks): per bracket and face, the peak
+#     energy, Ku time and heat; the brackets are part of the instant key (an edit recomputes the volume's profile);
+#   - the fast estimate's track demands take them (cost_estimate.add_tracks; "tracks_priced" in live_allocation); the
+#     former track look (acceleration known, no pointing law, no initiation nor loss: x15-x220 below the exact on the
+#     test missions) stands in only while the profile is computed; a volume relieved in full gets its instant profile
+#     on its whole volume for its tracks;
+#   - exact calculation unchanged: no test case output should move (the snapshots' fast_estimate does not read the
+#     instant profiles).
 #
 # Changes V6.48.0 -> V6.49.0 (user, 13 November 2026): a target that APPEARS (limb watch, unmasking)
 #   - new detection criterion: N independent looks at the SAME range (no approach) meet the volume's cumulative Pd
@@ -803,7 +815,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.49.0"
+MODEL_VERSION = "6.50.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.

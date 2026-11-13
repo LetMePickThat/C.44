@@ -274,11 +274,16 @@ def shutdown() -> None:
 # for, and computed again (in a background process) when a body, the galactic frame or the volume moved more than
 # tool.cost_profile.instant_sky_move_deg, or a body's apparent radius or closing-speed spread changed by more than
 # instant_sky_radius_rel (V2); meanwhile the last one of the volume is used and the volume is "estimating".
-INSTANT_FORMAT = 4                                # 2: + memory traffic and processing energy per position (c);
+# Step 5.5, renvoi of step 3.3 (user, 13 November 2026, Q1-Q5): the same exact budget (tracking.sector_budget) that
+# gives the confirmation also prices the volume's track brackets with the step 3.3 model (pointing law, cluster
+# updates, initiation and re-initiation of the lost tracks): kept per bracket at the peak ("tracks"), at the Ku
+# reference frequency as the confirmation (Q2); the brackets are part of the key (Q1: an edit recomputes the profile).
+INSTANT_FORMAT = 5                                # 2: + memory traffic and processing energy per position (c);
                                                   # 3: + the confirmation of the false alarms (d);
-                                                  # 4: + the blind range of each bin's waveform (5.5, played view)
+                                                  # 4: + the blind range of each bin's waveform (5.5, played view);
+                                                  # 5: + the track brackets by the step 3.3 model (5.5, renvoi 3.3)
 ICACHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".instant_profile_cache.json")
-_IDISPLAY = ("id", "name", "label", "colour", "color", "visible", "hidden", "note", "comment", "tracking")
+_IDISPLAY = ("id", "name", "label", "colour", "color", "visible", "hidden", "note", "comment")
 _icache: Optional[Dict[str, list]] = None
 _ijobs: Dict[str, Future] = {}
 _ipool: Optional[ProcessPoolExecutor] = None
@@ -421,15 +426,22 @@ def compute_instant(sec: dict, sky: Optional[dict], eps_min: float, eps_max: flo
             "h": None if h is None else [float(x) for x in h], "unscanned_pct": float(unscanned),
             "mem_bits": [float(x) for x in mem_b], "proc_J": [float(x) for x in proc_b],
             "blind_km": [None if not np.isfinite(x) else float(x) for x in blind],
-            "confirm": _instant_confirmation(s, sph, float(f), float(sp), sky, eps_min, eps_max)}
+            **_instant_budget(s, sph, float(f), float(sp), sky, eps_min, eps_max)}
 
 
-def _instant_confirmation(s: dict, sph, f: float, sp: float, sky: Optional[dict], eps_min: float,
-                          eps_max: float) -> Optional[dict]:
-    """d (user, 12 November 2026): the confirmation load of the volume's false alarms with no target present (the
-    exact budget's nominal view, core/tracking.sector_budget) on the plan at (f, sp), at the Ku reference frequency:
-    {"mode", "e" (per face, share of the face's electrical power for transmission), "ts", "tk" (per face, share of the
-    S / Ku transmit time)}; the mode forced by the volume or the admissible one of least own load. None: no budget."""
+def _instant_budget(s: dict, sph, f: float, sp: float, sky: Optional[dict], eps_min: float,
+                    eps_max: float) -> dict:
+    """The exact budget of the volume (core/tracking.sector_budget) on the plan at (f, sp), at the Ku reference
+    frequency: {"confirm": ..., "tracks": ...}.
+    confirm, d (user, 12 November 2026): the confirmation load of the volume's false alarms with no target present
+    (the budget's nominal view): {"mode", "e" (per face, share of the face's electrical power for transmission), "ts",
+    "tk" (per face, share of the S / Ku transmit time)}; the mode forced by the volume or the admissible one of least
+    own load. None: no budget or no admissible mode.
+    tracks (5.5, renvoi 3.3): per track bracket of the volume, its peak load (every target of n_targets present, the
+    step 3.3 model: updates with the pointing law and cluster updates, initiations of the lost tracks): "e", "tk",
+    "q_w" per face (as the confirmation's; q_w: heat in W) and, for the diagnosis, n_targets, rr_s, r_max_km,
+    p_loss_per_update, initiations_per_s, init_energy_J, init_time_s, energy_per_update_J, unreachable_tracks.
+    None: no budget (the fast estimate keeps its own track look)."""
     import numpy as np
     from . import optimizer as mo
     from . import radar_model as rm
@@ -438,23 +450,34 @@ def _instant_confirmation(s: dict, sph, f: float, sp: float, sky: Optional[dict]
         p_avg = rm.face_elec_avail_w(rm.FACE_ELEC_POWER_MW)
         r = mo.optimise_sector(dict(s, _force_plan=(f, sp)), sph, sph.mask(s), p_avg, sky)
         if r.get("status") != "OK":
-            return None
+            return {"confirm": None, "tracks": None}
         sec_c = trk._with_mission_settings({k: v for k, v in s.items() if k != "freq_ghz_candidates"}, {})
         P, _, _, _ = mo.search_positions(dict(sec_c, _grid_spacing=sp), sph, sph.mask(sec_c), f, sky)
         Pm = np.array([P[k] for k in range(4)])
         sb = trk._ku_freq_task(sec_c, r, Pm, p_avg, eps_min, eps_max, sky, trk.KU_REF_GHZ)   # (its NOMINAL view kept)
     except (KeyError, TypeError, ValueError, ZeroDivisionError):
-        return None
+        return {"confirm": None, "tracks": None}
+    tracks = []
+    for b in sb.get("at") or []:                      # (sector_budget's own values: the peak, every target present)
+        t_ = {k: [float(x) for x in np.asarray(b[k], float)] for k in trk._AT_TARGET_KEYS}
+        for k in ("n_targets", "rr_s", "r_max_km", "p_loss_per_update", "initiations_per_s", "init_energy_J",
+                  "init_time_s", "energy_per_update_J", "unreachable_tracks"):
+            v = b.get(k)
+            t_[k] = float(v) if isinstance(v, (int, float)) and math.isfinite(float(v)) else None
+        tracks.append(t_)
     want = s.get("confirm_mode", "auto")
+    mode = None
     if want in trk.CONFIRM_MODES and "e" in sb["modes"][want]:
         mode = want
     else:
         ok = [md for md in trk.CONFIRM_MODES if sb["modes"][md].get("admissible")]
-        if not ok:
-            return None
-        mode = min(ok, key=lambda md: trk._own_load(sb, md))
-    nom = sb["modes"][mode].get(trk.NOMINAL) or sb["modes"][mode]
-    return {"mode": mode, **{k: [float(x) for x in np.asarray(nom[k], float)] for k in ("e", "ts", "tk")}}
+        if ok:
+            mode = min(ok, key=lambda md: trk._own_load(sb, md))
+    conf = None
+    if mode is not None:
+        nom = sb["modes"][mode].get(trk.NOMINAL) or sb["modes"][mode]
+        conf = {"mode": mode, **{k: [float(x) for x in np.asarray(nom[k], float)] for k in ("e", "ts", "tk")}}
+    return {"confirm": conf, "tracks": tracks}
 
 
 def _iload() -> Dict[str, list]:

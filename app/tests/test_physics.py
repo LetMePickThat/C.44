@@ -3950,3 +3950,29 @@ def test_limb_watch_geometry_and_resolution():
     assert out["rr_target_s"] == pytest.approx(out["_popup_t_eff_s"] / out["_popup_n"])
     bad = dict(sec, frame="ship")
     assert any("limb watch" in e for e in frames.validate_sector(bad, {}, "LW"))
+
+
+def test_instant_profile_prices_the_tracks_by_the_step_3_3_model(monkeypatch):
+    """5.5, renvoi of step 3.3 (user, 13 November 2026, Q5): the instant profile's track brackets are the exact
+    budget's (tracking.sector_budget, at the peak): at the Ku frequency the exact run kept, they equal the frozen exact
+    run of synthetic_mix / KV to 1e-6 per face (energy, Ku time); the brackets are part of the instant key."""
+    from core import cost_profile as cp, frames
+    mission = json.loads(open(os.path.join(os.path.dirname(__file__), "missions", "mission_synthetic_mix.json"),
+                              encoding="utf-8").read())
+    snap = json.loads(open(os.path.join(os.path.dirname(__file__), "snapshots", "mission_synthetic_mix.json"),
+                           encoding="utf-8").read())["run"]
+    resolved, _ = frames.resolve(mission)
+    g = resolved["global"]
+    sec = trk._with_mission_settings(next(s for s in resolved["sectors"] if s["id"] == "KV"), mission.get("global", {}))
+    f_s = next(x for x in snap["sectors"] if x["id"] == "KV")["wf"]["freq_ghz"]
+    ex = next(x for x in snap["peak"]["budgets"]["tracking"]["sectors"] if x["id"] == "KV")
+    k_other = cp.instant_key(dict(sec, tracking=sec["tracking"][:1]), f_s)
+    assert cp.instant_key(sec, f_s) != k_other
+    monkeypatch.setattr(trk, "KU_REF_GHZ", float(ex["ku_freq_ghz"]))      # (computed here: no cache written)
+    inst = cp.compute_instant(sec, g.get("sky"), g["eps_min_deg"], g["eps_max_deg"], f_s)
+    assert inst["status"] == "OK" and len(inst["tracks"]) == len(ex["at"]) == 2
+    for a, b in zip(inst["tracks"], ex["at"]):
+        for k, fc in b["faces"].items():
+            assert a["e"][int(k)] == pytest.approx(fc["energy_fraction"], rel=1e-6)
+            assert a["tk"][int(k)] == pytest.approx(fc["ku_time_fraction"], rel=1e-6)
+        assert a["initiations_per_s"] == pytest.approx(b["initiations_per_s"], rel=1e-6)

@@ -2928,3 +2928,29 @@ Codé (affichage seul, aucun effet sur le calcul) :
 - Mesure sur MOONTEST (t = 0, Lune, 763 km, KKV 5 km/s, 0–200 km) : bande 0 → 6,78°, portée 2 655 km, 97 s dans la bande (498 s pour une cible immobile), 4 regards en 30 s ; plan : 51,6 J par position (maille 1,5) contre 31,7 J (maille 2,0) avec le critère d'approche sur la même boîte.
 
 **Restes** : le Monte-Carlo (5.4) tire encore des cibles qui s'approchent pour un volume « popup » ; le test de recouvrement (`redundancy.need_met`) juge la couverture d'un volume « popup » avec le critère d'approche ; la vitesse propre de la cible est comptée horizontale (une montée verticale n'est pas ajoutée).
+
+### Pistes de l'estimation rapide au modèle de la 3.3 (13 novembre 2026, modèle V6.50.0, étape 5.5, point D)
+
+**Bilan des renvois de l'estimation rapide** (vérifié dans le code le 13 novembre 2026) : depuis la V6.45 la veille n'est plus chiffrée par la table de coût mais par le profil de volume (`cost_profile.compute`, lois de l'optimiseur) et le profil instantané (plan exact `optimizer._best_plan` avec le ciel de l'instant). Renvois **1.5** (bruit du ciel, aveuglement), **2.3** (Pd cumulée, Pfa issue du budget de fausses alarmes, confirmation des fausses alarmes) et **2.4** (classe et Swerling par `sector_target`) : **couverts** ; seule réserve, la table (ciel froid, un regard, GENERIC SW1) sert de valeur provisoire pendant le calcul d'un profil (badge d'estimation). Renvoi **3.3** : **non couvert** jusqu'ici, les pistes gardaient l'ancienne visée Ku (accélération connue, sans loi de pointage, sans initialisation ni perte).
+
+**Mesure de l'écart** (snapshots figés, vue pic, valeurs de test, pas des performances) :
+
+| Mission / volume | Cibles | Rapide | Exact | Écart |
+|---|---|---|---|---|
+| sky_demo / MOON | 2 | 5,8 W | 85 W | ×15 |
+| synthetic_mix / KV | 8 | 44 W | 6,8 kW | ×156 (temps Ku ×220) |
+| target_library / T_DECOY | 2 | 56 W | 12,5 kW | ×223 |
+
+L'écart vient surtout de la réinitialisation des pistes perdues (T_DECOY : 23 W de mises à jour, 12,5 kW d'initialisations à 1,9·10⁵ J, perte 3,3 % par mise à jour ; KV/1 : 0,9 kW et 5,9 kW, perte 4 %), puis du coût des mises à jour (loi de pointage, mises à jour en groupe). Le budget exact des pistes (`tracking.budget`) prend 28 à 99 s par mission : trop long à chaque modification, bon à garder en cache par volume.
+
+**Décisions de l'utilisateur** (13 novembre 2026) : option (a), profil de piste par volume rattaché au profil instantané (et non un recalage sur le dernier calcul exact) ; Q1 les tranches dans la clé du profil instantané (une modification de tranche le recalcule) ; Q2 fréquence Ku de référence (`tracking.KU_REF_GHZ`, comme la confirmation instantanée), pas toutes les candidates ; Q3 l'ancienne visée en attendant le profil ; Q4 un volume relevé en entier reçoit son profil instantané sur tout son volume pour ses pistes ; Q5 un test.
+
+**Modèle** :
+- Le profil instantané (`INSTANT_FORMAT` 5) garde les pistes que son budget exact (`tracking.sector_budget`, déjà appelé pour la confirmation) chiffrait déjà : par tranche, au pic, par face `e` (part de la puissance électrique de la face), `tk` (temps Ku), `q_w` (chaleur), et pour le diagnostic `p_loss_per_update`, `initiations_per_s`, `init_energy_J`, `init_time_s`, `energy_per_update_J`, `unreachable_tracks` (`cost_profile._instant_budget`, qui remplace `_instant_confirmation`). Coût en temps : nul en plus.
+- `tracking` n'est plus une clé d'affichage du profil instantané (`_IDISPLAY`).
+- `cost_estimate.add_tracks` : la demande « tracks » (vue pic, inchangée dans le juste besoin) prend ces valeurs (W tirés = e × puissance de la face / rendement de la chaîne) ; `live_allocation` donne `tracks_priced`.
+- Calcul exact inchangé, snapshots inchangés (leur `fast_estimate` ne lit pas les profils instantanés). Le changement de format recalcule une fois tous les profils instantanés.
+
+**Vérification** (synthetic_mix / KV) : à la fréquence Ku du calcul exact (14,2 GHz) les pistes du profil égalent le calcul exact à 10⁻¹⁵ ; à la fréquence de référence (14,0 GHz) KV/0 −0,2 %, KV/1 +15 % (le calcul exact choisit sa fréquence Ku au moindre coût) ; demande « tracks » de l'estimation rapide : 46 W → 8,3 kW tirés. Test `test_instant_profile_prices_the_tracks_by_the_step_3_3_model` ; 7 tests ciblés passés.
+
+**Restes** : l'estimation rapide des pistes est pessimiste de 0 à ~15 % faute de choisir la fréquence Ku ; le coût d'une initialisation (1,9·10⁵ J sur T_DECOY) est élevé et mérite un regard à part (modèle de la 3.3 : recherche locale, sauts de fréquence).
