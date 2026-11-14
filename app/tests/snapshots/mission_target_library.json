@@ -11500,7 +11500,13 @@
      "state": "OK",
      "step": "3.1",
      "unit": "",
-     "value": "OK"
+     "value": "OK",
+     "with_reuse": {
+      "load": 0.0,
+      "state": "OK",
+      "unit": "",
+      "value": "OK"
+     }
     },
     {
      "family": "sector",
@@ -11515,7 +11521,13 @@
      "state": "NOK",
      "step": "3.1",
      "unit": "km",
-     "value": 292
+     "value": 292,
+     "with_reuse": {
+      "load": 48.9,
+      "state": "NOK",
+      "unit": "km",
+      "value": 292
+     }
     },
     {
      "family": "sector",
@@ -11530,7 +11542,13 @@
      "state": "NOK",
      "step": "2.3",
      "unit": "s",
-     "value": 57.99427483271834
+     "value": 57.99427483271834,
+     "with_reuse": {
+      "load": 2.365978700769852,
+      "state": "NOK",
+      "unit": "s",
+      "value": 57.99427483271834
+     }
     },
     {
      "family": "sector",
@@ -11545,7 +11563,13 @@
      "state": "OK",
      "step": "3.1",
      "unit": "",
-     "value": "OK"
+     "value": "OK",
+     "with_reuse": {
+      "load": 0.0,
+      "state": "OK",
+      "unit": "",
+      "value": "OK"
+     }
     },
     {
      "family": "sector",
@@ -11560,7 +11584,13 @@
      "state": "NOK",
      "step": "3.1",
      "unit": "km",
-     "value": 384
+     "value": 384,
+     "with_reuse": {
+      "load": 100.0,
+      "state": "NOK",
+      "unit": "km",
+      "value": 384
+     }
     },
     {
      "family": "sector",
@@ -11575,7 +11605,13 @@
      "state": "OK",
      "step": "2.3",
      "unit": "s",
-     "value": 33.29992695438362
+     "value": 33.29992695438362,
+     "with_reuse": {
+      "load": 1.0,
+      "state": "OK",
+      "unit": "s",
+      "value": 33.29992695438362
+     }
     },
     {
      "family": "sector",
@@ -11590,7 +11626,13 @@
      "state": "OK",
      "step": "3.1",
      "unit": "",
-     "value": "OK"
+     "value": "OK",
+     "with_reuse": {
+      "load": 0.0,
+      "state": "OK",
+      "unit": "",
+      "value": "OK"
+     }
     },
     {
      "family": "sector",
@@ -11605,7 +11647,13 @@
      "state": "NOK",
      "step": "3.1",
      "unit": "km",
-     "value": 5366
+     "value": 5366,
+     "with_reuse": {
+      "load": 30.599999999999998,
+      "state": "NOK",
+      "unit": "km",
+      "value": 5366
+     }
     },
     {
      "family": "sector",
@@ -11620,7 +11668,13 @@
      "state": "NOK",
      "step": "2.3",
      "unit": "s",
-     "value": 2229.7903027089237
+     "value": 2229.7903027089237,
+     "with_reuse": {
+      "load": 2.365978700769852,
+      "state": "NOK",
+      "unit": "s",
+      "value": 2229.7903027089237
+     }
     },
     {
      "family": "sector",
@@ -11635,7 +11689,13 @@
      "state": "OK",
      "step": "3.1",
      "unit": "",
-     "value": "OK"
+     "value": "OK",
+     "with_reuse": {
+      "load": 0.0,
+      "state": "OK",
+      "unit": "",
+      "value": "OK"
+     }
     },
     {
      "family": "sector",
@@ -11650,7 +11710,13 @@
      "state": "NOK",
      "step": "3.1",
      "unit": "km",
-     "value": 80
+     "value": 80,
+     "with_reuse": {
+      "load": 100.0,
+      "state": "NOK",
+      "unit": "km",
+      "value": 80
+     }
     },
     {
      "family": "sector",
@@ -11665,7 +11731,13 @@
      "state": "OK",
      "step": "2.3",
      "unit": "s",
-     "value": 33.29992695438362
+     "value": 33.29992695438362,
+     "with_reuse": {
+      "load": 1.0,
+      "state": "OK",
+      "unit": "s",
+      "value": 33.29992695438362
+     }
     },
     {
      "family": "sector",
@@ -11680,7 +11752,13 @@
      "state": "OK",
      "step": "3.1",
      "unit": "",
-     "value": "OK"
+     "value": "OK",
+     "with_reuse": {
+      "load": 0.0,
+      "state": "OK",
+      "unit": "",
+      "value": "OK"
+     }
     },
     {
      "family": "sector",
@@ -11695,7 +11773,13 @@
      "state": "NOK",
      "step": "3.1",
      "unit": "km",
-     "value": 375
+     "value": 375,
+     "with_reuse": {
+      "load": 100.0,
+      "state": "NOK",
+      "unit": "km",
+      "value": 375
+     }
     },
     {
      "family": "sector",
@@ -11710,7 +11794,13 @@
      "state": "OK",
      "step": "2.3",
      "unit": "s",
-     "value": 37.0072712657168
+     "value": 37.0072712657168,
+     "with_reuse": {
+      "load": 1.0,
+      "state": "OK",
+      "unit": "s",
+      "value": 37.0072712657168
+     }
     },
     {
      "family": "confirmation",
@@ -11725,7 +11815,13 @@
      "state": "OK",
      "step": "3.2",
      "unit": "",
-     "value": "KU1+7"
+     "value": "KU1+7",
+     "with_reuse": {
+      "load": 0.0,
+      "state": "OK",
+      "unit": "",
+      "value": "KU1+7"
+     }
     },
     {
      "family": "confirmation",
@@ -11740,7 +11836,13 @@
      "state": "OK",
      "step": "3.2",
      "unit": "",
-     "value": 0.9995026749557614
+     "value": 0.9995026749557614,
+     "with_reuse": {
+      "load": 0.994650088477321,
+      "state": "OK",
+      "unit": "",
+      "value": 0.9995026749557614
+     }
     },
     {
      "family": "confirmation",
@@ -11755,7 +11857,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.006897543531590355
+     "value": 0.006897543531590355,
+     "with_reuse": {
+      "load": 0.0034487717657951775,
+      "state": "OK",
+      "unit": "s",
+      "value": 0.006897543531590355
+     }
     },
     {
      "family": "confirmation",
@@ -11770,7 +11878,13 @@
      "state": "OK",
      "step": "3.2",
      "unit": "",
-     "value": "KU1+7"
+     "value": "KU1+7",
+     "with_reuse": {
+      "load": 0.0,
+      "state": "OK",
+      "unit": "",
+      "value": "KU1+7"
+     }
     },
     {
      "family": "confirmation",
@@ -11785,7 +11899,13 @@
      "state": "OK",
      "step": "3.2",
      "unit": "",
-     "value": 0.9995005719701426
+     "value": 0.9995005719701426,
+     "with_reuse": {
+      "load": 0.9988560597148356,
+      "state": "OK",
+      "unit": "",
+      "value": 0.9995005719701426
+     }
     },
     {
      "family": "confirmation",
@@ -11800,7 +11920,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.013653249504182572
+     "value": 0.013653249504182572,
+     "with_reuse": {
+      "load": 0.0042666404700570535,
+      "state": "OK",
+      "unit": "s",
+      "value": 0.013653249504182572
+     }
     },
     {
      "family": "confirmation",
@@ -11815,7 +11941,13 @@
      "state": "OK",
      "step": "3.2",
      "unit": "",
-     "value": "KU1+7"
+     "value": "KU1+7",
+     "with_reuse": {
+      "load": 0.0,
+      "state": "OK",
+      "unit": "",
+      "value": "KU1+7"
+     }
     },
     {
      "family": "confirmation",
@@ -11830,7 +11962,13 @@
      "state": "OK",
      "step": "3.2",
      "unit": "",
-     "value": 0.9995007131209127
+     "value": 0.9995007131209127,
+     "with_reuse": {
+      "load": 0.9985737581746913,
+      "state": "OK",
+      "unit": "",
+      "value": 0.9995007131209127
+     }
     },
     {
      "family": "confirmation",
@@ -11845,7 +11983,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.1754826514797103
+     "value": 0.1754826514797103,
+     "with_reuse": {
+      "load": 0.0010967665717481893,
+      "state": "OK",
+      "unit": "s",
+      "value": 0.1754826514797103
+     }
     },
     {
      "family": "confirmation",
@@ -11860,7 +12004,13 @@
      "state": "OK",
      "step": "3.2",
      "unit": "",
-     "value": "KU1+7"
+     "value": "KU1+7",
+     "with_reuse": {
+      "load": 0.0,
+      "state": "OK",
+      "unit": "",
+      "value": "KU1+7"
+     }
     },
     {
      "family": "confirmation",
@@ -11875,7 +12025,13 @@
      "state": "OK",
      "step": "3.2",
      "unit": "",
-     "value": 0.999507432186884
+     "value": 0.999507432186884,
+     "with_reuse": {
+      "load": 0.985135626232145,
+      "state": "OK",
+      "unit": "",
+      "value": 0.999507432186884
+     }
     },
     {
      "family": "confirmation",
@@ -11890,7 +12046,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.004109356719370065
+     "value": 0.004109356719370065,
+     "with_reuse": {
+      "load": 0.0020546783596850325,
+      "state": "OK",
+      "unit": "s",
+      "value": 0.004109356719370065
+     }
     },
     {
      "family": "confirmation",
@@ -11905,7 +12067,13 @@
      "state": "OK",
      "step": "3.2",
      "unit": "",
-     "value": "KU1+7"
+     "value": "KU1+7",
+     "with_reuse": {
+      "load": 0.0,
+      "state": "OK",
+      "unit": "",
+      "value": "KU1+7"
+     }
     },
     {
      "family": "confirmation",
@@ -11920,7 +12088,13 @@
      "state": "OK",
      "step": "3.2",
      "unit": "",
-     "value": 0.9995190682770356
+     "value": 0.9995190682770356,
+     "with_reuse": {
+      "load": 0.9618634459288515,
+      "state": "OK",
+      "unit": "",
+      "value": 0.9995190682770356
+     }
     },
     {
      "family": "confirmation",
@@ -11935,7 +12109,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.014059590848666939
+     "value": 0.014059590848666939,
+     "with_reuse": {
+      "load": 0.0035148977121667348,
+      "state": "OK",
+      "unit": "s",
+      "value": 0.014059590848666939
+     }
     },
     {
      "family": "track",
@@ -11950,7 +12130,13 @@
      "state": "OK",
      "step": "3.3",
      "unit": "",
-     "value": 0.0004809317229643728
+     "value": 0.0004809317229643728,
+     "with_reuse": {
+      "load": 0.4809317229643728,
+      "state": "OK",
+      "unit": "",
+      "value": 0.0004809317229643728
+     }
     },
     {
      "family": "track",
@@ -11965,7 +12151,13 @@
      "state": "OK",
      "step": "3.3",
      "unit": "s",
-     "value": 2.0
+     "value": 2.0,
+     "with_reuse": {
+      "load": 0.0,
+      "state": "OK",
+      "unit": "s",
+      "value": 2.0
+     }
     },
     {
      "family": "track",
@@ -11980,7 +12172,13 @@
      "state": "OK",
      "step": "3.3",
      "unit": "",
-     "value": 2.0
+     "value": 2.0,
+     "with_reuse": {
+      "load": 0.0,
+      "state": "OK",
+      "unit": "",
+      "value": 2.0
+     }
     },
     {
      "family": "face",
@@ -11995,7 +12193,13 @@
      "state": "NOK",
      "step": "5.2",
      "unit": "",
-     "value": 2.277871046178268
+     "value": 2.277871046178268,
+     "with_reuse": {
+      "load": 2.277871046178268,
+      "state": "NOK",
+      "unit": "",
+      "value": 2.277871046178268
+     }
     },
     {
      "family": "face",
@@ -12010,7 +12214,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.3441573045173978
+     "value": 0.3441573045173978,
+     "with_reuse": {
+      "load": 0.3441573045173978,
+      "state": "OK",
+      "unit": "",
+      "value": 0.3441573045173978
+     }
     },
     {
      "family": "face",
@@ -12025,7 +12235,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.0004675146377662332
+     "value": 0.0004675146377662332,
+     "with_reuse": {
+      "load": 0.0004675146377662332,
+      "state": "OK",
+      "unit": "",
+      "value": 0.0004675146377662332
+     }
     },
     {
      "family": "face",
@@ -12040,7 +12256,13 @@
      "state": "OK",
      "step": "4.2",
      "unit": "",
-     "value": 0.06114598465090097
+     "value": 0.06114598465090097,
+     "with_reuse": {
+      "load": 0.06114598465090097,
+      "state": "OK",
+      "unit": "",
+      "value": 0.06114598465090097
+     }
     },
     {
      "family": "face",
@@ -12055,7 +12277,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.01030626526454759
+     "value": 0.01030626526454759,
+     "with_reuse": {
+      "load": 0.01030626526454759,
+      "state": "OK",
+      "unit": "",
+      "value": 0.01030626526454759
+     }
     },
     {
      "family": "face",
@@ -12070,7 +12298,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.011339334429499904
+     "value": 0.011339334429499904,
+     "with_reuse": {
+      "load": 0.011339334429499904,
+      "state": "OK",
+      "unit": "",
+      "value": 0.011339334429499904
+     }
     },
     {
      "family": "face",
@@ -12085,7 +12319,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.13215421164967736
+     "value": 0.13215421164967736,
+     "with_reuse": {
+      "load": 0.13215421164967736,
+      "state": "OK",
+      "unit": "",
+      "value": 0.13215421164967736
+     }
     },
     {
      "family": "face",
@@ -12100,7 +12340,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.06182900392755225
+     "value": 0.06182900392755225,
+     "with_reuse": {
+      "load": 0.06182900392755225,
+      "state": "OK",
+      "unit": "",
+      "value": 0.06182900392755225
+     }
     },
     {
      "family": "face",
@@ -12115,7 +12361,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.03125
+     "value": 0.03125,
+     "with_reuse": {
+      "load": 0.03125,
+      "state": "OK",
+      "unit": "",
+      "value": 0.03125
+     }
     },
     {
      "family": "face",
@@ -12130,7 +12382,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 0.2
+     "value": 0.2,
+     "with_reuse": {
+      "load": 0.05,
+      "state": "OK",
+      "unit": "Tbit/s",
+      "value": 0.2
+     }
     },
     {
      "family": "face",
@@ -12145,7 +12403,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 39.2
+     "value": 39.2,
+     "with_reuse": {
+      "load": 0.098,
+      "state": "OK",
+      "unit": "Tbit/s",
+      "value": 39.2
+     }
     },
     {
      "family": "face",
@@ -12160,7 +12424,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 0.016
+     "value": 0.016,
+     "with_reuse": {
+      "load": 0.004,
+      "state": "OK",
+      "unit": "Tbit/s",
+      "value": 0.016
+     }
     },
     {
      "family": "face",
@@ -12175,7 +12445,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 3.136
+     "value": 3.136,
+     "with_reuse": {
+      "load": 0.00784,
+      "state": "OK",
+      "unit": "Tbit/s",
+      "value": 3.136
+     }
     },
     {
      "family": "face",
@@ -12190,7 +12466,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "kW",
-     "value": 10.422691603018906
+     "value": 10.422691603018906,
+     "with_reuse": {
+      "load": 0.20845383206037812,
+      "state": "OK",
+      "unit": "kW",
+      "value": 10.422691603018906
+     }
     },
     {
      "family": "face",
@@ -12205,7 +12487,13 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.004034685744827622
+     "value": 0.004034685744827622,
+     "with_reuse": {
+      "load": 0.0010086714362069055,
+      "state": "OK",
+      "unit": "MJ",
+      "value": 0.004034685744827622
+     }
     },
     {
      "family": "face",
@@ -12220,7 +12508,13 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 3405.5761061038916
+     "value": 3405.5761061038916,
+     "with_reuse": {
+      "load": null,
+      "state": "OK",
+      "unit": "MJ",
+      "value": 3405.5761061038916
+     }
     },
     {
      "family": "face",
@@ -12235,7 +12529,13 @@
      "state": "OK",
      "step": "4.2",
      "unit": "MJ",
-     "value": 0.0
+     "value": 0.0,
+     "with_reuse": {
+      "load": null,
+      "state": "OK",
+      "unit": "MJ",
+      "value": 0.0
+     }
     },
     {
      "family": "face",
@@ -12253,6 +12553,15 @@
      "value": {
       "Ku": 14.134615384615383,
       "S": 12.25
+     },
+     "with_reuse": {
+      "load": 0.0,
+      "state": "OK",
+      "unit": "",
+      "value": {
+       "Ku": 14.134615384615383,
+       "S": 12.25
+      }
      }
     },
     {
@@ -12268,7 +12577,13 @@
      "state": "OK",
      "step": "5.2",
      "unit": "",
-     "value": 0.624262367995143
+     "value": 0.624262367995143,
+     "with_reuse": {
+      "load": 0.624262367995143,
+      "state": "OK",
+      "unit": "",
+      "value": 0.624262367995143
+     }
     },
     {
      "family": "face",
@@ -12283,7 +12598,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.09008610267062496
+     "value": 0.09008610267062496,
+     "with_reuse": {
+      "load": 0.09008610267062496,
+      "state": "OK",
+      "unit": "",
+      "value": 0.09008610267062496
+     }
     },
     {
      "family": "face",
@@ -12298,7 +12619,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.0006996889489893044
+     "value": 0.0006996889489893044,
+     "with_reuse": {
+      "load": 0.0006996889489893044,
+      "state": "OK",
+      "unit": "",
+      "value": 0.0006996889489893044
+     }
     },
     {
      "family": "face",
@@ -12313,7 +12640,13 @@
      "state": "OK",
      "step": "4.2",
      "unit": "",
-     "value": 0.02105369375697537
+     "value": 0.02105369375697537,
+     "with_reuse": {
+      "load": 0.02105369375697537,
+      "state": "OK",
+      "unit": "",
+      "value": 0.02105369375697537
+     }
     },
     {
      "family": "face",
@@ -12328,7 +12661,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.00179029510257684
+     "value": 0.00179029510257684,
+     "with_reuse": {
+      "load": 0.00179029510257684,
+      "state": "OK",
+      "unit": "",
+      "value": 0.00179029510257684
+     }
     },
     {
      "family": "face",
@@ -12343,7 +12682,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.0037931126124999682
+     "value": 0.0037931126124999682,
+     "with_reuse": {
+      "load": 0.0037931126124999682,
+      "state": "OK",
+      "unit": "",
+      "value": 0.0037931126124999682
+     }
     },
     {
      "family": "face",
@@ -12358,7 +12703,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.03550961045619703
+     "value": 0.03550961045619703,
+     "with_reuse": {
+      "load": 0.03550961045619703,
+      "state": "OK",
+      "unit": "",
+      "value": 0.03550961045619703
+     }
     },
     {
      "family": "face",
@@ -12373,7 +12724,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.04878027923278284
+     "value": 0.04878027923278284,
+     "with_reuse": {
+      "load": 0.04878027923278284,
+      "state": "OK",
+      "unit": "",
+      "value": 0.04878027923278284
+     }
     },
     {
      "family": "face",
@@ -12388,7 +12745,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.03125
+     "value": 0.03125,
+     "with_reuse": {
+      "load": 0.03125,
+      "state": "OK",
+      "unit": "",
+      "value": 0.03125
+     }
     },
     {
      "family": "face",
@@ -12403,7 +12766,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 0.2
+     "value": 0.2,
+     "with_reuse": {
+      "load": 0.05,
+      "state": "OK",
+      "unit": "Tbit/s",
+      "value": 0.2
+     }
     },
     {
      "family": "face",
@@ -12418,7 +12787,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 39.2
+     "value": 39.2,
+     "with_reuse": {
+      "load": 0.098,
+      "state": "OK",
+      "unit": "Tbit/s",
+      "value": 39.2
+     }
     },
     {
      "family": "face",
@@ -12433,7 +12808,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 0.016
+     "value": 0.016,
+     "with_reuse": {
+      "load": 0.004,
+      "state": "OK",
+      "unit": "Tbit/s",
+      "value": 0.016
+     }
     },
     {
      "family": "face",
@@ -12448,7 +12829,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 3.136
+     "value": 3.136,
+     "with_reuse": {
+      "load": 0.00784,
+      "state": "OK",
+      "unit": "Tbit/s",
+      "value": 3.136
+     }
     },
     {
      "family": "face",
@@ -12463,7 +12850,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "kW",
-     "value": 10.074438689532295
+     "value": 10.074438689532295,
+     "with_reuse": {
+      "load": 0.2014887737906459,
+      "state": "OK",
+      "unit": "kW",
+      "value": 10.074438689532295
+     }
     },
     {
      "family": "face",
@@ -12478,7 +12871,13 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.004030619744583509
+     "value": 0.004030619744583509,
+     "with_reuse": {
+      "load": 0.0010076549361458772,
+      "state": "OK",
+      "unit": "MJ",
+      "value": 0.004030619744583509
+     }
     },
     {
      "family": "face",
@@ -12493,7 +12892,13 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 893.0896692853555
+     "value": 893.0896692853555,
+     "with_reuse": {
+      "load": null,
+      "state": "OK",
+      "unit": "MJ",
+      "value": 893.0896692853555
+     }
     },
     {
      "family": "face",
@@ -12508,7 +12913,13 @@
      "state": "OK",
      "step": "4.2",
      "unit": "MJ",
-     "value": 0.0
+     "value": 0.0,
+     "with_reuse": {
+      "load": null,
+      "state": "OK",
+      "unit": "MJ",
+      "value": 0.0
+     }
     },
     {
      "family": "face",
@@ -12526,6 +12937,15 @@
      "value": {
       "Ku": 14.134615384615383,
       "S": 12.25
+     },
+     "with_reuse": {
+      "load": 0.0,
+      "state": "OK",
+      "unit": "",
+      "value": {
+       "Ku": 14.134615384615383,
+       "S": 12.25
+      }
      }
     },
     {
@@ -12541,7 +12961,13 @@
      "state": "ALERT",
      "step": "5.2",
      "unit": "",
-     "value": 0.814729788119719
+     "value": 0.814729788119719,
+     "with_reuse": {
+      "load": 0.814729788119719,
+      "state": "ALERT",
+      "unit": "",
+      "value": 0.814729788119719
+     }
     },
     {
      "family": "face",
@@ -12556,7 +12982,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.1193943601466413
+     "value": 0.1193943601466413,
+     "with_reuse": {
+      "load": 0.1193943601466413,
+      "state": "OK",
+      "unit": "",
+      "value": 0.1193943601466413
+     }
     },
     {
      "family": "face",
@@ -12571,7 +13003,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.0006532192596032078
+     "value": 0.0006532192596032078,
+     "with_reuse": {
+      "load": 0.0006532192596032078,
+      "state": "OK",
+      "unit": "",
+      "value": 0.0006532192596032078
+     }
     },
     {
      "family": "face",
@@ -12586,7 +13024,13 @@
      "state": "OK",
      "step": "4.2",
      "unit": "",
-     "value": 0.02562181072839877
+     "value": 0.02562181072839877,
+     "with_reuse": {
+      "load": 0.02562181072839877,
+      "state": "OK",
+      "unit": "",
+      "value": 0.02562181072839877
+     }
     },
     {
      "family": "face",
@@ -12601,7 +13045,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.018159398014295072
+     "value": 0.018159398014295072,
+     "with_reuse": {
+      "load": 0.018159398014295072,
+      "state": "OK",
+      "unit": "",
+      "value": 0.018159398014295072
+     }
     },
     {
      "family": "face",
@@ -12616,7 +13066,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.0037831128044999683
+     "value": 0.0037831128044999683,
+     "with_reuse": {
+      "load": 0.0037831128044999683,
+      "state": "OK",
+      "unit": "",
+      "value": 0.0037831128044999683
+     }
     },
     {
      "family": "face",
@@ -12631,7 +13087,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.03788787738878145
+     "value": 0.03788787738878145,
+     "with_reuse": {
+      "load": 0.03788787738878145,
+      "state": "OK",
+      "unit": "",
+      "value": 0.03788787738878145
+     }
     },
     {
      "family": "face",
@@ -12646,7 +13108,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.04878027923278284
+     "value": 0.04878027923278284,
+     "with_reuse": {
+      "load": 0.04878027923278284,
+      "state": "OK",
+      "unit": "",
+      "value": 0.04878027923278284
+     }
     },
     {
      "family": "face",
@@ -12661,7 +13129,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.03125
+     "value": 0.03125,
+     "with_reuse": {
+      "load": 0.03125,
+      "state": "OK",
+      "unit": "",
+      "value": 0.03125
+     }
     },
     {
      "family": "face",
@@ -12676,7 +13150,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 0.2
+     "value": 0.2,
+     "with_reuse": {
+      "load": 0.05,
+      "state": "OK",
+      "unit": "Tbit/s",
+      "value": 0.2
+     }
     },
     {
      "family": "face",
@@ -12691,7 +13171,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 39.2
+     "value": 39.2,
+     "with_reuse": {
+      "load": 0.098,
+      "state": "OK",
+      "unit": "Tbit/s",
+      "value": 39.2
+     }
     },
     {
      "family": "face",
@@ -12706,7 +13192,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 0.016
+     "value": 0.016,
+     "with_reuse": {
+      "load": 0.004,
+      "state": "OK",
+      "unit": "Tbit/s",
+      "value": 0.016
+     }
     },
     {
      "family": "face",
@@ -12721,7 +13213,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 3.136
+     "value": 3.136,
+     "with_reuse": {
+      "load": 0.00784,
+      "state": "OK",
+      "unit": "Tbit/s",
+      "value": 3.136
+     }
     },
     {
      "family": "face",
@@ -12736,7 +13234,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "kW",
-     "value": 10.729337182571573
+     "value": 10.729337182571573,
+     "with_reuse": {
+      "load": 0.21458674365143146,
+      "state": "OK",
+      "unit": "kW",
+      "value": 10.729337182571573
+     }
     },
     {
      "family": "face",
@@ -12751,7 +13255,13 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.004031083024787927
+     "value": 0.004031083024787927,
+     "with_reuse": {
+      "load": 0.0010077707561969818,
+      "state": "OK",
+      "unit": "MJ",
+      "value": 0.004031083024787927
+     }
     },
     {
      "family": "face",
@@ -12766,7 +13276,13 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 1181.4486819423278
+     "value": 1181.4486819423278,
+     "with_reuse": {
+      "load": null,
+      "state": "OK",
+      "unit": "MJ",
+      "value": 1181.4486819423278
+     }
     },
     {
      "family": "face",
@@ -12781,7 +13297,13 @@
      "state": "OK",
      "step": "4.2",
      "unit": "MJ",
-     "value": 0.0
+     "value": 0.0,
+     "with_reuse": {
+      "load": null,
+      "state": "OK",
+      "unit": "MJ",
+      "value": 0.0
+     }
     },
     {
      "family": "face",
@@ -12799,6 +13321,15 @@
      "value": {
       "Ku": 14.134615384615383,
       "S": 12.25
+     },
+     "with_reuse": {
+      "load": 0.0,
+      "state": "OK",
+      "unit": "",
+      "value": {
+       "Ku": 14.134615384615383,
+       "S": 12.25
+      }
      }
     },
     {
@@ -12814,7 +13345,13 @@
      "state": "OK",
      "step": "5.2",
      "unit": "",
-     "value": 0.6981535249431238
+     "value": 0.6981535249431238,
+     "with_reuse": {
+      "load": 0.6981535249431238,
+      "state": "OK",
+      "unit": "",
+      "value": 0.6981535249431238
+     }
     },
     {
      "family": "face",
@@ -12829,7 +13366,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.10165099177091276
+     "value": 0.10165099177091276,
+     "with_reuse": {
+      "load": 0.10165099177091276,
+      "state": "OK",
+      "unit": "",
+      "value": 0.10165099177091276
+     }
     },
     {
      "family": "face",
@@ -12844,7 +13387,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "",
-     "value": 0.0004773304798946185
+     "value": 0.0004773304798946185,
+     "with_reuse": {
+      "load": 0.0004773304798946185,
+      "state": "OK",
+      "unit": "",
+      "value": 0.0004773304798946185
+     }
     },
     {
      "family": "face",
@@ -12859,7 +13408,13 @@
      "state": "OK",
      "step": "4.2",
      "unit": "",
-     "value": 0.022803535666607016
+     "value": 0.022803535666607016,
+     "with_reuse": {
+      "load": 0.022803535666607016,
+      "state": "OK",
+      "unit": "",
+      "value": 0.022803535666607016
+     }
     },
     {
      "family": "face",
@@ -12874,7 +13429,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.0023279334027329975
+     "value": 0.0023279334027329975,
+     "with_reuse": {
+      "load": 0.0023279334027329975,
+      "state": "OK",
+      "unit": "",
+      "value": 0.0023279334027329975
+     }
     },
     {
      "family": "face",
@@ -12889,7 +13450,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.0037931126124999682
+     "value": 0.0037931126124999682,
+     "with_reuse": {
+      "load": 0.0037931126124999682,
+      "state": "OK",
+      "unit": "",
+      "value": 0.0037931126124999682
+     }
     },
     {
      "family": "face",
@@ -12904,7 +13471,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.03578989830933234
+     "value": 0.03578989830933234,
+     "with_reuse": {
+      "load": 0.03578989830933234,
+      "state": "OK",
+      "unit": "",
+      "value": 0.03578989830933234
+     }
     },
     {
      "family": "face",
@@ -12919,7 +13492,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.04878027923278284
+     "value": 0.04878027923278284,
+     "with_reuse": {
+      "load": 0.04878027923278284,
+      "state": "OK",
+      "unit": "",
+      "value": 0.04878027923278284
+     }
     },
     {
      "family": "face",
@@ -12934,7 +13513,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "",
-     "value": 0.03125
+     "value": 0.03125,
+     "with_reuse": {
+      "load": 0.03125,
+      "state": "OK",
+      "unit": "",
+      "value": 0.03125
+     }
     },
     {
      "family": "face",
@@ -12949,7 +13534,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 0.2
+     "value": 0.2,
+     "with_reuse": {
+      "load": 0.05,
+      "state": "OK",
+      "unit": "Tbit/s",
+      "value": 0.2
+     }
     },
     {
      "family": "face",
@@ -12964,7 +13555,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 39.2
+     "value": 39.2,
+     "with_reuse": {
+      "load": 0.098,
+      "state": "OK",
+      "unit": "Tbit/s",
+      "value": 39.2
+     }
     },
     {
      "family": "face",
@@ -12979,7 +13576,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 0.016
+     "value": 0.016,
+     "with_reuse": {
+      "load": 0.004,
+      "state": "OK",
+      "unit": "Tbit/s",
+      "value": 0.016
+     }
     },
     {
      "family": "face",
@@ -12994,7 +13597,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "Tbit/s",
-     "value": 3.136
+     "value": 3.136,
+     "with_reuse": {
+      "load": 0.00784,
+      "state": "OK",
+      "unit": "Tbit/s",
+      "value": 3.136
+     }
     },
     {
      "family": "face",
@@ -13009,7 +13618,13 @@
      "state": "OK",
      "step": "4.4",
      "unit": "kW",
-     "value": 10.095964059312953
+     "value": 10.095964059312953,
+     "with_reuse": {
+      "load": 0.20191928118625907,
+      "state": "OK",
+      "unit": "kW",
+      "value": 10.095964059312953
+     }
     },
     {
      "family": "face",
@@ -13024,7 +13639,13 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 0.004030797206571165
+     "value": 0.004030797206571165,
+     "with_reuse": {
+      "load": 0.0010076993016427912,
+      "state": "OK",
+      "unit": "MJ",
+      "value": 0.004030797206571165
+     }
     },
     {
      "family": "face",
@@ -13039,7 +13660,13 @@
      "state": "OK",
      "step": "4.1",
      "unit": "MJ",
-     "value": 1005.2265291632318
+     "value": 1005.2265291632318,
+     "with_reuse": {
+      "load": null,
+      "state": "OK",
+      "unit": "MJ",
+      "value": 1005.2265291632318
+     }
     },
     {
      "family": "face",
@@ -13054,7 +13681,13 @@
      "state": "OK",
      "step": "4.2",
      "unit": "MJ",
-     "value": 0.0
+     "value": 0.0,
+     "with_reuse": {
+      "load": null,
+      "state": "OK",
+      "unit": "MJ",
+      "value": 0.0
+     }
     },
     {
      "family": "face",
@@ -13072,6 +13705,15 @@
      "value": {
       "Ku": 14.134615384615383,
       "S": 12.25
+     },
+     "with_reuse": {
+      "load": 0.0,
+      "state": "OK",
+      "unit": "",
+      "value": {
+       "Ku": 14.134615384615383,
+       "S": 12.25
+      }
      }
     },
     {
@@ -13087,7 +13729,13 @@
      "state": "NOK",
      "step": "5.2",
      "unit": "MW",
-     "value": 8.830033454472508
+     "value": 8.830033454472508,
+     "with_reuse": {
+      "load": 1.1037541818090635,
+      "state": "NOK",
+      "unit": "MW",
+      "value": 8.830033454472508
+     }
     },
     {
      "family": "ship",
@@ -13102,7 +13750,13 @@
      "state": "NOK",
      "step": "5.2",
      "unit": "",
-     "value": 0.11294056211957668
+     "value": 0.11294056211957668,
+     "with_reuse": {
+      "load": 8.85421482975481,
+      "state": "NOK",
+      "unit": "",
+      "value": 0.11294056211957668
+     }
     },
     {
      "family": "ship",
@@ -13117,7 +13771,13 @@
      "state": "NOK",
      "step": "5.2",
      "unit": "",
-     "value": 0.36717931211850563
+     "value": 0.36717931211850563,
+     "with_reuse": {
+      "load": 2.7234649856233024,
+      "state": "NOK",
+      "unit": "",
+      "value": 0.36717931211850563
+     }
     },
     {
      "family": "ship",
@@ -13132,7 +13792,13 @@
      "state": "NOK",
      "step": "5.2",
      "unit": "",
-     "value": 0.01762472280384507
+     "value": 0.01762472280384507,
+     "with_reuse": {
+      "load": 56.738481003618205,
+      "state": "NOK",
+      "unit": "",
+      "value": 0.01762472280384507
+     }
     },
     {
      "family": "ship",
@@ -13147,7 +13813,13 @@
      "state": "NOK",
      "step": "5.2",
      "unit": "",
-     "value": 0.36717931211850563
+     "value": 0.36717931211850563,
+     "with_reuse": {
+      "load": 2.7234649856233024,
+      "state": "NOK",
+      "unit": "",
+      "value": 0.36717931211850563
+     }
     },
     {
      "family": "ship",
@@ -13162,7 +13834,13 @@
      "state": "NOK",
      "step": "5.2",
      "unit": "",
-     "value": 0.33039572642131226
+     "value": 0.33039572642131226,
+     "with_reuse": {
+      "load": 3.0266735312575603,
+      "state": "NOK",
+      "unit": "",
+      "value": 0.33039572642131226
+     }
     },
     {
      "family": "ship",
@@ -13177,7 +13855,13 @@
      "state": "OK",
      "step": "4.2",
      "unit": "MW",
-     "value": 2.569517594913486
+     "value": 2.569517594913486,
+     "with_reuse": {
+      "load": 0.428252932485581,
+      "state": "OK",
+      "unit": "MW",
+      "value": 2.569517594913486
+     }
     },
     {
      "family": "flight",
@@ -13192,7 +13876,13 @@
      "state": "OK",
      "step": "4.5",
      "unit": "HPBW",
-     "value": 0.0011890760037895844
+     "value": 0.0011890760037895844,
+     "with_reuse": {
+      "load": 0.023781520075791686,
+      "state": "OK",
+      "unit": "HPBW",
+      "value": 0.0011890760037895844
+     }
     },
     {
      "family": "flight",
@@ -13207,7 +13897,13 @@
      "state": "OK",
      "step": "4.5",
      "unit": "HPBW",
-     "value": 0.005885028372556691
+     "value": 0.005885028372556691,
+     "with_reuse": {
+      "load": 0.11770056745113382,
+      "state": "OK",
+      "unit": "HPBW",
+      "value": 0.005885028372556691
+     }
     },
     {
      "family": "peak",
@@ -13222,7 +13918,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.00689656173405176
+     "value": 0.00689656173405176,
+     "with_reuse": {
+      "load": 0.00344828086702588,
+      "state": "OK",
+      "unit": "s",
+      "value": 0.00689656173405176
+     }
     },
     {
      "family": "peak",
@@ -13237,7 +13939,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.01364894197435501
+     "value": 0.01364894197435501,
+     "with_reuse": {
+      "load": 0.00426529436698594,
+      "state": "OK",
+      "unit": "s",
+      "value": 0.01364894197435501
+     }
     },
     {
      "family": "peak",
@@ -13252,7 +13960,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.17594137038935825
+     "value": 0.17594137038935825,
+     "with_reuse": {
+      "load": 0.0010996335649334891,
+      "state": "OK",
+      "unit": "s",
+      "value": 0.17594137038935825
+     }
     },
     {
      "family": "peak",
@@ -13267,7 +13981,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.00410682964446495
+     "value": 0.00410682964446495,
+     "with_reuse": {
+      "load": 0.002053414822232475,
+      "state": "OK",
+      "unit": "s",
+      "value": 0.00410682964446495
+     }
     },
     {
      "family": "peak",
@@ -13282,7 +14002,13 @@
      "state": "OK",
      "step": "4.3",
      "unit": "s",
-     "value": 0.014052377176618542
+     "value": 0.014052377176618542,
+     "with_reuse": {
+      "load": 0.0035130942941546356,
+      "state": "OK",
+      "unit": "s",
+      "value": 0.014052377176618542
+     }
     },
     {
      "family": "peak",
@@ -13297,7 +14023,13 @@
      "state": "ALERT",
      "step": "5.2",
      "unit": "",
-     "value": 0.33789579371158934
+     "value": 0.33789579371158934,
+     "with_reuse": {
+      "load": 2.959492300912006,
+      "state": "ALERT",
+      "unit": "",
+      "value": 0.33789579371158934
+     }
     },
     {
      "family": "peak",
@@ -13312,7 +14044,13 @@
      "state": "ALERT",
      "step": "5.2",
      "unit": "",
-     "value": 0.9912671187045575
+     "value": 0.9912671187045575,
+     "with_reuse": {
+      "load": 1.0088098163760895,
+      "state": "ALERT",
+      "unit": "",
+      "value": 0.9912671187045575
+     }
     },
     {
      "family": "peak",
@@ -13327,7 +14065,13 @@
      "state": "ALERT",
      "step": "5.2",
      "unit": "",
-     "value": 0.33789579371158934
+     "value": 0.33789579371158934,
+     "with_reuse": {
+      "load": 2.959492300912006,
+      "state": "ALERT",
+      "unit": "",
+      "value": 0.33789579371158934
+     }
     },
     {
      "family": "peak",
@@ -13342,7 +14086,13 @@
      "state": "ALERT",
      "step": "5.2",
      "unit": "",
-     "value": 0.9912671187045575
+     "value": 0.9912671187045575,
+     "with_reuse": {
+      "load": 1.0088098163760895,
+      "state": "ALERT",
+      "unit": "",
+      "value": 0.9912671187045575
+     }
     },
     {
      "family": "peak",
@@ -13357,7 +14107,13 @@
      "state": "ALERT",
      "step": "5.2",
      "unit": "",
-     "value": 0.9912671187045575
+     "value": 0.9912671187045575,
+     "with_reuse": {
+      "load": 1.0088098163760895,
+      "state": "ALERT",
+      "unit": "",
+      "value": 0.9912671187045575
+     }
     }
    ],
    "counts": {
@@ -13647,7 +14403,48 @@
     "search T_SHIP range 80.0 %",
     "search T_DEBRIS range 80.0 %",
     "search T_DECOY range 80.0 %"
-   ]
+   ],
+   "with_reuse": {
+    "ceiling": 0.8,
+    "limiting": {
+     "load": 2.277871046178268,
+     "object": "F1",
+     "resource": "energy",
+     "state": "NOK"
+    },
+    "sectors": {
+     "T_DEBRIS": {
+      "g": 1.0,
+      "limited_by": "ship energy already at 110 %",
+      "rr_real_s": 30.0,
+      "rr_target_s": 30.0
+     },
+     "T_DECOY": {
+      "g": 1.0,
+      "limited_by": "ship energy already at 110 %",
+      "rr_real_s": 30.0,
+      "rr_target_s": 30.0
+     },
+     "T_KKV": {
+      "g": 1.0,
+      "limited_by": "ship energy already at 110 %",
+      "rr_real_s": 20.0,
+      "rr_target_s": 20.0
+     },
+     "T_KKV_RETRO": {
+      "g": 1.0,
+      "limited_by": "ship energy already at 110 %",
+      "rr_real_s": 30.0,
+      "rr_target_s": 30.0
+     },
+     "T_SHIP": {
+      "g": 1.0,
+      "limited_by": "ship energy already at 110 %",
+      "rr_real_s": 120.0,
+      "rr_target_s": 120.0
+     }
+    }
+   }
   },
   "warnings": [
    "sectors T_KKV_RETRO / T_DECOY share 0.037 sr: each is budgeted independently there -- fine for intentional layered coverage (different RCS/range/RR on the same sky), check for a duplicated requirement if not",

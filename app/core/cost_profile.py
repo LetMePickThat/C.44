@@ -187,8 +187,8 @@ def _executor() -> ProcessPoolExecutor:
     global _pool
     if _pool is None:
         import atexit
-        from .optimizer import _mark_pool_worker
-        _pool = ProcessPoolExecutor(max_workers=1, initializer=_mark_pool_worker)   # (stops when the tool is gone)
+        from .background import job_executor
+        _pool = job_executor("profiles")             # (a thread of the estimate's process, E2; stops with the tool)
         atexit.register(shutdown)                 # (a profile still running at the exit: at most its 3-5 s)
     return _pool
 
@@ -534,8 +534,8 @@ def _iexecutor() -> ProcessPoolExecutor:
     global _ipool
     if _ipool is None:
         import atexit
-        from .optimizer import _mark_pool_worker
-        _ipool = ProcessPoolExecutor(max_workers=1, initializer=_mark_pool_worker)
+        from .background import job_executor
+        _ipool = job_executor("instant")
         atexit.register(shutdown)
     return _ipool
 

@@ -969,17 +969,23 @@ def _digest(res: Optional[dict]) -> str:
                                          "relief", "cover", "out_of_reach", "no_confirmation")})
 
 
-def _a_submit(key: str) -> None:
-    """(under _A_LOCK) the inputs of key sent to the worker."""
+def estimate_pool():
+    """The estimate's worker process (the live estimate, its profiles and reliefs in its threads, the redundancy check:
+    one set of caches, E2)."""
     global _A_POOL
-    from . import background
     if _A_POOL is None:
         import atexit
         from concurrent.futures import ProcessPoolExecutor
         from .optimizer import _mark_pool_worker
         _A_POOL = ProcessPoolExecutor(max_workers=1, initializer=_mark_pool_worker)
         atexit.register(lambda: _A_POOL.shutdown(wait=False, cancel_futures=True))
-    fut = _A_POOL.submit(_live_task, *_A["args"][key])
+    return _A_POOL
+
+
+def _a_submit(key: str) -> None:
+    """(under _A_LOCK) the inputs of key sent to the worker."""
+    from . import background
+    fut = estimate_pool().submit(_live_task, *_A["args"][key])
     _A["jobs"][key] = fut
     background.ESTIMATE.start(key)
     fut.add_done_callback(lambda f_, k_=key: _a_done(k_, f_))

@@ -91,6 +91,24 @@ def pending() -> int:
                                                                 # estimates too)
 
 
+# ----------------------------------------------------------------------------- one process for the estimate
+# (user, 13 November 2026, E2: the estimate rose to 14 GB in the tool; measured on MOONTEST_VELOCITY, its stages in one
+# process peak at 5 GB) the estimate's jobs ran in five worker processes (the live estimate, and inside it the cost
+# profiles, the instant profiles and the reliefs, plus the redundancy check), each building its own caches of the sky,
+# the masks and the plans: inside a worker process, the nested jobs now run in threads of that process (one thread per
+# kind, in order), sharing its caches; the redundancy check goes to the live estimate's process.
+
+
+def job_executor(name: str, max_workers: int = 1):
+    """The executor of a kind of estimate job: a thread pool when already in a worker process (shared caches), else
+    a worker process (core.optimizer._mark_pool_worker)."""
+    from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+    from . import optimizer as mo
+    if mo._IN_POOL_WORKER:
+        return ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix=f"estimate-{name}")
+    return ProcessPoolExecutor(max_workers=max_workers, initializer=mo._mark_pool_worker)
+
+
 # ----------------------------------------------------------------------------- pause during an exact calculation
 # (user, 13 November 2026: "when an exact calculation is asked, pause the approximate calculation of the instant in
 # progress") the fast estimate gives its processors to the exact run: nothing new is started (live_allocation_async

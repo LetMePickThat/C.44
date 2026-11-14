@@ -2998,7 +2998,24 @@ L'écart vient surtout de la réinitialisation des pistes perdues (T_DECOY : 23 
 
 **Code** : `gui/selection.Selection` (genre « sector » ou « face », identifiant ; même sélection : rien n'est émis, donc pas de boucle), créée par la fenêtre principale et branchée par `attach_selection` dans la préparation (vue 3D, liste des secteurs, panneau Diagnosis, colonnes de charge), les Résultats (vue 3D, arbre du verdict, tableau par secteur, fenêtre Timeline) et le Profile (tableau de disponibilité, chronologie : lignes en gras) ; vue 3D : `SceneView._pick_volume_or_face` (l'étiquette d'abord, puis l'objet le plus proche le long du rayon : un volume devant une zone de face l'emporte), `show_selection` (contour à `SELECTED_LINE_W` 5 px, contour de zone dans la couleur de la face, colonne de charge encadrée, `LineLabels.set_selected`), conservée à chaque reconstruction. Test `test_shared_selection`. Limite : la vue globale (mode global) ne prend pas encore les clics de sélection des volumes.
 
-**Point E2 (mémoire de l'estimation, 14 Go)** : reporté par l'utilisateur à l'issue de E1 (« on s'occupera de R à l'issue »).
+### Mémoire de l'estimation (14 novembre 2026, étape 5.5, point E2)
+
+**Constat** : l'utilisateur avait vu un processus d'estimation monter à 14 Go sur MOONTEST_VELOCITY. **Décisions** : R1 mesurer d'abord ; R2 machines de 32 à 64 Go : cible ≤ 8 Go pour l'estimation, tous processus confondus (un quart de la plus petite machine, le calcul exact garde sa place).
+
+**Mesures** (MOONTEST_VELOCITY, caches vides) :
+
+| Mesure | Avant | Après |
+|---|---|---|
+| Un instant (t = 3774 s), configuration de l'application | 4,38 Go, 6 processus, 217 s | 3,66 Go, 3 processus, 192 s (regroupement) |
+| 10 instants du plan de vol, t = 2 000 à 18 000 s | 2,9 à 4,8 Go par instant, pas d'accumulation (la mémoire redescend entre les instants) | — |
+| t = 0, configuration de l'application | **20,4 Go**, 536 s | **4,08 Go**, 539 s (paquets) |
+| Profil instantané de SP seul à t = 0 | 22,7 Go | 2,9 Go |
+
+**Causes et remèdes** :
+- les travaux de l'estimation tournaient dans 5 processus (estimation de l'instant, et dans lui les profils de coût, les profils instantanés et la relève, plus le contrôle de redondance), chacun avec ses caches du ciel, des masques et des plans : dans un processus de travail, les travaux imbriqués tournent désormais dans des fils de ce processus (`background.job_executor`, un fil par nature) et le contrôle de redondance va au processus de l'estimation (`cost_estimate.estimate_pool`) ; gain 16 % ;
+- **cause principale** : le fouillis de surface (`environment.clutter_over_signal`) formait une matrice directions × points de l'anneau iso-distance et une dizaine de tableaux de cette taille : pour SP (toute la sphère) à t = 0, la Lune vue en grand d'une face, plusieurs Go chacun ; les directions sont désormais traitées par paquets de `CLUTTER_BLOCK_ELEMS` (2·10⁶ éléments, ~16 Mo par tableau) : mêmes sommes, bit à bit (test `test_clutter_by_blocks_is_the_same_sum`).
+
+**Reste** : la durée à t = 0 (environ 9 min pour l'estimation complète, 2 min pour le profil instantané de SP) n'a pas changé ; à regarder avec les risques de performance.
 
 **Pas d'estimation sans scénario** (règle de l'utilisateur du 13 novembre 2026 : « ne pas lancer de calcul approx tant qu'un scénario n'est pas chargé ») : dans la préparation, la charge en direct, la jauge, les volumes de la vue globale, les alertes de portée et le contrôle de redondance attendent un scénario lié (le plan de vol qui donne la navigation et le ciel) : `SceneView.estimate_allowed` (passé à la vue globale), `PrepTab._update_alerts` et `_start_redundancy_check` ; badge « NO SCENARIO - NO ESTIMATE » ; le chargement du scénario relance la préparation (`_apply_scenario_t`), donc l'estimation.
 

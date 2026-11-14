@@ -4077,3 +4077,24 @@ def test_mission_report_page():
     every = page.split("4. Every constraint", 1)[1].split("5. Volumes", 1)[0]
     assert len(re.findall(r"<tr><td>", every)) == len(res["verdict"]["constraints"])
     assert len(re.findall(r"advice \d+ \(", page)) == len(res["verdict"]["advice"])
+
+
+def test_clutter_by_blocks_is_the_same_sum(monkeypatch):
+    """E2 (14 November 2026): the surface clutter summed by blocks of directions (memory: 19 GB in one matrix for a
+    whole-sphere volume near the Moon) gives the same values as in one block, with and without a sub-aperture."""
+    from core import environment as env
+    s = env.Surface("MOON", (0.0, 0.6, -0.8), 1737.4, 2500.0, (0.1, 0.1), None, None)
+    rng = np.random.default_rng(3)
+    d = rng.normal(size=(500, 3))
+    d /= np.linalg.norm(d, axis=1)[:, None]
+    r_km = 0.5 * (s.d_min_km + s.d_horizon_km)
+    for k in range(4):
+        for sub in (None, "half"):
+            try:
+                one = env.clutter_over_signal(s, k, d, "S", 2.8, -25.0, r_km, 50.0, 500.0, sub)
+            except (KeyError, ValueError):
+                continue
+            monkeypatch.setattr(env, "CLUTTER_BLOCK_ELEMS", 3 * env.RING_POINTS + 7)
+            blocks = env.clutter_over_signal(s, k, d, "S", 2.8, -25.0, r_km, 50.0, 500.0, sub)
+            monkeypatch.setattr(env, "CLUTTER_BLOCK_ELEMS", 10 ** 12)
+            assert np.array_equal(one, blocks)

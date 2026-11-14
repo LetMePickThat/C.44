@@ -564,8 +564,8 @@ def relief_cached(sectors_ship: List[dict], grid, eps_min: float, eps_max: float
             try:
                 if _R_POOL is None:
                     import atexit
-                    from concurrent.futures import ProcessPoolExecutor
-                    _R_POOL = ProcessPoolExecutor(max_workers=1, initializer=mo._mark_pool_worker)
+                    from .background import job_executor
+                    _R_POOL = job_executor("relief")      # (a thread of the estimate's process, E2)
                     atexit.register(lambda: _R_POOL.shutdown(wait=False, cancel_futures=True))
                 fut = _R_POOL.submit(_relief_task, [dict(s) for s in sectors_ship], res_deg, eps_min, eps_max,
                                      sky, dict(g or {}), served)
@@ -602,12 +602,8 @@ def find_redundancies_process(mission: dict, grid, served=None):
     background.REDUNDANCY.start(key)
     try:
         try:
-            if _F_POOL is None:
-                import atexit
-                from concurrent.futures import ProcessPoolExecutor
-                _F_POOL = ProcessPoolExecutor(max_workers=1, initializer=mo._mark_pool_worker)
-                atexit.register(lambda: _F_POOL.shutdown(wait=False, cancel_futures=True))
-            fut = _F_POOL.submit(_find_task, mission, float(getattr(grid, "res_deg", 1.0)), served)
+            from . import cost_estimate as ce             # (E2: in the live estimate's process, its caches shared)
+            fut = ce.estimate_pool().submit(_find_task, mission, float(getattr(grid, "res_deg", 1.0)), served)
         except Exception:  # noqa: BLE001 -- no worker process (frozen install): here
             return find_redundancies(mission, grid, served=served)
         return fut.result()

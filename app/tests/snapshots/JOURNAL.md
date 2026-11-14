@@ -776,3 +776,11 @@ criterion). Only mission_target_library differs: 27 values at 1e-8 to 1e-7 relat
 volumes, T_SHIP rr_tenable_s, sector 2 energies), no state change, key figures equal to the displayed digits. Same
 drift as at the V6.47.0 refreeze (float noise, cause not checked: cost table rebuilt on this PC or machine-dependent
 rounding). Refrozen for this case only (user, 13 November 2026).
+
+## 2026-11-14 -- verdict with the margin reuse (keys only), estimate memory (no output change)
+
+N3 of 14 November 2026 (49.5 min): 351 / 351 tests passed outside the snapshots; 9 mission cases differ, model
+identical. Every difference is a NEW key: the verdict's `with_reuse` (per constraint row: value, unit, load, state in
+the state played at the real revisits of the margin reuse; per verdict: summary), 88 to 128 per case; 0 existing value
+changed. The estimate's memory work of the same day (nested jobs in threads of one worker process, surface clutter by
+blocks of directions, bit-identical) moves no output. Refrozen (user, 14 November 2026).

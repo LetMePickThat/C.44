@@ -598,16 +598,28 @@ def clutter_over_signal(s: Surface, k: int, dirs: np.ndarray, band: str, f_ghz: 
     sig_pt = gam * cos_i * area / RING_POINTS
     k_lam = rm.ARRAY_ENVELOPE_M / rm.lambda_m(f_ghz)
     g2 = _two_way_profile(band, rx_sll_db)
-    ub, vb, wb = dirs @ eu, dirs @ ev, np.maximum(dirs @ n, 1e-6)
+    dirs = np.asarray(dirs, float).reshape(-1, 3)
     us, vs = pts @ eu, pts @ ev
-    du, dv = (us[None, :] - ub[:, None]) * k_lam, (vs[None, :] - vb[:, None]) * k_lam
-    rho = np.hypot(du, dv)
-    if tx_sub is None:
-        g = g2(rho)
-    else:
-        g = subaperture_gain(band, tx_sub, du, dv) * _profile_gain(rm.rx_beam(band, rx_sll_db), rho)
-    rel = (wq[None, :] / wb[:, None]) ** 2 * g
-    return sig_pt * rel.sum(axis=1) / rcs_m2
+    out = np.empty(len(dirs))
+    # (E2, user 14 November 2026: one matrix directions x ring points, ~10 temporaries of that size, reached 19 GB for
+    # a whole-sphere volume near the Moon) the directions by blocks of at most CLUTTER_BLOCK_ELEMS elements: the same
+    # sums, row by row
+    step = max(1, CLUTTER_BLOCK_ELEMS // max(len(pts), 1))
+    for i0 in range(0, len(dirs), step):
+        d_ = dirs[i0:i0 + step]
+        ub, vb, wb = d_ @ eu, d_ @ ev, np.maximum(d_ @ n, 1e-6)
+        du, dv = (us[None, :] - ub[:, None]) * k_lam, (vs[None, :] - vb[:, None]) * k_lam
+        rho = np.hypot(du, dv)
+        if tx_sub is None:
+            g = g2(rho)
+        else:
+            g = subaperture_gain(band, tx_sub, du, dv) * _profile_gain(rm.rx_beam(band, rx_sll_db), rho)
+        rel = (wq[None, :] / wb[:, None]) ** 2 * g
+        out[i0:i0 + step] = rel.sum(axis=1)
+    return sig_pt * out / rcs_m2
+
+
+CLUTTER_BLOCK_ELEMS = 2_000_000     # directions x ring points per block of clutter_over_signal (~16 MB a temporary)
 
 
 def doppler_rejected(s: Surface, v_min_mps: float, v_max_mps: float) -> bool:
