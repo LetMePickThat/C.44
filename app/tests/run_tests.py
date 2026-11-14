@@ -3,6 +3,7 @@
 
   python tests/run_tests.py            automatic level (below)
   python tests/run_tests.py N1|N2|N3   forced level
+  python tests/run_tests.py N4         the flexibility battery (on demand only, never automatic)
   python tests/run_tests.py --dry      only say what would run
 
 Levels:
@@ -13,6 +14,9 @@ Levels:
       kept for N3 (user, option b: they run nearly all the code, so testmon would select them for any change).
   N3  the full pass, with a global progress bar (25 October 2026): self-test, cost table, every test case computed
       once, impact report (tests/.impact_last.md), the whole suite; the refreeze (update_snapshots) stays a decision.
+  N4  (user, 14 November 2026) the flexibility battery, tests/test_flexibility.py: the model run with modified
+      parameter files (larger / smaller arrays, more TRMs per TRSA), each in its own process with its own cost table;
+      the physics must follow without code changes. On demand only: no other level runs it.
 Automatic: N3 when there is no reference yet, or when a model entry (outside [tool.*]) of radar_system.toml changed
 since the last successful run; else N2 when code, tests or [tool.*] changed; else N1. The parameter file of the last
 successful run is kept in tests/.params_last_run.toml (local, not in the repository).
@@ -348,9 +352,19 @@ def main(argv) -> int:
     dry = "--dry" in argv
     args = [a for a in argv if a != "--dry"]
     level = args[0] if args else "auto"
-    if level not in ("auto", "N1", "N2", "N3"):
+    if level not in ("auto", "N1", "N2", "N3", "N4"):
         print(__doc__)
         return 2
+    if level == "N4":
+        t0 = time.time()
+        env = {**os.environ, "RADAR_N4": "1"}
+        print("[N4] flexibility battery (tests/test_flexibility.py), several minutes per variant")
+        rc = subprocess.run([sys.executable, "-m", "pytest", "--testmon-noselect", "-rf", "-n", "0",
+                             os.path.join("tests", "test_flexibility.py")], cwd=ROOT, env=env).returncode
+        el = time.time() - t0
+        print(f"\n[N4] {'PASSED' if rc == 0 else 'FAILED'} in {el / 60:.1f} min")
+        print(f"commit line: Tests: N4 flexibility battery ({el / 60:.1f} min){'' if rc == 0 else ' -- FAILURES'}")
+        return 0 if rc == 0 else 1
     lvl, why, ids = choose(level)
     n = "all" if ids is None else str(len(ids))
     print(f"[{lvl}] {why} -> {n} tests" + (" + cost table, every case, impact report (full pass)" if lvl == "N3" else ""))

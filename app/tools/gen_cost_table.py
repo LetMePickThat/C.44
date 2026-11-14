@@ -3,7 +3,7 @@ Run from anywhere: python tools/gen_cost_table.py"""
 import os, sys, json, itertools, dataclasses
 from multiprocessing import Pool
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_OUT = os.path.join(_ROOT, "core", "cost_table.json")
+_OUT = os.environ.get("RADAR_COST_TABLE") or os.path.join(_ROOT, "core", "cost_table.json")   # (N4: elsewhere)
 sys.path.insert(0, _ROOT)
 from core import optimizer as mo  # noqa: E402
 from core import radar_model as rm  # noqa: E402

@@ -12,3 +12,5 @@ geometry, GUI). Derived artefacts (core/cost_table.json via tools/gen_cost_table
 
 **Why:** the radar architecture still evolves; values keep changing (e.g. tilt 20 -> 25 deg, Pfa 1e-6 -> 1e-8).
 **How to apply:** design step 0.1 of [[radar-roadmap]] around this; every later step adds its variables to that file.
+
+Reinforced by the user on 14 Nov 2026 (opening 5.7): "the model must tolerate parameter changes without the physics collapsing or tons of code to rewrite", e.g. the arrays slightly larger in the final design (more TRM / TRSA, bigger aperture): everything derived from the file must follow (counts, aperture, patterns, caches, cost table, budgets). In 5.7, test it with modified parameter files (array growth, etc.) and treat hard-coded values (number of faces 4, tilt / cone geometry, octagon family) as defects.

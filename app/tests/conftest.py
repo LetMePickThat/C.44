@@ -65,6 +65,13 @@ _share_threads()
 
 @pytest.hookimpl(tryfirst=True)   # before xdist's own hook, which reads the groups
 def pytest_collection_modifyitems(config, items):
+    # the N4 battery (model flexibility, user 14 November 2026): only on demand (python tests/run_tests.py N4, which
+    # sets RADAR_N4=1); every other pass leaves its tests out
+    if not os.environ.get("RADAR_N4"):
+        n4 = [it for it in items if it.get_closest_marker("n4") is not None]
+        if n4:
+            config.hook.pytest_deselected(items=n4)
+            items[:] = [it for it in items if it.get_closest_marker("n4") is None]
     for item in items:
         if "runs" in getattr(item, "fixturenames", ()):
             item.add_marker(pytest.mark.xdist_group("runs"))
@@ -129,6 +136,7 @@ def pytest_xdist_node_collection_finished(node, ids):
 
 
 def pytest_configure(config):
+    config.addinivalue_line("markers", "n4: flexibility battery N4, run on demand only (tests/run_tests.py N4)")
     config.pluginmanager.register(_ProgressPlugin(config), "radar_progress")
 
 

@@ -53,7 +53,9 @@ from . import geometry as geo
 from . import radar_model as rm
 from . import tracking as trk
 
-DEFAULT_TABLE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cost_table.json")
+# (RADAR_COST_TABLE: another table, e.g. the N4 flexibility battery with a modified parameter file: never the repository's)
+DEFAULT_TABLE_PATH = (os.environ.get("RADAR_COST_TABLE")
+                      or os.path.join(os.path.dirname(os.path.abspath(__file__)), "cost_table.json"))
 
 
 @dataclass
