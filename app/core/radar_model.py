@@ -815,7 +815,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.52.0"
+MODEL_VERSION = "6.53.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -2158,6 +2158,33 @@ def look_fluctuation(target: Target, f_ghz: float, swerling: Optional[int], n_sa
         m_t = min(float(n_samples), 1.0 + (0.0 if math.isinf(t0) else t_obs_s / t0))
         k = hop_shape(base, m_t, min(float(n_samples), m_t * draws), beta)
     return detection.Fluct(_quantise_shape(k * diversity_factor(target, f_ghz)))
+
+
+def common_part(target: Target, f_ghz: float, swerling: Optional[int]) -> Tuple[float, float]:
+    """Part of the target power COMMON to the frequencies (step 5.7, B8 pass 2): (beta, k_a), the look power being
+    G = beta A + B with A ~ Gamma(k_a, 1 / k_a) (mean 1) shared by every look of the target within T0 whatever its
+    frequency (the dominant scatterer follows the aspect only) and B (mean 1 - beta) drawn per frequency.
+    k_a = beta k_1 x the polarisation diversity (one time sample: the looks are short against T0), so beta A carries
+    the share beta of the variance of one sample; B carries the rest of the look's variance (b_shape). (0, inf) when
+    the class has no common part (beta = 0, steady, or a declared fast-fluctuating SW2 / SW4)."""
+    beta = float(target.fluct_fixed_var_frac or 0.0)
+    if beta <= 0.0 or swerling in (0, 2, 4):
+        return 0.0, math.inf
+    k1 = detection.shape_of(swerling, 1) if swerling is not None else FLUCTUATIONS[target.fluctuation(f_ghz)]
+    if math.isinf(k1):
+        return 0.0, math.inf
+    return beta, beta * k1 * diversity_factor(target, f_ghz)
+
+
+def b_shape(k_look, beta: float, k_a: float):
+    """Gamma shape of B / (1 - beta) for a look of shape k_look (step 5.7, B8 pass 2): the variance 1 / k_look less
+    that of beta A (beta^2 / k_a), carried by (1 - beta) Gamma(k_b); infinite (B steady) when nothing is left or
+    beta = 1. Works on arrays."""
+    k = np.asarray(k_look, dtype=float)
+    var_b = 1.0 / k - beta * beta / k_a
+    with np.errstate(divide="ignore", invalid="ignore"):
+        kb = np.where((var_b > 1e-9) & (beta < 1.0), (1.0 - beta) ** 2 / np.where(var_b > 1e-9, var_b, 1.0), np.inf)
+    return float(kb) if kb.ndim == 0 else kb
 
 
 def coherent_blocks(n: int, pri_s: float, tau_s: float, integration: str, swerling: Optional[int],

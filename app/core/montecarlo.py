@@ -407,6 +407,8 @@ class ConfirmSpec:
     n_freqs: int = 1                        # K1: independent Ku frequencies the looks hop over
     attempts: int = 1                       # K3: confirmations of one detection at most
     ku_gain: object = 1.0                   # true targets' Ku RCS against the plan's (robustness test)
+    common: Tuple[float, float] = (0.0, math.inf)   # step 5.7, B8 pass 2: (beta, k_a) of rm.common_part
+    _a: Optional[np.ndarray] = None         # the common part A of each detection's target power (one draw)
 
     def _ku17(self, rng, ex, ey, m_db: float, cluster_only: bool, attempt: int = 0) -> np.ndarray:
         st, n = self.st, len(ex)
@@ -417,9 +419,20 @@ class ConfirmSpec:
         looks = len(st.cl.beams) + 1
         # K1: the looks hop over n_freqs frequencies: one target power per frequency (shared within T0)
         nf = max(1, min(self.n_freqs, looks))
-        gf = _look_power(rng, shape, n, False, nf) if nf > 1 else _look_power(rng, shape, n,
-                                                                               self.trip_s < self.t0_ku_s, looks)
-        g = gf[:, np.arange(looks) % nf] if nf > 1 else gf
+        beta, k_a = self.common
+        if beta > 0.0:
+            # step 5.7, B8 pass 2: G = beta A + (1 - beta) B', A common to the frequencies (drawn once per detection
+            # in draw), B' one per frequency as before
+            kb = rm.b_shape(shape, beta, k_a)
+            gb = _look_power(rng, kb, n, False, nf) if nf > 1 else _look_power(rng, kb, n,
+                                                                                self.trip_s < self.t0_ku_s, looks)
+            gb = gb[:, np.arange(looks) % nf] if nf > 1 else gb
+            a = self._a[:, None] if self._a is not None else rng.gamma(k_a, 1.0 / k_a, (n, looks))
+            g = beta * a + (1.0 - beta) * gb
+        else:
+            gf = _look_power(rng, shape, n, False, nf) if nf > 1 else _look_power(rng, shape, n,
+                                                                                   self.trip_s < self.t0_ku_s, looks)
+            g = gf[:, np.arange(looks) % nf] if nf > 1 else gf
         ok = np.zeros(n, dtype=bool)
         snr_hit = np.full(n, np.nan)                    # signal SNR of the Ku look that confirmed (M3 hand-over)
         if not cluster_only:
@@ -442,6 +455,9 @@ class ConfirmSpec:
         st, n = self.st, len(snr_det)
         self.ku_gain = 1.0 if ku_off_db is None else 10.0 ** (np.asarray(ku_off_db) / 10.0)
         sig = trk.K_ML_S * st.q / np.sqrt(np.maximum(snr_det, 1e-12))
+        beta, k_a = self.common
+        # B8 pass 2: A shared by the Ku looks and attempts of a detection (within T0), else one per look
+        self._a = (rng.gamma(k_a, 1.0 / k_a, n) if beta > 0.0 and self.trip_s < self.t0_ku_s else None)
         ex = st.bias_ku + sig * rng.standard_normal(n)
         ey = st.bias_ku + sig * rng.standard_normal(n)
         if self.mode in ("KU1+7", "KU7"):
@@ -501,14 +517,14 @@ def confirm_spec(sec: dict, plan: dict, t: dict, g: dict) -> Optional[ConfirmSpe
     p_min = float(s.get("confirm_p_min", trk.CONFIRM_P_MIN))
     st = trk.ConfirmStats(rm.look_fluctuation(tgt, f_s, tgt.swerling, 1, 0.0),
                           rm.look_fluctuation(tgt, f_ku, tgt.swerling, 1, 0.0), f_s, f_ku,
-                          plan.get("beam_spacing_hpbw"), cl, p_min)
+                          plan.get("beam_spacing_hpbw"), cl, p_min, common=rm.common_part(tgt, f_ku, tgt.swerling))
     at = t.get("at") or []
     n_f = int(at[0].get("init_freqs") or 1) if at else trk.init_hop_freqs({}, f_ku, min(trk.KU_BW), tgt.decorr_length_m(),
                                                                         trk.exclusions_ku(s))
     return ConfirmSpec(sid=sec["id"], mode=mode, margin_db=c["margin_db"], success_analytic=float(c["success"]),
                        p_min=p_min, st=st, t0_s_s=tgt.t0_s(f_s), t0_ku_s=tgt.t0_s(f_ku),
                        trip_s=2.0 * float(sec["range_km"]) * 1e3 / rm.C_MPS, n_freqs=max(1, n_f),
-                       attempts=int(c.get("attempts", 1)))
+                       attempts=int(c.get("attempts", 1)), common=rm.common_part(tgt, f_ku, tgt.swerling))
 
 
 # ----------------------------------------------------------------------------- one sector
@@ -1240,6 +1256,10 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
         init_t = np.zeros(n)
         g_f = np.ones((n, n_f))                          # target power per Ku frequency (H1-H2)
         t_f = np.full((n, n_f), np.inf)
+        # step 5.7, B8 pass 2: the part of the power common to the frequencies, one per track, new after T0
+        beta_c, k_a = rm.common_part(tgt, mc["f_ku"], tgt.swerling)
+        a_c = np.ones(n)
+        t_a = np.full(n, np.inf)
         ci = np.zeros(n, dtype=int)                      # frequency of the next initiation look
         tr = draw_truth(tgt, mc["f_ku"], mc["f_ku"], n, rng, truth_cfg, 0.0, 0.0) if truth_cfg is not None else None
         gain_t = 10.0 ** (tr["off_ku_db"] / 10.0) if tr is not None else np.ones(n)
@@ -1261,6 +1281,7 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
             init_looks[idx] = 0
             init_t[idx] = 0.0
             t_f[idx] = np.inf
+            t_a[idx] = np.inf
             ci[idx] = 0
             if not steady_start:
                 tot["inits"] += m
@@ -1294,14 +1315,31 @@ def simulate_bracket(states: list, mc: dict, n_tracks: int, n_upd: int, rng: np.
             # samples: far fewer deep fades than one pulse; fixed after the pd_init sweep, 27 October 2026)
             shp = np.where(in_init, tl_init.shape, tl_upd.shape) * shp_t
             fin = np.isfinite(shp) & (shp <= 1e4)
-            if fin.any():
+            if fin.any() and beta_c > 0.0:
+                # B8 pass 2: G = beta A + (1 - beta) B', B' per frequency (its shape: the look's variance less A's)
                 t_f += dt[:, None]
-                new = ~np.isfinite(t_f[rows, cur]) | (t_f[rows, cur] >= np.where(np.isfinite(t0_t), t0_t, np.inf))
-                k_ = np.where(fin, shp, 1.0)
-                draw = np.where(fin, rng.gamma(k_, 1.0 / k_), 1.0)
+                t_a += dt
+                t0_lim = np.where(np.isfinite(t0_t), t0_t, np.inf)
+                new = ~np.isfinite(t_f[rows, cur]) | (t_f[rows, cur] >= t0_lim)
+                kb = rm.b_shape(np.where(fin, shp, 1.0), beta_c, k_a)
+                fb = fin & np.isfinite(kb)
+                k_ = np.where(fb, kb, 1.0)
+                draw = np.where(fb, rng.gamma(k_, 1.0 / k_), 1.0)
                 g_f[rows, cur] = np.where(new, draw, g_f[rows, cur])
                 t_f[rows, cur] = np.where(new, 0.0, t_f[rows, cur])
-            g = g_f[rows, cur]
+                new_a = ~np.isfinite(t_a) | (t_a >= t0_lim)
+                a_c = np.where(new_a, rng.gamma(k_a, 1.0 / k_a, n), a_c)
+                t_a = np.where(new_a, 0.0, t_a)
+                g = np.where(fin, beta_c * a_c + (1.0 - beta_c) * g_f[rows, cur], 1.0)
+            else:
+                if fin.any():
+                    t_f += dt[:, None]
+                    new = ~np.isfinite(t_f[rows, cur]) | (t_f[rows, cur] >= np.where(np.isfinite(t0_t), t0_t, np.inf))
+                    k_ = np.where(fin, shp, 1.0)
+                    draw = np.where(fin, rng.gamma(k_, 1.0 / k_), 1.0)
+                    g_f[rows, cur] = np.where(new, draw, g_f[rows, cur])
+                    t_f[rows, cur] = np.where(new, 0.0, t_f[rows, cur])
+                g = g_f[rows, cur]
             ci = np.where(in_init, (ci + 1) % n_f, ci)
             lam = np.empty(n)
             hit = np.empty(n, dtype=bool)

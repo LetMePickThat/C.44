@@ -1419,6 +1419,66 @@ def test_hop_decorrelation_of_a_dominant_scatterer():
         rm.look_fluctuation(same, 3.0, None, 8, 2e-3, 0.0).k)                                    # changes nothing
 
 
+def test_common_part_of_the_power_across_frequencies():
+    """Step 5.7, B8 pass 2: G = beta A + (1 - beta) B'; A (common to the frequencies) and B' share the variance of
+    the look (beta^2 / k_a + (1 - beta)^2 / k_b = 1 / k_look); none without beta; the Gauss-Laguerre nodes of A keep
+    its mean and variance; beta = 1 leaves B steady; a class without beta keeps one node (the former model)."""
+    from core import tracking as trk_
+    kkv, ship = rm.TARGETS["KKV"], rm.TARGETS["SHIP"]
+    assert rm.common_part(ship, 14.0, ship.swerling) == (0.0, math.inf)
+    b, ka = rm.common_part(kkv, 14.0, kkv.swerling)
+    assert b == pytest.approx(kkv.fluct_fixed_var_frac) and math.isfinite(ka)
+    for k_look in (2.04, 3.4):
+        kb = rm.b_shape(k_look, b, ka)
+        assert b * b / ka + (1.0 - b) ** 2 / kb == pytest.approx(1.0 / k_look)
+    assert math.isinf(rm.b_shape(9.0, b, ka))     # smoother than A alone (one time sample): B steady
+    assert math.isinf(rm.b_shape(2.0, 1.0, 2.0))
+    a, w = trk_.common_a_nodes(ka)
+    assert (a * w).sum() == pytest.approx(1.0) and ((a - 1.0) ** 2 * w).sum() == pytest.approx(1.0 / ka)
+    assert len(trk_.common_nodes(1, 0.0, math.inf)) == 1
+    from core import detection
+    assert len(trk_.common_nodes(detection.Fluct(2.0), b, ka)) == trk_.COMMON_NODES
+
+
+def test_confirmation_with_a_common_part_matches_the_draws():
+    """Step 5.7, B8 pass 2: the Ku looks of a confirmation (cluster beams, attempts) share the common part of the KKV
+    power: the success falls against independent looks, a second attempt gains less, and the analytic statistics
+    (nodes of A) match the Monte-Carlo draws (A drawn once per detection, B' per frequency)."""
+    from core import tracking as trk_, montecarlo as mc_
+    kkv = rm.TARGETS["KKV"]
+    com = rm.common_part(kkv, 14.0, kkv.swerling)
+    fl = rm.look_fluctuation(kkv, 14.0, kkv.swerling, 1, 0.0)
+    cl = trk_.cluster_variants()[0]
+    ind1, ind2 = (trk_.ConfirmStats(fl, fl, 2.8, 14.0, None, cl, attempts=a).ku("KU1+7", 0.0)[0] for a in (1, 2))
+    com1, com2 = (trk_.ConfirmStats(fl, fl, 2.8, 14.0, None, cl, attempts=a, common=com).ku("KU1+7", 0.0)[0]
+                  for a in (1, 2))
+    assert com1 < ind1 - 0.02 and com2 - com1 > 0.0 and (1.0 - com2) / (1.0 - com1) > (1.0 - ind2) / (1.0 - ind1)
+    st = trk_.ConfirmStats(fl, fl, 2.8, 14.0, None, cl, attempts=1, common=com)
+    spec = mc_.ConfirmSpec(sid="x", mode="KU1+7", margin_db=0.0, success_analytic=com1, p_min=0.5, st=st,
+                           t0_s_s=1.0, t0_ku_s=0.4, trip_s=0.005, n_freqs=len(cl.beams) + 1, attempts=1, common=com)
+    rng = np.random.default_rng(7)
+    r = spec.draw(st.x_det[rng.integers(0, len(st.x_det), 100000)], rng)
+    assert r["ci"][0] - 0.002 <= com1 <= r["ci"][1] + 0.002
+
+
+def test_initiation_chain_over_the_common_part():
+    """Step 5.7, B8 pass 2: the initiation chain averaged over the nodes of A: the same miss at every node gives the
+    plain chain back; misses concentrated on the low nodes (a miss announces another on the next frequency) lose
+    more attempts than independent looks of the same Pd."""
+    from core import tracking as trk_, trackmodel as tm
+    ka = 1.02
+    a, _ = trk_.common_a_nodes(ka)
+    pds, iv, w = [0.9, 0.9, 0.9], [0.01, 0.1], [1.0, 1.0, 1.0]
+    ch = tm.init_chain(iv, pds, 0.001, w)
+    flat = (np.full(len(a), 0.1), np.full(len(a), 0.01))
+    same = trk_._chain_common(ch, iv, pds, 0.001, w, flat, [flat, flat], [False, False], [1.0, 1.0], 0.9, ka)
+    assert same["loss_prob"] == pytest.approx(ch["loss_prob"]) and same["looks"] == pytest.approx(ch["looks"])
+    q = np.exp(-a)
+    tilt = (q, q * q)
+    corr = trk_._chain_common(ch, iv, pds, 0.001, w, tilt, [tilt, tilt], [False, False], [1.0, 1.0], 0.9, ka)
+    assert corr["loss_prob"] > 1.5 * ch["loss_prob"]
+
+
 def test_agile_variants_fit_the_band():
     sec = dict(md.new_sector([]), res_max_m=20.0)
     ag = [w for w in mo.candidate_waveforms(sec) if w.agility_mhz > 0]

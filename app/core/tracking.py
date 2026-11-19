@@ -375,6 +375,41 @@ def _cluster_pd(ex, ey, snr, fluct, cl: ClusterTx):
     return 1.0 - miss
 
 
+COMMON_NODES = int(P.get("tool.detection.common_nodes"))     # step 5.7, B8 pass 2
+
+
+@functools.lru_cache(maxsize=64)
+def common_a_nodes(k_a: float) -> Tuple[np.ndarray, np.ndarray]:
+    """(nodes, weights) of A ~ Gamma(k_a, 1 / k_a), the part of the target power common to the frequencies (step 5.7,
+    B8 pass 2): generalised Gauss-Laguerre, exact on the moments; its low tail matters (a miss on every frequency).
+    Measured on the KKV confirmation (KU1+7, 0 dB, 1 attempt): 0.8523 against 0.8521 +/- 0.0015 drawn; equal-weight
+    quantiles gave 0.8555 (optimistic, the low tail cut)."""
+    from scipy.special import roots_genlaguerre
+    x, w = roots_genlaguerre(COMMON_NODES, k_a - 1.0)
+    a, w = x / k_a, w / w.sum()
+    a.setflags(write=False)
+    w.setflags(write=False)
+    return a, w
+
+
+@functools.lru_cache(maxsize=256)
+def common_nodes(fluct, beta: float, k_a: float) -> Tuple[Tuple[float, object, float], ...]:
+    """(SNR factor, fluctuation, weight) of a single-sample look conditioned on each node of the common part (step
+    5.7, B8 pass 2): G = beta A + (1 - beta) B', B' ~ Gamma(k_b) (rm.b_shape); at A = a, mean m = beta a + 1 - beta
+    and the Gamma of the same variance (shape m^2 k_b / (1 - beta)^2: slightly pessimistic at high Pd, KU7 0.902
+    against 0.919 drawn). ((1, fluct, 1),) without a common part (the looks independent, as before)."""
+    k = detection.shape_of(fluct, 1)
+    if beta <= 0.0 or not math.isfinite(k_a) or not math.isfinite(k) or k > 1e4:
+        return ((1.0, fluct, 1.0),)
+    kb = rm.b_shape(k, beta, k_a)
+    out = []
+    for a, w in zip(*common_a_nodes(k_a)):
+        m = float(beta * a + 1.0 - beta)
+        kc = math.inf if math.isinf(kb) else rm._quantise_shape(m * m * kb / (1.0 - beta) ** 2)
+        out.append((m, detection.Fluct(kc), float(w)))
+    return tuple(out)
+
+
 def _ku_after_s(sigma_ku, bias_ku: float, snr_ku, fluct, cl: ClusterTx,
                 attempts: int = 1) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """KU1+7 and KU7 statistics for angle errors of standard deviation sigma_ku per axis (Ku beamwidths, array over
@@ -408,8 +443,12 @@ class ConfirmStats:
 
     def __init__(self, fl_s, fl_ku, f_s_ghz: float, f_ku_ghz: float, spacing_hpbw: Optional[float],
                  cl: ClusterTx, p_min: float = CONFIRM_P_MIN, x_det: Optional[np.ndarray] = None,
-                 attempts: int = CONFIRM_ATTEMPTS):
+                 attempts: int = CONFIRM_ATTEMPTS, common: Tuple[float, float] = (0.0, math.inf)):
         self.fl_s, self.fl_ku, self.cl = fl_s, fl_ku, cl
+        # step 5.7, B8 pass 2: the Ku looks (cluster beams, attempts) share the common part of the target power
+        # (rm.common_part): statistics averaged over its nodes, the looks independent at each node; the S echo stays
+        # independent of the Ku looks (user, 19 Nov 2026)
+        self.nodes_ku = common_nodes(fl_ku, float(common[0]), float(common[1]))
         self.p_min = float(p_min)                                     # step 5.1: mission / sector confirm_p_min
         self.attempts = max(1, int(attempts))                         # K3
         self.q = rm.hpbw_deg(f_s_ghz) / rm.hpbw_deg(f_ku_ghz)                 # S TX beamwidth in Ku TX beamwidths
@@ -427,14 +466,17 @@ class ConfirmStats:
         """(success, Ku look energies per target) of KU1+7 or KU7 at margin m_db."""
         key = (mode, round(m_db, 6))
         if key not in self._memo:
-            s17, l17, s7 = (a.mean(axis=0) for a in _ku_after_s(self.sig_ku, self.bias_ku,
-                                                              np.array([self.snr_ku * rm.db_to_lin(m_db)]),
-                                                              self.fl_ku, self.cl, self.attempts))
-            self._memo[("KU1+7", round(m_db, 6))] = (float(s17[0]), float(l17[0]))
-            f7 = 1.0 - float(s7[0])                       # looks: the attempts paid while the earlier fail
-            f7_1 = f7 ** (1.0 / self.attempts) if self.attempts > 1 else f7
-            self._memo[("KU7", round(m_db, 6))] = (float(s7[0]),
-                                                   float(self.cl.looks) * sum(f7_1 ** k for k in range(self.attempts)))
+            r17 = l17_ = r7 = l7 = 0.0
+            for m, fl, wn in self.nodes_ku:               # B8 pass 2: nodes of the common part (one without)
+                s17, l17, s7 = (a.mean(axis=0) for a in _ku_after_s(self.sig_ku, self.bias_ku,
+                                                                  np.array([self.snr_ku * rm.db_to_lin(m_db) * m]),
+                                                                  fl, self.cl, self.attempts))
+                f7 = 1.0 - float(s7[0])                   # looks: the attempts paid while the earlier fail
+                f7_1 = f7 ** (1.0 / self.attempts) if self.attempts > 1 else f7
+                r17, l17_, r7 = r17 + wn * float(s17[0]), l17_ + wn * float(l17[0]), r7 + wn * float(s7[0])
+                l7 = l7 + wn * float(self.cl.looks) * sum(f7_1 ** k for k in range(self.attempts))
+            self._memo[("KU1+7", round(m_db, 6))] = (r17, l17_)
+            self._memo[("KU7", round(m_db, 6))] = (r7, l7)
         return self._memo[key]
 
     def s2_vec(self, mt_db: np.ndarray, mk_db: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -461,18 +503,21 @@ class ConfirmStats:
             g7 = [_tx_gain(ex - cx, ey - cy, ku, kv) * self.cl.eirp for cx, cy, ku, kv in self.cl.beams]
             tp = self._memo[("touch", key)] = (pt, g1, g7)
         pt, g1, g7 = tp
-        snr = (self.snr_ku * 10.0 ** (mk_db / 10.0))[None, :, None, None]                    # paired with mt
-        p1 = pd_single(g1 * snr, self.fl_ku)                                                  # (M, n, 12, 12)
-        miss = 1.0
-        for g in g7:
-            miss = miss * (1.0 - pd_single(g * snr, self.fl_ku))
-        p7 = 1.0 - miss
+        snr0 = (self.snr_ku * 10.0 ** (mk_db / 10.0))[None, :, None, None]                   # paired with mt
         w = GH_WEIGHTS[:, None] * GH_WEIGHTS[None, :]
-        p17 = p1 + (1.0 - p1) * p7
         a = self.attempts                                     # K3: the Ku part tried again, same combined estimate
-        s17 = np.tensordot(1.0 - (1.0 - p17) ** a, w, axes=([2, 3], [0, 1]))                  # (M, n)
-        l17 = np.tensordot((1.0 + (1.0 - p1) * self.cl.looks) * sum((1.0 - p17) ** k for k in range(a)), w,
-                           axes=([2, 3], [0, 1]))
+        s17 = l17 = 0.0
+        for m, fl, wn in self.nodes_ku:                       # B8 pass 2: nodes of the common part (one without)
+            snr = snr0 * m
+            p1 = pd_single(g1 * snr, fl)                                                      # (M, n, 12, 12)
+            miss = 1.0
+            for g in g7:
+                miss = miss * (1.0 - pd_single(g * snr, fl))
+            p7 = 1.0 - miss
+            p17 = p1 + (1.0 - p1) * p7
+            s17 = s17 + wn * np.tensordot(1.0 - (1.0 - p17) ** a, w, axes=([2, 3], [0, 1]))   # (M, n)
+            l17 = l17 + wn * np.tensordot((1.0 + (1.0 - p1) * self.cl.looks)
+                                          * sum((1.0 - p17) ** k for k in range(a)), w, axes=([2, 3], [0, 1]))
         return (pt * s17).mean(axis=0), (pt * l17).mean(axis=0)
 
     def s2(self, m_touch_db: float, m_ku_db: float) -> Tuple[float, float]:
@@ -1060,6 +1105,66 @@ def _miss_given_miss(look: dict, sigma_hpbw: float, tgt_t: rm.Target, f_ku: floa
     return float(np.mean((1.0 - p) ** 2)) / q if q > 0 else 0.0
 
 
+def _miss_nodes(look: dict, sigma_hpbw: float, tgt_t: rm.Target, f_ku: float, sll: float, v_span: float,
+                spj: Optional[float], pd_update: float, beta: float, k_a: float) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    """(E[1 - p | A], E[(1 - p)^2 | A]) of a look at each node of the common part A of the target power (step 5.7,
+    B8 pass 2): G = beta A + (1 - beta) B', B' ~ Gamma(k_b) of the look (rm.b_shape), integrated by quantiles at each
+    node, the position losses of the look's law (as _miss_given_miss); None when the look's law is steady."""
+    sp, j = look["space"], look["index"]
+    d = sp.det[j]
+    p0 = sp.det_parts[j]
+    margin = 40.0 * math.log10(p0[0] / sp.rn[j]) if sp.rn[j] > 0 and p0[0] > sp.rn[j] else 0.0
+    pk = mo.parts_at(d, f_ku, 0.0, tgt_t, sll, v_span, None, None, spj, None, ("gauss", float(f"{sigma_hpbw:.3g}")),
+                     pd_update)
+    if pk is None:
+        return None
+    n, fl, pfa, pl, pw = mo._LAW_LIST[int(pk[4])]
+    k = detection.shape_of(fl, n)
+    if not math.isfinite(k) or k > 1e4:
+        return None
+    from scipy.stats import gamma
+    kb = rm.b_shape(k, beta, k_a)
+    if math.isinf(kb):
+        b = np.ones(1)
+    else:
+        b = gamma.ppf((np.arange(32) + 0.5) / 32, kb, scale=1.0 / kb)
+        b = b / b.mean()
+    g = beta * common_a_nodes(k_a)[0][:, None] + (1.0 - beta) * b[None, :]                 # (nodes, 32)
+    steady = detection.mean_curve(n, detection.Fluct(math.inf), pfa, pl, pw)
+    p = np.interp(p0[2] + margin + look.get("snr_gain_db", 0.0) + 10.0 * np.log10(np.maximum(g, 1e-12)),
+                  detection.SNR_GRID_DB, steady)
+    return (1.0 - p).mean(axis=1), ((1.0 - p) ** 2).mean(axis=1)
+
+
+def _chain_common(ch: dict, seq_intervals: List[float], pds: List[float], retry: float, weights: List[float],
+                  q0, qr: List[Optional[tuple]], h2: List[bool], covs: List[float], pd_r: float,
+                  k_a: float) -> dict:
+    """init_chain averaged over the nodes of the common part (step 5.7, B8 pass 2): at each node the looks of the
+    attempt keep the power's common part, so a miss makes the next look on another frequency likelier to miss.
+    Each look's miss probability is its unconditioned one x its node's share (E over the nodes unchanged); a return on
+    the frequency that missed (H2) takes the node's E[(1 - p)^2] / E[1 - p]."""
+    wn = common_a_nodes(k_a)[1]
+
+    def mean(q):
+        return max(float((q * wn).sum()), 1e-300)
+    acc = {"loss_prob": 0.0, "looks": 0.0, "time_s": 0.0, "visits": [0.0] * len(pds)}
+    for i in range(len(wn)):
+        p_i = [1.0 - min(1.0, (1.0 - pds[0]) * q0[0][i] / mean(q0[0]))]
+        for k in range(1, len(pds)):
+            q = qr[k - 1]
+            if q is None:
+                p_i.append(pds[k])
+            elif h2[k - 1]:
+                p_i.append(covs[k - 1] * (1.0 - (q[1][i] / q[0][i] if q[0][i] > 0 else 0.0)))
+            else:
+                p_i.append(covs[k - 1] * (1.0 - min(1.0, (1.0 - pd_r) * q[0][i] / mean(q[0]))))
+        c = tm.init_chain(seq_intervals, p_i, retry, weights)
+        for key in ("loss_prob", "looks", "time_s"):
+            acc[key] += wn[i] * c[key]
+        acc["visits"] = [v + wn[i] * x for v, x in zip(acc["visits"], c["visits"])]
+    return {**ch, **acc}
+
+
 def _init_state(st: "tm.TrackState") -> "tm.TrackState":
     """The track state an initiation look is sized on (lever B): Pd tracking.pd_init instead of the update's; the
     cheapest look of the space reaching it at the initiation pointing is then, for a fluctuating target, a
@@ -1143,19 +1248,35 @@ def _fast_initiation_cost(gr: dict, tgt: rm.Target, st: "tm.TrackState", r_km: f
     st_r = research_state(st)
     rs = _research_look(gr, tgt, st_r, r_km, ctx)
     weights, beams_max, cov_min = [1.0], 1, 1.0
+    h2s, covs = [], []
     for k in range(1, n_fail):
         if rs is None:
             pds.append(0.0)
             weights.append(1.0)
+            h2s.append(False)
+            covs.append(0.0)
             continue
         nb, cov = tm.research_cluster(sig[k], rm.BEAM_SPACING_HPBW)
         p_beam = st_r.pd_update
-        if n_f == 2 and k >= 2 and retry * 2 < t0_ok:   # H2: back on a frequency that missed within T0
+        h2 = n_f == 2 and k >= 2 and retry * 2 < t0_ok
+        if h2:                                          # H2: back on a frequency that missed within T0
             p_beam = 1.0 - _miss_given_miss(rs, max(sig[k], 1e-6), tgt_t, f_ku, sll, v_span, spj, st_r.pd_update)
         pds.append(cov * p_beam)
+        h2s.append(h2)
+        covs.append(cov)
         weights.append(float(nb + (1 if k >= 2 else 0)))   # a shifted re-search keeps a beam on the estimate (K11)
         beams_max, cov_min = max(beams_max, nb), min(cov_min, cov)
     ch = tm.init_chain(seq["intervals"], pds, retry, weights)
+    # step 5.7, B8 pass 2: the common part of the power shared by the looks of an attempt whose misses in a row fit
+    # within T0 (the hops decorrelate only the rest)
+    beta, k_a = rm.common_part(tgt, f_ku, tgt.swerling)
+    if beta > 0.0 and (n_fail - 1) * retry < t0_ok:
+        q0 = _miss_nodes(look, max(sig[0], 1e-6), tgt_t, f_ku, sll, v_span, spj, st_i.pd_update, beta, k_a)
+        qr = [None if rs is None else _miss_nodes(rs, max(sig[k], 1e-6), tgt_t, f_ku, sll, v_span, spj,
+                                                  st_r.pd_update, beta, k_a) for k in range(1, n_fail)]
+        if q0 is not None:
+            ch = _chain_common(ch, seq["intervals"], pds, retry, weights, q0, qr, h2s, covs, st_r.pd_update,
+                               k_a)
     e, t, q = look_cost(look, 1.0)
     e_r, t_r, q_r = look_cost(rs, 1.0) if rs is not None else (0.0, 0.0, 0.0)
     v0 = ch["visits"][0] * upd["mult"]                       # pointed looks per established track
@@ -1198,6 +1319,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
     tgt = mo.sector_target(sec)                      # class + sector values (step 2.4)
     f_s = r["wf"]["freq_ghz"]
     fl_ku = rm.look_fluctuation(tgt, f_ku, tgt.swerling, 1, 0.0)    # one short Ku look (step 3.2 E4)
+    com_ku = rm.common_part(tgt, f_ku, tgt.swerling)                 # step 5.7, B8 pass 2
     fl_s = rm.look_fluctuation(tgt, f_s, tgt.swerling, 1, 0.0)      # the S echo
     r_det, rr = sec["range_km"], sec["rr_target_s"]
     sll = mo.rx_sll_db(sec)
@@ -1297,7 +1419,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                         for c in cluster_variants()]:
             if best is not None and att > best[1]["attempts"]:
                 break
-            st = ConfirmStats(fl_s, fl_ku, f_s, f_ku, spacing, cl, p_min, x_first, att)
+            st = ConfirmStats(fl_s, fl_ku, f_s, f_ku, spacing, cl, p_min, x_first, att, com_ku)
             if mode == "S2":
                 mts = np.arange(0.0, MARGIN_MAX_DB + TOUCH_STEP_DB / 2.0, TOUCH_STEP_DB)
                 mks = st.s2_min_margins(mts)
@@ -1330,7 +1452,7 @@ def sector_budget(sec: dict, r: dict, P: np.ndarray, p_avg_max_w: float, ku_sky:
                 if best is None or load < best[0]:
                     # K6: the 95 % latency counts the second attempt when more than 5 % of the first ones fail
                     base = 2 if mode == "KU1+7" else 1
-                    s1 = ConfirmStats(fl_s, fl_ku, f_s, f_ku, spacing, cl, p_min, x_first, 1).ku(mode, mk)[0]
+                    s1 = ConfirmStats(fl_s, fl_ku, f_s, f_ku, spacing, cl, p_min, x_first, 1, com_ku).ku(mode, mk)[0]
                     trips = base * (2 if (st.attempts > 1 and 1.0 - s1 > 0.05) else 1)
                     best = (load, {"margin_db": round(float(mk), 3), "success": succ, "ku_looks_true": looks,
                                    "ku_looks_fa": l_fa, "cluster_tx": cl.name, "attempts": st.attempts,
@@ -2006,18 +2128,20 @@ def confirmation_feasible(sec: dict, g: Optional[dict] = None, f_s_ghz: float = 
     pd = float(s.get("pd", rm.DETECT_PD))
     spacing = s.get("_grid_spacing")
     key = json.dumps([tgt.target_type, tgt.rcs_m2, tgt.swerling, getattr(tgt, "fluct_s", None), p_min,
+                      tgt.fluct_fixed_var_frac,
                       round(q_cum, 9), pd, spacing, f_s_ghz, f_ku_ghz], default=str)
     hit = _CONFIRM_FEASIBLE_CACHE.get(key)
     if hit is not None:
         return hit
     fl_s = rm.look_fluctuation(tgt, f_s_ghz, tgt.swerling, 1, 0.0)
     fl_ku = rm.look_fluctuation(tgt, f_ku_ghz, tgt.swerling, 1, 0.0)
+    com_ku = rm.common_part(tgt, f_ku_ghz, tgt.swerling)             # step 5.7, B8 pass 2
     x_first = first_detection_snr_quantiles(fl_s, pd, round(q_cum, 9))
     ok = False
     for mode in CONFIRM_MODES:
         for att in range(CONFIRM_ATTEMPTS, max(CONFIRM_ATTEMPTS, CONFIRM_ATTEMPTS_MAX) + 1):
             for cl in cluster_variants():
-                st = ConfirmStats(fl_s, fl_ku, f_s_ghz, f_ku_ghz, spacing, cl, p_min, x_first, att)
+                st = ConfirmStats(fl_s, fl_ku, f_s_ghz, f_ku_ghz, spacing, cl, p_min, x_first, att, com_ku)
                 if mode == "S2":
                     mts = np.arange(0.0, MARGIN_MAX_DB + TOUCH_STEP_DB / 2.0, TOUCH_STEP_DB)
                     ok = bool(np.isfinite(st.s2_min_margins(mts)).any())
