@@ -815,7 +815,7 @@ except ImportError:            # run as a script: python core/radar_model.py
     import detection
     from params import P
 
-MODEL_VERSION = "6.51.0"
+MODEL_VERSION = "6.52.0"
 
 # =============================================================================
 # PARAMETERS -- all values come from radar_system.toml (core/params.py): edit them there, not here.
@@ -1410,7 +1410,12 @@ _TARGET_OPTICS = {"optics_diameter_m": 0.0, "optics_f_ratio": 1.0, "optics_retro
                   "init_vt_sigma_mps": 0.0,
                   # decision 1a (28 October 2026): false = the class is sized on its body only (the seeker optics stay
                   # in the true targets and the class recognition, Target.physical)
-                  "optics_in_detection": True}
+                  "optics_in_detection": True,
+                  # step 5.7, B8 (19 November 2026): radial depth of the scatterers seen at a FRONTAL presentation (0 =
+                  # length_m), the frequency decorrelation c / 2 L using it; share of the fluctuation variance that a
+                  # frequency hop does not decorrelate (the dominant scatterer varies with the aspect, not the
+                  # frequency; 0 = every frequency draw independent, the former model)
+                  "frontal_depth_m": 0.0, "fluct_fixed_var_frac": 0.0}
 ASPECT_AZ_DEG = tuple(range(0, 360, 30))
 ASPECT_EL_DEG = tuple(range(-90, 91, 30))
 ASPECT_POLICIES = ("worst", "frontal", "mean")
@@ -1458,6 +1463,8 @@ def _target_class_values(name: str) -> Dict[str, object]:
         raise ValueError(f"{P.path}: target class '{name}': maneuver_tau_s and spreads >= 0, optics_cone_deg in ]0, 180], "
                          f"aspect_policy one of {', '.join(ASPECT_POLICIES)}")
     v["aspect_rcs_db"] = tuple(tuple(float(x) for x in r) for r in tab)
+    if v["frontal_depth_m"] < 0 or not 0.0 <= v["fluct_fixed_var_frac"] <= 1.0:
+        raise ValueError(f"{P.path}: target class '{name}': frontal_depth_m >= 0, fluct_fixed_var_frac in [0, 1]")
     if v["optics_diameter_m"] < 0 or v["optics_f_ratio"] <= 0 or not 0.0 <= v["optics_retro_eff"] <= 1.0:
         raise ValueError(f"{P.path}: target class '{name}': optics_diameter_m >= 0, optics_f_ratio > 0, "
                          f"optics_retro_eff in [0, 1]")
@@ -1547,6 +1554,15 @@ class Target:
     init_vt_sigma_mps: float = _DEF["init_vt_sigma_mps"]     # return on 3.3 from step 5.4 (lever C)
     optics_in_detection: bool = _DEF["optics_in_detection"]  # decision 1a (28 October 2026)
     rcs_sizing_sigmas: float = RCS_SIZING_SIGMAS             # decision 2 (28 October 2026)
+    frontal_depth_m: float = _DEF["frontal_depth_m"]         # step 5.7, B8
+    fluct_fixed_var_frac: float = _DEF["fluct_fixed_var_frac"]
+
+    def decorr_length_m(self) -> float:
+        """Radial extent of the scatterers for the frequency decorrelation c / 2 L (step 5.7, B8): the frontal depth
+        when the class is seen frontally and gives one, else the target length."""
+        if self.policy() == "frontal" and self.frontal_depth_m and self.frontal_depth_m > 0:
+            return float(self.frontal_depth_m)
+        return float(self.length_m or 0.0)
 
     def physical(self) -> "Target":
         """The class as it is (its mean RCS, seeker optics included): the true targets drawn around it, the class
@@ -1645,7 +1661,8 @@ def _target_of_class(name: str) -> Target:
                   aspect_offset_deg=v["aspect_offset_deg"], aspect_rcs_db=v["aspect_rcs_db"],
                   rcs_spread_db=v["rcs_spread_db"], depol_spread_db=v["depol_spread_db"],
                   optics_cone_deg=v["optics_cone_deg"], aspect_policy=v["aspect_policy"],
-                  init_vt_sigma_mps=v["init_vt_sigma_mps"], optics_in_detection=bool(v["optics_in_detection"]))
+                  init_vt_sigma_mps=v["init_vt_sigma_mps"], optics_in_detection=bool(v["optics_in_detection"]),
+                  frontal_depth_m=float(v["frontal_depth_m"]), fluct_fixed_var_frac=float(v["fluct_fixed_var_frac"]))
 
 
 TARGETS: Dict[str, Target] = {name: _target_of_class(name) for name in TARGET_TYPES}
@@ -1653,7 +1670,7 @@ TARGETS: Dict[str, Target] = {name: _target_of_class(name) for name in TARGET_TY
 # Sector keys overriding a class value (step 2.4, A2); rcs_m2, depol_db and fluctuation apply to both bands.
 SECTOR_TARGET_KEYS = ("target_type", "rcs_m2", "swerling", "fluctuation", "depol_db", "length_m", "rotation_dps",
                       "accel_max_mps2", "optics_diameter_m", "optics_f_ratio", "optics_retro_eff", "maneuver_tau_s",
-                      "aspect_offset_deg", "init_vt_sigma_mps")
+                      "aspect_offset_deg", "init_vt_sigma_mps", "frontal_depth_m", "fluct_fixed_var_frac")
 
 
 def target_for_sector(sec: dict) -> Target:
@@ -1679,7 +1696,7 @@ def target_for_sector(sec: dict) -> Target:
     if "depol_db" in sec:
         kw.update(depol_s_db=float(sec["depol_db"]), depol_ku_db=float(sec["depol_db"]))
     for k in ("length_m", "rotation_dps", "accel_max_mps2", "optics_diameter_m", "optics_f_ratio", "optics_retro_eff",
-              "maneuver_tau_s", "aspect_offset_deg", "init_vt_sigma_mps"):
+              "maneuver_tau_s", "aspect_offset_deg", "init_vt_sigma_mps", "frontal_depth_m", "fluct_fixed_var_frac"):
         if k in sec:
             kw[k] = float(sec[k])
     return dataclasses.replace(base, **kw)
@@ -2099,11 +2116,25 @@ def diversity_factor(target: Target, f_ghz: float) -> float:
 
 
 def frequency_draws(target: Target, agility_mhz: float) -> int:
-    """Independent target draws of a frequency excursion (step 3.1, B7): floor(df / (c / 2L)) + 1, L the target
-    length (decorrelation frequency c / 2L: 15 MHz at 10 m, 100 MHz at 1.5 m)."""
-    if agility_mhz <= 0 or not target.length_m or target.length_m <= 0:
+    """Independent target draws of a frequency excursion (step 3.1, B7): floor(df / (c / 2L)) + 1, L the radial extent
+    of the scatterers, Target.decorr_length_m (decorrelation frequency c / 2L: 15 MHz at 10 m, 100 MHz at 1.5 m, 500 MHz
+    at the 0.3 m frontal depth of a KKV, step 5.7 B8)."""
+    length = target.decorr_length_m()
+    if agility_mhz <= 0 or length <= 0:
         return 1
-    return int(math.floor(agility_mhz * 1e6 / (C_MPS / (2.0 * target.length_m)) + 1e-9)) + 1
+    return int(math.floor(agility_mhz * 1e6 / (C_MPS / (2.0 * length)) + 1e-9)) + 1
+
+
+def hop_shape(k_sample: float, m_time: float, m_freq: float, fixed_frac: float) -> float:
+    """Gamma shape of the target power over a look (step 5.7, B8): k_sample the shape of one sample (1 SW1/2, 2 SW3/4),
+    m_time the independent samples of the TIME decorrelation (min(n, 1 + T_obs / T0)), m_freq those of time and
+    frequency together (min(n, m_time x frequency draws)); fixed_frac (beta) of the variance 1 / k_sample follows the
+    aspect only (decorrelated by time), the rest also by the frequency: k = 1 / (beta / (k m_time) + (1 - beta) /
+    (k m_freq)) (moments). beta = 0 gives k m_freq (every frequency draw independent), beta = 1 gives k m_time (no
+    gain from the hop)."""
+    if fixed_frac <= 0.0 or m_freq <= m_time or math.isinf(k_sample):
+        return k_sample * m_freq
+    return 1.0 / (fixed_frac / (k_sample * m_time) + (1.0 - fixed_frac) / (k_sample * m_freq))
 
 
 def look_fluctuation(target: Target, f_ghz: float, swerling: Optional[int], n_samples: int,
@@ -2112,17 +2143,20 @@ def look_fluctuation(target: Target, f_ghz: float, swerling: Optional[int], n_sa
     shape of the target power: a declared Swerling case (k = 1, 2, n or 2n, infinite for SW0), else the band's family
     x the independent samples min(n, 1 + T_obs / T0) (SW1/2: 1 per sample, SW3/4: 2, SW0: steady); times the
     polarisation diversity. Frequency agility (step 3.1, B7) multiplies the independent samples by its draws (capped
-    at n): a declared SW1 / SW3 then tends to SW2 / SW4."""
+    at n): a declared SW1 / SW3 then tends to SW2 / SW4, less the share of the variance the hop does not decorrelate
+    (Target.fluct_fixed_var_frac, step 5.7 B8, hop_shape)."""
     draws = frequency_draws(target, agility_mhz)
+    beta = float(target.fluct_fixed_var_frac or 0.0)
     if swerling is not None:
         if swerling in (1, 3) and draws > 1:
-            k = detection.shape_of(swerling, 1) * min(float(n_samples), float(draws))
+            k = hop_shape(detection.shape_of(swerling, 1), 1.0, min(float(n_samples), float(draws)), beta)
         else:
             k = detection.shape_of(swerling, n_samples)
     else:
         base = FLUCTUATIONS[target.fluctuation(f_ghz)]
         t0 = target.t0_s(f_ghz)
-        k = base * min(float(n_samples), (1.0 + (0.0 if math.isinf(t0) else t_obs_s / t0)) * draws)
+        m_t = min(float(n_samples), 1.0 + (0.0 if math.isinf(t0) else t_obs_s / t0))
+        k = hop_shape(base, m_t, min(float(n_samples), m_t * draws), beta)
     return detection.Fluct(_quantise_shape(k * diversity_factor(target, f_ghz)))
 
 

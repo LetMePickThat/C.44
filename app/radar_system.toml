@@ -526,6 +526,8 @@ lna_block_backoff_db = { value = 6.0, unit = "dB", status = "V", source = "margi
 # incomplete class. Schema:
 #   [targets.<NAME>]           v_close_mps, length_m (L), rotation_dps (omega), accel_max_mps2 (line-of-sight)
 #                              optional optics_diameter_m, optics_f_ratio, optics_retro_eff (absent = no optics)
+#                              optional frontal_depth_m (radial depth nose-on for c / 2L, 0 = length_m) and
+#                              fluct_fixed_var_frac (variance share a frequency hop does not decorrelate, 0 = none; step 5.7 B8)
 #   [targets.<NAME>.band.S]    rcs_m2 (copolar, VV along e_v, frontal: the aspect of a closing target),
 #   [targets.<NAME>.band.Ku]   fluctuation ("SW0" steady | "SW1/2" many scatterers | "SW3/4" one dominant scatterer),
 #                              depol_db (cross-polar / copolar RCS)
@@ -586,9 +588,11 @@ depol_spread_db = { value = 2, unit = "dB", status = "D", source = "step 5.1 (B3
 aspect_policy  = { value = "frontal", unit = "", status = "V", source = "step 5.1: a KKV that threatens the ship aims at it, nose and seeker toward the radar (user)", date = "2026-10-25" }
 optics_cone_deg = { value = 5.0, unit = "deg", status = "V", source = "step 5.1 (B4): the seeker optics return only within this half-angle of the nose", date = "2026-10-25" }
 optics_in_detection = { value = false, unit = "", status = "V", source = "decision 1a (user): the KKV is sized on its body only (detection, confirmation, tracking); its optics stay in the true targets and the class recognition", date = "2026-10-28" }
+frontal_depth_m = { value = 0.3, unit = "m", status = "D", source = "step 5.7, B8 (user, 19 Nov 2026): radial depth of the scatterers seen nose-on (seeker baffle and mirror, flat tank ends, front plate: 0.2-0.4 m on the two KKV models shown by the user), used for the frequency decorrelation c / 2L (500 MHz) at the frontal presentation instead of length_m (100 MHz); to refine with a physical-optics run on the 3D models", date = "2026-11-19" }
+fluct_fixed_var_frac = { value = 0.5, unit = "-", status = "D", source = "step 5.7, B8 (user, 19 Nov 2026): share of the fluctuation variance a frequency hop does not decorrelate (the dominant scatterer, mirror or flat front surfaces, varies with the aspect, not the frequency); middle of 0-1, to refine with a physical-optics run on the 3D models", date = "2026-11-19" }
 [targets.KKV.band.S]
 rcs_m2      = { value = 0.135, unit = "m2", status = "V", source = "body, RCS 0.12-0.15 m2 (mid); the seeker optics are added (frontal total ~1.3 m2)", date = "2026-10-20" }
-fluctuation = { value = "SW3/4", unit = "", status = "V", source = "one dominant scatterer (the seeker mirror) in both bands (step 2.4, K)", date = "2026-10-22" }
+fluctuation = { value = "SW3/4", unit = "", status = "V", source = "a sum of scatterers with one dominant (step 2.4, K): the seeker mirror in its baffle, a priori, competing nose-on with the flat front surfaces (tank ends, front plate) on some designs; the body alone (optics_in_detection false) keeps the law (user, step 5.7 B8, 19 Nov 2026)", date = "2026-11-19" }
 depol_db    = { value = -20.0, unit = "dB", status = "V", source = "specular return of the mirror keeps the linear polarisation (step 2.4, K)", date = "2026-10-22" }
 [targets.KKV.band.Ku]
 rcs_m2      = { value = 0.135, unit = "m2", status = "V", source = "body; the seeker optics are added (frontal total ~14 m2)", date = "2026-10-20" }

@@ -503,7 +503,7 @@ def confirm_spec(sec: dict, plan: dict, t: dict, g: dict) -> Optional[ConfirmSpe
                           rm.look_fluctuation(tgt, f_ku, tgt.swerling, 1, 0.0), f_s, f_ku,
                           plan.get("beam_spacing_hpbw"), cl, p_min)
     at = t.get("at") or []
-    n_f = int(at[0].get("init_freqs") or 1) if at else trk.init_hop_freqs({}, f_ku, min(trk.KU_BW), tgt.length_m,
+    n_f = int(at[0].get("init_freqs") or 1) if at else trk.init_hop_freqs({}, f_ku, min(trk.KU_BW), tgt.decorr_length_m(),
                                                                         trk.exclusions_ku(s))
     return ConfirmSpec(sid=sec["id"], mode=mode, margin_db=c["margin_db"], success_analytic=float(c["success"]),
                        p_min=p_min, st=st, t0_s_s=tgt.t0_s(f_s), t0_ku_s=tgt.t0_s(f_ku),

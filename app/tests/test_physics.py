@@ -1401,6 +1401,24 @@ def test_frequency_agility_decorrelates_the_target():
     assert rm.solve(w1, 2.77, 0.0, sw1).range_km > rm.solve(w0, 2.77, 0.0, sw1).range_km * 1.05
 
 
+def test_hop_decorrelation_of_a_dominant_scatterer():
+    """Step 5.7, B8: a frontal class decorrelates over its frontal depth (c / 2L), and the share beta of the variance
+    that a hop does not decorrelate bounds the gain: beta = 0 the former model, beta = 1 no gain from the hop."""
+    assert rm.hop_shape(2.0, 1.0, 8.0, 0.0) == pytest.approx(16.0)
+    assert rm.hop_shape(2.0, 1.0, 8.0, 1.0) == pytest.approx(2.0)
+    assert rm.hop_shape(2.0, 1.0, 8.0, 0.5) == pytest.approx(1.0 / (0.25 + 0.5 / 16.0))
+    assert 2.0 < rm.hop_shape(2.0, 1.0, 8.0, 0.5) < 16.0
+    kkv = rm.TARGETS["KKV"]
+    assert kkv.policy() == "frontal" and kkv.decorr_length_m() == pytest.approx(kkv.frontal_depth_m)
+    assert rm.TARGETS["SHIP"].decorr_length_m() == pytest.approx(rm.TARGETS["SHIP"].length_m)   # no frontal depth
+    old = dataclasses.replace(kkv, frontal_depth_m=0.0, fluct_fixed_var_frac=0.0)
+    assert rm.frequency_draws(kkv, 600.0) < rm.frequency_draws(old, 600.0)                       # 500 vs 100 MHz
+    same = dataclasses.replace(old, frontal_depth_m=kkv.frontal_depth_m)
+    assert rm.look_fluctuation(same, 3.0, None, 8, 2e-3, 600.0).k > rm.look_fluctuation(kkv, 3.0, None, 8, 2e-3, 600.0).k
+    assert rm.look_fluctuation(kkv, 3.0, None, 8, 2e-3, 0.0).k == pytest.approx(              # no hop: beta
+        rm.look_fluctuation(same, 3.0, None, 8, 2e-3, 0.0).k)                                    # changes nothing
+
+
 def test_agile_variants_fit_the_band():
     sec = dict(md.new_sector([]), res_max_m=20.0)
     ag = [w for w in mo.candidate_waveforms(sec) if w.agility_mhz > 0]

@@ -593,7 +593,7 @@ class _LookSpace:
                  pack: Optional[rm.TrackingPack], excl: Tuple[Tuple[float, float], ...], staggered: bool,
                  pointing: Optional[Tuple[str, float]] = None, pd: Optional[float] = None):
         self.f, self.pointing, self.pd = f, pointing, pd
-        pairs = [(d, t) for d, t in _ku_candidates(pack, float(tgt.length_m or 0.0))
+        pairs = [(d, t) for d, t in _ku_candidates(pack, tgt.decorr_length_m())
                  if mo.signal_fits(f, d.occupied_mhz, excl, BAND)]
         if staggered:
             pairs = [(dataclasses.replace(d, staggered=True) if d.n > 1 else d,
@@ -1098,13 +1098,13 @@ def init_look(gr: dict, tgt: rm.Target, st: "tm.TrackState", r_km: float, ctx, r
     upd = _track_update(gr, tgt, st_i, r_km, ctx, pointing_hpbw=pt)
     if upd is None:
         return None, 1
-    n_f = init_hop_freqs(r, ctx[4], upd["look"]["wf"].occupied_mhz, tgt.length_m, excl)
+    n_f = init_hop_freqs(r, ctx[4], upd["look"]["wf"].occupied_mhz, tgt.decorr_length_m(), excl)
     if n_f < 1 + tm.RESEARCH_ATTEMPTS:
         for bw in sorted((b for b in KU_BW if b < upd["look"]["wf"].sig_bw_mhz), reverse=True):
             u2 = _track_update(gr, tgt, st_i, r_km, ctx, pointing_hpbw=pt, bw_max_mhz=bw)
             if u2 is None:
                 continue
-            nf2 = init_hop_freqs(r, ctx[4], u2["look"]["wf"].occupied_mhz, tgt.length_m, excl)
+            nf2 = init_hop_freqs(r, ctx[4], u2["look"]["wf"].occupied_mhz, tgt.decorr_length_m(), excl)
             if nf2 > n_f:
                 upd, n_f = u2, nf2
             if n_f >= 1 + tm.RESEARCH_ATTEMPTS:

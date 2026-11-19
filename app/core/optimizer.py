@@ -824,13 +824,14 @@ def tx_variants() -> List[Tuple[str, int, Optional[str]]]:
 
 def agility_for(sec: dict, n: int, bw_mhz: float) -> float:
     """Excursion of the agile variant of a noncoherent train (step 3.1, B7-B8): enough for n independent draws,
-    (n - 1) c / 2L, within the usable band minus the signal, on the grid step; 0 if not even 2 draws fit."""
+    (n - 1) c / 2L (L = Target.decorr_length_m), within the usable band minus the signal, on the grid step; 0 if not even 2 draws fit."""
     if n < 2 or ("rcs_m2" not in sec and "target_type" not in sec):
         return 0.0                                     # no target given (partial sector): no agile variant
     tgt = sector_target(sec)
-    if not tgt.length_m or tgt.length_m <= 0:
+    length = tgt.decorr_length_m()                     # frontal depth of a frontal class (step 5.7, B8)
+    if length <= 0:
         return 0.0
-    dfc = rm.C_MPS / (2.0 * tgt.length_m) / 1e6
+    dfc = rm.C_MPS / (2.0 * length) / 1e6
     width = (rm.BAND_S.usable_hi_ghz - rm.BAND_S.usable_lo_ghz) * 1e3 - bw_mhz
     step = FREQ_STEP_GHZ * 1e3
     a = math.floor(min((n - 1) * dfc, width) / step + 1e-9) * step
