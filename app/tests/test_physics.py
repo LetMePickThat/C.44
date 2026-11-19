@@ -615,8 +615,8 @@ def test_false_alarms_count_independent_cells(runs):
     cells = rm.independent_cells(mo.range_min_km(sec), sec["range_km"], w["sig_bw_mhz"], w["pulses_per_block"],
                                  w["velocity_hypotheses"], angle)
     assert trk_s["false_alarms_per_rr"] == pytest.approx(round(s["positions_total"] * cells * w["pfa"], 1), abs=0.11)
-    if rm.FA_MODE == "fa_rate":         # step 2.3: the tolerated rate (Pfa rounded to 1/20 decade)
-        assert trk_s["false_alarms_per_rr"] == pytest.approx(mo.fa_per_rr(sec), rel=0.13)
+    if rm.FA_MODE == "fa_rate":         # step 2.3: the tolerated rate (Pfa rounded DOWN to 1/20 decade, step 5.7 B9)
+        assert mo.fa_per_rr(sec) / 1.13 <= trk_s["false_alarms_per_rr"] <= mo.fa_per_rr(sec) + 0.05
 
 
 # ----------------------------------------------------------------------------- the receive chain (step 1.5)
@@ -957,7 +957,7 @@ def test_estimator_constants_share_one_margin_over_the_bounds():
 
 
 def test_pulse_scale_never_above_full_pulse(runs):
-    """pulse_scale is reported rounded to 3 decimals, so a strong shortening ((20/228)^4) shows as 0.0."""
+    """pulse_scale is reported at full precision (step 5.7, B11; was rounded to 3 decimals) and never above 1."""
     for res in runs.values():
         for s in res["sectors"]:
             for b in s.get("wf_by_bin", []):

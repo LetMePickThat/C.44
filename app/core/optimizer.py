@@ -1874,7 +1874,7 @@ def optimise_sector(sec: dict, sph: Sphere, m: np.ndarray, p_avg_max_w: float, s
                           "positions": round(float(p_tot[bins].sum()), 1), "wf": {k: v for k, v in by_name[int(plan.choice[worst])].items()
                                  if k not in ("theta_lo_deg", "theta_hi_deg", "positions")},
                           "range_km_at_bin_max": round(float(plan.r_bin[worst])),
-                          "pulse_scale": round(float(plan.s_bin[worst]), 3),
+                          "pulse_scale": float(plan.s_bin[worst]),          # full precision (step 5.7, B11)
                           # cost of one position at the scale of the group's worst bin (step 3.1, C)
                           "elec_J_per_position": float(plan.e_bin[worst]),
                           "pae_at_scale": float(plan.pae_bin[worst])})

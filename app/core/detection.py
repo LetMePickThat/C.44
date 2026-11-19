@@ -196,8 +196,10 @@ def mean_curve(n: int, swerling: Fluctuation, pfa: float, losses_db: Sequence[fl
 
 
 def quantise_pfa(pfa: float) -> float:
-    """Pfa rounded to 1/20 of a decade (12 % steps, < 0.02 dB on the required SNR): bounded number of laws."""
-    return float(10.0 ** (round(math.log10(pfa) * 20.0) / 20.0))
+    """Pfa rounded DOWN to 1/20 of a decade (12 % steps, < 0.02 dB on the required SNR): bounded number of laws.
+    Rounded down, never to the nearest (step 5.7, B9): the false alarms of a sector stay at or under its tolerated
+    fa_per_rr (rounded to the nearest, 10.1-10.6 per revisit for 10 tolerated). A Pfa already on the grid is kept."""
+    return float(10.0 ** (math.floor(math.log10(pfa) * 20.0 + 1e-9) / 20.0))
 
 
 def cumulative_curve(curve: np.ndarray, q: float, floor: float = 1e-3) -> np.ndarray:
