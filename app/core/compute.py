@@ -38,7 +38,10 @@ Latency (D): the data stream to the face processor during the listening; after t
 of a link slower than the stream (bits / face input - T, if positive), then the processing at the capacity left by the
 mean load. It replaces the provisional scheduler.processing_s.
 In flight (E1): re-selecting a precomputed waveform when the measured spectrum changes costs reselect_ops_per_entry per
-(waveform, scan bin) entry of the sector (the full re-optimisation stays in mission prep or step 5.2).
+(waveform, scan bin) entry of the sector (the full re-optimisation stays in mission prep or step 5.2). It is REPORTED
+only, never added to the load nor judged (step 5.7, A4): at most ~45 entry groups x 1e4 op = 4.5e5 op per reselection,
+even at 100 reselections per second >= 7 orders of magnitude below the face load (1e11-1e14 op/s) and 10 below the
+capacity (4e18 op/s).
 Every value is read from radar_system.toml [compute] and [power], so the code follows the architecture as it is refined.
 """
 from __future__ import annotations
