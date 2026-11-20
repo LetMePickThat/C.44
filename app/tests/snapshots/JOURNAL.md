@@ -784,3 +784,18 @@ identical. Every difference is a NEW key: the verdict's `with_reuse` (per constr
 the state played at the real revisits of the margin reuse; per verdict: summary), 88 to 128 per case; 0 existing value
 changed. The estimate's memory work of the same day (nested jobs in threads of one worker process, surface clutter by
 blocks of directions, bit-identical) moves no output. Refrozen (user, 14 November 2026).
+
+## PENDING (not refrozen) -- step 5.7, models V6.50.1 to V6.53.2 (19-20 November 2026)
+
+No N3 since the 14 November refreeze. Expected differences at the next N3 (to be checked, then refrozen on the user's
+call):
+- V6.50.1 (A4): reselect_ops output x10 in the 9 mission cases (reported only, out of load and verdict).
+- V6.51.0 (B9, B11): search Pfa rounded down to 1/20 decade (search energies / times up, < 0.02 dB SNR), pulse_scale
+  at full precision (scan times at 1e-3).
+- V6.52.0 / V6.53.0 (B8 passes 1 and 2): KKV hop decorrelation and common power part; missions with a KKV change
+  (confirmation and initiation dearer, e.g. KKV KU1+7 0 dB 1 attempt 0.898 -> 0.852).
+- V6.53.1 (E6): thermal.ship_heat_rejection_mw 6 -> 8 MW: ship heat_rejection_MW and heat_load outputs in every case,
+  no verdict change (all cases below 2.6 MW).
+- V6.53.2 (E7): jamming.null_min_offset_hpbw 1.0 -> 1.3: jammers between 1.0 and 1.3 HPBW no longer nulled; only
+  mission_environment can change.
+- Block E status changes (D -> V, 87 entries with no value change): no output change (cache stamps hash values only).

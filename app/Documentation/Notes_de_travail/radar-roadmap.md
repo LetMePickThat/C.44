@@ -123,6 +123,7 @@ optimiser exact ties broken by float noise (3.1 / 5.2); 4 faces hard-coded in th
 in the array factor; tile-edge mutual coupling not modelled.
 
 ## STATUS (2026-10-22)
+5.7 on 2026-11-20 (model V6.53.2, last commit of the day = 'Step 5.7 block E'): R0, blocks A, B, E DONE; blocks C and D dropped (never defined); B8 physical-optics recalibration DEFERRED TO V2; block E: 92 D statuses settled (89 -> V, 3 kept D for V2), value changes ship heat rejection 6 -> 8 MW (V6.53.1) and jammer null offset 1.0 -> 1.3 HPBW (V6.53.2). Next: block F (5.5 leftovers: M1-M4 kept exact results, on-screen checks, N3 owed since V6.50.1), then 5.6. Older lines below are history.
 JUST NEED 2026-11-12 (V6.44.0, coded, NOT tested): confirmation / tracks no longer reserved on new_targets_per_rr / n_targets; plan, margin reuse and verdict in the nominal view (no target, false alarms confirmed); peak test apart (optimizer.peak_absorption: P5 then P4 shed, never P1; NOK if P2/P3 of the peak not served or latency fails); saturation + PRIO_TRACK + Monte-Carlo at the peak; fast estimate nominal without tracks + peak. Subsumes the 2026-10-26 track-saturation rule. Next: targeted tests (ask), then N3 + snapshots refreeze.
 HISTORY REWRITTEN on 2026-10-22 (all hashes above in this file are the OLD ones; the current hashes are in
 Feuille_de_route.md / Choix_architecturaux §11). Steps 2.4 (008d583, V6.9.0, target library [targets.*] class means,

@@ -245,7 +245,7 @@ Les colonnes **Valeur** et **Statut** reprennent le fichier. La colonne **Justif
 
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
-| `file_version` | Version du format du fichier de paramètres. | "1.0" | D | Créé à l'étape 0.1 : les constantes ont été sorties du code sans changer de valeur. |
+| `file_version` | Version du format du fichier de paramètres. | "1.0" | V | Créé à l'étape 0.1 : les constantes ont été sorties du code sans changer de valeur. |
 
 ### 5.2 `[geometry]` : géométrie des faces
 
@@ -267,9 +267,9 @@ Le **rayon du secteur d'une face** n'a pas d'entrée. Il est calculé comme la p
 | `trsa_gap_m` | Jeu mécanique libre entre TRSA voisines, qui forme une zone morte. | 0,0005 m | V | **Ramené de 2 mm à 0,5 mm à l'étape 1.2** (décision de l'utilisateur). Avec 2 mm, la rupture du pas entre TRSA créait des lobes de jeu voisins du lobe de réseau (−16,6 dB en Ku) qui ne tenaient pas les options de réception aux grands dépointages. 0,5 mm est le plus petit écart qui libère presque tout. Il **suppose des matériaux appariés en dilatation** entre TRSA et plaque de fond : environ 0,08 mm d'excursion sur 100 K, contre environ 0,6 mm pour de l'aluminium sur fibre de carbone (estimation à confirmer par un mécanicien). Le gain utilise la surface émissive seule. |
 | `rx_sll_options_db` | Niveaux de crête des lobes secondaires de la **pondération de réception** offerts à l'opérateur pour chaque volume de veille. | [−25, −30, −35] dB | V | **Étape 1.1.** Le réglage est fait par volume dans la préparation de mission (clé `rx_sll_db`), avec un seul réglage pour S et Ku et −25 dB par défaut. Descendre en niveau rejette mieux les échos forts hors de l'axe (cible brillante, Lune ou Terre, brouilleur) au prix du gain en réception : par rapport à l'option −25 dB, −0,53 dB à −30 et −1,00 dB à −35. |
 | `rx_taper_nbar` | Paramètre n̄ de la loi de Taylor circulaire de réception. | 5 | V | Étape 1.1. Loi standard ; son niveau de conception est **calé numériquement** pour que le niveau **atteint** sur l'octogone réel égale l'option demandée. |
-| `rx_taper_edge` | Rayon où la loi de Taylor atteint sa valeur de bord. | "inscribed", soit D_env/2 | D | Exploration de l'étape 1.1 : à niveau atteint égal, le cercle inscrit donne un meilleur rendement que le cercle circonscrit. Les éléments des coins gardent la valeur de bord. L'autre valeur possible est "circumscribed". |
+| `rx_taper_edge` | Rayon où la loi de Taylor atteint sa valeur de bord. | "inscribed", soit D_env/2 | V | Exploration de l'étape 1.1 : à niveau atteint égal, le cercle inscrit donne un meilleur rendement que le cercle circonscrit. Les éléments des coins gardent la valeur de bord. L'autre valeur possible est "circumscribed". |
 | `grating_lobe_g0` | Largeur, en u, de la remontée de \|Γ\| quand le premier lobe de réseau approche de l'espace visible : \|Γ_LR\| = exp(−g/g₀). | 0,02 | V | **Étape 1.2, Q3.** Avec le jeu de 2 mm, ce terme seul coûtait environ 3,0 dB par passage à 2,9 GHz et 75° (4,1 dB avec le terme WAIM), ce qui expliquait la limite de 70° au-dessus de 2,85 GHz. Avec le jeu de 0,5 mm, le pas moyen est plus petit : 0,76 dB à 2,9 GHz et 75° (1,8 dB avec le terme WAIM), 0,02 dB à 2,85 GHz et 75°, presque rien à 2,8 GHz. |
-| `tx_polarisation` | Polarisation d'émission. | "linear_ev" | D | **Étape 1.2, Q7.** Linéaire selon e_v, l'axe de la face contenu dans le plan de l'axe du vaisseau. Un seul PA par TRM. Elle ne change pas le bilan, puisque la réception bipolarisation capte les deux composantes ; elle sert de référence pour Faraday (2.5) et la polarimétrie (3.3). **À rappeler à l'étape 3.3** : la commutation e_u / e_v à chaque observation (un PA et un commutateur, environ 0,1 à 0,2 dB) reste une option. |
+| `tx_polarisation` | Polarisation d'émission. | "linear_ev" | V | **Étape 1.2, Q7.** Linéaire selon e_v, l'axe de la face contenu dans le plan de l'axe du vaisseau. Un seul PA par TRM. Elle ne change pas le bilan, puisque la réception bipolarisation capte les deux composantes ; elle sert de référence pour Faraday (2.5) et la polarimétrie (3.3). **À rappeler à l'étape 3.3** : la commutation e_u / e_v à chaque observation (un PA et un commutateur, environ 0,1 à 0,2 dB) reste une option. |
 | `eta_ohmic` | Rendement de l'élément rayonnant. | 1,0 | V | Pas de réseau d'alimentation dans l'architecture numérique V6 ; les chemins locaux sont comptés dans TX_chain et T_sys. L'ancienne valeur 0,96 venait de l'alimentation à faibles pertes de V5.6.0. Ce paramètre pourra porter des pertes supplémentaires plus tard. Portée +2,06 %. |
 
 Retraits faits lors de la revue 0.3 et de l'étape 1.1 :
@@ -289,7 +289,7 @@ Retraits faits lors de la revue 0.3 et de l'étape 1.1 :
 | `grid_dithering` | Décalage de la grille de veille à chaque trame. | vrai | V | **Étape 2.3, option (a).** Une cible qui arrive en ligne droite garde sa direction ; sans décalage, elle resterait au même endroit de sa cellule à chaque revisite. Exigence pour l'ordonnanceur (étape 4.3) ; la valeur « faux » (grille fixe, positions corrélées) n'est pas implémentée. |
 | `rx_beam_spacing_hpbw` | Pas du réseau des faisceaux de réception numériques formés dans chaque pointage, en largeurs de lobe de réception. | 0,5 | V | **Étape 1.1, option C.** Perte de grille résiduelle en réception de 1,672 × 0,5² = 0,42 dB, pour environ 3,4 faisceaux de réception par pointage à −25 dB. C'est le point où ajouter des faisceaux ne rapporte plus beaucoup : passer à 0,3 triple le calcul pour 0,27 dB. L'option A (perte nulle) supposait un calcul infini ; l'option B (un seul faisceau) coûtait 1,42 dB. Le nombre de faisceaux alimentera le bilan de calcul de l'étape 4.4, et l'optimiseur pourra régler ce pas aux étapes 3.1 et 5.2. |
 | `enable_grid_loss` | Prise en compte des cellules de grille dans la Pd moyennée. | vrai | V | Depuis l'étape 2.3, la cellule d'émission et la grille de réception entrent dans la loi des pertes de position (Pd moyennée), avec le diagramme réel. |
-| `frame_interleaved` | Attente de l'écho masquée par l'entrelacement des pointages. | vrai | D | Hypothèse d'ordonnancement, possible grâce à la réception numérique. À vérifier à l'étape 4.3. Avec « faux », la trame ajoute 2R/c par pointage. |
+| `frame_interleaved` | Attente de l'écho masquée par l'entrelacement des pointages. | vrai | V | Hypothèse d'ordonnancement, possible grâce à la réception numérique. À vérifier à l'étape 4.3. Avec « faux », la trame ajoute 2R/c par pointage. |
 
 ### 5.5 `[detection]`
 
@@ -321,7 +321,7 @@ Ces trois pertes (`straddle_range`, `straddle_doppler`, `cfar`) remplacent les e
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
 | `trm_technology` | Technologie des TRM. | « GaN-on-diamond, microchannel cooling » | V | Description de V5.6.0 : GaN sur diamant et refroidissement par microcanaux, pour une forte densité de puissance et une bonne évacuation de la chaleur en fonctionnement soutenu à forte charge crête et moyenne. Les valeurs des TRM sont des hypothèses **crédibles mais optimistes pour 2050-2060** (choix de l'utilisateur, étape 1.3). |
-| `pae_duty_ref` | Facteur de forme auquel la PAE en saturation est spécifiée. | 0,10 | D | Condition habituelle des fiches techniques en impulsions (étape 1.3, Q2 bis). Remplace la constante `pae` = 0,75 commune à S et Ku, désormais retirée. |
+| `pae_duty_ref` | Facteur de forme auquel la PAE en saturation est spécifiée. | 0,10 | V | Condition habituelle des fiches techniques en impulsions (étape 1.3, Q2 bis). Remplace la constante `pae` = 0,75 commune à S et Ku, désormais retirée. |
 | `psu_eff` | Rendement de l'alimentation. | 0,95 | V | Verrouillé lors de la revue 0.3. |
 | `distribution_eff` | Rendement de la distribution. | 0,995 | V | Verrouillé lors de la revue 0.3. |
 | `overhead_frac` | — | **supprimé (étape 4.1)** | — | Remplacé par la consommation permanente ci-dessous (≈ 106,9 kW par face) et les pompes. |
@@ -348,7 +348,7 @@ Ces trois pertes (`straddle_range`, `straddle_doppler`, `cfar`) remplacent les e
 | `coolant_rise_k`, `coolant_inlet_c` | Échauffement du fluide sur une face, température d'entrée. | 10 K, 20 °C | V | — |
 | `fluid_volume_l`, `structure_heat_capacity_kj_k`, `plate_rise_max_k` | Inertie d'une face (fluide + structure) et échauffement admissible en rafale. | 50 L, 90 kJ/K, 10 K | V | Tampon ≈ 1,9 MJ. |
 | `tj_max_c` | Température maximale de jonction GaN. | 225 °C | V | Bout optimiste de 200-225 °C. |
-| `ship_heat_rejection_mw` | Rejet du vaisseau réservé au radar, commun aux faces. | 6 MW | **D** | Provisoire : donnée du vaisseau à confirmer. |
+| `ship_heat_rejection_mw` | Rejet du vaisseau réservé au radar, commun aux faces. | 8 MW | V | 5.7 E6 (utilisateur, 20 novembre 2026) : 6 → 8 MW, égal au budget électrique du radar ; la chaleur, inférieure à la consommation, ne peut plus lier. Exigence posée au vaisseau. |
 | `band.<b>.rth_fast_k_w`, `tau_fast_s`, `rth_slow_k_w`, `tau_slow_s` | Réseau de Foster jonction–plaque d'un amplificateur de TRM. | S 0,02 K/W (10 µs) + 0,03 K/W (1 ms) ; Ku 0,2 K/W (5 µs) + 0,3 K/W (0,5 ms) | V | GaN sur diamant. |
 
 Valeurs dérivées : flux admissible 120 W/cm², capacité de refroidissement ≈ 15,9 MW par face, résistance de convection par TRM 0,012 K/W (S) et 0,31 K/W (Ku). Réglage d'outil `tool.thermal.junction_check` = false (B6 : aucun effet mesuré, `duty_max` gardé).
@@ -387,7 +387,7 @@ Superposition linéaire et multiplexage en fréquence écartés (bloc C).
 
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
-| `enable` | Active la perte de cohérence des blocs cohérents (cible, oscillateur, plateforme). | vrai | D | Étape 2.2. |
+| `enable` | Active la perte de cohérence des blocs cohérents (cible, oscillateur, plateforme). | vrai | V | Étape 2.2. |
 | `t0_k` | Facteur de la loi du temps de cohérence de la cible, **T₀ = k · λ / (2 L ω)**, L et ω de la classe de cible. | 1,0 | V | **Étape 2.4, B1.** Remplace le t₀ provisoire de 0,25 s de l'étape 2.2. T₀ dépend de la bande (environ 5 fois plus court en Ku). |
 | `p` | Exposant de la loi η = exp(−(T/T₀)^p) d'un bloc cohérent. | 2,0 | V | **Étape 2.4, B2** : spectre Doppler gaussien d'une cible en rotation. |
 | `lo_ref_ghz`, `lo_offsets_hz`, `lo_ssb_dbc_hz` | Spectre de bruit de phase de l'oscillateur à 10 GHz, mis à l'échelle de la porteuse (+20 log f/10 GHz). | 1 Hz −100 ; 10 Hz −120 ; 100 Hz −140 ; 1 kHz −150 ; 10 kHz −160 ; 100 kHz −170 ; 1 MHz −175 dBc/Hz | V | **Étape 2.2, A1**, bout optimiste (oscillateur photonique). Réaliste aujourd'hui en spatial : −60 / −90 / −110 / −130 / −140 / −150 / −155. Un seul oscillateur pour l'émission et la réception (A2) : l'aller-retour filtre le bruit par 4 sin²(π f τ_rt). La perte est négligeable dans les deux cas (au plus 4e-6 dB) ; l'effet visible est le plancher Doppler, en sortie. |
@@ -409,27 +409,27 @@ Retiré : `k_theta` = 0,5, remplacé par `angle_crlb_margin` à l'étape 1.1.
 
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
-| `usable_lo_ghz` / `usable_hi_ghz` | Bande utile. | **2,60 à 2,93 GHz** (2,7 à 2,9 jusqu'à l'étape 3.1) | D | **Étape 3.1, W1-W2 (utilisateur).** Vers le bas, aucune limite de lobe de réseau (désadaptation inchangée jusqu'à 2,55 GHz) : limite du TRM et de l'élément. Vers le haut, le pas moyen de 52,1 mm fixe le mur : désadaptation à 70° de 0,97 dB par passage à 2,93 GHz (la valeur déjà acceptée à 75° à 2,7 GHz), 2,35 dB à 2,95 GHz, lobe de réseau visible à 3,0 GHz. |
-| `core_lo_ghz` / `core_hi_ghz` | Bande centrale, sans perte de bord. | **2,66 à 2,88 GHz** (2,74 à 2,86 jusqu'à l'étape 3.1, W3 : les deux tiers de la bande utile) | D | **Étape 1.4, A1-A2.** Donnée en GHz pour chaque bande. Remplace `core_inset_divisor` = 6 (bande utile amputée d'un sixième de chaque côté), une proportion copiée de l'ancienne bande Ku de 14,8 à 17,2 GHz. Valeur optimiste 2050-2060 pour une bande relative de 7 %. |
-| `edge_derating_db` | Perte **totale** (aller-retour) aux bords de la bande utile ; cosinus surélevé entre la bande centrale et les bords. | **1,0 dB** (0,5 dB jusqu'à l'étape 3.1, W4 : bande relative de 12 % au lieu de 7 ; porte aussi la baisse de PAE hors de la bande centrale, `pae_sat` 0,80 étant gardée, W7) | D | **Étape 1.4, A2-A4.** Rendement des PA et LNA, filtres et WAIM désaccordée hors de la bande centrale. Elle est **moyennée sur le spectre occupé** [f − B/2, f + B/2]. Ancienne valeur 1,5 dB, copiée de l'ancienne bande Ku. |
+| `usable_lo_ghz` / `usable_hi_ghz` | Bande utile. | **2,60 à 2,93 GHz** (2,7 à 2,9 jusqu'à l'étape 3.1) | V | **Étape 3.1, W1-W2 (utilisateur).** Vers le bas, aucune limite de lobe de réseau (désadaptation inchangée jusqu'à 2,55 GHz) : limite du TRM et de l'élément. Vers le haut, le pas moyen de 52,1 mm fixe le mur : désadaptation à 70° de 0,97 dB par passage à 2,93 GHz (la valeur déjà acceptée à 75° à 2,7 GHz), 2,35 dB à 2,95 GHz, lobe de réseau visible à 3,0 GHz. |
+| `core_lo_ghz` / `core_hi_ghz` | Bande centrale, sans perte de bord. | **2,66 à 2,88 GHz** (2,74 à 2,86 jusqu'à l'étape 3.1, W3 : les deux tiers de la bande utile) | V | **Étape 1.4, A1-A2.** Donnée en GHz pour chaque bande. Remplace `core_inset_divisor` = 6 (bande utile amputée d'un sixième de chaque côté), une proportion copiée de l'ancienne bande Ku de 14,8 à 17,2 GHz. Valeur optimiste 2050-2060 pour une bande relative de 7 %. |
+| `edge_derating_db` | Perte **totale** (aller-retour) aux bords de la bande utile ; cosinus surélevé entre la bande centrale et les bords. | **1,0 dB** (0,5 dB jusqu'à l'étape 3.1, W4 : bande relative de 12 % au lieu de 7 ; porte aussi la baisse de PAE hors de la bande centrale, `pae_sat` 0,80 étant gardée, W7) | V | **Étape 1.4, A2-A4.** Rendement des PA et LNA, filtres et WAIM désaccordée hors de la bande centrale. Elle est **moyennée sur le spectre occupé** [f − B/2, f + B/2]. Ancienne valeur 1,5 dB, copiée de l'ancienne bande Ku. |
 | `scan_max_deg` | Limite de balayage jusqu'à `scan_break_ghz`. | 75° | V | Confirmé. |
 | `scan_break_ghz` | Fréquence au-dessus de laquelle la limite de balayage baisse. | 2,85 GHz | V | Avec le pas moyen réel (étape 1.2), la marge de lobe de réseau à 2,9 GHz et 75° valait 0,35 % avec 2 mm de jeu (désadaptation 4,1 dB par passage), d'où les 70° au-dessus. Avec 0,5 mm, elle vaut 0,9 % (1,8 dB par passage, sous le seuil d'alerte). Les limites restent verrouillées (Q5) ; les relâcher au-dessus de 2,85 GHz serait une décision à prendre. |
 | `scan_max_hi_deg` | Limite de balayage au-dessus de `scan_break_ghz`. | 70° | V | **Gardée à l'étape 1.4 (E1, option a).** Au haut de bande et à 75°, la désadaptation n'est plus que de 1,8 dB par passage, mais le flanc du lobe de réseau atteint l'horizon, et le diagramme de l'élément, qui l'atténuerait, n'est pas modélisé. À revoir quand il le sera. |
 | `p_pk_trm_w` | Puissance crête par TRM, **en sortie de PA** (plan de référence 1, là où la PAE est définie). | 2000 W | V | Convention verrouillée lors de la revue 0.3. Le chemin du PA à l'élément est la perte dérivée TX_chain. |
 | `eta_illum_tx` | Rendement d'illumination en émission. | 1,0 | V | Émission uniforme, PA en saturation. |
-| `allowed_roles` | Rôles permis en bande S. | ["SEARCH", "TWS"] | D | Politique d'usage des bandes du logiciel radar (étapes 3.x et 4.3). Le « toucher » S2 de confirmation sort de cette règle (noté pour l'étape 3.2). |
+| `allowed_roles` | Rôles permis en bande S. | ["SEARCH", "TWS", "CONFIRM"] | V | Politique d'usage des bandes du logiciel radar (étapes 3.x et 4.3). Le « toucher » S2 de confirmation sort de cette règle (noté pour l'étape 3.2). |
 | `pol_rx_dual` | Réception numérique bipolarisation. | vrai | V | Un CAN par TRM. |
 | `waim_match_deg` | Angle de dépointage où la couche WAIM adapte le réseau (modèle de la feuille de courant). | 45° | V | **Étape 1.2, Q2.** Perte par passage : 0,13 dB dans l'axe, 0 à 45°, 0,56 dB à 70°, 1,05 dB à 75°. C'est l'équilibre entre l'axe et les grands dépointages (40° favoriserait l'axe, 50° les grands angles). |
 | `pol_track_est_loss_db` | Perte de polarisation d'une observation de **poursuite** avec la réception bipolarisation. | 0,05 dB | V | **Étape 1.5, E2.** La polarisation de la cible est connue par les observations précédentes : recombinaison cohérente avec des poids estimés, il reste le résidu d'estimation. Les observations de **détection** (veille, confirmation) n'ont pas d'entrée : leur perte est **calculée** (§7.8). Remplace `pol_loss_dual_db` = 0,5 dB, valeur provisoire de l'étape 1.2. La bande S n'a pas de rôle de poursuite aujourd'hui ; l'entrée est gardée par symétrie. |
 | `pol_loss_single_db` | Perte avec une réception monopolarisation sur une cible qui dépolarise. | 3,0 dB | V | Gardée pour étudier un récepteur monopolarisation. Utilisée seulement si `pol_rx_dual` est faux. |
-| `pae_sat` | PAE du PA en saturation, au facteur de forme de référence. | 0,80 | D | **Étape 1.3, Q3.** Le GaN actuel en S de forte puissance atteint environ 55 à 65 % sur la bande, les meilleurs résultats de laboratoire environ 75 à 80 %. 0,80 est une hypothèse optimiste pour 2050-2060. |
-| `pae_t_edge_s` | Temps par impulsion pendant lequel le PA consomme sans délivrer sa pleine puissance (fronts, mise en place de la polarisation et de la phase). | 0,2 µs | D | **Q4.** Aujourd'hui 0,5 à 2 µs ; 0,2 µs suppose des commutateurs intégrés et une alimentation locale. −1 % de PAE sur une impulsion de 20 µs. |
-| `pae_duty_slope` | Perte relative de PAE par unité de facteur de forme au-dessus de la référence (échauffement du canal). | 0,05 | D | **Q2 bis.** Faible grâce au diamant et aux microcanaux : −2,75 % à d = 0,65. |
-| `e_buf_trm_j` | Réserve d'énergie par TRM (banc de condensateurs local qui fournit l'impulsion). | 25 J | D | **Q7.** Ancienne valeur 5 J, sans source. Choisie pour permettre des impulsions de 2 ms en veille très longue portée, où une zone aveugle de 300 km est sans importance et où le temps d'observation dépend du nombre d'impulsions à la PRI longue. 5 cm³ à 5 J/cm³ ; masse des réserves en point ouvert. |
-| `buffer_max_fraction` | Fraction maximale de la réserve qu'une impulsion peut consommer. | 0,2 | D | **Q7.** La puissance du PA suit l'énergie stockée : l'impulsion la plus longue finit à −0,97 dB (perte moyenne 0,46 dB). L'ancienne valeur 0,5 donnait −3 dB, trop pour un radar cohérent. Fixe τ_max. |
+| `pae_sat` | PAE du PA en saturation, au facteur de forme de référence. | 0,80 | V | **Étape 1.3, Q3.** Le GaN actuel en S de forte puissance atteint environ 55 à 65 % sur la bande, les meilleurs résultats de laboratoire environ 75 à 80 %. 0,80 est une hypothèse optimiste pour 2050-2060. |
+| `pae_t_edge_s` | Temps par impulsion pendant lequel le PA consomme sans délivrer sa pleine puissance (fronts, mise en place de la polarisation et de la phase). | 0,2 µs | V | **Q4.** Aujourd'hui 0,5 à 2 µs ; 0,2 µs suppose des commutateurs intégrés et une alimentation locale. −1 % de PAE sur une impulsion de 20 µs. |
+| `pae_duty_slope` | Perte relative de PAE par unité de facteur de forme au-dessus de la référence (échauffement du canal). | 0,05 | V | **Q2 bis.** Faible grâce au diamant et aux microcanaux : −2,75 % à d = 0,65. |
+| `e_buf_trm_j` | Réserve d'énergie par TRM (banc de condensateurs local qui fournit l'impulsion). | 25 J | V | **Q7.** Ancienne valeur 5 J, sans source. Choisie pour permettre des impulsions de 2 ms en veille très longue portée, où une zone aveugle de 300 km est sans importance et où le temps d'observation dépend du nombre d'impulsions à la PRI longue. 5 cm³ à 5 J/cm³ ; masse des réserves en point ouvert. |
+| `buffer_max_fraction` | Fraction maximale de la réserve qu'une impulsion peut consommer. | 0,2 | V | **Q7.** La puissance du PA suit l'énergie stockée : l'impulsion la plus longue finit à −0,97 dB (perte moyenne 0,46 dB). L'ancienne valeur 0,5 donnait −3 dB, trop pour un radar cohérent. Fixe τ_max. |
 | `bi_max_mhz` | Plafond de bande instantanée. | 200 MHz | V | **Confirmé à l'étape 1.4 (C1)** : toute la bande S. Avec le retard vrai numérique, la limite vient des convertisseurs et filtres des TRM (débit des CAN : étape 4.4). |
 | `true_time_delay` | Mode de dépointage. | "digital_per_trm" | V | **Étape 1.4, D1.** Retard vrai numérique dans chaque TRM : pas de dépointage avec la fréquence, pas de limite de remplissage de l'ouverture. L'autre valeur possible, "none" (dépointage par la phase), limiterait la bande du signal à c / (D_env sin θ), environ 75 MHz à 75°. |
-| `duty_max` | Plafond du facteur de forme d'un TRM, sur les trains d'impulsions. | 0,65 | D | **Q5.** Contrôlé à la création de la forme d'onde. Avec le GaN sur diamant et les microcanaux, l'échauffement du canal n'est plus limitant ; l'optimiseur ne s'en sert que si c'est utile. L'éclipse (récepteur sourd 65 % du temps) n'est modélisée qu'à l'étape 2.1 : les choix à fort facteur de forme sont optimistes d'ici là. |
+| `duty_max` | Plafond du facteur de forme d'un TRM, sur les trains d'impulsions. | 0,65 | V | **Q5.** Contrôlé à la création de la forme d'onde. Avec le GaN sur diamant et les microcanaux, l'échauffement du canal n'est plus limitant ; l'optimiseur ne s'en sert que si c'est utile. L'éclipse (récepteur sourd 65 % du temps) n'est modélisée qu'à l'étape 2.1 : les choix à fort facteur de forme sont optimistes d'ici là. |
 
 Retirés : `eta_illum_rx` (0,88), désormais **dérivé** de la pondération du volume (§6), `t_sys_k`, désormais **dérivé** de la chaîne de réception, et `pol_loss_dual_db` (0,5 dB), remplacé à l'étape 1.5 par la perte calculée du détecteur GLRT (§7.8).
 
@@ -490,26 +490,26 @@ Les deux dernières entrées viennent de l'étape 1.5 (sujet C, bout optimiste :
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
 | `usable_lo_ghz` / `usable_hi_ghz` | Bande utile. | 13,5 à 14,5 GHz | V | Confirmé lors de la revue 0.3. |
-| `core_lo_ghz` / `core_hi_ghz` | Bande centrale. | 13,7 à 14,3 GHz | D | **Étape 1.4**, comme en S (bande relative de 7 %). |
-| `edge_derating_db` | Perte totale aux bords, moyennée sur le spectre occupé. | 0,5 dB | D | **Étape 1.4**, comme en S. |
+| `core_lo_ghz` / `core_hi_ghz` | Bande centrale. | 13,7 à 14,3 GHz | V | **Étape 1.4**, comme en S (bande relative de 7 %). |
+| `edge_derating_db` | Perte totale aux bords, moyennée sur le spectre occupé. | 0,5 dB | V | **Étape 1.4**, comme en S. |
 | `scan_max_deg` | Limite de balayage jusqu'à `scan_break_ghz`. | 75° | V | Confirmé. |
 | `scan_break_ghz` | Seuil de fréquence de la limite. | 14,25 GHz | V | Cinq fois le seuil S. |
 | `scan_max_hi_deg` | Limite au-dessus du seuil. | 70° | V | Gardée à l'étape 1.4, comme en S. |
 | `p_pk_trm_w` | Puissance crête par TRM Ku, en sortie de PA. | 75 W | V | Même convention qu'en S. |
-| `pae_sat` | PAE en saturation au facteur de forme de référence. | 0,65 | D | **Étape 1.3, Q3.** Le GaN actuel en Ku atteint environ 30 à 45 %, le laboratoire environ 50 à 55 % ; 0,65 est le choix de l'utilisateur pour 2050-2060. |
-| `pae_t_edge_s` | Temps de front par impulsion. | 0,1 µs | D | **Q4.** Puces plus petites qu'en S. |
-| `pae_duty_slope` | Perte relative de PAE par unité de facteur de forme. | 0,08 | D | **Q2 bis.** Densité de puissance plus forte qu'en S : −4,4 % à d = 0,65. |
+| `pae_sat` | PAE en saturation au facteur de forme de référence. | 0,65 | V | **Étape 1.3, Q3.** Le GaN actuel en Ku atteint environ 30 à 45 %, le laboratoire environ 50 à 55 % ; 0,65 est le choix de l'utilisateur pour 2050-2060. |
+| `pae_t_edge_s` | Temps de front par impulsion. | 0,1 µs | V | **Q4.** Puces plus petites qu'en S. |
+| `pae_duty_slope` | Perte relative de PAE par unité de facteur de forme. | 0,08 | V | **Q2 bis.** Densité de puissance plus forte qu'en S : −4,4 % à d = 0,65. |
 | `eta_illum_tx` | Illumination en émission. | 1,0 | V | Uniforme comme en S. L'ancienne valeur 0,88 de V5.6.0 réduisait le gain mais pas la puissance rayonnée. Le contrôle des lobes passe par la pondération de réception de chaque volume. Portée Ku +3,25 %. |
-| `allowed_roles` | Rôles permis en Ku. | ["CONFIRM", "PROMOTE", "TRACK"] | D | Politique du logiciel radar (étapes 3.x et 4.3). Les rôles TWS et PROMOTE existent mais aucune forme d'onde ne les utilise. |
+| `allowed_roles` | Rôles permis en Ku. | ["CONFIRM", "TRACK"] | V | Politique du logiciel radar (étapes 3.x et 4.3). Les rôles TWS et PROMOTE existent mais aucune forme d'onde ne les utilise. |
 | `pol_rx_dual` | Réception bipolarisation. | vrai | V | Comme en S. |
 | `waim_match_deg` | Angle d'adaptation de la couche WAIM. | 45° | V | Le même qu'en S (étape 1.2). |
 | `pol_track_est_loss_db` | Perte de polarisation d'une observation de poursuite. | 0,05 dB | V | **Étape 1.5**, comme en S : polarisation connue, résidu d'estimation. Les observations de confirmation ont la perte calculée du détecteur GLRT (§7.8). Remplace `pol_loss_dual_db` = 0,5 dB. |
 | `pol_loss_single_db` | Réception monopolarisation. | 3,0 dB | V | Comme en S. |
-| `e_buf_trm_j` | Réserve d'énergie par TRM Ku. | 1,2 J | D | **Q7.** Elle n'était pas modélisée. τ_max = 0,2 × 1,2 × 0,65 / 75 W = 2,08 ms, même raison qu'en S. |
-| `buffer_max_fraction` | Fraction maximale par impulsion. | 0,2 | D | Comme en S. |
+| `e_buf_trm_j` | Réserve d'énergie par TRM Ku. | 1,2 J | V | **Q7.** Elle n'était pas modélisée. τ_max = 0,2 × 1,2 × 0,65 / 75 W = 2,08 ms, même raison qu'en S. |
+| `buffer_max_fraction` | Fraction maximale par impulsion. | 0,2 | V | Comme en S. |
 | `bi_max_mhz` | Bande instantanée. | 200 MHz | V | Plafond matériel. Retard vrai numérique par TRM. |
 | `true_time_delay` | Mode de dépointage. | "digital_per_trm" | V | Comme en S (étape 1.4). |
-| `duty_max` | Plafond du facteur de forme sur les trains. | 0,65 | D | Comme en S (ancienne valeur 0,25) ; borne aussi l'espace de recherche des observations Ku. |
+| `duty_max` | Plafond du facteur de forme sur les trains. | 0,65 | V | Comme en S (ancienne valeur 0,25) ; borne aussi l'espace de recherche des observations Ku. |
 
 L'ouverture Ku est **partagée** avec la bande S : mêmes TRSA bi-bandes et même octogone. C'est une conséquence directe de la composition des TRSA, validée à l'étape 1.1.
 
@@ -519,9 +519,9 @@ Mêmes postes qu'en S, avec des valeurs crédibles en Ku (revue 0.3). Ils rempla
 
 | Variable | Définition | Valeur | Statut | Justification |
 |---|---|---|---|---|
-| `finite_precision` | Précision finie. | 0,3 dB | D | Comme en S (étape 2.1). |
+| `finite_precision` | Précision finie. | 0,3 dB | V | Comme en S (étape 2.1). |
 | `calibration` | Perte de gain des erreurs résiduelles du réseau, émission + réception. | **dérivée**, ≈ 0,006 dB | V | **Étape 3.4** : remplace le résidu forfaitaire de 0,8 dB (D) ; mêmes erreurs qu'en S (`[band.Ku.errors]`). |
-| `S_blockage` | Diffusion par les éléments S intercalés dans la TRSA. | 0,3 dB | D | Symétrique de `Ku_blockage` en S. |
+| `S_blockage` | Diffusion par les éléments S intercalés dans la TRSA. | 0,3 dB | V | Symétrique de `Ku_blockage` en S. |
 
 TX_chain Ku dérivée = 0,2 + 0,45 + 0,1 + 0,2 = **0,95 dB**.
 
@@ -600,8 +600,8 @@ Toutes ces valeurs sont V (étape 2.4). Justifications :
 | `tracking.angle_floor_mrad`, `range_floor_m`, `vr_floor_mps` | Planchers de mesure, en quadrature. | 0,05 mrad, 0,05 m, 0,01 m/s | V | E4-E6. Valeurs médianes ; les bouts optimistes (0,02 mrad, 0,01 m, 0,001 m/s) ont été proposés, l'utilisateur a gardé ces valeurs. |
 | `tracking.p_discrimination` | Probabilité de discrimination voulue (KKV / leurre). | 0,95 | V | F2 ; réglage de mission plus tard. |
 | `tracking.polar_switch_loss_db` | Perte d'émission de l'option de commutation e_u / e_v. | 0,15 dB | V | F5 (estimation 0,1-0,2 dB de l'étape 1.2). |
-| `tracking.faraday_uncert_frac` | Incertitude de la rotation de Faraday prédite, en fraction de la rotation. | 0,2 | **D** | F4 ; valeur proposée, **à confirmer**. |
-| `tracking.deception_verify_rate` | Observations de vérification par mise à jour face à un brouilleur trompeur. | 1 | **D** | F7 ; valeur proposée, **à confirmer**. |
+| `tracking.faraday_uncert_frac` | Incertitude de la rotation de Faraday prédite, en fraction de la rotation. | 0,2 | V | F4 ; valeur proposée, **à confirmer**. |
+| `tracking.deception_verify_rate` | Observations de vérification par mise à jour face à un brouilleur trompeur. | 1 | V | F7 ; valeur proposée, **à confirmer**. |
 | `tracking.track_frame_k` | Rayon d'un secteur en repère `track`, en sigmas de la désignation. | 3 | **D** | F8 ; valeur proposée, **à confirmer**. |
 | `band.<b>.rx.attenuator_max_db`, `attenuator_step_db` | Atténuateur commutable après le LNA. | 30 dB, pas de 10 dB | V | E3 : portée non saturée ÷ 10^(A/40). |
 
@@ -688,7 +688,7 @@ Clés nouvelles d'un corps du ciel de la mission : `closing_mps` et `closing_spr
 |---|---|---|---|
 | `jamming.null_depth_db` | 40 dB | V | Annulation adaptative des brouilleurs dans les lobes secondaires, bout optimiste de 20 à 40 dB (D4) ; pas d'annulation dans le lobe principal. |
 | `jamming.max_nulled` | 8 par face | V | Les plus forts d'abord (D4) ; coût de calcul à l'étape 4.4. |
-| `jamming.null_min_offset_hpbw` | 1 lobe de réception | D | Au-delà, un brouilleur est dans les lobes secondaires. |
+| `jamming.null_min_offset_hpbw` | 1,3 lobe de réception | V | Au-delà, un brouilleur est dans les lobes secondaires ; 5.7 E7 (20 novembre 2026) : 1,0 → 1,3, vers le premier zéro du faisceau de réception. |
 
 Classes de brouilleurs (**valeurs moyennes de classe**, barrage sur toute la bande utile sauf `cover_lo_ghz` / `cover_hi_ghz`, extensibles dans le fichier seul ; D5, médianes 2050-2060) :
 
@@ -3063,4 +3063,28 @@ L'écart vient surtout de la réinitialisation des pistes perdues (T_DECOY : 23 
 
 **Initialisation** : analytique (`tracking._fast_initiation_cost`) : quand la série de ratés tient dans T₀, chaîne `init_chain` calculée à chaque nœud de A puis moyennée (`_chain_common`) ; à chaque nœud, le raté de chaque visée vaut son raté non conditionné × la part du nœud (`_miss_nodes` : E[1 − p | A], intégration sur B' par quantiles, pertes de position de la loi de la visée), le retour sur la fréquence ratée (H2) prend E[(1 − p)² | A] / E[1 − p | A] ; Monte-Carlo : A par piste, renouvelé après T₀ (minuterie propre), B' par fréquence comme avant. Limite : à un nœud, A est supposé commun à toute la tentative, même quand les intervalles entre détections dépassent T₀ (le Monte-Carlo, qui renouvelle A, le dira). La poursuite établie n'est pas concernée (même fréquence ; A et B se renouvellent ensemble après T₀).
 
-**Tests** : `test_common_part_of_the_power_across_frequencies`, `test_confirmation_with_a_common_part_matches_the_draws`, `test_initiation_chain_over_the_common_part` (non lancés à l'écriture). **Reste** : recalage de β, de la profondeur frontale et de la SER frontale du corps par optique physique sur les modèles 3D ; au prochain N3, missions KKV modifiées (confirmation et initialisation plus chères), valeurs figées à regeler.
+**Tests** : `test_common_part_of_the_power_across_frequencies`, `test_confirmation_with_a_common_part_matches_the_draws`, `test_initiation_chain_over_the_common_part` (non lancés à l'écriture). **Reste** : recalage de β, de la profondeur frontale et de la SER frontale du corps par optique physique sur les modèles 3D ; au prochain N3, missions KKV modifiées (confirmation et initialisation plus chères), valeurs figées à regeler. **Recalage par optique physique reporté en V2** (décision de l'utilisateur du 20 novembre 2026) : β = 0,5 et profondeur frontale 0,3 m restent en statut D pour la V1.
+
+### Étape 5.7, bloc E : tri des statuts D, premier lot (20 novembre 2026, modèle inchangé)
+
+Le recalage par optique physique de B8 est reporté en V2 et les blocs C et D, jamais définis, sont supprimés (décisions de l'utilisateur du 20 novembre 2026). Les 92 paramètres en statut D de `radar_system.toml` sont triés (tri validé par l'utilisateur) :
+- **hors modèle RF, passés en V (18)** : `meta.file_version`, les 15 paramètres `sim.*` (constantes publiées et choix de l'utilisateur, outil de scénario figé pour la V1), `compute.flight_table_entries_max` et `flight_table_bytes_per_entry` ;
+- **gardés en D pour la V2 (3)** : `targets.KKV.frontal_depth_m` et `fluct_fixed_var_frac` (recalage par optique physique), `sky.noise_element_pattern` (diagramme réel de l'élément, B17 et B18) ;
+- **valeur déjà choisie par l'utilisateur, passés en V (14)** : bande S `usable_lo_ghz`, `usable_hi_ghz`, `duty_max`, `e_buf_trm_j` ; bande Ku `pae_sat` ; `confirmation.confirm_attempts`, `confirm_attempts_max` ; `tracking.p_loss_max`, `init_pointing_max_hpbw`, `init_research_sigmas`, `init_research_max_beams`, `pd_research`, `init_research_attempts`, `chain_split` ;
+- **médianes de fourchettes, passées en V (9)** : la chaîne de réception Ku `band.Ku.rx.*` ;
+- **à trancher un par un (48)** : ouverture et émission (7), bande S (7), bande Ku (11), pistage (3), cibles (19, en dernier).
+
+Le passage en V ne change aucune valeur (vérifié : valeurs identiques avant et après) ; l'empreinte des caches ne porte que sur les valeurs, rien n'est à reconstruire. Bilan : 450 V, 51 D.
+
+Paramètres tranchés un par un (20 novembre 2026, décisions de l'utilisateur sur recommandation) :
+- **E1** `aperture.rx_taper_edge` = "inscribed" → V : +0,12 à +0,16 dB de gain de réception face au cercle circonscrit, faisceau ~2 % plus étroit ; lobes lointains plus hauts de 1,2 à 1,6 dB en S (déjà sous −33 dB), de 0,2 à 0,35 dB en Ku (fixés par les lobes de jeu).
+- **E2** `aperture.tx_polarisation` = "linear_ev" → V : polarisation de référence, sans effet sur le bilan (réception bipolarisation) ; la commutation e_u / e_v reste l'option F5 de la 3.3.
+- **E3** `search_grid.frame_interleaved` = vrai → V : vérifié par la chronologie de la 4.3, coût d'éclipse réinjecté (5.2), entrelacement imparfait couvert par `load_ceiling`.
+- **E4** `power.pae_duty_ref` = 0,10 → V : convention des fiches techniques ; effet au plus 0,04 dB entre 0,05 et 0,20.
+- **E5** `coherence.enable` = vrai → V : interrupteur du modèle, faux seulement pour comparer.
+- **E6** `thermal.ship_heat_rejection_mw` 6 → **8 MW**, V (**modèle V6.53.1**) : égal au budget électrique du radar ; la RF rayonnée quittant le vaisseau, la chaleur (0,7 à 2,6 MW dans les missions de test, ~2 à 2,7 MW à 8 MW tirés en émission) ne peut plus lier. Au prochain N3 : sortie `heat_rejection_MW` et `heat_load` changées dans les snapshots, aucun verdict ne change (aucun n'était au-delà de 6 MW).
+- **E7** `jamming.null_min_offset_hpbw` 1,0 → **1,3**, V (**modèle V6.53.2**) : à 1,0 HPBW le brouilleur est encore dans le lobe principal (gain −13 dB), contre la règle « pas de zéro dans le lobe principal » de `null_depth_db`. Premier zéro mesuré sur les diagrammes de réception : 1,46 à 1,56 HPBW sur la coupe 0°, 1,28 à 1,42 sur la coupe 45° (selon le SLL, identique en S et en Ku). Au prochain N3 : seule `mission_environment` peut changer (brouilleurs entre 1,0 et 1,3 HPBW plus annulés).
+- **E8 à E17** (bande S, bande Ku, pistage, cibles) → V sans changement de valeur : cœur et perte de bord S (2,66-2,88 GHz, 1,0 dB) et Ku (13,7-14,3 GHz, 0,5 dB ; 60 % de la bande utile contre 2/3 en S, écart négligeable) ; PAE S (0,80, 0,2 µs, 0,05) et Ku (0,1 µs, 0,08) ; réserves Ku (1,2 J, 0,2, τ_max 2,08 ms) ; `buffer_max_fraction` S 0,2 (τ_max 2,0 ms) ; `duty_max` Ku 0,65 ; rôles S (SEARCH, TWS, CONFIRM) et Ku (CONFIRM, TRACK) ; pertes Ku `finite_precision` et `S_blockage` 0,3 dB ; `pd_init` 0,99 (balayage de la 3.3), `deception_verify_rate` 1,0, `faraday_uncert_frac` 0,2 (médiane de 10-30 %) ; les six tables `aspect_rcs_db` (sans effet sur le dimensionnement en politique `worst`) ; les dispersions `rcs_spread_db` (KKV, SHIP, DECOY 3 dB, DEBRIS et GENERIC 5 dB, ST 0 : avec `rcs_sizing_sigmas` = 2, dimensionnement à −6 et −10 dB ; la marge se règle par ce seul nombre) et `depol_spread_db` (2 dB, ST 0 ; discrimination seulement) ; `targets.KKV.init_vt_sigma_mps` 1 000 m/s (KKV qui vise le vaisseau : 4 % de v_close, cohérent avec 10 g pendant 10 s).
+
+**Bloc E clos** (20 novembre 2026) : 498 V, 3 D, réservés à la V2 (`sky.noise_element_pattern`, `targets.KKV.frontal_depth_m`, `targets.KKV.fluct_fixed_var_frac`). Deux changements de valeur : E6 (V6.53.1) et E7 (V6.53.2). Le tableau des paramètres ci-dessus est mis à jour ; deux lignes y décrivent des paramètres qui ne sont plus dans `radar_system.toml` (`confirmation.ku_freq_ghz`, `tracking.track_frame_k`).
+
