@@ -90,16 +90,72 @@ def mission_result(path: str) -> dict:
     """optimizer.run() of the mission, from the viewer cache when the code, the parameters and the mission match."""
     fp = _fingerprint(path)
     cache = os.path.join(CACHE_DIR, os.path.splitext(os.path.basename(path))[0] + ".json")
+    last_s = None
     if os.path.exists(cache):
         with open(cache, encoding="utf-8") as fh:
             d = json.load(fh)
         if d.get("fingerprint") == fp:
             return d["run"]
-    print("optimising the mission (cached afterwards) ...")
-    res = json.loads(json.dumps(mo.run(mo.load_mission(path)), default=_plain))
+        last_s = d.get("seconds")                    # duration of the previous optimisation (estimate)
     os.makedirs(CACHE_DIR, exist_ok=True)
+    est = f"; last time {last_s / 60.0:.1f} min" if last_s else "; no previous duration"
+    print(f"optimising the mission (cached afterwards{est}) ...")
+    res = json.loads(json.dumps(_run_with_progress(path, os.path.splitext(cache)[0] + ".progress.txt", last_s),
+                                default=_plain))
     with open(cache, "w", encoding="utf-8") as fh:
-        json.dump({"fingerprint": fp, "run": res}, fh)
+        json.dump({"fingerprint": fp, "run": res, "seconds": res.pop("_viewer_seconds", None)}, fh)
+    return res
+
+
+def _run_with_progress(path: str, progress_file: str, last_s) -> dict:
+    """mo.run of the mission with a live line (step n, elapsed, stage, estimate from the previous run), refreshed
+    every second, and the same line in progress_file (project rule: every long headless run shows its progress)."""
+    import threading
+    import time
+    t0 = time.time()
+    state = {"step": 0, "stage": "preparing the mission (frames, spectrum, sky)"}
+    stop = threading.Event()
+
+    def line() -> str:
+        el = time.time() - t0
+        eta = f" / ~{last_s / 60.0:.1f} min last time" if last_s else ""
+        return f"[step {state['step']}] {el / 60.0:5.1f} min{eta} | {state['stage']}"
+
+    def show():
+        while not stop.wait(1.0):
+            s = line()
+            print("\r" + s[:150].ljust(150), end="", flush=True)
+            try:
+                with open(progress_file, "w", encoding="utf-8") as fh:
+                    fh.write(s + "\n")
+            except OSError:
+                pass
+
+    def progress(done, total, sid):
+        state["step"] += 1
+        state["stage"] = f"sector {done} of {total} done ({sid})"
+
+    def stage(msg):
+        state["step"] += 1
+        state["stage"] = str(msg)
+
+    th = threading.Thread(target=show, daemon=True)
+    th.start()
+    try:
+        res = mo.run(mo.load_mission(path), progress_cb=progress, stage_cb=stage)
+    finally:
+        stop.set()
+        th.join()
+    el = time.time() - t0
+    state["stage"] = "done"
+    print("\r" + line()[:150].ljust(150))
+    try:
+        with open(progress_file, "w", encoding="utf-8") as fh:
+            fh.write(f"done in {el / 60.0:.1f} min\n")
+    except OSError:
+        pass
+    res = dict(res)
+    res["_viewer_seconds"] = round(el, 1)
     return res
 
 
